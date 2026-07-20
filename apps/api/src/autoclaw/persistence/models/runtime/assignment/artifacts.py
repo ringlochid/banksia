@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     CheckConstraint,
-    DateTime,
     ForeignKey,
     ForeignKeyConstraint,
     Index,
@@ -17,6 +16,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from autoclaw.persistence.base import RuntimeBase
+from autoclaw.persistence.datetimes import UtcDateTime
 from autoclaw.persistence.models.runtime.common import (
     TRANSIENT_RETENTION_STATUS_VALUES,
     sql_in,
@@ -108,7 +108,7 @@ class ArtifactPublicationModel(RuntimeBase):
     description: Mapped[str] = mapped_column(Text)
     supersedes_publication_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     supersedes_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    published_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    published_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow)
     checkpoint: Mapped[AttemptCheckpointModel] = relationship(
         "AttemptCheckpointModel",
         back_populates="artifact_publications",
@@ -178,7 +178,7 @@ class ArtifactCurrentPointerModel(RuntimeBase):
     current_version: Mapped[int] = mapped_column(Integer)
     attempt_id: Mapped[str] = mapped_column(String(255))
     checkpoint_id: Mapped[str] = mapped_column(String(255))
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow)
     current_publication: Mapped[ArtifactPublicationModel] = relationship(
         "ArtifactPublicationModel",
         foreign_keys=[
@@ -259,9 +259,9 @@ class TransientLocalizationModel(RuntimeBase):
     localized_logical_path: Mapped[str] = mapped_column(Text)
     description: Mapped[str] = mapped_column(Text)
     retention_status: Mapped[str] = mapped_column(String(64), default="active")
-    localized_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
-    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    removed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    localized_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow)
+    expires_at: Mapped[datetime | None] = mapped_column(UtcDateTime(), nullable=True)
+    removed_at: Mapped[datetime | None] = mapped_column(UtcDateTime(), nullable=True)
     checkpoint: Mapped[AttemptCheckpointModel | None] = relationship(
         "AttemptCheckpointModel",
         back_populates="transient_localizations",

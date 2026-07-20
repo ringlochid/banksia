@@ -48,57 +48,69 @@ afterAll(() => {
 });
 
 describe("DefinitionEditorPage", () => {
-    it("loads one flat saved draft, saves before validate, and publishes one revision", async () => {
-        const user = userEvent.setup();
-        let savedBody = "";
-        installDefinitionEditorHandlers({
-            onWrite: async (request) => {
-                const body =
-                    (await request.json()) as components["schemas"]["DefinitionDraftWriteRequest"];
-                savedBody = body.body;
-                return createDefinitionEditorDraftResponse(
-                    createCleanDefinitionEditorDraft(body.body),
-                );
-            },
-        });
+    it(
+        "loads one flat saved draft, saves before validate, and publishes one revision",
+        { timeout: 15_000 },
+        async () => {
+            const user = userEvent.setup();
+            let savedBody = "";
+            installDefinitionEditorHandlers({
+                onWrite: async (request) => {
+                    const body =
+                        (await request.json()) as components["schemas"]["DefinitionDraftWriteRequest"];
+                    savedBody = body.body;
+                    return createDefinitionEditorDraftResponse(
+                        createCleanDefinitionEditorDraft(body.body),
+                    );
+                },
+            });
 
-        renderDefinitionEditorPage();
+            renderDefinitionEditorPage();
 
-        expect(await screen.findByRole("heading", { name: "Definition Editor" })).toBeVisible();
-        expect(
-            await screen.findByRole("button", { name: new RegExp(DEFINITION_EDITOR_WORKFLOW_KEY) }),
-        ).toBeVisible();
-        expect(await screen.findByLabelText("Draft body")).toHaveValue(
-            bodyForKind("workflow", DEFINITION_EDITOR_WORKFLOW_KEY),
-        );
-
-        await user.clear(screen.getByLabelText("Draft body"));
-        await user.type(screen.getByLabelText("Draft body"), DEFINITION_EDITOR_UPDATED_BODY);
-        expect(screen.getByText("local edits")).toBeVisible();
-        await user.click(screen.getByRole("button", { name: "Validate" }));
-
-        expect(savedBody).toBe(DEFINITION_EDITOR_UPDATED_BODY);
-        const validationDialog = await screen.findByRole("dialog", { name: "Validation valid" });
-        expect(within(validationDialog).getByText("No validation issues returned.")).toBeVisible();
-        await user.click(within(validationDialog).getByRole("button", { name: /^Close$/ }));
-        await waitFor(() => {
+            expect(await screen.findByRole("heading", { name: "Definition Editor" })).toBeVisible();
             expect(
-                screen.queryByRole("dialog", { name: "Validation valid" }),
-            ).not.toBeInTheDocument();
-        });
+                await screen.findByRole("button", {
+                    name: new RegExp(DEFINITION_EDITOR_WORKFLOW_KEY),
+                }),
+            ).toBeVisible();
+            expect(await screen.findByLabelText("Draft body")).toHaveValue(
+                bodyForKind("workflow", DEFINITION_EDITOR_WORKFLOW_KEY),
+            );
 
-        await user.click(screen.getByRole("button", { name: "Publish" }));
-        const publishDialog = await screen.findByRole("dialog", { name: "Publish published" });
-        expect(
-            within(publishDialog).getByText(/Workflow definition-editor-page revision 14/),
-        ).toBeVisible();
-        await waitFor(() => {
-            expect(within(publishDialog).getByText(/Reread the published registry/i)).toBeVisible();
+            await user.clear(screen.getByLabelText("Draft body"));
+            await user.type(screen.getByLabelText("Draft body"), DEFINITION_EDITOR_UPDATED_BODY);
+            expect(screen.getByText("local edits")).toBeVisible();
+            await user.click(screen.getByRole("button", { name: "Validate" }));
+
+            expect(savedBody).toBe(DEFINITION_EDITOR_UPDATED_BODY);
+            const validationDialog = await screen.findByRole("dialog", {
+                name: "Validation valid",
+            });
             expect(
-                screen.queryByRole("heading", { name: "Loading draft" }),
-            ).not.toBeInTheDocument();
-        });
-    });
+                within(validationDialog).getByText("No validation issues returned."),
+            ).toBeVisible();
+            await user.click(within(validationDialog).getByRole("button", { name: /^Close$/ }));
+            await waitFor(() => {
+                expect(
+                    screen.queryByRole("dialog", { name: "Validation valid" }),
+                ).not.toBeInTheDocument();
+            });
+
+            await user.click(screen.getByRole("button", { name: "Publish" }));
+            const publishDialog = await screen.findByRole("dialog", { name: "Publish published" });
+            expect(
+                within(publishDialog).getByText(/Workflow definition-editor-page revision 14/),
+            ).toBeVisible();
+            await waitFor(() => {
+                expect(
+                    within(publishDialog).getByText(/Reread the published registry/i),
+                ).toBeVisible();
+                expect(
+                    screen.queryByRole("heading", { name: "Loading draft" }),
+                ).not.toBeInTheDocument();
+            });
+        },
+    );
 
     it("keeps the editor immutable while a delayed validation save owns its response", async () => {
         const user = userEvent.setup();

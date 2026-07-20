@@ -333,17 +333,12 @@ function DefinitionRowButton({
                     <span className="font-mono text-label font-medium uppercase text-muted md:sr-only">
                         Updated
                     </span>
-                    <div className="space-y-1">
-                        <time
-                            className="block font-body text-compact text-foreground md:whitespace-nowrap"
-                            dateTime={row.updatedAt}
-                        >
-                            {formatRowUpdatedDate(row.updatedAt)}
-                        </time>
-                        <span className="block break-words font-mono text-label text-muted md:whitespace-nowrap">
-                            {formatRowRelativeDate(row.updatedAt)}
-                        </span>
-                    </div>
+                    <time
+                        className="block font-body text-compact text-foreground md:whitespace-nowrap"
+                        dateTime={row.updatedAt}
+                    >
+                        {formatRowUpdatedDate(row.updatedAt)}
+                    </time>
                 </div>
             </div>
         </button>
@@ -386,41 +381,6 @@ function formatRowUpdatedDate(value: string): string {
         month: "short",
         year: "numeric",
     }).format(date);
-}
-
-function formatRowRelativeDate(value: string): string {
-    const date = new Date(value);
-    if (Number.isNaN(date.valueOf())) {
-        return "";
-    }
-
-    const elapsedMinutes = Math.max(0, Math.floor((Date.now() - date.valueOf()) / 60000));
-    if (elapsedMinutes < 60) {
-        return elapsedMinutes <= 1 ? "just now" : `${String(elapsedMinutes)} min ago`;
-    }
-
-    const elapsedHours = Math.floor(elapsedMinutes / 60);
-    if (elapsedHours < 24) {
-        return elapsedHours === 1 ? "1 hour ago" : `${String(elapsedHours)} hours ago`;
-    }
-
-    const elapsedDays = Math.floor(elapsedHours / 24);
-    if (elapsedDays < 7) {
-        return elapsedDays === 1 ? "yesterday" : `${String(elapsedDays)} days ago`;
-    }
-
-    const elapsedWeeks = Math.floor(elapsedDays / 7);
-    if (elapsedWeeks < 5) {
-        return elapsedWeeks === 1 ? "1 week ago" : `${String(elapsedWeeks)} weeks ago`;
-    }
-
-    const elapsedMonths = Math.floor(elapsedDays / 30);
-    if (elapsedMonths < 12) {
-        return elapsedMonths <= 1 ? "1 month ago" : `${String(elapsedMonths)} months ago`;
-    }
-
-    const elapsedYears = Math.floor(elapsedDays / 365);
-    return elapsedYears <= 1 ? "1 year ago" : `${String(elapsedYears)} years ago`;
 }
 
 function controlClassName(extraClassName?: string): string {

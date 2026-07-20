@@ -86,6 +86,7 @@ describe("TaskDetailPage", () => {
             await screen.findByRole("heading", { name: "Refresh runtime route copy" }),
         ).toBeVisible();
         expect(screen.getByText("Execution graph")).toBeVisible();
+        await user.click(screen.getByText("Runtime details"));
         const runtimeSummary = screen.getByRole("region", {
             name: "Current controller runtime",
         });
@@ -97,6 +98,7 @@ describe("TaskDetailPage", () => {
         expect(within(runtimeSummary).getByText("Provider-native access")).toBeVisible();
         expect(within(runtimeSummary).getByText("Network access")).toBeVisible();
         expect(within(runtimeSummary).getByText("Revision 2")).toBeVisible();
+        await user.click(screen.getByText("Runtime details"));
         expect(
             screen.getByLabelText("Execution graph").querySelectorAll('path[stroke="#c4a4f7"]'),
         ).toHaveLength(0);
@@ -124,7 +126,10 @@ describe("TaskDetailPage", () => {
         expect(await screen.findByText("Task cancelled")).toBeVisible();
         expect(screen.queryByText("Provider event normalized")).not.toBeInTheDocument();
         expect(screen.queryByText("Provider resolution recorded")).not.toBeInTheDocument();
+        expect(screen.queryByText("Dispatch opened")).not.toBeInTheDocument();
+        await user.click(screen.getByRole("button", { name: /Technical events/i }));
         expect(screen.getByText("Dispatch opened")).toBeVisible();
+        await user.click(screen.getByRole("button", { name: "Hide technical events" }));
         expect(screen.getAllByText("Checkpoint recorded").length).toBeGreaterThan(0);
         expect(screen.getByRole("button", { name: /Task cancelled/i })).toHaveAttribute(
             "aria-pressed",
@@ -140,9 +145,7 @@ describe("TaskDetailPage", () => {
             expect(within(dialog).getByRole("button", { name: "Close node detail" })).toHaveFocus();
         });
         await user.tab({ shift: true });
-        expect(within(dialog).getByRole("link", { name: "Open Command Runs" })).toHaveFocus();
-        await user.tab();
-        expect(within(dialog).getByRole("button", { name: "Close node detail" })).toHaveFocus();
+        expect(dialog.contains(document.activeElement)).toBe(true);
         expect(
             within(dialog).getByRole("heading", { level: 2, name: "Runtime page contract" }),
         ).toBeVisible();
@@ -150,20 +153,17 @@ describe("TaskDetailPage", () => {
             within(dialog).getByText("Approval is needed for the last copy trim."),
         ).toBeVisible();
         expect(within(dialog).getByText("Verify command-run runner behavior.")).toBeVisible();
-        expect(within(dialog).getByRole("tab", { name: "Overview" })).toHaveAttribute(
+        expect(within(dialog).getByRole("tab", { name: "Summary" })).toHaveAttribute(
             "aria-selected",
             "true",
         );
-        await user.click(within(dialog).getByRole("tab", { name: "Checkpoint" }));
+        expect(within(dialog).getByText("Checkpoint recorded.")).toBeVisible();
+        await user.click(within(dialog).getByText("Technical details"));
         expect(within(dialog).getByText("Kind")).toBeVisible();
         expect(within(dialog).getByText("progress")).toBeVisible();
-        expect(within(dialog).getByText("Checkpoint recorded.")).toBeVisible();
-        await user.click(within(dialog).getByRole("tab", { name: "Artifacts" }));
+        expect(within(dialog).getByText("Trace")).toBeVisible();
+        await user.click(within(dialog).getByRole("tab", { name: "Evidence" }));
         expect(within(dialog).getByText("frontend_scope_patch")).toBeVisible();
-        await user.click(within(dialog).getByRole("tab", { name: "Trace" }));
-        expect(within(dialog).getByRole("tabpanel", { name: "Trace" })).toHaveTextContent(
-            "checkpoint_recorded",
-        );
         await user.keyboard("{Escape}");
         await waitFor(() => {
             expect(openDetailButton).toHaveFocus();
@@ -343,6 +343,9 @@ describe("TaskDetailPage", () => {
 
         renderTaskDetailPage();
 
+        await screen.findByRole("heading", { name: "Refresh runtime route copy" });
+        const user = userEvent.setup();
+        await user.click(screen.getByText("Runtime details"));
         expect(await screen.findByText("Provider start pending")).toBeVisible();
         expect(screen.getByText("Attempt 3 · definite_failure")).toBeVisible();
         expect(screen.getByText("provider_unavailable")).toBeVisible();
@@ -351,7 +354,7 @@ describe("TaskDetailPage", () => {
 
     it("omits unavailable detail fields instead of rendering placeholders", async () => {
         const user = userEvent.setup();
-        const scenario = createTaskDetailMockScenario();
+        const scenario = createTaskDetailMockScenario({ streamHeadEventId: null });
         const trace: components["schemas"]["OperatorFlowTraceResponse"] = {
             ...scenario.trace,
             boundary_history: scenario.trace.boundary_history.map((boundary, index) =>
@@ -371,22 +374,16 @@ describe("TaskDetailPage", () => {
         await screen.findByText("Task cancelled");
         expect(screen.queryByText("not exposed")).not.toBeInTheDocument();
 
+        await user.click(screen.getByRole("button", { name: /Checkpoint recorded/i }));
+        await waitFor(() => {
+            expect(screen.getByRole("button", { name: /Checkpoint recorded/i })).toHaveAttribute(
+                "aria-pressed",
+                "true",
+            );
+        });
         await user.click(screen.getByRole("button", { name: /Open detail/i }));
         let dialog = await screen.findByRole("dialog");
-        await user.click(within(dialog).getByRole("tab", { name: "Checkpoint" }));
-        expect(within(dialog).getByText("No selected detail")).toBeVisible();
-        expect(within(dialog).queryByText("Task control state changed.")).not.toBeInTheDocument();
-        await user.click(within(dialog).getByRole("button", { name: "Close node detail" }));
-        await waitFor(() => {
-            expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-        });
-
-        await user.click(screen.getByRole("button", { name: /Checkpoint recorded/i }));
-        await user.click(screen.getByRole("button", { name: /Open detail/i }));
-        dialog = await screen.findByRole("dialog");
-        await user.click(within(dialog).getByRole("tab", { name: "Checkpoint" }));
-        expect(within(dialog).getByText("Checkpoint recorded.")).toBeVisible();
-        expect(within(dialog).queryByText("not exposed")).not.toBeInTheDocument();
+        expect(await within(dialog).findByText("Checkpoint recorded.")).toBeVisible();
         expect(within(dialog).queryByText("not exposed")).not.toBeInTheDocument();
 
         await user.click(within(dialog).getByRole("button", { name: "Close node detail" }));
@@ -397,7 +394,7 @@ describe("TaskDetailPage", () => {
         await user.click(screen.getByRole("button", { name: /Boundary accepted/i }));
         await user.click(screen.getByRole("button", { name: /Open detail/i }));
         dialog = await screen.findByRole("dialog");
-        await user.click(within(dialog).getByRole("tab", { name: "Boundary" }));
+        await user.click(within(dialog).getByText("Technical details"));
         expect(within(dialog).getByText("Source dispatch")).toBeVisible();
         expect(within(dialog).queryByText("Successor dispatch")).not.toBeInTheDocument();
         expect(within(dialog).queryByText("not exposed")).not.toBeInTheDocument();
@@ -450,10 +447,10 @@ describe("TaskDetailPage", () => {
         renderTaskDetailPage();
 
         await screen.findByRole("heading", { name: "Refresh runtime route copy" });
-        expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
+        expect(screen.queryByRole("button", { name: "Continue" })).not.toBeInTheDocument();
         await user.click(screen.getByRole("button", { name: "Pause" }));
-        expect(await screen.findByText("paused")).toBeVisible();
-        expect(screen.getByRole("button", { name: "Pause" })).toBeDisabled();
+        expect(await screen.findByText("Paused")).toBeVisible();
+        expect(screen.queryByRole("button", { name: "Pause" })).not.toBeInTheDocument();
         expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled();
         expect(actionBodies[0]).toEqual({
             expected_active_flow_revision_id: "flow-revision-task-detail-1",
@@ -513,7 +510,7 @@ describe("TaskDetailPage", () => {
         ).toBeVisible();
     });
 
-    it("keeps continue disabled while a paused task still has an unresolved source", async () => {
+    it("hides continue while a paused task still has an unresolved source", async () => {
         const scenario = createTaskDetailMockScenario({ status: "paused" });
         const taskRead: components["schemas"]["RuntimeFlowRead"] = {
             ...scenario.taskRead,
@@ -540,8 +537,56 @@ describe("TaskDetailPage", () => {
 
         renderTaskDetailPage();
 
-        expect(await screen.findByText("Approval is still required.")).toBeVisible();
-        expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
+        expect((await screen.findAllByText("Approval is still required.")).length).toBeGreaterThan(
+            0,
+        );
+        expect(screen.queryByRole("button", { name: "Continue" })).not.toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Cancel" })).toBeEnabled();
+    });
+
+    it("renders a blocked terminal task as Blocked with its blocker and no controls", async () => {
+        const scenario = createTaskDetailMockScenario({
+            status: "completed",
+            terminalOutcome: "blocked",
+        });
+        const taskRead: components["schemas"]["RuntimeFlowRead"] = {
+            ...scenario.taskRead,
+            current_dispatch: null,
+        };
+        const trace: components["schemas"]["OperatorFlowTraceResponse"] = {
+            ...scenario.trace,
+            checkpoint_history: [
+                ...scenario.trace.checkpoint_history,
+                {
+                    attempt_id: "attempt-task-detail-build",
+                    checkpoint_id: "checkpoint-blocked-final",
+                    checkpoint_kind: "terminal",
+                    outcome: "blocked",
+                    recorded_at: "2026-06-29T14:20:00Z",
+                    summary: "The required work_breakdown artifact was not admitted.",
+                },
+            ],
+        };
+        server.use(
+            ...createConsoleApiHandlers({
+                ...scenario,
+                snapshot: { ...scenario.snapshot, flow: taskRead },
+                taskRead,
+                trace,
+            }),
+        );
+
+        renderTaskDetailPage();
+
+        await screen.findByRole("heading", { name: "Refresh runtime route copy" });
+        expect(screen.getAllByText("Blocked").length).toBeGreaterThanOrEqual(2);
+        expect(screen.queryByText("Completed")).not.toBeInTheDocument();
+        expect(
+            screen.getByText("The required work_breakdown artifact was not admitted."),
+        ).toBeVisible();
+        expect(screen.queryByRole("button", { name: "Pause" })).not.toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: "Continue" })).not.toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument();
     });
 
     it("renders no-history and read-error states", async () => {

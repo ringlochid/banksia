@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     CheckConstraint,
-    DateTime,
     ForeignKey,
     ForeignKeyConstraint,
     Integer,
@@ -15,6 +14,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from autoclaw.persistence.base import RuntimeBase
+from autoclaw.persistence.datetimes import UtcDateTime
 from autoclaw.persistence.models.runtime.common import (
     ASSIGNMENT_DECISION_KIND_VALUES,
     BOUNDARY_OUTCOME_VALUES,
@@ -120,7 +120,7 @@ class AssignmentDecisionModel(RuntimeBase):
     decision_kind: Mapped[str] = mapped_column(String(64))
     staged_child_assignment_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     staged_child_attempt_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    recorded_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow)
     source_dispatch: Mapped[DispatchTurnModel] = relationship(
         "DispatchTurnModel",
         back_populates="assignment_decision",
@@ -244,7 +244,7 @@ class AcceptedBoundaryModel(RuntimeBase):
     checkpoint_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     assignment_decision_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     successor_dispatch_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    committed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    committed_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow)
     source_dispatch: Mapped[DispatchTurnModel] = relationship(
         "DispatchTurnModel",
         back_populates="accepted_boundary",

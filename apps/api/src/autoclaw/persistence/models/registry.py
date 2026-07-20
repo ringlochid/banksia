@@ -6,7 +6,6 @@ from functools import partial
 from sqlalchemy import (
     JSON,
     CheckConstraint,
-    DateTime,
     ForeignKey,
     ForeignKeyConstraint,
     Integer,
@@ -18,6 +17,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from autoclaw.persistence.base import RuntimeBase
+from autoclaw.persistence.datetimes import UtcDateTime
 
 utcnow = partial(datetime.now, tz=UTC)
 
@@ -40,9 +40,9 @@ class WorkflowDefinitionModel(RuntimeBase):
 
     workflow_key: Mapped[str] = mapped_column(String(255), primary_key=True)
     current_revision_no: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
+        UtcDateTime(),
         default=utcnow,
         onupdate=utcnow,
     )
@@ -81,7 +81,7 @@ class WorkflowRevisionModel(RuntimeBase):
     content_hash: Mapped[str] = mapped_column(String(64))
     content_json: Mapped[dict[str, object]] = mapped_column(JSON(none_as_null=True))
     source_path: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow)
     definition: Mapped[WorkflowDefinitionModel] = relationship(
         back_populates="revisions",
         foreign_keys=[workflow_key],
@@ -106,9 +106,9 @@ class RoleDefinitionModel(RuntimeBase):
 
     role_key: Mapped[str] = mapped_column(String(255), primary_key=True)
     current_revision_no: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
+        UtcDateTime(),
         default=utcnow,
         onupdate=utcnow,
     )
@@ -147,7 +147,7 @@ class RoleRevisionModel(RuntimeBase):
     content_hash: Mapped[str] = mapped_column(String(64))
     content_json: Mapped[dict[str, object]] = mapped_column(JSON(none_as_null=True))
     source_path: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow)
     definition: Mapped[RoleDefinitionModel] = relationship(
         back_populates="revisions",
         foreign_keys=[role_key],
@@ -172,9 +172,9 @@ class PolicyDefinitionModel(RuntimeBase):
 
     policy_key: Mapped[str] = mapped_column(String(255), primary_key=True)
     current_revision_no: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
+        UtcDateTime(),
         default=utcnow,
         onupdate=utcnow,
     )
@@ -213,7 +213,7 @@ class PolicyRevisionModel(RuntimeBase):
     content_hash: Mapped[str] = mapped_column(String(64))
     content_json: Mapped[dict[str, object]] = mapped_column(JSON(none_as_null=True))
     source_path: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow)
     definition: Mapped[PolicyDefinitionModel] = relationship(
         back_populates="revisions",
         foreign_keys=[policy_key],

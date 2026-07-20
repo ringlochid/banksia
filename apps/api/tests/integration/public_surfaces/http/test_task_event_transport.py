@@ -114,6 +114,45 @@ async def test_task_event_http_and_sse_preserve_cursor_contract(
         engine.dispose()
 
 
+async def test_task_event_timestamps_serialize_with_utc_offset(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    engine = create_runtime_schema_engine(tmp_path, name="task-event-tz.sqlite")
+    factory = sessionmaker(engine, expire_on_commit=False, autoflush=False)
+    try:
+        with engine.begin() as connection:
+            seed_catalog(connection)
+            task = seed_runtime_scope(connection, suffix="event-tz")
+        await _append_pause_event(factory, task_id=task.task_id, revision=1)
+        app = create_app(should_enable_mcp_mounts=False)
+
+        async def session_dependency() -> AsyncIterator[AsyncSession]:
+            async with SyncSessionAdapter(factory) as session:
+                yield cast(AsyncSession, session)
+
+        app.dependency_overrides[get_db_session] = session_dependency
+        monkeypatch.setattr(
+            control_router_module,
+            "get_session_factory",
+            lambda: _SessionAdapterFactory(factory),
+        )
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app, client=("127.0.0.1", 43125)),
+            base_url="http://127.0.0.1:18125",
+        ) as client:
+            page = await client.get(f"/control/tasks/{task.task_id}/events")
+
+        assert page.status_code == 200
+        items = page.json()["items"]
+        assert items
+        for item in items:
+            occurred_at = item["occurred_at"]
+            assert occurred_at.endswith("Z") or "+00:00" in occurred_at
+    finally:
+        engine.dispose()
+
+
 def test_task_event_routes_declare_the_cursor_reset_response() -> None:
     openapi = create_app(should_enable_mcp_mounts=False).openapi()
 

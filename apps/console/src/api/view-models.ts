@@ -5,6 +5,7 @@ export interface TaskRow {
     readonly activeAttemptId: string | null;
     readonly currentNodeKey: string | null;
     readonly status: components["schemas"]["RuntimeLifecycleStatus"];
+    readonly terminalOutcome: components["schemas"]["RuntimeFlowTerminalOutcome"] | null;
     readonly summary: string;
     readonly taskId: string;
     readonly title: string;
@@ -86,6 +87,7 @@ export function mapTaskRow(task: components["schemas"]["RuntimeFlowSummary"]): T
         activeAttemptId: task.active_attempt_id ?? null,
         currentNodeKey: task.current_node_key ?? null,
         status: task.status,
+        terminalOutcome: task.terminal_outcome ?? null,
         summary: task.task_summary,
         taskId: task.task_id,
         title: task.task_title,

@@ -149,7 +149,7 @@ describe("DefinitionsPage", () => {
         expect(await screen.findByText("Structure")).toBeVisible();
         expect(await screen.findByText("First-level nodes")).toBeVisible();
         expect(await screen.findByText("implementation_loop")).toBeVisible();
-        expect(screen.getAllByText("Provider: machine default").length).toBeGreaterThan(0);
+        expect(screen.queryByText(/Provider: machine default/)).not.toBeInTheDocument();
         expect(screen.queryByText("Stored root role")).not.toBeInTheDocument();
         expect(screen.queryByText("Root tree")).not.toBeInTheDocument();
         expect(screen.queryByRole("link", { name: "Create/update draft" })).not.toBeInTheDocument();
@@ -159,9 +159,9 @@ describe("DefinitionsPage", () => {
         );
         const workflowRows = within(screen.getByRole("list", { name: "Definition rows" }));
         await user.click(workflowRows.getByRole("button", { name: /^bounded-change\b/ }));
-        expect(await screen.findByText("Provider: OpenClaw (explicit)")).toBeVisible();
+        expect(await screen.findByText("Provider: OpenClaw")).toBeVisible();
         expect(screen.getByText("experimental")).toBeVisible();
-        expect(screen.getByText("Provider: Codex (explicit)")).toBeVisible();
+        expect(screen.getByText("Provider: Codex")).toBeVisible();
         const taskStartLinks = screen.getAllByRole("link", { name: "Task Start" });
         expect(taskStartLinks[taskStartLinks.length - 1]).toHaveAttribute("href", "/task-start");
     });

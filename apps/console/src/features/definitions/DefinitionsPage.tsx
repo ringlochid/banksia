@@ -32,7 +32,7 @@ export function DefinitionsPage() {
                 </section>
                 <section
                     aria-labelledby="definitions-detail-heading"
-                    className="min-w-0 rounded-card border border-outline-soft bg-surface-low"
+                    className="definition-detail-shell min-w-0 rounded-card border border-outline-soft bg-surface-low"
                 >
                     <DefinitionDetailPanel controller={controller} />
                 </section>

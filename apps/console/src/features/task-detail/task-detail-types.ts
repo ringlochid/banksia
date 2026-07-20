@@ -2,8 +2,7 @@ import type { StatusTone } from "../../components/ui";
 import type { components } from "../../api/generated/openapi";
 import type { TaskEventType } from "../../api/view-models";
 
-export type TaskDetailTab =
-    "artifacts" | "assignment" | "boundary" | "checkpoint" | "overview" | "trace";
+export type TaskDetailTab = "evidence" | "summary";
 
 export interface TaskDetailTabOption {
     readonly label: string;
@@ -68,8 +67,10 @@ export interface TaskWorkPlanView {
 export interface TaskHeaderView {
     readonly activeAttemptId: string | null;
     readonly activeFlowRevisionId: string;
+    readonly blockerSummary: string | null;
     readonly currentNodeKey: string | null;
     readonly status: components["schemas"]["RuntimeLifecycleStatus"];
+    readonly terminalOutcome: components["schemas"]["RuntimeFlowTerminalOutcome"] | null;
     readonly summary: string;
     readonly taskId: string;
     readonly title: string;
@@ -99,7 +100,7 @@ export interface TaskGraphNode {
     readonly isCurrent: boolean;
     readonly nodeKey: string;
     readonly order: number;
-    readonly status: "active" | "done" | "quiet" | "staged";
+    readonly status: "active" | "blocked" | "done" | "quiet" | "staged";
     readonly summary: string;
 }
 
@@ -117,6 +118,8 @@ export interface TaskEventRow {
     readonly eventSource: components["schemas"]["TaskEventSource"];
     readonly eventType: TaskEventType;
     readonly flowRevisionId: string | null;
+    readonly isMilestone: boolean;
+    readonly label: string;
     readonly nodeKey: string | null;
     readonly occurredAt: string;
     readonly payloadSummary: string;
@@ -150,12 +153,14 @@ export interface CommandRunPreview {
 
 export interface TaskSelectedContext {
     readonly assignmentRows: readonly DetailRow[];
-    readonly artifactRefs: readonly TaskDetailRef[];
     readonly boundaryRows: readonly DetailRow[];
+    readonly checkpointOutcome: string | null;
     readonly checkpointRows: readonly DetailRow[];
+    readonly checkpointSummary: string | null;
     readonly event: TaskEventRow | null;
+    readonly evidenceRefs: readonly TaskDetailRef[];
     readonly node: TaskGraphNode | null;
-    readonly overviewRows: readonly DetailRow[];
+    readonly technicalRefs: readonly TaskDetailRef[];
     readonly traceJson: string;
 }
 
@@ -172,12 +177,8 @@ export interface TaskActionMode {
 }
 
 export const TASK_DETAIL_TABS: readonly TaskDetailTabOption[] = [
-    { label: "Overview", value: "overview" },
-    { label: "Checkpoint", value: "checkpoint" },
-    { label: "Assignment", value: "assignment" },
-    { label: "Boundary", value: "boundary" },
-    { label: "Artifacts", value: "artifacts" },
-    { label: "Trace", value: "trace" },
+    { label: "Summary", value: "summary" },
+    { label: "Evidence", value: "evidence" },
 ];
 
 export const TASK_EVENT_TYPES: readonly TaskEventType[] = [

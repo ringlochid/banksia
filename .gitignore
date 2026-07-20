@@ -1,5 +1,6 @@
 # Local env and virtualenvs
 .env
+.env.development
 venv/
 
 # Hidden local state (covers .venv, .vscode, caches, etc.); keep agent standards tracked

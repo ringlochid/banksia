@@ -77,7 +77,7 @@ describe("TaskStartPage", () => {
                 name: TASK_START_WORKFLOW_KEY,
             }),
         ).toBeVisible();
-        expect(within(selectedWorkflowSummary).getByText("Updated")).toBeVisible();
+        expect(within(selectedWorkflowSummary).queryByText("Updated")).not.toBeInTheDocument();
         expect(within(selectedWorkflowSummary).queryByText(/Revision/)).not.toBeInTheDocument();
         expect(screen.getByText("3 required inputs still need attention.")).toBeVisible();
         expect(seenRequests[0]?.pathname).toBe("/definitions/workflows");

@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 from sqlalchemy import (
     JSON,
     CheckConstraint,
-    DateTime,
     ForeignKey,
     ForeignKeyConstraint,
     Index,
@@ -19,6 +18,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from autoclaw.persistence.base import RuntimeBase
+from autoclaw.persistence.datetimes import UtcDateTime
 from autoclaw.persistence.models.runtime.common import (
     ATTEMPT_STATUS_VALUES,
     CHECKPOINT_KIND_VALUES,
@@ -125,8 +125,8 @@ class AssignmentModel(RuntimeBase):
         String(255),
         nullable=True,
     )
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
-    superseded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow)
+    superseded_at: Mapped[datetime | None] = mapped_column(UtcDateTime(), nullable=True)
     task: Mapped[TaskModel] = relationship(
         "TaskModel",
         foreign_keys=[task_id],
@@ -320,8 +320,8 @@ class AttemptModel(RuntimeBase):
     latest_checkpoint_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     status: Mapped[str] = mapped_column(String(64), default="running")
     terminal_outcome: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    opened_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
-    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    opened_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow)
+    closed_at: Mapped[datetime | None] = mapped_column(UtcDateTime(), nullable=True)
     assignment: Mapped[AssignmentModel] = relationship(
         back_populates="attempts",
         primaryjoin=lambda: and_(
@@ -468,7 +468,7 @@ class AttemptCheckpointModel(RuntimeBase):
     summary: Mapped[str] = mapped_column(Text)
     evidence_json: Mapped[dict[str, object]] = mapped_column(JSON(none_as_null=True))
     criteria_results_json: Mapped[list[dict[str, object]]] = mapped_column(JSON(none_as_null=True))
-    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    recorded_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow)
     task: Mapped[TaskModel] = relationship(
         "TaskModel",
         foreign_keys=[task_id],

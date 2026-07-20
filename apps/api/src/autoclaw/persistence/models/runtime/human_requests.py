@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 from sqlalchemy import (
     JSON,
     CheckConstraint,
-    DateTime,
     ForeignKey,
     ForeignKeyConstraint,
     Index,
@@ -17,6 +16,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from autoclaw.persistence.base import RuntimeBase
+from autoclaw.persistence.datetimes import UtcDateTime
 from autoclaw.persistence.models.runtime.common import (
     HUMAN_REQUEST_KIND_VALUES,
     HUMAN_REQUEST_RESOLUTION_KIND_VALUES,
@@ -121,7 +121,7 @@ class HumanRequestModel(RuntimeBase):
     )
     suggested_human_instruction: Mapped[str | None] = mapped_column(Text, nullable=True)
     capability_basis_json: Mapped[dict[str, object]] = mapped_column(JSON(none_as_null=True))
-    due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    due_at: Mapped[datetime | None] = mapped_column(UtcDateTime(), nullable=True)
     timeout_policy_json: Mapped[dict[str, object] | None] = mapped_column(
         JSON(none_as_null=True), nullable=True
     )
@@ -141,8 +141,8 @@ class HumanRequestModel(RuntimeBase):
     resolved_by_actor_ref: Mapped[str | None] = mapped_column(String(255), nullable=True)
     resolved_by_surface: Mapped[str | None] = mapped_column(String(64), nullable=True)
     successor_dispatch_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    opened_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
-    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    opened_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow)
+    resolved_at: Mapped[datetime | None] = mapped_column(UtcDateTime(), nullable=True)
     source_dispatch: Mapped[DispatchTurnModel] = relationship(
         "DispatchTurnModel",
         back_populates="human_request",

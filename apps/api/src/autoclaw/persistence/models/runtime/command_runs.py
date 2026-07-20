@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 from sqlalchemy import (
     JSON,
     CheckConstraint,
-    DateTime,
     ForeignKey,
     ForeignKeyConstraint,
     Index,
@@ -18,6 +17,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from autoclaw.persistence.base import RuntimeBase
+from autoclaw.persistence.datetimes import UtcDateTime
 from autoclaw.persistence.models.runtime.common import (
     COMMAND_RUN_STATE_VALUES,
     COMMAND_RUN_TERMINAL_SOURCE_VALUES,
@@ -130,7 +130,7 @@ class CommandRunModel(RuntimeBase):
         nullable=True,
     )
     timeout_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    due_at: Mapped[datetime | None] = mapped_column(UtcDateTime(), nullable=True)
     stdout_logical_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     stderr_logical_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     state: Mapped[str] = mapped_column(String(64), default="pending_start")
@@ -139,7 +139,7 @@ class CommandRunModel(RuntimeBase):
         JSON(none_as_null=True), nullable=True
     )
     cancellation_requested_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True),
+        UtcDateTime(),
         nullable=True,
     )
     cancellation_requested_by_actor_ref: Mapped[str | None] = mapped_column(
@@ -152,9 +152,9 @@ class CommandRunModel(RuntimeBase):
     terminal_event_source: Mapped[str | None] = mapped_column(String(64), nullable=True)
     terminal_actor_ref: Mapped[str | None] = mapped_column(String(255), nullable=True)
     successor_dispatch_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
-    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow)
+    started_at: Mapped[datetime | None] = mapped_column(UtcDateTime(), nullable=True)
+    ended_at: Mapped[datetime | None] = mapped_column(UtcDateTime(), nullable=True)
     source_dispatch: Mapped[DispatchTurnModel] = relationship(
         "DispatchTurnModel",
         back_populates="command_run",

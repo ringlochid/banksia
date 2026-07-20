@@ -98,7 +98,6 @@ function HumanRequestsState({ controller }: { readonly controller: HumanRequests
     if (controller.requestReads.length === 0) {
         return (
             <StatePanel
-                action={<OpenTaskDetailLink taskId={controller.taskId} />}
                 summary="The controller did not return any human request records for this task."
                 title="No human requests"
                 tone="empty"
@@ -349,7 +348,7 @@ function MobileSelectedRequestSummary({
                             {read.request.timeout?.due_at === undefined ||
                             read.request.timeout.due_at === null
                                 ? "No due time"
-                                : formatAestTime(read.request.timeout.due_at)}
+                                : formatRequestTime(read.request.timeout.due_at)}
                         </p>
                     </div>
                 </div>
@@ -441,7 +440,7 @@ function RequestMetadata({ read }: { readonly read: HumanRequestRead }) {
             </RequestMetadataItem>
             <RequestMetadataItem label="Opened">
                 <time dateTime={new Date(read.request.opened_at).toISOString()}>
-                    {formatAestTime(read.request.opened_at)}
+                    {formatRequestTime(read.request.opened_at)}
                 </time>
             </RequestMetadataItem>
             <RequestMetadataItem label="Due">
@@ -450,7 +449,7 @@ function RequestMetadata({ read }: { readonly read: HumanRequestRead }) {
                     "No due time"
                 ) : (
                     <time dateTime={new Date(read.request.timeout.due_at).toISOString()}>
-                        {formatAestTime(read.request.timeout.due_at)}
+                        {formatRequestTime(read.request.timeout.due_at)}
                     </time>
                 )}
             </RequestMetadataItem>
@@ -577,28 +576,23 @@ function queueStatusLabel(read: HumanRequestRead): string {
             return "No due time";
         }
 
-        return `Due ${formatAestTime(read.request.timeout.due_at)}`;
+        return `Due ${formatRequestTime(read.request.timeout.due_at)}`;
     }
 
     if (read.resolution?.resolved_at !== undefined) {
-        return formatAestTime(read.resolution.resolved_at);
+        return formatRequestTime(read.resolution.resolved_at);
     }
 
     return read.request.status;
 }
 
-function formatAestTime(value: string): string {
+function formatRequestTime(value: string): string {
     const date = new Date(value);
     if (Number.isNaN(date.valueOf())) {
         return value;
     }
 
-    return new Intl.DateTimeFormat("en-AU", {
-        hour: "numeric",
-        minute: "2-digit",
-        timeZone: "Australia/Sydney",
-        timeZoneName: "short",
-    }).format(date);
+    return new Intl.DateTimeFormat(undefined, { timeStyle: "short" }).format(date);
 }
 
 function statusClassName(status: HumanRequestStatus): string {

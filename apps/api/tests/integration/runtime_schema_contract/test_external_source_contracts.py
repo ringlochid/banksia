@@ -180,8 +180,8 @@ def test_command_timeout_deadline_begins_only_after_process_start(
             )
         with engine.connect() as connection:
             run = connection.execute(select(RuntimeBase.metadata.tables["command_runs"])).one()
-        assert run.started_at == (NOW + timedelta(seconds=1)).replace(tzinfo=None)
-        assert run.due_at == (NOW + timedelta(seconds=61)).replace(tzinfo=None)
+        assert run.started_at == NOW + timedelta(seconds=1)
+        assert run.due_at == NOW + timedelta(seconds=61)
     finally:
         engine.dispose()
 

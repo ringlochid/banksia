@@ -1,8 +1,9 @@
-import { StatePanel } from "../../components/ui";
+import { useMemo, useState } from "react";
+
+import { StatePanel, TimestampText } from "../../components/ui";
 import { classNames } from "../../lib/classNames";
 import { titleCaseNodeLabel } from "./task-detail-format";
 import type { TaskEventRow } from "./task-detail-model";
-import { TaskDetailTimestamp } from "./task-detail-summary";
 
 export function TaskEventLane({
     events,
@@ -15,12 +16,31 @@ export function TaskEventLane({
     readonly onSelectEvent: (eventId: string) => void;
     readonly selectedEventId: string | null;
 }) {
+    const [showTechnical, setShowTechnical] = useState(false);
+    const milestoneEvents = useMemo(() => events.filter((event) => event.isMilestone), [events]);
+    const technicalCount = events.length - milestoneEvents.length;
+    const visibleEvents = showTechnical ? events : milestoneEvents;
+
     return (
         <section className="min-w-0 overflow-hidden rounded-[22px] border border-outline-soft bg-surface-low shadow-panel">
             <header className="flex flex-wrap items-center justify-between gap-3 border-b border-outline-soft px-4 py-3 sm:px-5">
                 <p className="font-mono text-label font-medium text-muted">Events</p>
+                {technicalCount === 0 ? null : (
+                    <button
+                        aria-pressed={showTechnical}
+                        className="font-mono text-label text-muted transition-colors hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                        onClick={() => {
+                            setShowTechnical((current) => !current);
+                        }}
+                        type="button"
+                    >
+                        {showTechnical
+                            ? "Hide technical events"
+                            : `Technical events (${String(technicalCount)})`}
+                    </button>
+                )}
             </header>
-            {events.length === 0 ? (
+            {visibleEvents.length === 0 ? (
                 <div className="px-4 py-4">
                     <StatePanel
                         summary="No persisted task-event history was returned for the current snapshot anchor."
@@ -33,7 +53,7 @@ export function TaskEventLane({
                     aria-label="Task events"
                     className="grid max-h-[560px] min-w-0 gap-2.5 overflow-x-hidden overflow-y-auto px-4 py-4 sm:max-h-[630px] xl:max-h-[689px]"
                 >
-                    {events.map((event) => (
+                    {visibleEvents.map((event) => (
                         <TaskEventItem
                             event={event}
                             isSelected={event.eventId === selectedEventId}
@@ -82,7 +102,7 @@ function TaskEventItem({
                         aria-hidden="true"
                         className={classNames(
                             "mt-1 size-3.5 shrink-0 rounded-full border-4 border-surface",
-                            eventDotClass(event.eventType),
+                            eventDotClass(event),
                         )}
                     />
                     <div className="min-w-0 flex-1 space-y-2">
@@ -94,7 +114,7 @@ function TaskEventItem({
                                         isSelected ? "text-primary-foreground" : "text-foreground",
                                     )}
                                 >
-                                    {eventLabel(event.eventType)}
+                                    {event.label}
                                 </p>
                                 {event.nodeKey === null ? null : (
                                     <p className="break-all font-mono text-utility text-muted">
@@ -102,7 +122,7 @@ function TaskEventItem({
                                     </p>
                                 )}
                             </div>
-                            <TaskDetailTimestamp
+                            <TimestampText
                                 className="shrink-0 font-mono text-utility text-muted"
                                 value={event.occurredAt}
                                 variant="time"
@@ -129,39 +149,19 @@ function TaskEventItem({
     );
 }
 
-function eventDotClass(eventType: TaskEventRow["eventType"]): string {
-    if (eventType.startsWith("command_run")) {
-        return "bg-primary";
+function eventDotClass(event: TaskEventRow): string {
+    switch (event.tone) {
+        case "danger":
+            return "bg-danger";
+        case "success":
+            return "bg-success";
+        case "warning":
+            return "bg-warning";
+        case "neutral":
+            return "bg-outline";
+        case "active":
+            return "bg-primary";
     }
-    if (eventType.startsWith("human_request")) {
-        return "bg-warning";
-    }
-    if (eventType === "checkpoint_recorded" || eventType === "boundary_accepted") {
-        return "bg-success";
-    }
-    if (eventType.startsWith("child_assignment") || eventType === "structural_revision_adopted") {
-        return "bg-[#8b5cf6]";
-    }
-    if (eventType === "task_cancelled") {
-        return "bg-danger";
-    }
-    if (eventType === "task_started") {
-        return "bg-outline";
-    }
-    return "bg-foreground";
-}
-
-function eventLabel(eventType: TaskEventRow["eventType"]): string {
-    const labelByType: Partial<Record<TaskEventRow["eventType"], string>> = {
-        boundary_accepted: "Boundary accepted",
-        checkpoint_recorded: "Checkpoint recorded",
-        child_assignment_committed: "Child assignment committed",
-        child_assignment_staged: "Child assignment staged",
-        dispatch_opened: "Dispatch opened",
-        structural_revision_adopted: "Structural revision adopted",
-        task_started: "Task started",
-    };
-    return labelByType[eventType] ?? titleCaseNodeLabel(eventType);
 }
 
 function eventInlineRows(
@@ -170,9 +170,9 @@ function eventInlineRows(
     const payload = event.record.payload;
     const keysByType: Partial<Record<TaskEventRow["eventType"], readonly string[]>> = {
         boundary_accepted: ["outcome", "resulting_flow_status"],
-        checkpoint_recorded: ["checkpoint_kind", "outcome"],
+        checkpoint_recorded: ["checkpoint_kind", "outcome", "summary"],
         dispatch_opened: ["status", "resolved_provider"],
-        task_started: ["workflow_key", "manifest_ref"],
+        task_started: ["workflow_key"],
     };
     const keys = keysByType[event.eventType] ?? [];
     return keys.flatMap((key) => {

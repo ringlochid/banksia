@@ -11,7 +11,7 @@ import { AlertTriangle, ArrowRight, ChevronDown, Inbox, Search, ShieldAlert } fr
 import { Link } from "react-router-dom";
 
 import { PageFrame } from "../../components/layout";
-import { Button, StatusChip, type StatusTone } from "../../components/ui";
+import { Button, StatusChip, TimestampText } from "../../components/ui";
 import {
     getNextCursor,
     isApiAbortError,
@@ -21,6 +21,7 @@ import {
 } from "../../api/client";
 import type { components } from "../../api/generated/openapi";
 import { runtimeTasksRoute, type RuntimeTasksQuery } from "../../api/routes";
+import { taskOutcome } from "../../api/task-outcome";
 import { mapTaskRow, type TaskRow } from "../../api/view-models";
 import { classNames } from "../../lib/classNames";
 
@@ -524,7 +525,7 @@ function TaskRowItem({ row }: { readonly row: TaskRow }) {
                         <p className="font-mono text-label font-medium uppercase text-muted md:sr-only">
                             Status
                         </p>
-                        <TaskStatusChip status={row.status} />
+                        <TaskStatusChip row={row} />
                     </div>
                     <div className="flex min-w-0 items-center justify-between gap-3 md:block md:text-right">
                         <p className="font-mono text-label font-medium uppercase text-muted md:sr-only">
@@ -545,12 +546,9 @@ function TaskRowItem({ row }: { readonly row: TaskRow }) {
 }
 
 function TaskRowMetadata({ row }: { readonly row: TaskRow }) {
-    const items = [
-        row.workflowKey,
-        row.currentNodeKey,
-        row.activeAssignmentId === null ? null : `Assignment ${row.activeAssignmentId}`,
-        row.activeAttemptId === null ? null : `Attempt ${row.activeAttemptId}`,
-    ].filter((item): item is string => item !== null);
+    const items = [row.workflowKey, row.currentNodeKey].filter(
+        (item): item is string => item !== null,
+    );
 
     return (
         <div
@@ -576,51 +574,21 @@ function TaskUpdatedTime({ value }: { readonly value: string }) {
         return <span className="font-mono text-utility text-foreground">{value}</span>;
     }
 
-    const relativeLabel = formatRelativeTime(date);
-    const absoluteLabel = new Intl.DateTimeFormat(undefined, {
-        day: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-        month: "short",
-        timeZoneName: "short",
-    }).format(date);
-
     return (
-        <time className="block" dateTime={date.toISOString()}>
-            <span className="block text-compact text-foreground">{relativeLabel}</span>
-            <span className="block font-mono text-label text-muted">{absoluteLabel}</span>
-        </time>
+        <span className="block">
+            <span className="block text-compact text-foreground">{formatRelativeTime(date)}</span>
+            <TimestampText className="block text-label text-muted" value={date} />
+        </span>
     );
 }
 
-function TaskStatusChip({
-    status,
-}: {
-    readonly status: components["schemas"]["RuntimeLifecycleStatus"];
-}) {
+function TaskStatusChip({ row }: { readonly row: TaskRow }) {
+    const outcome = taskOutcome(row.status, row.terminalOutcome);
     return (
-        <StatusChip className="rounded-full px-3" tone={statusTone(status)}>
-            {statusLabel(status)}
+        <StatusChip className="rounded-full px-3" tone={outcome.tone}>
+            {outcome.label}
         </StatusChip>
     );
-}
-
-function statusTone(status: components["schemas"]["RuntimeLifecycleStatus"]): StatusTone {
-    switch (status) {
-        case "running":
-            return "active";
-        case "completed":
-            return "success";
-        case "pending":
-        case "cancelled":
-            return "neutral";
-        case "paused":
-            return "warning";
-    }
-}
-
-function statusLabel(status: components["schemas"]["RuntimeLifecycleStatus"]): string {
-    return status.replace(/_/g, " ");
 }
 
 function formatRelativeTime(date: Date): string {

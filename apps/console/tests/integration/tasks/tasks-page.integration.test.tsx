@@ -44,7 +44,18 @@ describe("TasksPage", () => {
         const user = userEvent.setup();
         const seenRequests: URL[] = [];
         const firstPage = createRuntimeFlowSummaryList(
-            [...createV2RuntimeTaskRows(), createLongRuntimeTaskRow()],
+            [
+                ...createV2RuntimeTaskRows(),
+                createLongRuntimeTaskRow(),
+                createRuntimeFlowSummary({
+                    status: "completed",
+                    task_id: "task-blocked-terminal",
+                    task_summary: "Terminal task whose release ended blocked.",
+                    task_title: "Blocked terminal research",
+                    terminal_outcome: "blocked",
+                    updated_at: "2026-06-29T06:00:00Z",
+                }),
+            ],
             "cursor-page-2",
         );
         const secondPage = createRuntimeFlowSummaryList([
@@ -74,11 +85,12 @@ describe("TasksPage", () => {
                 "Validate long task title wrapping inside the scan-first Tasks route implementation",
             ),
         ).toBeVisible();
-        expect(screen.getAllByText("paused").length).toBeGreaterThan(0);
-        expect(screen.getAllByText("completed").length).toBeGreaterThan(0);
-        expect(screen.getAllByText("cancelled").length).toBeGreaterThan(0);
-        expect(screen.getAllByText("Assignment assignment-001").length).toBeGreaterThan(0);
-        expect(screen.getAllByText("Attempt attempt-001").length).toBeGreaterThan(0);
+        expect(screen.getAllByText("Paused").length).toBeGreaterThan(0);
+        expect(screen.getAllByText("Completed").length).toBeGreaterThan(0);
+        expect(screen.getAllByText("Cancelled").length).toBeGreaterThan(0);
+        expect(screen.getByText("Blocked")).toBeVisible();
+        expect(screen.queryByText(/Assignment assignment-001/)).not.toBeInTheDocument();
+        expect(screen.queryByText(/Attempt attempt-001/)).not.toBeInTheDocument();
         expect(seenRequests[0]?.searchParams.get("limit")).toBe("25");
         expect(seenRequests[0]?.searchParams.get("status")).toBe("any");
         expect(seenRequests[0]?.searchParams.get("sort")).toBe("updated_at_desc");

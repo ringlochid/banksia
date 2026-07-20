@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 from sqlalchemy import (
     JSON,
     CheckConstraint,
-    DateTime,
     ForeignKey,
     ForeignKeyConstraint,
     Index,
@@ -16,6 +15,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from autoclaw.persistence.base import RuntimeBase
+from autoclaw.persistence.datetimes import UtcDateTime
 from autoclaw.persistence.models.runtime.common import (
     TASK_EVENT_SOURCE_VALUES,
     TASK_EVENT_TYPE_VALUES,
@@ -102,7 +102,7 @@ class TaskEventModel(RuntimeBase):
     task_id: Mapped[str] = mapped_column(ForeignKey("tasks.task_id"), index=True)
     event_type: Mapped[str] = mapped_column(String(255))
     event_source: Mapped[str] = mapped_column(String(64))
-    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    occurred_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow)
     flow_revision_id: Mapped[str | None] = mapped_column(
         ForeignKey("flow_revisions.flow_revision_id"),
         nullable=True,

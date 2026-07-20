@@ -3,10 +3,11 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, ForeignKeyConstraint, String
+from sqlalchemy import ForeignKey, ForeignKeyConstraint, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from autoclaw.persistence.base import RuntimeBase
+from autoclaw.persistence.datetimes import UtcDateTime
 from autoclaw.persistence.models.runtime.common import utcnow
 
 if TYPE_CHECKING:
@@ -37,7 +38,7 @@ class FlowStartSourceModel(RuntimeBase):
     flow_id: Mapped[str] = mapped_column(ForeignKey("flows.flow_id"), primary_key=True)
     task_id: Mapped[str] = mapped_column(ForeignKey("tasks.task_id"), unique=True, index=True)
     successor_dispatch_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    committed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    committed_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow)
     flow: Mapped[FlowModel] = relationship(
         "FlowModel",
         back_populates="start_source",

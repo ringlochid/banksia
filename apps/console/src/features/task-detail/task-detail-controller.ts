@@ -47,6 +47,7 @@ export interface TaskDetailController {
 
 interface TaskDetailState {
     readonly actionError: ConsoleErrorView | null;
+    readonly hasExplicitSelection: boolean;
     readonly actionPending: TaskControlAction | null;
     readonly bootstrap: TaskDetailBootstrap | null;
     readonly detailOpen: boolean;
@@ -97,6 +98,7 @@ const initialState: TaskDetailState = {
     detailOpen: false,
     error: null,
     events: [],
+    hasExplicitSelection: false,
     isLoading: true,
     isRefreshing: false,
     refreshToken: 0,
@@ -105,7 +107,7 @@ const initialState: TaskDetailState = {
     streamError: null,
     streamResetStaleCursor: null,
     streamStatus: "closed",
-    tab: "overview",
+    tab: "summary",
 };
 
 export function useTaskDetailController(taskId: string | null): TaskDetailController {
@@ -551,7 +553,7 @@ function applyLiveEvents(
     events: readonly components["schemas"]["TaskEventRecord"][],
     streamStatus: TaskEventStreamStatus,
 ): TaskDetailState {
-    const focusEvent = latestNodeEvent(events);
+    const focusEvent = state.hasExplicitSelection ? null : latestNodeEvent(events);
     return {
         ...state,
         events: mergeTaskEvents(state.events, events),
@@ -578,6 +580,7 @@ function applyNodeSelection(state: TaskDetailState, nodeKey: string): TaskDetail
     if (state.bootstrap === null) {
         return {
             ...state,
+            hasExplicitSelection: true,
             selectedNodeKey: nodeKey,
         };
     }
@@ -589,6 +592,7 @@ function applyNodeSelection(state: TaskDetailState, nodeKey: string): TaskDetail
 
     return {
         ...state,
+        hasExplicitSelection: true,
         selectedEventId: getDefaultEventId(view, nodeKey),
         selectedNodeKey: nodeKey,
     };
@@ -599,6 +603,7 @@ function applyEventSelection(state: TaskDetailState, eventId: string): TaskDetai
 
     return {
         ...state,
+        hasExplicitSelection: true,
         selectedEventId: eventId,
         selectedNodeKey: selectedEvent?.node_key ?? state.selectedNodeKey,
     };

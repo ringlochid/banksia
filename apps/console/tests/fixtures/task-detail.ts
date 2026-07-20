@@ -185,6 +185,7 @@ export interface TaskDetailScenarioOptions {
     readonly status?: components["schemas"]["RuntimeLifecycleStatus"];
     readonly streamEvents?: readonly components["schemas"]["TaskEventRecord"][];
     readonly streamHeadEventId?: string | null;
+    readonly terminalOutcome?: components["schemas"]["RuntimeFlowTerminalOutcome"] | null;
 }
 
 export function createTaskDetailMockScenario(
@@ -244,6 +245,7 @@ export function createTaskDetailMockScenario(
         },
         latest_dispatch_id: "dispatch-task-detail-build-current",
         status: options.status ?? "running",
+        terminal_outcome: options.terminalOutcome ?? null,
         task_id: TASK_DETAIL_TASK_ID,
         task_summary: "Replace retired runtime labels without widening the task hub.",
         task_title: "Refresh runtime route copy",

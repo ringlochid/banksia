@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 from sqlalchemy import (
     JSON,
     CheckConstraint,
-    DateTime,
     ForeignKey,
     ForeignKeyConstraint,
     Index,
@@ -19,6 +18,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from autoclaw.persistence.base import RuntimeBase
+from autoclaw.persistence.datetimes import UtcDateTime
 from autoclaw.persistence.models.registry import (
     PolicyRevisionModel,
     RoleRevisionModel,
@@ -54,9 +54,9 @@ class TaskModel(RuntimeBase):
     instruction: Mapped[str | None] = mapped_column(Text, nullable=True)
     workflow_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
     task_root_path: Mapped[str] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
+        UtcDateTime(),
         default=utcnow,
         onupdate=utcnow,
     )
@@ -114,7 +114,7 @@ class WorkspaceBindingModel(RuntimeBase):
     task_id: Mapped[str] = mapped_column(ForeignKey("tasks.task_id"), unique=True, index=True)
     binding_mode: Mapped[str] = mapped_column(String(64))
     normalized_root_path: Mapped[str] = mapped_column(Text)
-    bound_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    bound_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow)
     task: Mapped[TaskModel] = relationship(
         back_populates="workspace_binding",
         foreign_keys=[task_id],
@@ -147,7 +147,7 @@ class TaskComposeModel(RuntimeBase):
     workflow_revision_no: Mapped[int] = mapped_column(Integer)
     compiled_plan_id: Mapped[str] = mapped_column(String(255))
     compose_payload: Mapped[dict[str, object]] = mapped_column(JSON(none_as_null=True))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow)
     task: Mapped[TaskModel] = relationship(
         back_populates="task_compose",
         foreign_keys=[task_id],
@@ -190,7 +190,7 @@ class CompiledPlanModel(RuntimeBase):
     definition_revision_no: Mapped[int] = mapped_column(Integer)
     compiler_version: Mapped[str] = mapped_column(String(255))
     snapshot_json: Mapped[dict[str, object]] = mapped_column(JSON(none_as_null=True))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow)
     task: Mapped[TaskModel] = relationship(
         back_populates="compiled_plan",
         foreign_keys=[task_id],

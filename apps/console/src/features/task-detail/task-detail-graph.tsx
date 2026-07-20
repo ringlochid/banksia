@@ -66,9 +66,8 @@ interface GraphBounds {
     readonly minY: number;
 }
 
-type GraphTone = "active" | "amber" | "gray" | "green" | "root";
+type GraphTone = "active" | "amber" | "gray" | "green" | "red" | "root";
 
-const GRAPH_LABEL_FONT_SIZE = 13;
 const GRAPH_NODE_HEIGHT = 56;
 const GRAPH_LEVEL_GAP = 156;
 const GRAPH_LEFT_PAD = 72;
@@ -77,15 +76,12 @@ const GRAPH_MIN_HEIGHT = 580;
 const GRAPH_MIN_WIDTH = 1180;
 const GRAPH_TOP_PAD = 84;
 const GRAPH_MANUAL_ZOOM_STEP = 1.1;
-const GRAPH_MAX_AUTO_SCALE = 5;
+const GRAPH_MAX_AUTO_SCALE = 1.85;
 const GRAPH_MAX_VISUAL_SCALE = 5;
 const GRAPH_MIN_VISUAL_SCALE = 0.7;
-const GRAPH_AUTO_FALLBACK_SCALE = 1.85;
 const GRAPH_AUTO_FIT_X_PAD = 104;
 const GRAPH_AUTO_FIT_Y_PAD = 32;
 const GRAPH_AUTO_VERTICAL_FILL = 0.88;
-const GRAPH_READABLE_LABEL_PX = 12.5;
-const GRAPH_READABLE_LABEL_PX_MAX = 15.2;
 
 const edgePriority: Record<TaskGraphEdge["kind"], number> = {
     structural: 2,
@@ -252,6 +248,10 @@ function GraphDefinitions() {
             <linearGradient id="task-detail-node-gray" x1="0%" x2="100%" y1="0%" y2="100%">
                 <stop offset="0%" stopColor="#ffffff" />
                 <stop offset="100%" stopColor="#f6f8fb" />
+            </linearGradient>
+            <linearGradient id="task-detail-node-red" x1="0%" x2="100%" y1="0%" y2="100%">
+                <stop offset="0%" stopColor="#fffafa" />
+                <stop offset="100%" stopColor="#fdecec" />
             </linearGradient>
             <pattern
                 height="34"
@@ -709,15 +709,11 @@ function buildActiveLineage(
     return lineage;
 }
 
-function buildCameraTransform(
-    layout: GraphLayout,
-    selectedNodeKey: string,
-    viewport: GraphViewport | null,
-): CameraTransform {
-    const bounds = graphAutoFitBounds(layout, selectedNodeKey);
+function buildCameraTransform(layout: GraphLayout): CameraTransform {
+    const bounds = graphContentBounds(layout);
     const centerX = (bounds.maxX + bounds.minX) / 2;
     const centerY = (bounds.maxY + bounds.minY) / 2;
-    const scale = autoFitGraphScale(layout, viewport, bounds);
+    const scale = autoFitGraphScale(layout, bounds);
 
     return {
         scale,
@@ -775,72 +771,19 @@ function zoomCameraAroundPoint({
     };
 }
 
-function readableGraphScale(layout: GraphLayout, viewport: GraphViewport | null): number {
-    if (viewport === null) {
-        return GRAPH_AUTO_FALLBACK_SCALE;
-    }
-    const baseScale = graphViewportBaseScale(layout, viewport);
-    if (!Number.isFinite(baseScale) || baseScale <= 0) {
-        return GRAPH_AUTO_FALLBACK_SCALE;
-    }
-    const widthPressure = layout.width / Math.max(viewport.width, 1);
-    const heightPressure = layout.height / Math.max(viewport.height, 1);
-    const pressure = Math.max(widthPressure, heightPressure);
-    const readableLabelPx = clamp(
-        GRAPH_READABLE_LABEL_PX + Math.max(0, pressure - 1.25) * 2.8,
-        GRAPH_READABLE_LABEL_PX,
-        GRAPH_READABLE_LABEL_PX_MAX,
+function autoFitGraphScale(layout: GraphLayout, bounds: GraphBounds): number {
+    const boundsWidth = Math.max(bounds.maxX - bounds.minX, 1);
+    const boundsHeight = Math.max(bounds.maxY - bounds.minY, GRAPH_NODE_HEIGHT);
+    const fitScale = Math.min(
+        layout.width / boundsWidth,
+        (layout.height * GRAPH_AUTO_VERTICAL_FILL) / boundsHeight,
     );
 
-    return clamp(
-        readableLabelPx / (GRAPH_LABEL_FONT_SIZE * baseScale),
-        GRAPH_MIN_VISUAL_SCALE,
-        readableGraphScaleLimit(layout),
-    );
-}
-
-function autoFitGraphScale(
-    layout: GraphLayout,
-    viewport: GraphViewport | null,
-    bounds: GraphBounds,
-): number {
-    if (viewport === null) {
-        return readableGraphScale(layout, viewport);
+    if (!Number.isFinite(fitScale) || fitScale <= 0) {
+        return 1;
     }
 
-    const baseScale = graphViewportBaseScale(layout, viewport);
-    const focusHeight = Math.max(bounds.maxY - bounds.minY, GRAPH_NODE_HEIGHT);
-    const verticalFitScale =
-        (viewport.height * GRAPH_AUTO_VERTICAL_FILL) / (focusHeight * baseScale);
-    const readableScale = readableGraphScale(layout, viewport);
-
-    if (!Number.isFinite(verticalFitScale) || verticalFitScale <= 0) {
-        return readableScale;
-    }
-
-    return clamp(
-        Math.max(verticalFitScale, readableScale),
-        GRAPH_MIN_VISUAL_SCALE,
-        GRAPH_MAX_AUTO_SCALE,
-    );
-}
-
-function graphViewportBaseScale(layout: GraphLayout, viewport: GraphViewport): number {
-    return Math.min(viewport.width / layout.width, viewport.height / layout.height);
-}
-
-function readableGraphScaleLimit(layout: GraphLayout): number {
-    const levelCounts = new Map<number, number>();
-    for (const node of layout.nodes) {
-        const level = Math.max(0, Math.round((node.y - GRAPH_TOP_PAD) / GRAPH_LEVEL_GAP));
-        levelCounts.set(level, (levelCounts.get(level) ?? 0) + 1);
-    }
-
-    const depth = Math.max(...levelCounts.keys(), 0) + 1;
-    const breadth = Math.max(...levelCounts.values(), 1);
-    const breadthBonus = clamp((breadth - 3) * 0.03, 0, 0.18);
-
-    return clamp(1.48 + depth * 0.16 + breadthBonus, 1.7, GRAPH_MAX_AUTO_SCALE);
+    return clamp(fitScale, GRAPH_MIN_VISUAL_SCALE, GRAPH_MAX_AUTO_SCALE);
 }
 
 function useSvgViewport(ref: RefObject<SVGSVGElement | null>): GraphViewport | null {
@@ -891,9 +834,7 @@ function useGraphCamera({
     readonly svgRef: RefObject<SVGSVGElement | null>;
     readonly viewport: GraphViewport | null;
 }) {
-    const [camera, setCamera] = useState<CameraTransform>(() =>
-        buildCameraTransform(layout, selectedNodeKey, viewport),
-    );
+    const [camera, setCamera] = useState<CameraTransform>(() => buildCameraTransform(layout));
     const cameraRef = useRef(camera);
     const [isDragging, setIsDragging] = useState(false);
     const dragOriginRef = useRef<DragOrigin | null>(null);
@@ -917,7 +858,7 @@ function useGraphCamera({
 
         setCamera((current) => {
             if (shouldFit) {
-                return buildCameraTransform(layout, selectedNodeKey, viewport);
+                return buildCameraTransform(layout);
             }
             if (shouldCenterSelection) {
                 return centerCameraOnFocus(layout, selectedNodeKey, current.scale);
@@ -930,8 +871,8 @@ function useGraphCamera({
     }, [layout, layoutKey, selectedNodeKey, viewport, viewportKey]);
 
     const reset = useCallback(() => {
-        setCamera(buildCameraTransform(layout, selectedNodeKey, viewport));
-    }, [layout, selectedNodeKey, viewport]);
+        setCamera(buildCameraTransform(layout));
+    }, [layout]);
 
     const zoomAround = useCallback(
         (clientX: number, clientY: number, nextScale: number) => {
@@ -1083,22 +1024,8 @@ function graphFocusBounds(layout: GraphLayout, selectedNodeKey: string): GraphBo
     };
 }
 
-function graphAutoFitBounds(layout: GraphLayout, selectedNodeKey: string): GraphBounds {
-    const nodeKeys = new Set<string>();
-    let cursor: string | undefined = selectedNodeKey;
-
-    while (cursor !== undefined && !nodeKeys.has(cursor)) {
-        nodeKeys.add(cursor);
-        cursor = layout.parentByNodeKey.get(cursor);
-    }
-
-    for (const node of layout.nodes) {
-        if (layout.parentByNodeKey.get(node.nodeKey) === selectedNodeKey) {
-            nodeKeys.add(node.nodeKey);
-        }
-    }
-
-    return graphBoundsForNodeKeys(layout, nodeKeys, {
+function graphContentBounds(layout: GraphLayout): GraphBounds {
+    return graphBoundsForNodeKeys(layout, new Set(layout.positionByNodeKey.keys()), {
         x: GRAPH_AUTO_FIT_X_PAD,
         y: GRAPH_AUTO_FIT_Y_PAD,
     });
@@ -1195,6 +1122,9 @@ function edgeColor(kind: TaskGraphEdge["kind"], isActiveLineage: boolean): strin
 }
 
 function nodeTone(node: TaskGraphNode): GraphTone {
+    if (node.status === "blocked") {
+        return "red";
+    }
     if (node.nodeKey === "root") {
         return "root";
     }
@@ -1239,6 +1169,12 @@ function toneColors(tone: GraphTone): {
                 fill: "url(#task-detail-node-gray)",
                 stroke: "#d7dde7",
                 title: "#6b7280",
+            };
+        case "red":
+            return {
+                fill: "url(#task-detail-node-red)",
+                stroke: "#e2695f",
+                title: "#c03e34",
             };
         case "active":
             return {

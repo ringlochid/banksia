@@ -4,11 +4,12 @@ import { RefreshCw } from "lucide-react";
 import { useParams } from "react-router-dom";
 
 import { PageFrame } from "../../components/layout";
-import { Button, StatePanel } from "../../components/ui";
+import { Button, Disclosure, StatePanel } from "../../components/ui";
 import { useTaskDetailController, type TaskDetailController } from "./task-detail-controller";
 import { TaskEventLane } from "./task-detail-event-lane";
 import { TaskGraph } from "./task-detail-graph";
 import { TaskDetailModal } from "./task-detail-modal";
+import type { TaskDetailView } from "./task-detail-model";
 import { TaskRuntimeSummary } from "./task-detail-runtime-summary";
 import { TaskActionControls, TaskDetailEyebrow, TaskSummaryHeader } from "./task-detail-summary";
 
@@ -26,29 +27,25 @@ function TaskDetailTaskPage({ taskId }: { readonly taskId: string | null }) {
     useTaskDetailModalEscape(controller);
 
     if (controller.view === null) {
-        return <TaskDetailUnavailableState controller={controller} taskId={taskId ?? null} />;
+        return <TaskDetailUnavailableState controller={controller} />;
     }
 
     return <TaskDetailLoadedState controller={controller} />;
 }
 
-function TaskDetailUnavailableState({
-    controller,
-    taskId,
-}: {
-    readonly controller: TaskDetailController;
-    readonly taskId: string | null;
-}) {
+function TaskDetailUnavailableState({ controller }: { readonly controller: TaskDetailController }) {
     return (
         <PageFrame
             actions={
-                <Button icon={<RefreshCw />} onClick={controller.refresh}>
-                    Retry
-                </Button>
+                controller.isLoading ? null : (
+                    <Button icon={<RefreshCw />} onClick={controller.refresh}>
+                        Retry
+                    </Button>
+                )
             }
             className="w-full"
             description="Read current task state, event history, and task controls."
-            eyebrow={taskId ?? "Runtime"}
+            eyebrow="Runtime"
             title="Task Detail"
         >
             {controller.isLoading ? (
@@ -155,7 +152,8 @@ function TaskDetailLoadedState({ controller }: { readonly controller: TaskDetail
             title={view.task.title}
         >
             <div className="space-y-4">
-                <TaskRuntimeSummary view={view} />
+                <TaskBlockerPanel view={view} />
+                <TaskWaitPanel view={view} />
                 {controller.actionError === null ? null : (
                     <StatePanel
                         summary={controller.actionError.summary}
@@ -214,6 +212,9 @@ function TaskDetailLoadedState({ controller }: { readonly controller: TaskDetail
                         />
                     </div>
                 </div>
+                <Disclosure label="Controller" title="Runtime details">
+                    <TaskRuntimeSummary view={view} />
+                </Disclosure>
             </div>
             {controller.detailOpen && controller.selectedContext !== null ? (
                 <TaskDetailModal
@@ -226,6 +227,43 @@ function TaskDetailLoadedState({ controller }: { readonly controller: TaskDetail
                 />
             ) : null}
         </PageFrame>
+    );
+}
+
+function TaskBlockerPanel({ view }: { readonly view: TaskDetailView }) {
+    if (view.task.terminalOutcome !== "blocked") {
+        return null;
+    }
+
+    return (
+        <StatePanel
+            summary={
+                view.task.blockerSummary ??
+                "The task ended blocked. Open the blocked node for checkpoint evidence."
+            }
+            title="Blocked"
+            tone="error"
+        />
+    );
+}
+
+function TaskWaitPanel({ view }: { readonly view: TaskDetailView }) {
+    const humanRequest = view.runtime.currentHumanRequest;
+    const commandRun = view.runtime.currentCommandRun;
+    if (view.runtime.waitingCause === null || (humanRequest === null && commandRun === null)) {
+        return null;
+    }
+
+    return (
+        <StatePanel
+            summary={
+                humanRequest?.summary ?? commandRun?.summary ?? "Waiting on an external source."
+            }
+            title={
+                humanRequest === null ? "Waiting on a command run" : "Waiting on a human request"
+            }
+            tone="stale"
+        />
     );
 }
 

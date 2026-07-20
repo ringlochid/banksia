@@ -235,9 +235,6 @@ function SelectedWorkflow({ controller }: { readonly controller: TaskStartContro
         return null;
     }
 
-    const selectedWorkflowUpdatedAt =
-        controller.detailState.detail?.updatedAt ?? controller.selectedWorkflow.updatedAt;
-    const selectedWorkflowUpdatedAtLabel = formatTaskStartTimestamp(selectedWorkflowUpdatedAt);
     const selectedDescription =
         controller.detailState.detail?.description ??
         controller.selectedWorkflow.description ??
@@ -259,24 +256,13 @@ function SelectedWorkflow({ controller }: { readonly controller: TaskStartContro
                         {selectedDescription}
                     </p>
                 </div>
-                <div className="flex w-full min-w-0 flex-col items-end gap-2 lg:w-auto lg:shrink-0">
-                    <span
-                        aria-label={`Updated ${selectedWorkflowUpdatedAtLabel}`}
-                        className="inline-flex max-w-full items-center gap-2 rounded-full bg-surface-high px-3 py-1 font-mono text-utility text-muted"
-                    >
-                        <span>Updated</span>
-                        <span className="font-mono text-utility">
-                            {selectedWorkflowUpdatedAtLabel}
-                        </span>
-                    </span>
-                    <Link
-                        className="inline-flex h-control w-full items-center justify-center gap-2 rounded-control border border-outline bg-surface-low px-4 text-utility font-semibold text-foreground transition-colors hover:border-primary/45 hover:text-primary-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:w-auto"
-                        to={workflowDefinitionRoute(controller.selectedWorkflow.key)}
-                    >
-                        Open definition details
-                        <ArrowUpRight aria-hidden="true" className="size-4 shrink-0" />
-                    </Link>
-                </div>
+                <Link
+                    className="inline-flex h-control w-full shrink-0 items-center justify-center gap-2 rounded-control border border-outline bg-surface-low px-4 text-utility font-semibold text-foreground transition-colors hover:border-primary/45 hover:text-primary-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary lg:w-auto"
+                    to={workflowDefinitionRoute(controller.selectedWorkflow.key)}
+                >
+                    Open definition details
+                    <ArrowUpRight aria-hidden="true" className="size-4 shrink-0" />
+                </Link>
             </div>
         </div>
     );
@@ -288,22 +274,4 @@ function workflowDefinitionRoute(key: string): string {
         kind: "workflow",
     });
     return `/definitions?${query.toString()}`;
-}
-
-function formatTaskStartTimestamp(value: string): string {
-    const date = new Date(value);
-
-    if (Number.isNaN(date.valueOf())) {
-        return value;
-    }
-
-    return new Intl.DateTimeFormat("en-AU", {
-        day: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-        month: "short",
-        timeZone: "Australia/Sydney",
-        timeZoneName: "short",
-        year: "numeric",
-    }).format(date);
 }

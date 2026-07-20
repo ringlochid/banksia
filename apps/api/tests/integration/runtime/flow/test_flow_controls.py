@@ -37,7 +37,7 @@ from autoclaw.runtime.post_commit import (
     DispatchStartDue,
     HumanRequestTerminal,
 )
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from tests.helpers.executor_harness import (
     SessionFactory,
@@ -58,6 +58,7 @@ async def test_flow_reads_expose_current_controller_identity(tmp_path: Path) -> 
             page = await list_runtime_flows(cast(AsyncSession, session))
 
     assert flow.status.value == "running"
+    assert flow.terminal_outcome is None
     assert flow.active_flow_revision_id == ids.flow_revision_id
     assert flow.current_dispatch is not None
     assert flow.current_dispatch.dispatch_id == ids.current_dispatch_id
@@ -65,6 +66,35 @@ async def test_flow_reads_expose_current_controller_identity(tmp_path: Path) -> 
     assert flow.active_attempt_id == ids.root_attempt_id
     assert flow.control_revision >= 0
     assert len(page.items) == 1 and page.items[0].task_id == ids.task_id
+    assert page.items[0].terminal_outcome is None
+
+
+async def test_flow_reads_expose_blocked_terminal_outcome(tmp_path: Path) -> None:
+    async with seeded_executor(tmp_path, suffix="flow-outcome") as (
+        _,
+        session_factory,
+        ids,
+        _,
+    ):
+        async with session_factory() as session:
+            await session.execute(
+                update(FlowModel)
+                .where(FlowModel.task_id == ids.task_id)
+                .values(
+                    status="completed",
+                    terminal_outcome="blocked",
+                    current_dispatch_id=None,
+                )
+            )
+            await session.commit()
+        async with session_factory() as session:
+            flow = await runtime_flow_read(cast(AsyncSession, session), ids.task_id)
+            page = await list_runtime_flows(cast(AsyncSession, session))
+
+    assert flow.status.value == "completed"
+    assert flow.terminal_outcome == "blocked"
+    assert flow.current_dispatch is None
+    assert len(page.items) == 1 and page.items[0].terminal_outcome == "blocked"
 
 
 async def test_pause_closes_exact_current_dispatch_and_rejects_stale_control(

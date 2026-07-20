@@ -78,7 +78,6 @@ function CommandRunsState({ controller }: { readonly controller: CommandRunsCont
     if (controller.rows.length === 0) {
         return (
             <StatePanel
-                action={<OpenTaskDetailLink taskId={controller.taskId} />}
                 summary="The controller did not return command-run records for this task."
                 title="No command runs"
                 tone="empty"

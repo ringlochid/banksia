@@ -7,7 +7,6 @@ from sqlalchemy import (
     JSON,
     CheckConstraint,
     Computed,
-    DateTime,
     ForeignKey,
     ForeignKeyConstraint,
     Index,
@@ -19,6 +18,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from autoclaw.persistence.base import RuntimeBase
+from autoclaw.persistence.datetimes import UtcDateTime
 from autoclaw.persistence.models.runtime.common import (
     FLOW_STATUS_VALUES,
     FLOW_TERMINAL_OUTCOME_VALUES,
@@ -150,11 +150,11 @@ class FlowModel(RuntimeBase):
     pause_details: Mapped[dict[str, object] | None] = mapped_column(
         JSON(none_as_null=True), nullable=True
     )
-    paused_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    paused_at: Mapped[datetime | None] = mapped_column(UtcDateTime(), nullable=True)
     paused_by_actor_ref: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
+        UtcDateTime(),
         default=utcnow,
         onupdate=utcnow,
     )
@@ -267,7 +267,7 @@ class FlowRevisionModel(RuntimeBase):
         nullable=True,
     )
     snapshot_json: Mapped[dict[str, object]] = mapped_column(JSON(none_as_null=True))
-    adopted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    adopted_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow)
     flow: Mapped[FlowModel] = relationship(
         back_populates="revisions",
         foreign_keys=[flow_id],

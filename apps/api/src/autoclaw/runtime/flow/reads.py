@@ -25,6 +25,7 @@ from autoclaw.runtime.contracts import (
     RuntimeFlowRead,
     RuntimeFlowSummary,
     RuntimeFlowSummaryListResponse,
+    RuntimeFlowTerminalOutcome,
     RuntimeFlowWaitingCause,
     RuntimeLifecycleStatus,
     WorkflowManifestRef,
@@ -101,6 +102,7 @@ async def read_runtime_flow(session: AsyncSession, task_id: str) -> RuntimeFlowR
         task_summary=task.summary,
         workflow_key=task.workflow_key,
         status=RuntimeLifecycleStatus(flow.status),
+        terminal_outcome=normalized_terminal_outcome(flow.terminal_outcome),
         active_flow_revision_id=flow.active_flow_revision_id,
         control_revision=flow.control_revision,
         workflow_manifest_ref=workflow_manifest_ref(),
@@ -236,6 +238,7 @@ async def list_runtime_flow_summaries(
                 task_summary=task.summary,
                 workflow_key=task.workflow_key,
                 status=RuntimeLifecycleStatus(flow.status),
+                terminal_outcome=normalized_terminal_outcome(flow.terminal_outcome),
                 active_flow_revision_id=flow.active_flow_revision_id,
                 workflow_manifest_ref=workflow_manifest_ref(),
                 current_node_key=current_node_key,
@@ -330,6 +333,16 @@ def normalized_waiting_cause(waiting_cause: str) -> RuntimeFlowWaitingCause | No
     return cast(RuntimeFlowWaitingCause, waiting_cause)
 
 
+def normalized_terminal_outcome(
+    terminal_outcome: str | None,
+) -> RuntimeFlowTerminalOutcome | None:
+    if terminal_outcome is None:
+        return None
+    if terminal_outcome not in {"green", "blocked"}:
+        raise illegal_state_error(f"flow has unsupported terminal outcome '{terminal_outcome}'")
+    return cast(RuntimeFlowTerminalOutcome, terminal_outcome)
+
+
 def workflow_manifest_ref() -> WorkflowManifestRef:
     return WorkflowManifestRef(
         path=Path("_runtime/workflow-manifest.md"),
@@ -386,6 +399,7 @@ __all__ = [
     "effective_capability_readback",
     "list_runtime_flow_summaries",
     "normalized_pause_reason",
+    "normalized_terminal_outcome",
     "normalized_waiting_cause",
     "read_current_dispatch",
     "read_runtime_flow",

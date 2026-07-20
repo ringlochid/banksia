@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { CheckCircle2, Plus, RefreshCw, Rocket, RotateCcw, Save, Trash2 } from "lucide-react";
+import { CheckCircle2, RefreshCw, Rocket, RotateCcw, Save, Trash2 } from "lucide-react";
 
 import { Button, StatePanel, StatusChip } from "../../components/ui";
 import { classNames } from "../../lib/classNames";
@@ -39,14 +39,6 @@ function DraftListPanel({ controller }: { readonly controller: DefinitionEditorC
                         Saved drafts
                     </h2>
                 </div>
-                <Button
-                    aria-label="New draft"
-                    className="px-3"
-                    icon={<Plus className="size-4" />}
-                    onClick={controller.openNewDraftDialog}
-                >
-                    New
-                </Button>
             </header>
             <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
                 {listState.error === null ? null : (
@@ -66,7 +58,7 @@ function DraftListPanel({ controller }: { readonly controller: DefinitionEditorC
                 ) : null}
                 {!listState.isLoading && listState.rows.length === 0 && listState.error === null ? (
                     <StatePanel
-                        action={<Button onClick={controller.openNewDraftDialog}>New draft</Button>}
+                        summary="Use New draft above to start one."
                         title="No saved drafts"
                     />
                 ) : null}
@@ -167,7 +159,11 @@ function DraftEditorPanel({ controller }: { readonly controller: DefinitionEdito
     if (currentDraft === null) {
         return (
             <DraftEditorEmptySurface>
-                <StatePanel title="Select a draft" />
+                {controller.listState.rows.length === 0 ? (
+                    <StatePanel summary="Create a draft to start editing." title="No drafts yet" />
+                ) : (
+                    <StatePanel title="Select a draft" />
+                )}
             </DraftEditorEmptySurface>
         );
     }

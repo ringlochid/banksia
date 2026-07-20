@@ -3,11 +3,21 @@ import { type KeyboardEvent, type ReactNode, useEffect, useRef } from "react";
 import { X } from "lucide-react";
 import { Link } from "react-router-dom";
 
-import { CodeBlock, StatePanel, StatusChip, Tabs } from "../../components/ui";
+import { taskOutcome } from "../../api/task-outcome";
+import {
+    CodeBlock,
+    Disclosure,
+    StatePanel,
+    StatusChip,
+    Tabs,
+    TimestampText,
+    type StatusTone,
+} from "../../components/ui";
 import type { TaskDetailController } from "./task-detail-controller";
 import { titleCaseNodeLabel } from "./task-detail-format";
 import {
     TASK_DETAIL_TABS,
+    checkpointOutcomeTone,
     commandRunTone,
     humanRequestTone,
     type DetailRow,
@@ -16,7 +26,6 @@ import {
     type TaskDetailView,
     type TaskGraphNode,
 } from "./task-detail-model";
-import { TaskDetailTimestamp } from "./task-detail-summary";
 
 export function TaskDetailModal({
     context,
@@ -128,12 +137,11 @@ export function TaskDetailModal({
                         id={`task-detail-${tab}`}
                         role="tabpanel"
                     >
-                        <TaskDetailTabPanel
-                            context={context}
-                            tab={tab}
-                            taskId={taskId}
-                            view={view}
-                        />
+                        {tab === "summary" ? (
+                            <SummaryTab context={context} taskId={taskId} view={view} />
+                        ) : (
+                            <EvidenceTab refs={context.evidenceRefs} />
+                        )}
                     </div>
                 </div>
             </section>
@@ -154,65 +162,7 @@ function getFocusableElements(root: HTMLElement): readonly HTMLElement[] {
     );
 }
 
-function TaskDetailTabPanel({
-    context,
-    tab,
-    taskId,
-    view,
-}: {
-    readonly context: NonNullable<TaskDetailController["selectedContext"]>;
-    readonly tab: TaskDetailTab;
-    readonly taskId: string;
-    readonly view: TaskDetailView;
-}) {
-    switch (tab) {
-        case "overview":
-            return <OverviewTab context={context} taskId={taskId} view={view} />;
-        case "checkpoint":
-            return (
-                <DetailTab
-                    label="Checkpoint"
-                    rows={preferRows(context.checkpointRows, [
-                        "Kind",
-                        "Outcome",
-                        "Summary",
-                        "Next step",
-                    ])}
-                />
-            );
-        case "assignment":
-            return (
-                <DetailTab
-                    label="Assignment"
-                    rows={preferRows(context.assignmentRows, [
-                        "Assignment key",
-                        "Node",
-                        "Assignment summary",
-                    ])}
-                />
-            );
-        case "boundary":
-            return (
-                <DetailTab
-                    emptyTitle="No accepted boundary"
-                    label="Boundary"
-                    rows={context.boundaryRows}
-                />
-            );
-        case "artifacts":
-            return <ArtifactRefs refs={context.artifactRefs} />;
-        case "trace":
-            return (
-                <CodeBlock title="Trace">
-                    {context.traceJson === "{}"
-                        ? `No selected task event for ${taskId}.`
-                        : context.traceJson}
-                </CodeBlock>
-            );
-    }
-}
-
-function OverviewTab({
+function SummaryTab({
     context,
     taskId,
     view,
@@ -239,43 +189,74 @@ function OverviewTab({
                     <NodeStatusChip context={context} view={view} />
                 </div>
                 <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                    <DetailProperty label="Task">{view.task.title}</DetailProperty>
-                    <DetailProperty label="Selected event">
-                        {context.event === null
-                            ? "No event selected yet"
-                            : displayEventLabel(context.event.eventType)}
+                    <DetailProperty label="Milestone">
+                        {context.event === null ? "No event selected yet" : context.event.label}
                     </DetailProperty>
-                    <DetailProperty label="Updated" mono>
-                        <TaskDetailTimestamp value={view.task.updatedAt} />
+                    <DetailProperty label="Time" mono>
+                        <TimestampText
+                            value={
+                                context.event === null
+                                    ? view.task.updatedAt
+                                    : context.event.occurredAt
+                            }
+                        />
                     </DetailProperty>
                 </div>
             </section>
+
+            {context.checkpointSummary === null && context.checkpointOutcome === null ? null : (
+                <section className="min-w-0 rounded-[16px] border border-outline-soft bg-surface p-4">
+                    <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
+                        <p className="font-mono text-label font-medium text-muted">Checkpoint</p>
+                        {context.checkpointOutcome === null ? null : (
+                            <StatusChip
+                                className="rounded-full"
+                                tone={checkpointOutcomeTone(context.checkpointOutcome)}
+                                withDot
+                            >
+                                {context.checkpointOutcome}
+                            </StatusChip>
+                        )}
+                    </div>
+                    {context.checkpointSummary === null ? null : (
+                        <p className="mt-2 text-compact text-foreground">
+                            {context.checkpointSummary}
+                        </p>
+                    )}
+                </section>
+            )}
 
             <div className="grid min-w-0 gap-3">
                 <HumanRequestHandoff taskId={taskId} view={view} />
                 <CommandRunHandoff taskId={taskId} view={view} />
             </div>
+
+            <Disclosure title="Technical details">
+                <div className="min-w-0 space-y-3">
+                    <TechnicalRows label="Assignment" rows={context.assignmentRows} />
+                    <TechnicalRows label="Boundary" rows={context.boundaryRows} />
+                    <TechnicalRows label="Checkpoint" rows={context.checkpointRows} />
+                    <TechnicalRefs refs={context.technicalRefs} />
+                    <CodeBlock title="Trace">
+                        {context.traceJson === "{}"
+                            ? `No selected task event for ${taskId}.`
+                            : context.traceJson}
+                    </CodeBlock>
+                </div>
+            </Disclosure>
         </div>
     );
 }
 
-function DetailTab({
-    emptyTitle = "No selected detail",
+function TechnicalRows({
     label,
     rows,
 }: {
-    readonly emptyTitle?: string;
     readonly label: string;
     readonly rows: readonly DetailRow[];
 }) {
     if (rows.length === 0) {
-        return (
-            <StatePanel
-                summary="No controller-backed details are available."
-                title={emptyTitle}
-                tone="empty"
-            />
-        );
+        return null;
     }
 
     return (
@@ -411,12 +392,12 @@ function DetailProperty({
     );
 }
 
-function ArtifactRefs({ refs }: { readonly refs: readonly TaskDetailRef[] }) {
+function EvidenceTab({ refs }: { readonly refs: readonly TaskDetailRef[] }) {
     if (refs.length === 0) {
         return (
             <StatePanel
-                summary="No controller-backed refs are available for the selected context."
-                title="No artifact refs"
+                summary="No produced artifacts are available for the selected context. Reference plumbing lives under Technical details on the Summary tab."
+                title="No evidence yet"
                 tone="empty"
             />
         );
@@ -427,25 +408,43 @@ function ArtifactRefs({ refs }: { readonly refs: readonly TaskDetailRef[] }) {
             <p className="font-mono text-label font-medium text-muted">Evidence</p>
             <div className="mt-4 grid gap-3">
                 {refs.map((ref) => (
-                    <article
-                        className="rounded-[16px] border border-outline-soft bg-surface px-4 py-3"
-                        key={`${ref.kind}-${ref.label}-${ref.path ?? ""}`}
-                    >
-                        <div className="flex min-w-0 flex-wrap items-center gap-2">
-                            <p className="break-all font-mono text-utility text-foreground">
-                                {ref.label}
-                            </p>
-                            <span className="rounded-full bg-surface-muted px-2.5 py-0.5 font-mono text-label text-muted">
-                                {ref.kind}
-                            </span>
-                        </div>
-                        {ref.path === null ? null : (
-                            <p className="mt-2 break-all text-utility text-muted">{ref.path}</p>
-                        )}
-                    </article>
+                    <RefCard key={`${ref.kind}-${ref.label}-${ref.path ?? ""}`} refItem={ref} />
                 ))}
             </div>
         </section>
+    );
+}
+
+function TechnicalRefs({ refs }: { readonly refs: readonly TaskDetailRef[] }) {
+    if (refs.length === 0) {
+        return null;
+    }
+
+    return (
+        <section className="rounded-[16px] border border-outline-soft bg-surface-muted p-4">
+            <p className="font-mono text-label font-medium text-muted">References</p>
+            <div className="mt-4 grid gap-3">
+                {refs.map((ref) => (
+                    <RefCard key={`${ref.kind}-${ref.label}-${ref.path ?? ""}`} refItem={ref} />
+                ))}
+            </div>
+        </section>
+    );
+}
+
+function RefCard({ refItem }: { readonly refItem: TaskDetailRef }) {
+    return (
+        <article className="rounded-[16px] border border-outline-soft bg-surface px-4 py-3">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <p className="break-all font-mono text-utility text-foreground">{refItem.label}</p>
+                <span className="rounded-full bg-surface-muted px-2.5 py-0.5 font-mono text-label text-muted">
+                    {refItem.kind}
+                </span>
+            </div>
+            {refItem.path === null ? null : (
+                <p className="mt-2 break-all text-utility text-muted">{refItem.path}</p>
+            )}
+        </article>
     );
 }
 
@@ -456,33 +455,39 @@ function NodeStatusChip({
     readonly context: NonNullable<TaskDetailController["selectedContext"]>;
     readonly view: TaskDetailView;
 }) {
-    const status = context.node === null ? view.task.status : nodeStatusLabel(context.node.status);
-    const tone = status === "green" ? "success" : status === "running" ? "active" : "neutral";
+    if (context.node === null) {
+        const outcome = taskOutcome(view.task.status, view.task.terminalOutcome);
+        return (
+            <StatusChip className="rounded-full" tone={outcome.tone} withDot>
+                {outcome.label}
+            </StatusChip>
+        );
+    }
 
+    const presentation = nodeStatusPresentation(context.node.status);
     return (
-        <StatusChip className="rounded-full" tone={tone} withDot>
-            {status}
+        <StatusChip className="rounded-full" tone={presentation.tone} withDot>
+            {presentation.label}
         </StatusChip>
     );
 }
 
-function nodeStatusLabel(status: TaskGraphNode["status"]): string {
+function nodeStatusPresentation(status: TaskGraphNode["status"]): {
+    readonly label: string;
+    readonly tone: StatusTone;
+} {
     switch (status) {
         case "active":
-            return "running";
+            return { label: "running", tone: "active" };
+        case "blocked":
+            return { label: "blocked", tone: "danger" };
         case "done":
-            return "green";
+            return { label: "completed", tone: "success" };
         case "quiet":
-            return "idle";
+            return { label: "idle", tone: "neutral" };
         case "staged":
-            return "staged";
+            return { label: "staged", tone: "neutral" };
     }
-}
-
-function preferRows(rows: readonly DetailRow[], labels: readonly string[]): readonly DetailRow[] {
-    const labelSet = new Set(labels);
-    const preferred = rows.filter((row) => labelSet.has(row.label));
-    return preferred.length > 0 ? preferred : rows;
 }
 
 function shouldUseMono(row: DetailRow): boolean {
@@ -495,8 +500,4 @@ function shouldUseMono(row: DetailRow): boolean {
         label.includes("kind") ||
         label.includes("node")
     );
-}
-
-function displayEventLabel(eventType: string): string {
-    return titleCaseNodeLabel(eventType);
 }

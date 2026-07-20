@@ -111,8 +111,20 @@ textarea {
 .definition-list-shell {
     display: flex;
     flex-direction: column;
-    max-height: min(760px, calc(100vh - 14rem));
     min-height: 0;
+}
+
+/* Side-by-side panes share one viewport-bound height; stacked layouts flow naturally. */
+@media (min-width: 80rem) {
+    .definition-list-shell,
+    .definition-detail-shell {
+        max-height: min(760px, calc(100vh - 14rem));
+    }
+
+    .definition-detail-shell {
+        overflow-y: auto;
+        overscroll-behavior-y: contain;
+    }
 }
 
 .definition-list-body {

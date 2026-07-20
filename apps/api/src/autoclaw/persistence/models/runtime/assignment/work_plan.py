@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     CheckConstraint,
-    DateTime,
     ForeignKey,
     ForeignKeyConstraint,
     Index,
@@ -18,6 +17,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from autoclaw.persistence.base import RuntimeBase
+from autoclaw.persistence.datetimes import UtcDateTime
 from autoclaw.persistence.models.runtime.common import (
     WORK_PLAN_STEP_STATUS_VALUES,
     sql_in,
@@ -56,7 +56,7 @@ class AssignmentWorkPlanModel(RuntimeBase):
     revision: Mapped[int] = mapped_column(Integer)
     explanation: Mapped[str | None] = mapped_column(Text, nullable=True)
     authoring_dispatch_id: Mapped[str] = mapped_column(String(255))
-    committed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    committed_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow)
     assignment: Mapped[AssignmentModel] = relationship(
         back_populates="work_plan",
         primaryjoin=(

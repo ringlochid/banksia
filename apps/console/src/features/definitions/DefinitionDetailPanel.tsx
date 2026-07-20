@@ -29,6 +29,16 @@ export function DefinitionDetailPanel({
     };
 
     if (controller.selectedKey === null) {
+        if (controller.listState.isLoading) {
+            return (
+                <StatePanel
+                    className="m-4"
+                    summary="Reading stored registry rows from the selected definition route."
+                    title="Loading Definitions"
+                    tone="loading"
+                />
+            );
+        }
         return (
             <StatePanel
                 className="m-4"
@@ -215,14 +225,9 @@ function WorkflowDetail({
                         {detail.root.description}
                     </p>
                 </div>
-                <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                    <WorkflowMetric label="Children" value={detail.workflowStats.childCount} />
-                    <WorkflowMetric label="Leaf roles" value={detail.workflowStats.leafRoleCount} />
-                    <WorkflowMetric
-                        label="Produced slots"
-                        value={detail.workflowStats.producedArtifactCount}
-                    />
-                </div>
+                <p className="mt-3 font-mono text-label text-muted">
+                    {`${String(detail.workflowStats.childCount)} children · ${String(detail.workflowStats.leafRoleCount)} leaf roles · ${String(detail.workflowStats.producedArtifactCount)} produced slots`}
+                </p>
             </div>
             <div className="rounded-card border border-outline-soft bg-surface-low p-4">
                 <p className="font-mono text-label font-medium uppercase text-muted">
@@ -234,15 +239,6 @@ function WorkflowDetail({
                     ))}
                 </ol>
             </div>
-        </div>
-    );
-}
-
-function WorkflowMetric({ label, value }: { readonly label: string; readonly value: number }) {
-    return (
-        <div className="rounded-control border border-outline-soft bg-surface px-3 py-3">
-            <p className="font-mono text-label font-medium uppercase text-muted">{label}</p>
-            <p className="mt-1 font-mono text-utility text-foreground">{value}</p>
         </div>
     );
 }
@@ -278,13 +274,13 @@ function WorkflowNodeRow({ node }: { readonly node: WorkflowNodeSummary }) {
 }
 
 function WorkflowProviderChips({ node }: { readonly node: WorkflowNodeSummary }) {
+    if (node.providerKind === null) {
+        return null;
+    }
+
     return (
         <>
-            <StatusChip>
-                {node.providerKind === null
-                    ? "Provider: machine default"
-                    : `Provider: ${formatProviderKind(node.providerKind)} (explicit)`}
-            </StatusChip>
+            <StatusChip>{`Provider: ${formatProviderKind(node.providerKind)}`}</StatusChip>
             {node.providerKind === "openclaw" ? (
                 <StatusChip tone="warning">experimental</StatusChip>
             ) : null}

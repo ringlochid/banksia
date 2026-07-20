@@ -46,14 +46,12 @@ function CurrentAuthority({
                         value: renderOptionalId(runtime.latestDispatchId),
                     },
                     { label: "Control revision", value: String(runtime.controlRevision) },
-                    {
-                        label: "Current wait",
-                        value: runtime.waitingCause ?? "No external wait",
-                    },
-                    {
-                        label: "Pause reason",
-                        value: runtime.pauseReason ?? "Not paused",
-                    },
+                    ...(runtime.waitingCause === null
+                        ? []
+                        : [{ label: "Current wait", value: runtime.waitingCause }]),
+                    ...(runtime.pauseReason === null
+                        ? []
+                        : [{ label: "Pause reason", value: runtime.pauseReason }]),
                 ]}
             />
             <CurrentWait runtime={runtime} />

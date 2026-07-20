@@ -8,6 +8,7 @@ export interface IdRefTextProps {
 export interface TimestampTextProps {
     readonly className?: string;
     readonly value: Date | string;
+    readonly variant?: "dateTime" | "time";
 }
 
 export function IdRefText({ className, value }: IdRefTextProps) {
@@ -18,14 +19,16 @@ export function IdRefText({ className, value }: IdRefTextProps) {
     );
 }
 
-export function TimestampText({ className, value }: TimestampTextProps) {
+export function TimestampText({ className, value, variant = "dateTime" }: TimestampTextProps) {
     const date = value instanceof Date ? value : new Date(value);
     const label = Number.isNaN(date.valueOf())
         ? String(value)
-        : new Intl.DateTimeFormat(undefined, {
-              dateStyle: "medium",
-              timeStyle: "short",
-          }).format(date);
+        : new Intl.DateTimeFormat(
+              undefined,
+              variant === "time"
+                  ? { timeStyle: "short" }
+                  : { dateStyle: "medium", timeStyle: "short" },
+          ).format(date);
 
     return (
         <time

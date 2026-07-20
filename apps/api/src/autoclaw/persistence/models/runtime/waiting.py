@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 from sqlalchemy import (
     CheckConstraint,
     Computed,
-    DateTime,
     ForeignKey,
     ForeignKeyConstraint,
     Integer,
@@ -15,6 +14,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from autoclaw.persistence.base import RuntimeBase
+from autoclaw.persistence.datetimes import UtcDateTime
 from autoclaw.persistence.models.runtime.common import utcnow
 
 if TYPE_CHECKING:
@@ -78,7 +78,7 @@ class FlowWaitModel(RuntimeBase):
     )
     human_request_id: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
     command_run_id: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow)
     flow: Mapped[FlowModel] = relationship(
         "FlowModel",
         back_populates="wait",

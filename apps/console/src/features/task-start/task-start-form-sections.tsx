@@ -120,7 +120,7 @@ export function TaskStartSection({
     return (
         <section
             aria-labelledby={headingId}
-            className="grid gap-4 px-4 py-4 sm:px-5 sm:py-5 xl:grid-cols-[13rem_minmax(0,1fr)]"
+            className="grid gap-3 px-4 py-4 sm:px-5 sm:py-5 xl:grid-cols-[7rem_minmax(0,1fr)]"
         >
             <h2 className="font-mono text-label font-medium text-muted lg:pt-2" id={headingId}>
                 {label}

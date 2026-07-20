@@ -1,9 +1,10 @@
+import type { StatusTone } from "../../components/ui";
 import type { components } from "../../api/generated/openapi";
 import { mapCommandRunRow, mapHumanRequestQueueItem } from "../../api/view-models";
 import type { TaskEventType } from "../../api/view-models";
 import type { TaskDetailBootstrap } from "./task-detail-data";
 import { buildTaskActionMode, mapTaskRuntimeView } from "./task-detail-runtime-model";
-import { taskEventTone } from "./task-detail-tones";
+import { checkpointOutcomeTone } from "./task-detail-tones";
 import type {
     DetailRow,
     TaskDetailRef,
@@ -14,12 +15,7 @@ import type {
     TaskSelectedContext,
 } from "./task-detail-types";
 
-export {
-    commandRunTone,
-    flowStatusTone,
-    humanRequestTone,
-    taskEventTone,
-} from "./task-detail-tones";
+export { checkpointOutcomeTone, commandRunTone, humanRequestTone } from "./task-detail-tones";
 export { TASK_DETAIL_TABS, TASK_EVENT_TYPES } from "./task-detail-types";
 export type {
     CommandRunPreview,
@@ -91,8 +87,10 @@ export function buildTaskDetailView({
         task: {
             activeAttemptId: bootstrap.task.active_attempt_id ?? null,
             activeFlowRevisionId: bootstrap.task.active_flow_revision_id,
+            blockerSummary: findBlockerSummary(bootstrap),
             currentNodeKey: bootstrap.task.current_node_key ?? null,
             status: bootstrap.task.status,
+            terminalOutcome: bootstrap.task.terminal_outcome ?? null,
             summary: bootstrap.task.task_summary,
             taskId: bootstrap.task.task_id,
             title: bootstrap.task.task_title,
@@ -119,13 +117,11 @@ export function getDefaultNodeKey(view: TaskDetailView): string | null {
 }
 
 export function getDefaultEventId(view: TaskDetailView, nodeKey: string | null): string | null {
-    const dispatchEvent = view.eventRows.find(
-        (event) =>
-            event.eventType === "dispatch_opened" &&
-            (nodeKey === null || event.nodeKey === nodeKey),
+    const milestoneEvent = view.eventRows.find(
+        (event) => event.isMilestone && (nodeKey === null || event.nodeKey === nodeKey),
     );
-    if (dispatchEvent !== undefined) {
-        return dispatchEvent.eventId;
+    if (milestoneEvent !== undefined) {
+        return milestoneEvent.eventId;
     }
 
     const matchingEvent = view.eventRows.find(
@@ -134,6 +130,14 @@ export function getDefaultEventId(view: TaskDetailView, nodeKey: string | null):
 
     return matchingEvent?.eventId ?? view.eventRows.at(-1)?.eventId ?? null;
 }
+
+const TECHNICAL_REF_KINDS: ReadonlySet<string> = new Set([
+    "checkpoint_ref",
+    "input_ref",
+    "instructions_ref",
+    "manifest",
+    "manifest_ref",
+]);
 
 export function buildSelectedContext({
     eventId,
@@ -149,20 +153,42 @@ export function buildSelectedContext({
     const payload = event?.record.payload;
     const selectedArtifactRefs =
         event === null ? view.artifactRefs : collectRefsFromPayload(payload, "event payload");
+    const artifactRefs =
+        selectedArtifactRefs.length === 0 ? view.artifactRefs : selectedArtifactRefs;
+    const checkpoint = findSelectedCheckpoint(view, node, event);
 
     return {
         assignmentRows: buildAssignmentRows(view, node, event),
-        artifactRefs: selectedArtifactRefs.length === 0 ? view.artifactRefs : selectedArtifactRefs,
         boundaryRows: buildBoundaryRows(view, node, event),
+        checkpointOutcome: checkpoint.outcome,
         checkpointRows: buildCheckpointRows(view, node, event),
+        checkpointSummary: checkpoint.summary,
         event,
+        evidenceRefs: artifactRefs.filter((ref) => !TECHNICAL_REF_KINDS.has(ref.kind)),
         node,
-        overviewRows: buildOverviewRows(view, node, event),
+        technicalRefs: artifactRefs.filter((ref) => TECHNICAL_REF_KINDS.has(ref.kind)),
         traceJson: event === null ? "{}" : JSON.stringify(event.record, null, 2),
     };
 }
 
+function findSelectedCheckpoint(
+    view: TaskDetailView,
+    node: TaskGraphNode | null,
+    event: TaskEventRow | null,
+): { readonly outcome: string | null; readonly summary: string | null } {
+    const payload = event?.eventType === "checkpoint_recorded" ? event.record.payload : null;
+    const checkpoint = findCheckpointEntry(view.trace.checkpoints, {
+        attemptId: event?.attemptId ?? node?.attemptId ?? null,
+        checkpointId: readString(payload, "checkpoint_id"),
+    });
+    return {
+        outcome: readString(payload, "outcome") ?? checkpoint?.outcome ?? null,
+        summary: readString(payload, "summary") ?? checkpoint?.summary ?? null,
+    };
+}
+
 function mapTaskEventRow(event: components["schemas"]["TaskEventRecord"]): TaskEventRow {
+    const presentation = describeTaskEvent(event.event_type, event.payload);
     return {
         actorRef: event.actor_ref ?? null,
         attemptId: event.attempt_id ?? null,
@@ -171,12 +197,81 @@ function mapTaskEventRow(event: components["schemas"]["TaskEventRecord"]): TaskE
         eventSource: event.event_source,
         eventType: event.event_type,
         flowRevisionId: event.flow_revision_id ?? null,
+        isMilestone: presentation.isMilestone,
+        label: presentation.label,
         nodeKey: event.node_key ?? null,
         occurredAt: event.occurred_at,
         payloadSummary: summarizePayload(event.event_type, event.payload),
         record: event,
-        tone: taskEventTone(event.event_type),
+        tone: presentation.tone,
     };
+}
+
+const TECHNICAL_EVENT_TYPES: ReadonlySet<TaskEventType> = new Set([
+    "dispatch_opened",
+    "dispatch_start_updated",
+    "work_plan_set",
+    "work_plan_cleared",
+    "child_assignment_staged",
+    "command_run_started",
+    "command_run_progressed",
+    "command_run_cancel_requested",
+]);
+
+function describeTaskEvent(
+    eventType: TaskEventType,
+    payload: unknown,
+): { readonly isMilestone: boolean; readonly label: string; readonly tone: StatusTone } {
+    const isMilestone = !TECHNICAL_EVENT_TYPES.has(eventType);
+    if (eventType === "boundary_accepted") {
+        const outcome = readString(payload, "outcome");
+        if (readString(payload, "resulting_flow_status") === "completed") {
+            return outcome === "blocked"
+                ? { isMilestone, label: "Task blocked", tone: "danger" }
+                : { isMilestone, label: "Task completed", tone: "success" };
+        }
+        return { isMilestone, label: "Boundary accepted", tone: checkpointOutcomeTone(outcome) };
+    }
+    if (eventType === "checkpoint_recorded") {
+        return {
+            isMilestone,
+            label: "Checkpoint recorded",
+            tone: checkpointOutcomeTone(readString(payload, "outcome")),
+        };
+    }
+    return { isMilestone, label: defaultEventLabel(eventType), tone: defaultEventTone(eventType) };
+}
+
+function defaultEventTone(eventType: TaskEventType): StatusTone {
+    if (
+        eventType === "command_run_abandoned" ||
+        eventType === "command_run_failed" ||
+        eventType === "command_run_timed_out" ||
+        eventType.endsWith("cancelled")
+    ) {
+        return "danger";
+    }
+    if (eventType.includes("succeeded")) {
+        return "success";
+    }
+    if (eventType.includes("human_request")) {
+        return "warning";
+    }
+    return "active";
+}
+
+function defaultEventLabel(eventType: TaskEventType): string {
+    return eventType.charAt(0).toUpperCase() + eventType.slice(1).replaceAll("_", " ");
+}
+
+function findBlockerSummary(bootstrap: TaskDetailBootstrap): string | null {
+    if (bootstrap.task.terminal_outcome !== "blocked") {
+        return null;
+    }
+    const blockedCheckpoint = [...bootstrap.trace.checkpoint_history]
+        .reverse()
+        .find((checkpoint) => checkpoint.outcome === "blocked");
+    return blockedCheckpoint?.summary ?? null;
 }
 
 function buildGraphNodes(
@@ -308,22 +403,6 @@ function collectRefsFromPayload(payload: unknown, fallbackLabel: string): readon
     return refs;
 }
 
-function buildOverviewRows(
-    view: TaskDetailView,
-    node: TaskGraphNode | null,
-    event: TaskEventRow | null,
-): readonly DetailRow[] {
-    return compactRows([
-        detailRow("Task", view.task.title),
-        detailRow("Status", view.task.status),
-        detailRow("Workflow", view.task.workflowKey),
-        detailRow("Current node", view.task.currentNodeKey),
-        detailRow("Selected node", node?.nodeKey ?? "none selected"),
-        detailRow("Selected event", event?.eventType ?? "none selected"),
-        detailRow("Stream head", view.snapshot.streamHeadEventId ?? "live-only"),
-    ]);
-}
-
 function buildCheckpointRows(
     view: TaskDetailView,
     node: TaskGraphNode | null,
@@ -332,8 +411,6 @@ function buildCheckpointRows(
     const payload = event?.eventType === "checkpoint_recorded" ? event.record.payload : null;
     const checkpointId = readString(payload, "checkpoint_id");
     const checkpointKind = readString(payload, "checkpoint_kind");
-    const outcome = readString(payload, "outcome");
-    const summary = readString(payload, "summary");
     const checkpointRef = readString(payload, "checkpoint_ref");
     const selectedAttemptId = event?.attemptId ?? node?.attemptId ?? null;
     const checkpoint = findCheckpointEntry(view.trace.checkpoints, {
@@ -344,8 +421,6 @@ function buildCheckpointRows(
     return compactRows([
         detailRow("Checkpoint id", checkpointId ?? checkpoint?.checkpoint_id),
         detailRow("Kind", checkpointKind ?? checkpoint?.checkpoint_kind),
-        detailRow("Outcome", outcome ?? checkpoint?.outcome),
-        detailRow("Summary", summary ?? checkpoint?.summary),
         detailRow("Checkpoint ref", checkpointRef),
     ]);
 }
@@ -469,7 +544,10 @@ function resolveNodeStatus(
     if (isCurrent) {
         return "active";
     }
-    if (checkpoint?.outcome === "green" || checkpoint?.checkpoint_kind === "terminal") {
+    if (checkpoint?.outcome === "blocked") {
+        return "blocked";
+    }
+    if (checkpoint?.outcome === "green") {
         return "done";
     }
     if (dispatch?.status === "starting") {

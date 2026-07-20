@@ -263,7 +263,7 @@ describe("HumanRequestsPage", () => {
         expect(await screen.findByText("No human requests")).toBeVisible();
         expect(screen.queryByText("Empty")).not.toBeInTheDocument();
         const taskDetailLinks = screen.getAllByRole("link", { name: "Open task detail" });
-        expect(taskDetailLinks).toHaveLength(2);
+        expect(taskDetailLinks).toHaveLength(1);
         await userEvent.click(taskDetailLinks[0]);
         expect(await screen.findByTestId("task-detail-target")).toHaveTextContent(
             HUMAN_REQUEST_TASK_ID,

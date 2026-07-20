@@ -69,7 +69,7 @@ describe("task detail graph", () => {
         ).toBeVisible();
     });
 
-    it("centers the initial fallback camera on the selected lineage", () => {
+    it("fits the full graph on the initial camera", () => {
         render(
             <TaskGraph
                 edges={[
@@ -125,13 +125,14 @@ describe("task detail graph", () => {
         const translateX = Number(
             /^translate\((?<translateX>-?\d+(?:\.\d+)?) /.exec(transform)?.groups?.translateX,
         );
+        const scale = Number(/scale\((?<scale>-?\d+(?:\.\d+)?)\)/.exec(transform)?.groups?.scale);
 
-        expect(translateX).toBeGreaterThan(100);
-        expect(translateX).toBeLessThan(250);
-        expect(transform).toContain("scale(1.85)");
+        expect(Number.isFinite(translateX)).toBe(true);
+        expect(scale).toBeGreaterThan(0.7);
+        expect(scale).toBeLessThanOrEqual(1.85);
     });
 
-    it("fits a shallow root branch up to the 500 percent visual ceiling", async () => {
+    it("opens at a readable fit and keeps manual zoom capped at 500 percent", async () => {
         mockGraphViewport({ height: 620, width: 320 });
 
         render(
@@ -168,10 +169,10 @@ describe("task detail graph", () => {
         );
 
         await waitFor(() => {
-            expect(screen.getByText("500%")).toBeVisible();
+            expect(screen.getByText("185%")).toBeVisible();
         });
 
-        for (let index = 0; index < 6; index += 1) {
+        for (let index = 0; index < 12; index += 1) {
             fireEvent.click(screen.getByRole("button", { name: "Zoom in graph" }));
         }
 

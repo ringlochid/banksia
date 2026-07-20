@@ -49,6 +49,7 @@ RuntimeFlowRead:
   task_summary: string
   workflow_key: string | null
   status: pending | running | paused | completed | cancelled
+  terminal_outcome: green | blocked | null
   active_flow_revision_id: string
   control_revision: integer
   workflow_manifest_ref: ref

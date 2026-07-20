@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 from sqlalchemy import (
     CheckConstraint,
     Computed,
-    DateTime,
     ForeignKey,
     ForeignKeyConstraint,
     Index,
@@ -19,6 +18,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from autoclaw.persistence.base import RuntimeBase
+from autoclaw.persistence.datetimes import UtcDateTime
 from autoclaw.persistence.models.runtime.common import (
     CAPABILITY_DECISION_VALUES,
     CAPABILITY_SOURCE_VALUES,
@@ -245,22 +245,22 @@ class DispatchTurnModel(RuntimeBase):
         server_default="0",
     )
     next_provider_start_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True),
+        UtcDateTime(),
         nullable=True,
     )
     provider_start_retry_kind: Mapped[str | None] = mapped_column(String(64), nullable=True)
     provider_start_last_error_code: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow)
     adapter_started_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True),
+        UtcDateTime(),
         nullable=True,
     )
     last_node_activity_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True),
+        UtcDateTime(),
         nullable=True,
     )
     node_activity_revision: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
-    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    closed_at: Mapped[datetime | None] = mapped_column(UtcDateTime(), nullable=True)
     closed_reason: Mapped[str | None] = mapped_column(String(64), nullable=True)
     task: Mapped[TaskModel] = relationship(
         "TaskModel",
@@ -443,7 +443,7 @@ class DispatchPromptRefsModel(RuntimeBase):
     instructions_logical_path: Mapped[str] = mapped_column(Text)
     input_logical_path: Mapped[str] = mapped_column(Text)
     dynamic_input_version: Mapped[int] = mapped_column(Integer)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow)
     dispatch: Mapped[DispatchTurnModel] = relationship(
         back_populates="prompt_refs",
         foreign_keys=[dispatch_id],
@@ -497,7 +497,7 @@ class DispatchCapabilitySetModel(RuntimeBase):
     human_input: Mapped[str] = mapped_column(String(64))
     human_review: Mapped[str] = mapped_column(String(64))
     command_run: Mapped[str] = mapped_column(String(64))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow)
     dispatch: Mapped[DispatchTurnModel] = relationship(
         back_populates="capability_set",
         foreign_keys=[dispatch_id],
@@ -523,8 +523,8 @@ class NodeInvocationModel(RuntimeBase):
     dispatch_id: Mapped[str] = mapped_column(String(255), index=True)
     logical_tool_name: Mapped[str] = mapped_column(String(255))
     outcome_code: Mapped[str] = mapped_column(String(255))
-    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    ended_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    started_at: Mapped[datetime] = mapped_column(UtcDateTime())
+    ended_at: Mapped[datetime] = mapped_column(UtcDateTime())
     dispatch: Mapped[DispatchTurnModel] = relationship(
         back_populates="node_invocations",
         foreign_keys=[dispatch_id, task_id],

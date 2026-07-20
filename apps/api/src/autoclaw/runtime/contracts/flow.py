@@ -19,6 +19,7 @@ from autoclaw.runtime.contracts.provider_resolution import ProviderSelectionBasi
 from autoclaw.runtime.contracts.refs import WorkflowManifestRef
 
 type RuntimeFlowWaitingCause = Literal["human_request", "command_run"]
+type RuntimeFlowTerminalOutcome = Literal["green", "blocked"]
 type RuntimeFlowPauseReason = Literal[
     "paused_by_operator",
     "runtime_recovery_exhausted",
@@ -143,6 +144,7 @@ class RuntimeFlowRead(BaseModel):
     task_summary: RuntimeSchemaText
     workflow_key: RuntimeSchemaText | None = None
     status: RuntimeLifecycleStatus
+    terminal_outcome: RuntimeFlowTerminalOutcome | None = None
     active_flow_revision_id: RuntimeSchemaText
     control_revision: int = Field(ge=0)
     workflow_manifest_ref: WorkflowManifestRef
@@ -168,6 +170,7 @@ class RuntimeFlowSummary(BaseModel):
     task_summary: RuntimeSchemaText
     workflow_key: RuntimeSchemaText | None = None
     status: RuntimeLifecycleStatus
+    terminal_outcome: RuntimeFlowTerminalOutcome | None = None
     active_flow_revision_id: RuntimeSchemaText
     workflow_manifest_ref: WorkflowManifestRef
     current_node_key: RuntimeSchemaText | None = None
@@ -233,6 +236,7 @@ __all__ = [
     "RuntimeFlowRead",
     "RuntimeFlowSummary",
     "RuntimeFlowSummaryListResponse",
+    "RuntimeFlowTerminalOutcome",
     "RuntimeFlowWaitingCause",
     "RuntimeLifecycleStatus",
     "RuntimeTaskListQuery",

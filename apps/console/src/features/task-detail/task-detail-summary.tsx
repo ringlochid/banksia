@@ -1,10 +1,10 @@
 import type { ReactNode } from "react";
 
-import { Button, StatusChip } from "../../components/ui";
-import { classNames } from "../../lib/classNames";
+import { taskOutcome } from "../../api/task-outcome";
+import { Button, StatusChip, TimestampText } from "../../components/ui";
 import type { TaskControlAction } from "./task-detail-data";
 import { titleCaseNodeLabel } from "./task-detail-format";
-import { flowStatusTone, type TaskDetailView } from "./task-detail-model";
+import type { TaskDetailView } from "./task-detail-model";
 
 export function TaskSummaryHeader({ view }: { readonly view: TaskDetailView }) {
     return (
@@ -13,21 +13,19 @@ export function TaskSummaryHeader({ view }: { readonly view: TaskDetailView }) {
                 <HeaderFact label="Node">{titleCaseNodeLabel(view.task.currentNodeKey)}</HeaderFact>
             )}
             <HeaderFact label="Updated">
-                <TaskDetailTimestamp value={view.task.updatedAt} />
+                <TimestampText value={view.task.updatedAt} />
             </HeaderFact>
         </div>
     );
 }
 
 export function TaskDetailEyebrow({ view }: { readonly view: TaskDetailView }) {
+    const outcome = taskOutcome(view.task.status, view.task.terminalOutcome);
     return (
         <span className="flex min-w-0 flex-wrap items-center gap-2.5">
             <span>Task Detail</span>
-            <StatusChip
-                className="h-auto rounded-full px-3 py-1 normal-case"
-                tone={flowStatusTone(view.task.status)}
-            >
-                {view.task.status}
+            <StatusChip className="h-auto rounded-full px-3 py-1 normal-case" tone={outcome.tone}>
+                {outcome.label}
             </StatusChip>
         </span>
     );
@@ -43,59 +41,46 @@ export function TaskActionControls({
     readonly onAction: (action: TaskControlAction) => void;
     readonly view: TaskDetailView;
 }) {
+    const { canCancel, canContinue, canPause } = view.actionMode;
+    if (!canPause && !canContinue && !canCancel) {
+        return null;
+    }
+
     return (
         <div className="flex flex-wrap items-center gap-3">
-            <Button
-                disabled={!view.actionMode.canPause || actionPending !== null}
-                onClick={() => {
-                    onAction("pause");
-                }}
-                variant="primary"
-            >
-                {actionPending === "pause" ? "Pausing" : "Pause"}
-            </Button>
-            <Button
-                disabled={!view.actionMode.canContinue || actionPending !== null}
-                onClick={() => {
-                    onAction("continue");
-                }}
-            >
-                {actionPending === "continue" ? "Continuing" : "Continue"}
-            </Button>
-            <Button
-                disabled={!view.actionMode.canCancel || actionPending !== null}
-                onClick={() => {
-                    onAction("cancel");
-                }}
-                variant="danger"
-            >
-                {actionPending === "cancel" ? "Cancelling" : "Cancel"}
-            </Button>
+            {canPause ? (
+                <Button
+                    disabled={actionPending !== null}
+                    onClick={() => {
+                        onAction("pause");
+                    }}
+                    variant="primary"
+                >
+                    {actionPending === "pause" ? "Pausing" : "Pause"}
+                </Button>
+            ) : null}
+            {canContinue ? (
+                <Button
+                    disabled={actionPending !== null}
+                    onClick={() => {
+                        onAction("continue");
+                    }}
+                >
+                    {actionPending === "continue" ? "Continuing" : "Continue"}
+                </Button>
+            ) : null}
+            {canCancel ? (
+                <Button
+                    disabled={actionPending !== null}
+                    onClick={() => {
+                        onAction("cancel");
+                    }}
+                    variant="danger"
+                >
+                    {actionPending === "cancel" ? "Cancelling" : "Cancel"}
+                </Button>
+            ) : null}
         </div>
-    );
-}
-
-export function TaskDetailTimestamp({
-    className,
-    value,
-    variant = "dateTime",
-}: {
-    readonly className?: string;
-    readonly value: Date | string;
-    readonly variant?: "dateTime" | "time";
-}) {
-    const date = value instanceof Date ? value : new Date(value);
-    const label = Number.isNaN(date.valueOf())
-        ? String(value)
-        : formatSydneyTimestamp(date, variant);
-
-    return (
-        <time
-            className={classNames("font-mono text-utility", className)}
-            dateTime={Number.isNaN(date.valueOf()) ? undefined : date.toISOString()}
-        >
-            {label}
-        </time>
     );
 }
 
@@ -106,25 +91,4 @@ function HeaderFact({ children, label }: { readonly children: ReactNode; readonl
             <span className="min-w-0 text-utility text-foreground">{children}</span>
         </span>
     );
-}
-
-function formatSydneyTimestamp(date: Date, variant: "dateTime" | "time"): string {
-    const options: Intl.DateTimeFormatOptions =
-        variant === "time"
-            ? {
-                  hour: "numeric",
-                  minute: "2-digit",
-                  timeZone: "Australia/Sydney",
-                  timeZoneName: "short",
-              }
-            : {
-                  day: "numeric",
-                  hour: "numeric",
-                  minute: "2-digit",
-                  month: "long",
-                  timeZone: "Australia/Sydney",
-                  timeZoneName: "short",
-                  year: "numeric",
-              };
-    return new Intl.DateTimeFormat("en-AU", options).format(date).replace(" at ", ", ");
 }

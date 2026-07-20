@@ -1,0 +1,116 @@
+kind: workflow
+id: reviewed-change-release
+description: Scope, implement, review, and close one engineering change with parent-owned handoff checks.
+root:
+    node_key: root
+    kind: root
+    role_id: root_planning_lead
+    policy_id: standard-root
+    description: Preserve the task purpose, verify scoped implementation and review evidence, and close from current controller truth.
+    instruction: >-
+      Read manifest, assignment, child checkpoints, surfaced refs, and criteria before release. Route weak scope, implementation, verification, or review evidence back through the subtree before closure.
+    criteria:
+        - slot: root_delivery_rules
+          description: Root acceptance criteria.
+          criteria:
+              - final closure happens only after root verifies current scope, patch, review, and verification evidence
+              - broad or weak evidence is routed to scoping, implementation, review, verification, or replan instead of release
+        - slot: root_closure_criteria
+          description: Final release criteria.
+          criteria:
+              - release work uses only surfaced evidence and current criteria
+              - release work does not reopen implementation scope
+    children:
+        - node_key: change_subtree
+          kind: parent
+          role_id: planning_lead
+          policy_id: standard-parent
+          description: Coordinate scoping, implementation, and ordinary review work for the bounded change.
+          instruction: >-
+            Prepare child assignments with purpose, refs to read first, constraints, criteria, required outputs, known risks, and untouched areas. Inspect each checkpoint before routing the next child.
+          criteria:
+              - slot: change_subtree_requirements
+                description: Local execution requirements for the change subtree.
+                criteria:
+                    - scope, implementation, and review stay inside the current subtree
+                    - each child checkpoint explains evidence read, reasoning, criteria status, and next action
+                    - review evidence must address the current patch and verification evidence
+          child_defaults:
+              criteria:
+                  - change_subtree_requirements
+          children:
+              - node_key: scope_change
+                kind: worker
+                role_id: researcher
+                policy_id: standard-worker
+                description: Inspect task purpose, constraints, relevant context, and risks, then publish the scoped change brief.
+                instruction: >-
+                  Publish only the facts, constraints, uncertainties, and implementation implications needed by downstream work.
+                produces:
+                    artifacts:
+                        - slot: change_scope_report
+                          file_hint: change_scope_report.md
+                          description: Scoped findings and constraints needed by downstream implementation.
+              - node_key: implement_change
+                kind: worker
+                role_id: engineer
+                policy_id: standard-worker
+                description: Implement the bounded change from current scope evidence and publish patch plus verification evidence.
+                instruction: >-
+                  Read the scope report and criteria before editing. Keep patch and verification scoped, and checkpoint residual risks.
+                consumes:
+                    artifacts:
+                        - slot: change_scope_report
+                criteria:
+                    - slot: implement_change_delivery_criteria
+                      description: Delivery criteria for the implementation step.
+                      criteria:
+                          - patch matches the scoped assignment
+                          - verification evidence supports the claimed fix
+                          - checkpoint names evidence read, commands or checks run, and any residual risk
+                produces:
+                    artifacts:
+                        - slot: change_patch
+                          file_hint: change_patch.diff
+                          description: Patch for the scoped change.
+                        - slot: verification_report
+                          file_hint: verification_report.md
+                          description: Verification evidence for the scoped change.
+              - node_key: review_change
+                kind: worker
+                role_id: reviewer
+                policy_id: standard-worker
+                description: Critically review current implementation evidence and publish a bounded review report.
+                instruction: >-
+                  Review current patch, verification evidence, and criteria. Record approval, rejection, evidence gaps, and residual risk.
+                consumes:
+                    artifacts:
+                        - slot: change_patch
+                        - slot: verification_report
+                    criteria:
+                        - slot: change_subtree_requirements
+                produces:
+                    artifacts:
+                        - slot: review_report
+                          file_hint: review_report.md
+                          description: Review findings and review disposition for the subtree.
+        - node_key: release_closure
+          kind: worker
+          role_id: release_operator
+          policy_id: standard-worker
+          description: Perform final bounded release work from current surfaced implementation and review evidence.
+          instruction: >-
+            Use only surfaced scope, implementation, verification, review evidence, and closure criteria. Report release gaps instead of reopening scope.
+          consumes:
+              artifacts:
+                  - slot: change_scope_report
+                  - slot: change_patch
+                  - slot: verification_report
+                  - slot: review_report
+              criteria:
+                  - slot: root_closure_criteria
+          produces:
+              artifacts:
+                  - slot: closure_report
+                    file_hint: closure_report.md
+                    description: Final bounded release or closure report.

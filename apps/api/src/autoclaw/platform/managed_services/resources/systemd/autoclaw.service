@@ -1,0 +1,19 @@
+[Unit]
+Description=AutoClaw local control plane
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+Environment="AUTOCLAW_CONFIG=@AUTOCLAW_CONFIG@"
+UnsetEnvironment=CODEX_HOME CLAUDE_CONFIG_DIR OPENCLAW_STATE_DIR
+EnvironmentFile=-@AUTOCLAW_ENV_FILE@
+ExecStartPre="@AUTOCLAW_PYTHON@" -m autoclaw db upgrade --config "@AUTOCLAW_CONFIG@" --revision head
+ExecStart="@AUTOCLAW_PYTHON@" -m autoclaw serve --config "@AUTOCLAW_CONFIG@"
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=default.target

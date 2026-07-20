@@ -1,0 +1,19 @@
+# Standard Worker policy example
+
+This example mirrors the shipped `standard-worker` policy fixture.
+
+```yaml
+kind: policy
+id: standard-worker
+title: Standard Worker
+description: Guardrails for bounded worker assignments without human waits or command runs.
+applies_to:
+    - worker
+budget_spec:
+    retry_limit: 1
+capabilities:
+    human_request:
+        mode: deny
+        allowed_kinds: []
+    command_run: deny
+```

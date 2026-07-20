@@ -1,0 +1,11 @@
+kind: policy
+id: standard-root
+title: Standard Root
+description: Guardrails for root orchestration and final closure.
+applies_to:
+    - root
+capabilities:
+    human_request:
+        mode: deny
+        allowed_kinds: []
+    command_run: deny

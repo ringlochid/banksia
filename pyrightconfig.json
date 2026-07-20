@@ -1,0 +1,22 @@
+{
+  "include": [
+    "apps/api/src",
+    "apps/api/tests"
+  ],
+  "exclude": [
+    "apps/api/tests/compat"
+  ],
+  "executionEnvironments": [
+    {
+      "root": "apps/api",
+      "extraPaths": [
+        "apps/api/src",
+        "apps/api/tests/compat"
+      ]
+    }
+  ],
+  "venvPath": ".",
+  "venv": ".venv",
+  "pythonVersion": "3.12",
+  "typeCheckingMode": "standard"
+}

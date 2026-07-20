@@ -1,0 +1,16 @@
+# Allowlist: the API image (apps/api/Dockerfile, context = repo root) copies
+# only the paths re-included below. Everything else stays out of the context.
+*
+!README.md
+!pyproject.toml
+!apps/api/src
+!apps/api/tests
+!scripts/testing
+
+# Caches inside the re-included trees
+**/__pycache__
+**/*.pyc
+**/*.egg-info
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache

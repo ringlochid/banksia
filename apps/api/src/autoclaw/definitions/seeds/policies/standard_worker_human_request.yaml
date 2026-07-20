@@ -1,0 +1,19 @@
+kind: policy
+id: standard-worker-human-request
+title: Standard Worker Human Request
+description: Guardrails for worker assignments that may need human direction, input, approval, or review.
+applies_to:
+    - worker
+budget_spec:
+    retry_limit: 1
+capabilities:
+    human_request:
+        mode: allow
+        allowed_kinds:
+            - direction
+            - approval
+            - input
+            - review
+    command_run: deny
+instruction: >-
+  Open a human request only for material direction, approval, missing input, or review that cannot be settled from current task evidence.

@@ -1,0 +1,14 @@
+{
+    "name": "AutoClaw Console",
+    "short_name": "AutoClaw",
+    "icons": [
+        {
+            "src": "/app-icon.png",
+            "sizes": "1024x1024",
+            "type": "image/png"
+        }
+    ],
+    "theme_color": "#fdfcfb",
+    "background_color": "#f5f3f1",
+    "display": "standalone"
+}

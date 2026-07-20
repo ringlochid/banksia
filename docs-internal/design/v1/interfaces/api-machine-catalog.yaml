@@ -1,0 +1,620 @@
+version: 1
+surface: design_v1_interfaces
+status: target
+
+conventions:
+    http_list_query_names:
+        q: Free-text query for list/search and history discovery.
+        limit: Page size in the inclusive range 1..200.
+        cursor: Opaque pagination cursor returned by a prior read.
+        sort: Stable server-defined sort key for the route family.
+    model_tool_aliases:
+        query:
+            maps_to_http: q
+            description: Model-facing alias for the HTTP q query parameter.
+
+common_enums:
+    definition_kind:
+        - role
+        - policy
+        - workflow
+    node_kind:
+        - root
+        - parent
+        - worker
+    definition_list_sort:
+        - updated_at_desc
+        - updated_at_asc
+        - key_asc
+        - key_desc
+    definition_history_sort:
+        - revision_no_desc
+        - revision_no_asc
+        - updated_at_desc
+        - updated_at_asc
+    runtime_task_sort:
+        - updated_at_desc
+        - updated_at_asc
+        - task_title_asc
+        - task_title_desc
+    operator_trace_sort:
+        - occurred_at_desc
+        - occurred_at_asc
+
+http_routes:
+    - id: definitions_roles_list
+      method: GET
+      route: /definitions/roles
+      response: DefinitionSummaryListResponse
+      query:
+          q:
+              type: string
+              required: false
+              description: Free-text search over role id, description, and instruction.
+          limit:
+              type: integer
+              required: false
+              default: 50
+          cursor:
+              type: string
+              required: false
+          sort:
+              type: enum
+              required: false
+              default: updated_at_desc
+              values: [updated_at_desc, updated_at_asc, key_asc, key_desc]
+          allowed_node_kind:
+              type: enum
+              required: false
+              values: [root, parent, worker]
+              description: Return only roles legal for the selected node kind.
+
+    - id: definitions_policies_list
+      method: GET
+      route: /definitions/policies
+      response: DefinitionSummaryListResponse
+      query:
+          q:
+              type: string
+              required: false
+              description: Free-text search over policy id, description, and instruction.
+          limit:
+              type: integer
+              required: false
+              default: 50
+          cursor:
+              type: string
+              required: false
+          sort:
+              type: enum
+              required: false
+              default: updated_at_desc
+              values: [updated_at_desc, updated_at_asc, key_asc, key_desc]
+          applies_to:
+              type: enum
+              required: false
+              values: [root, parent, worker]
+              description: Return only policies legal for the selected node kind.
+
+    - id: definitions_workflows_list
+      method: GET
+      route: /definitions/workflows
+      response: DefinitionSummaryListResponse
+      query:
+          q:
+              type: string
+              required: false
+              description: Free-text search over workflow id, description, and instruction-like summary fields.
+          limit:
+              type: integer
+              required: false
+              default: 50
+          cursor:
+              type: string
+              required: false
+          sort:
+              type: enum
+              required: false
+              default: updated_at_desc
+              values: [updated_at_desc, updated_at_asc, key_asc, key_desc]
+    - id: definition_detail
+      method: GET
+      route: /definitions/{kind}/{key}
+      response: DefinitionRevisionDetailResponse
+
+    - id: definition_versions
+      method: GET
+      route: /definitions/{kind}/{key}/versions
+      response: DefinitionRevisionHistoryResponse
+      query:
+          limit:
+              type: integer
+              required: false
+              default: 50
+          cursor:
+              type: string
+              required: false
+          sort:
+              type: enum
+              required: false
+              default: revision_no_desc
+              values:
+                  [
+                      revision_no_desc,
+                      revision_no_asc,
+                      updated_at_desc,
+                      updated_at_asc,
+                  ]
+    - id: definition_upload
+      method: POST
+      route: /definitions
+      request: DefinitionUploadRequest
+      response: DefinitionRevisionDetailResponse
+      write_semantics:
+          description: DB-serialized append-only upload. Concurrent uploads may both succeed as distinct revisions, and the current revision pointer advances in commit order.
+
+    - id: task_start
+      method: POST
+      route: /tasks/start
+      request: TaskStartRequest
+      response: TaskStartResponse
+
+    - id: runtime_tasks_list
+      method: GET
+      route: /runtime/tasks
+      response: RuntimeFlowSummaryListResponse
+      query:
+          q:
+              type: string
+              required: false
+              description: Free-text search over task id, task title, task summary, workflow key, and current node key.
+          limit:
+              type: integer
+              required: false
+              default: 50
+          cursor:
+              type: string
+              required: false
+          sort:
+              type: enum
+              required: false
+              default: updated_at_desc
+              values:
+                  [
+                      updated_at_desc,
+                      updated_at_asc,
+                      task_title_asc,
+                      task_title_desc,
+                  ]
+          status:
+              type: enum
+              required: false
+              default: any
+              values:
+                  [any, pending, running, blocked, paused, succeeded, cancelled]
+
+    - id: runtime_task_detail
+      method: GET
+      route: /runtime/tasks/{task_id}
+      response: RuntimeFlowRead
+
+    - id: runtime_task_continue
+      method: POST
+      route: /runtime/tasks/{task_id}/continue
+      response: RuntimeFlowRead
+      query:
+          expected_active_flow_revision_id:
+              type: string
+              required: true
+
+    - id: runtime_task_pause
+      method: POST
+      route: /runtime/tasks/{task_id}/pause
+      response: RuntimeFlowPauseResponse
+      query:
+          expected_active_flow_revision_id:
+              type: string
+              required: true
+
+    - id: runtime_task_cancel
+      method: POST
+      route: /runtime/tasks/{task_id}/cancel
+      response: RuntimeFlowRead
+      query:
+          expected_active_flow_revision_id:
+              type: string
+              required: true
+
+    - id: operator_snapshot
+      method: GET
+      route: /operator/tasks/{task_id}/snapshot
+      response: OperatorFlowSnapshotResponse
+
+    - id: operator_trace
+      method: GET
+      route: /operator/tasks/{task_id}/trace
+      response: OperatorFlowTraceResponse
+      query:
+          scope:
+              type: enum
+              required: false
+              default: current
+              values: [current, whole]
+          q:
+              type: string
+              required: false
+              description: Free-text search over checkpoint summaries, node keys, boundary names, and normalized delivery history.
+          limit:
+              type: integer
+              required: false
+              default: 50
+          cursor:
+              type: string
+              required: false
+          sort:
+              type: enum
+              required: false
+              default: occurred_at_desc
+              values: [occurred_at_desc, occurred_at_asc]
+
+mcp_surfaces:
+    operator_mcp:
+        tools:
+            - name: list_runtime_tasks
+              maps_to_route: /runtime/tasks
+              arguments:
+                  query:
+                      type: string
+                      required: false
+                      maps_to_http: q
+                  limit:
+                      type: integer
+                      required: false
+                  cursor:
+                      type: string
+                      required: false
+                  sort:
+                      type: string
+                      required: false
+                  status:
+                      type: enum
+                      required: false
+                      default: any
+                      values:
+                          [
+                              any,
+                              pending,
+                              running,
+                              blocked,
+                              paused,
+                              succeeded,
+                              cancelled,
+                          ]
+              result: RuntimeFlowSummaryListResponse
+
+            - name: get_runtime_task
+              maps_to_route: /runtime/tasks/{task_id}
+              arguments:
+                  task_id:
+                      type: string
+                      required: true
+              result: RuntimeFlowRead
+
+            - name: get_operator_snapshot
+              maps_to_route: /operator/tasks/{task_id}/snapshot
+              arguments:
+                  task_id:
+                      type: string
+                      required: true
+              result: OperatorFlowSnapshotResponse
+
+            - name: get_operator_trace
+              maps_to_route: /operator/tasks/{task_id}/trace
+              arguments:
+                  task_id:
+                      type: string
+                      required: true
+                  scope:
+                      type: enum
+                      required: false
+                      default: current
+                      values: [current, whole]
+                  query:
+                      type: string
+                      required: false
+                      maps_to_http: q
+                  limit:
+                      type: integer
+                      required: false
+                  cursor:
+                      type: string
+                      required: false
+                  sort:
+                      type: string
+                      required: false
+              result: OperatorFlowTraceResponse
+
+            - name: pause_task
+              maps_to_route: /runtime/tasks/{task_id}/pause
+              arguments:
+                  task_id:
+                      type: string
+                      required: true
+                  expected_active_flow_revision_id:
+                      type: string
+                      required: true
+              result: RuntimeFlowPauseResponse
+
+            - name: continue_task
+              maps_to_route: /runtime/tasks/{task_id}/continue
+              arguments:
+                  task_id:
+                      type: string
+                      required: true
+                  expected_active_flow_revision_id:
+                      type: string
+                      required: true
+              result: RuntimeFlowRead
+
+            - name: cancel_task
+              maps_to_route: /runtime/tasks/{task_id}/cancel
+              arguments:
+                  task_id:
+                      type: string
+                      required: true
+                  expected_active_flow_revision_id:
+                      type: string
+                      required: true
+              result: RuntimeFlowRead
+
+            - name: search_definitions
+              maps_to_routes:
+                  - /definitions/roles
+                  - /definitions/policies
+                  - /definitions/workflows
+              arguments:
+                  kind:
+                      type: enum
+                      required: true
+                      values: [role, policy, workflow]
+                  query:
+                      type: string
+                      required: false
+                      maps_to_http: q
+                  limit:
+                      type: integer
+                      required: false
+                  cursor:
+                      type: string
+                      required: false
+                  sort:
+                      type: string
+                      required: false
+                  allowed_node_kind:
+                      type: enum
+                      required: false
+                      values: [root, parent, worker]
+                  applies_to:
+                      type: enum
+                      required: false
+                      values: [root, parent, worker]
+              result: DefinitionSummaryListResponse
+
+            - name: get_definition
+              maps_to_route: /definitions/{kind}/{key}
+              arguments:
+                  kind:
+                      type: enum
+                      required: true
+                      values: [role, policy, workflow]
+                  key:
+                      type: string
+                      required: true
+              result: DefinitionRevisionDetailResponse
+
+            - name: list_definition_versions
+              maps_to_route: /definitions/{kind}/{key}/versions
+              arguments:
+                  kind:
+                      type: enum
+                      required: true
+                      values: [role, policy, workflow]
+                  key:
+                      type: string
+                      required: true
+                  limit:
+                      type: integer
+                      required: false
+                  cursor:
+                      type: string
+                      required: false
+                  sort:
+                      type: string
+                      required: false
+              result: DefinitionRevisionHistoryResponse
+
+            - name: upload_definition
+              maps_to_route: /definitions
+              arguments:
+                  definition_path:
+                      type: string
+                      required: true
+              result: DefinitionRevisionDetailResponse
+
+            - name: start_task
+              maps_to_route: /tasks/start
+              arguments:
+                  task_compose_path:
+                      type: string
+                      required: true
+              result: TaskStartResponse
+
+    node_mcp_v1:
+        tools:
+            - name: search_definitions
+              arguments:
+                  session_key:
+                      type: string
+                      required: true
+                  task_id:
+                      type: string
+                      required: true
+                  kind:
+                      type: enum
+                      required: true
+                      values: [role, policy]
+                  query:
+                      type: string
+                      required: false
+                  limit:
+                      type: integer
+                      required: false
+                  cursor:
+                      type: string
+                      required: false
+                  sort:
+                      type: string
+                      required: false
+                  allowed_node_kind:
+                      type: enum
+                      required: false
+                      values: [root, parent, worker]
+                  applies_to:
+                      type: enum
+                      required: false
+                      values: [root, parent, worker]
+              result: DefinitionSummaryListResponse
+
+            - name: get_definition
+              arguments:
+                  session_key:
+                      type: string
+                      required: true
+                  task_id:
+                      type: string
+                      required: true
+                  kind:
+                      type: enum
+                      required: true
+                      values: [role, policy]
+                  key:
+                      type: string
+                      required: true
+              result: DefinitionRevisionDetailResponse
+
+            - name: record_checkpoint
+              arguments:
+                  session_key:
+                      type: string
+                      required: true
+                  task_id:
+                      type: string
+                      required: true
+                  checkpoint:
+                      type: CheckpointWriteBody
+                      required: true
+              result: CheckpointRead
+
+            - name: return_boundary
+              arguments:
+                  session_key:
+                      type: string
+                      required: true
+                  task_id:
+                      type: string
+                      required: true
+                  boundary:
+                      type: enum
+                      required: true
+                      values: [yield, green, retry, blocked]
+              result: BoundaryRead
+
+            - name: assign_child
+              arguments:
+                  session_key:
+                      type: string
+                      required: true
+                  task_id:
+                      type: string
+                      required: true
+                  payload:
+                      type: AssignChildPayload
+                      required: true
+                  expected_structural_revision_id:
+                      type: string
+                      required: false
+              result: AssignChildSuccess
+
+            - name: add_child
+              arguments:
+                  session_key:
+                      type: string
+                      required: true
+                  task_id:
+                      type: string
+                      required: true
+                  payload:
+                      type: AddChildPayload
+                      required: true
+                  expected_structural_revision_id:
+                      type: string
+                      required: false
+              result: AddChildSuccess
+
+            - name: update_child
+              arguments:
+                  session_key:
+                      type: string
+                      required: true
+                  task_id:
+                      type: string
+                      required: true
+                  payload:
+                      type: UpdateChildPayload
+                      required: true
+                  expected_structural_revision_id:
+                      type: string
+                      required: false
+              result: UpdateChildSuccess
+
+            - name: remove_child
+              arguments:
+                  session_key:
+                      type: string
+                      required: true
+                  task_id:
+                      type: string
+                      required: true
+                  payload:
+                      type: RemoveChildPayload
+                      required: true
+                  expected_structural_revision_id:
+                      type: string
+                      required: false
+              result: RemoveChildSuccess
+
+            - name: release_green
+              arguments:
+                  session_key:
+                      type: string
+                      required: true
+                  task_id:
+                      type: string
+                      required: true
+                  expected_structural_revision_id:
+                      type: string
+                      required: false
+              result: ReleaseGreenSuccess
+
+            - name: release_blocked
+              arguments:
+                  session_key:
+                      type: string
+                      required: true
+                  task_id:
+                      type: string
+                      required: true
+                  expected_structural_revision_id:
+                      type: string
+                      required: false
+              result: ReleaseBlockedSuccess

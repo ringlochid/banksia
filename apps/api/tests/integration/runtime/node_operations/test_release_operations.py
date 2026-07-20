@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import cast
 
@@ -51,6 +51,11 @@ async def test_release_green_persists_current_child_checkpoint_and_keeps_d1_open
                 outcome="green",
             )
             root_assignment, child_assignment = await _read_release_assignments(session, ids)
+            root_attempt = await session.get(AttemptModel, ids.root_attempt_id)
+            root_checkpoint = await session.get(AttemptCheckpointModel, ids.root_checkpoint_id)
+            assert root_attempt is not None and root_checkpoint is not None
+            root_attempt.latest_checkpoint_id = ids.root_checkpoint_id
+            root_checkpoint.authoring_dispatch_id = ids.current_dispatch_id
             _stage_release_criteria(session, ids, root_assignment, child_assignment)
             root_assignment.produces_json = [{"slot": "root-output", "description": "Root output."}]
             child_assignment.produces_json = [
@@ -92,10 +97,12 @@ async def test_release_green_persists_current_child_checkpoint_and_keeps_d1_open
                 )
             )
             assert decision is not None
-            evidence = await session.scalar(
-                select(AssignmentDecisionCheckpointModel).where(
-                    AssignmentDecisionCheckpointModel.assignment_decision_id
-                    == decision.assignment_decision_id
+            evidence = tuple(
+                await session.scalars(
+                    select(AssignmentDecisionCheckpointModel).where(
+                        AssignmentDecisionCheckpointModel.assignment_decision_id
+                        == decision.assignment_decision_id
+                    )
                 )
             )
             artifact_count = await session.scalar(
@@ -108,9 +115,71 @@ async def test_release_green_persists_current_child_checkpoint_and_keeps_d1_open
             )
             dispatch = await session.get(DispatchTurnModel, ids.current_dispatch_id)
         assert decision.decision_kind == "release_green"
-        assert evidence is not None and evidence.checkpoint_id == ids.child_checkpoint_id
+        assert {row.checkpoint_id for row in evidence} == {
+            ids.root_checkpoint_id,
+            ids.child_checkpoint_id,
+        }
         assert artifact_count == 2
         assert dispatch is not None and dispatch.status == "open"
+
+
+async def test_release_green_uses_exact_attempt_checkpoint_pointer(
+    tmp_path: Path,
+) -> None:
+    async with seeded_executor(tmp_path, suffix="release-exact-checkpoint") as (
+        executor,
+        session_factory,
+        ids,
+        _signals,
+    ):
+        corrected_checkpoint_id = "checkpoint.release-exact-checkpoint.child.corrected"
+        async with session_factory() as session:
+            await _stage_current_root_green(session, ids)
+            child_attempt = await session.get(AttemptModel, ids.child_attempt_id)
+            stale_checkpoint = await session.get(
+                AttemptCheckpointModel,
+                ids.child_checkpoint_id,
+            )
+            assert child_attempt is not None and stale_checkpoint is not None
+            now = utc_now()
+            child_attempt.status = "completed"
+            child_attempt.terminal_outcome = "green"
+            child_attempt.closed_at = now
+            child_attempt.latest_checkpoint_id = corrected_checkpoint_id
+            stale_checkpoint.outcome = "blocked"
+            stale_checkpoint.recorded_at = now + timedelta(minutes=1)
+            session.add(
+                AttemptCheckpointModel(
+                    checkpoint_id=corrected_checkpoint_id,
+                    task_id=ids.task_id,
+                    flow_id=ids.flow_id,
+                    assignment_id=ids.child_assignment_id,
+                    attempt_id=ids.child_attempt_id,
+                    authoring_dispatch_id=ids.child_dispatch_id,
+                    checkpoint_kind="terminal",
+                    outcome="green",
+                    summary="Corrected child completion evidence.",
+                    evidence_json={},
+                    criteria_results_json=[],
+                    recorded_at=now,
+                )
+            )
+            await session.commit()
+
+        await executor.execute(
+            scope=NodeOperationScope(
+                task_id=ids.task_id,
+                dispatch_id=ids.current_dispatch_id,
+            ),
+            operation_name="release_green",
+            arguments={"expected_structural_revision_id": ids.flow_revision_id},
+        )
+
+        async with session_factory() as session:
+            evidence = tuple(await session.scalars(select(AssignmentDecisionCheckpointModel)))
+        checkpoint_ids = {row.checkpoint_id for row in evidence}
+        assert corrected_checkpoint_id in checkpoint_ids
+        assert ids.child_checkpoint_id not in checkpoint_ids
 
 
 async def test_release_green_rejects_live_child_without_partial_decision(
@@ -122,6 +191,8 @@ async def test_release_green_rejects_live_child_without_partial_decision(
         ids,
         _signals,
     ):
+        async with session_factory() as session:
+            await _stage_current_root_green(session, ids)
         with pytest.raises(RuntimeOperationError):
             await executor.execute(
                 scope=NodeOperationScope(
@@ -150,6 +221,7 @@ async def test_release_green_rejects_missing_current_publication_without_partial
         _signals,
     ):
         async with session_factory() as session:
+            await _stage_current_root_green(session, ids)
             await _terminalize_child(session, ids.child_attempt_id, outcome="green")
             child_checkpoint = await session.get(AttemptCheckpointModel, ids.child_checkpoint_id)
             child_assignment = await session.get(AssignmentModel, ids.child_assignment_id)
@@ -245,6 +317,90 @@ async def test_release_blocked_requires_root_checkpoint_and_terminal_descendants
         assert dispatch is not None and dispatch.status == "open"
 
 
+async def test_release_decision_freezes_checkpoint_evidence(
+    tmp_path: Path,
+) -> None:
+    async with seeded_executor(tmp_path, suffix="release-freezes-checkpoint") as (
+        executor,
+        session_factory,
+        ids,
+        _signals,
+    ):
+        async with session_factory() as session:
+            await _stage_terminal_child_checkpoint(
+                session,
+                attempt_id=ids.child_attempt_id,
+                checkpoint_id=ids.child_checkpoint_id,
+                outcome="blocked",
+            )
+            await session.commit()
+        original = await executor.execute(
+            scope=NodeOperationScope(
+                task_id=ids.task_id,
+                dispatch_id=ids.current_dispatch_id,
+            ),
+            operation_name="record_checkpoint",
+            arguments={
+                "checkpoint": {
+                    "checkpoint_kind": "terminal",
+                    "outcome": "blocked",
+                    "handoff": {
+                        "summary": "The flow is blocked.",
+                        "next_step": "Commit the matching release decision.",
+                    },
+                }
+            },
+        )
+        await executor.execute(
+            scope=NodeOperationScope(
+                task_id=ids.task_id,
+                dispatch_id=ids.current_dispatch_id,
+            ),
+            operation_name="release_blocked",
+            arguments={"expected_structural_revision_id": ids.flow_revision_id},
+        )
+        context = await executor.execute(
+            scope=NodeOperationScope(
+                task_id=ids.task_id,
+                dispatch_id=ids.current_dispatch_id,
+            ),
+            operation_name="get_current_context",
+            arguments={},
+        )
+        assert "record_checkpoint" not in context.model_dump(mode="json")["allowed_actions"]
+
+        with pytest.raises(RuntimeOperationError) as frozen:
+            await executor.execute(
+                scope=NodeOperationScope(
+                    task_id=ids.task_id,
+                    dispatch_id=ids.current_dispatch_id,
+                ),
+                operation_name="record_checkpoint",
+                arguments={
+                    "checkpoint": {
+                        "checkpoint_kind": "terminal",
+                        "outcome": "blocked",
+                        "handoff": {
+                            "summary": "This correction is too late.",
+                            "next_step": "Return the matching blocked boundary.",
+                        },
+                    }
+                },
+            )
+
+        async with session_factory() as session:
+            attempt = await session.get(AttemptModel, ids.root_attempt_id)
+            checkpoint_count = await session.scalar(
+                select(func.count())
+                .select_from(AttemptCheckpointModel)
+                .where(AttemptCheckpointModel.authoring_dispatch_id == ids.current_dispatch_id)
+            )
+        assert frozen.value.code.value == "illegal_state"
+        assert attempt is not None
+        assert attempt.latest_checkpoint_id == original.model_dump()["checkpoint_id"]
+        assert checkpoint_count == 1
+
+
 async def test_release_write_rejects_stale_transaction_b(tmp_path: Path) -> None:
     async with seeded_executor(tmp_path, suffix="guard") as (
         executor,
@@ -335,6 +491,17 @@ async def _stage_terminal_child_checkpoint(
     checkpoint = await typed_session.get(AttemptCheckpointModel, checkpoint_id)
     assert checkpoint is not None
     checkpoint.outcome = outcome
+
+
+async def _stage_current_root_green(session: object, ids: RuntimeIds) -> None:
+    typed_session = cast(AsyncSession, session)
+    attempt = await typed_session.get(AttemptModel, ids.root_attempt_id)
+    checkpoint = await typed_session.get(AttemptCheckpointModel, ids.root_checkpoint_id)
+    assert attempt is not None and checkpoint is not None
+    attempt.latest_checkpoint_id = checkpoint.checkpoint_id
+    checkpoint.authoring_dispatch_id = ids.current_dispatch_id
+    checkpoint.outcome = "green"
+    await typed_session.commit()
 
 
 async def _read_release_assignments(
@@ -464,6 +631,13 @@ async def _terminalize_child(
     attempt.status = "completed"
     attempt.terminal_outcome = outcome
     attempt.closed_at = utc_now()
+    checkpoint_id = await typed_session.scalar(
+        select(AttemptCheckpointModel.checkpoint_id).where(
+            AttemptCheckpointModel.attempt_id == attempt_id
+        )
+    )
+    assert checkpoint_id is not None
+    attempt.latest_checkpoint_id = checkpoint_id
 
 
 def _stage_required_publication(

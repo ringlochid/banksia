@@ -79,13 +79,6 @@ class AssignmentDecisionModel(RuntimeBase):
             initially="DEFERRED",
         ),
         ForeignKeyConstraint(
-            ["assignment_id", "source_flow_revision_id"],
-            ["assignments.assignment_id", "assignments.flow_revision_id"],
-            name="fk_assignment_decisions_source_revision_owner",
-            deferrable=True,
-            initially="DEFERRED",
-        ),
-        ForeignKeyConstraint(
             ["staged_child_assignment_id", "assignment_id", "source_dispatch_id"],
             [
                 "assignments.assignment_id",

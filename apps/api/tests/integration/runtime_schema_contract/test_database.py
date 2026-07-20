@@ -70,10 +70,16 @@ def test_exact_source_and_owner_backstops_are_present() -> None:
         "fk_command_runs_source_owner",
         "fk_command_runs_successor_owner",
     } <= _constraint_names("command_runs", ForeignKeyConstraint)
+    assignment_decision_foreign_keys = _constraint_names(
+        "assignment_decisions",
+        ForeignKeyConstraint,
+    )
     assert {
+        "fk_assignment_decisions_source_owner",
+        "fk_assignment_decisions_flow_revision_owner",
         "fk_assignment_decisions_child_authoring_source",
-        "fk_assignment_decisions_source_revision_owner",
-    } <= _constraint_names("assignment_decisions", ForeignKeyConstraint)
+    } <= assignment_decision_foreign_keys
+    assert "fk_assignment_decisions_source_revision_owner" not in (assignment_decision_foreign_keys)
     assert {
         "fk_assignment_decision_checkpoints_checkpoint_owner",
         "fk_assignment_decision_checkpoints_decision_owner",

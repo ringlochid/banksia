@@ -18,10 +18,10 @@ flowchart TD
     G --> H["optional checkpoint that does not replace continuation"]
     H --> I["yield"]
     F -- no --> J{"is the assignment terminal?"}
-    J -- green --> K["release_green then green"]
-    J -- blocked at non-root parent --> M["blocked"]
+    J -- green --> K["terminal checkpoint, release_green, then green"]
+    J -- blocked at non-root parent --> M["terminal checkpoint, then blocked"]
     M --> N["return control upward"]
-    J -- blocked at root --> L["release_blocked then blocked"]
+    J -- blocked at root --> L["terminal checkpoint, release_blocked, then blocked"]
 ```
 
 Figure: parent/root first decides whether the structure is still right, then whether more bounded child work is needed inside that structure, and only then chooses a non-terminal or terminal close.
@@ -201,7 +201,7 @@ After a child closes and the controller advances:
 - legal worker retry may use semantic `create_new_attempt` on that worker's assignment; watchdog stability recovery preserves lineage and otherwise escalates
 - `escalate` is used only when the controller cannot safely redispatch the same attempt or create a new one from current authoritative truth
 
-These are controller actions, not extra parent/root boundary families. There is no public parent/root `retry`, no public child reassignment family, and no public retry-child family.
+These are controller actions, not extra parent/root boundary families. There is no public parent/root `retry`, no separate child-reassignment operation, and no public retry-child family; another bounded assignment for the same terminal child uses `assign_child` while no downstream artifact consumer has current work.
 
 ## No public escalation boundary
 
@@ -217,11 +217,11 @@ If the current parent/root cannot legally apply the needed change inside its aut
 
 | Situation                                                     | Parent/root action                                                   |
 | ------------------------------------------------------------- | -------------------------------------------------------------------- |
-| same structure, more bounded work needed                      | `assign_child`, then `yield`                                         |
+| same structure, more bounded work needed                      | `assign_child` for a fresh child assignment, then `yield`            |
 | current owned-subtree structure or contract is wrong          | `add_child`, `update_child`, or `remove_child`, then reread manifest |
-| current assignment is complete and evidence is current        | `release_green`, then `green`                                        |
+| current assignment is complete and evidence is current        | terminal green checkpoint, `release_green`, then `green`             |
 | current non-root parent assignment cannot proceed as assigned | terminal blocked checkpoint, then `blocked`                          |
-| root determines the whole flow is terminally blocked          | `release_blocked`, then `blocked`                                    |
+| root determines the whole flow is terminally blocked          | terminal blocked checkpoint, `release_blocked`, then `blocked`       |
 
 ## Related contracts
 

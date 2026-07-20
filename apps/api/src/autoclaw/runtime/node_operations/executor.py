@@ -4,6 +4,7 @@ import logging
 from collections.abc import Mapping
 
 from pydantic import BaseModel
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from autoclaw.persistence.session import get_session_factory
@@ -90,22 +91,25 @@ class NodeOperationExecutor:
         occurred_at = utc_now()
         session_factory = get_session_factory()
         checkpoint_preparation: CheckpointPreparation | None = None
-        async with session_factory() as admission_session:
-            authority = await read_node_operation_authority(admission_session, scope)
-            _authorize(descriptor, authority, request)
-            if descriptor.name == NodeOperationName.RECORD_CHECKPOINT:
-                assert isinstance(request, RecordCheckpointRequest)
-                checkpoint_preparation = await plan_checkpoint_preparation(
+        try:
+            async with session_factory() as admission_session:
+                authority = await read_node_operation_authority(admission_session, scope)
+                _authorize(descriptor, authority, request)
+                if descriptor.name == NodeOperationName.RECORD_CHECKPOINT:
+                    assert isinstance(request, RecordCheckpointRequest)
+                    checkpoint_preparation = await plan_checkpoint_preparation(
+                        admission_session,
+                        authority,
+                        request.checkpoint,
+                    )
+                activity = await refresh_node_activity(
                     admission_session,
                     authority,
-                    request,
+                    occurred_at=occurred_at,
                 )
-            activity = await refresh_node_activity(
-                admission_session,
-                authority,
-                occurred_at=occurred_at,
-            )
-            await admission_session.commit()
+                await admission_session.commit()
+        except IntegrityError as exc:
+            raise _persistence_rejection(scope, descriptor, exc) from exc
 
         await self._publish_activity(
             NodeActivitySignal(
@@ -137,53 +141,69 @@ class NodeOperationExecutor:
     ) -> tuple[BaseModel, CommittedNodeOperationFollowOn]:
         session_factory = get_session_factory()
         async with session_factory() as operation_session:
-            authority = await read_node_operation_authority(operation_session, scope)
-            _authorize(descriptor, authority, request)
-            authority = await _claim_unchanged_node_operation_state(
-                operation_session,
-                scope=scope,
-                descriptor=descriptor,
-                request=request,
-                authority=authority,
+            try:
+                return await self._execute_node_operation_transaction(
+                    operation_session,
+                    scope=scope,
+                    descriptor=descriptor,
+                    request=request,
+                    checkpoint_preparation=checkpoint_preparation,
+                )
+            except IntegrityError as exc:
+                await operation_session.rollback()
+                raise _persistence_rejection(scope, descriptor, exc) from exc
+
+    async def _execute_node_operation_transaction(
+        self,
+        session: AsyncSession,
+        *,
+        scope: NodeOperationScope,
+        descriptor: NodeOperationDescriptor,
+        request: BaseModel,
+        checkpoint_preparation: CheckpointPreparation | None,
+    ) -> tuple[BaseModel, CommittedNodeOperationFollowOn]:
+        authority = await read_node_operation_authority(session, scope)
+        _authorize(descriptor, authority, request)
+        authority = await _claim_unchanged_node_operation_state(
+            session,
+            scope=scope,
+            descriptor=descriptor,
+            request=request,
+            authority=authority,
+        )
+        await require_state_legal_node_operation(session, authority, descriptor.name)
+        result = await execute_core_node_operation(
+            session,
+            authority,
+            descriptor.name,
+            request,
+        )
+        if result is None:
+            from autoclaw.runtime.node_operations.domain_handlers import (
+                execute_controller_node_operation,
             )
-            await require_state_legal_node_operation(
-                operation_session,
-                authority,
-                descriptor.name,
-            )
-            result = await execute_core_node_operation(
-                operation_session,
+
+            result = await execute_controller_node_operation(
+                session,
                 authority,
                 descriptor.name,
                 request,
-            )
-            if result is None:
-                from autoclaw.runtime.node_operations.domain_handlers import (
-                    execute_controller_node_operation,
-                )
-
-                result = await execute_controller_node_operation(
-                    operation_session,
-                    authority,
-                    descriptor.name,
-                    request,
-                    checkpoint_preparation=checkpoint_preparation,
-                )
-            handler_follow_on = CommittedNodeOperationFollowOn()
-            if isinstance(result, CommittedNodeOperationResult):
-                handler_follow_on = result.follow_on
-                result = result.response
-            if not isinstance(result, descriptor.success_model):
-                result = descriptor.success_model.model_validate(result)
-            derived_follow_on = committed_node_operation_follow_on(
-                operation_name=descriptor.name,
-                authority=authority,
-                request=request,
-                response=result,
                 checkpoint_preparation=checkpoint_preparation,
             )
-            follow_on = handler_follow_on.combined_with(derived_follow_on)
-            return result, follow_on
+        handler_follow_on = CommittedNodeOperationFollowOn()
+        if isinstance(result, CommittedNodeOperationResult):
+            handler_follow_on = result.follow_on
+            result = result.response
+        if not isinstance(result, descriptor.success_model):
+            result = descriptor.success_model.model_validate(result)
+        derived_follow_on = committed_node_operation_follow_on(
+            operation_name=descriptor.name,
+            authority=authority,
+            request=request,
+            response=result,
+            checkpoint_preparation=checkpoint_preparation,
+        )
+        return result, handler_follow_on.combined_with(derived_follow_on)
 
     async def _publish_activity(self, signal: NodeActivitySignal) -> None:
         if self._publish_activity_signal is None:
@@ -236,6 +256,27 @@ def _resolve_node_operation_request(
             is_retryable=False,
         ) from exc
     return descriptor, descriptor.request_model.model_validate(dict(arguments))
+
+
+def _persistence_rejection(
+    scope: NodeOperationScope,
+    descriptor: NodeOperationDescriptor,
+    exc: IntegrityError,
+) -> RuntimeOperationError:
+    logger.exception(
+        "controller persistence rejected a Node operation",
+        exc_info=exc,
+        extra={
+            "task_id": scope.task_id,
+            "dispatch_id": scope.dispatch_id,
+            "operation_name": descriptor.name.value,
+        },
+    )
+    return RuntimeOperationError(
+        code=OperationFailureCode.INTERNAL_ERROR,
+        summary="controller persistence rejected the operation and rolled back its state change",
+        is_retryable=False,
+    )
 
 
 async def _claim_unchanged_node_operation_state(

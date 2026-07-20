@@ -79,8 +79,10 @@ Outcome rules:
 - progress checkpoints use `outcome: null`
 - terminal checkpoints use `green | retry | blocked`
 - `yield` is boundary-only and never a checkpoint outcome
-- terminal `green` checkpoints must pass the same non-pointer preflight required for the matching `green` boundary before they are accepted
-- before the boundary closes an attempt, a later terminal checkpoint may supersede an earlier terminal checkpoint; the older row remains audit history and the attempt's latest-checkpoint pointer moves to the newer terminal checkpoint
+- terminal `green` checkpoints must claim every declared produce slot in that checkpoint and pass the same non-pointer preflight required for the matching `green` boundary before they are accepted
+- before a parent/root commits a release decision, or before a worker closes its boundary, a later terminal checkpoint may supersede an earlier terminal checkpoint; the older row remains audit history and the attempt's latest-checkpoint pointer moves to the newer terminal checkpoint
+- a staged-child decision permits only an optional progress checkpoint before `yield`
+- a committed `release_green` or `release_blocked` decision freezes checkpoint evidence for that dispatch
 
 ## `handoff` meaning
 
@@ -110,11 +112,11 @@ Freeze this order:
 2. the controller rereads current assignment, attempt, and artifact truth
 3. the controller validates checkpoint legality and any required durable evidence basis
 4. the controller resolves exact durable publication refs for any claimed `produced_artifacts`
-5. the controller writes checkpoint rows plus authoritative artifact/currentness rows and advances `attempts.latest_checkpoint_id`
-6. after commit, the runtime materializes any required durable or transient filesystem copies
-7. after those post-commit durable writes, the runtime regenerates `_runtime/attempts/<attempt_id>/latest-checkpoint.*` before route success when that checkpoint surface is taught or returned as current
+5. the runtime publishes complete durable and transient body candidates to unique controller-owned paths; copy failure commits no checkpoint truth
+6. one final transaction rereads exact authority and currentness, writes checkpoint, publication, association, localization, and pointer rows, and advances `attempts.latest_checkpoint_id`
+7. after commit, the runtime regenerates `_runtime/attempts/<attempt_id>/latest-checkpoint.*` before route success when that checkpoint surface is taught or returned as current
 
-The generated checkpoint files are projections after accepted runtime truth, not the source of truth.
+Prepublished bodies do not become evidence until the final transaction references them. Losing candidates are cleanup inputs. Generated checkpoint files are projections after accepted runtime truth, not the source of truth.
 
 ## Read projection
 

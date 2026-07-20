@@ -179,6 +179,110 @@ async def test_checkpoint_atomically_persists_artifact_and_transient_bodies(
         assert association.transient_localization_id == transient.transient_localization_id
 
 
+async def test_terminal_green_requires_every_declared_artifact_before_mutation(
+    tmp_path: Path,
+) -> None:
+    async with seeded_executor(tmp_path, suffix="terminal-green-missing-output") as (
+        executor,
+        session_factory,
+        ids,
+        _,
+    ):
+        async with session_factory() as session:
+            assignment = await session.get(AssignmentModel, ids.root_assignment_id)
+            assert assignment is not None
+            assignment.produces_json = [
+                {"slot": "report", "description": "Required report."},
+            ]
+            await session.commit()
+
+        with pytest.raises(RuntimeOperationError) as missing:
+            await executor.execute(
+                scope=NodeOperationScope(
+                    task_id=ids.task_id,
+                    dispatch_id=ids.current_dispatch_id,
+                ),
+                operation_name="record_checkpoint",
+                arguments={
+                    "checkpoint": {
+                        "checkpoint_kind": "terminal",
+                        "outcome": "green",
+                        "handoff": {
+                            "summary": "The report was not published.",
+                            "next_step": "Publish the required report.",
+                        },
+                    }
+                },
+            )
+
+        async with session_factory() as session:
+            checkpoint_count = await session.scalar(
+                select(func.count())
+                .select_from(AttemptCheckpointModel)
+                .where(AttemptCheckpointModel.authoring_dispatch_id == ids.current_dispatch_id)
+            )
+            publication_count = await session.scalar(
+                select(func.count())
+                .select_from(ArtifactPublicationModel)
+                .where(ArtifactPublicationModel.assignment_id == ids.root_assignment_id)
+            )
+
+        assert missing.value.code == OperationFailureCode.MISSING_REQUIRED_PUBLICATION
+        assert checkpoint_count == 0
+        assert publication_count == 0
+
+
+async def test_terminal_green_publishes_every_declared_artifact(
+    tmp_path: Path,
+) -> None:
+    async with seeded_executor(tmp_path, suffix="terminal-green-complete-output") as (
+        executor,
+        session_factory,
+        ids,
+        _,
+    ):
+        source = tmp_path / "task-terminal-green-complete-output" / "workspace" / "report.md"
+        source.write_text("complete report\n", encoding="utf-8")
+        async with session_factory() as session:
+            assignment = await session.get(AssignmentModel, ids.root_assignment_id)
+            assert assignment is not None
+            assignment.produces_json = [
+                {"slot": "report", "description": "Required report."},
+            ]
+            await session.commit()
+
+        result = await executor.execute(
+            scope=NodeOperationScope(
+                task_id=ids.task_id,
+                dispatch_id=ids.current_dispatch_id,
+            ),
+            operation_name="record_checkpoint",
+            arguments={
+                "checkpoint": {
+                    "checkpoint_kind": "terminal",
+                    "outcome": "green",
+                    "handoff": {
+                        "summary": "The report is complete.",
+                        "next_step": "Return green.",
+                    },
+                    "produced_artifacts": [
+                        {"slot": "report", "path": "workspace/report.md"},
+                    ],
+                }
+            },
+        )
+
+        async with session_factory() as session:
+            publication = await session.scalar(
+                select(ArtifactPublicationModel).where(
+                    ArtifactPublicationModel.checkpoint_id == result.model_dump()["checkpoint_id"]
+                )
+            )
+
+        assert publication is not None
+        assert publication.slot == "report"
+
+
 async def test_artifact_versions_advance_from_the_exact_current_pointer(
     tmp_path: Path,
 ) -> None:

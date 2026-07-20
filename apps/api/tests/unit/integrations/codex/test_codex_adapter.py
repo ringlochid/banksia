@@ -229,6 +229,20 @@ async def test_codex_start_uses_ephemeral_overlay_and_returns_before_output(
 
 
 @pytest.mark.asyncio
+async def test_codex_lifespan_closes_transport_without_waiting_for_turn_interrupt() -> None:
+    fake = _FakeCodex()
+    adapter = CodexAdapter(
+        codex_factory=cast(Callable[[], AsyncCodex], lambda: fake),
+    )
+
+    async with adapter.lifespan():
+        await adapter.start(_request())
+
+    assert fake.was_closed is True
+    assert fake.turn.was_interrupted is False
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("provider_native_access", "network_access"),
     (

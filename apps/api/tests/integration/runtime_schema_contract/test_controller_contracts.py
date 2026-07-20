@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 from autoclaw.persistence import RuntimeBase
-from sqlalchemy import Connection, select
+from sqlalchemy import Connection, func, select
 from sqlalchemy.exc import IntegrityError
 from tests.helpers.catalog_seed import seed_catalog
 from tests.helpers.lineage_seed import (
@@ -76,60 +76,45 @@ def test_staged_child_rejects_a_different_authoring_dispatch(tmp_path: Path) -> 
     _assert_rejected(tmp_path, mutate)
 
 
-def test_assignment_decision_rejects_a_different_same_flow_revision(
+def test_source_dispatch_preserves_terminal_checkpoint_supersession_history(
     tmp_path: Path,
 ) -> None:
-    def mutate(connection: Connection, scopes: dict[str, RuntimeIds]) -> None:
-        ids = scopes["a"]
-        revisions = RuntimeBase.metadata.tables["flow_revisions"]
-        connection.execute(
-            revisions.insert(),
-            {
-                "flow_revision_id": "flow-revision.a.2",
-                "flow_id": ids.flow_id,
-                "revision_no": 2,
-                "parent_flow_revision_id": ids.flow_revision_id,
-                "source_compiled_plan_id": ids.compiled_plan_id,
-                "cause": "update_child",
-                "created_by_dispatch_id": ids.root_dispatch_id,
-                "snapshot_json": {},
-                "adopted_at": NOW,
-            },
-        )
-        _insert_release_decision(
-            connection,
-            ids,
-            decision_id="decision.wrong-source-revision",
-            source_flow_revision_id="flow-revision.a.2",
-        )
-
-    _assert_rejected(tmp_path, mutate)
-
-
-def test_source_dispatch_accepts_at_most_one_terminal_checkpoint(
-    tmp_path: Path,
-) -> None:
-    def mutate(connection: Connection, scopes: dict[str, RuntimeIds]) -> None:
-        ids = scopes["a"]
-        connection.execute(
-            RuntimeBase.metadata.tables["attempt_checkpoints"].insert(),
-            {
-                "checkpoint_id": "checkpoint.a.root.duplicate-terminal",
-                "task_id": ids.task_id,
-                "flow_id": ids.flow_id,
-                "assignment_id": ids.root_assignment_id,
-                "attempt_id": ids.root_attempt_id,
-                "authoring_dispatch_id": ids.root_dispatch_id,
-                "checkpoint_kind": "terminal",
-                "outcome": "blocked",
-                "summary": "A conflicting terminal checkpoint.",
-                "evidence_json": {},
-                "criteria_results_json": [],
-                "recorded_at": NOW,
-            },
-        )
-
-    _assert_rejected(tmp_path, mutate)
+    engine = create_runtime_schema_engine(tmp_path)
+    try:
+        with engine.begin() as connection:
+            seed_catalog(connection)
+            ids = seed_runtime_scope(connection)
+            connection.execute(
+                RuntimeBase.metadata.tables["attempt_checkpoints"].insert(),
+                {
+                    "checkpoint_id": "checkpoint.a.root.superseding-terminal",
+                    "task_id": ids.task_id,
+                    "flow_id": ids.flow_id,
+                    "assignment_id": ids.root_assignment_id,
+                    "attempt_id": ids.root_attempt_id,
+                    "authoring_dispatch_id": ids.root_dispatch_id,
+                    "checkpoint_kind": "terminal",
+                    "outcome": "blocked",
+                    "summary": "A superseding terminal checkpoint.",
+                    "evidence_json": {},
+                    "criteria_results_json": [],
+                    "recorded_at": NOW,
+                },
+            )
+        with engine.connect() as connection:
+            terminal_count = connection.scalar(
+                select(func.count())
+                .select_from(RuntimeBase.metadata.tables["attempt_checkpoints"])
+                .where(
+                    RuntimeBase.metadata.tables["attempt_checkpoints"].c.authoring_dispatch_id
+                    == ids.root_dispatch_id,
+                    RuntimeBase.metadata.tables["attempt_checkpoints"].c.checkpoint_kind
+                    == "terminal",
+                )
+            )
+        assert terminal_count == 2
+    finally:
+        engine.dispose()
 
 
 @pytest.mark.parametrize("table_name", ("flow_nodes", "node_plan_revisions"))

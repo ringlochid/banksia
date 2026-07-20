@@ -235,18 +235,14 @@ class ClaudeAdapter:
             self._consumer_tasks.clear()
             self._starting_dispatches.clear()
 
-        await asyncio.gather(
-            *(execution.client.interrupt() for execution in executions),
-            return_exceptions=True,
-        )
-        await asyncio.gather(
-            *(_disconnect_client(execution.client) for execution in executions),
-            return_exceptions=True,
-        )
         for consumer in consumers:
             consumer.cancel()
         if consumers:
             await asyncio.gather(*consumers, return_exceptions=True)
+        await asyncio.gather(
+            *(_disconnect_client(execution.client) for execution in executions),
+            return_exceptions=True,
+        )
 
 
 def _validate_claude_request(

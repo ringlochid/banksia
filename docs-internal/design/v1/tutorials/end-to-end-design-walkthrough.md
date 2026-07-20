@@ -18,7 +18,7 @@ flowchart TD
     H --> I["root stages implementation_loop or release_closure from current evidence"]
     I --> J["ordinary review and QA children run through their own assignments"]
     J --> K["root reviews child checkpoints, artifacts, and criteria"]
-    K --> L["root commits release_green and emits green"]
+    K --> L["root publishes terminal checkpoint, commits release_green, and emits green"]
 ```
 
 Figure: The current model uses dispatch, explicit parent/root tools, child checkpoints, durable artifacts, and root-owned final closure.

@@ -280,6 +280,7 @@ async def test_root_terminal_boundary_has_no_successor_dispatch(tmp_path: Path) 
             child_attempt.status = "completed"
             child_attempt.terminal_outcome = "blocked"
             child_attempt.closed_at = utc_now()
+            child_attempt.latest_checkpoint_id = ids.child_checkpoint_id
             await session.commit()
         await _record_checkpoint(executor, ids, outcome="blocked")
         await executor.execute(

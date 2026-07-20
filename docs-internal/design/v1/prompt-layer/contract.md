@@ -222,7 +222,7 @@ whether one child assignment should be staged.
 Do not use definition revision history, upload proof, or registry provenance as normal parent/root planning input.
 If one child assignment is staged and the dispatch stays non-terminal, call `record_checkpoint` when later readers need the reasoning and then emit `yield`.
 If this parent/root node cannot complete its current assignment, publish a terminal blocked checkpoint and close with `blocked`; non-root parent blocked returns control upward and does not use `release_blocked`.
-If you commit `release_green` or root `release_blocked`, later close with the matching terminal boundary instead of `yield`.
+For terminal release, publish the matching terminal checkpoint first. Then commit `release_green` or root `release_blocked` and close with the matching terminal boundary instead of `yield`; the release decision freezes checkpoint evidence.
 ```
 
 ## Canonical Prompt Delivery

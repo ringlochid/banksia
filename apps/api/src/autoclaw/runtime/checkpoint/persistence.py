@@ -412,7 +412,6 @@ def _is_expected_checkpoint_conflict(exc: IntegrityError) -> bool:
     diagnostics = getattr(original, "diag", None)
     constraint_name = getattr(diagnostics, "constraint_name", None)
     if constraint_name in {
-        "uq_attempt_checkpoints_one_terminal_per_dispatch",
         "artifact_current_pointers_task_id_assignment_id_slot_key",
         "artifact_publications_task_id_assignment_id_slot_version_key",
     }:

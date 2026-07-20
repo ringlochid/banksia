@@ -160,7 +160,7 @@ Rules:
 - checkpoints, artifact publications, and terminal outcomes belong to the attempt
 - progress checkpoints may be recorded while the attempt remains open
 - the latest terminal checkpoint plus the matching terminal boundary closes the attempt
-- before boundary closure, a newer terminal checkpoint may supersede an earlier terminal checkpoint while keeping the earlier row as audit history
+- before a parent/root release decision, or before a worker boundary closes, a newer terminal checkpoint may supersede an earlier terminal checkpoint while keeping the earlier row as audit history
 
 ### Dispatch turn
 

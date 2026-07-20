@@ -9,7 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from autoclaw.persistence.models import (
     AssignmentDecisionModel,
     AssignmentModel,
+    AttemptCheckpointModel,
     AttemptModel,
+    FlowEdgeModel,
     FlowNodeModel,
 )
 from autoclaw.runtime.assignment import (
@@ -100,7 +102,11 @@ async def _assign_child(
     _require_expected_revision(authority, request.expected_structural_revision_id)
     await _require_no_staged_decision(session, authority)
 
-    target = await _read_unassigned_direct_child(session, authority, request)
+    target, previous_assignment = await _read_assignable_direct_child(
+        session,
+        authority,
+        request,
+    )
     pinned_policy = await resolve_pinned_policy_definition(
         session,
         policy_key=target.policy_key,
@@ -122,7 +128,17 @@ async def _assign_child(
         durable_inputs=durable_inputs,
     )
     await _consume_child_assignment_budget(session, authority)
-    await _claim_child_node(session, authority, target, assignment.assignment_id)
+    await _claim_child_node(
+        session,
+        authority,
+        target,
+        assignment.assignment_id,
+        previous_assignment_id=(
+            previous_assignment.assignment_id if previous_assignment is not None else None
+        ),
+    )
+    if previous_assignment is not None:
+        await _supersede_child_assignment(session, authority, previous_assignment)
 
     session.add_all((assignment, attempt))
     stage_assignment_criteria_refs(session, assignment)
@@ -202,11 +218,11 @@ async def _consume_child_assignment_budget(
         raise budget_exhausted_error("the current assignment has no child assignments remaining")
 
 
-async def _read_unassigned_direct_child(
+async def _read_assignable_direct_child(
     session: AsyncSession,
     authority: NodeOperationAuthority,
     request: AssignChildRequest,
-) -> FlowNodeModel:
+) -> tuple[FlowNodeModel, AssignmentModel | None]:
     target = await session.scalar(
         select(FlowNodeModel).where(
             FlowNodeModel.flow_revision_id == authority.flow_revision_id,
@@ -220,13 +236,112 @@ async def _read_unassigned_direct_child(
             summary="assign_child must target one direct child of the current node",
             is_retryable=False,
         )
-    if target.current_assignment_id is not None:
+    if target.current_assignment_id is None:
+        if target.state != "ready":
+            raise RuntimeOperationError(
+                code=OperationFailureCode.ILLEGAL_STATE,
+                summary="the target child is not ready for an assignment",
+                is_retryable=False,
+            )
+        return target, None
+
+    previous_assignment = await session.get(
+        AssignmentModel,
+        target.current_assignment_id,
+    )
+    previous_attempt = (
+        await session.get(AttemptModel, previous_assignment.current_attempt_id)
+        if previous_assignment is not None and previous_assignment.current_attempt_id is not None
+        else None
+    )
+    previous_checkpoint = (
+        await session.get(AttemptCheckpointModel, previous_attempt.latest_checkpoint_id)
+        if previous_attempt is not None and previous_attempt.latest_checkpoint_id is not None
+        else None
+    )
+    historical_parent_is_current = (
+        previous_assignment is not None
+        and previous_assignment.parent_assignment_id == authority.assignment_id
+    )
+    historical_parent = (
+        await session.get(AssignmentModel, previous_assignment.parent_assignment_id)
+        if previous_assignment is not None
+        and previous_assignment.parent_assignment_id is not None
+        and not historical_parent_is_current
+        else None
+    )
+    historical_parent_is_same_node = historical_parent_is_current or (
+        historical_parent is not None
+        and historical_parent.task_id == authority.task_id
+        and historical_parent.flow_id == authority.flow_id
+        and historical_parent.flow_revision_id == authority.flow_revision_id
+        and historical_parent.flow_node_id == authority.assignment.flow_node_id
+        and historical_parent.node_key == authority.node_key
+        and historical_parent.superseded_at is not None
+    )
+    if (
+        previous_assignment is None
+        or previous_assignment.task_id != authority.task_id
+        or previous_assignment.flow_id != authority.flow_id
+        or previous_assignment.flow_revision_id != authority.flow_revision_id
+        or previous_assignment.flow_node_id != target.flow_node_id
+        or previous_assignment.node_key != target.node_key
+        or not historical_parent_is_same_node
+        or previous_assignment.superseded_at is not None
+        or previous_attempt is None
+        or previous_attempt.task_id != authority.task_id
+        or previous_attempt.flow_id != authority.flow_id
+        or previous_attempt.assignment_id != previous_assignment.assignment_id
+        or previous_attempt.node_key != target.node_key
+        or previous_attempt.status != "completed"
+        or previous_attempt.terminal_outcome not in {"green", "blocked"}
+        or previous_checkpoint is None
+        or previous_checkpoint.task_id != authority.task_id
+        or previous_checkpoint.flow_id != authority.flow_id
+        or previous_checkpoint.assignment_id != previous_assignment.assignment_id
+        or previous_checkpoint.attempt_id != previous_attempt.attempt_id
+        or previous_checkpoint.checkpoint_kind != "terminal"
+        or previous_checkpoint.outcome != previous_attempt.terminal_outcome
+        or target.state not in {"done", "failed"}
+    ):
         raise RuntimeOperationError(
             code=OperationFailureCode.CONFLICT,
-            summary="the target child already has a current assignment",
+            summary="the target child already has active or inconsistent current work",
             is_retryable=False,
         )
-    return target
+    await _require_no_assigned_artifact_consumer(session, authority, target)
+    return target, previous_assignment
+
+
+async def _require_no_assigned_artifact_consumer(
+    session: AsyncSession,
+    authority: NodeOperationAuthority,
+    target: FlowNodeModel,
+) -> None:
+    assigned_consumer = await session.scalar(
+        select(FlowNodeModel.node_key)
+        .join(
+            FlowEdgeModel,
+            (FlowEdgeModel.flow_revision_id == FlowNodeModel.flow_revision_id)
+            & (FlowEdgeModel.consumer_node_key == FlowNodeModel.node_key),
+        )
+        .where(
+            FlowEdgeModel.flow_revision_id == authority.flow_revision_id,
+            FlowEdgeModel.provider_node_key == target.node_key,
+            FlowEdgeModel.kind == "artifact",
+            FlowNodeModel.current_assignment_id.is_not(None),
+        )
+        .limit(1)
+    )
+    if assigned_consumer is not None:
+        raise RuntimeOperationError(
+            code=OperationFailureCode.CONFLICT,
+            summary=(
+                f"cannot replace '{target.node_key}' while downstream artifact consumer "
+                f"'{assigned_consumer}' has current work"
+            ),
+            is_retryable=False,
+        )
 
 
 def _build_child_assignment(
@@ -280,12 +395,20 @@ async def _claim_child_node(
     authority: NodeOperationAuthority,
     target: FlowNodeModel,
     assignment_id: str,
+    *,
+    previous_assignment_id: str | None,
 ) -> None:
+    current_assignment_predicate = (
+        FlowNodeModel.current_assignment_id.is_(None)
+        if previous_assignment_id is None
+        else FlowNodeModel.current_assignment_id == previous_assignment_id
+    )
     updated_node = await session.scalar(
         update(FlowNodeModel)
         .where(
             FlowNodeModel.flow_node_id == target.flow_node_id,
-            FlowNodeModel.current_assignment_id.is_(None),
+            current_assignment_predicate,
+            FlowNodeModel.state == target.state,
             exact_node_operation_authority_exists(authority),
         )
         .values(current_assignment_id=assignment_id, state="waiting")
@@ -295,6 +418,33 @@ async def _claim_child_node(
         raise RuntimeOperationError(
             code=OperationFailureCode.CONFLICT,
             summary="another child assignment won the target node",
+            is_retryable=False,
+        )
+
+
+async def _supersede_child_assignment(
+    session: AsyncSession,
+    authority: NodeOperationAuthority,
+    assignment: AssignmentModel,
+) -> None:
+    superseded = await session.scalar(
+        update(AssignmentModel)
+        .where(
+            AssignmentModel.assignment_id == assignment.assignment_id,
+            AssignmentModel.task_id == authority.task_id,
+            AssignmentModel.flow_id == authority.flow_id,
+            AssignmentModel.flow_revision_id == authority.flow_revision_id,
+            AssignmentModel.current_attempt_id == assignment.current_attempt_id,
+            AssignmentModel.superseded_at.is_(None),
+            exact_node_operation_authority_exists(authority),
+        )
+        .values(superseded_at=utc_now())
+        .returning(AssignmentModel.assignment_id)
+    )
+    if superseded is None:
+        raise RuntimeOperationError(
+            code=OperationFailureCode.CONFLICT,
+            summary="another transition changed the target child's prior assignment",
             is_retryable=False,
         )
 

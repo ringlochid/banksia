@@ -7,6 +7,7 @@ from autoclaw.persistence.models import (
     AcceptedBoundaryModel,
     AssignmentDecisionModel,
     AssignmentModel,
+    AttemptCheckpointModel,
     AttemptModel,
     DispatchTurnModel,
     FlowModel,
@@ -148,6 +149,71 @@ async def test_child_terminal_boundary_routes_exact_parent_before_success(
         assert child_attempt.terminal_outcome == "green"
         assert flow is not None and flow.status == "running"
         assert flow.current_dispatch_id is None
+
+
+async def test_worker_green_boundary_hides_legacy_checkpoint_without_outputs(
+    tmp_path: Path,
+) -> None:
+    async with seeded_executor(tmp_path, suffix="boundary-child-missing-output") as (
+        executor,
+        session_factory,
+        ids,
+        _,
+    ):
+        await _make_child_current(session_factory, ids)
+        checkpoint_id = "checkpoint.boundary-child-missing-output.legacy-green"
+        async with session_factory() as session:
+            assignment = await session.get(AssignmentModel, ids.child_assignment_id)
+            attempt = await session.get(AttemptModel, ids.child_attempt_id)
+            assert assignment is not None and attempt is not None
+            assignment.produces_json = [
+                {"slot": "report", "description": "Required report."},
+            ]
+            session.add(
+                AttemptCheckpointModel(
+                    checkpoint_id=checkpoint_id,
+                    task_id=ids.task_id,
+                    flow_id=ids.flow_id,
+                    assignment_id=ids.child_assignment_id,
+                    attempt_id=ids.child_attempt_id,
+                    authoring_dispatch_id=ids.current_dispatch_id,
+                    checkpoint_kind="terminal",
+                    outcome="green",
+                    summary="Legacy incomplete green checkpoint.",
+                    evidence_json={},
+                    criteria_results_json=[],
+                )
+            )
+            attempt.latest_checkpoint_id = checkpoint_id
+            await session.commit()
+
+        context = await executor.execute(
+            scope=_current_scope(ids),
+            operation_name="get_current_context",
+            arguments={},
+        )
+        assert "return_boundary" not in context.model_dump(mode="json")["allowed_actions"]
+
+        with pytest.raises(RuntimeOperationError) as missing:
+            await executor.execute(
+                scope=_current_scope(ids),
+                operation_name="return_boundary",
+                arguments={"boundary": "green"},
+            )
+
+        async with session_factory() as session:
+            dispatch = await session.get(DispatchTurnModel, ids.current_dispatch_id)
+            attempt = await session.get(AttemptModel, ids.child_attempt_id)
+            accepted = await session.scalar(
+                select(AcceptedBoundaryModel).where(
+                    AcceptedBoundaryModel.source_dispatch_id == ids.current_dispatch_id
+                )
+            )
+
+        assert missing.value.code == OperationFailureCode.ILLEGAL_STATE
+        assert dispatch is not None and dispatch.status == "open"
+        assert attempt is not None and attempt.status == "running"
+        assert accepted is None
 
 
 async def test_exhausted_retry_rolls_back_dispatch_and_semantic_state(

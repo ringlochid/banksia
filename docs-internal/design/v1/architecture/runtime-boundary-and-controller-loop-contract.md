@@ -63,7 +63,7 @@ During an open parent/root `dispatch`, the only canonical public control tools a
 Rules:
 
 - tool success mutates controller-owned runtime truth but does not close the current dispatch
-- `assign_child` stages a fresh child assignment, commits the child `assignment_key` and first `attempt_id`, and may materialize child `assignment.*`
+- `assign_child` stages a fresh child assignment, commits the child `assignment_key` and first `attempt_id`, and may materialize child `assignment.*`; while the parent/root dispatch is live and no downstream artifact consumer has current work, the same operation may supersede terminal work for that direct child without rewriting its history
 - the child definition owns the baseline durable assignment contract
 - parent/root may add only assignment-local wording, supplemental durable artifact/criteria slot selectors, and explicit transient surfacing
 - runtime resolves `consumes` and projects `produces` as requirements only
@@ -71,7 +71,7 @@ Rules:
 - `release_green` and root-only `release_blocked` are terminal-close preconditions only; they are not boundaries and not continuation outcomes
 - parent/root must later emit `yield` for non-terminal closure
 - parent/root must later emit `green` or `blocked` for terminal closure
-- retry is node-self only; parent/root do not issue public child retry, reassignment, or replacement control
+- retry is node-self only; parent/root do not issue a separate public child retry, reassignment, or replacement verb because fresh same-child work uses `assign_child`
 - for v1 static `node MCP`, caller supplies `session_key` + `task_id`; the controller resolves the current bound dispatch context from runtime truth rather than from manifest or ack fields
 
 ## Checkpoint, tool, and boundary split
@@ -251,10 +251,11 @@ No external operator `continue` action participates in this ordinary parent-to-c
 
 Terminal checkpoint repair rule:
 
-- before a boundary closes the attempt, a later terminal checkpoint may supersede an earlier terminal checkpoint
+- before a parent/root commits a release decision, or before a worker closes its boundary, a later terminal checkpoint may supersede an earlier terminal checkpoint
 - the controller keeps the earlier checkpoint rows as audit history
 - the attempt's latest-checkpoint pointer moves to the newer terminal checkpoint
-- an incompatible committed terminal release precondition is cleared so the node can choose the boundary or release precondition that matches the latest terminal checkpoint
+- after a staged-child decision, only an optional progress checkpoint may precede `yield`
+- after `release_green` or `release_blocked`, checkpoint evidence is frozen and the node must return the matching terminal boundary
 
 Concrete file effects in that sequence:
 
@@ -313,7 +314,7 @@ This page no longer teaches or owns:
 - `BoundaryAction`
 - parent-facing callback decision envelopes
 - public child retry control
-- public reassignment control
+- a separate public reassignment control verb
 - child replacement control
 - manifest/session/ack-field callback naming in the target contract
 

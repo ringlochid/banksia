@@ -231,7 +231,6 @@ class CodexAdapter:
 
     async def _cleanup(self) -> None:
         async with self._lock:
-            executions = tuple(self._executions.values())
             consumers = tuple(self._consumer_tasks)
             codex = self._codex
             self._executions.clear()
@@ -239,16 +238,14 @@ class CodexAdapter:
             self._starting_dispatches.clear()
             self._codex = None
 
-        await asyncio.gather(
-            *(execution.turn.interrupt() for execution in executions),
-            return_exceptions=True,
-        )
         for consumer in consumers:
             consumer.cancel()
-        if consumers:
-            await asyncio.gather(*consumers, return_exceptions=True)
-        if codex is not None:
-            await codex.close()
+        try:
+            if codex is not None:
+                await codex.close()
+        finally:
+            if consumers:
+                await asyncio.gather(*consumers, return_exceptions=True)
 
 
 def _build_codex() -> AsyncCodex:

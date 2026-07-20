@@ -7,14 +7,21 @@ from typing import cast
 import pytest
 from autoclaw.persistence import RuntimeBase
 from autoclaw.persistence.models import (
+    AssignmentDecisionModel,
+    AssignmentModel,
     FlowEdgeModel,
     FlowNodeModel,
     FlowRevisionModel,
     NodePlanRevisionModel,
 )
+from autoclaw.runtime.dispatch.authority import read_node_operation_authority
 from autoclaw.runtime.errors import RuntimeOperationError
 from autoclaw.runtime.node_operations import NodeOperationScope
+from autoclaw.runtime.node_operations.release.evidence import (
+    _current_assignments_by_node,
+)
 from sqlalchemy import Connection, func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 from tests.integration.runtime.node_operations.structural_revision_fixture import (
     StructuralRevisionContext,
     seeded_structural_revision_context,
@@ -164,6 +171,168 @@ async def test_structural_revisions_preserve_replace_and_clear_authored_provider
         )
         cleared_revision = cleared.model_dump()["flow"]["active_flow_revision_id"]
         await _assert_provider(context, cleared_revision, "provider_worker", None)
+
+
+async def test_structural_revision_preserves_historical_decision_revision(
+    tmp_path: Path,
+) -> None:
+    async with seeded_structural_revision_context(
+        tmp_path,
+        suffix="historical-decision",
+    ) as context:
+        async with context.session_factory() as session:
+            child_assignment = await session.get(
+                AssignmentModel,
+                context.ids.child_assignment_id,
+            )
+            assert child_assignment is not None
+            child_assignment.created_by_dispatch_id = context.ids.root_dispatch_id
+            session.add(
+                AssignmentDecisionModel(
+                    assignment_decision_id=(f"assignment-decision.{context.ids.root_dispatch_id}"),
+                    source_dispatch_id=context.ids.root_dispatch_id,
+                    task_id=context.ids.task_id,
+                    flow_id=context.ids.flow_id,
+                    assignment_id=context.ids.root_assignment_id,
+                    attempt_id=context.ids.root_attempt_id,
+                    source_flow_revision_id=context.ids.flow_revision_id,
+                    decision_kind="staged_child",
+                    staged_child_assignment_id=context.ids.child_assignment_id,
+                    staged_child_attempt_id=context.ids.child_attempt_id,
+                )
+            )
+            await session.commit()
+
+        result = await context.executor.execute(
+            scope=context.scope,
+            operation_name="add_child",
+            arguments={
+                "expected_structural_revision_id": context.ids.flow_revision_id,
+                "payload": {
+                    "target_parent_node_key": "branch",
+                    "child": {
+                        "node_key": "post_decision_worker",
+                        "role": "role.target",
+                        "policy": "policy.target",
+                        "description": "Worker added after an earlier child decision.",
+                    },
+                },
+            },
+        )
+        adopted_revision = result.model_dump()["flow"]["active_flow_revision_id"]
+
+        async with context.session_factory() as session:
+            decision = await session.get(
+                AssignmentDecisionModel,
+                f"assignment-decision.{context.ids.root_dispatch_id}",
+            )
+            root_assignment = await session.get(
+                AssignmentModel,
+                context.ids.root_assignment_id,
+            )
+        with context.engine.connect() as connection:
+            foreign_key_violations = connection.exec_driver_sql("PRAGMA foreign_key_check").all()
+
+        assert decision is not None
+        assert decision.source_flow_revision_id == context.ids.flow_revision_id
+        assert root_assignment is not None
+        assert root_assignment.flow_revision_id == adopted_revision
+        assert foreign_key_violations == []
+
+
+async def test_release_rejects_descendant_owned_by_superseded_parent(
+    tmp_path: Path,
+) -> None:
+    async with seeded_structural_revision_context(
+        tmp_path,
+        suffix="stale-parent-lineage",
+    ) as context:
+        old_parent_id = f"assignment.{context.ids.suffix}.branch.old"
+        current_parent_id = f"assignment.{context.ids.suffix}.branch.current"
+        child_assignment_id = f"assignment.{context.ids.suffix}.producer.current"
+        async with context.session_factory() as session:
+            branch = await session.scalar(
+                select(FlowNodeModel).where(FlowNodeModel.node_key == "branch")
+            )
+            producer = await session.scalar(
+                select(FlowNodeModel).where(FlowNodeModel.node_key == "producer")
+            )
+            assert branch is not None and producer is not None
+            old_parent = AssignmentModel(
+                assignment_id=old_parent_id,
+                task_id=context.ids.task_id,
+                flow_id=context.ids.flow_id,
+                flow_revision_id=context.ids.flow_revision_id,
+                flow_node_id=branch.flow_node_id,
+                assignment_key=f"assignment-key.{context.ids.suffix}.branch.old",
+                node_key="branch",
+                parent_assignment_id=context.ids.root_assignment_id,
+                summary="Superseded branch assignment.",
+                instruction=None,
+                criteria_json=[],
+                consumes_json=[],
+                produces_json=[],
+                current_attempt_id=None,
+                work_plan_revision=0,
+                superseded_at=datetime.now(UTC),
+            )
+            current_parent = AssignmentModel(
+                assignment_id=current_parent_id,
+                task_id=context.ids.task_id,
+                flow_id=context.ids.flow_id,
+                flow_revision_id=context.ids.flow_revision_id,
+                flow_node_id=branch.flow_node_id,
+                assignment_key=f"assignment-key.{context.ids.suffix}.branch.current",
+                node_key="branch",
+                parent_assignment_id=context.ids.root_assignment_id,
+                summary="Current branch assignment.",
+                instruction=None,
+                criteria_json=[],
+                consumes_json=[],
+                produces_json=[],
+                current_attempt_id=None,
+                work_plan_revision=0,
+                superseded_at=None,
+            )
+            child_assignment = AssignmentModel(
+                assignment_id=child_assignment_id,
+                task_id=context.ids.task_id,
+                flow_id=context.ids.flow_id,
+                flow_revision_id=context.ids.flow_revision_id,
+                flow_node_id=producer.flow_node_id,
+                assignment_key=f"assignment-key.{context.ids.suffix}.producer.current",
+                node_key="producer",
+                parent_assignment_id=old_parent_id,
+                summary="Producer work owned by the superseded branch assignment.",
+                instruction=None,
+                criteria_json=[],
+                consumes_json=[],
+                produces_json=[],
+                current_attempt_id=None,
+                work_plan_revision=0,
+                superseded_at=None,
+            )
+            branch.current_assignment_id = current_parent_id
+            producer.current_assignment_id = child_assignment_id
+            session.add_all((old_parent, current_parent, child_assignment))
+            await session.commit()
+
+        async with context.session_factory() as session:
+            typed_session = cast(AsyncSession, session)
+            authority = await read_node_operation_authority(typed_session, context.scope)
+            branch = await session.scalar(
+                select(FlowNodeModel).where(FlowNodeModel.node_key == "branch")
+            )
+            producer = await session.scalar(
+                select(FlowNodeModel).where(FlowNodeModel.node_key == "producer")
+            )
+            assert branch is not None and producer is not None
+            with pytest.raises(RuntimeOperationError, match="current parent assignment"):
+                await _current_assignments_by_node(
+                    typed_session,
+                    authority,
+                    (branch, producer),
+                )
 
 
 @pytest.mark.parametrize(

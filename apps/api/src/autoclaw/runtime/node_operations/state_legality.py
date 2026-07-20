@@ -27,6 +27,9 @@ from autoclaw.runtime.node_operations.release import (
     release_blocked_is_ready,
     release_green_is_ready,
 )
+from autoclaw.runtime.node_operations.release.publications import (
+    require_checkpoint_publications,
+)
 
 _READ_OPERATIONS = frozenset(
     {
@@ -111,11 +114,11 @@ async def read_node_operation_state_token(
     checkpoint_count = await session.scalar(
         select(func.count()).select_from(AttemptCheckpointModel).where(*checkpoint_scope)
     )
-    terminal_checkpoint_id = await session.scalar(
-        select(AttemptCheckpointModel.checkpoint_id).where(
-            *checkpoint_scope,
-            AttemptCheckpointModel.checkpoint_kind == "terminal",
-        )
+    latest_checkpoint = await read_exact_latest_checkpoint(session, authority)
+    terminal_checkpoint_id = (
+        latest_checkpoint.checkpoint_id
+        if latest_checkpoint is not None and latest_checkpoint.checkpoint_kind == "terminal"
+        else None
     )
     return NodeOperationStateToken(
         flow_control_revision=int(flow_state.control_revision),
@@ -190,7 +193,6 @@ async def _read_state_legal_node_operations(
     legal = set(role_operations)
     legal.discard(NodeOperationName.RETURN_BOUNDARY)
     if terminal_checkpoint:
-        legal.discard(NodeOperationName.RECORD_CHECKPOINT)
         legal.discard(NodeOperationName.OPEN_HUMAN_REQUEST)
         legal.discard(NodeOperationName.START_COMMAND_RUN)
 
@@ -198,6 +200,8 @@ async def _read_state_legal_node_operations(
         legal.difference_update(_STRUCTURAL_OPERATIONS)
         legal.discard(NodeOperationName.OPEN_HUMAN_REQUEST)
         legal.discard(NodeOperationName.START_COMMAND_RUN)
+        if decision.decision_kind in {"release_green", "release_blocked"}:
+            legal.discard(NodeOperationName.RECORD_CHECKPOINT)
     else:
         await _narrow_uncommitted_structural_operations(
             session,
@@ -206,8 +210,8 @@ async def _read_state_legal_node_operations(
             terminal_checkpoint=terminal_checkpoint,
         )
 
-    if NodeOperationName.RETURN_BOUNDARY in role_operations and _boundary_is_ready(
-        authority, checkpoint, decision
+    if NodeOperationName.RETURN_BOUNDARY in role_operations and await _boundary_is_ready(
+        session, authority, checkpoint, decision
     ):
         legal.add(NodeOperationName.RETURN_BOUNDARY)
     return frozenset(legal)
@@ -242,7 +246,9 @@ async def _narrow_uncommitted_structural_operations(
         node for node in descendants if node.parent_node_key == authority.node_key
     )
     if NodeOperationName.ASSIGN_CHILD in structural_operations and not any(
-        child.current_assignment_id is None for child in direct_children
+        (child.current_assignment_id is None and child.state == "ready")
+        or (child.current_assignment_id is not None and child.state in {"done", "failed"})
+        for child in direct_children
     ):
         legal.discard(NodeOperationName.ASSIGN_CHILD)
     if not descendants and structural_operations & {
@@ -290,7 +296,8 @@ async def _latest_dispatch_checkpoint(
     return await read_exact_latest_checkpoint(session, authority)
 
 
-def _boundary_is_ready(
+async def _boundary_is_ready(
+    session: AsyncSession,
     authority: NodeOperationAuthority,
     checkpoint: AttemptCheckpointModel | None,
     decision: AssignmentDecisionModel | None,
@@ -299,6 +306,11 @@ def _boundary_is_ready(
         return True
     if checkpoint is None or checkpoint.checkpoint_kind != "terminal":
         return False
+    if checkpoint.outcome == "green":
+        try:
+            await require_checkpoint_publications(session, authority.assignment, checkpoint)
+        except RuntimeOperationError:
+            return False
     if authority.node_kind == NodeKind.WORKER:
         return checkpoint.outcome in {"green", "retry", "blocked"}
     if authority.node_kind == NodeKind.PARENT:

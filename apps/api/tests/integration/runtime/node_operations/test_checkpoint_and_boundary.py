@@ -1,16 +1,22 @@
 from __future__ import annotations
 
+import sqlite3
 from pathlib import Path
 
+import autoclaw.runtime.node_operations.domain_handlers as domain_handlers
+import autoclaw.runtime.node_operations.executor as executor_module
 import pytest
 from autoclaw.persistence.models import (
     AcceptedBoundaryModel,
+    AssignmentDecisionModel,
+    AssignmentModel,
     AttemptCheckpointModel,
     AttemptModel,
     DispatchTurnModel,
     FlowModel,
     FlowNodeModel,
 )
+from autoclaw.runtime.checkpoint import CheckpointPreparation
 from autoclaw.runtime.clock import utc_now
 from autoclaw.runtime.contracts import (
     AssignmentBody,
@@ -27,6 +33,7 @@ from autoclaw.runtime.post_commit.publisher import CapturedRuntimeEffectPublishe
 from autoclaw.runtime.post_commit.signals import BoundaryAccepted
 from pydantic import ValidationError
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from tests.helpers.executor_harness import seeded_executor
 
 
@@ -80,6 +87,169 @@ async def test_record_checkpoint_persists_exact_source_and_keeps_dispatch_open(
         assert dispatch is not None and dispatch.status == "open"
         assert dispatch.node_activity_revision == 1
         assert [signal.activity_revision for signal in signals] == [1]
+
+
+async def test_unexpected_persistence_integrity_failure_is_normalized(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def reject_persistence(*_args: object, **_kwargs: object) -> None:
+        raise IntegrityError(
+            "INSERT INTO controller_truth",
+            {},
+            sqlite3.IntegrityError("FOREIGN KEY constraint failed"),
+        )
+
+    monkeypatch.setattr(
+        domain_handlers,
+        "execute_controller_node_operation",
+        reject_persistence,
+    )
+    async with seeded_executor(tmp_path, suffix="integrity-normalized") as (
+        executor,
+        session_factory,
+        ids,
+        _,
+    ):
+        with pytest.raises(RuntimeOperationError) as rejected:
+            await executor.execute(
+                scope=NodeOperationScope(
+                    task_id=ids.task_id,
+                    dispatch_id=ids.current_dispatch_id,
+                ),
+                operation_name="record_checkpoint",
+                arguments={
+                    "checkpoint": {
+                        "checkpoint_kind": "progress",
+                        "handoff": {
+                            "summary": "Exercise persistence normalization.",
+                            "next_step": "Inspect the normalized controller error.",
+                        },
+                    }
+                },
+            )
+
+        async with session_factory() as session:
+            checkpoints = tuple(
+                await session.scalars(
+                    select(AttemptCheckpointModel).where(
+                        AttemptCheckpointModel.authoring_dispatch_id == ids.current_dispatch_id
+                    )
+                )
+            )
+
+        assert rejected.value.code == OperationFailureCode.INTERNAL_ERROR
+        assert "FOREIGN KEY" not in rejected.value.summary
+        assert checkpoints == ()
+
+
+async def test_admission_integrity_failure_is_normalized(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def reject_activity(*_args: object, **_kwargs: object) -> None:
+        raise IntegrityError(
+            "UPDATE dispatch_turns",
+            {},
+            sqlite3.IntegrityError("FOREIGN KEY constraint failed"),
+        )
+
+    monkeypatch.setattr(executor_module, "refresh_node_activity", reject_activity)
+    async with seeded_executor(tmp_path, suffix="admission-integrity-normalized") as (
+        executor,
+        _session_factory,
+        ids,
+        _,
+    ):
+        with pytest.raises(RuntimeOperationError) as rejected:
+            await executor.execute(
+                scope=NodeOperationScope(
+                    task_id=ids.task_id,
+                    dispatch_id=ids.current_dispatch_id,
+                ),
+                operation_name="get_current_context",
+                arguments={},
+            )
+
+        assert rejected.value.code == OperationFailureCode.INTERNAL_ERROR
+        assert "FOREIGN KEY" not in rejected.value.summary
+
+
+async def test_terminal_checkpoint_revalidates_staged_child_in_final_transaction(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async with seeded_executor(tmp_path, suffix="checkpoint-staged-child-race") as (
+        executor,
+        session_factory,
+        ids,
+        _,
+    ):
+        original_publish = executor_module.publish_checkpoint_bodies
+
+        async def stage_child_before_final_transaction(
+            preparation: CheckpointPreparation,
+        ) -> CheckpointPreparation:
+            async with session_factory() as session:
+                child_assignment = await session.get(
+                    AssignmentModel,
+                    ids.child_assignment_id,
+                )
+                assert child_assignment is not None
+                child_assignment.created_by_dispatch_id = ids.current_dispatch_id
+                session.add(
+                    AssignmentDecisionModel(
+                        assignment_decision_id=(f"assignment-decision.{ids.current_dispatch_id}"),
+                        source_dispatch_id=ids.current_dispatch_id,
+                        task_id=ids.task_id,
+                        flow_id=ids.flow_id,
+                        assignment_id=ids.root_assignment_id,
+                        attempt_id=ids.root_attempt_id,
+                        source_flow_revision_id=ids.flow_revision_id,
+                        decision_kind="staged_child",
+                        staged_child_assignment_id=ids.child_assignment_id,
+                        staged_child_attempt_id=ids.child_attempt_id,
+                    )
+                )
+                await session.commit()
+            return await original_publish(preparation)
+
+        monkeypatch.setattr(
+            executor_module,
+            "publish_checkpoint_bodies",
+            stage_child_before_final_transaction,
+        )
+        with pytest.raises(RuntimeOperationError) as rejected:
+            await executor.execute(
+                scope=NodeOperationScope(
+                    task_id=ids.task_id,
+                    dispatch_id=ids.current_dispatch_id,
+                ),
+                operation_name="record_checkpoint",
+                arguments={
+                    "checkpoint": {
+                        "checkpoint_kind": "terminal",
+                        "outcome": "blocked",
+                        "handoff": {
+                            "summary": "The terminal write lost to staged child work.",
+                            "next_step": "Return yield from the committed child decision.",
+                        },
+                    }
+                },
+            )
+
+        async with session_factory() as session:
+            attempt = await session.get(AttemptModel, ids.root_attempt_id)
+            checkpoints = tuple(
+                await session.scalars(
+                    select(AttemptCheckpointModel).where(
+                        AttemptCheckpointModel.authoring_dispatch_id == ids.current_dispatch_id
+                    )
+                )
+            )
+        assert rejected.value.code == OperationFailureCode.ILLEGAL_STATE
+        assert attempt is not None and attempt.latest_checkpoint_id is None
+        assert checkpoints == ()
 
 
 def test_checkpoint_and_assignment_schemas_reject_unknown_fields() -> None:
@@ -141,6 +311,7 @@ async def test_return_blocked_boundary_closes_exact_source_after_prerequisites(
             child_attempt.status = "completed"
             child_attempt.terminal_outcome = "blocked"
             child_attempt.closed_at = utc_now()
+            child_attempt.latest_checkpoint_id = ids.child_checkpoint_id
             await session.commit()
 
         checkpoint = await executor.execute(
@@ -277,7 +448,7 @@ async def test_return_boundary_rejects_stale_source_before_activity_admission(
         assert signals == []
 
 
-async def test_terminal_checkpoint_rejects_another_checkpoint_after_admission(
+async def test_later_terminal_checkpoints_supersede_before_release(
     tmp_path: Path,
 ) -> None:
     async with seeded_executor(tmp_path, suffix="checkpoint-terminal") as (
@@ -312,12 +483,34 @@ async def test_terminal_checkpoint_rejects_another_checkpoint_after_admission(
         )
         allowed_actions = context.model_dump(mode="json")["allowed_actions"]
 
-        with pytest.raises(RuntimeOperationError) as error:
-            await executor.execute(
-                scope=scope,
-                operation_name="record_checkpoint",
-                arguments=terminal_arguments,
-            )
+        replacement = await executor.execute(
+            scope=scope,
+            operation_name="record_checkpoint",
+            arguments={
+                "checkpoint": {
+                    "checkpoint_kind": "terminal",
+                    "outcome": "blocked",
+                    "handoff": {
+                        "summary": "The corrected blocker is now durable.",
+                        "next_step": "Return the matching boundary.",
+                    },
+                }
+            },
+        )
+        final = await executor.execute(
+            scope=scope,
+            operation_name="record_checkpoint",
+            arguments={
+                "checkpoint": {
+                    "checkpoint_kind": "terminal",
+                    "outcome": "blocked",
+                    "handoff": {
+                        "summary": "The final blocker statement is durable.",
+                        "next_step": "Return the matching boundary.",
+                    },
+                }
+            },
+        )
 
         async with session_factory() as session:
             checkpoints = tuple(
@@ -328,12 +521,14 @@ async def test_terminal_checkpoint_rejects_another_checkpoint_after_admission(
                 )
             )
             dispatch = await session.get(DispatchTurnModel, ids.current_dispatch_id)
+            attempt = await session.get(AttemptModel, ids.root_attempt_id)
 
-        assert error.value.code == OperationFailureCode.ILLEGAL_STATE
-        assert error.value.is_retryable is False
-        assert "record_checkpoint" not in allowed_actions
+        assert "record_checkpoint" in allowed_actions
         assert "open_human_request" not in allowed_actions
         assert "start_command_run" not in allowed_actions
-        assert len(checkpoints) == 1
-        assert dispatch is not None and dispatch.node_activity_revision == 3
-        assert [signal.activity_revision for signal in signals] == [1, 2, 3]
+        assert len(checkpoints) == 3
+        assert attempt is not None
+        assert replacement.model_dump()["checkpoint_id"] != final.model_dump()["checkpoint_id"]
+        assert attempt.latest_checkpoint_id == final.model_dump()["checkpoint_id"]
+        assert dispatch is not None and dispatch.node_activity_revision == 4
+        assert [signal.activity_revision for signal in signals] == [1, 2, 3, 4]

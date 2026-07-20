@@ -97,7 +97,7 @@ When review returns `green`, every produce required by the current assignment mu
 
 Review/QA/audit nodes publish:
 
-- one terminal checkpoint
+- one authoritative latest terminal checkpoint, with superseded terminal rows retained as history
 - referenced durable artifacts
 - optional transient refs when explicitly surfaced
 

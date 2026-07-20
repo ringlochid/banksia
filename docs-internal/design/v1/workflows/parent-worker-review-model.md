@@ -31,7 +31,7 @@ Parent/root uses its open dispatch to:
 - stage the next bounded child assignment with `assign_child`
 - apply legal structural edits with `add_child`, `update_child`, or `remove_child`
 - record checkpoints when later agents must understand the decision basis
-- commit `release_green` or root-only `release_blocked`
+- publish the matching terminal checkpoint, then commit `release_green` or root-only `release_blocked`
 - close with `blocked` when the current parent/root assignment cannot proceed as assigned
 
 ## Worker responsibilities

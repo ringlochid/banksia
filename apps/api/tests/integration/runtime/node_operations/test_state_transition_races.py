@@ -303,7 +303,7 @@ async def test_assign_child_and_external_wait_have_one_stable_winner(
         assert [signal.activity_revision for signal in signals] == [1, 2]
 
 
-async def test_release_green_and_human_wait_have_one_winner(tmp_path: Path) -> None:
+async def test_terminal_green_hides_human_wait_before_release(tmp_path: Path) -> None:
     async with seeded_executor(tmp_path, suffix="release-human-race") as (
         executor,
         session_factory,
@@ -313,44 +313,18 @@ async def test_release_green_and_human_wait_have_one_winner(tmp_path: Path) -> N
         async with session_factory() as session:
             await _stage_release_green_race_basis(session, ids)
 
-        scope = NodeOperationScope(
-            task_id=ids.task_id,
-            dispatch_id=ids.current_dispatch_id,
+        scope = NodeOperationScope(task_id=ids.task_id, dispatch_id=ids.current_dispatch_id)
+        context = await executor.execute(
+            scope=scope,
+            operation_name="get_current_context",
+            arguments={},
         )
-        async with synchronized_transition_claims():
-            results = await asyncio.wait_for(
-                asyncio.gather(
-                    executor.execute(
-                        scope=scope,
-                        operation_name="release_green",
-                        arguments={"expected_structural_revision_id": ids.flow_revision_id},
-                    ),
-                    executor.execute(
-                        scope=scope,
-                        operation_name="open_human_request",
-                        arguments={
-                            "request": {
-                                "kind": "direction",
-                                "summary": "Choose one direction.",
-                                "items": [
-                                    {
-                                        "id": "direction",
-                                        "prompt": "Which direction?",
-                                        "options": [{"id": "a", "title": "A"}],
-                                    }
-                                ],
-                            }
-                        },
-                    ),
-                    return_exceptions=True,
-                ),
-                timeout=5,
-            )
-
-        errors = [result for result in results if isinstance(result, BaseException)]
-        assert len(errors) == 1
-        assert isinstance(errors[0], RuntimeOperationError)
-        assert errors[0].code.value == "conflict"
+        assert "open_human_request" not in context.model_dump(mode="json")["allowed_actions"]
+        await executor.execute(
+            scope=scope,
+            operation_name="release_green",
+            arguments={"expected_structural_revision_id": ids.flow_revision_id},
+        )
         async with session_factory() as session:
             decision_count = await session.scalar(
                 select(func.count()).select_from(AssignmentDecisionModel)
@@ -360,10 +334,11 @@ async def test_release_green_and_human_wait_have_one_winner(tmp_path: Path) -> N
             )
             wait_count = await session.scalar(select(func.count()).select_from(FlowWaitModel))
             dispatch = await session.get(DispatchTurnModel, ids.current_dispatch_id)
-        assert (int(decision_count or 0), int(request_count or 0)) in {(1, 0), (0, 1)}
-        assert int(wait_count or 0) == int(request_count or 0)
+        assert int(decision_count or 0) == 1
+        assert int(request_count or 0) == 0
+        assert int(wait_count or 0) == 0
         assert dispatch is not None
-        assert dispatch.status == ("open" if decision_count else "closed")
+        assert dispatch.status == "open"
         assert dispatch.node_activity_revision == 2
         assert [signal.activity_revision for signal in signals] == [1, 2]
 
@@ -374,18 +349,27 @@ async def _stage_release_green_race_basis(
 ) -> None:
     typed_session = cast(AsyncSession, session)
     child_attempt = await typed_session.get(AttemptModel, ids.child_attempt_id)
+    root_attempt = await typed_session.get(AttemptModel, ids.root_attempt_id)
+    root_checkpoint = await typed_session.get(
+        AttemptCheckpointModel,
+        ids.root_checkpoint_id,
+    )
     child_checkpoint = await typed_session.get(
         AttemptCheckpointModel,
         ids.child_checkpoint_id,
     )
     root_assignment = await typed_session.get(AssignmentModel, ids.root_assignment_id)
     child_assignment = await typed_session.get(AssignmentModel, ids.child_assignment_id)
+    assert root_attempt is not None and root_checkpoint is not None
     assert child_attempt is not None and child_checkpoint is not None
     assert root_assignment is not None and child_assignment is not None
 
     child_attempt.status = "completed"
     child_attempt.terminal_outcome = "green"
     child_attempt.closed_at = utc_now()
+    child_attempt.latest_checkpoint_id = ids.child_checkpoint_id
+    root_attempt.latest_checkpoint_id = ids.root_checkpoint_id
+    root_checkpoint.authoring_dispatch_id = ids.current_dispatch_id
     child_checkpoint.outcome = "green"
     root_assignment.criteria_json = [
         {

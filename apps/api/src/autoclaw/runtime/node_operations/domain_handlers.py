@@ -20,6 +20,7 @@ from autoclaw.runtime.checkpoint import (
     commit_checkpoint_preparation,
     empty_checkpoint_preparation,
     read_exact_latest_checkpoint,
+    require_legal_checkpoint_successor,
 )
 from autoclaw.runtime.clock import utc_now
 from autoclaw.runtime.contracts import (
@@ -42,6 +43,9 @@ from autoclaw.runtime.node_operations.contracts import (
 from autoclaw.runtime.node_operations.external_wait_handlers import (
     open_human_request,
     start_command_run,
+)
+from autoclaw.runtime.node_operations.release.publications import (
+    require_checkpoint_publications,
 )
 from autoclaw.runtime.node_operations.result_reads import runtime_flow_read
 from autoclaw.runtime.node_operations.source_transitions import close_source_dispatch
@@ -101,6 +105,7 @@ async def _record_checkpoint(
             summary="prepared checkpoint does not match the accepted request",
             is_retryable=False,
         )
+    await require_legal_checkpoint_successor(session, authority, body)
     await commit_checkpoint_preparation(session, authority, prepared)
     checkpoint_ref = CheckpointFileRef(
         path=Path(f"_runtime/attempts/{authority.attempt_id}/latest-checkpoint.md"),
@@ -121,6 +126,9 @@ async def _return_boundary(
 ) -> BoundaryRead:
     outcome = request.boundary.value
     checkpoint = await _require_boundary_checkpoint(session, authority, outcome=outcome)
+    if outcome == "green":
+        assert checkpoint is not None
+        await require_checkpoint_publications(session, authority.assignment, checkpoint)
     decision = await _read_boundary_decision(session, authority, outcome=outcome)
     now = utc_now()
     await _persist_boundary_acceptance(

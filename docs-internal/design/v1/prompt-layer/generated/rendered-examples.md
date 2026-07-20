@@ -353,8 +353,8 @@ Rules:
 
 - If no durable output exists yet, omit `produced_artifacts` rather than guessing.
 - Author `transient_surfaces` as a list of `{ path, description }` objects; omit the field when there is no temporary carryover.
-- A terminal `green` checkpoint must include or already have every required durable publication for the current assignment.
-- Before boundary closure, a later terminal checkpoint may supersede an earlier terminal checkpoint; use that only to correct the latest terminal outcome, not as a progress log.
+- A terminal `green` checkpoint must include one `produced_artifacts` claim for every required produce slot on the current assignment.
+- Before a parent/root release decision, or before a worker boundary closes, a later terminal checkpoint may supersede earlier terminal evidence; use that only to correct the exact latest terminal outcome, not as a progress log.
 - If prose mentions an older artifact path or prior version for a slot that also appears in surfaced current refs later, that older mention is history only, not current truth.
 
 Bad checkpoint:
@@ -453,7 +453,7 @@ Rules:
 - Runtime validation and commit authority still live on the runtime side.
 - If you use `add_child`, `update_child`, or `remove_child`, reread the current manifest first. Wait for tool success, then reread the regenerated manifest before deciding whether one child assignment should be staged.
 - If the surfaced manifest, assignment, checkpoints, and current refs are still insufficient, do more bounded inspection aimed at writing a tighter child assignment or making a release or routing decision. Stop once you have enough to choose the next move well.
-- Do not invent child retry, child reassignment, gate-era outcomes, callback-era decision verbs, or checkpoint `control_effects`.
+- Do not invent a separate child retry or reassignment verb, gate-era outcomes, callback-era decision verbs, or checkpoint `control_effects`; fresh same-child work uses `assign_child` when legal.
 
 
 ### Current Node Guidance
@@ -970,8 +970,8 @@ Rules:
 
 - If no durable output exists yet, omit `produced_artifacts` rather than guessing.
 - Author `transient_surfaces` as a list of `{ path, description }` objects; omit the field when there is no temporary carryover.
-- A terminal `green` checkpoint must include or already have every required durable publication for the current assignment.
-- Before boundary closure, a later terminal checkpoint may supersede an earlier terminal checkpoint; use that only to correct the latest terminal outcome, not as a progress log.
+- A terminal `green` checkpoint must include one `produced_artifacts` claim for every required produce slot on the current assignment.
+- Before a parent/root release decision, or before a worker boundary closes, a later terminal checkpoint may supersede earlier terminal evidence; use that only to correct the exact latest terminal outcome, not as a progress log.
 - If prose mentions an older artifact path or prior version for a slot that also appears in surfaced current refs later, that older mention is history only, not current truth.
 
 Bad checkpoint:
@@ -1070,7 +1070,7 @@ Rules:
 - Runtime validation and commit authority still live on the runtime side.
 - If you use `add_child`, `update_child`, or `remove_child`, reread the current manifest first. Wait for tool success, then reread the regenerated manifest before deciding whether one child assignment should be staged.
 - If the surfaced manifest, assignment, checkpoints, and current refs are still insufficient, do more bounded inspection aimed at writing a tighter child assignment or making a release or routing decision. Stop once you have enough to choose the next move well.
-- Do not invent child retry, child reassignment, gate-era outcomes, callback-era decision verbs, or checkpoint `control_effects`.
+- Do not invent a separate child retry or reassignment verb, gate-era outcomes, callback-era decision verbs, or checkpoint `control_effects`; fresh same-child work uses `assign_child` when legal.
 
 
 ### Current Node Guidance
@@ -1434,8 +1434,8 @@ Rules:
 
 - If no durable output exists yet, omit `produced_artifacts` rather than guessing.
 - Author `transient_surfaces` as a list of `{ path, description }` objects; omit the field when there is no temporary carryover.
-- A terminal `green` checkpoint must include or already have every required durable publication for the current assignment.
-- Before boundary closure, a later terminal checkpoint may supersede an earlier terminal checkpoint; use that only to correct the latest terminal outcome, not as a progress log.
+- A terminal `green` checkpoint must include one `produced_artifacts` claim for every required produce slot on the current assignment.
+- Before a parent/root release decision, or before a worker boundary closes, a later terminal checkpoint may supersede earlier terminal evidence; use that only to correct the exact latest terminal outcome, not as a progress log.
 - If prose mentions an older artifact path or prior version for a slot that also appears in surfaced current refs later, that older mention is history only, not current truth.
 
 Bad checkpoint:

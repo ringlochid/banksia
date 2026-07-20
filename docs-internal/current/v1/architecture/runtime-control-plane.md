@@ -76,7 +76,7 @@ The watchdog is deadline-driven. It does not poll provider output and does not w
 
 ## Lifespan and support work
 
-FastAPI lifespan owns the effect router, deadline scheduler, command-process owner, support-projection owner, provider adapters, and MCP binding registry. Startup initializes and audits them; shutdown closes them.
+FastAPI lifespan owns the effect router, deadline scheduler, command-process owner, support-projection owner, provider adapters, and MCP binding registry. Startup initializes and audits them. Shutdown revokes bindings, cancels local provider consumers, and closes owned transports without waiting for provider output or drain.
 
 Support projections run separately from runtime transitions. A projection failure may leave a readback file missing, but it cannot change dispatch eligibility or controller state.
 

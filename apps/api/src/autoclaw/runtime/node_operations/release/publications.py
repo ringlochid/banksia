@@ -8,6 +8,7 @@ from autoclaw.persistence.models import (
     ArtifactPublicationModel,
     AssignmentCriteriaRefModel,
     AssignmentModel,
+    AttemptCheckpointModel,
 )
 from autoclaw.runtime.contracts.operation_failure import OperationFailureCode
 from autoclaw.runtime.errors import (
@@ -95,6 +96,35 @@ async def read_required_current_publications(
     return tuple(publications)
 
 
+async def require_checkpoint_publications(
+    session: AsyncSession,
+    assignment: AssignmentModel,
+    checkpoint: AttemptCheckpointModel,
+) -> None:
+    """Require a terminal checkpoint to carry every declared output itself."""
+
+    required_slots = _required_produce_slots(assignment)
+    if not required_slots:
+        return
+    published_slots = set(
+        await session.scalars(
+            select(ArtifactPublicationModel.slot).where(
+                ArtifactPublicationModel.task_id == assignment.task_id,
+                ArtifactPublicationModel.flow_id == assignment.flow_id,
+                ArtifactPublicationModel.assignment_id == assignment.assignment_id,
+                ArtifactPublicationModel.attempt_id == checkpoint.attempt_id,
+                ArtifactPublicationModel.checkpoint_id == checkpoint.checkpoint_id,
+                ArtifactPublicationModel.slot.in_(required_slots),
+            )
+        )
+    )
+    missing = set(required_slots) - published_slots
+    if missing:
+        raise missing_required_publication_error(
+            f"terminal green checkpoint is missing required artifact publication '{min(missing)}'"
+        )
+
+
 def _required_produce_slots(assignment: AssignmentModel) -> tuple[str, ...]:
     slots: list[str] = []
     for requirement in assignment.produces_json:
@@ -117,5 +147,6 @@ def _required_produce_slots(assignment: AssignmentModel) -> tuple[str, ...]:
 
 __all__ = [
     "read_required_current_publications",
+    "require_checkpoint_publications",
     "require_current_assignment_criteria",
 ]

@@ -159,6 +159,9 @@ Plan replacement may emit a bounded committed `work_plan_set` or `work_plan_clea
 - capability-denied plan writes fail without changing the plan;
 - invalid step shape fails validation;
 - an identical plan is a successful no-op;
+- a terminal `green` checkpoint missing any declared produce claim fails before checkpoint or publication mutation;
+- before a parent/root release decision, or before a worker boundary closes, a later terminal checkpoint may replace the attempt's latest-checkpoint pointer while preserving the older row as audit history;
+- a staged-child decision permits only an optional progress checkpoint before `yield`, while a release decision freezes checkpoint evidence;
 - checkpoint identity mismatch fails the owning boundary or continuation before successor creation; and
 - missing checkpoint projection files do not erase the authoritative checkpoint row, though the read path reports the projection problem explicitly.
 

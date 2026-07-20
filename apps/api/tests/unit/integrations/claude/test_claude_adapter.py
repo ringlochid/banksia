@@ -165,3 +165,25 @@ async def test_claude_start_uses_disposable_scoped_client_and_returns_before_out
         assert await adapter.stop("dispatch-1") is ProviderStopOutcome.STOPPED
         assert client.was_interrupted is True
         assert client.was_disconnected is True
+
+
+@pytest.mark.asyncio
+async def test_claude_lifespan_disconnects_without_waiting_for_interrupt(
+    tmp_path: Path,
+) -> None:
+    clients: list[_FakeClaudeClient] = []
+
+    def build_client(options: ClaudeAgentOptions) -> _FakeClaudeClient:
+        client = _FakeClaudeClient(options)
+        clients.append(client)
+        return client
+
+    adapter = ClaudeAdapter(
+        client_factory=cast(Callable[[ClaudeAgentOptions], ClaudeSDKClient], build_client),
+    )
+
+    async with adapter.lifespan():
+        await adapter.start(_request().model_copy(update={"working_directory": tmp_path}))
+
+    assert clients[0].was_disconnected is True
+    assert clients[0].was_interrupted is False

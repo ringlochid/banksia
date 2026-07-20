@@ -385,7 +385,7 @@ No child may force final `green` by itself.
 
 Task closure is a runtime root decision, not an authored gate.
 
-Root reaches final `green` only after the runtime controller has surfaced the current whole-flow evidence and root commits `release_green` during its ordinary dispatch.
+Root reaches final `green` only after the runtime controller has surfaced the current whole-flow evidence, root publishes its terminal `green` checkpoint, and root commits `release_green` during its ordinary dispatch.
 
 ## Criteria ownership rule
 

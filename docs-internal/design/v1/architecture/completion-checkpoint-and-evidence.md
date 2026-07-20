@@ -22,7 +22,7 @@ The live v1 model uses:
 
 - one current assignment
 - one current attempt
-- one terminal checkpoint for that attempt
+- one authoritative latest terminal checkpoint for that attempt, with any superseded terminal rows retained as history
 - required durable artifact publication for declared `produces`
 - explicit criteria and evidence freshness rules
 
@@ -53,7 +53,7 @@ That is why the v1 model uses checkpoint plus durable artifacts plus criteria, n
 
 Worker/leaf `green` is legal only when all of the following are true:
 
-1. the current attempt has one terminal checkpoint with `outcome: green`
+1. the current attempt's exact latest-checkpoint pointer names a terminal checkpoint with `outcome: green`
 2. every required `produces` slot for the current assignment was published as a durable artifact version
 3. the terminal checkpoint references the exact published artifact paths that matter for later review or consumption
 4. the current evidence basis is valid against:
@@ -84,13 +84,14 @@ Parent/root do not consume a special controller-assembled packet family in the l
 
 Instead, parent/root reason from:
 
+- their own exact latest terminal checkpoint
 - child checkpoints
 - child published artifacts
 - surfaced criteria
 - any explicit review or audit artifacts
 - current structural truth
 
-`release_green` is legal only when the current evidence basis for the parent/root decision is present and current. A packet family is not the controller's legality basis.
+`release_green` is legal only after the parent/root has published its own terminal `green` checkpoint and the current evidence basis for the decision is present and current. The release decision freezes that exact checkpoint basis; the matching `green` boundary comes next. A packet family is not the controller's legality basis.
 
 ```mermaid
 flowchart LR

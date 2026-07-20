@@ -92,7 +92,12 @@ NODE_OPERATION_CATALOG: tuple[NodeOperationDescriptor, ...] = (
         RecordCheckpointRequest,
         CheckpointRead,
         title="Record checkpoint",
-        description="Record durable progress or a terminal checkpoint on the current attempt.",
+        description=(
+            "Record durable progress or a terminal checkpoint on the current attempt. "
+            "A terminal green checkpoint must publish every declared produce; a later "
+            "terminal checkpoint may correct it only before child work, a release "
+            "decision, or boundary closure."
+        ),
     ),
     _descriptor(
         NodeOperationName.RETURN_BOUNDARY,
@@ -154,8 +159,10 @@ NODE_OPERATION_CATALOG: tuple[NodeOperationDescriptor, ...] = (
         allowed_node_kinds=_PARENT_ROOT_NODE_KINDS,
         title="Assign child",
         description=(
-            "Stage one direct-child assignment for a later yield boundary. This is legal "
-            "only for the current parent/root dispatch and does not close that dispatch."
+            "Stage one direct-child assignment for a later yield boundary. A ready child "
+            "starts its first assignment; a terminal child may receive a fresh assignment "
+            "that supersedes its prior assignment. This is legal only for the current "
+            "parent/root dispatch and does not close that dispatch."
         ),
     ),
     _descriptor(
@@ -198,8 +205,9 @@ NODE_OPERATION_CATALOG: tuple[NodeOperationDescriptor, ...] = (
         allowed_node_kinds=_PARENT_ROOT_NODE_KINDS,
         title="Release green",
         description=(
-            "Record evidence-backed green release readiness for the current parent/root "
-            "dispatch without closing it; use only after required evidence is current."
+            "Freeze evidence-backed green release readiness for the current parent/root "
+            "dispatch after its terminal green checkpoint; this does not close the "
+            "dispatch."
         ),
     ),
     _descriptor(
@@ -209,8 +217,8 @@ NODE_OPERATION_CATALOG: tuple[NodeOperationDescriptor, ...] = (
         allowed_node_kinds=_ROOT_NODE_KIND,
         title="Release blocked",
         description=(
-            "Record root-only whole-flow blocked release readiness without closing the "
-            "dispatch; use only after required blocked evidence is current."
+            "Freeze root-only whole-flow blocked release readiness after the root's "
+            "terminal blocked checkpoint; this does not close the dispatch."
         ),
     ),
 )

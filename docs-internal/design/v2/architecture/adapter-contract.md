@@ -129,7 +129,7 @@ Runtime dispatch start does not run the full check first. Deterministic local re
 
 Adapter resources are created and closed by the main FastAPI lifespan. The adapter may expose an async context manager or equivalent internal resource factory, but request handlers and model-facing code do not manually orchestrate public `start()`/`close()` lifecycle pairs.
 
-Shutdown revokes managed bindings first, then requests bounded provider/process cleanup. Cleanup cannot rewrite already committed controller state.
+Shutdown revokes managed bindings first, cancels local output consumers, then closes owned transports or requests bounded provider/process cleanup. It does not wait for final output or drain, and cleanup cannot rewrite already committed controller state.
 
 Process restart discards provider-private handles. Startup recovery treats current `starting` dispatches conservatively as potentially uncertain and re-enters the stop-and-retry path.
 

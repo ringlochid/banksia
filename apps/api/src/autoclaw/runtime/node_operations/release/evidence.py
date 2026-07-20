@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import cast
-
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,6 +20,7 @@ from autoclaw.runtime.errors import (
 from autoclaw.runtime.node_operations.release.basis import ReleaseBasis
 from autoclaw.runtime.node_operations.release.publications import (
     read_required_current_publications,
+    require_checkpoint_publications,
     require_current_assignment_criteria,
 )
 
@@ -52,6 +51,23 @@ async def require_release_green_basis(
     session: AsyncSession,
     authority: NodeOperationAuthority,
 ) -> ReleaseBasis:
+    root_checkpoint = await _latest_checkpoint(
+        session,
+        authority=authority,
+        assignment=authority.assignment,
+        attempt=authority.attempt,
+        authoring_dispatch_id=authority.dispatch_id,
+    )
+    if (
+        root_checkpoint is None
+        or root_checkpoint.checkpoint_kind != "terminal"
+        or root_checkpoint.outcome != "green"
+    ):
+        raise missing_required_publication_error(
+            "release_green requires a current terminal-green checkpoint"
+        )
+    await require_checkpoint_publications(session, authority.assignment, root_checkpoint)
+
     nodes = await _ordered_subtree_nodes(session, authority)
     descendants = tuple(node for node in nodes if node.node_key != authority.node_key)
     assignments = await _current_assignments_by_node(session, authority, descendants)
@@ -64,7 +80,7 @@ async def require_release_green_basis(
 
     await require_current_assignment_criteria(session, authority.assignment)
     artifacts = list(await read_required_current_publications(session, authority.assignment))
-    checkpoints: list[AttemptCheckpointModel] = []
+    checkpoints = [root_checkpoint]
     for node in descendants:
         assignment = assignments.get(node.node_key)
         if assignment is None:
@@ -202,6 +218,19 @@ async def _current_assignments_by_node(
             raise _illegal_state(
                 f"node '{node.node_key}' has stale or cross-lineage assignment truth"
             )
+        parent_assignment_id = (
+            authority.assignment_id
+            if node.parent_node_key == authority.node_key
+            else (
+                assignments[node.parent_node_key].assignment_id
+                if node.parent_node_key in assignments
+                else None
+            )
+        )
+        if assignment.parent_assignment_id != parent_assignment_id:
+            raise _illegal_state(
+                f"node '{node.node_key}' is not owned by its current parent assignment"
+            )
     return assignments
 
 
@@ -248,6 +277,8 @@ async def _require_terminal_assignment(
             f"{action} requires the terminal checkpoint for "
             f"assignment '{assignment.assignment_key}'"
         )
+    if checkpoint.outcome == "green":
+        await require_checkpoint_publications(session, assignment, checkpoint)
     return checkpoint
 
 
@@ -259,25 +290,22 @@ async def _latest_checkpoint(
     attempt: AttemptModel,
     authoring_dispatch_id: str | None,
 ) -> AttemptCheckpointModel | None:
-    statement = select(AttemptCheckpointModel).where(
-        AttemptCheckpointModel.task_id == authority.task_id,
-        AttemptCheckpointModel.flow_id == authority.flow_id,
-        AttemptCheckpointModel.assignment_id == assignment.assignment_id,
-        AttemptCheckpointModel.attempt_id == attempt.attempt_id,
-    )
-    if authoring_dispatch_id is not None:
-        statement = statement.where(
-            AttemptCheckpointModel.authoring_dispatch_id == authoring_dispatch_id
+    if attempt.latest_checkpoint_id is None:
+        return None
+    checkpoint = await session.get(AttemptCheckpointModel, attempt.latest_checkpoint_id)
+    if (
+        checkpoint is None
+        or checkpoint.task_id != authority.task_id
+        or checkpoint.flow_id != authority.flow_id
+        or checkpoint.assignment_id != assignment.assignment_id
+        or checkpoint.attempt_id != attempt.attempt_id
+        or (
+            authoring_dispatch_id is not None
+            and checkpoint.authoring_dispatch_id != authoring_dispatch_id
         )
-    return cast(
-        AttemptCheckpointModel | None,
-        await session.scalar(
-            statement.order_by(
-                AttemptCheckpointModel.recorded_at.desc(),
-                AttemptCheckpointModel.checkpoint_id.desc(),
-            ).limit(1)
-        ),
-    )
+    ):
+        return None
+    return checkpoint
 
 
 def _unique_checkpoints(

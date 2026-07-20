@@ -15,7 +15,6 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     and_,
-    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -48,7 +47,6 @@ class AssignmentModel(RuntimeBase):
     __table_args__ = (
         UniqueConstraint("assignment_id", "flow_node_id"),
         UniqueConstraint("assignment_id", "node_key"),
-        UniqueConstraint("assignment_id", "flow_revision_id"),
         UniqueConstraint("assignment_id", "parent_assignment_id"),
         UniqueConstraint(
             "assignment_id",
@@ -455,13 +453,6 @@ class AttemptCheckpointModel(RuntimeBase):
             name="fk_attempt_checkpoints_dispatch_owner",
             deferrable=True,
             initially="DEFERRED",
-        ),
-        Index(
-            "uq_attempt_checkpoints_one_terminal_per_dispatch",
-            "authoring_dispatch_id",
-            unique=True,
-            sqlite_where=text("checkpoint_kind = 'terminal'"),
-            postgresql_where=text("checkpoint_kind = 'terminal'"),
         ),
         Index("ix_attempt_checkpoints_attempt_recorded_at", "attempt_id", "recorded_at"),
     )

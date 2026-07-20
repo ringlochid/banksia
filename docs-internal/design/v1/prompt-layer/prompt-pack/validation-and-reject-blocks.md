@@ -345,7 +345,7 @@ operation_failure
 operation_failure
 - code: boundary_precondition_failed
 - summary: `green` is not legal yet because parent/root upward green closure still lacks the committed `release_green` basis.
-- suggested_next_step: Commit `release_green`, publish the required terminal green checkpoint basis, then emit `green`.
+- suggested_next_step: Publish the required terminal green checkpoint and declared outputs, commit `release_green`, then emit `green`.
 ```
 
 ### Worker tries `green` before publishing required output

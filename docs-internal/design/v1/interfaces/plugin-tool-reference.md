@@ -123,7 +123,7 @@ The frozen support-state readback family is `delivery-state.json`, `continuity-s
 | `get_definition(session_key, task_id, kind, key)`                                                                 | `Read-only:` current-only `role` / `policy` detail for the live structural-edit lane when surfaced prompt or manifest context is insufficient; not broad browsing or provenance    | `DefinitionRevisionDetailResponse` |
 | `record_checkpoint(session_key, task_id, checkpoint)`                                                             | `Mutating:` durable semantic-progress publication for the current live node execution; use before a terminal boundary when later readers need the progress state                   | `CheckpointRead`                   |
 | `return_boundary(session_key, task_id, boundary)`                                                                 | `Mutating:` close the current dispatch turn; `yield` is non-terminal workflow progress, while `green`, `retry`, and `blocked` are terminal; not a polling action                   | `BoundaryRead`                     |
-| `assign_child(session_key, task_id, payload, expected_structural_revision_id?)`                                   | `Mutating:` stage exactly one bounded child assignment for the current open parent/root dispatch; not operator control or generic worker browsing                                  | `AssignChildSuccess`               |
+| `assign_child(session_key, task_id, payload, expected_structural_revision_id?)`                                   | `Mutating:` stage one bounded assignment for a ready or terminal direct child; fresh same-child work requires a live parent/root dispatch and no assigned downstream artifact consumer | `AssignChildSuccess`               |
 | `add_child(session_key, task_id, payload, expected_structural_revision_id?)`                                      | `Mutating:` add one structural child node draft to the current flow revision when the current dispatch allows legal parent/root mutation                                           | `AddChildSuccess`                  |
 | `update_child(session_key, task_id, payload, expected_structural_revision_id?)`                                   | `Mutating:` update one current-flow child node definition in place when the current dispatch allows legal parent/root mutation                                                     | `UpdateChildSuccess`               |
 | `remove_child(session_key, task_id, payload, expected_structural_revision_id?)`                                   | `Mutating:` remove one child node from the current flow revision when the current dispatch allows legal parent/root mutation                                                       | `RemoveChildSuccess`               |
@@ -201,7 +201,7 @@ Do not keep these as the live surface model:
 - callback-era `progress | result | parent_decision | replan_request` event families
 - `retry_child`
 - `reissue_child`
-- public reassignment control
+- a separate public reassignment control verb; fresh same-child work uses `assign_child`
 - `scope_key`
 - flow/scope manifest split
 - plugin-first truth ownership

@@ -42,11 +42,14 @@ flowchart LR
     F -- yes --> G["assign_child"]
     G --> H["yield only after one staged child_assignment"]
     F -- no --> I{"terminal and current?"}
-    I -- green --> J["release_green"]
+    I -- green --> P["terminal green checkpoint"]
+    P --> J["release_green"]
     J --> K["green"]
-    I -- blocked at non-root parent --> N["blocked"]
+    I -- blocked at non-root parent --> Q["terminal blocked checkpoint"]
+    Q --> N["blocked"]
     N --> O["return control to parent"]
-    I -- blocked at root --> L["release_blocked"]
+    I -- blocked at root --> R["terminal blocked checkpoint"]
+    R --> L["release_blocked"]
     L --> M["blocked"]
 ```
 
@@ -79,8 +82,9 @@ Root should decide in this order:
 1. read the `release_closure` checkpoint summary
 2. confirm `closure_report` matches the current artifact versions it cites
 3. confirm no later republish invalidated those exact refs
-4. commit `release_green`
-5. emit `green`
+4. publish the root terminal `green` checkpoint and every declared output
+5. commit `release_green`
+6. emit `green`
 
 If any relied-on artifact or criteria basis moved, root must not release from historical success memory alone.
 
@@ -94,14 +98,15 @@ The controller-side precondition check is:
 
 1. reread the current parent/root assignment, latest relevant child checkpoints, current artifacts, current criteria, and current continuation slot
 2. validate that no staged `child_assignment` already exists on this open dispatch
-3. validate that the current parent/root assignment is complete under current truth
-4. validate that required child work is current
-5. validate that required produced artifacts are current
-6. validate that relied-on criteria are current
-7. validate that no critical evidence gap remains for this release decision
-8. commit `release_green`
-9. keep the dispatch open
-10. let the caller emit `green`
+3. validate that the current parent/root assignment has an exact latest terminal `green` checkpoint and that checkpoint owns every declared output
+4. validate that the current parent/root assignment is complete under current truth
+5. validate that required child work is current and owned by the current assignment tree
+6. validate that required produced artifacts are current
+7. validate that relied-on criteria are current
+8. validate that no critical evidence gap remains for this release decision
+9. commit `release_green` and freeze checkpoint evidence
+10. keep the dispatch open
+11. let the caller emit `green`
 
 `release_green` commits upward green readiness, but it does not itself close the dispatch.
 
@@ -172,16 +177,18 @@ Task closure is legal only after this exact sequence:
 1. root is redispatched on the same assignment by ordinary `redispatch_same_attempt`
 2. root rereads current whole-flow checkpoints, artifacts, and criteria
 3. root confirms any required ordinary review/release child work is complete
-4. root commits `release_green`
-5. root emits `green`
-6. the controller closes the dispatch and advances to whole-flow success
+4. root publishes its terminal `green` checkpoint and declared outputs
+5. root commits `release_green`
+6. root emits `green`
+7. the controller closes the dispatch and advances to whole-flow success
 
 Whole-flow blocked closure is the analogous root-only sequence:
 
 1. root is dispatched with current blocked basis in view
-2. root commits `release_blocked`
-3. root emits `blocked`
-4. the controller closes the dispatch and advances to whole-flow blocked
+2. root publishes its terminal `blocked` checkpoint
+3. root commits `release_blocked`
+4. root emits `blocked`
+5. the controller closes the dispatch and advances to whole-flow blocked
 
 If root needs more bounded work first, it should stage ordinary child work or make legal structural edits during its open dispatch. Parent/root semantic self-retry is illegal; a later parent/root turn remains ordinary `redispatch_same_attempt`.
 

@@ -339,7 +339,7 @@ Rules:
 - `produced_artifacts` are reduced durable claims only; callers do not author surfaced `artifact_ref` path/version tuples here
 - runtime later resolves any durable reread refs and checkpoint projections from committed truth
 - `transient_surfaces` remain explicit node-authored carryover surfaces only
-- terminal `green` checkpoints must satisfy the non-pointer preflight needed by the matching `green` boundary before they are accepted
+- terminal `green` checkpoints must include one `produced_artifacts` claim for every declared produce slot and satisfy the non-pointer preflight needed by the matching `green` boundary before they are accepted
 
 ## Parent/root tool payloads
 

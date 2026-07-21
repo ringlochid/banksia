@@ -213,6 +213,7 @@ const TECHNICAL_EVENT_TYPES: ReadonlySet<TaskEventType> = new Set([
     "work_plan_set",
     "work_plan_cleared",
     "child_assignment_staged",
+    "child_assignment_committed",
     "command_run_started",
     "command_run_progressed",
     "command_run_cancel_requested",
@@ -227,10 +228,14 @@ function describeTaskEvent(
         const outcome = readString(payload, "outcome");
         if (readString(payload, "resulting_flow_status") === "completed") {
             return outcome === "blocked"
-                ? { isMilestone, label: "Task blocked", tone: "danger" }
-                : { isMilestone, label: "Task completed", tone: "success" };
+                ? { isMilestone: true, label: "Task blocked", tone: "danger" }
+                : { isMilestone: true, label: "Task completed", tone: "success" };
         }
-        return { isMilestone, label: "Boundary accepted", tone: checkpointOutcomeTone(outcome) };
+        return {
+            isMilestone: false,
+            label: "Boundary accepted",
+            tone: checkpointOutcomeTone(outcome),
+        };
     }
     if (eventType === "checkpoint_recorded") {
         return {

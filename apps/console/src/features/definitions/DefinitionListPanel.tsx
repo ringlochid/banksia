@@ -9,7 +9,6 @@ import {
     DEFINITION_KIND_OPTIONS,
     DEFINITION_SORT_OPTIONS,
     NODE_KIND_FILTERS,
-    kindLabel,
     listLabelForKind,
     type DefinitionListSort,
     type DefinitionRow,
@@ -35,18 +34,6 @@ export function DefinitionListPanel({
     readonly controller: DefinitionsController;
 }) {
     const { listState } = controller;
-
-    if (listState.isLoading) {
-        return (
-            <DefinitionListStateShell controller={controller}>
-                <StatePanel
-                    summary="Reading stored registry rows from the selected definition route."
-                    title="Loading Definitions"
-                    tone="loading"
-                />
-            </DefinitionListStateShell>
-        );
-    }
 
     if (listState.error !== null) {
         return (
@@ -93,7 +80,7 @@ export function DefinitionListPanel({
     return (
         <div className="definition-list-shell">
             <div className="hidden border-b border-outline-soft bg-surface-muted px-5 py-3 font-mono text-label font-medium uppercase text-muted lg:grid lg:grid-cols-[minmax(0,1fr)_8rem] lg:items-center lg:gap-4">
-                <span id="definitions-list-heading">{kindLabel(controller.singularKind)}s</span>
+                <span id="definitions-list-heading">{listLabelForKind(controller.kind)}</span>
                 <span>Updated</span>
             </div>
             <ol aria-label="Definition rows" className="definition-list-body space-y-2 px-3 py-3">
@@ -287,7 +274,7 @@ function DefinitionListStateShell({
     return (
         <div className="definition-list-shell">
             <span className="sr-only" id="definitions-list-heading">
-                {kindLabel(controller.singularKind)}s
+                {listLabelForKind(controller.kind)}
             </span>
             <div className="definition-list-state-body">{children}</div>
         </div>
@@ -316,7 +303,10 @@ function DefinitionRowButton({
             <div className="space-y-3 px-4 py-3 sm:px-6 md:grid md:grid-cols-[minmax(0,1fr)_8rem] md:items-start md:gap-4 md:space-y-0">
                 <div className="min-w-0 space-y-1.5">
                     <div className="space-y-0.5">
-                        <span className="definition-title min-w-0 break-words font-display text-body font-semibold text-foreground">
+                        <span
+                            className="definition-title block min-w-0 truncate font-display text-body font-semibold text-foreground"
+                            title={row.key}
+                        >
                             {row.key}
                         </span>
                         <p className="definition-summary text-compact text-muted">

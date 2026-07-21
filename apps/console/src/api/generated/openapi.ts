@@ -5286,7 +5286,7 @@ export interface operations {
                 limit?: number;
                 cursor?: string | null;
                 sort?: "updated_at_desc" | "updated_at_asc" | "task_title_asc" | "task_title_desc";
-                status?: "any" | "pending" | "running" | "paused" | "completed" | "cancelled";
+                status?: "any" | "pending" | "running" | "paused" | "completed" | "blocked" | "cancelled";
             };
             header?: never;
             path?: never;

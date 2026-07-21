@@ -90,11 +90,17 @@ async def test_flow_reads_expose_blocked_terminal_outcome(tmp_path: Path) -> Non
         async with session_factory() as session:
             flow = await runtime_flow_read(cast(AsyncSession, session), ids.task_id)
             page = await list_runtime_flows(cast(AsyncSession, session))
+            blocked_page = await list_runtime_flows(cast(AsyncSession, session), status="blocked")
+            completed_page = await list_runtime_flows(
+                cast(AsyncSession, session), status="completed"
+            )
 
     assert flow.status.value == "completed"
     assert flow.terminal_outcome == "blocked"
     assert flow.current_dispatch is None
     assert len(page.items) == 1 and page.items[0].terminal_outcome == "blocked"
+    assert [item.task_id for item in blocked_page.items] == [ids.task_id]
+    assert completed_page.items == ()
 
 
 async def test_pause_closes_exact_current_dispatch_and_rejects_stale_control(

@@ -45,6 +45,42 @@ afterAll(() => {
 });
 
 describe("DefinitionsPage", () => {
+    it("renders one coordinated loading state while definition kinds change", async () => {
+        const user = userEvent.setup();
+        const rolesRead = createDeferredSignal();
+        const policiesRead = createDeferredSignal();
+        installDefinitionsHandlers([]);
+        server.use(
+            http.get("*/definitions/roles", async () => {
+                await rolesRead.promise;
+                return HttpResponse.json(
+                    createDefinitionSummaryList("role", createRoleDefinitionRows(), null),
+                );
+            }),
+            http.get("*/definitions/policies", async () => {
+                await policiesRead.promise;
+                return HttpResponse.json(
+                    createDefinitionSummaryList("policy", createPolicyDefinitionRows(), null),
+                );
+            }),
+        );
+
+        renderDefinitionsPage();
+
+        expect(screen.getAllByRole("status")).toHaveLength(1);
+        expect(screen.getByRole("status")).toHaveTextContent("Loading roles");
+
+        rolesRead.resolve();
+        expect(await screen.findByRole("list", { name: "Definition rows" })).toBeVisible();
+
+        await user.click(screen.getByRole("button", { name: "Policies" }));
+        expect(screen.getAllByRole("status")).toHaveLength(1);
+        expect(screen.getByRole("status")).toHaveTextContent("Loading policies");
+
+        policiesRead.resolve();
+        expect(await screen.findByRole("region", { name: /policies/i })).toBeVisible();
+    });
+
     it("uses kind-scoped routes, filters, cursor loading, detail, and compact versions", async () => {
         const user = userEvent.setup();
         const seenRequests: URL[] = [];
@@ -212,6 +248,7 @@ describe("DefinitionsPage", () => {
 
         renderDefinitionsPage();
         expect((await screen.findAllByText("planning_lead")).length).toBeGreaterThan(0);
+        await user.click(await screen.findByText("Full instruction"));
         expect(await screen.findByText(/Coordinate only the current owned subtree/)).toBeVisible();
         await user.click(screen.getByRole("button", { name: "Revision 4" }));
         expect(await screen.findByText("Version history could not load")).toBeVisible();
@@ -261,6 +298,7 @@ describe("DefinitionsPage", () => {
         renderDefinitionsPage();
         expect((await screen.findAllByText(ROLE_KEY)).length).toBeGreaterThan(0);
         await user.click(screen.getByRole("button", { name: /planner/ }));
+        await user.click(await screen.findByText("Full instruction"));
         expect(await screen.findByText(/Plan only the assigned scope/)).toBeVisible();
         await user.click(screen.getByRole("button", { name: "Revision 3" }));
         expect(await screen.findByText("Single current revision recorded.")).toBeVisible();
@@ -362,4 +400,14 @@ function hasRequestParam(
         (requestUrl) =>
             requestUrl.pathname === pathname && requestUrl.searchParams.get(name) === value,
     );
+}
+
+function createDeferredSignal(): { readonly promise: Promise<void>; readonly resolve: () => void } {
+    let resolve!: () => void;
+    const promise = new Promise<void>((complete) => {
+        resolve = () => {
+            complete();
+        };
+    });
+    return { promise, resolve };
 }

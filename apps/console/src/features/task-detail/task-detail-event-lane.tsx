@@ -49,10 +49,7 @@ export function TaskEventLane({
                     />
                 </div>
             ) : (
-                <ol
-                    aria-label="Task events"
-                    className="grid max-h-[560px] min-w-0 gap-2.5 overflow-x-hidden overflow-y-auto px-4 py-4 sm:max-h-[630px] xl:max-h-[689px]"
-                >
+                <ol aria-label="Task events" className="grid min-w-0 gap-2.5 px-4 py-4">
                     {visibleEvents.map((event) => (
                         <TaskEventItem
                             event={event}

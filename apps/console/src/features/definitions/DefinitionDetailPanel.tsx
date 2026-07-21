@@ -3,7 +3,14 @@ import { useEffect, useId, useRef, useState, type RefObject } from "react";
 import { ExternalLink, X } from "lucide-react";
 import { Link } from "react-router-dom";
 
-import { Button, PropertyGrid, StatePanel, StatusChip, TimestampText } from "../../components/ui";
+import {
+    Button,
+    Disclosure,
+    PropertyGrid,
+    StatePanel,
+    StatusChip,
+    TimestampText,
+} from "../../components/ui";
 import { isAuthError, type DefinitionsController } from "./definition-controller";
 import {
     formatBudgetSpec,
@@ -29,16 +36,6 @@ export function DefinitionDetailPanel({
     };
 
     if (controller.selectedKey === null) {
-        if (controller.listState.isLoading) {
-            return (
-                <StatePanel
-                    className="m-4"
-                    summary="Reading stored registry rows from the selected definition route."
-                    title="Loading Definitions"
-                    tone="loading"
-                />
-            );
-        }
         return (
             <StatePanel
                 className="m-4"
@@ -388,12 +385,11 @@ function ChipSection({
 
 function InstructionSection({ instruction }: { readonly instruction: string | null }) {
     return (
-        <div className="rounded-card border border-outline-soft bg-surface-low p-4">
-            <p className="font-mono text-label font-medium uppercase text-muted">Instruction</p>
-            <p className="mt-3 whitespace-pre-wrap break-words text-compact text-foreground">
+        <Disclosure title="Full instruction">
+            <p className="whitespace-pre-wrap break-words text-compact text-foreground">
                 {formatOptionalInstruction(instruction)}
             </p>
-        </div>
+        </Disclosure>
     );
 }
 

@@ -391,6 +391,7 @@ describe("TaskDetailPage", () => {
             expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
         });
 
+        await user.click(screen.getByRole("button", { name: /Technical events/i }));
         await user.click(screen.getByRole("button", { name: /Boundary accepted/i }));
         await user.click(screen.getByRole("button", { name: /Open detail/i }));
         dialog = await screen.findByRole("dialog");

@@ -71,6 +71,7 @@ const STATUS_FILTERS: readonly { readonly label: string; readonly value: TaskSta
     { label: "Running", value: "running" },
     { label: "Paused", value: "paused" },
     { label: "Completed", value: "completed" },
+    { label: "Blocked", value: "blocked" },
     { label: "Cancelled", value: "cancelled" },
 ];
 
@@ -512,7 +513,7 @@ function TaskRowItem({ row }: { readonly row: TaskRow }) {
                 <article className="min-w-0 space-y-4 px-4 py-4 sm:px-6 md:grid md:grid-cols-[minmax(0,1fr)_120px_120px_96px] md:items-center md:gap-4 md:space-y-0">
                     <div className="min-w-0">
                         <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 md:flex-nowrap">
-                            <h2 className="min-w-0 break-words font-display text-[18px] font-semibold leading-6 text-foreground md:shrink-0">
+                            <h2 className="min-w-0 break-words font-display text-[18px] font-semibold leading-6 text-foreground">
                                 {row.title}
                             </h2>
                             <TaskRowMetadata row={row} />
@@ -574,12 +575,7 @@ function TaskUpdatedTime({ value }: { readonly value: string }) {
         return <span className="font-mono text-utility text-foreground">{value}</span>;
     }
 
-    return (
-        <span className="block">
-            <span className="block text-compact text-foreground">{formatRelativeTime(date)}</span>
-            <TimestampText className="block text-label text-muted" value={date} />
-        </span>
-    );
+    return <TimestampText className="block text-compact text-foreground" value={date} />;
 }
 
 function TaskStatusChip({ row }: { readonly row: TaskRow }) {
@@ -589,36 +585,6 @@ function TaskStatusChip({ row }: { readonly row: TaskRow }) {
             {outcome.label}
         </StatusChip>
     );
-}
-
-function formatRelativeTime(date: Date): string {
-    const diffSeconds = Math.round((date.getTime() - Date.now()) / 1000);
-    const divisions: readonly {
-        readonly amount: number;
-        readonly unit: Intl.RelativeTimeFormatUnit;
-    }[] = [
-        { amount: 60, unit: "second" },
-        { amount: 60, unit: "minute" },
-        { amount: 24, unit: "hour" },
-        { amount: 7, unit: "day" },
-        { amount: 4.34524, unit: "week" },
-        { amount: 12, unit: "month" },
-        { amount: Number.POSITIVE_INFINITY, unit: "year" },
-    ];
-    const formatter = new Intl.RelativeTimeFormat(undefined, {
-        numeric: "auto",
-        style: "narrow",
-    });
-    let duration = diffSeconds;
-
-    for (const division of divisions) {
-        if (Math.abs(duration) < division.amount) {
-            return formatter.format(Math.round(duration), division.unit);
-        }
-        duration /= division.amount;
-    }
-
-    return formatter.format(Math.round(duration), "year");
 }
 
 function beginTaskListRead(

@@ -26,7 +26,9 @@ export function HumanRequestsPage() {
 
 function HumanRequestsTaskPage({ taskId }: { readonly taskId: string | null }) {
     const controller = useHumanRequestsController(taskId);
-    const pageTitle = controller.taskTitle ?? controller.taskId ?? "Selected task";
+    const pageTitle =
+        controller.taskTitle ??
+        (controller.isLoading ? "Selected task" : (controller.taskId ?? "Selected task"));
     const hasRequestReads = controller.requestReads.length > 0;
     useShellTaskTitle(controller.taskId, controller.taskTitle);
 

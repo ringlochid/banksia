@@ -88,7 +88,7 @@ describe("TasksPage", () => {
         expect(screen.getAllByText("Paused").length).toBeGreaterThan(0);
         expect(screen.getAllByText("Completed").length).toBeGreaterThan(0);
         expect(screen.getAllByText("Cancelled").length).toBeGreaterThan(0);
-        expect(screen.getByText("Blocked")).toBeVisible();
+        expect(screen.getAllByText("Blocked").length).toBeGreaterThanOrEqual(2);
         expect(screen.queryByText(/Assignment assignment-001/)).not.toBeInTheDocument();
         expect(screen.queryByText(/Attempt attempt-001/)).not.toBeInTheDocument();
         expect(seenRequests[0]?.searchParams.get("limit")).toBe("25");

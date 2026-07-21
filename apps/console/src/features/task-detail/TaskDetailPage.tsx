@@ -69,7 +69,7 @@ function TaskDetailUnavailableState({ controller }: { readonly controller: TaskD
 function TaskDetailLoadingSkeleton() {
     return (
         <div aria-busy="true" aria-label="Loading Task Detail" className="space-y-4" role="status">
-            <div className="grid min-w-0 items-start gap-3 lg:grid-cols-[minmax(0,1fr)_348px] xl:grid-cols-[minmax(0,1fr)_392px]">
+            <div className="grid min-w-0 items-start gap-3 xl:grid-cols-[minmax(0,1fr)_392px]">
                 <section className="overflow-hidden rounded-card border border-outline-soft bg-surface-low">
                     <header className="flex items-center justify-between gap-3 border-b border-outline-soft px-5 py-4">
                         <div>
@@ -187,7 +187,7 @@ function TaskDetailLoadedState({ controller }: { readonly controller: TaskDetail
                         tone="stale"
                     />
                 ) : null}
-                <div className="grid min-w-0 items-start gap-3 lg:grid-cols-[minmax(0,1fr)_348px] xl:grid-cols-[minmax(0,1fr)_392px]">
+                <div className="grid min-w-0 items-start gap-3 xl:grid-cols-[minmax(0,1fr)_392px]">
                     {view.graphNodes.length === 0 ? (
                         <StatePanel
                             summary="The controller trace did not return structural graph rows. The console will not reconstruct them from events or dispatch history."

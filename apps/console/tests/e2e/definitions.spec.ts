@@ -25,6 +25,7 @@ test("renders Definitions browse detail, versions, focus, and accessibility at d
     page,
 }, testInfo) => {
     test.skip(testInfo.project.name !== "chromium", "desktop proof is captured once");
+    await page.setViewportSize({ height: 720, width: 1280 });
 
     await mockDefinitions(page);
 
@@ -38,19 +39,6 @@ test("renders Definitions browse detail, versions, focus, and accessibility at d
     await expect(definitionRows).toHaveCount(4);
     await expect(page.getByText("4 roles loaded.")).toBeVisible();
     await expect(page.getByRole("button", { name: "Load more" })).toBeVisible();
-    const listShellMetrics = await page.locator(".definition-list-shell").evaluate((element) => {
-        const shellStyle = window.getComputedStyle(element);
-        const body = element.querySelector(".definition-list-body");
-        const bodyStyle = body === null ? null : window.getComputedStyle(body);
-        return {
-            bodyOverflowY: bodyStyle?.overflowY ?? null,
-            maxHeight: shellStyle.maxHeight,
-        };
-    });
-    expect(listShellMetrics).toEqual({
-        bodyOverflowY: "auto",
-        maxHeight: expect.not.stringMatching(/^none$/),
-    });
     await expectNoDocumentOverflow(page);
     await expectDocumentOwnsVerticalOverflow(page);
 
@@ -83,6 +71,7 @@ test("renders Definitions browse detail, versions, focus, and accessibility at d
     await expect(page.getByLabel("Applies to")).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Task Start" }).first()).toBeVisible();
     await expect(page.getByRole("link", { name: "Create/update draft" })).toHaveCount(0);
+    await expectDefinitionsUsesSingleDocumentScroll(page);
     const editDraftLink = page.getByRole("link", { name: "Edit in draft" });
     const editDraftHref = await editDraftLink.getAttribute("href");
     expect(editDraftHref).toContain("kind=workflow");
@@ -148,10 +137,9 @@ test("keeps Definitions kind switch, list, detail, and versions usable at mobile
     await expect(revisionButton).toBeFocused();
 });
 
-test("centers the Definitions loading state inside the list container", async ({
-    page,
-}, testInfo) => {
+test("shows one compact Definitions loading state at 1280px", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "chromium", "desktop proof is captured once");
+    await page.setViewportSize({ height: 720, width: 1280 });
 
     let releaseRoles!: () => void;
     const rolesDelay = new Promise<void>((resolve) => {
@@ -165,36 +153,45 @@ test("centers the Definitions loading state inside the list container", async ({
 
     await page.goto("/definitions", { waitUntil: "domcontentloaded" });
 
-    const listSection = page.locator('section[aria-labelledby="definitions-list-heading"]');
-    await expect(listSection.getByText("Loading Definitions")).toBeVisible();
+    const loadingStatus = page.getByRole("status");
+    await expect(loadingStatus).toHaveCount(1);
+    await expect(loadingStatus).toContainText("Loading roles");
+    await expect(page.locator('section[aria-labelledby="definitions-list-heading"]')).toHaveCount(
+        0,
+    );
+    await expect(page.locator(".definition-detail-shell")).toHaveCount(0);
 
-    const loadingMetrics = await listSection.evaluate((section) => {
-        const stateBody = section.querySelector(".definition-list-state-body");
-        const panel = section.querySelector('[role="status"]');
-        const stateBodyStyle = stateBody === null ? null : window.getComputedStyle(stateBody);
-        const stateBodyBox = stateBody?.getBoundingClientRect();
-        const panelBox = panel?.getBoundingClientRect();
-
+    const loadingMetrics = await loadingStatus.evaluate((panel) => {
+        const workspace = panel.parentElement;
+        const panelBox = panel.getBoundingClientRect();
+        const workspaceBox = workspace?.getBoundingClientRect();
         return {
-            alignItems: stateBodyStyle?.alignItems ?? null,
-            justifyContent: stateBodyStyle?.justifyContent ?? null,
-            panelWidth: Math.round(panelBox?.width ?? 0),
-            stateBodyWidth: Math.round(stateBodyBox?.width ?? 0),
+            horizontalCenterOffset:
+                workspaceBox === undefined
+                    ? null
+                    : Math.abs(
+                          panelBox.left +
+                              panelBox.width / 2 -
+                              (workspaceBox.left + workspaceBox.width / 2),
+                      ),
+            panelWidth: Math.round(panelBox.width),
             verticalCenterOffset:
-                stateBodyBox === undefined || panelBox === undefined
+                workspaceBox === undefined
                     ? null
                     : Math.abs(
                           panelBox.top +
                               panelBox.height / 2 -
-                              (stateBodyBox.top + stateBodyBox.height / 2),
+                              (workspaceBox.top + workspaceBox.height / 2),
                       ),
+            workspaceWidth: Math.round(workspaceBox?.width ?? 0),
         };
     });
 
-    expect(loadingMetrics.alignItems).toBe("center");
-    expect(loadingMetrics.justifyContent).toBe("center");
-    expect(loadingMetrics.stateBodyWidth).toBeGreaterThan(0);
-    expect(loadingMetrics.panelWidth).toBe(loadingMetrics.stateBodyWidth - 32);
+    expect(loadingMetrics.workspaceWidth).toBeGreaterThan(0);
+    expect(loadingMetrics.panelWidth).toBeLessThanOrEqual(384);
+    expect(loadingMetrics.panelWidth).toBeLessThan(loadingMetrics.workspaceWidth / 2);
+    expect(loadingMetrics.horizontalCenterOffset).not.toBeNull();
+    expect(loadingMetrics.horizontalCenterOffset ?? 999).toBeLessThanOrEqual(1);
     expect(loadingMetrics.verticalCenterOffset).not.toBeNull();
     expect(loadingMetrics.verticalCenterOffset ?? 999).toBeLessThanOrEqual(1);
 
@@ -342,4 +339,49 @@ async function expectDocumentOwnsVerticalOverflow(page: Page): Promise<void> {
     expect(shellScroll.bodyOverflowY).not.toBe("hidden");
     expect(shellScroll.shellOverflowY).toBe("visible");
     expect(shellScroll.shellScrollTop).toBe(0);
+}
+
+async function expectDefinitionsUsesSingleDocumentScroll(page: Page): Promise<void> {
+    const metrics = await page.locator(".definitions-workspace").evaluate((workspace) => {
+        const listShell = workspace.querySelector(".definition-list-shell");
+        const listBody = workspace.querySelector(".definition-list-body");
+        const detailShell = workspace.querySelector(".definition-detail-shell");
+        const nestedScrollOwners = Array.from(workspace.querySelectorAll("*")).filter((element) => {
+            const style = window.getComputedStyle(element);
+            return (
+                ["auto", "scroll"].includes(style.overflowY) &&
+                element.scrollHeight > element.clientHeight + 1
+            );
+        });
+
+        return {
+            detailClientHeight: detailShell?.clientHeight ?? null,
+            detailMaxHeight:
+                detailShell === null ? null : window.getComputedStyle(detailShell).maxHeight,
+            detailOverflowY:
+                detailShell === null ? null : window.getComputedStyle(detailShell).overflowY,
+            detailScrollHeight: detailShell?.scrollHeight ?? null,
+            documentClientHeight: document.documentElement.clientHeight,
+            documentScrollHeight: document.documentElement.scrollHeight,
+            listBodyOverflowY:
+                listBody === null ? null : window.getComputedStyle(listBody).overflowY,
+            listClientHeight: listShell?.clientHeight ?? null,
+            listMaxHeight: listShell === null ? null : window.getComputedStyle(listShell).maxHeight,
+            listScrollHeight: listShell?.scrollHeight ?? null,
+            nestedScrollOwnerCount: nestedScrollOwners.length,
+            workspaceAlignItems: window.getComputedStyle(workspace).alignItems,
+        };
+    });
+
+    expect(metrics).toMatchObject({
+        detailMaxHeight: "none",
+        detailOverflowY: "visible",
+        listBodyOverflowY: "visible",
+        listMaxHeight: "none",
+        nestedScrollOwnerCount: 0,
+        workspaceAlignItems: "flex-start",
+    });
+    expect(metrics.detailClientHeight).toBe(metrics.detailScrollHeight);
+    expect(metrics.listClientHeight).toBe(metrics.listScrollHeight);
+    expect(metrics.documentScrollHeight).toBeGreaterThan(metrics.documentClientHeight);
 }

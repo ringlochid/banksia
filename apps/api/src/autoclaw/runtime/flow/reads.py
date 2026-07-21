@@ -51,7 +51,7 @@ RUNTIME_FLOW_LIST_SORTS = frozenset(
     }
 )
 RUNTIME_FLOW_LIST_STATUSES = frozenset(
-    {"any", "pending", "running", "paused", "completed", "cancelled"}
+    {"any", "pending", "running", "paused", "completed", "blocked", "cancelled"}
 )
 
 
@@ -385,6 +385,16 @@ def _filter_runtime_flow_status(
         return statement
     if status == "pending":
         return statement.where(false())
+    if status == "completed":
+        return statement.where(
+            FlowModel.status == "completed",
+            FlowModel.terminal_outcome == "green",
+        )
+    if status == "blocked":
+        return statement.where(
+            FlowModel.status == "completed",
+            FlowModel.terminal_outcome == "blocked",
+        )
     return statement.where(FlowModel.status == status)
 
 

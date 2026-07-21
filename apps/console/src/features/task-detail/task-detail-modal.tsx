@@ -171,24 +171,10 @@ function SummaryTab({
     readonly taskId: string;
     readonly view: TaskDetailView;
 }) {
-    const selectedNodeTitle =
-        context.node === null ? view.task.title : titleCaseNodeLabel(context.node.nodeKey);
-
     return (
         <div className="min-w-0 space-y-3">
             <section className="min-w-0 rounded-[16px] border border-outline-soft bg-surface-muted p-4">
-                <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
-                    <div className="min-w-0">
-                        <p className="font-mono text-label font-medium text-muted">
-                            Selected context
-                        </p>
-                        <h3 className="mt-2 font-display text-lg font-semibold text-foreground">
-                            {selectedNodeTitle}
-                        </h3>
-                    </div>
-                    <NodeStatusChip context={context} view={view} />
-                </div>
-                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-2">
                     <DetailProperty label="Milestone">
                         {context.event === null ? "No event selected yet" : context.event.label}
                     </DetailProperty>

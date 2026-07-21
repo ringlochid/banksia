@@ -35,7 +35,9 @@ export function CommandRunsPage() {
 
 function CommandRunsTaskPage({ taskId }: { readonly taskId: string | null }) {
     const controller = useCommandRunsController(taskId);
-    const pageTitle = controller.taskTitle ?? controller.taskId ?? "Selected task";
+    const pageTitle =
+        controller.taskTitle ??
+        (controller.isLoading ? "Selected task" : (controller.taskId ?? "Selected task"));
     useShellTaskTitle(controller.taskId, controller.taskTitle);
 
     return (

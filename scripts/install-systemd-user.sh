@@ -2,18 +2,18 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SERVICE_NAME="${AUTOCLAW_SERVICE_NAME:-autoclaw}"
+SERVICE_NAME="${BANKSIA_SERVICE_NAME:-banksia}"
 CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
 DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
-CONFIG_DIR="${AUTOCLAW_CONFIG_DIR:-$CONFIG_HOME/autoclaw}"
-DATA_DIR="${AUTOCLAW_DATA_DIR:-$DATA_HOME/autoclaw}"
-VENV_DIR="${AUTOCLAW_VENV_DIR:-$DATA_DIR/venv}"
-PYTHON_BIN="${AUTOCLAW_PYTHON_BIN:-python3}"
-CONFIG_PATH="${AUTOCLAW_CONFIG:-$CONFIG_DIR/config.toml}"
-ENV_FILE_PATH="$(dirname "$CONFIG_PATH")/autoclaw.env"
+CONFIG_DIR="${BANKSIA_CONFIG_DIR:-$CONFIG_HOME/banksia}"
+DATA_DIR="${BANKSIA_DATA_DIR:-$DATA_HOME/banksia}"
+VENV_DIR="${BANKSIA_VENV_DIR:-$DATA_DIR/venv}"
+PYTHON_BIN="${BANKSIA_PYTHON_BIN:-python3}"
+CONFIG_PATH="${BANKSIA_CONFIG:-$CONFIG_DIR/config.toml}"
+ENV_FILE_PATH="$(dirname "$CONFIG_PATH")/banksia.env"
 UNIT_DIR="$CONFIG_HOME/systemd/user"
 UNIT_PATH="$UNIT_DIR/$SERVICE_NAME.service"
-SYSTEMCTL_BIN="${AUTOCLAW_SYSTEMCTL_BIN:-systemctl}"
+SYSTEMCTL_BIN="${BANKSIA_SYSTEMCTL_BIN:-systemctl}"
 INSTALL_MODE="source"
 WHEEL_PATH=""
 NO_DEPS=0
@@ -26,23 +26,23 @@ usage() {
   cat <<'EOF'
 Usage: scripts/install-systemd-user.sh [options]
 
-Installs AutoClaw into a dedicated user venv, initializes config/data,
+Installs Banksia into a dedicated user venv, initializes config/data,
 renders a user systemd unit, and enables the service.
 
 Options:
   --editable       Install from the repo in editable mode
-  --wheel PATH     Install an already-built AutoClaw wheel
+  --wheel PATH     Install an already-built Banksia wheel
   --no-deps        Do not resolve dependencies (for an offline prepared venv)
   --postgres       Install the postgres extra
   --port PORT      Persist this local API port during initialization
-  --force-init     Re-write the generated config.toml during autoclaw init
+  --force-init     Re-write the generated config.toml during banksia init
   --no-start       Install/enable the unit but do not start it now
   -h, --help       Show this help
 
 Environment overrides:
-  AUTOCLAW_CONFIG_DIR, AUTOCLAW_DATA_DIR, AUTOCLAW_VENV_DIR,
-  AUTOCLAW_CONFIG, AUTOCLAW_SERVICE_NAME,
-  AUTOCLAW_SYSTEMCTL_BIN, AUTOCLAW_PYTHON_BIN
+  BANKSIA_CONFIG_DIR, BANKSIA_DATA_DIR, BANKSIA_VENV_DIR,
+  BANKSIA_CONFIG, BANKSIA_SERVICE_NAME,
+  BANKSIA_SYSTEMCTL_BIN, BANKSIA_PYTHON_BIN
 EOF
 }
 
@@ -115,7 +115,7 @@ fi
 if (( FORCE_INIT )); then
   INIT_ARGS+=(--force)
 fi
-"$VENV_DIR/bin/autoclaw" "${INIT_ARGS[@]}"
+"$VENV_DIR/bin/banksia" "${INIT_ARGS[@]}"
 
 SERVICE_INSTALL_ARGS=(
   service install
@@ -129,8 +129,8 @@ fi
 if (( NO_START )); then
   SERVICE_INSTALL_ARGS+=(--no-start)
 fi
-AUTOCLAW_SYSTEMCTL_BIN="$SYSTEMCTL_BIN" \
-  "$VENV_DIR/bin/autoclaw" "${SERVICE_INSTALL_ARGS[@]}"
+BANKSIA_SYSTEMCTL_BIN="$SYSTEMCTL_BIN" \
+  "$VENV_DIR/bin/banksia" "${SERVICE_INSTALL_ARGS[@]}"
 
 echo "Installed $SERVICE_NAME.service"
 echo "  unit:   $UNIT_PATH"

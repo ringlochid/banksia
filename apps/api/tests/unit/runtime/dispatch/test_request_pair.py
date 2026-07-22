@@ -5,8 +5,8 @@ import stat
 from pathlib import Path
 
 import pytest
-from autoclaw.runtime.contracts import TaskRootPaths
-from autoclaw.runtime.dispatch.request_pair import publish_dispatch_request_pair
+from banksia.runtime.contracts import TaskRootPaths
+from banksia.runtime.dispatch.request_pair import publish_dispatch_request_pair
 
 
 def test_request_pair_publishes_complete_immutable_bytes_and_logical_refs(

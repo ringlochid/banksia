@@ -152,7 +152,7 @@ def _write_frozen_evidence(root: Path) -> None:
         root,
         "docs-internal/design/v1/README.md",
         "# V1 design\n\nStatus: Reference\n\n"
-        "> **Frozen migration evidence:** This tree records an earlier AutoClaw "
+        "> **Frozen migration evidence:** This tree records an earlier Banksia "
         "baseline. It is not Banksia target authority. Use the versionless "
         "[Banksia design](../README.md).\n\n"
         "[Baseline](baseline.md)\n",
@@ -162,7 +162,7 @@ def _write_frozen_evidence(root: Path) -> None:
         root,
         "docs-internal/design/v2/README.md",
         "# V2 design\n\nStatus: Reference\n\n"
-        "> **Frozen migration evidence:** This tree records the final AutoClaw "
+        "> **Frozen migration evidence:** This tree records the final Banksia "
         "baseline. It is not Banksia target authority. Use the versionless "
         "[Banksia design](../README.md).\n\n"
         "[Runtime contract](runtime.md)\n",

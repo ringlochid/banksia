@@ -4,10 +4,10 @@ from collections.abc import Awaitable, Callable
 from types import TracebackType
 from typing import Self, cast
 
-import autoclaw.main as main_module
+import banksia.main as main_module
 import pytest
-from autoclaw.main import create_app
-from autoclaw.runtime.post_commit import DispatchStartDue, RuntimeEffectSignal
+from banksia.main import create_app
+from banksia.runtime.post_commit import DispatchStartDue, RuntimeEffectSignal
 
 
 class RecordingAsyncOwner:

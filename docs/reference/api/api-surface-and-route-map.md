@@ -1,6 +1,6 @@
 # API surface and route map
 
-AutoClaw serves one FastAPI application on loopback. It includes the HTTP API, the packaged console, operator MCP, and two Node MCP projections.
+Banksia serves one FastAPI application on loopback. It includes the HTTP API, the packaged console, operator MCP, and two Node MCP projections.
 
 ## Local admission
 

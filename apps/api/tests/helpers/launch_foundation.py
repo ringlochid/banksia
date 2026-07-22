@@ -2,28 +2,28 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from autoclaw.definitions.compiler import (
+from banksia.definitions.compiler import (
     MappingRolePolicyLookup,
     PolicyRevisionDefinition,
     RoleRevisionDefinition,
     WorkflowRevisionMetadata,
     compile_workflow,
 )
-from autoclaw.definitions.contracts import (
+from banksia.definitions.contracts import (
     BudgetSpec,
     PolicyDefinitionInput,
     RoleDefinitionInput,
     WorkflowDefinitionInput,
 )
-from autoclaw.definitions.contracts.workflow import (
+from banksia.definitions.contracts.workflow import (
     CodexProviderSelection,
     NodeKind,
     ProviderKind,
     RootNodeDefinition,
 )
-from autoclaw.persistence import RuntimeBase
-from autoclaw.runtime import TaskComposeInput
-from autoclaw.runtime.contracts import RuntimeBootstrapInput
+from banksia.persistence import RuntimeBase
+from banksia.runtime import TaskComposeInput
+from banksia.runtime.contracts import RuntimeBootstrapInput
 from sqlalchemy import Connection
 
 from tests.helpers.catalog_seed import seed_catalog

@@ -4,23 +4,23 @@ import os
 from io import StringIO
 
 import pytest
-from autoclaw.definitions.contracts.workflow import ProviderKind
-from autoclaw.interfaces.cli.commands.guided_presentation import (
+from banksia.definitions.contracts.workflow import ProviderKind
+from banksia.interfaces.cli.commands.guided_presentation import (
     emit_provider_choices,
     emit_wizard_header,
 )
-from autoclaw.interfaces.cli.context import CliContext
-from autoclaw.interfaces.cli.providers.contracts import (
+from banksia.interfaces.cli.context import CliContext
+from banksia.interfaces.cli.providers.contracts import (
     ProviderCheckOutcome,
     ProviderCheckSnapshot,
     ProviderStatusSnapshot,
 )
-from autoclaw.interfaces.cli.providers.presentation import (
+from banksia.interfaces.cli.providers.presentation import (
     emit_provider_check,
     emit_provider_status,
 )
-from autoclaw.interfaces.cli.theme import build_rich_theme
-from autoclaw.runtime.providers import ProviderCheckAxisStatus
+from banksia.interfaces.cli.theme import build_rich_theme
+from banksia.runtime.providers import ProviderCheckAxisStatus
 from rich.console import Console
 
 
@@ -75,7 +75,7 @@ def test_guided_setup_uses_rich_hierarchy(
 
     rendered = output.getvalue()
     assert "\x1b[" in rendered
-    assert "AutoClaw" in rendered
+    assert "Banksia" in rendered
     assert "Provider routes" in rendered
     assert "Managed" in rendered
     assert "Experimental" in rendered
@@ -87,7 +87,7 @@ def test_rich_console_width_is_bounded_on_wide_terminals(
 ) -> None:
     monkeypatch.setattr(CliContext, "rich_enabled", lambda _self: True)
     monkeypatch.setattr(
-        "autoclaw.interfaces.cli.context.shutil.get_terminal_size",
+        "banksia.interfaces.cli.context.shutil.get_terminal_size",
         lambda: os.terminal_size((240, 40)),
     )
 

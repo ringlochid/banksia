@@ -10,36 +10,36 @@ from .style_audit_test_support import (
 )
 
 
-def test_style_audit_flags_autoclaw_modules_that_import_app_outside_approved_shims(
+def test_style_audit_flags_banksia_modules_that_import_app_outside_approved_shims(
     tmp_path: Path,
 ) -> None:
-    autoclaw_root = tmp_path / "apps" / "api" / "autoclaw"
+    banksia_root = tmp_path / "apps" / "api" / "banksia"
     app_root = tmp_path / "apps" / "api" / "app"
-    settings = build_style_audit_settings(tmp_path, scan_roots=(autoclaw_root, app_root))
+    settings = build_style_audit_settings(tmp_path, scan_roots=(banksia_root, app_root))
     audit = load_style_audit_namespace()
 
     write_python_module(app_root / "runtime" / "owner.py", "VALUE = 1\n")
     write_python_module(
-        autoclaw_root / "consumer.py",
+        banksia_root / "consumer.py",
         "from app.runtime.owner import VALUE\n",
     )
 
     findings = audit.scan.run_style_audit(settings).import_direction_findings
 
     assert len(findings) == 1
-    assert findings[0].path == autoclaw_root / "consumer.py"
-    assert findings[0].owner_family == "autoclaw"
-    assert findings[0].violated_rule == "autoclaw-consumer-imports-app-owner"
+    assert findings[0].path == banksia_root / "consumer.py"
+    assert findings[0].owner_family == "banksia"
+    assert findings[0].violated_rule == "banksia-consumer-imports-app-owner"
 
 
 def test_style_audit_allows_phase6_approved_shim_import_direction_exceptions(
     tmp_path: Path,
 ) -> None:
-    autoclaw_root = tmp_path / "apps" / "api" / "autoclaw"
+    banksia_root = tmp_path / "apps" / "api" / "banksia"
     app_root = tmp_path / "apps" / "api" / "app"
-    consumer_path = autoclaw_root / "cli.py"
+    consumer_path = banksia_root / "cli.py"
     settings = replace(
-        build_style_audit_settings(tmp_path, scan_roots=(autoclaw_root, app_root)),
+        build_style_audit_settings(tmp_path, scan_roots=(banksia_root, app_root)),
         approved_import_direction_exception_modules=frozenset({consumer_path}),
     )
     audit = load_style_audit_namespace()
@@ -76,7 +76,7 @@ def test_style_audit_flags_legacy_app_shells_that_route_through_legacy_app_owner
     assert findings[0].violated_rule == "legacy-app-shell-imports-legacy-app-owner"
 
 
-def test_style_audit_allows_legacy_app_shells_that_import_canonical_autoclaw_owners(
+def test_style_audit_allows_legacy_app_shells_that_import_canonical_banksia_owners(
     tmp_path: Path,
 ) -> None:
     app_root = tmp_path / "apps" / "api" / "app"
@@ -90,7 +90,7 @@ def test_style_audit_allows_legacy_app_shells_that_import_canonical_autoclaw_own
 
     write_python_module(
         shell_path,
-        "from autoclaw.platform.managed_services.contracts import ManagedServiceManager\n",
+        "from banksia.platform.managed_services.contracts import ManagedServiceManager\n",
     )
 
     findings = audit.scan.run_style_audit(settings).import_direction_findings
@@ -98,59 +98,59 @@ def test_style_audit_allows_legacy_app_shells_that_import_canonical_autoclaw_own
     assert findings == ()
 
 
-def test_style_audit_flags_src_autoclaw_modules_that_import_legacy_autoclaw_owner(
+def test_style_audit_flags_src_banksia_modules_that_import_legacy_banksia_owner(
     tmp_path: Path,
 ) -> None:
-    src_root = tmp_path / "apps" / "api" / "src" / "autoclaw"
-    legacy_root = tmp_path / "apps" / "api" / "autoclaw"
+    src_root = tmp_path / "apps" / "api" / "src" / "banksia"
+    legacy_root = tmp_path / "apps" / "api" / "banksia"
     settings = build_style_audit_settings(tmp_path, scan_roots=(src_root, legacy_root))
     audit = load_style_audit_namespace()
 
     write_python_module(legacy_root / "legacy_only.py", "VALUE = 1\n")
     write_python_module(
         src_root / "consumer.py",
-        "from autoclaw.legacy_only import VALUE\n",
+        "from banksia.legacy_only import VALUE\n",
     )
 
     findings = audit.scan.run_style_audit(settings).import_direction_findings
 
     assert len(findings) == 1
     assert findings[0].path == src_root / "consumer.py"
-    assert findings[0].violated_rule == "src-autoclaw-consumer-imports-legacy-owner"
+    assert findings[0].violated_rule == "src-banksia-consumer-imports-legacy-owner"
 
 
-def test_style_audit_flags_src_autoclaw_modules_that_import_legacy_owner_outside_scan_root(
+def test_style_audit_flags_src_banksia_modules_that_import_legacy_owner_outside_scan_root(
     tmp_path: Path,
 ) -> None:
-    src_root = tmp_path / "apps" / "api" / "src" / "autoclaw"
-    legacy_root = tmp_path / "apps" / "api" / "autoclaw"
+    src_root = tmp_path / "apps" / "api" / "src" / "banksia"
+    legacy_root = tmp_path / "apps" / "api" / "banksia"
     settings = build_style_audit_settings(tmp_path, scan_roots=(src_root,))
     audit = load_style_audit_namespace()
 
     write_python_module(legacy_root / "legacy_only.py", "VALUE = 1\n")
     write_python_module(
         src_root / "consumer.py",
-        "from autoclaw.legacy_only import VALUE\n",
+        "from banksia.legacy_only import VALUE\n",
     )
 
     findings = audit.scan.run_style_audit(settings).import_direction_findings
 
     assert len(findings) == 1
     assert findings[0].path == src_root / "consumer.py"
-    assert findings[0].violated_rule == "src-autoclaw-consumer-imports-legacy-owner"
+    assert findings[0].violated_rule == "src-banksia-consumer-imports-legacy-owner"
 
 
-def test_style_audit_allows_src_autoclaw_modules_that_import_same_tree_owner_with_duplicate_name(
+def test_style_audit_allows_src_banksia_modules_that_import_same_tree_owner_with_duplicate_name(
     tmp_path: Path,
 ) -> None:
-    src_root = tmp_path / "apps" / "api" / "src" / "autoclaw"
-    legacy_root = tmp_path / "apps" / "api" / "autoclaw"
+    src_root = tmp_path / "apps" / "api" / "src" / "banksia"
+    legacy_root = tmp_path / "apps" / "api" / "banksia"
     settings = build_style_audit_settings(tmp_path, scan_roots=(src_root,))
     audit = load_style_audit_namespace()
 
     write_python_module(src_root / "common.py", "VALUE = 1\n")
     write_python_module(legacy_root / "common.py", "VALUE = 2\n")
-    write_python_module(src_root / "consumer.py", "from autoclaw.common import VALUE\n")
+    write_python_module(src_root / "consumer.py", "from banksia.common import VALUE\n")
 
     findings = audit.scan.run_style_audit(settings).import_direction_findings
 

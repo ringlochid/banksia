@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
-from autoclaw.definitions.contracts import (
+from banksia.definitions.contracts import (
     DefinitionKind,
     DefinitionListQuery,
     DefinitionRevisionDetailResponse,
@@ -16,8 +16,8 @@ from autoclaw.definitions.contracts import (
     RoleDefinitionInput,
     WorkflowDefinitionInput,
 )
-from autoclaw.runtime import FlowStatus
-from autoclaw.runtime.contracts import (
+from banksia.runtime import FlowStatus
+from banksia.runtime.contracts import (
     RuntimeFlowSummary,
     RuntimeLifecycleStatus,
     RuntimeTaskListQuery,

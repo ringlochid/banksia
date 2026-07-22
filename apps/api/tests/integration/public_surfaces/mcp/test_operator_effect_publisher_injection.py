@@ -7,14 +7,14 @@ from functools import partial
 from pathlib import Path
 from typing import cast
 
-import autoclaw.interfaces.mcp.operator.definition_tools as definition_tools_module
-import autoclaw.interfaces.mcp.operator.runtime_tools as runtime_tools_module
+import banksia.interfaces.mcp.operator.definition_tools as definition_tools_module
+import banksia.interfaces.mcp.operator.runtime_tools as runtime_tools_module
 import pytest
-from autoclaw.interfaces.mcp.operator.server import (
+from banksia.interfaces.mcp.operator.server import (
     OperatorEffectPublishers,
     create_operator_mcp_server,
 )
-from autoclaw.runtime.contracts import (
+from banksia.runtime.contracts import (
     FlowStatus,
     HumanRequestResolution,
     HumanRequestResolutionKind,
@@ -27,9 +27,9 @@ from autoclaw.runtime.contracts import (
     TaskStartResponse,
     WorkflowManifestRef,
 )
-from autoclaw.runtime.dispatch.preparation import DispatchOpeningDependencies
-from autoclaw.runtime.post_commit import CapturedRuntimeEffectPublisher
-from autoclaw.runtime.projection import SupportProjectionSignal
+from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
+from banksia.runtime.post_commit import CapturedRuntimeEffectPublisher
+from banksia.runtime.projection import SupportProjectionSignal
 from sqlalchemy.ext.asyncio import AsyncSession
 
 

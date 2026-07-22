@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from autoclaw.definitions.compiler import WorkflowRevisionMetadata, compile_workflow
-from autoclaw.definitions.contracts import WorkflowDefinitionFile
+from banksia.definitions.compiler import WorkflowRevisionMetadata, compile_workflow
+from banksia.definitions.contracts import WorkflowDefinitionFile
 
 from .support import (
     WORKFLOW_COMPILER_TEST_VERSION,

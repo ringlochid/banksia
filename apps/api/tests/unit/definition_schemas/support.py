@@ -6,14 +6,14 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from autoclaw.definitions.contracts import (
+from banksia.definitions.contracts import (
     PolicyDefinitionFile,
     PolicyDefinitionInput,
     RoleDefinitionFile,
     RoleDefinitionInput,
     WorkflowDefinitionFile,
 )
-from autoclaw.definitions.seeds import resolve_packaged_seed_definitions_root
+from banksia.definitions.seeds import resolve_packaged_seed_definitions_root
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
 REFERENCE_DEFINITIONS_ROOT = REPO_ROOT / "docs" / "reference" / "definitions"

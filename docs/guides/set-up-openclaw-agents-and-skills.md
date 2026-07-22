@@ -1,6 +1,6 @@
 # Configure OpenClaw tools
 
-OpenClaw is an experimental, user-managed provider lane. AutoClaw does not inject or maintain its MCP configuration.
+OpenClaw is an experimental, user-managed provider lane. Banksia does not inject or maintain its MCP configuration.
 
 ## Keep worker and operator access separate
 
@@ -17,7 +17,7 @@ Node MCP is the runtime boundary. OpenClaw output and provider state are not tas
 Check the provider after any OpenClaw configuration change:
 
 ```bash
-autoclaw providers check openclaw
+banksia providers check openclaw
 ```
 
 See [use the experimental OpenClaw provider](../start/prepare-openclaw.md) and the [OpenClaw integration reference](../reference/operator/openclaw-integration-boundary.md).

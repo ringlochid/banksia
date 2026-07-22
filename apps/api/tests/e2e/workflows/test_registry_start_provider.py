@@ -5,24 +5,24 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import cast
 
-from autoclaw.config import CodexSettings, RuntimeSettings, Settings
-from autoclaw.definitions.contracts.workflow import ProviderKind
-from autoclaw.definitions.registry import load_current_workflow, upsert_workflow_definition
-from autoclaw.definitions.registry.task_start import start_task_from_definition
-from autoclaw.persistence.models import CompiledPlanModel, DispatchTurnModel
-from autoclaw.runtime.contracts import TaskStartRequest
-from autoclaw.runtime.dispatch.preparation import DispatchOpeningDependencies
-from autoclaw.runtime.launch.continuation import open_root_dispatch
-from autoclaw.runtime.node_mcp import DispatchMcpBindingRegistry
-from autoclaw.runtime.node_operations import NodeOperationExecutor, NodeOperationName
-from autoclaw.runtime.node_operations.catalog import get_node_operation_descriptor
-from autoclaw.runtime.post_commit import (
+from banksia.config import CodexSettings, RuntimeSettings, Settings
+from banksia.definitions.contracts.workflow import ProviderKind
+from banksia.definitions.registry import load_current_workflow, upsert_workflow_definition
+from banksia.definitions.registry.task_start import start_task_from_definition
+from banksia.persistence.models import CompiledPlanModel, DispatchTurnModel
+from banksia.runtime.contracts import TaskStartRequest
+from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
+from banksia.runtime.launch.continuation import open_root_dispatch
+from banksia.runtime.node_mcp import DispatchMcpBindingRegistry
+from banksia.runtime.node_operations import NodeOperationExecutor, NodeOperationName
+from banksia.runtime.node_operations.catalog import get_node_operation_descriptor
+from banksia.runtime.post_commit import (
     CapturedRuntimeEffectPublisher,
     DeadlineScheduler,
     DispatchStartDue,
     FlowStartCommitted,
 )
-from autoclaw.runtime.providers import (
+from banksia.runtime.providers import (
     DispatchStartRequest,
     ProviderAdapterRegistry,
     ProviderCheckResult,
@@ -30,7 +30,7 @@ from autoclaw.runtime.providers import (
     ProviderStartAccepted,
     ProviderStopOutcome,
 )
-from autoclaw.runtime.providers.starter import DispatchStarter
+from banksia.runtime.providers.starter import DispatchStarter
 from tests.helpers.definition_registry_runtime import initialized_registry
 
 
@@ -95,7 +95,7 @@ async def test_registry_snapshot_opens_and_starts_one_committed_provider_dispatc
 
             started = await start_task_from_definition(
                 _start_request(),
-                data_dir=tmp_path / "autoclaw-data",
+                data_dir=tmp_path / "banksia-data",
                 session=session,
                 runtime_effect_publisher=runtime_publisher,
             )
@@ -179,7 +179,7 @@ def _opening_dependencies(
 ) -> DispatchOpeningDependencies:
     return DispatchOpeningDependencies.create(
         settings=Settings(
-            data_dir=Path("/tmp/autoclaw-e2e-data"),
+            data_dir=Path("/tmp/banksia-e2e-data"),
             runtime=RuntimeSettings(default_provider=ProviderKind.CODEX),
             codex=CodexSettings(enabled=True),
         ),

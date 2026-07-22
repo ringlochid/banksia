@@ -5,22 +5,22 @@ import tomllib
 from pathlib import Path
 
 import pytest
-from autoclaw.definitions.contracts.workflow import ProviderKind
-from autoclaw.interfaces.cli import root as cli_root
-from autoclaw.interfaces.cli.bootstrap.config import settings_to_config_text
-from autoclaw.interfaces.cli.commands import guided_setup
-from autoclaw.interfaces.cli.main import build_parser
-from autoclaw.interfaces.cli.providers.contracts import (
+from banksia.definitions.contracts.workflow import ProviderKind
+from banksia.interfaces.cli import root as cli_root
+from banksia.interfaces.cli.bootstrap.config import settings_to_config_text
+from banksia.interfaces.cli.commands import guided_setup
+from banksia.interfaces.cli.main import build_parser
+from banksia.interfaces.cli.providers.contracts import (
     ProviderCheckOutcome,
     ProviderCheckSnapshot,
 )
-from autoclaw.persistence.session import dispose_db_engine
-from autoclaw.platform.provider_environment import (
+from banksia.persistence.session import dispose_db_engine
+from banksia.platform.provider_environment import (
     ANTHROPIC_API_KEY,
     OPENCLAW_GATEWAY_TOKEN,
     read_provider_secret_environment,
 )
-from autoclaw.runtime.providers import (
+from banksia.runtime.providers import (
     ProviderAuthenticationMethod,
     ProviderCheckAxisStatus,
 )
@@ -80,9 +80,9 @@ def test_guided_init_confirms_recommended_local_settings(
     assert result.exit_code == 0, result.output
     payload = tomllib.loads(config_path.read_text(encoding="utf-8"))
     assert payload["paths"]["data_dir"] == str(data_dir)
-    assert data_dir.joinpath("autoclaw.persistence").is_file()
+    assert data_dir.joinpath("banksia.persistence").is_file()
     assert "Use these recommended local settings?" in result.output
-    assert "Next: autoclaw setup" in result.output
+    assert "Next: banksia setup" in result.output
 
 
 def test_guided_init_rerun_keeps_config_and_verifies_database(
@@ -94,7 +94,7 @@ def test_guided_init_rerun_keeps_config_and_verifies_database(
     config_path.write_text(
         settings_to_config_text(
             data_dir=data_dir,
-            database_url=f"sqlite+aiosqlite:///{data_dir / 'autoclaw.persistence'}",
+            database_url=f"sqlite+aiosqlite:///{data_dir / 'banksia.persistence'}",
             host="127.0.0.1",
             port=18125,
             log_level="WARNING",
@@ -116,7 +116,7 @@ def test_guided_init_rerun_keeps_config_and_verifies_database(
 
     assert result.exit_code == 0, result.output
     assert config_path.read_bytes() == previous_config
-    assert data_dir.joinpath("autoclaw.persistence").is_file()
+    assert data_dir.joinpath("banksia.persistence").is_file()
     assert "Keep and verify" in result.output
 
 
@@ -178,7 +178,7 @@ def test_guided_setup_collects_openclaw_gateway_route_and_token(
     payload = tomllib.loads(config_path.read_text(encoding="utf-8"))
     assert payload["openclaw"]["gateway_url"] == "ws://127.0.0.1:18789"
     assert payload["openclaw"]["gateway_auth_mode"] == "token"
-    assert read_provider_secret_environment(config_path.parent / "autoclaw.env") == {
+    assert read_provider_secret_environment(config_path.parent / "banksia.env") == {
         OPENCLAW_GATEWAY_TOKEN: "gateway-secret"
     }
     assert "gateway-secret" not in result.output
@@ -220,9 +220,9 @@ def test_guided_setup_imports_shell_api_key_for_the_managed_service(
 
     assert result.exit_code == 0, result.output
     assert (
-        "Existing Claude API key found in this shell. Store it for the AutoClaw service? [Y/n]"
+        "Existing Claude API key found in this shell. Store it for the Banksia service? [Y/n]"
     ) in result.output
-    assert read_provider_secret_environment(config_path.parent / "autoclaw.env") == {
+    assert read_provider_secret_environment(config_path.parent / "banksia.env") == {
         ANTHROPIC_API_KEY: "shell-anthropic-secret"
     }
     assert "shell-anthropic-secret" not in result.output
@@ -261,7 +261,7 @@ def test_guided_setup_confirms_reuse_of_ready_openclaw_service_credential(
     assert result.exit_code == 0, result.output
     assert "Using existing openclaw Gateway token" in result.output
     assert (
-        "Existing OpenClaw Gateway token stored for the AutoClaw service. Use it? [Y/n]"
+        "Existing OpenClaw Gateway token stored for the Banksia service. Use it? [Y/n]"
         in result.output
     )
 
@@ -336,8 +336,8 @@ def test_guided_setup_points_to_a_nonready_additional_provider(
 
     assert result.exit_code == 1, result.output
     assert "claude: not_installed" in result.output
-    assert "Next: autoclaw providers check claude" in result.output
-    assert "Next: autoclaw serve" not in result.output
+    assert "Next: banksia providers check claude" in result.output
+    assert "Next: banksia serve" not in result.output
 
 
 def test_guided_setup_explicit_primary_choice_replaces_existing_default(
@@ -396,8 +396,8 @@ def test_guided_setup_discloses_environment_default_override(
         ["setup", "--config", str(config_path), "--provider", "codex"],
         input="\n\nn\n",
         env={
-            "AUTOCLAW_CLAUDE__ENABLED": "true",
-            "AUTOCLAW_RUNTIME__DEFAULT_PROVIDER": "claude",
+            "BANKSIA_CLAUDE__ENABLED": "true",
+            "BANKSIA_RUNTIME__DEFAULT_PROVIDER": "claude",
         },
     )
 
@@ -418,7 +418,7 @@ def test_setup_non_interactive_keeps_the_deterministic_command_path(
         lambda _args: pytest.fail("non-interactive setup entered the guided flow"),
     )
     monkeypatch.setattr(
-        "autoclaw.interfaces.cli.commands.providers.collect_provider_check",
+        "banksia.interfaces.cli.commands.providers.collect_provider_check",
         lambda _settings, provider: build_provider_check_snapshot(
             provider,
             outcome=ProviderCheckOutcome.READY,

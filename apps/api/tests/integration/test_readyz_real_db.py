@@ -3,16 +3,16 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-import autoclaw.interfaces.cli as cli
-from autoclaw.config import get_settings
-from autoclaw.main import create_app
-from autoclaw.persistence.session import dispose_db_engine
+import banksia.interfaces.cli as cli
+from banksia.config import get_settings
+from banksia.main import create_app
+from banksia.persistence.session import dispose_db_engine
 from httpx import ASGITransport, AsyncClient
 
 
 async def test_readyz_uses_real_database(tmp_path: Path) -> None:
-    config_path = tmp_path / "autoclaw-config.toml"
-    data_dir = tmp_path / "autoclaw-data"
+    config_path = tmp_path / "banksia-config.toml"
+    data_dir = tmp_path / "banksia-data"
 
     try:
         await cli.cmd_init(
@@ -41,4 +41,4 @@ async def test_readyz_uses_real_database(tmp_path: Path) -> None:
         await dispose_db_engine()
 
     assert response.status_code == 200
-    assert response.json() == {"status": "ready", "service": "autoclaw-api"}
+    assert response.json() == {"status": "ready", "service": "banksia-api"}

@@ -4,7 +4,7 @@ Use this guide when changing package data, dependencies, console assets, service
 
 ## Package contract
 
-`pyproject.toml` owns the distribution. AutoClaw requires Python 3.12 or newer and installs `autoclaw = autoclaw.interfaces.cli.main:main` from `apps/api/src`.
+`pyproject.toml` owns the distribution. Banksia requires Python 3.12 or newer and installs `banksia = banksia.interfaces.cli.main:main` from `apps/api/src`.
 
 The distribution includes definition seeds, shared and family prompt instructions, built console assets, and the systemd user-service template. Add every new runtime resource to package data and read it through `importlib.resources` or another installed-package path.
 
@@ -23,7 +23,7 @@ Run the repository verifier against the built artifacts:
 ```bash
 ./.venv/bin/python scripts/testing/verify_installed_distribution.py \
   --dist-dir dist \
-  --workspace /tmp/autoclaw-installed-proof
+  --workspace /tmp/banksia-installed-proof
 ```
 
 The verifier installs the wheel in a fresh virtual environment, runs outside the checkout without `PYTHONPATH`, checks packaged resources, enters FastAPI lifespan, and exercises the Linux user-service installer in an isolated home with `--no-start`.

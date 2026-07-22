@@ -6,15 +6,15 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import cast
 
-from autoclaw.persistence import RuntimeBase
-from autoclaw.persistence.models import DispatchTurnModel
-from autoclaw.runtime.post_commit import (
+from banksia.persistence import RuntimeBase
+from banksia.persistence.models import DispatchTurnModel
+from banksia.runtime.post_commit import (
     RuntimeEffectSignal,
     WatchdogDeadlineChanged,
     WatchdogDue,
 )
-from autoclaw.runtime.post_commit.deadlines import DeadlineScheduler
-from autoclaw.runtime.watchdog import create_watchdog_deadline_changed_handler
+from banksia.runtime.post_commit.deadlines import DeadlineScheduler
+from banksia.runtime.watchdog import create_watchdog_deadline_changed_handler
 from sqlalchemy import Connection
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from tests.helpers.catalog_seed import seed_catalog

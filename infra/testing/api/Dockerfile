@@ -15,4 +15,4 @@ COPY scripts/testing /app/scripts/testing
 RUN python -m pip install --upgrade pip \
     && pip install "/app[postgres,dev]"
 
-CMD ["autoclaw", "--help"]
+CMD ["banksia", "--help"]

@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from autoclaw.definitions.contracts import (
+from banksia.definitions.contracts import (
     PolicyDefinitionFile,
     PolicyDefinitionInput,
     RoleDefinitionFile,

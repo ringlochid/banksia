@@ -1,6 +1,6 @@
 # Workflows reference examples
 
-Use these pages when you want exact workflow YAML examples mirrored from the shipped seed definitions. AutoClaw currently ships 14 workflow fixtures.
+Use these pages when you want exact workflow YAML examples mirrored from the shipped seed definitions. Banksia currently ships 14 workflow fixtures.
 
 The examples include optional node `instruction` fields. Node instruction is node-local prompt guidance and renders separately from role, policy, task, and assignment instruction.
 

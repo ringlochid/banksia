@@ -1,6 +1,6 @@
 # Reference docs
 
-This surface holds exact public reference for shipped AutoClaw behavior, launch contracts, operator surfaces, and maintainer-facing details that are safe to publish.
+This surface holds exact public reference for shipped Banksia behavior, launch contracts, operator surfaces, and maintainer-facing details that are safe to publish.
 
 ## Start here
 

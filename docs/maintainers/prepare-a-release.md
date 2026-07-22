@@ -15,7 +15,7 @@ Release-ready means code, docs, examples, package data, install behavior, and th
 make package-build
 ./.venv/bin/python scripts/testing/verify_installed_distribution.py \
   --dist-dir dist \
-  --workspace /tmp/autoclaw-installed-proof
+  --workspace /tmp/banksia-installed-proof
 make check-docs
 ```
 
@@ -25,4 +25,4 @@ Inspect the wheel and source distribution before publishing. Do not mutate an al
 
 ## After publication
 
-Install the published artifact in a clean environment outside the checkout. Check `autoclaw --version`, passive status, initialization, service installation with no start, and health/readiness when the service is intentionally started.
+Install the published artifact in a clean environment outside the checkout. Check `banksia --version`, passive status, initialization, service installation with no start, and health/readiness when the service is intentionally started.

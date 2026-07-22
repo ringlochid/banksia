@@ -1,12 +1,12 @@
 # Task start failures
 
-Use this page when `autoclaw task-compose start --file ...` is rejected.
+Use this page when `banksia task-compose start --file ...` is rejected.
 
 ## Check the launch file
 
 Confirm that:
 
-- the file exists on the AutoClaw host
+- the file exists on the Banksia host
 - `task.key`, `task.title`, `task.summary`, and `task.instruction` are present
 - `workflow.key` names a current registry workflow
 - explicit `workspace` and `context` bindings use a supported mode and valid path
@@ -18,7 +18,7 @@ Open the console authoring workbench or read `GET /definitions/workflows`. Repo 
 Publish a missing definition with the workbench or:
 
 ```bash
-autoclaw definitions import --file ./workflow.yaml
+banksia definitions import --file ./workflow.yaml
 ```
 
 Use `--overwrite allow_new_revision` only when changed content should become a new current revision.

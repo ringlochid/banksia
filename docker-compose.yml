@@ -1,35 +1,37 @@
+name: banksia
+
 services:
     postgres:
         image: postgres:16
         restart: unless-stopped
         environment:
-            POSTGRES_USER: autoclaw
-            POSTGRES_PASSWORD: autoclaw
-            POSTGRES_DB: autoclaw
+            POSTGRES_USER: banksia
+            POSTGRES_PASSWORD: banksia
+            POSTGRES_DB: banksia
         ports:
             - "127.0.0.1:5433:5432"
         healthcheck:
-            test: ["CMD-SHELL", "pg_isready -U autoclaw -d autoclaw"]
+            test: ["CMD-SHELL", "pg_isready -U banksia -d banksia"]
             interval: 5s
             timeout: 5s
             retries: 20
         volumes:
-            - autoclaw-postgres:/var/lib/postgresql/data
+            - banksia-postgres:/var/lib/postgresql/data
             - ./infra/compose/postgres/init:/docker-entrypoint-initdb.d:ro
 
     postgres-test:
         image: postgres:16
         environment:
-            POSTGRES_USER: autoclaw
-            POSTGRES_PASSWORD: autoclaw
-            POSTGRES_DB: autoclaw
+            POSTGRES_USER: banksia
+            POSTGRES_PASSWORD: banksia
+            POSTGRES_DB: banksia
         healthcheck:
-            test: ["CMD-SHELL", "pg_isready -U autoclaw -d postgres"]
+            test: ["CMD-SHELL", "pg_isready -U banksia -d postgres"]
             interval: 5s
             timeout: 5s
             retries: 20
         volumes:
-            - autoclaw-postgres-test:/var/lib/postgresql/data
+            - banksia-postgres-test:/var/lib/postgresql/data
             - ./infra/compose/postgres/init:/docker-entrypoint-initdb.d:ro
 
     api-test:
@@ -40,14 +42,14 @@ services:
             postgres-test:
                 condition: service_healthy
         environment:
-            AUTOCLAW_ENV: test
-            AUTOCLAW_DEBUG: "false"
-            AUTOCLAW_DATABASE_URL: postgresql+asyncpg://autoclaw:autoclaw@postgres-test:5432/autoclaw_test
+            BANKSIA_ENV: test
+            BANKSIA_DEBUG: "false"
+            BANKSIA_TEST_POSTGRES_URL: postgresql+asyncpg://banksia:banksia@postgres-test:5432/banksia_test
         command:
             - sh
             - -c
-            - python -m autoclaw db upgrade && exec sh /app/scripts/testing/run_api_pytest_groups.sh integration
+            - BANKSIA_DATABASE_URL="$$BANKSIA_TEST_POSTGRES_URL" python -m banksia db upgrade && exec sh /app/scripts/testing/run_api_pytest_groups.sh integration
 
 volumes:
-    autoclaw-postgres:
-    autoclaw-postgres-test:
+    banksia-postgres:
+    banksia-postgres-test:

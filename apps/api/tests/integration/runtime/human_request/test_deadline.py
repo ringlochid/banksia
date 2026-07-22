@@ -7,29 +7,29 @@ from pathlib import Path
 from typing import cast
 
 import pytest
-from autoclaw.persistence.models import (
+from banksia.persistence.models import (
     FlowModel,
     FlowWaitModel,
     HumanRequestModel,
     TaskEventModel,
 )
-from autoclaw.runtime.contracts import HumanRequestResolveRequest
-from autoclaw.runtime.errors import RuntimeOperationError
-from autoclaw.runtime.human_request.deadline import (
+from banksia.runtime.contracts import HumanRequestResolveRequest
+from banksia.runtime.errors import RuntimeOperationError
+from banksia.runtime.human_request.deadline import (
     create_human_request_opened_handler,
     expire_human_request,
 )
-from autoclaw.runtime.human_request.service import resolve_human_request
-from autoclaw.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
-from autoclaw.runtime.post_commit import (
+from banksia.runtime.human_request.service import resolve_human_request
+from banksia.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
+from banksia.runtime.post_commit import (
     CapturedRuntimeEffectPublisher,
     DeadlineScheduler,
     HumanRequestDue,
     HumanRequestOpened,
     HumanRequestTerminal,
 )
-from autoclaw.runtime.post_commit.bootstrap import read_human_deadline_page
-from autoclaw.runtime.post_commit.router import AsyncSessionContextFactory
+from banksia.runtime.post_commit.bootstrap import read_human_deadline_page
+from banksia.runtime.post_commit.router import AsyncSessionContextFactory
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from tests.helpers.executor_harness import seeded_executor

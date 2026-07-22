@@ -7,7 +7,7 @@ from .models import AuditSettings
 ROOT = Path(__file__).resolve().parents[3]
 APPS_API_ROOT = ROOT / "apps" / "api"
 APPS_API_TESTS_ROOT = APPS_API_ROOT / "tests"
-AUTOCLAW_SRC_PACKAGE_ROOT = APPS_API_ROOT / "src" / "autoclaw"
+BANKSIA_SRC_PACKAGE_ROOT = APPS_API_ROOT / "src" / "banksia"
 SCRIPTS_DOCS_ROOT = ROOT / "scripts" / "docs"
 FILE_SPLIT_REVIEW_THRESHOLD = 600
 FILE_NO_GROWTH_THRESHOLD = 600
@@ -46,7 +46,7 @@ INEXACT_PACKAGE_NAMES = frozenset(
 def _style_audit_scan_roots() -> tuple[Path, ...]:
     return _existing_roots(
         SCRIPTS_DOCS_ROOT,
-        AUTOCLAW_SRC_PACKAGE_ROOT,
+        BANKSIA_SRC_PACKAGE_ROOT,
         APPS_API_TESTS_ROOT / "e2e",
         APPS_API_TESTS_ROOT / "helpers",
         APPS_API_TESTS_ROOT / "integration",
@@ -74,7 +74,7 @@ def _app_shell_direct_owner_modules() -> frozenset[Path]:
 
 def _src_owner_wrapper_modules() -> frozenset[Path]:
     return _existing_paths(
-        AUTOCLAW_SRC_PACKAGE_ROOT / "interfaces" / "http" / "router.py",
+        BANKSIA_SRC_PACKAGE_ROOT / "interfaces" / "http" / "router.py",
     )
 
 
@@ -96,22 +96,22 @@ def _src_runtime_import_exceptions() -> frozenset[Path]:
 
 def _canonical_contract_naming_exceptions() -> frozenset[tuple[Path, str]]:
     return _existing_public_naming_exceptions(
-        (ROOT / "apps/api/src/autoclaw/config.py", "enabled"),
-        (ROOT / "apps/api/src/autoclaw/config.py", "value_is_complex"),
+        (ROOT / "apps/api/src/banksia/config.py", "enabled"),
+        (ROOT / "apps/api/src/banksia/config.py", "value_is_complex"),
         (
-            ROOT / "apps/api/src/autoclaw/integrations/openclaw/gateway/adapter.py",
+            ROOT / "apps/api/src/banksia/integrations/openclaw/gateway/adapter.py",
             "check",
         ),
         (
-            ROOT / "apps/api/src/autoclaw/runtime/contracts/operation_failure.py",
+            ROOT / "apps/api/src/banksia/runtime/contracts/operation_failure.py",
             "ok",
         ),
         (
-            ROOT / "apps/api/src/autoclaw/runtime/contracts/operation_failure.py",
+            ROOT / "apps/api/src/banksia/runtime/contracts/operation_failure.py",
             "retryable",
         ),
         (
-            ROOT / "apps/api/src/autoclaw/runtime/work_plan/contracts.py",
+            ROOT / "apps/api/src/banksia/runtime/work_plan/contracts.py",
             "changed",
         ),
     )
@@ -126,7 +126,7 @@ def _approved_import_direction_exception_modules() -> frozenset[Path]:
 
 
 def _public_naming_scan_roots() -> tuple[Path, ...]:
-    return _existing_roots(AUTOCLAW_SRC_PACKAGE_ROOT)
+    return _existing_roots(BANKSIA_SRC_PACKAGE_ROOT)
 
 
 def _public_naming_extra_modules() -> frozenset[Path]:
@@ -134,7 +134,7 @@ def _public_naming_extra_modules() -> frozenset[Path]:
 
 
 def _module_shape_scan_roots() -> tuple[Path, ...]:
-    return _existing_roots(AUTOCLAW_SRC_PACKAGE_ROOT)
+    return _existing_roots(BANKSIA_SRC_PACKAGE_ROOT)
 
 
 def build_audit_settings(
@@ -164,5 +164,5 @@ def build_audit_settings(
         public_naming_scan_roots=_public_naming_scan_roots(),
         public_naming_extra_modules=_public_naming_extra_modules(),
         module_shape_scan_roots=_module_shape_scan_roots(),
-        module_shape_excluded_modules=frozenset({AUTOCLAW_SRC_PACKAGE_ROOT / "main.py"}),
+        module_shape_excluded_modules=frozenset({BANKSIA_SRC_PACKAGE_ROOT / "main.py"}),
     )

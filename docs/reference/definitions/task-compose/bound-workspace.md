@@ -14,5 +14,5 @@ workflow:
 roots:
     workspace:
         mode: ensure_host_path
-        host_path: /home/ubuntu/workspaces/autoclaw-host-bound
+        host_path: /home/ubuntu/workspaces/banksia-host-bound
 ```

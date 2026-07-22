@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import cast
 
 import pytest
-from autoclaw.persistence.models import (
+from banksia.persistence.models import (
     CommandRunModel,
     DispatchTurnModel,
     FlowModel,
@@ -13,16 +13,16 @@ from autoclaw.persistence.models import (
     HumanRequestModel,
     TaskEventModel,
 )
-from autoclaw.runtime.contracts import (
+from banksia.runtime.contracts import (
     CommandRunStartRequest,
     HumanRequestOpenRequest,
     HumanRequestResolveRequest,
 )
-from autoclaw.runtime.contracts.operation_failure import OperationFailureCode
-from autoclaw.runtime.errors import RuntimeOperationError
-from autoclaw.runtime.human_request.service import resolve_human_request
-from autoclaw.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
-from autoclaw.runtime.post_commit import (
+from banksia.runtime.contracts.operation_failure import OperationFailureCode
+from banksia.runtime.errors import RuntimeOperationError
+from banksia.runtime.human_request.service import resolve_human_request
+from banksia.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
+from banksia.runtime.post_commit import (
     CapturedRuntimeEffectPublisher,
     HumanRequestTerminal,
     RuntimeEffectSignal,

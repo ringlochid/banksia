@@ -4,11 +4,11 @@ import shutil
 from contextlib import nullcontext
 from pathlib import Path
 
-import autoclaw.definitions.registry.seeds as registry_seeds
+import banksia.definitions.registry.seeds as registry_seeds
 import pytest
 import yaml
-from autoclaw.definitions.contracts.workflow import WorkflowDefinitionInput
-from autoclaw.definitions.registry import (
+from banksia.definitions.contracts.workflow import WorkflowDefinitionInput
+from banksia.definitions.registry import (
     compile_current_workflow,
     load_current_policy,
     load_current_role,
@@ -16,8 +16,8 @@ from autoclaw.definitions.registry import (
     seed_definition_registry,
     upsert_workflow_definition,
 )
-from autoclaw.definitions.seeds import resolve_packaged_seed_definitions_root
-from autoclaw.persistence import WorkflowRevisionModel
+from banksia.definitions.seeds import resolve_packaged_seed_definitions_root
+from banksia.persistence import WorkflowRevisionModel
 from sqlalchemy import func, select
 from tests.helpers.definition_registry_runtime import initialized_registry
 

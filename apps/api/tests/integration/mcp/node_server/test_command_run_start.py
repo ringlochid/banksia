@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from autoclaw.runtime.node_operations import NodeOperationName
+from banksia.runtime.node_operations import NodeOperationName
 from tests.integration.mcp.node_server.transport_support import (
     RecordingNodeOperationExecutor,
     create_test_node_mcp_apps,

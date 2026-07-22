@@ -5,21 +5,21 @@ import tomllib
 from pathlib import Path
 
 import pytest
-from autoclaw.definitions.contracts.workflow import ProviderKind
-from autoclaw.interfaces.cli.main import build_parser
-from autoclaw.interfaces.cli.providers.configuration import (
+from banksia.definitions.contracts.workflow import ProviderKind
+from banksia.interfaces.cli.main import build_parser
+from banksia.interfaces.cli.providers.configuration import (
     ProviderConfigurationRequest,
     configure_provider,
 )
-from autoclaw.interfaces.cli.providers.contracts import ProviderIdentityOutcome
-from autoclaw.interfaces.cli.providers.identity import invoke_provider_identity_action
-from autoclaw.platform.provider_environment import (
+from banksia.interfaces.cli.providers.contracts import ProviderIdentityOutcome
+from banksia.interfaces.cli.providers.identity import invoke_provider_identity_action
+from banksia.platform.provider_environment import (
     ANTHROPIC_API_KEY,
     OPENCLAW_GATEWAY_PASSWORD,
     OPENCLAW_GATEWAY_TOKEN,
     read_provider_secret_environment,
 )
-from autoclaw.runtime.providers import ProviderAuthenticationMethod
+from banksia.runtime.providers import ProviderAuthenticationMethod
 from click.testing import CliRunner
 
 
@@ -38,7 +38,7 @@ def test_codex_subscription_identity_delegates_without_storing_credentials(
 
     bundled_binary = tmp_path / "codex"
     monkeypatch.setattr(
-        "autoclaw.interfaces.cli.providers.identity.bundled_codex_path",
+        "banksia.interfaces.cli.providers.identity.bundled_codex_path",
         lambda: bundled_binary,
     )
 
@@ -68,7 +68,7 @@ def test_claude_api_key_identity_uses_private_service_environment(tmp_path: Path
     )
 
     assert snapshot.outcome == ProviderIdentityOutcome.SUCCEEDED
-    assert read_provider_secret_environment(tmp_path / "autoclaw.env") == {
+    assert read_provider_secret_environment(tmp_path / "banksia.env") == {
         ANTHROPIC_API_KEY: "anthropic-secret"
     }
     assert "anthropic-secret" not in snapshot.model_dump_json()
@@ -89,7 +89,7 @@ def test_claude_subscription_identity_uses_sdk_bundled_native_login(
         secret="old-api-key",
     )
     monkeypatch.setattr(
-        "autoclaw.interfaces.cli.providers.identity.bundled_claude_path",
+        "banksia.interfaces.cli.providers.identity.bundled_claude_path",
         lambda: tmp_path / "claude",
     )
 
@@ -108,7 +108,7 @@ def test_claude_subscription_identity_uses_sdk_bundled_native_login(
 
     assert snapshot.outcome == ProviderIdentityOutcome.SUCCEEDED
     assert calls == [[str(tmp_path / "claude"), "auth", "login", "--claudeai"]]
-    assert read_provider_secret_environment(tmp_path / "autoclaw.env") == {}
+    assert read_provider_secret_environment(tmp_path / "banksia.env") == {}
 
 
 def test_openclaw_token_identity_uses_private_service_environment(tmp_path: Path) -> None:
@@ -122,7 +122,7 @@ def test_openclaw_token_identity_uses_private_service_environment(tmp_path: Path
     )
 
     assert snapshot.outcome == ProviderIdentityOutcome.SUCCEEDED
-    assert read_provider_secret_environment(tmp_path / "autoclaw.env") == {
+    assert read_provider_secret_environment(tmp_path / "banksia.env") == {
         OPENCLAW_GATEWAY_TOKEN: "gateway-secret"
     }
     assert "gateway-secret" not in snapshot.model_dump_json()
@@ -148,7 +148,7 @@ def test_openclaw_login_requires_route_before_reading_or_saving_secret(tmp_path:
 
     assert result.exit_code != 0
     assert "Configure the OpenClaw Gateway route" in result.output
-    assert not (tmp_path / "autoclaw.env").exists()
+    assert not (tmp_path / "banksia.env").exists()
 
 
 def test_provider_login_cli_reads_claude_api_key_from_stdin_without_echo(
@@ -178,7 +178,7 @@ def test_provider_login_cli_reads_claude_api_key_from_stdin_without_echo(
     assert result.exit_code == 0, result.output
     assert "anthropic-secret" not in result.output
     assert "Authentication: API key" in result.output
-    assert read_provider_secret_environment(tmp_path / "autoclaw.env") == {
+    assert read_provider_secret_environment(tmp_path / "banksia.env") == {
         ANTHROPIC_API_KEY: "anthropic-secret"
     }
 
@@ -207,7 +207,7 @@ def test_provider_login_rejects_method_owned_by_another_provider(tmp_path: Path)
 
     assert result.exit_code != 0
     assert "Claude authentication uses subscription or api-key" in result.output
-    assert not (tmp_path / "autoclaw.env").exists()
+    assert not (tmp_path / "banksia.env").exists()
 
 
 def test_provider_login_cli_keeps_openclaw_auth_mode_and_secret_consistent(
@@ -240,7 +240,7 @@ def test_provider_login_cli_keeps_openclaw_auth_mode_and_secret_consistent(
         tomllib.loads(config_path.read_text(encoding="utf-8"))["openclaw"]["gateway_auth_mode"]
         == "password"
     )
-    assert read_provider_secret_environment(tmp_path / "autoclaw.env") == {
+    assert read_provider_secret_environment(tmp_path / "banksia.env") == {
         OPENCLAW_GATEWAY_PASSWORD: "gateway-password"
     }
 
@@ -300,7 +300,7 @@ def test_claude_logout_reports_partial_when_only_stored_api_key_is_removed(
         secret="stored-key",
     )
     monkeypatch.setattr(
-        "autoclaw.interfaces.cli.providers.identity.bundled_claude_path",
+        "banksia.interfaces.cli.providers.identity.bundled_claude_path",
         lambda: tmp_path / "claude",
     )
 
@@ -320,4 +320,4 @@ def test_claude_logout_reports_partial_when_only_stored_api_key_is_removed(
 
     assert snapshot.outcome is ProviderIdentityOutcome.PARTIAL
     assert "API key removed" in snapshot.detail
-    assert read_provider_secret_environment(tmp_path / "autoclaw.env") == {}
+    assert read_provider_secret_environment(tmp_path / "banksia.env") == {}

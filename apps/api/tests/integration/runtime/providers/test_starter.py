@@ -7,19 +7,19 @@ from pathlib import Path
 from typing import Protocol, cast
 
 import pytest
-from autoclaw.config import RuntimeSettings
-from autoclaw.definitions.contracts.workflow import ProviderKind
-from autoclaw.persistence import RuntimeBase
-from autoclaw.runtime.node_mcp import DispatchMcpBindingRegistry
-from autoclaw.runtime.node_operations import NodeOperationExecutor, NodeOperationName
-from autoclaw.runtime.node_operations.catalog import get_node_operation_descriptor
-from autoclaw.runtime.post_commit import (
+from banksia.config import RuntimeSettings
+from banksia.definitions.contracts.workflow import ProviderKind
+from banksia.persistence import RuntimeBase
+from banksia.runtime.node_mcp import DispatchMcpBindingRegistry
+from banksia.runtime.node_operations import NodeOperationExecutor, NodeOperationName
+from banksia.runtime.node_operations.catalog import get_node_operation_descriptor
+from banksia.runtime.post_commit import (
     CapturedRuntimeEffectPublisher,
     DeadlineScheduler,
     DispatchStartDue,
     WatchdogDeadlineChanged,
 )
-from autoclaw.runtime.providers import (
+from banksia.runtime.providers import (
     DispatchStartRequest,
     ProviderAdapterRegistry,
     ProviderCheckResult,
@@ -30,7 +30,7 @@ from autoclaw.runtime.providers import (
     ProviderStartFailureKind,
     ProviderStopOutcome,
 )
-from autoclaw.runtime.providers.starter import DispatchStarter
+from banksia.runtime.providers.starter import DispatchStarter
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from tests.helpers.sqlite_runtime import (

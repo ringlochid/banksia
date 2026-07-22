@@ -3,19 +3,19 @@ from __future__ import annotations
 from datetime import timedelta
 from pathlib import Path
 
-import autoclaw.runtime.node_operations.executor as executor_module
+import banksia.runtime.node_operations.executor as executor_module
 import pytest
-from autoclaw.persistence.models import AssignmentModel, CommandRunModel, HumanRequestModel
-from autoclaw.runtime.checkpoint import CheckpointPreparation
-from autoclaw.runtime.clock import utc_now
-from autoclaw.runtime.node_operations import NodeOperationScope
-from autoclaw.runtime.post_commit.publisher import CapturedRuntimeEffectPublisher
-from autoclaw.runtime.post_commit.signals import (
+from banksia.persistence.models import AssignmentModel, CommandRunModel, HumanRequestModel
+from banksia.runtime.checkpoint import CheckpointPreparation
+from banksia.runtime.clock import utc_now
+from banksia.runtime.node_operations import NodeOperationScope
+from banksia.runtime.post_commit.publisher import CapturedRuntimeEffectPublisher
+from banksia.runtime.post_commit.signals import (
     CommandRunPending,
     HumanRequestOpened,
     RuntimeEffectSignal,
 )
-from autoclaw.runtime.projection.signals import (
+from banksia.runtime.projection.signals import (
     ArtifactProjection,
     LatestCheckpointProjection,
     SupportProjectionSignal,

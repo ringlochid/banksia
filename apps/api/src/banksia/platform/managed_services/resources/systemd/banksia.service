@@ -1,0 +1,19 @@
+[Unit]
+Description=Banksia local control plane
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+Environment="BANKSIA_CONFIG=@BANKSIA_CONFIG@"
+UnsetEnvironment=CODEX_HOME CLAUDE_CONFIG_DIR OPENCLAW_STATE_DIR
+EnvironmentFile=-@BANKSIA_ENV_FILE@
+ExecStartPre="@BANKSIA_PYTHON@" -m banksia db upgrade --config "@BANKSIA_CONFIG@" --revision head
+ExecStart="@BANKSIA_PYTHON@" -m banksia serve --config "@BANKSIA_CONFIG@"
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=default.target

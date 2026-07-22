@@ -4,10 +4,10 @@ from pathlib import Path
 from typing import cast
 
 import pytest
-from autoclaw.config import CodexSettings, RuntimeSettings, Settings
-from autoclaw.definitions.contracts.registry import PolicyDefinitionInput
-from autoclaw.definitions.contracts.workflow import NodeKind, ProviderKind
-from autoclaw.persistence.models import (
+from banksia.config import CodexSettings, RuntimeSettings, Settings
+from banksia.definitions.contracts.registry import PolicyDefinitionInput
+from banksia.definitions.contracts.workflow import NodeKind, ProviderKind
+from banksia.persistence.models import (
     DispatchPromptRefsModel,
     DispatchTurnModel,
     FlowModel,
@@ -15,16 +15,16 @@ from autoclaw.persistence.models import (
     HumanRequestModel,
     PolicyRevisionModel,
 )
-from autoclaw.runtime.clock import utc_now
-from autoclaw.runtime.contracts import HumanRequestResolveRequest
-from autoclaw.runtime.contracts.operation_failure import OperationFailureCode
-from autoclaw.runtime.dispatch.preparation import DispatchOpeningDependencies
-from autoclaw.runtime.errors import RuntimeOperationError
-from autoclaw.runtime.flow.continuation import continue_paused_flow
-from autoclaw.runtime.human_request.service import resolve_human_request
-from autoclaw.runtime.launch.persistence.runtime import persist_bootstrap_runtime_from_precomputed
-from autoclaw.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
-from autoclaw.runtime.post_commit import (
+from banksia.runtime.clock import utc_now
+from banksia.runtime.contracts import HumanRequestResolveRequest
+from banksia.runtime.contracts.operation_failure import OperationFailureCode
+from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
+from banksia.runtime.errors import RuntimeOperationError
+from banksia.runtime.flow.continuation import continue_paused_flow
+from banksia.runtime.human_request.service import resolve_human_request
+from banksia.runtime.launch.persistence.runtime import persist_bootstrap_runtime_from_precomputed
+from banksia.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
+from banksia.runtime.post_commit import (
     CapturedRuntimeEffectPublisher,
     RuntimeEffectPublisher,
     RuntimeEffectSignal,

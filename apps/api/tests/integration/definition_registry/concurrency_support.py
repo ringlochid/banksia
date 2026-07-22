@@ -5,9 +5,9 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any, cast
 
-from autoclaw.definitions.contracts.registry import PolicyDefinitionInput, RoleDefinitionInput
-from autoclaw.definitions.contracts.workflow import WorkflowDefinitionInput
-from autoclaw.definitions.registry import (
+from banksia.definitions.contracts.registry import PolicyDefinitionInput, RoleDefinitionInput
+from banksia.definitions.contracts.workflow import WorkflowDefinitionInput
+from banksia.definitions.registry import (
     load_current_policy,
     load_current_role,
     load_current_workflow,
@@ -15,7 +15,7 @@ from autoclaw.definitions.registry import (
     upsert_role_definition,
     upsert_workflow_definition,
 )
-from autoclaw.persistence import PolicyRevisionModel, RoleRevisionModel, WorkflowRevisionModel
+from banksia.persistence import PolicyRevisionModel, RoleRevisionModel, WorkflowRevisionModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 

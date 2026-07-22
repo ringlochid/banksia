@@ -4,10 +4,10 @@ import json
 from pathlib import Path
 from typing import cast
 
-from autoclaw.config import CodexSettings, RuntimeSettings, Settings
-from autoclaw.definitions.contracts.registry import PolicyDefinitionInput
-from autoclaw.definitions.contracts.workflow import NodeKind, ProviderKind
-from autoclaw.persistence.models import (
+from banksia.config import CodexSettings, RuntimeSettings, Settings
+from banksia.definitions.contracts.registry import PolicyDefinitionInput
+from banksia.definitions.contracts.workflow import NodeKind, ProviderKind
+from banksia.persistence.models import (
     CommandRunModel,
     DispatchPromptRefsModel,
     DispatchTurnModel,
@@ -15,13 +15,13 @@ from autoclaw.persistence.models import (
     FlowWaitModel,
     PolicyRevisionModel,
 )
-from autoclaw.runtime.clock import utc_now
-from autoclaw.runtime.command_run.continuation import open_command_run_successor
-from autoclaw.runtime.command_run.service import read_command_run
-from autoclaw.runtime.dispatch.preparation import DispatchOpeningDependencies
-from autoclaw.runtime.flow.service import pause_runtime_flow, runtime_flow_read
-from autoclaw.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
-from autoclaw.runtime.post_commit import (
+from banksia.runtime.clock import utc_now
+from banksia.runtime.command_run.continuation import open_command_run_successor
+from banksia.runtime.command_run.service import read_command_run
+from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
+from banksia.runtime.flow.service import pause_runtime_flow, runtime_flow_read
+from banksia.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
+from banksia.runtime.post_commit import (
     CapturedRuntimeEffectPublisher,
     CommandRunTerminal,
     DispatchStartDue,

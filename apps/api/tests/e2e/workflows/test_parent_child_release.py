@@ -4,10 +4,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 
-from autoclaw.config import CodexSettings, RuntimeSettings, Settings
-from autoclaw.definitions.contracts.registry import PolicyDefinitionInput
-from autoclaw.definitions.contracts.workflow import NodeKind, ProviderKind
-from autoclaw.persistence.models import (
+from banksia.config import CodexSettings, RuntimeSettings, Settings
+from banksia.definitions.contracts.registry import PolicyDefinitionInput
+from banksia.definitions.contracts.workflow import NodeKind, ProviderKind
+from banksia.persistence.models import (
     AssignmentCriteriaRefModel,
     AssignmentDecisionModel,
     AssignmentModel,
@@ -18,11 +18,11 @@ from autoclaw.persistence.models import (
     FlowNodeModel,
     PolicyRevisionModel,
 )
-from autoclaw.runtime.boundary import BoundaryOpeningResult, open_boundary_successor
-from autoclaw.runtime.dispatch import accept_provider_start_if_current
-from autoclaw.runtime.dispatch.preparation import DispatchOpeningDependencies
-from autoclaw.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
-from autoclaw.runtime.post_commit import BoundaryAccepted, CapturedRuntimeEffectPublisher
+from banksia.runtime.boundary import BoundaryOpeningResult, open_boundary_successor
+from banksia.runtime.dispatch import accept_provider_start_if_current
+from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
+from banksia.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
+from banksia.runtime.post_commit import BoundaryAccepted, CapturedRuntimeEffectPublisher
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from tests.helpers.executor_harness import (

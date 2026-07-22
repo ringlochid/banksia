@@ -38,7 +38,7 @@ Do not:
 
 ## Starting-point interpretation
 
-The current tracked repository is the imported AutoClaw 0.1.8 baseline under the Banksia Git repository. Its `apps/api/src/autoclaw`, `apps/api/tests`, `apps/console`, V1/V2/current documentation, Role/Policy/compiler model, and single-Flow execution shape are migration evidence—not the target layout or product language.
+The current tracked repository is the imported AutoClaw 0.1.8 baseline under the Banksia Git repository. Its implementation is now hosted under the Banksia-only `apps/api/src/banksia` package, while `apps/api/tests`, `apps/console`, frozen V1/V2/current documentation, the Role/Policy/compiler model, and the single-Flow execution shape remain migration evidence—not the target layout or product language.
 
 Current code and tests can expose invariants and regressions, but they do not override the accepted target. Conversely, a target simplification does not authorize deletion until the responsibility is either proven unnecessary or has a tested new owner.
 

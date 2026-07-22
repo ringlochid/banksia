@@ -4,10 +4,10 @@ from pathlib import Path
 from typing import cast
 
 import pytest
-from autoclaw.config import CodexSettings, RuntimeSettings, Settings
-from autoclaw.definitions.contracts.registry import PolicyDefinitionInput
-from autoclaw.definitions.contracts.workflow import NodeKind, ProviderKind
-from autoclaw.persistence.models import (
+from banksia.config import CodexSettings, RuntimeSettings, Settings
+from banksia.definitions.contracts.registry import PolicyDefinitionInput
+from banksia.definitions.contracts.workflow import NodeKind, ProviderKind
+from banksia.persistence.models import (
     AttemptModel,
     CommandRunModel,
     DispatchTurnModel,
@@ -18,19 +18,19 @@ from autoclaw.persistence.models import (
     PolicyRevisionModel,
     TaskEventModel,
 )
-from autoclaw.runtime.command_run.service import cancel_command_run
-from autoclaw.runtime.contracts.operation_failure import OperationFailureCode
-from autoclaw.runtime.dispatch.preparation import DispatchOpeningDependencies
-from autoclaw.runtime.errors import RuntimeOperationError
-from autoclaw.runtime.flow.service import (
+from banksia.runtime.command_run.service import cancel_command_run
+from banksia.runtime.contracts.operation_failure import OperationFailureCode
+from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
+from banksia.runtime.errors import RuntimeOperationError
+from banksia.runtime.flow.service import (
     cancel_runtime_flow,
     continue_runtime_flow,
     list_runtime_flows,
     pause_runtime_flow,
     runtime_flow_read,
 )
-from autoclaw.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
-from autoclaw.runtime.post_commit import (
+from banksia.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
+from banksia.runtime.post_commit import (
     CapturedRuntimeEffectPublisher,
     CommandRunCancellationRequested,
     DispatchCleanupRequested,

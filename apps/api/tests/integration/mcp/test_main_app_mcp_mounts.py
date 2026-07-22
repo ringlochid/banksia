@@ -2,16 +2,16 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-import autoclaw.main as main_module
-import autoclaw.runtime.node_operations.executor as executor_module
+import banksia.main as main_module
+import banksia.runtime.node_operations.executor as executor_module
 import httpx
 import pytest
-from autoclaw.config import Settings
-from autoclaw.main import create_app
-from autoclaw.runtime.node_mcp import DispatchMcpBindingRegistry
-from autoclaw.runtime.node_operations import NodeOperationName
-from autoclaw.runtime.post_commit import RuntimeEffectRouter
-from autoclaw.runtime.projection import SupportProjectionOwner
+from banksia.config import Settings
+from banksia.main import create_app
+from banksia.runtime.node_mcp import DispatchMcpBindingRegistry
+from banksia.runtime.node_operations import NodeOperationName
+from banksia.runtime.post_commit import RuntimeEffectRouter
+from banksia.runtime.projection import SupportProjectionOwner
 from fastapi import FastAPI
 from starlette.routing import Mount
 
@@ -22,7 +22,7 @@ _INITIALIZE_REQUEST = {
     "params": {
         "protocolVersion": "2025-06-18",
         "capabilities": {},
-        "clientInfo": {"name": "autoclaw-main-mount-test", "version": "1"},
+        "clientInfo": {"name": "banksia-main-mount-test", "version": "1"},
     },
 }
 _MCP_HEADERS = {

@@ -4,17 +4,17 @@ import json
 from pathlib import Path
 from typing import Any, cast
 
-import autoclaw.runtime.startup_audit as startup_audit
+import banksia.runtime.startup_audit as startup_audit
 import pytest
-from autoclaw.persistence.models import (
+from banksia.persistence.models import (
     ArtifactCurrentPointerModel,
     ArtifactPublicationModel,
     AttemptModel,
     FlowNodeModel,
     TransientLocalizationModel,
 )
-from autoclaw.runtime.clock import utc_now
-from autoclaw.runtime.projection.materialization import (
+from banksia.runtime.clock import utc_now
+from banksia.runtime.projection.materialization import (
     project_artifact_index,
     project_attempt_assignment,
     project_criteria,
@@ -22,7 +22,7 @@ from autoclaw.runtime.projection.materialization import (
     project_transient_index,
     project_workflow_manifest,
 )
-from autoclaw.runtime.projection.signals import (
+from banksia.runtime.projection.signals import (
     ArtifactProjection,
     AttemptAssignmentProjection,
     CriteriaProjection,
@@ -31,7 +31,7 @@ from autoclaw.runtime.projection.signals import (
     TransientProjection,
     WorkflowManifestProjection,
 )
-from autoclaw.runtime.startup_audit import (
+from banksia.runtime.startup_audit import (
     AsyncSessionContextFactory,
     audit_startup_support_projections,
 )

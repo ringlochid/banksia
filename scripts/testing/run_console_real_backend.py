@@ -16,8 +16,8 @@ API_SOURCE_ROOT = REPO_ROOT / "apps" / "api" / "src"
 
 def main() -> int:
     args = _parse_args()
-    runtime_root = Path(tempfile.mkdtemp(prefix="autoclaw-console-real-backend-"))
-    config_path = runtime_root / "config" / "autoclaw.toml"
+    runtime_root = Path(tempfile.mkdtemp(prefix="banksia-console-real-backend-"))
+    config_path = runtime_root / "config" / "banksia.toml"
     data_dir = runtime_root / "data"
     environment = _build_environment()
     server: subprocess.Popen[str] | None = None
@@ -33,7 +33,7 @@ def main() -> int:
             [
                 sys.executable,
                 "-m",
-                "autoclaw",
+                "banksia",
                 "serve",
                 "--config",
                 str(config_path),
@@ -57,7 +57,7 @@ def main() -> int:
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Run a disposable shipped AutoClaw backend for the console browser smoke."
+        description="Run a disposable shipped Banksia backend for the console browser smoke."
     )
     parser.add_argument("--port", type=int, default=18126)
     return parser.parse_args()
@@ -71,7 +71,7 @@ def _build_environment() -> dict[str, str]:
         if not current_pythonpath
         else os.pathsep.join((str(API_SOURCE_ROOT), current_pythonpath))
     )
-    environment["AUTOCLAW_ENV"] = "production"
+    environment["BANKSIA_ENV"] = "production"
     return environment
 
 
@@ -114,7 +114,7 @@ def _initialize_runtime(
 
 def _run_cli(*arguments: str, environment: dict[str, str]) -> None:
     subprocess.run(
-        [sys.executable, "-m", "autoclaw", *arguments],
+        [sys.executable, "-m", "banksia", *arguments],
         cwd=REPO_ROOT,
         env=environment,
         check=True,

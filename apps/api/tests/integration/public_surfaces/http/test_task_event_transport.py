@@ -5,15 +5,15 @@ from collections.abc import AsyncGenerator, AsyncIterator
 from pathlib import Path
 from typing import cast
 
-import autoclaw.interfaces.http.routers.control as control_router_module
+import banksia.interfaces.http.routers.control as control_router_module
 import httpx
 import pytest
-from autoclaw.interfaces.http.contracts.operation_failure import OperationFailure
-from autoclaw.main import create_app
-from autoclaw.persistence.models import TaskEventModel
-from autoclaw.persistence.session import get_db_session
-from autoclaw.runtime.contracts import TaskEventRecord
-from autoclaw.runtime.task_events import append_task_event, encode_task_event_cursor
+from banksia.interfaces.http.contracts.operation_failure import OperationFailure
+from banksia.main import create_app
+from banksia.persistence.models import TaskEventModel
+from banksia.persistence.session import get_db_session
+from banksia.runtime.contracts import TaskEventRecord
+from banksia.runtime.task_events import append_task_event, encode_task_event_cursor
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session, sessionmaker

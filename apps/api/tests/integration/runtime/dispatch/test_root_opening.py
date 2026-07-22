@@ -5,26 +5,26 @@ from pathlib import Path
 from typing import Any, cast
 
 import pytest
-from autoclaw.config import CodexSettings, Settings
-from autoclaw.definitions.contracts.registry import NetworkAccess
-from autoclaw.definitions.contracts.workflow import ProviderKind
-from autoclaw.persistence.models import (
+from banksia.config import CodexSettings, Settings
+from banksia.definitions.contracts.registry import NetworkAccess
+from banksia.definitions.contracts.workflow import ProviderKind
+from banksia.persistence.models import (
     DispatchCapabilitySetModel,
     DispatchPromptRefsModel,
     DispatchTurnModel,
     FlowModel,
     FlowStartSourceModel,
 )
-from autoclaw.runtime.dispatch.preparation import DispatchOpeningDependencies
-from autoclaw.runtime.launch.continuation import open_root_dispatch
-from autoclaw.runtime.launch.persistence.runtime import persist_bootstrap_runtime_from_precomputed
-from autoclaw.runtime.observability import operator_trace
-from autoclaw.runtime.post_commit import (
+from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
+from banksia.runtime.launch.continuation import open_root_dispatch
+from banksia.runtime.launch.persistence.runtime import persist_bootstrap_runtime_from_precomputed
+from banksia.runtime.observability import operator_trace
+from banksia.runtime.post_commit import (
     CapturedRuntimeEffectPublisher,
     DispatchStartDue,
     FlowStartCommitted,
 )
-from autoclaw.runtime.post_commit.bootstrap import read_dispatch_start_page, read_flow_start_page
+from banksia.runtime.post_commit.bootstrap import read_dispatch_start_page, read_flow_start_page
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker

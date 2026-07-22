@@ -1,6 +1,6 @@
 # Start a task
 
-AutoClaw starts tasks from current definition-registry state and one task-compose file. A task-compose file selects the workflow and supplies the request for this run.
+Banksia starts tasks from current definition-registry state and one task-compose file. A task-compose file selects the workflow and supplies the request for this run.
 
 ## Create the launch file
 
@@ -17,17 +17,17 @@ workflow:
     key: topic-research-brief
 ```
 
-The workflow key must exist in the current registry. `autoclaw init` installs the packaged definitions. To publish your own definitions, use the console authoring workbench or `autoclaw definitions import --file ...`.
+The workflow key must exist in the current registry. `banksia init` installs the packaged definitions. To publish your own definitions, use the console authoring workbench or `banksia definitions import --file ...`.
 
 ## Launch
 
 ```bash
-autoclaw task-compose start --file ./task-compose.yaml --json
+banksia task-compose start --file ./task-compose.yaml --json
 ```
 
 Keep the returned `task_id`. Open the console and select the task, or use the operator HTTP or MCP read surfaces.
 
-At start, AutoClaw reads the current workflow, role, and policy revisions, validates the launch, and commits a controller-owned task and root dispatch. Provider start happens asynchronously after that commit. The start response does not wait for the provider to finish.
+At start, Banksia reads the current workflow, role, and policy revisions, validates the launch, and commits a controller-owned task and root dispatch. Provider start happens asynchronously after that commit. The start response does not wait for the provider to finish.
 
 ## What success means
 

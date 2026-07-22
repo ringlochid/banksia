@@ -4,9 +4,9 @@ from dataclasses import FrozenInstanceError
 from datetime import UTC, datetime
 
 import pytest
-from autoclaw.runtime.post_commit.health import RuntimeEffectHealth
-from autoclaw.runtime.post_commit.publisher import CapturedRuntimeEffectPublisher
-from autoclaw.runtime.post_commit.signals import (
+from banksia.runtime.post_commit.health import RuntimeEffectHealth
+from banksia.runtime.post_commit.publisher import CapturedRuntimeEffectPublisher
+from banksia.runtime.post_commit.signals import (
     ALL_RUNTIME_EFFECT_SIGNAL_TYPES,
     BoundaryAccepted,
     CommandProcessExited,

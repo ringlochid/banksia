@@ -7,10 +7,10 @@ from pathlib import Path
 from typing import Literal, cast
 
 import pytest
-from autoclaw.config import CodexSettings, RuntimeSettings, Settings
-from autoclaw.definitions.contracts.registry import PolicyDefinitionInput
-from autoclaw.definitions.contracts.workflow import NodeKind, ProviderKind
-from autoclaw.persistence.models import (
+from banksia.config import CodexSettings, RuntimeSettings, Settings
+from banksia.definitions.contracts.registry import PolicyDefinitionInput
+from banksia.definitions.contracts.workflow import NodeKind, ProviderKind
+from banksia.persistence.models import (
     CommandRunModel,
     DispatchPromptRefsModel,
     DispatchTurnModel,
@@ -19,30 +19,30 @@ from autoclaw.persistence.models import (
     PolicyRevisionModel,
     TaskEventModel,
 )
-from autoclaw.runtime.contracts.operation_failure import OperationFailureCode
-from autoclaw.runtime.dispatch.authority import read_node_operation_authority
-from autoclaw.runtime.dispatch.preparation import DispatchOpeningDependencies
-from autoclaw.runtime.dispatch.request_pair import (
+from banksia.runtime.contracts.operation_failure import OperationFailureCode
+from banksia.runtime.dispatch.authority import read_node_operation_authority
+from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
+from banksia.runtime.dispatch.request_pair import (
     DispatchRequestPairRefs,
     publish_dispatch_request_pair,
 )
-from autoclaw.runtime.errors import RuntimeOperationError
-from autoclaw.runtime.node_operations.contracts import (
+from banksia.runtime.errors import RuntimeOperationError
+from banksia.runtime.node_operations.contracts import (
     NodeOperationScope,
     OpenHumanRequestRequest,
     StartCommandRunRequest,
 )
-from autoclaw.runtime.node_operations.external_wait_handlers import (
+from banksia.runtime.node_operations.external_wait_handlers import (
     open_human_request,
     start_command_run,
 )
-from autoclaw.runtime.post_commit import (
+from banksia.runtime.post_commit import (
     CapturedRuntimeEffectPublisher,
     DispatchCleanupRequested,
     DispatchStartDue,
     WatchdogDue,
 )
-from autoclaw.runtime.watchdog import (
+from banksia.runtime.watchdog import (
     calculate_watchdog_due_at,
     recover_stale_dispatch,
 )
@@ -542,7 +542,7 @@ async def _open_wait(
     authority: object,
     wait_kind: WaitKind,
 ) -> None:
-    from autoclaw.runtime.dispatch.authority import NodeOperationAuthority
+    from banksia.runtime.dispatch.authority import NodeOperationAuthority
 
     exact_authority = cast(NodeOperationAuthority, authority)
     if wait_kind == "human":

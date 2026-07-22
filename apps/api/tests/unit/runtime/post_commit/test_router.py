@@ -4,12 +4,12 @@ import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from autoclaw.runtime.post_commit.health import (
+from banksia.runtime.post_commit.health import (
     RuntimeEffectFailureKind,
     RuntimeEffectHealth,
 )
-from autoclaw.runtime.post_commit.router import RuntimeEffectRouter
-from autoclaw.runtime.post_commit.signals import BoundaryAccepted, FlowStartCommitted
+from banksia.runtime.post_commit.router import RuntimeEffectRouter
+from banksia.runtime.post_commit.signals import BoundaryAccepted, FlowStartCommitted
 from sqlalchemy.ext.asyncio import AsyncSession
 
 

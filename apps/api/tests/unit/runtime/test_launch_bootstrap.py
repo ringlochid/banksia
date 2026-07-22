@@ -4,23 +4,23 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import cast
 
-import autoclaw.runtime.launch.service as launch_service_module
+import banksia.runtime.launch.service as launch_service_module
 import pytest
-from autoclaw.persistence.models import TaskEventStreamHeadModel
-from autoclaw.runtime import (
+from banksia.persistence.models import TaskEventStreamHeadModel
+from banksia.runtime import (
     RuntimeBootstrapInput,
     RuntimeBootstrapResult,
     RuntimeLaunchInput,
     TaskComposeInput,
 )
-from autoclaw.runtime.contracts import ResolvedNodeContext
-from autoclaw.runtime.launch.bootstrap import (
+from banksia.runtime.contracts import ResolvedNodeContext
+from banksia.runtime.launch.bootstrap import (
     build_launch_bootstrap_persistence_context,
     build_launch_bootstrap_result,
     stage_launch_bootstrap_rows,
 )
-from autoclaw.runtime.launch.service import launch_task_runtime
-from autoclaw.runtime.task_root import resolve_task_root_paths
+from banksia.runtime.launch.service import launch_task_runtime
+from banksia.runtime.task_root import resolve_task_root_paths
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 from tests.unit.workflow_compiler.support import (

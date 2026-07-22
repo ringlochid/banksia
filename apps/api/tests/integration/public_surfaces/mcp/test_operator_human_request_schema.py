@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import cast
 
-from autoclaw.interfaces.mcp.operator.server import (
+from banksia.interfaces.mcp.operator.server import (
     OPERATOR_TOOL_NAMES,
     create_operator_mcp_server,
 )

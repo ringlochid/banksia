@@ -20,7 +20,7 @@ The default inactivity deadline is 15 minutes. Admitted Node MCP calls advance t
 
 At a due signal, the handler rereads the exact dispatch, activity revision, and deadline. It does nothing when the dispatch changed, activity advanced, the deadline is not due, a human or command source is still active or unrouted, or the flow is paused or terminal.
 
-If the dispatch is still stale, one transaction closes it and opens a same-attempt replacement. After two same-attempt replacements, AutoClaw pauses the flow for recovery instead of opening another dispatch.
+If the dispatch is still stale, one transaction closes it and opens a same-attempt replacement. After two same-attempt replacements, Banksia pauses the flow for recovery instead of opening another dispatch.
 
 The watchdog does not poll provider output and does not wait for provider shutdown.
 

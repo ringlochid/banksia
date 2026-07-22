@@ -4,21 +4,21 @@ import tomllib
 from pathlib import Path
 
 import pytest
-from autoclaw.definitions.contracts.workflow import ProviderKind
-from autoclaw.interfaces.cli import root as cli_root
-from autoclaw.interfaces.cli.commands import guided_setup
-from autoclaw.interfaces.cli.main import build_parser
-from autoclaw.interfaces.cli.providers.contracts import (
+from banksia.definitions.contracts.workflow import ProviderKind
+from banksia.interfaces.cli import root as cli_root
+from banksia.interfaces.cli.commands import guided_setup
+from banksia.interfaces.cli.main import build_parser
+from banksia.interfaces.cli.providers.contracts import (
     ProviderCheckOutcome,
     ProviderCheckSnapshot,
     ProviderIdentityOutcome,
     ProviderIdentitySnapshot,
 )
-from autoclaw.platform.provider_environment import (
+from banksia.platform.provider_environment import (
     ANTHROPIC_API_KEY,
     read_provider_secret_environment,
 )
-from autoclaw.runtime.providers import (
+from banksia.runtime.providers import (
     ProviderAuthenticationMethod,
     ProviderCheckAxisStatus,
 )
@@ -121,7 +121,7 @@ def test_guided_setup_accepts_claude_api_key_and_verifies_readiness(
     )
 
     assert result.exit_code == 0, result.output
-    assert read_provider_secret_environment(config_path.parent / "autoclaw.env") == {
+    assert read_provider_secret_environment(config_path.parent / "banksia.env") == {
         ANTHROPIC_API_KEY: "anthropic-secret"
     }
     assert "anthropic-secret" not in result.output
@@ -357,7 +357,7 @@ def test_guided_setup_can_replace_detected_claude_api_key(
     )
 
     assert result.exit_code == 0, result.output
-    assert "Existing Claude API key stored for the AutoClaw service. Use it? [Y/n]" in result.output
+    assert "Existing Claude API key stored for the Banksia service. Use it? [Y/n]" in result.output
     assert "Anthropic API key" in result.output
     assert identity_calls == [(ProviderAuthenticationMethod.API_KEY, "replacement-secret")]
     assert "replacement-secret" not in result.output

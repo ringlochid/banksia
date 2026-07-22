@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from autoclaw.persistence import RuntimeBase
+from banksia.persistence import RuntimeBase
 from sqlalchemy import Connection
 
 FIXTURE_TIMESTAMP = datetime(2026, 7, 18, tzinfo=UTC)
@@ -90,7 +90,7 @@ def _seed_task(connection: Connection, *, ids: RuntimeIds) -> None:
             "summary": "Target runtime schema fixture.",
             "instruction": None,
             "workflow_key": "workflow.target",
-            "task_root_path": f"/tmp/autoclaw-task-{ids.suffix}",
+            "task_root_path": f"/tmp/banksia-task-{ids.suffix}",
             "created_at": FIXTURE_TIMESTAMP,
             "updated_at": FIXTURE_TIMESTAMP,
         },

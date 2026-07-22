@@ -7,11 +7,11 @@ from pathlib import Path
 from typing import Any, cast
 from unittest.mock import patch
 
-import autoclaw.runtime.node_operations.executor as executor_module
-from autoclaw.persistence import RuntimeBase
-from autoclaw.runtime.ids import flow_node_id, node_plan_revision_id
-from autoclaw.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
-from autoclaw.runtime.node_operations.follow_on import SupportProjectionPublisher
+import banksia.runtime.node_operations.executor as executor_module
+from banksia.persistence import RuntimeBase
+from banksia.runtime.ids import flow_node_id, node_plan_revision_id
+from banksia.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
+from banksia.runtime.node_operations.follow_on import SupportProjectionPublisher
 from sqlalchemy import Connection, Engine
 from sqlalchemy.orm import Session, sessionmaker
 from tests.helpers.catalog_seed import seed_catalog

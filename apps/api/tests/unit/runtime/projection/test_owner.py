@@ -4,7 +4,7 @@ import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from autoclaw.runtime.projection import (
+from banksia.runtime.projection import (
     SupportProjectionOwner,
     WorkflowManifestProjection,
 )

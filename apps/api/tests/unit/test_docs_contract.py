@@ -395,7 +395,7 @@ def test_definition_examples_must_match_shipped_seeds(tmp_path: Path) -> None:
     seed = "kind: workflow\nid: example\ndescription: Current example\n"
     write_page(
         tmp_path,
-        "apps/api/src/autoclaw/definitions/seeds/workflows/example.yaml",
+        "apps/api/src/banksia/definitions/seeds/workflows/example.yaml",
         seed,
     )
     example_path = "docs/reference/definitions/workflows/example.md"

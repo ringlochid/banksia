@@ -4,8 +4,8 @@ from collections.abc import Mapping
 
 import httpx
 import pytest
-from autoclaw.interfaces.mcp.transport import node_mcp_transport_policy
-from autoclaw.runtime.node_operations import NodeOperationName
+from banksia.interfaces.mcp.transport import node_mcp_transport_policy
+from banksia.runtime.node_operations import NodeOperationName
 from starlette.applications import Starlette
 from tests.integration.mcp.node_server.transport_support import (
     RecordingNodeOperationExecutor,
@@ -21,7 +21,7 @@ _INITIALIZE_REQUEST = {
     "params": {
         "protocolVersion": "2025-06-18",
         "capabilities": {},
-        "clientInfo": {"name": "autoclaw-node-transport-test", "version": "1"},
+        "clientInfo": {"name": "banksia-node-transport-test", "version": "1"},
     },
 }
 _MCP_HEADERS = {

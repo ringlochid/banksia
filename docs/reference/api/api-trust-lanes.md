@@ -1,6 +1,6 @@
 # API trust lanes
 
-AutoClaw is a one-process, loopback-only application. The database owns runtime truth; each public surface has a narrower job.
+Banksia is a one-process, loopback-only application. The database owns runtime truth; each public surface has a narrower job.
 
 ## Local HTTP lane
 
@@ -18,7 +18,7 @@ The server still rereads current controller truth for every call. A stale or rev
 
 OpenClaw uses the user-configured `/node/mcp` endpoint. Its static schemas add full `task_id` and `dispatch_id` arguments to every tool. Those selectors identify the intended dispatch; they are not secrets and do not bypass currentness, role, capability, or state checks.
 
-AutoClaw does not write `openclaw.json` or inject a filtered OpenClaw tool set. The user owns the OpenClaw MCP entry and tool policy. OpenClaw remains experimental but may be selected explicitly or configured as the default provider.
+Banksia does not write `openclaw.json` or inject a filtered OpenClaw tool set. The user owns the OpenClaw MCP entry and tool policy. OpenClaw remains experimental but may be selected explicitly or configured as the default provider.
 
 ## Node roles and tools
 

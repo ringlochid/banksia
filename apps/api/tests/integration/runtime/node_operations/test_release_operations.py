@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import cast
 
 import pytest
-from autoclaw.persistence.models import (
+from banksia.persistence.models import (
     ArtifactCurrentPointerModel,
     ArtifactPublicationModel,
     AssignmentCriteriaRefModel,
@@ -20,12 +20,12 @@ from autoclaw.persistence.models import (
     DispatchTurnModel,
     FlowModel,
 )
-from autoclaw.runtime.clock import utc_now
-from autoclaw.runtime.dispatch.authority import read_node_operation_authority
-from autoclaw.runtime.errors import RuntimeOperationError
-from autoclaw.runtime.node_operations import NodeOperationScope
-from autoclaw.runtime.node_operations.contracts import NodeOperationName, ReleaseRequest
-from autoclaw.runtime.node_operations.structural_handlers import (
+from banksia.runtime.clock import utc_now
+from banksia.runtime.dispatch.authority import read_node_operation_authority
+from banksia.runtime.errors import RuntimeOperationError
+from banksia.runtime.node_operations import NodeOperationScope
+from banksia.runtime.node_operations.contracts import NodeOperationName, ReleaseRequest
+from banksia.runtime.node_operations.structural_handlers import (
     execute_structural_node_operation,
 )
 from sqlalchemy import func, select

@@ -248,7 +248,7 @@ def frozen_legacy_front_door_findings(*, root: Path) -> list[ContractFinding]:
                     category="legacy-authority",
                     path=path,
                     line=1,
-                    message="required frozen AutoClaw evidence front door is missing",
+                    message="required frozen Banksia evidence front door is missing",
                 )
             )
             continue

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import autoclaw.definitions.contracts as definition_schemas
-from autoclaw.definitions.contracts import WorkflowDefinitionFile
+import banksia.definitions.contracts as definition_schemas
+from banksia.definitions.contracts import WorkflowDefinitionFile
 
 from .support import (
     bounded_workflow_payload,

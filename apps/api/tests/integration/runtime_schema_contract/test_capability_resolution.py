@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from autoclaw.persistence import RuntimeBase
+from banksia.persistence import RuntimeBase
 from sqlalchemy.exc import IntegrityError
 from tests.helpers.catalog_seed import seed_catalog
 from tests.helpers.lineage_seed import (

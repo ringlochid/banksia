@@ -3,8 +3,8 @@ from __future__ import annotations
 import asyncio
 from contextlib import AsyncExitStack
 
-from autoclaw.interfaces.mcp.node import NODE_TOOL_NAMES
-from autoclaw.runtime.node_operations import (
+from banksia.interfaces.mcp.node import NODE_TOOL_NAMES
+from banksia.runtime.node_operations import (
     NODE_OPERATION_CATALOG,
     ListFilesResponse,
     NodeOperationName,

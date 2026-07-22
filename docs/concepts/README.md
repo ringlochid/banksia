@@ -1,6 +1,6 @@
 # Concepts
 
-Read these pages in order when AutoClaw is new to you:
+Read these pages in order when Banksia is new to you:
 
 1. [Product overview](overview.md)
 2. [Orchestration model](orchestration-model.md)

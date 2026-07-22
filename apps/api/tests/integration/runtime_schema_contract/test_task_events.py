@@ -9,14 +9,14 @@ from threading import Barrier
 from typing import cast
 
 import pytest
-from autoclaw.persistence import RuntimeBase
-from autoclaw.persistence.models import TaskEventModel, TaskEventStreamHeadModel, TaskModel
-from autoclaw.persistence.models.runtime.common import (
+from banksia.persistence import RuntimeBase
+from banksia.persistence.models import TaskEventModel, TaskEventStreamHeadModel, TaskModel
+from banksia.persistence.models.runtime.common import (
     TASK_EVENT_SOURCE_VALUES,
     TASK_EVENT_TYPE_VALUES,
 )
-from autoclaw.runtime.contracts import TaskEventListResponse, TaskEventRecord
-from autoclaw.runtime.task_events import (
+from banksia.runtime.contracts import TaskEventListResponse, TaskEventRecord
+from banksia.runtime.task_events import (
     TaskEventStreamIntegrityError,
     append_task_event,
     compute_task_event_hash,

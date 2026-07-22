@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from autoclaw.runtime.startup_audit import (
+from banksia.runtime.startup_audit import (
     STARTUP_AUDIT_PAGE_GUARD,
     STARTUP_AUDIT_PAGE_SIZE,
     StartupAuditPage,

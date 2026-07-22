@@ -6,19 +6,19 @@ from pathlib import Path
 from typing import cast
 
 import pytest
-from autoclaw.config import OpenClawGatewayAuthMode, OpenClawSettings
-from autoclaw.definitions.contracts.registry import NetworkAccess, ProviderNativeAccess
-from autoclaw.definitions.contracts.workflow import ProviderKind
-from autoclaw.integrations.openclaw.gateway import OpenClawGatewayAdapter, cli_transport
-from autoclaw.integrations.openclaw.gateway import adapter as adapter_module
-from autoclaw.integrations.openclaw.gateway.cli_transport import (
+from banksia.config import OpenClawGatewayAuthMode, OpenClawSettings
+from banksia.definitions.contracts.registry import NetworkAccess, ProviderNativeAccess
+from banksia.definitions.contracts.workflow import ProviderKind
+from banksia.integrations.openclaw.gateway import OpenClawGatewayAdapter, cli_transport
+from banksia.integrations.openclaw.gateway import adapter as adapter_module
+from banksia.integrations.openclaw.gateway.cli_transport import (
     OpenClawGatewayCliError,
     OpenClawGatewayFailureCode,
     build_openclaw_gateway_command,
     call_openclaw_gateway,
 )
-from autoclaw.runtime.contracts.provider_resolution import OpenClawProviderRoute
-from autoclaw.runtime.providers.contracts import (
+from banksia.runtime.contracts.provider_resolution import OpenClawProviderRoute
+from banksia.runtime.providers.contracts import (
     CompatibilityNodeMcpConnection,
     DispatchStartRequest,
     ProviderAuthenticationMethod,
@@ -187,7 +187,7 @@ async def test_start_preserves_two_request_lanes_and_stop_aborts_once(
     assert isinstance(params, Mapping)
     assert params["message"] == "Exact dispatch input"
     assert params["extraSystemPrompt"] == "Exact system instructions"
-    assert params["idempotencyKey"] == "autoclaw:dispatch-1:provider-start:4"
+    assert params["idempotencyKey"] == "banksia:dispatch-1:provider-start:4"
     assert isinstance(params["sessionKey"], str)
 
     assert await adapter.stop("dispatch-1") is ProviderStopOutcome.STOPPED

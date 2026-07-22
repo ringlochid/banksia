@@ -5,7 +5,7 @@ from types import TracebackType
 from typing import cast
 from unittest.mock import AsyncMock
 
-import autoclaw.persistence.session_operations as session_operations
+import banksia.persistence.session_operations as session_operations
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 import pytest
-from autoclaw.runtime.contracts import (
+from banksia.runtime.contracts import (
     COMMAND_RUN_TERMINAL_EVENT_TYPES,
     TERMINAL_COMMAND_RUN_STATES,
     CommandRunRecord,

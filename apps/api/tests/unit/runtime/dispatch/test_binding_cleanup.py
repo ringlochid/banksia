@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import cast
 
-from autoclaw.runtime.dispatch.cleanup import create_dispatch_binding_cleanup_handler
-from autoclaw.runtime.node_mcp import DispatchMcpBindingRegistry
-from autoclaw.runtime.post_commit import DispatchCleanupRequested
+from banksia.runtime.dispatch.cleanup import create_dispatch_binding_cleanup_handler
+from banksia.runtime.node_mcp import DispatchMcpBindingRegistry
+from banksia.runtime.post_commit import DispatchCleanupRequested
 from sqlalchemy.ext.asyncio import AsyncSession
 
 

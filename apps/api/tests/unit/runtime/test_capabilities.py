@@ -1,17 +1,17 @@
 from __future__ import annotations
 
-from autoclaw.definitions.contracts import (
+from banksia.definitions.contracts import (
     NetworkAccess,
     PolicyDefinitionInput,
     ProviderNativeAccess,
 )
-from autoclaw.runtime.capabilities import (
+from banksia.runtime.capabilities import (
     capability_rejection_for_command_run,
     capability_rejection_for_human_request,
     default_effective_capabilities,
     resolve_effective_capabilities_from_policy_content,
 )
-from autoclaw.runtime.contracts import (
+from banksia.runtime.contracts import (
     CapabilityCeilingSet,
     CapabilityDecision,
     CapabilitySource,

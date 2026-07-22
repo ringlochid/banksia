@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from autoclaw.persistence.models import (
+from banksia.persistence.models import (
     AcceptedBoundaryModel,
     AssignmentDecisionModel,
     AssignmentModel,
@@ -13,9 +13,9 @@ from autoclaw.persistence.models import (
     FlowModel,
     FlowNodeModel,
 )
-from autoclaw.runtime.contracts.operation_failure import OperationFailureCode
-from autoclaw.runtime.errors import RuntimeOperationError
-from autoclaw.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
+from banksia.runtime.contracts.operation_failure import OperationFailureCode
+from banksia.runtime.errors import RuntimeOperationError
+from banksia.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
 from sqlalchemy import select
 from tests.helpers.executor_harness import (
     SessionFactory,

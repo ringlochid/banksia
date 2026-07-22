@@ -5,7 +5,7 @@ Task-compose can bind two named paths:
 - `workspace` for working material
 - `context` for supporting material
 
-If `roots` is omitted, AutoClaw creates task-owned defaults. An explicit binding can:
+If `roots` is omitted, Banksia creates task-owned defaults. An explicit binding can:
 
 - `ensure_task_default`: create the task-owned path
 - `ensure_host_path`: use and create a named host path

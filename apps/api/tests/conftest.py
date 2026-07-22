@@ -12,12 +12,12 @@ from uuid import uuid4
 import pytest
 import pytest_asyncio
 
-os.environ["AUTOCLAW_ENV"] = "test"
-os.environ["AUTOCLAW_DEBUG"] = "false"
-_TEST_CONFIG_PATH = Path(gettempdir()) / (f"autoclaw-pytest-{os.getpid()}-{uuid4().hex}.toml")
+os.environ["BANKSIA_ENV"] = "test"
+os.environ["BANKSIA_DEBUG"] = "false"
+_TEST_CONFIG_PATH = Path(gettempdir()) / (f"banksia-pytest-{os.getpid()}-{uuid4().hex}.toml")
 if _TEST_CONFIG_PATH.exists():
     raise RuntimeError(f"pytest config isolation path unexpectedly exists: {_TEST_CONFIG_PATH}")
-os.environ["AUTOCLAW_CONFIG"] = str(_TEST_CONFIG_PATH)
+os.environ["BANKSIA_CONFIG"] = str(_TEST_CONFIG_PATH)
 
 
 class _CachedSettingsLoader(Protocol):
@@ -27,7 +27,7 @@ class _CachedSettingsLoader(Protocol):
 # Import dynamically only after the hermetic environment is complete.
 get_settings = cast(
     _CachedSettingsLoader,
-    import_module("autoclaw.config").get_settings,
+    import_module("banksia.config").get_settings,
 )
 
 get_settings.cache_clear()
@@ -79,6 +79,6 @@ async def cleanup_runtime_async_state() -> AsyncGenerator[None, None]:
     try:
         yield
     finally:
-        from autoclaw.persistence.session import dispose_test_db_engine
+        from banksia.persistence.session import dispose_test_db_engine
 
         await dispose_test_db_engine()

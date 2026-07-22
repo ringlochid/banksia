@@ -3,7 +3,7 @@ requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "autoclaw"
+name = "banksia-ai"
 version = "0.1.8"
 description = "Local-first orchestration tool for delegated AI work"
 readme = "README.md"
@@ -51,7 +51,7 @@ dev = [
 ]
 
 [project.scripts]
-autoclaw = "autoclaw.interfaces.cli.main:main"
+banksia = "banksia.interfaces.cli.main:main"
 
 [tool.setuptools]
 include-package-data = true
@@ -59,11 +59,11 @@ package-dir = {"" = "apps/api/src"}
 
 [tool.setuptools.packages.find]
 where = ["apps/api/src"]
-include = ["autoclaw*"]
+include = ["banksia*"]
 namespaces = false
 
 [tool.setuptools.package-data]
-autoclaw = [
+banksia = [
   "definitions/seeds/policies/*.yaml",
   "definitions/seeds/roles/*.yaml",
   "definitions/seeds/workflows/*.yaml",

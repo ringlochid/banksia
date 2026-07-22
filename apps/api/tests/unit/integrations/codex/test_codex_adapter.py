@@ -7,11 +7,11 @@ from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
-from autoclaw.definitions.contracts.registry import NetworkAccess, ProviderNativeAccess
-from autoclaw.definitions.contracts.workflow import ProviderKind
-from autoclaw.integrations.codex import CodexAdapter
-from autoclaw.runtime.contracts.provider_resolution import CodexProviderRoute
-from autoclaw.runtime.providers.contracts import (
+from banksia.definitions.contracts.registry import NetworkAccess, ProviderNativeAccess
+from banksia.definitions.contracts.workflow import ProviderKind
+from banksia.integrations.codex import CodexAdapter
+from banksia.runtime.contracts.provider_resolution import CodexProviderRoute
+from banksia.runtime.providers.contracts import (
     DispatchStartRequest,
     ManagedNodeMcpConnection,
     ProviderAuthenticationMethod,
@@ -214,7 +214,7 @@ async def test_codex_start_uses_ephemeral_overlay_and_returns_before_output(
         assert fake.thread_kwargs["sandbox"] is expected_sandbox
         assert fake.thread.input == "exact input"
         config = cast(dict[str, Any], fake.thread_kwargs["config"])
-        node_config = config["mcp_servers"]["autoclaw_node"]
+        node_config = config["mcp_servers"]["banksia_node"]
         assert node_config["http_headers"] == {"Authorization": "Bearer binding-secret"}
         assert node_config["enabled_tools"] == ["record_checkpoint", "return_boundary"]
         if expected_sandbox is Sandbox.workspace_write:

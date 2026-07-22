@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from autoclaw.interfaces.web_console import get_packaged_web_console_assets_root
-from autoclaw.main import create_app
+from banksia.interfaces.web_console import get_packaged_web_console_assets_root
+from banksia.main import create_app
 from httpx import ASGITransport, AsyncClient
 
 
@@ -21,6 +21,7 @@ async def test_packaged_web_console_serves_index_for_spa_routes() -> None:
     assert root_response.status_code == 200
     assert root_response.headers["content-type"].startswith("text/html")
     assert '<div id="root"></div>' in root_response.text
+    # The imported console bundle remains frozen until the dedicated UI rewrite.
     assert "AutoClaw Console" in root_response.text
     assert task_detail_response.status_code == 200
     assert task_detail_response.text == root_response.text

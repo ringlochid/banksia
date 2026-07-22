@@ -3,8 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from autoclaw.config import OpenClawSettings, Settings
-from autoclaw.interfaces.cli.commands.config_view import REDACTED_VALUE, build_settings_payload
+from banksia.config import OpenClawSettings, Settings
+from banksia.interfaces.cli.commands.config_view import REDACTED_VALUE, build_settings_payload
 
 
 @pytest.mark.parametrize(
@@ -50,9 +50,9 @@ def test_config_readback_retains_non_secret_openclaw_gateway_url(tmp_path: Path)
 
 def test_config_readback_redacts_database_password(tmp_path: Path) -> None:
     payload = build_settings_payload(
-        Settings(database_url="postgresql+asyncpg://operator:secret@localhost/autoclaw"),
+        Settings(database_url="postgresql+asyncpg://operator:secret@localhost/banksia"),
         tmp_path / "config.toml",
     )
 
-    assert payload["database"]["url"] == ("postgresql+asyncpg://operator:***@localhost/autoclaw")
+    assert payload["database"]["url"] == ("postgresql+asyncpg://operator:***@localhost/banksia")
     assert "secret" not in str(payload)

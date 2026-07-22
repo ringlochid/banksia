@@ -6,12 +6,12 @@ from pathlib import Path
 from typing import cast
 
 import pytest
-from autoclaw.definitions.contracts.registry import NetworkAccess, ProviderNativeAccess
-from autoclaw.definitions.contracts.workflow import ProviderKind
-from autoclaw.integrations.claude import ClaudeAdapter
-from autoclaw.integrations.claude.native_identity import ClaudeAuthenticationState
-from autoclaw.runtime.contracts.provider_resolution import ClaudeProviderRoute
-from autoclaw.runtime.providers.contracts import (
+from banksia.definitions.contracts.registry import NetworkAccess, ProviderNativeAccess
+from banksia.definitions.contracts.workflow import ProviderKind
+from banksia.integrations.claude import ClaudeAdapter
+from banksia.integrations.claude.native_identity import ClaudeAuthenticationState
+from banksia.runtime.contracts.provider_resolution import ClaudeProviderRoute
+from banksia.runtime.providers.contracts import (
     DispatchStartRequest,
     ManagedNodeMcpConnection,
     ProviderAuthenticationMethod,
@@ -157,9 +157,9 @@ async def test_claude_start_uses_disposable_scoped_client_and_returns_before_out
         sandbox = cast(dict[str, object], client.options.sandbox)
         assert sandbox["failIfUnavailable"] is True
         assert sandbox["allowUnsandboxedCommands"] is False
-        assert "mcp__autoclaw_node__record_checkpoint" in client.options.allowed_tools
+        assert "mcp__banksia_node__record_checkpoint" in client.options.allowed_tools
         mcp_servers = cast(dict[str, object], client.options.mcp_servers)
-        mcp_config = cast(dict[str, object], mcp_servers["autoclaw_node"])
+        mcp_config = cast(dict[str, object], mcp_servers["banksia_node"])
         assert mcp_config.get("headers") == {"Authorization": "Bearer binding-secret"}
 
         assert await adapter.stop("dispatch-1") is ProviderStopOutcome.STOPPED

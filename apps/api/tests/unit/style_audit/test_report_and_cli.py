@@ -172,10 +172,10 @@ def test_cli_main_import_interface_gate_fails_on_duplicate_module_ownership(
             **build_empty_audit_results(audit.models, tmp_path).__dict__,
             "duplicate_module_name_findings": (
                 audit.models.DuplicateModuleNameFinding(
-                    module_name="autoclaw.common",
+                    module_name="banksia.common",
                     paths=(
-                        tmp_path / "apps" / "api" / "autoclaw" / "common.py",
-                        tmp_path / "apps" / "api" / "src" / "autoclaw" / "common.py",
+                        tmp_path / "apps" / "api" / "banksia" / "common.py",
+                        tmp_path / "apps" / "api" / "src" / "banksia" / "common.py",
                     ),
                 ),
             ),

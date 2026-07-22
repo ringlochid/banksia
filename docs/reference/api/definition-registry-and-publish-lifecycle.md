@@ -27,9 +27,9 @@ Normal shipped init/reset/upgrade paths seed from the packaged mirror. Explicit 
 
 Shipped entrypoints that seed the registry include:
 
-- `autoclaw init`
-- `autoclaw db upgrade`
-- `autoclaw db reset`
+- `banksia init`
+- `banksia db upgrade`
+- `banksia db reset`
 
 ## Write lifecycle
 
@@ -85,7 +85,7 @@ Current registry lifecycle does not include live skill registry rows or `skill_r
 ## Minimal example
 
 ```text
-autoclaw init
+banksia init
   -> create schema
   -> seed the packaged definition mirror
   -> registry current_revision_no now points at revision 1 for shipped seeds

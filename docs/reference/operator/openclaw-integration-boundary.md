@@ -1,8 +1,8 @@
 # OpenClaw integration boundary
 
-OpenClaw is an experimental, user-managed compatibility provider. It is installed and supervised outside AutoClaw, remains explicitly selectable, and may be configured as the default.
+OpenClaw is an experimental, user-managed compatibility provider. It is installed and supervised outside Banksia, remains explicitly selectable, and may be configured as the default.
 
-## AutoClaw owns
+## Banksia owns
 
 - strict provider selection and the committed dispatch route
 - the exact `instructions.md` and `input.md` request pair
@@ -11,7 +11,7 @@ OpenClaw is an experimental, user-managed compatibility provider. It is installe
 - controller state, Node operation legality, checkpoints, boundaries, waits, and task events
 - the loopback compatibility Node MCP endpoint at `/node/mcp`
 
-AutoClaw does not wait for `agent.wait`, provider output, final text, or Gateway process completion.
+Banksia does not wait for `agent.wait`, provider output, final text, or Gateway process completion.
 
 ## The user owns
 
@@ -20,7 +20,7 @@ AutoClaw does not wait for `agent.wait`, provider output, final text, or Gateway
 - the compatibility MCP server entry and OpenClaw tool policy
 - choosing an OpenClaw profile that can use the required Node tools
 
-AutoClaw never edits OpenClaw configuration or silently selects OpenClaw as a fallback.
+Banksia never edits OpenClaw configuration or silently selects OpenClaw as a fallback.
 
 ## Compatibility Node MCP
 

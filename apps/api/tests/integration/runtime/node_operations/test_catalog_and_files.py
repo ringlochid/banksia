@@ -3,26 +3,26 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-import autoclaw.runtime.task_root.file_access as file_access_module
+import banksia.runtime.task_root.file_access as file_access_module
 import pytest
-from autoclaw.definitions.contracts import DefinitionKind
-from autoclaw.definitions.contracts.workflow import NodeKind
-from autoclaw.runtime.contracts import TaskRootPaths
-from autoclaw.runtime.contracts.operation_failure import OperationFailureCode
-from autoclaw.runtime.errors import RuntimeOperationError
-from autoclaw.runtime.node_operations import (
+from banksia.definitions.contracts import DefinitionKind
+from banksia.definitions.contracts.workflow import NodeKind
+from banksia.runtime.contracts import TaskRootPaths
+from banksia.runtime.contracts.operation_failure import OperationFailureCode
+from banksia.runtime.errors import RuntimeOperationError
+from banksia.runtime.node_operations import (
     NODE_OPERATION_CATALOG,
     AddChildRequest,
     UpdateChildRequest,
     get_node_operation_descriptor,
     list_node_operation_descriptors_for_kind,
 )
-from autoclaw.runtime.task_root.file_access import (
+from banksia.runtime.task_root.file_access import (
     list_logical_directory,
     read_logical_text_file,
 )
-from autoclaw.runtime.task_root.logical_paths import normalize_logical_task_path
-from autoclaw.runtime.work_plan import SetWorkPlanRequest
+from banksia.runtime.task_root.logical_paths import normalize_logical_task_path
+from banksia.runtime.work_plan import SetWorkPlanRequest
 from pydantic import ValidationError
 from pytest import MonkeyPatch
 

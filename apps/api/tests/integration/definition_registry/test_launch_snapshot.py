@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from autoclaw.definitions.registry import (
+from banksia.definitions.registry import (
     build_role_policy_lookup,
     compile_current_workflow_launch_snapshot,
     load_current_policy,
@@ -15,9 +15,9 @@ from autoclaw.definitions.registry import (
     upsert_role_definition,
     upsert_workflow_definition,
 )
-from autoclaw.definitions.registry.task_start import start_task_from_definition
-from autoclaw.paths import default_database_path
-from autoclaw.persistence import (
+from banksia.definitions.registry.task_start import start_task_from_definition
+from banksia.paths import default_database_path
+from banksia.persistence import (
     AssignmentModel,
     AttemptModel,
     CompiledPlanNodeModel,
@@ -30,10 +30,10 @@ from autoclaw.persistence import (
     TaskEventStreamHeadModel,
     WorkflowDefinitionModel,
 )
-from autoclaw.runtime.contracts import TaskEventType, TaskStartRequest
-from autoclaw.runtime.ids import flow_id_for_task
-from autoclaw.runtime.post_commit import FlowStartCommitted, RuntimeEffectSignal
-from autoclaw.runtime.projection import (
+from banksia.runtime.contracts import TaskEventType, TaskStartRequest
+from banksia.runtime.ids import flow_id_for_task
+from banksia.runtime.post_commit import FlowStartCommitted, RuntimeEffectSignal
+from banksia.runtime.projection import (
     AttemptAssignmentProjection,
     CriteriaProjection,
     SupportProjectionSignal,
@@ -388,11 +388,11 @@ async def test_task_start_publishes_exact_follow_on_only_after_sqlite_commit(
         async with session_factory() as session:
             runtime_publisher = _CommittedRuntimePublisher(
                 session=session,
-                database_path=default_database_path(tmp_path / "autoclaw-data"),
+                database_path=default_database_path(tmp_path / "banksia-data"),
             )
             projection_publisher = _CommittedProjectionPublisher(
                 session=session,
-                database_path=default_database_path(tmp_path / "autoclaw-data"),
+                database_path=default_database_path(tmp_path / "banksia-data"),
             )
             response = await start_task_from_definition(
                 request,
@@ -432,12 +432,12 @@ async def test_task_start_response_survives_rejected_and_failed_publication(
         async with session_factory() as session:
             runtime_publisher = _CommittedRuntimePublisher(
                 session=session,
-                database_path=default_database_path(tmp_path / "autoclaw-data"),
+                database_path=default_database_path(tmp_path / "banksia-data"),
                 should_accept=False,
             )
             projection_publisher = _CommittedProjectionPublisher(
                 session=session,
-                database_path=default_database_path(tmp_path / "autoclaw-data"),
+                database_path=default_database_path(tmp_path / "banksia-data"),
                 should_raise=True,
             )
             response = await start_task_from_definition(

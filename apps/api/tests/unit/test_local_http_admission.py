@@ -4,9 +4,9 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 import pytest
-from autoclaw.config import Settings
-from autoclaw.interfaces.http.dependencies import read_control_actor_ref
-from autoclaw.interfaces.http.local_admission import add_local_control_plane_middleware
+from banksia.config import Settings
+from banksia.interfaces.http.dependencies import read_control_actor_ref
+from banksia.interfaces.http.local_admission import add_local_control_plane_middleware
 from fastapi import FastAPI, Response, status
 from httpx import ASGITransport, AsyncClient
 from httpx import Response as HttpxResponse

@@ -5,12 +5,13 @@ import stat
 from pathlib import Path
 
 import pytest
-from autoclaw.platform.provider_environment import (
+from banksia.platform.provider_environment import (
     ANTHROPIC_API_KEY,
     OPENCLAW_GATEWAY_PASSWORD,
     OPENCLAW_GATEWAY_TOKEN,
     ProviderEnvironmentError,
     persist_provider_secret,
+    provider_environment_file_path,
     provider_secret_environment,
     provider_service_environment,
     provider_service_identity_environment,
@@ -20,10 +21,15 @@ from autoclaw.platform.provider_environment import (
 )
 
 
+def test_provider_environment_uses_only_banksia_private_file_name(tmp_path: Path) -> None:
+    config_path = tmp_path / "config.toml"
+    assert provider_environment_file_path(config_path) == tmp_path / "banksia.env"
+
+
 def test_private_provider_environment_round_trips_and_preserves_comments(
     tmp_path: Path,
 ) -> None:
-    env_file = tmp_path / "autoclaw.env"
+    env_file = tmp_path / "banksia.env"
     env_file.write_text("# Managed provider credentials.\n", encoding="utf-8")
 
     persist_provider_secret(
@@ -43,7 +49,7 @@ def test_private_provider_environment_round_trips_and_preserves_comments(
 def test_private_provider_environment_replaces_mutually_exclusive_gateway_secret(
     tmp_path: Path,
 ) -> None:
-    env_file = tmp_path / "autoclaw.env"
+    env_file = tmp_path / "banksia.env"
     persist_provider_secret(env_file, key=OPENCLAW_GATEWAY_TOKEN, value="token-value")
 
     persist_provider_secret(
@@ -59,7 +65,7 @@ def test_private_provider_environment_replaces_mutually_exclusive_gateway_secret
 
 
 def test_private_provider_environment_rejects_unowned_assignments(tmp_path: Path) -> None:
-    env_file = tmp_path / "autoclaw.env"
+    env_file = tmp_path / "banksia.env"
     env_file.write_text("CUSTOM_FLAG=1\n", encoding="utf-8")
 
     with pytest.raises(ProviderEnvironmentError, match="does not support CUSTOM_FLAG"):
@@ -73,7 +79,7 @@ def test_provider_environment_fills_missing_process_value_without_overriding_she
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    env_file = tmp_path / "autoclaw.env"
+    env_file = tmp_path / "banksia.env"
     persist_provider_secret(env_file, key=ANTHROPIC_API_KEY, value="stored-key")
     monkeypatch.setenv(ANTHROPIC_API_KEY, "shell-key")
 
@@ -87,7 +93,7 @@ def test_service_provider_environment_exactly_mirrors_private_file(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    env_file = tmp_path / "autoclaw.env"
+    env_file = tmp_path / "banksia.env"
     persist_provider_secret(env_file, key=ANTHROPIC_API_KEY, value="stored-key")
     monkeypatch.setenv(ANTHROPIC_API_KEY, "shell-key")
     monkeypatch.setenv(OPENCLAW_GATEWAY_TOKEN, "shell-token")

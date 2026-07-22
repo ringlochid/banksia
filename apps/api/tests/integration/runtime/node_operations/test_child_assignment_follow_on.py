@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import autoclaw.runtime.node_operations.structural_handlers as structural_handlers
+import banksia.runtime.node_operations.structural_handlers as structural_handlers
 import pytest
-from autoclaw.persistence.models import (
+from banksia.persistence.models import (
     ArtifactCurrentPointerModel,
     ArtifactPublicationModel,
     AssignmentDecisionModel,
@@ -15,11 +15,11 @@ from autoclaw.persistence.models import (
     FlowNodeModel,
     PolicyRevisionModel,
 )
-from autoclaw.runtime.clock import utc_now
-from autoclaw.runtime.contracts.operation_failure import OperationFailureCode
-from autoclaw.runtime.errors import RuntimeOperationError
-from autoclaw.runtime.node_operations import NodeOperationScope
-from autoclaw.runtime.projection.signals import (
+from banksia.runtime.clock import utc_now
+from banksia.runtime.contracts.operation_failure import OperationFailureCode
+from banksia.runtime.errors import RuntimeOperationError
+from banksia.runtime.node_operations import NodeOperationScope
+from banksia.runtime.projection.signals import (
     AttemptAssignmentProjection,
     SupportProjectionSignal,
 )

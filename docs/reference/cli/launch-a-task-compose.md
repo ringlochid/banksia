@@ -3,7 +3,7 @@
 Validate the definitions and provider configuration, then start one local task-compose file:
 
 ```bash
-autoclaw task-compose start --file ./task.yaml
+banksia task-compose start --file ./task.yaml
 ```
 
 Use `--json` for automation. The command uses the same compiler and task-start service as `POST /tasks/start` and operator MCP `start_task`.

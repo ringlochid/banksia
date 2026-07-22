@@ -5,9 +5,9 @@ import os
 from pathlib import Path
 from typing import cast
 
-import autoclaw.interfaces.cli as cli
+import banksia.interfaces.cli as cli
 import pytest
-from autoclaw.platform.provider_environment import ANTHROPIC_API_KEY, persist_provider_secret
+from banksia.platform.provider_environment import ANTHROPIC_API_KEY, persist_provider_secret
 from click import Group
 from click.testing import CliRunner
 
@@ -65,14 +65,14 @@ def test_build_parser_supports_baseline_commands() -> None:
 
 def test_render_service_unit_uses_python_module_entrypoint(tmp_path: Path) -> None:
     rendered = cli.render_service_unit(
-        python_bin=Path("/tmp/autoclaw-venv/bin/python"),
+        python_bin=Path("/tmp/banksia-venv/bin/python"),
         config_path=tmp_path / "config.toml",
     )
 
     assert "openclaw check" not in rendered
-    assert 'ExecStartPre="/tmp/autoclaw-venv/bin/python" -m autoclaw db upgrade' in rendered
-    assert 'ExecStart="/tmp/autoclaw-venv/bin/python" -m autoclaw serve' in rendered
-    assert "AUTOCLAW_DATA_DIR" not in rendered
+    assert 'ExecStartPre="/tmp/banksia-venv/bin/python" -m banksia db upgrade' in rendered
+    assert 'ExecStart="/tmp/banksia-venv/bin/python" -m banksia serve' in rendered
+    assert "BANKSIA_DATA_DIR" not in rendered
     assert "UnsetEnvironment=CODEX_HOME CLAUDE_CONFIG_DIR OPENCLAW_STATE_DIR" in rendered
 
 
@@ -84,7 +84,7 @@ def test_render_service_unit_quotes_spaces_and_systemd_specifiers(tmp_path: Path
 
     assert f'ExecStart="{tmp_path}/venv with space/python%%bin"' in rendered
     assert f'--config "{tmp_path}/config with space%%/config.toml"' in rendered
-    assert f"EnvironmentFile=-{tmp_path}/config\\x20with\\x20space%%/autoclaw.env" in rendered
+    assert f"EnvironmentFile=-{tmp_path}/config\\x20with\\x20space%%/banksia.env" in rendered
 
 
 def test_serve_does_not_run_global_provider_preflight(
@@ -92,7 +92,7 @@ def test_serve_does_not_run_global_provider_preflight(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    config_path = tmp_path / "autoclaw-config.toml"
+    config_path = tmp_path / "banksia-config.toml"
     config_path.write_text(
         """
 [openclaw]
@@ -105,7 +105,7 @@ gateway_profile = "experimental"
     )
     run_called = False
     persist_provider_secret(
-        tmp_path / "autoclaw.env",
+        tmp_path / "banksia.env",
         key=ANTHROPIC_API_KEY,
         value="stored-api-key",
     )

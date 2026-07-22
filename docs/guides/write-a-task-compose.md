@@ -27,7 +27,7 @@ Other modes are `ensure_task_default` and `ensure_host_path`. Never put credenti
 Start the task:
 
 ```bash
-autoclaw task-compose start --file ./task-compose.yaml --json
+banksia task-compose start --file ./task-compose.yaml --json
 ```
 
 See the [task-compose examples](../reference/definitions/task-compose/README.md).

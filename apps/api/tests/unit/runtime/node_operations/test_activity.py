@@ -3,11 +3,11 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from autoclaw.runtime.node_operations import (
+from banksia.runtime.node_operations import (
     NodeActivitySignal,
     create_watchdog_activity_publisher,
 )
-from autoclaw.runtime.post_commit import (
+from banksia.runtime.post_commit import (
     CapturedRuntimeEffectPublisher,
     WatchdogDeadlineChanged,
 )

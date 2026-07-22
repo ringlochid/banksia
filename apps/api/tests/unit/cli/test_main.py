@@ -4,10 +4,10 @@ import json
 from collections.abc import Sequence
 from typing import NoReturn
 
-import autoclaw.interfaces.cli as cli
+import banksia.interfaces.cli as cli
 import click
 import pytest
-from autoclaw.config import Settings
+from banksia.config import Settings
 from pydantic import ValidationError
 
 
@@ -16,8 +16,8 @@ def test_main_renders_friendly_unknown_command(capsys: pytest.CaptureFixture[str
 
     output = capsys.readouterr().out
     assert result == 2
-    assert 'AutoClaw does not know the command "definitely-not-a-command".' in output
-    assert "Try: autoclaw --help" in output
+    assert 'Banksia does not know the command "definitely-not-a-command".' in output
+    assert "Try: banksia --help" in output
     assert "Traceback" not in output
 
 
@@ -38,12 +38,12 @@ def test_main_hides_traceback_without_debug(
     def _boom(_args: Sequence[str]) -> NoReturn:
         raise RuntimeError("boom")
 
-    monkeypatch.setattr("autoclaw.interfaces.cli.root.cmd_init", _boom)
+    monkeypatch.setattr("banksia.interfaces.cli.root.cmd_init", _boom)
     result = cli.main(["init", "--force"])
 
     output = capsys.readouterr().out
     assert result == 1
-    assert "AutoClaw command failed" in output
+    assert "Banksia command failed" in output
     assert "Reason: boom" in output
     assert "Traceback" not in output
 
@@ -55,12 +55,12 @@ def test_main_shows_traceback_with_debug(
     def _boom(_args: Sequence[str]) -> NoReturn:
         raise RuntimeError("boom")
 
-    monkeypatch.setattr("autoclaw.interfaces.cli.root.cmd_init", _boom)
+    monkeypatch.setattr("banksia.interfaces.cli.root.cmd_init", _boom)
     result = cli.main(["--debug", "init", "--force"])
 
     output = capsys.readouterr().out
     assert result == 1
-    assert "AutoClaw command failed" in output
+    assert "Banksia command failed" in output
     assert "Traceback" in output
 
 
@@ -71,7 +71,7 @@ def test_main_accepts_debug_after_a_leaf_command(
     def _boom(_args: Sequence[str]) -> NoReturn:
         raise RuntimeError("service boom")
 
-    monkeypatch.setattr("autoclaw.interfaces.cli.root.cmd_service_start", _boom)
+    monkeypatch.setattr("banksia.interfaces.cli.root.cmd_service_start", _boom)
 
     result = cli.main(["service", "start", "--debug"])
 
@@ -88,7 +88,7 @@ def test_main_never_traces_expected_parse_errors(
 
     output = capsys.readouterr().out
     assert result == 2
-    assert 'AutoClaw does not recognize option "--not-an-option".' in output
+    assert 'Banksia does not recognize option "--not-an-option".' in output
     assert "Traceback" not in output
 
 
@@ -99,7 +99,7 @@ def test_main_explains_that_cancelled_setup_keeps_completed_steps(
     def abort(_args: Sequence[str]) -> NoReturn:
         raise click.Abort()
 
-    monkeypatch.setattr("autoclaw.interfaces.cli.root.cmd_setup", abort)
+    monkeypatch.setattr("banksia.interfaces.cli.root.cmd_setup", abort)
 
     result = cli.main(["setup"])
 
@@ -120,7 +120,7 @@ def test_main_redacts_invalid_configuration_inputs_even_with_debug(
     def _boom(_args: Sequence[str]) -> NoReturn:
         raise captured.value
 
-    monkeypatch.setattr("autoclaw.interfaces.cli.root.cmd_init", _boom)
+    monkeypatch.setattr("banksia.interfaces.cli.root.cmd_init", _boom)
 
     result = cli.main(["init", "--force", "--debug"])
 

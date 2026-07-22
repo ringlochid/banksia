@@ -11,23 +11,23 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 import pytest
-from autoclaw.config import Settings
-from autoclaw.definitions.contracts.workflow import ProviderKind
-from autoclaw.interfaces.cli.commands import providers as provider_commands
-from autoclaw.interfaces.cli.main import build_parser
-from autoclaw.interfaces.cli.providers import inspection as provider_inspection
-from autoclaw.interfaces.cli.providers.configuration import (
+from banksia.config import Settings
+from banksia.definitions.contracts.workflow import ProviderKind
+from banksia.interfaces.cli.commands import providers as provider_commands
+from banksia.interfaces.cli.main import build_parser
+from banksia.interfaces.cli.providers import inspection as provider_inspection
+from banksia.interfaces.cli.providers.configuration import (
     ProviderConfigurationRequest,
     configure_provider,
     set_default_provider,
 )
-from autoclaw.interfaces.cli.providers.contracts import (
+from banksia.interfaces.cli.providers.contracts import (
     ProviderCheckOutcome,
     ProviderCheckSnapshot,
     ProviderConfigurationSnapshot,
 )
-from autoclaw.platform.provider_environment import ANTHROPIC_API_KEY, persist_provider_secret
-from autoclaw.runtime.providers import (
+from banksia.platform.provider_environment import ANTHROPIC_API_KEY, persist_provider_secret
+from banksia.runtime.providers import (
     ProviderAuthenticationMethod,
     ProviderCheckAxisStatus,
     ProviderCheckResult,
@@ -101,7 +101,7 @@ def test_openclaw_configuration_records_the_discovered_cli_path(
     config_path = tmp_path / "config.toml"
     executable = tmp_path / "openclaw"
     monkeypatch.setattr(
-        "autoclaw.interfaces.cli.providers.configuration.shutil.which",
+        "banksia.interfaces.cli.providers.configuration.shutil.which",
         lambda _command: str(executable),
     )
 
@@ -161,13 +161,13 @@ def test_bare_and_status_are_passive_with_zero_providers(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     config_path = tmp_path / "config.toml"
-    (tmp_path / "autoclaw.env").write_text(
+    (tmp_path / "banksia.env").write_text(
         'ANTHROPIC_API_KEY="invalid-unclosed-value\n',
         encoding="utf-8",
     )
-    monkeypatch.setenv("AUTOCLAW_CONFIG", str(config_path))
+    monkeypatch.setenv("BANKSIA_CONFIG", str(config_path))
     monkeypatch.setattr(
-        "autoclaw.interfaces.cli.providers.identity.subprocess.run",
+        "banksia.interfaces.cli.providers.identity.subprocess.run",
         lambda *_args, **_kwargs: pytest.fail("passive status invoked a provider command"),
     )
     runner = CliRunner()
@@ -192,7 +192,7 @@ def test_bare_and_status_are_passive_with_zero_providers(
 def test_status_redacts_database_password(tmp_path: Path) -> None:
     config_path = tmp_path / "config.toml"
     config_path.write_text(
-        '[database]\nurl = "postgresql+asyncpg://operator:secret@localhost/autoclaw"\n',
+        '[database]\nurl = "postgresql+asyncpg://operator:secret@localhost/banksia"\n',
         encoding="utf-8",
     )
 
@@ -204,7 +204,7 @@ def test_status_redacts_database_password(tmp_path: Path) -> None:
     assert result.exit_code == 0
     assert "secret" not in result.output
     assert json.loads(result.output)["database"]["configured_url"] == (
-        "postgresql+asyncpg://operator:***@localhost/autoclaw"
+        "postgresql+asyncpg://operator:***@localhost/banksia"
     )
 
 
@@ -297,11 +297,11 @@ def test_provider_check_runs_bounded_diagnostic_without_mutation(
     )
     previous_bytes = config_path.read_bytes()
     monkeypatch.setattr(
-        "autoclaw.interfaces.cli.providers.inspection.module_is_available",
+        "banksia.interfaces.cli.providers.inspection.module_is_available",
         lambda _module: True,
     )
     monkeypatch.setattr(
-        "autoclaw.interfaces.cli.providers.inspection.execute_provider_diagnostic",
+        "banksia.interfaces.cli.providers.inspection.execute_provider_diagnostic",
         lambda _settings, provider: ProviderCheckResult(
             kind=provider,
             status=ProviderCheckStatus.AVAILABLE,
@@ -345,7 +345,7 @@ def test_provider_check_uses_the_managed_service_secret_instead_of_the_shell(
         ProviderConfigurationRequest(provider=ProviderKind.CLAUDE),
     )
     persist_provider_secret(
-        tmp_path / "autoclaw.env",
+        tmp_path / "banksia.env",
         key=ANTHROPIC_API_KEY,
         value="stored-api-key",
     )
@@ -395,11 +395,11 @@ def test_provider_check_does_not_call_unverified_authentication_ready(
         ProviderConfigurationRequest(provider=ProviderKind.CODEX),
     )
     monkeypatch.setattr(
-        "autoclaw.interfaces.cli.providers.inspection.module_is_available",
+        "banksia.interfaces.cli.providers.inspection.module_is_available",
         lambda _module: True,
     )
     monkeypatch.setattr(
-        "autoclaw.interfaces.cli.providers.inspection.execute_provider_diagnostic",
+        "banksia.interfaces.cli.providers.inspection.execute_provider_diagnostic",
         lambda _settings, provider: ProviderCheckResult(
             kind=provider,
             status=ProviderCheckStatus.AVAILABLE,
@@ -437,7 +437,7 @@ def test_provider_status_keeps_passive_diagnostics_out_of_human_output(
     assert "Provider status" in result.output
     assert "Codex" in result.output
     assert "Local configuration only" in result.output
-    assert "autoclaw providers check codex" in result.output
+    assert "banksia providers check codex" in result.output
     assert "not_checked" not in result.output
 
 
@@ -473,11 +473,11 @@ def test_provider_check_maps_authentication_failure(
         ProviderConfigurationRequest(provider=ProviderKind.CODEX),
     )
     monkeypatch.setattr(
-        "autoclaw.interfaces.cli.providers.inspection.module_is_available",
+        "banksia.interfaces.cli.providers.inspection.module_is_available",
         lambda _module: True,
     )
     monkeypatch.setattr(
-        "autoclaw.interfaces.cli.providers.inspection.execute_provider_diagnostic",
+        "banksia.interfaces.cli.providers.inspection.execute_provider_diagnostic",
         lambda _settings, provider: ProviderCheckResult(
             kind=provider,
             status=ProviderCheckStatus.UNAVAILABLE,
@@ -517,7 +517,7 @@ def test_provider_diagnostic_timeout_includes_adapter_cleanup(
             )
 
     monkeypatch.setattr(
-        "autoclaw.integrations.provider_registry.build_provider_adapter",
+        "banksia.integrations.provider_registry.build_provider_adapter",
         lambda _provider, _settings: SlowCleanupAdapter(),
     )
     monkeypatch.setattr(provider_inspection, "PROVIDER_CHECK_TIMEOUT_SECONDS", 0.01)
@@ -595,8 +595,8 @@ def test_json_setup_without_provider_is_a_zero_write_guide(tmp_path: Path) -> No
         "default_provider": None,
         "default_provider_configured": False,
         "next_actions": [
-            "autoclaw init",
-            "autoclaw providers configure <provider>",
+            "banksia init",
+            "banksia providers configure <provider>",
         ],
     }
     assert not config_path.exists()
@@ -609,19 +609,19 @@ def test_json_setup_without_provider_is_a_zero_write_guide(tmp_path: Path) -> No
             "[codex]\nenabled = true\n",
             ["codex"],
             None,
-            ["autoclaw providers set-default codex"],
+            ["banksia providers set-default codex"],
         ),
         (
             '[codex]\nenabled = true\n[runtime]\ndefault_provider = "codex"\n',
             ["codex"],
             "codex",
-            ["autoclaw providers check codex", "autoclaw serve"],
+            ["banksia providers check codex", "banksia serve"],
         ),
         (
             "[codex]\nenabled = true\n[claude]\nenabled = true\n",
             ["codex", "claude"],
             None,
-            ["autoclaw providers set-default <provider>"],
+            ["banksia providers set-default <provider>"],
         ),
     ),
 )
@@ -659,12 +659,12 @@ def test_json_setup_guide_configures_environment_only_provider_before_default(
     result = CliRunner().invoke(
         build_parser(),
         ["setup", "--config", str(config_path), "--json"],
-        env={"AUTOCLAW_CODEX__ENABLED": "true"},
+        env={"BANKSIA_CODEX__ENABLED": "true"},
     )
 
     assert result.exit_code == 0
     payload = json.loads(result.output)
     assert payload["configured_providers"] == ["codex"]
     assert payload["default_provider"] is None
-    assert payload["next_actions"] == ["autoclaw providers configure codex"]
+    assert payload["next_actions"] == ["banksia providers configure codex"]
     assert not config_path.exists()

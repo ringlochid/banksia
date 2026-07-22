@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from autoclaw.runtime.contracts.prompt import (
+from banksia.runtime.contracts.prompt import (
     PROMPT_DYNAMIC_INPUT_KEYS,
     PROMPT_TRIGGER_KINDS,
     PromptFamily,
 )
-from autoclaw.runtime.prompt import (
+from banksia.runtime.prompt import (
     INSTRUCTION_ASSETS,
     instruction_asset_path,
     instruction_assets_for_family,

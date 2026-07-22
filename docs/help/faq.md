@@ -1,16 +1,16 @@
 # FAQ
 
-## Does AutoClaw require OpenClaw?
+## Does Banksia require OpenClaw?
 
 No. Codex, Claude, and OpenClaw are selectable providers. OpenClaw remains experimental, and the user still owns its Gateway, agent/tool policy, and compatibility MCP configuration.
 
 ## Which provider becomes the default?
 
-Guided setup asks for the primary/default provider. With direct commands, the first configured provider becomes the default when none exists. Change it with `autoclaw providers set-default <provider>`. AutoClaw does not silently fall back.
+Guided setup asks for the primary/default provider. With direct commands, the first configured provider becomes the default when none exists. Change it with `banksia providers set-default <provider>`. Banksia does not silently fall back.
 
 ## Does a provider's final response complete the task?
 
-No. AutoClaw accepts runtime truth through controller-validated MCP operations. Provider output and terminal status are not assignment success.
+No. Banksia accepts runtime truth through controller-validated MCP operations. Provider output and terminal status are not assignment success.
 
 ## Why can a boundary return before the next agent starts?
 

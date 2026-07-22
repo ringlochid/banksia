@@ -6,12 +6,12 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from unittest.mock import patch
 
-import autoclaw.runtime.node_operations.executor as executor_module
-from autoclaw.persistence import RuntimeBase
-from autoclaw.runtime.dispatch.authority import NodeOperationAuthority
-from autoclaw.runtime.node_operations import NodeActivitySignal, NodeOperationExecutor
-from autoclaw.runtime.node_operations.follow_on import SupportProjectionPublisher
-from autoclaw.runtime.post_commit.publisher import RuntimeEffectPublisher
+import banksia.runtime.node_operations.executor as executor_module
+from banksia.persistence import RuntimeBase
+from banksia.runtime.dispatch.authority import NodeOperationAuthority
+from banksia.runtime.node_operations import NodeActivitySignal, NodeOperationExecutor
+from banksia.runtime.node_operations.follow_on import SupportProjectionPublisher
+from banksia.runtime.post_commit.publisher import RuntimeEffectPublisher
 from sqlalchemy import Engine
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker

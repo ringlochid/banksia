@@ -92,10 +92,10 @@ def _owner_family(module: ModuleRecord, settings: AuditSettings) -> str | None:
     apps_api_root = settings.apps_api_root
     if module.path.is_relative_to(apps_api_root / "app"):
         return "app"
-    if module.path.is_relative_to(apps_api_root / "autoclaw"):
-        return "autoclaw"
-    if module.path.is_relative_to(apps_api_root / "src" / "autoclaw"):
-        return "autoclaw"
+    if module.path.is_relative_to(apps_api_root / "banksia"):
+        return "banksia"
+    if module.path.is_relative_to(apps_api_root / "src" / "banksia"):
+        return "banksia"
     return None
 
 
@@ -106,23 +106,23 @@ def _has_direction_violation(
     module_name_to_paths: dict[str, tuple[Path, ...]],
     settings: AuditSettings,
 ) -> bool:
-    if owner_family == "autoclaw":
+    if owner_family == "banksia":
         if any(name == "app" or name.startswith("app.") for name in imported_modules):
             return True
-        consumer_tree_kind = _autoclaw_tree_kind(module.path, settings)
+        consumer_tree_kind = _banksia_tree_kind(module.path, settings)
         if consumer_tree_kind is None:
             return False
         return any(
-            _imported_autoclaw_cross_tree_violation(
+            _imported_banksia_cross_tree_violation(
                 name,
                 consumer_tree_kind,
                 module_name_to_paths,
                 settings,
             )
             for name in imported_modules
-            if name == "autoclaw" or name.startswith("autoclaw.")
+            if name == "banksia" or name.startswith("banksia.")
         )
-    return any(name == "autoclaw" or name.startswith("autoclaw.") for name in imported_modules)
+    return any(name == "banksia" or name.startswith("banksia.") for name in imported_modules)
 
 
 def _has_legacy_app_shell_violation(
@@ -142,14 +142,14 @@ def _violated_rule(
     module_name_to_paths: dict[str, tuple[Path, ...]],
     settings: AuditSettings,
 ) -> str:
-    if owner_family == "autoclaw":
+    if owner_family == "banksia":
         if any(name == "app" or name.startswith("app.") for name in imported_modules):
-            return "autoclaw-consumer-imports-app-owner"
-        consumer_tree_kind = _autoclaw_tree_kind(module.path, settings)
+            return "banksia-consumer-imports-app-owner"
+        consumer_tree_kind = _banksia_tree_kind(module.path, settings)
         if consumer_tree_kind == "legacy":
-            return "legacy-autoclaw-consumer-imports-src-owner"
-        return "src-autoclaw-consumer-imports-legacy-owner"
-    return "app-consumer-imports-autoclaw-owner"
+            return "legacy-banksia-consumer-imports-src-owner"
+        return "src-banksia-consumer-imports-legacy-owner"
+    return "app-consumer-imports-banksia-owner"
 
 
 def _module_name_to_paths(modules: list[ModuleRecord]) -> dict[str, tuple[Path, ...]]:
@@ -163,15 +163,15 @@ def _module_name_to_paths(modules: list[ModuleRecord]) -> dict[str, tuple[Path, 
     }
 
 
-def _autoclaw_tree_kind(path: Path, settings: AuditSettings) -> str | None:
-    if path.is_relative_to(settings.apps_api_root / "autoclaw"):
+def _banksia_tree_kind(path: Path, settings: AuditSettings) -> str | None:
+    if path.is_relative_to(settings.apps_api_root / "banksia"):
         return "legacy"
-    if path.is_relative_to(settings.apps_api_root / "src" / "autoclaw"):
+    if path.is_relative_to(settings.apps_api_root / "src" / "banksia"):
         return "src"
     return None
 
 
-def _imported_autoclaw_cross_tree_violation(
+def _imported_banksia_cross_tree_violation(
     module_name: str,
     consumer_tree_kind: str,
     module_name_to_paths: dict[str, tuple[Path, ...]],
@@ -182,9 +182,9 @@ def _imported_autoclaw_cross_tree_violation(
         if not paths:
             continue
         root_kinds = {
-            _autoclaw_tree_kind(path, settings)
+            _banksia_tree_kind(path, settings)
             for path in paths
-            if _autoclaw_tree_kind(path, settings)
+            if _banksia_tree_kind(path, settings)
         }
         if not root_kinds:
             continue
@@ -215,13 +215,13 @@ def _known_module_paths(
 
 
 def _repo_owned_module_paths(module_name: str, settings: AuditSettings) -> tuple[Path, ...]:
-    if module_name != "autoclaw" and not module_name.startswith("autoclaw."):
+    if module_name != "banksia" and not module_name.startswith("banksia."):
         return ()
     relative_parts = module_name.split(".")[1:]
     paths: set[Path] = set()
     for root in (
-        settings.apps_api_root / "autoclaw",
-        settings.apps_api_root / "src" / "autoclaw",
+        settings.apps_api_root / "banksia",
+        settings.apps_api_root / "src" / "banksia",
     ):
         paths.update(_existing_module_paths(root, relative_parts))
     return tuple(sorted(paths))

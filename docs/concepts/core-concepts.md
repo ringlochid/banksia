@@ -1,6 +1,6 @@
 # Core concepts
 
-AutoClaw separates reusable design, one launch request, live runtime state, and operator actions.
+Banksia separates reusable design, one launch request, live runtime state, and operator actions.
 
 | Layer | Main objects | Purpose |
 | --- | --- | --- |

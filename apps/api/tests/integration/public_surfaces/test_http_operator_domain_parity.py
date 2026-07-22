@@ -5,26 +5,26 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Literal, cast
 
-import autoclaw.interfaces.mcp.operator.runtime_tools as runtime_tools
-import autoclaw.persistence.session_operations as session_operations
+import banksia.interfaces.mcp.operator.runtime_tools as runtime_tools
+import banksia.persistence.session_operations as session_operations
 import httpx
 import pytest
-from autoclaw.interfaces.mcp.operator.server import (
+from banksia.interfaces.mcp.operator.server import (
     OperatorEffectPublishers,
     create_operator_mcp_server,
 )
-from autoclaw.main import create_app
-from autoclaw.persistence.models import CommandRunModel, DispatchTurnModel, HumanRequestModel
-from autoclaw.persistence.session import get_db_session
-from autoclaw.runtime.contracts import (
+from banksia.main import create_app
+from banksia.persistence.models import CommandRunModel, DispatchTurnModel, HumanRequestModel
+from banksia.persistence.session import get_db_session
+from banksia.runtime.contracts import (
     CommandRunCancelResponse,
     HumanRequestResolveResponse,
     RuntimeFlowPauseResponse,
     RuntimeFlowRead,
 )
-from autoclaw.runtime.flow.service import runtime_flow_read
-from autoclaw.runtime.node_operations import NodeOperationScope
-from autoclaw.runtime.post_commit import (
+from banksia.runtime.flow.service import runtime_flow_read
+from banksia.runtime.node_operations import NodeOperationScope
+from banksia.runtime.post_commit import (
     CapturedRuntimeEffectPublisher,
     CommandRunCancellationRequested,
     HumanRequestTerminal,

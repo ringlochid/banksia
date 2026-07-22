@@ -1,4 +1,4 @@
-from autoclaw.main import app
+from banksia.main import app
 from httpx import ASGITransport, AsyncClient
 
 
@@ -10,4 +10,4 @@ async def test_healthz() -> None:
         response = await client.get("/healthz")
 
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "service": "autoclaw-api"}
+    assert response.json() == {"status": "ok", "service": "banksia-api"}

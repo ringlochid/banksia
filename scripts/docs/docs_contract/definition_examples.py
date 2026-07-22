@@ -5,7 +5,7 @@ from pathlib import Path
 
 from .models import ContractFinding
 
-DEFINITION_SEED_ROOT = Path("apps/api/src/autoclaw/definitions/seeds")
+DEFINITION_SEED_ROOT = Path("apps/api/src/banksia/definitions/seeds")
 DEFINITION_EXAMPLE_ROOT = Path("docs/reference/definitions")
 DEFINITION_FAMILIES = ("roles", "policies", "workflows")
 YAML_BLOCK_PATTERN = re.compile(r"^```yaml\n(?P<body>.*?)\n```$", re.MULTILINE | re.DOTALL)

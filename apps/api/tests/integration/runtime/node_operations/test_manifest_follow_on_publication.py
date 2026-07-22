@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from autoclaw.persistence.models import FlowModel, FlowNodeModel
-from autoclaw.runtime.projection.signals import (
+from banksia.persistence.models import FlowModel, FlowNodeModel
+from banksia.runtime.projection.signals import (
     CriteriaProjection,
     SupportProjectionSignal,
     WorkflowManifestProjection,

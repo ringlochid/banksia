@@ -5,14 +5,14 @@ import shutil
 from pathlib import Path
 
 import pytest
-from autoclaw.interfaces.cli.bootstrap.task_root_cleanup import (
+from banksia.interfaces.cli.bootstrap.task_root_cleanup import (
     UnsafeTaskRootError,
     delete_controller_task_roots,
 )
 
 
 def test_cleanup_removes_child_symlink_without_traversing_it(tmp_path: Path) -> None:
-    data_boundary = tmp_path / "autoclaw-data"
+    data_boundary = tmp_path / "banksia-data"
     task_root = data_boundary / "tasks" / "task.alpha"
     external_workspace = tmp_path / "external-workspace"
     task_root.mkdir(parents=True)
@@ -33,7 +33,7 @@ def test_cleanup_removes_child_symlink_without_traversing_it(tmp_path: Path) -> 
 
 
 def test_cleanup_rejects_path_outside_data_boundary(tmp_path: Path) -> None:
-    data_boundary = tmp_path / "autoclaw-data"
+    data_boundary = tmp_path / "banksia-data"
     data_boundary.mkdir()
     external_root = tmp_path / "external-task-root"
     external_root.mkdir()
@@ -48,7 +48,7 @@ def test_cleanup_rejects_path_outside_data_boundary(tmp_path: Path) -> None:
 
 
 def test_cleanup_validates_every_root_before_deleting_any(tmp_path: Path) -> None:
-    data_boundary = tmp_path / "autoclaw-data"
+    data_boundary = tmp_path / "banksia-data"
     safe_root = data_boundary / "tasks" / "task.safe"
     unsafe_root = tmp_path / "external-task-root"
     safe_root.mkdir(parents=True)
@@ -65,7 +65,7 @@ def test_cleanup_validates_every_root_before_deleting_any(tmp_path: Path) -> Non
 
 
 def test_cleanup_rejects_symlinked_deletion_root(tmp_path: Path) -> None:
-    data_boundary = tmp_path / "autoclaw-data"
+    data_boundary = tmp_path / "banksia-data"
     data_boundary.mkdir()
     external_root = tmp_path / "external-task-root"
     external_root.mkdir()
@@ -83,7 +83,7 @@ def test_cleanup_rejects_symlinked_deletion_root(tmp_path: Path) -> None:
 
 
 def test_cleanup_rejects_symlinked_task_root_ancestor(tmp_path: Path) -> None:
-    data_boundary = tmp_path / "autoclaw-data"
+    data_boundary = tmp_path / "banksia-data"
     real_task_parent = data_boundary / "real-tasks"
     real_task_root = real_task_parent / "task.alpha"
     real_task_root.mkdir(parents=True)
@@ -101,7 +101,7 @@ def test_cleanup_rejects_symlinked_task_root_ancestor(tmp_path: Path) -> None:
 
 
 def test_cleanup_validates_all_filesystem_roots_before_deleting_any(tmp_path: Path) -> None:
-    data_boundary = tmp_path / "autoclaw-data"
+    data_boundary = tmp_path / "banksia-data"
     safe_root = data_boundary / "tasks" / "task.safe"
     safe_root.mkdir(parents=True)
     real_task_parent = data_boundary / "real-tasks"
@@ -124,7 +124,7 @@ def test_cleanup_rejects_ancestor_replaced_after_validation(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    data_boundary = tmp_path / "autoclaw-data"
+    data_boundary = tmp_path / "banksia-data"
     task_parent = data_boundary / "tasks"
     task_root = task_parent / "task.alpha"
     task_root.mkdir(parents=True)
@@ -161,7 +161,7 @@ def test_cleanup_rejects_root_identity_replacement_after_validation(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    data_boundary = tmp_path / "autoclaw-data"
+    data_boundary = tmp_path / "banksia-data"
     task_root = data_boundary / "tasks" / "task.alpha"
     task_root.mkdir(parents=True)
     preserved_root = task_root.with_name("task.original")
@@ -194,7 +194,7 @@ def test_cleanup_fails_closed_without_symlink_safe_platform_support(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    data_boundary = tmp_path / "autoclaw-data"
+    data_boundary = tmp_path / "banksia-data"
     task_root = data_boundary / "tasks" / "task.alpha"
     task_root.mkdir(parents=True)
     monkeypatch.setattr(shutil.rmtree, "avoids_symlink_attacks", False)

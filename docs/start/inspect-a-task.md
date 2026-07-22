@@ -23,7 +23,7 @@ Use the [operator reference](../reference/operator/README.md) for exact tools an
 Find the data directory with:
 
 ```bash
-autoclaw config show --json
+banksia config show --json
 ```
 
 Each task has a task root under `<data_dir>/tasks/<task_id>/`. Useful projections include:

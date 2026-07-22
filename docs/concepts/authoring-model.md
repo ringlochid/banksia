@@ -1,6 +1,6 @@
 # Authoring model
 
-AutoClaw keeps reusable definitions separate from one task launch.
+Banksia keeps reusable definitions separate from one task launch.
 
 | Object | Owns | Does not own |
 | --- | --- | --- |
@@ -21,7 +21,7 @@ For a fixed workflow, declare the evidence handoff precisely. For a dynamic work
 
 The definition registry owns current and historical revisions. The authoring workbench stores drafts, validates them, and publishes a new current revision. Preview and validation do not start a task. Task start rereads the current registry and pins the revisions used for that run.
 
-Use the console authoring workbench or `autoclaw definitions import --file ...`. Repo example files are examples and seed inputs, not live registry truth.
+Use the console authoring workbench or `banksia definitions import --file ...`. Repo example files are examples and seed inputs, not live registry truth.
 
 Next:
 

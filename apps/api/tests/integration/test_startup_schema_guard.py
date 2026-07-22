@@ -5,13 +5,13 @@ import asyncio
 import sqlite3
 from pathlib import Path
 
-import autoclaw.interfaces.cli as cli
+import banksia.interfaces.cli as cli
 import pytest
-from autoclaw.config import get_settings
-from autoclaw.main import create_app
-from autoclaw.persistence.session import dispose_test_db_engine, get_async_engine
-from autoclaw.runtime.post_commit import RuntimeEffectRouter
-from autoclaw.runtime.projection import SupportProjectionOwner
+from banksia.config import get_settings
+from banksia.main import create_app
+from banksia.persistence.session import dispose_test_db_engine, get_async_engine
+from banksia.runtime.post_commit import RuntimeEffectRouter
+from banksia.runtime.projection import SupportProjectionOwner
 from sqlalchemy import inspect
 from sqlalchemy.engine import make_url
 
@@ -29,9 +29,9 @@ async def test_lifespan_fails_closed_on_stale_runtime_schema(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    config_path = tmp_path / "autoclaw-config.toml"
-    data_dir = tmp_path / "autoclaw-data"
-    monkeypatch.setenv("AUTOCLAW_ENV", "development")
+    config_path = tmp_path / "banksia-config.toml"
+    data_dir = tmp_path / "banksia-data"
+    monkeypatch.setenv("BANKSIA_ENV", "development")
 
     try:
         await cli.cmd_init(
@@ -60,7 +60,7 @@ async def test_lifespan_fails_closed_on_stale_runtime_schema(
             app = create_app()
             with pytest.raises(
                 RuntimeError,
-                match=r"flows missing column .*Run `autoclaw db reset`\.",
+                match=r"flows missing column .*Run `banksia db reset`\.",
             ):
                 async with app.router.lifespan_context(app):
                     pass
@@ -72,9 +72,9 @@ async def test_lifespan_creates_schema_only_for_genuinely_empty_database(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    config_path = tmp_path / "autoclaw-config.toml"
-    data_dir = tmp_path / "autoclaw-data"
-    monkeypatch.setenv("AUTOCLAW_ENV", "test")
+    config_path = tmp_path / "banksia-config.toml"
+    data_dir = tmp_path / "banksia-data"
+    monkeypatch.setenv("BANKSIA_ENV", "test")
 
     try:
         await cli.cmd_init(

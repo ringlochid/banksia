@@ -3,10 +3,10 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-import autoclaw.runtime.node_operations.domain_handlers as domain_handlers
-import autoclaw.runtime.node_operations.executor as executor_module
+import banksia.runtime.node_operations.domain_handlers as domain_handlers
+import banksia.runtime.node_operations.executor as executor_module
 import pytest
-from autoclaw.persistence.models import (
+from banksia.persistence.models import (
     AcceptedBoundaryModel,
     AssignmentDecisionModel,
     AssignmentModel,
@@ -16,21 +16,21 @@ from autoclaw.persistence.models import (
     FlowModel,
     FlowNodeModel,
 )
-from autoclaw.runtime.checkpoint import CheckpointPreparation
-from autoclaw.runtime.clock import utc_now
-from autoclaw.runtime.contracts import (
+from banksia.runtime.checkpoint import CheckpointPreparation
+from banksia.runtime.clock import utc_now
+from banksia.runtime.contracts import (
     AssignmentBody,
     AssignmentProjection,
     CheckpointProjection,
 )
-from autoclaw.runtime.contracts.operation_failure import OperationFailureCode
-from autoclaw.runtime.errors import RuntimeOperationError
-from autoclaw.runtime.node_operations import (
+from banksia.runtime.contracts.operation_failure import OperationFailureCode
+from banksia.runtime.errors import RuntimeOperationError
+from banksia.runtime.node_operations import (
     NodeOperationScope,
     get_node_operation_descriptor,
 )
-from autoclaw.runtime.post_commit.publisher import CapturedRuntimeEffectPublisher
-from autoclaw.runtime.post_commit.signals import BoundaryAccepted
+from banksia.runtime.post_commit.publisher import CapturedRuntimeEffectPublisher
+from banksia.runtime.post_commit.signals import BoundaryAccepted
 from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError

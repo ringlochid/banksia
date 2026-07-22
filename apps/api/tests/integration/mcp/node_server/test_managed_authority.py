@@ -5,11 +5,11 @@ from collections.abc import Mapping
 from pathlib import Path
 
 import httpx
-from autoclaw.persistence.models import DispatchTurnModel, HumanRequestModel
-from autoclaw.runtime.contracts.operation_failure import OperationFailureCode
-from autoclaw.runtime.errors import RuntimeOperationError
-from autoclaw.runtime.node_mcp import IssuedDispatchMcpBinding
-from autoclaw.runtime.node_operations import (
+from banksia.persistence.models import DispatchTurnModel, HumanRequestModel
+from banksia.runtime.contracts.operation_failure import OperationFailureCode
+from banksia.runtime.errors import RuntimeOperationError
+from banksia.runtime.node_mcp import IssuedDispatchMcpBinding
+from banksia.runtime.node_operations import (
     ListFilesResponse,
     NodeActivitySignal,
     NodeOperationDescriptor,

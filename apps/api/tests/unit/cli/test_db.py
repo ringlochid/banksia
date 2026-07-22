@@ -5,18 +5,18 @@ import asyncio
 import sqlite3
 from pathlib import Path
 
-import autoclaw.interfaces.cli as cli
+import banksia.interfaces.cli as cli
 import pytest
-from autoclaw.persistence.session import dispose_db_engine
+from banksia.persistence.session import dispose_db_engine
 
 from .cli_test_support import assert_seeded_registry_is_bootstrapped, build_cli_init_args
 
 
 @pytest.mark.asyncio
 async def test_db_reset_recreates_sqlite_database(tmp_path: Path) -> None:
-    config_path = tmp_path / "autoclaw-config.toml"
-    data_dir = tmp_path / "autoclaw-data"
-    database_path = data_dir / "autoclaw.persistence"
+    config_path = tmp_path / "banksia-config.toml"
+    data_dir = tmp_path / "banksia-data"
+    database_path = data_dir / "banksia.persistence"
     sidecar_paths = tuple(
         Path(f"{database_path}{suffix}") for suffix in ("-wal", "-shm", "-journal")
     )
@@ -51,9 +51,9 @@ async def test_db_reset_recreates_sqlite_database(tmp_path: Path) -> None:
 async def test_db_upgrade_rejects_stale_sqlite_schema_with_reset_guidance(
     tmp_path: Path,
 ) -> None:
-    config_path = tmp_path / "autoclaw-config.toml"
-    data_dir = tmp_path / "autoclaw-data"
-    database_path = data_dir / "autoclaw.persistence"
+    config_path = tmp_path / "banksia-config.toml"
+    data_dir = tmp_path / "banksia-data"
+    database_path = data_dir / "banksia.persistence"
     init_args = build_cli_init_args(config_path, data_dir)
     init_args.skip_db_upgrade = True
 
@@ -65,7 +65,7 @@ async def test_db_upgrade_rejects_stale_sqlite_schema_with_reset_guidance(
             )
             connection.commit()
 
-        with pytest.raises(RuntimeError, match=r"Run `autoclaw db reset`"):
+        with pytest.raises(RuntimeError, match=r"Run `banksia db reset`"):
             await asyncio.to_thread(
                 cli.cmd_db_upgrade,
                 argparse.Namespace(config=str(config_path)),
@@ -80,9 +80,9 @@ async def test_db_upgrade_rejects_stale_sqlite_schema_with_reset_guidance(
 
 @pytest.mark.asyncio
 async def test_db_upgrade_bootstraps_empty_sqlite_database(tmp_path: Path) -> None:
-    config_path = tmp_path / "autoclaw-config.toml"
-    data_dir = tmp_path / "autoclaw-data"
-    database_path = data_dir / "autoclaw.persistence"
+    config_path = tmp_path / "banksia-config.toml"
+    data_dir = tmp_path / "banksia-data"
+    database_path = data_dir / "banksia.persistence"
     init_args = build_cli_init_args(config_path, data_dir)
     init_args.skip_db_upgrade = True
 
@@ -104,9 +104,9 @@ async def test_db_upgrade_bootstraps_empty_sqlite_database(tmp_path: Path) -> No
 async def test_db_reset_rejects_symlinked_sqlite_database_without_touching_target(
     tmp_path: Path,
 ) -> None:
-    config_path = tmp_path / "autoclaw-config.toml"
-    data_dir = tmp_path / "autoclaw-data"
-    database_path = data_dir / "autoclaw.persistence"
+    config_path = tmp_path / "banksia-config.toml"
+    data_dir = tmp_path / "banksia-data"
+    database_path = data_dir / "banksia.persistence"
     real_database_path = data_dir / "real.persistence"
 
     try:

@@ -4,12 +4,12 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
-from autoclaw.persistence.schema_contract import (
+from banksia.persistence.schema_contract import (
     normalize_schema_sql,
     schema_mismatch_messages,
     verify_schema_contract,
 )
-from autoclaw.persistence.session import DatabaseSchemaMismatchError
+from banksia.persistence.session import DatabaseSchemaMismatchError
 from sqlalchemy import Engine, create_engine
 from tests.helpers.sqlite_runtime import (
     create_runtime_schema_engine,
@@ -195,7 +195,7 @@ def test_exact_schema_verifier_rejects_changed_table_contracts(
     try:
         messages = _messages(engine)
         assert any(expected_message in message for message in messages)
-        with pytest.raises(DatabaseSchemaMismatchError, match="autoclaw db reset"):
+        with pytest.raises(DatabaseSchemaMismatchError, match="banksia db reset"):
             _verify(engine)
     finally:
         engine.dispose()

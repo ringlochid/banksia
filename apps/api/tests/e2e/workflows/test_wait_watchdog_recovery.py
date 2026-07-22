@@ -5,23 +5,23 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import cast
 
-from autoclaw.config import CodexSettings, RuntimeSettings, Settings
-from autoclaw.definitions.contracts.registry import PolicyDefinitionInput
-from autoclaw.definitions.contracts.workflow import NodeKind, ProviderKind
-from autoclaw.persistence.models import DispatchTurnModel, FlowModel, PolicyRevisionModel
-from autoclaw.runtime.contracts import HumanRequestResolveRequest
-from autoclaw.runtime.dispatch import accept_provider_start_if_current
-from autoclaw.runtime.dispatch.ordinary_continuation import OrdinaryOpeningResult
-from autoclaw.runtime.dispatch.preparation import DispatchOpeningDependencies
-from autoclaw.runtime.human_request.continuation import open_human_request_successor
-from autoclaw.runtime.human_request.service import resolve_human_request
-from autoclaw.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
-from autoclaw.runtime.post_commit import (
+from banksia.config import CodexSettings, RuntimeSettings, Settings
+from banksia.definitions.contracts.registry import PolicyDefinitionInput
+from banksia.definitions.contracts.workflow import NodeKind, ProviderKind
+from banksia.persistence.models import DispatchTurnModel, FlowModel, PolicyRevisionModel
+from banksia.runtime.contracts import HumanRequestResolveRequest
+from banksia.runtime.dispatch import accept_provider_start_if_current
+from banksia.runtime.dispatch.ordinary_continuation import OrdinaryOpeningResult
+from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
+from banksia.runtime.human_request.continuation import open_human_request_successor
+from banksia.runtime.human_request.service import resolve_human_request
+from banksia.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
+from banksia.runtime.post_commit import (
     CapturedRuntimeEffectPublisher,
     HumanRequestTerminal,
     WatchdogDue,
 )
-from autoclaw.runtime.watchdog import (
+from banksia.runtime.watchdog import (
     WatchdogRecoveryResult,
     calculate_watchdog_due_at,
     recover_stale_dispatch,

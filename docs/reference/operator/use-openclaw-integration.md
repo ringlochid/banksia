@@ -2,20 +2,20 @@
 
 Use OpenClaw only when you accept its experimental compatibility boundary.
 
-## Configure AutoClaw
+## Configure Banksia
 
 ```bash
-autoclaw providers configure openclaw \
+banksia providers configure openclaw \
   --cli-path /absolute/path/to/openclaw \
   --gateway-url ws://127.0.0.1:18789 \
   --gateway-profile default \
   --gateway-auth-mode token
-autoclaw providers login openclaw --method token
-autoclaw providers set-default openclaw
-autoclaw providers check openclaw
+banksia providers login openclaw --method token
+banksia providers set-default openclaw
+banksia providers check openclaw
 ```
 
-The login command prompts for the Gateway token without echoing it; use `--method password` and `--gateway-auth-mode password` for password authentication. AutoClaw keeps the selected secret in its owner-readable service environment and never places it in `config.toml` or command arguments. Omit `set-default` when another provider should stay the default. The first configured provider becomes the default automatically when none exists.
+The login command prompts for the Gateway token without echoing it; use `--method password` and `--gateway-auth-mode password` for password authentication. Banksia keeps the selected secret in its owner-readable service environment and never places it in `config.toml` or command arguments. Omit `set-default` when another provider should stay the default. The first configured provider becomes the default automatically when none exists.
 
 ## Configure OpenClaw
 
@@ -25,9 +25,9 @@ In the user-managed `openclaw.json`, add a streamable HTTP MCP server for:
 http://127.0.0.1:18125/node/mcp
 ```
 
-Make the required compatibility tools available to the selected OpenClaw profile. Every tool schema requires the full current `task_id` and `dispatch_id`; AutoClaw supplies those IDs in the dispatch input.
+Make the required compatibility tools available to the selected OpenClaw profile. Every tool schema requires the full current `task_id` and `dispatch_id`; Banksia supplies those IDs in the dispatch input.
 
-AutoClaw does not write or maintain this configuration. Restart or reload OpenClaw as its own documentation requires.
+Banksia does not write or maintain this configuration. Restart or reload OpenClaw as its own documentation requires.
 
 ## Operate tasks separately
 

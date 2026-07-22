@@ -8,18 +8,18 @@ from pathlib import Path
 from typing import cast
 
 import pytest
-from autoclaw.config import CodexSettings, Settings
-from autoclaw.persistence.models import DispatchPromptRefsModel, DispatchTurnModel, TaskModel
-from autoclaw.runtime.contracts import TaskRootPaths
-from autoclaw.runtime.dispatch.cleanup import (
+from banksia.config import CodexSettings, Settings
+from banksia.persistence.models import DispatchPromptRefsModel, DispatchTurnModel, TaskModel
+from banksia.runtime.contracts import TaskRootPaths
+from banksia.runtime.dispatch.cleanup import (
     DISPATCH_REQUEST_CLEANUP_MINIMUM_AGE,
     cleanup_aged_dispatch_request_directories,
 )
-from autoclaw.runtime.dispatch.preparation import DispatchOpeningDependencies
-from autoclaw.runtime.dispatch.request_pair import publish_dispatch_request_pair
-from autoclaw.runtime.launch.continuation import open_root_dispatch
-from autoclaw.runtime.launch.persistence.runtime import persist_bootstrap_runtime_from_precomputed
-from autoclaw.runtime.post_commit import CapturedRuntimeEffectPublisher, FlowStartCommitted
+from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
+from banksia.runtime.dispatch.request_pair import publish_dispatch_request_pair
+from banksia.runtime.launch.continuation import open_root_dispatch
+from banksia.runtime.launch.persistence.runtime import persist_bootstrap_runtime_from_precomputed
+from banksia.runtime.post_commit import CapturedRuntimeEffectPublisher, FlowStartCommitted
 from sqlalchemy import select
 from sqlalchemy.engine import Engine
 from sqlalchemy.ext.asyncio import AsyncSession

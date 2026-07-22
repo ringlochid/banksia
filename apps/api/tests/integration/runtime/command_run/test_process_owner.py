@@ -8,18 +8,18 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import cast
 
-import autoclaw.runtime.command_run.process_owner as process_owner_module
+import banksia.runtime.command_run.process_owner as process_owner_module
 import pytest
-from autoclaw.persistence.models import CommandRunModel, FlowModel, FlowWaitModel, TaskEventModel
-from autoclaw.runtime.command_run import (
+from banksia.persistence.models import CommandRunModel, FlowModel, FlowWaitModel, TaskEventModel
+from banksia.runtime.command_run import (
     CommandProcessOwner,
     cancel_command_run,
     list_command_runs,
     read_command_run,
     read_command_run_log,
 )
-from autoclaw.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
-from autoclaw.runtime.post_commit import (
+from banksia.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
+from banksia.runtime.post_commit import (
     CommandProcessExited,
     CommandRunCancellationRequested,
     CommandRunDue,
@@ -27,7 +27,7 @@ from autoclaw.runtime.post_commit import (
     CommandRunTerminal,
     RuntimeEffectSignal,
 )
-from autoclaw.runtime.post_commit.bootstrap import read_command_running_page
+from banksia.runtime.post_commit.bootstrap import read_command_running_page
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from tests.helpers.executor_harness import (

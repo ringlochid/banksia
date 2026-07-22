@@ -1,6 +1,4 @@
-<p align="center"><img src="docs/assets/autoclaw-mark.png" alt="AutoClaw" width="140"></p>
-
-<h1 align="center">AutoClaw</h1>
+<h1 align="center">Banksia</h1>
 
 <p align="center"><strong>Local-first orchestration for delegated AI work.</strong></p>
 
@@ -8,9 +6,9 @@
 
 ---
 
-AutoClaw turns agent work into auditable workflow runs. The controller owns tasks, assignments, attempts, checkpoints, artifacts, waits, and dispatch history. Providers execute bounded turns, but their output and terminal status do not decide workflow truth.
+Banksia turns agent work into auditable workflow runs. The controller owns tasks, assignments, attempts, checkpoints, artifacts, waits, and dispatch history. Providers execute bounded turns, but their output and terminal status do not decide workflow truth.
 
-> **Early development:** AutoClaw is not production-ready. Interfaces and schemas may change.
+> **Early development:** Banksia is not production-ready. Interfaces and schemas may change.
 
 ## What it provides
 
@@ -22,38 +20,38 @@ AutoClaw turns agent work into auditable workflow runs. The controller owns task
 - SQLite by default, with PostgreSQL support for stronger concurrent use
 - focused recovery through exact-source signals and a watchdog
 
-AutoClaw is useful when work must remain inspectable across several agent turns. A one-off question or command usually does not need it.
+Banksia is useful when work must remain inspectable across several agent turns. A one-off question or command usually does not need it.
 
 ## Quick start
 
-Install AutoClaw in an isolated tool environment:
+Install Banksia in an isolated tool environment:
 
 ```bash
-pipx install autoclaw
-autoclaw init
+pipx install banksia-ai
+banksia init
 ```
 
 Run the provider guide. It asks for the primary/default provider, handles supported native login, checks the route, and offers additional providers:
 
 ```bash
-autoclaw setup
+banksia setup
 ```
 
-Choose Codex, Claude, or OpenClaw. OpenClaw remains experimental and user-managed. AutoClaw never silently falls back to another provider. For scripts, use `--non-interactive` and explicit provider commands; see the [getting-started guide](docs/start/getting-started.md).
+Choose Codex, Claude, or OpenClaw. OpenClaw remains experimental and user-managed. Banksia never silently falls back to another provider. For scripts, use `--non-interactive` and explicit provider commands; see the [getting-started guide](docs/start/getting-started.md).
 
 Run the local server:
 
 ```bash
-autoclaw serve
+banksia serve
 ```
 
 Open `http://127.0.0.1:18125/`. The supported browser lane is loopback and same-origin.
 
-To run AutoClaw as a Linux user service:
+To run Banksia as a Linux user service:
 
 ```bash
-autoclaw service install
-autoclaw service status
+banksia service install
+banksia service status
 ```
 
 ## Start a task
@@ -70,16 +68,16 @@ workflow:
 ```
 
 ```bash
-autoclaw task-compose start --file ./task-compose.yaml --json
+banksia task-compose start --file ./task-compose.yaml --json
 ```
 
 Inspect the returned task in the console, through the control API, or with the Operator MCP tools.
 
 ## Provider boundary
 
-Codex and Claude receive a managed, dispatch-scoped MCP connection. AutoClaw attaches only the Node tools allowed for that dispatch and does not write the connection into global or project provider configuration.
+Codex and Claude receive a managed, dispatch-scoped MCP connection. Banksia attaches only the Node tools allowed for that dispatch and does not write the connection into global or project provider configuration.
 
-OpenClaw is an experimental compatibility provider. It remains selectable and may be the default, but the user owns the Gateway and `openclaw.json`. Its static compatibility MCP calls include full `task_id` and `dispatch_id` selectors; AutoClaw rereads controller truth and rejects stale or illegal operations.
+OpenClaw is an experimental compatibility provider. It remains selectable and may be the default, but the user owns the Gateway and `openclaw.json`. Its static compatibility MCP calls include full `task_id` and `dispatch_id` selectors; Banksia rereads controller truth and rejects stale or illegal operations.
 
 For every provider:
 
@@ -111,11 +109,11 @@ Support files under the task root explain committed state. They can be rebuilt a
 
 ## Local security
 
-The shipped console and control plane bind to loopback. AutoClaw validates expected loopback `Host` values and exact allowed browser origins. There is no global browser or Operator API key in this local lane. Do not expose it directly to another machine.
+The shipped console and control plane bind to loopback. Banksia validates expected loopback `Host` values and exact allowed browser origins. There is no global browser or Operator API key in this local lane. Do not expose it directly to another machine.
 
 ## Documentation
 
-- [Install and set up AutoClaw](docs/start/getting-started.md)
+- [Install and set up Banksia](docs/start/getting-started.md)
 - [Configuration and providers](docs/start/configuration-and-settings.md)
 - [Start a task](docs/start/start-a-task.md)
 - [Inspect a task](docs/start/inspect-a-task.md)

@@ -1,7 +1,7 @@
 import pytest
-from autoclaw.definitions.contracts import BudgetSpec, PolicyDefinitionInput
-from autoclaw.definitions.contracts.workflow import NodeKind
-from autoclaw.runtime.assignment import snapshot_assignment_budget
+from banksia.definitions.contracts import BudgetSpec, PolicyDefinitionInput
+from banksia.definitions.contracts.workflow import NodeKind
+from banksia.runtime.assignment import snapshot_assignment_budget
 
 
 @pytest.mark.parametrize(

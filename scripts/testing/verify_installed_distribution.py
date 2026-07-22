@@ -12,20 +12,21 @@ import sysconfig
 import tarfile
 import time
 import zipfile
+from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any
 from urllib.error import URLError
 from urllib.request import urlopen
 
 REQUIRED_PACKAGE_MEMBERS = (
-    "autoclaw/config.py",
-    "autoclaw/main.py",
-    "autoclaw/definitions/seeds/roles/planning_lead.yaml",
-    "autoclaw/platform/managed_services/resources/systemd/autoclaw.service",
-    "autoclaw/runtime/prompt/assets/instructions/shared/authority.md",
-    "autoclaw/runtime/prompt/assets/instructions/families/worker.md",
-    "autoclaw/interfaces/web_console/assets/index.html",
-    "autoclaw/interfaces/web_console/assets/site.webmanifest",
+    "banksia/config.py",
+    "banksia/main.py",
+    "banksia/definitions/seeds/roles/planning_lead.yaml",
+    "banksia/platform/managed_services/resources/systemd/banksia.service",
+    "banksia/runtime/prompt/assets/instructions/shared/authority.md",
+    "banksia/runtime/prompt/assets/instructions/families/worker.md",
+    "banksia/interfaces/web_console/assets/index.html",
+    "banksia/interfaces/web_console/assets/site.webmanifest",
 )
 FORBIDDEN_MEMBER_FRAGMENTS = (
     ".env",
@@ -33,6 +34,7 @@ FORBIDDEN_MEMBER_FRAGMENTS = (
     "prompt-request.json",
     "prompt.md",
     "session_key",
+    "autoclaw",
 )
 REMOVED_ROOT_COMMANDS = ("onboard", "configure", "doctor", "openclaw")
 COMMAND_TIMEOUT_SECONDS = 60.0
@@ -41,9 +43,16 @@ SERVER_STOP_TIMEOUT_SECONDS = 10.0
 SERVER_REQUEST_TIMEOUT_SECONDS = 1.0
 
 
+@dataclass(frozen=True)
+class LegacyStateOracle:
+    roots: tuple[Path, ...]
+    service_path: Path
+    files: dict[Path, tuple[int, bytes]]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Verify built AutoClaw artifacts and the isolated user-service installer."
+        description="Verify built Banksia artifacts and the isolated user-service installer."
     )
     parser.add_argument("--dist-dir", type=Path, required=True)
     parser.add_argument("--workspace", type=Path, required=True)
@@ -99,10 +108,34 @@ def select_one_artifact(dist_dir: Path, pattern: str) -> Path:
 def inspect_wheel(wheel_path: Path) -> tuple[str, ...]:
     with zipfile.ZipFile(wheel_path) as archive:
         members = tuple(sorted(archive.namelist()))
+        verify_wheel_identity(archive, members)
     verify_package_members(members)
     verify_console_assets(members)
     verify_forbidden_members(members)
     return members
+
+
+def verify_wheel_identity(
+    archive: zipfile.ZipFile,
+    members: tuple[str, ...],
+) -> None:
+    metadata_member = select_member_with_suffix(members, ".dist-info/METADATA")
+    entry_points_member = select_member_with_suffix(members, ".dist-info/entry_points.txt")
+    metadata = archive.read(metadata_member).decode("utf-8")
+    entry_points = archive.read(entry_points_member).decode("utf-8")
+    if "Name: banksia-ai\n" not in metadata:
+        raise AssertionError("wheel metadata does not identify the banksia-ai distribution")
+    if "banksia = banksia.interfaces.cli.main:main" not in entry_points:
+        raise AssertionError("wheel does not expose the canonical Banksia console entry point")
+    if "autoclaw" in entry_points.casefold():
+        raise AssertionError("wheel retained the removed legacy console entry point")
+
+
+def select_member_with_suffix(members: tuple[str, ...], suffix: str) -> str:
+    matches = [member for member in members if member.endswith(suffix)]
+    if len(matches) != 1:
+        raise AssertionError(f"expected exactly one wheel member ending in {suffix}: {matches}")
+    return matches[0]
 
 
 def inspect_sdist(sdist_path: Path) -> tuple[str, ...]:
@@ -132,7 +165,7 @@ def verify_required_suffixes(members: tuple[str, ...], required: tuple[str, ...]
 
 def verify_console_assets(members: tuple[str, ...]) -> None:
     asset_members = [
-        member for member in members if "autoclaw/interfaces/web_console/assets/" in member
+        member for member in members if "banksia/interfaces/web_console/assets/" in member
     ]
     for suffix in (".css", ".js"):
         if not any(member.endswith(suffix) for member in asset_members):
@@ -167,7 +200,7 @@ def create_offline_venv(venv_path: Path, dependency_site_packages: Path) -> None
             cwd=venv_path.parent,
         ).stdout.strip()
     )
-    child_site_packages.joinpath("autoclaw-oracle-dependencies.pth").write_text(
+    child_site_packages.joinpath("banksia-oracle-dependencies.pth").write_text(
         f"{dependency_site_packages}\n",
         encoding="utf-8",
     )
@@ -193,18 +226,27 @@ def verify_installed_runtime(
     venv_path: Path, workspace: Path, repo_root: Path
 ) -> dict[str, object]:
     home = workspace / "installed-home"
-    config_path = home / "config" / "autoclaw" / "config.toml"
-    data_dir = home / "data" / "autoclaw"
+    config_path = home / "config" / "banksia" / "config.toml"
+    data_dir = home / "data" / "banksia"
     non_repo_cwd = workspace / "installed-cwd"
     non_repo_cwd.mkdir(parents=True, exist_ok=True)
-    venv_path.joinpath(".env").write_text("AUTOCLAW_POSTGRES_SCHEMA=poisoned\n", encoding="utf-8")
+    venv_path.joinpath(".env").write_text("BANKSIA_POSTGRES_SCHEMA=poisoned\n", encoding="utf-8")
     non_repo_cwd.joinpath(".env").write_text(
-        "AUTOCLAW_POSTGRES_SCHEMA=also_poisoned\n",
+        "BANKSIA_POSTGRES_SCHEMA=also_poisoned\n",
         encoding="utf-8",
     )
     port = available_loopback_port()
     env = isolated_environment(home)
-    executable = venv_executable(venv_path, "autoclaw")
+    executable = venv_executable(venv_path, "banksia")
+    removed_executable = venv_executable(venv_path, "autoclaw")
+    if removed_executable.exists():
+        raise AssertionError("installed wheel retained the removed legacy executable")
+    assert_removed_import_is_unavailable(venv_path=venv_path, cwd=non_repo_cwd, env=env)
+    legacy_state = create_legacy_state_oracle(
+        config_home=home / "config",
+        data_home=home / "data",
+        cache_home=home / "cache",
+    )
 
     help_result = run_checked((str(executable), "--help"), cwd=non_repo_cwd, env=env)
     for command in REMOVED_ROOT_COMMANDS:
@@ -236,7 +278,7 @@ def verify_installed_runtime(
         cwd=non_repo_cwd,
         env=env,
     )
-    if config_payload["database"]["postgres_schema"] != "autoclaw":
+    if config_payload["database"]["postgres_schema"] != "banksia":
         raise AssertionError("installed settings loaded an implicit .env file")
     run_checked((str(executable), "providers", "list", "--json"), cwd=non_repo_cwd, env=env)
     rendered_unit = run_checked(
@@ -250,7 +292,7 @@ def verify_installed_runtime(
     runtime_result = run_installed_lifespan_smoke(
         venv_path=venv_path,
         cwd=non_repo_cwd,
-        env={**env, "AUTOCLAW_CONFIG": str(config_path)},
+        env={**env, "BANKSIA_CONFIG": str(config_path)},
         repo_root=repo_root,
     )
     server_result = run_installed_server_smoke(
@@ -285,6 +327,7 @@ def verify_installed_runtime(
         cwd=non_repo_cwd,
         env=env,
     )
+    assert_legacy_state_unchanged(legacy_state)
     return {
         "config_path": str(config_path),
         "data_dir": str(data_dir),
@@ -294,7 +337,25 @@ def verify_installed_runtime(
         "providers": provider_result,
         "definition_import": definition_result,
         "task_start": task_result,
+        "legacy_state_untouched": True,
     }
+
+
+def assert_removed_import_is_unavailable(
+    *,
+    venv_path: Path,
+    cwd: Path,
+    env: dict[str, str],
+) -> None:
+    run_checked(
+        (
+            str(venv_python(venv_path)),
+            "-c",
+            "from importlib.util import find_spec; assert find_spec('autoclaw') is None",
+        ),
+        cwd=cwd,
+        env=env,
+    )
 
 
 def run_installed_lifespan_smoke(
@@ -309,29 +370,29 @@ import asyncio
 import os
 from pathlib import Path
 
-import autoclaw
-from autoclaw.config import load_settings
-from autoclaw.definitions.seeds import get_packaged_seed_definitions_root
-from autoclaw.interfaces.web_console import get_packaged_web_console_assets_root
-from autoclaw.main import create_app
-from autoclaw.platform.managed_services.resources import get_systemd_service_template
-from autoclaw.runtime.prompt import InstructionAsset, load_instruction_asset
+import banksia
+from banksia.config import load_settings
+from banksia.definitions.seeds import get_packaged_seed_definitions_root
+from banksia.interfaces.web_console import get_packaged_web_console_assets_root
+from banksia.main import create_app
+from banksia.platform.managed_services.resources import get_systemd_service_template
+from banksia.runtime.prompt import InstructionAsset, load_instruction_asset
 
-package_path = Path(autoclaw.__file__).resolve()
-venv_path = Path(os.environ["AUTOCLAW_ORACLE_VENV"]).resolve()
-repo_root = Path(os.environ["AUTOCLAW_ORACLE_REPO_ROOT"]).resolve()
+package_path = Path(banksia.__file__).resolve()
+venv_path = Path(os.environ["BANKSIA_ORACLE_VENV"]).resolve()
+repo_root = Path(os.environ["BANKSIA_ORACLE_REPO_ROOT"]).resolve()
 assert package_path.is_relative_to(venv_path)
-assert not package_path.is_relative_to(repo_root)
+assert not package_path.is_relative_to(repo_root / "apps" / "api" / "src")
 assert get_packaged_seed_definitions_root().joinpath("roles", "planning_lead.yaml").is_file()
 assert get_systemd_service_template().is_file()
 assert get_packaged_web_console_assets_root().joinpath("index.html").is_file()
 assert load_instruction_asset(InstructionAsset.AUTHORITY).strip()
-assert load_settings().postgres_schema == "autoclaw"
+assert load_settings().postgres_schema == "banksia"
 
 async def smoke() -> None:
     app = create_app(should_enable_mcp_mounts=False)
     async with app.router.lifespan_context(app):
-        assert app.title == "AutoClaw API"
+        assert app.title == "Banksia API"
 
 asyncio.run(smoke())
 print(package_path)
@@ -341,8 +402,8 @@ print(package_path)
         cwd=cwd,
         env={
             **env,
-            "AUTOCLAW_ORACLE_REPO_ROOT": str(repo_root),
-            "AUTOCLAW_ORACLE_VENV": str(venv_path),
+            "BANKSIA_ORACLE_REPO_ROOT": str(repo_root),
+            "BANKSIA_ORACLE_VENV": str(venv_path),
         },
     )
 
@@ -381,12 +442,12 @@ def run_installed_server_smoke(
 
     if failure is not None:
         raise RuntimeError(
-            f"installed `autoclaw serve` did not become healthy\nserver output:\n{output[-4000:]}"
+            f"installed `banksia serve` did not become healthy\nserver output:\n{output[-4000:]}"
         ) from failure
     accepted_shutdown_codes = {0, -signal.SIGTERM}
     if return_code not in accepted_shutdown_codes:
         raise RuntimeError(
-            f"installed `autoclaw serve` exited with {return_code} after shutdown\n"
+            f"installed `banksia serve` exited with {return_code} after shutdown\n"
             f"server output:\n{output[-4000:]}"
         )
     return {
@@ -564,7 +625,7 @@ def verify_installed_definition_import(
                 str(venv_python(venv_path)),
                 "-c",
                 (
-                    "from autoclaw.definitions.seeds import "
+                    "from banksia.definitions.seeds import "
                     "get_packaged_seed_definitions_root; "
                     "print(get_packaged_seed_definitions_root() / "
                     "'roles' / 'planning_lead.yaml')"
@@ -671,25 +732,30 @@ def verify_user_service_installer(
     state_home = install_root / "state"
     venv_path = install_root / "venv"
     unit_dir = config_home / "systemd" / "user"
-    config_path = config_home / "autoclaw" / "config.toml"
-    env_file = config_home / "autoclaw" / "autoclaw.env"
+    config_path = config_home / "banksia" / "config.toml"
+    env_file = config_home / "banksia" / "banksia.env"
     systemctl_log = install_root / "systemctl.log"
     systemctl_state = install_root / "systemctl.state"
     fake_systemctl = install_root / "systemctl"
     install_root.mkdir(parents=True, exist_ok=True)
+    legacy_state = create_legacy_state_oracle(
+        config_home=config_home,
+        data_home=data_home,
+        cache_home=home / "cache",
+    )
     create_offline_venv(venv_path, dependency_site_packages)
     write_fake_systemctl(fake_systemctl)
     port = available_loopback_port()
     env = isolated_environment(home)
     env.update(
         {
-            "AUTOCLAW_CONFIG": str(config_path),
-            "AUTOCLAW_DATA_DIR": str(data_home / "autoclaw"),
-            "AUTOCLAW_PYTHON_BIN": sys.executable,
-            "AUTOCLAW_SYSTEMCTL_BIN": str(fake_systemctl),
-            "AUTOCLAW_SYSTEMCTL_LOG": str(systemctl_log),
-            "AUTOCLAW_SYSTEMCTL_STATE": str(systemctl_state),
-            "AUTOCLAW_VENV_DIR": str(venv_path),
+            "BANKSIA_CONFIG": str(config_path),
+            "BANKSIA_DATA_DIR": str(data_home / "banksia"),
+            "BANKSIA_PYTHON_BIN": sys.executable,
+            "BANKSIA_SYSTEMCTL_BIN": str(fake_systemctl),
+            "BANKSIA_SYSTEMCTL_LOG": str(systemctl_log),
+            "BANKSIA_SYSTEMCTL_STATE": str(systemctl_state),
+            "BANKSIA_VENV_DIR": str(venv_path),
             "PIP_DISABLE_PIP_VERSION_CHECK": "1",
             "PIP_IGNORE_INSTALLED": "1",
             "PIP_NO_INDEX": "1",
@@ -714,18 +780,26 @@ def verify_user_service_installer(
         env=env,
     )
 
-    unit_path = unit_dir / "autoclaw.service"
-    for generated_path in (config_path, data_home / "autoclaw", env_file, unit_path):
+    unit_path = unit_dir / "banksia.service"
+    for generated_path in (config_path, data_home / "banksia", env_file, unit_path):
         if not generated_path.exists() or not generated_path.resolve().is_relative_to(install_root):
             raise AssertionError(f"installer wrote outside its isolated tree: {generated_path}")
     unit_text = unit_path.read_text(encoding="utf-8")
     if str(venv_python(venv_path)) not in unit_text:
         raise AssertionError("installed unit does not use the dedicated virtual environment")
     systemctl_calls = systemctl_log.read_text(encoding="utf-8").splitlines()
-    if systemctl_calls != ["--user daemon-reload", "--user enable autoclaw.service"]:
+    status_call = (
+        "--user show banksia.service "
+        "--property=LoadState,UnitFileState,ActiveState,SubState,FragmentPath"
+    )
+    if systemctl_calls != [
+        status_call,
+        "--user daemon-reload",
+        "--user enable banksia.service",
+    ]:
         raise AssertionError(f"unexpected install systemctl calls: {systemctl_calls}")
 
-    installed_executable = venv_executable(venv_path, "autoclaw")
+    installed_executable = venv_executable(venv_path, "banksia")
     lifecycle_payloads = {
         verb: run_json_command(
             installed_executable,
@@ -774,50 +848,93 @@ def verify_user_service_installer(
     if unit_path.exists() or env_file.exists():
         raise AssertionError("service uninstall left managed files behind")
     final_calls = systemctl_log.read_text(encoding="utf-8").splitlines()
-    status_call = (
-        "--user show autoclaw.service "
-        "--property=LoadState,UnitFileState,ActiveState,SubState,FragmentPath"
-    )
     expected_calls = [
+        status_call,
         "--user daemon-reload",
-        "--user enable autoclaw.service",
-        "--user start autoclaw.service",
+        "--user enable banksia.service",
+        "--user start banksia.service",
         status_call,
         status_call,
-        "--user restart autoclaw.service",
+        "--user restart banksia.service",
         status_call,
-        "--user stop autoclaw.service",
+        "--user stop banksia.service",
         status_call,
-        "--user disable --now autoclaw.service",
+        "--user disable --now banksia.service",
         "--user daemon-reload",
     ]
     if final_calls != expected_calls:
         raise AssertionError(f"unexpected service lifecycle systemctl calls: {final_calls}")
+    assert_legacy_state_unchanged(legacy_state)
     return {
         "config_path": str(config_path),
         "lifecycle": lifecycle_payloads,
         "systemctl_calls": final_calls,
         "unit_removed": True,
+        "legacy_state_untouched": True,
     }
+
+
+def create_legacy_state_oracle(
+    *,
+    config_home: Path,
+    data_home: Path,
+    cache_home: Path,
+) -> LegacyStateOracle:
+    roots = (
+        config_home / "autoclaw",
+        data_home / "autoclaw",
+        cache_home / "autoclaw",
+    )
+    service_path = config_home / "systemd" / "user" / "autoclaw.service"
+    fixture_files = {
+        roots[0] / "config.toml": b"legacy config marker\n",
+        roots[1] / "tasks" / "keep.txt": b"legacy data marker\n",
+        roots[2] / "keep.cache": b"legacy cache marker\n",
+        service_path: b"[Unit]\nDescription=legacy service marker\n",
+    }
+    for path, payload in fixture_files.items():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(payload)
+    return LegacyStateOracle(
+        roots=roots,
+        service_path=service_path,
+        files=snapshot_legacy_state(roots=roots, service_path=service_path),
+    )
+
+
+def assert_legacy_state_unchanged(oracle: LegacyStateOracle) -> None:
+    actual = snapshot_legacy_state(roots=oracle.roots, service_path=oracle.service_path)
+    if actual != oracle.files:
+        raise AssertionError("Banksia accessed or changed neighboring legacy product state")
+
+
+def snapshot_legacy_state(
+    *,
+    roots: tuple[Path, ...],
+    service_path: Path,
+) -> dict[Path, tuple[int, bytes]]:
+    paths = [path for root in roots for path in sorted(root.rglob("*")) if path.is_file()]
+    paths.append(service_path)
+    return {path: (path.stat().st_mode & 0o777, path.read_bytes()) for path in paths}
 
 
 def write_fake_systemctl(path: Path) -> None:
     path.write_text(
         """#!/bin/sh
 set -eu
-printf '%s\n' "$*" >> "$AUTOCLAW_SYSTEMCTL_LOG"
+printf '%s\n' "$*" >> "$BANKSIA_SYSTEMCTL_LOG"
 case "${2:-}" in
   start|restart)
-    printf '%s\n' active > "$AUTOCLAW_SYSTEMCTL_STATE"
+    printf '%s\n' active > "$BANKSIA_SYSTEMCTL_STATE"
     ;;
   stop|disable)
-    printf '%s\n' inactive > "$AUTOCLAW_SYSTEMCTL_STATE"
+    printf '%s\n' inactive > "$BANKSIA_SYSTEMCTL_STATE"
     ;;
 esac
 if [ "${2:-}" = "show" ]; then
   state=inactive
-  if [ -f "$AUTOCLAW_SYSTEMCTL_STATE" ]; then
-    state=$(cat "$AUTOCLAW_SYSTEMCTL_STATE")
+  if [ -f "$BANKSIA_SYSTEMCTL_STATE" ]; then
+    state=$(cat "$BANKSIA_SYSTEMCTL_STATE")
   fi
   if [ "$state" = active ]; then
     sub_state=running
@@ -829,7 +946,7 @@ if [ "${2:-}" = "show" ]; then
     'UnitFileState=enabled' \
     "ActiveState=$state" \
     "SubState=$sub_state" \
-    "FragmentPath=$XDG_CONFIG_HOME/systemd/user/autoclaw.service"
+    "FragmentPath=$XDG_CONFIG_HOME/systemd/user/banksia.service"
 fi
 """,
         encoding="utf-8",
@@ -841,7 +958,7 @@ def isolated_environment(home: Path) -> dict[str, str]:
     environment = {
         key: value
         for key, value in os.environ.items()
-        if key not in {"PYTHONHOME", "PYTHONPATH"} and not key.startswith("AUTOCLAW_")
+        if key not in {"PYTHONHOME", "PYTHONPATH"} and not key.startswith(("BANKSIA_", "AUTOCLAW_"))
     }
     environment.update(
         {

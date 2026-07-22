@@ -5,14 +5,35 @@ from pathlib import Path
 from types import ModuleType
 
 import pytest
+from banksia import paths
 from pydantic import ValidationError
 from pytest import MonkeyPatch
 
 
 def _reload_config_module() -> ModuleType:
-    from autoclaw import config as config_module
+    from banksia import config as config_module
 
     return importlib.reload(config_module)
+
+
+def test_platform_paths_use_only_banksia_namespace(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    config_home = tmp_path / "config"
+    data_home = tmp_path / "data"
+    state_home = tmp_path / "state"
+    cache_home = tmp_path / "cache"
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(config_home))
+    monkeypatch.setenv("XDG_DATA_HOME", str(data_home))
+    monkeypatch.setenv("XDG_STATE_HOME", str(state_home))
+    monkeypatch.setenv("XDG_CACHE_HOME", str(cache_home))
+
+    assert paths.default_config_path() == config_home / "banksia" / "config.toml"
+    assert paths.default_data_dir() == data_home / "banksia"
+    assert paths.default_state_dir() == state_home / "banksia"
+    assert paths.default_cache_dir() == cache_home / "banksia"
+    assert paths.default_database_path() == data_home / "banksia" / "banksia.persistence"
 
 
 def test_get_settings_reads_default_platform_config(
@@ -23,14 +44,14 @@ def test_get_settings_reads_default_platform_config(
     data_home = tmp_path / "data-home"
     state_home = tmp_path / "state-home"
     cache_home = tmp_path / "cache-home"
-    config_path = config_home / "autoclaw" / "config.toml"
+    config_path = config_home / "banksia" / "config.toml"
     config_path.parent.mkdir(parents=True, exist_ok=True)
     config_path.write_text(
         """
 [database]
 url = "sqlite+aiosqlite:////tmp/from-config.db"
 echo = true
-postgres_schema = "autoclaw_test"
+postgres_schema = "banksia_test"
 
 [server]
 console_origins = ["http://127.0.0.1:4173"]
@@ -45,7 +66,7 @@ enabled = false
 
 [openclaw]
 enabled = true
-gateway_url = "wss://gateway.example.test/autoclaw"
+gateway_url = "wss://gateway.example.test/banksia"
 gateway_profile = "tested-local"
 
 [runtime]
@@ -63,26 +84,26 @@ watchdog_same_attempt_replacement_limit = 3
     monkeypatch.setenv("XDG_DATA_HOME", str(data_home))
     monkeypatch.setenv("XDG_STATE_HOME", str(state_home))
     monkeypatch.setenv("XDG_CACHE_HOME", str(cache_home))
-    monkeypatch.delenv("AUTOCLAW_CONFIG", raising=False)
-    monkeypatch.delenv("AUTOCLAW_DATABASE_URL", raising=False)
+    monkeypatch.delenv("BANKSIA_CONFIG", raising=False)
+    monkeypatch.delenv("BANKSIA_DATABASE_URL", raising=False)
 
     config_module = _reload_config_module()
     config_module.get_settings.cache_clear()
     settings = config_module.get_settings()
 
     assert settings.database_url == "sqlite+aiosqlite:////tmp/from-config.db"
-    assert settings.postgres_schema == "autoclaw_test"
+    assert settings.postgres_schema == "banksia_test"
     assert settings.database_echo is True
     assert settings.console_origins == ["http://127.0.0.1:4173"]
     assert not hasattr(settings, "api_key")
     assert settings.config_path == config_path
-    assert settings.data_dir == data_home / "autoclaw"
+    assert settings.data_dir == data_home / "banksia"
     assert settings.codex.enabled is True
     assert settings.codex.model == "gpt-5"
     assert settings.codex.effort == "high"
     assert settings.claude.enabled is False
     assert settings.openclaw.enabled is True
-    assert settings.openclaw.gateway_url == "wss://gateway.example.test/autoclaw"
+    assert settings.openclaw.gateway_url == "wss://gateway.example.test/banksia"
     assert settings.openclaw.gateway_profile == "tested-local"
     assert settings.runtime.default_provider == "openclaw"
     assert settings.runtime.dispatch_launch_retry_initial_backoff_seconds == 0.25
@@ -91,11 +112,39 @@ watchdog_same_attempt_replacement_limit = 3
     assert settings.runtime.watchdog_same_attempt_replacement_limit == 3
 
 
+def test_settings_ignore_autoclaw_environment_and_leave_old_state_untouched(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    config_home = tmp_path / "config-home"
+    data_home = tmp_path / "data-home"
+    old_config_path = config_home / "autoclaw" / "config.toml"
+    old_config_path.parent.mkdir(parents=True)
+    old_config_text = '[database]\nurl = "sqlite+aiosqlite:////tmp/from-autoclaw.db"\n'
+    old_config_path.write_text(old_config_text, encoding="utf-8")
+
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(config_home))
+    monkeypatch.setenv("XDG_DATA_HOME", str(data_home))
+    monkeypatch.delenv("BANKSIA_CONFIG", raising=False)
+    monkeypatch.delenv("BANKSIA_DATABASE_URL", raising=False)
+    monkeypatch.setenv("AUTOCLAW_CONFIG", str(old_config_path))
+    monkeypatch.setenv("AUTOCLAW_DATABASE_URL", "sqlite+aiosqlite:////tmp/from-old-env.db")
+
+    config_module = _reload_config_module()
+    config_module.get_settings.cache_clear()
+    settings = config_module.get_settings()
+
+    assert settings.config_path == config_home / "banksia" / "config.toml"
+    assert settings.data_dir == data_home / "banksia"
+    assert settings.database_url.endswith("/banksia/banksia.persistence")
+    assert old_config_path.read_text(encoding="utf-8") == old_config_text
+
+
 def test_env_overrides_config_file(
     monkeypatch: MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    config_path = tmp_path / "autoclaw-config.toml"
+    config_path = tmp_path / "banksia-config.toml"
     config_path.write_text(
         """
 [database]
@@ -117,22 +166,22 @@ watchdog_inactivity_timeout_seconds = 1200
         encoding="utf-8",
     )
 
-    monkeypatch.setenv("AUTOCLAW_CONFIG", str(config_path))
-    monkeypatch.setenv("AUTOCLAW_DATABASE_URL", "sqlite+aiosqlite:////tmp/from-env.db")
-    monkeypatch.setenv("AUTOCLAW_POSTGRES_SCHEMA", "environment_schema")
-    monkeypatch.setenv("AUTOCLAW_DATABASE_ECHO", "true")
-    monkeypatch.setenv("AUTOCLAW_API_HOST", "::1")
-    monkeypatch.setenv("AUTOCLAW_API_PORT", "9001")
-    monkeypatch.setenv("AUTOCLAW_OPENCLAW__GATEWAY_URL", "wss://gateway.example.test")
-    monkeypatch.setenv("AUTOCLAW_OPENCLAW__GATEWAY_PROFILE", "environment-profile")
-    monkeypatch.setenv("AUTOCLAW_RUNTIME__WATCHDOG_INACTIVITY_TIMEOUT_SECONDS", "99")
-    monkeypatch.setenv("AUTOCLAW_RUNTIME__WATCHDOG_SAME_ATTEMPT_REPLACEMENT_LIMIT", "4")
+    monkeypatch.setenv("BANKSIA_CONFIG", str(config_path))
+    monkeypatch.setenv("BANKSIA_DATABASE_URL", "sqlite+aiosqlite:////tmp/from-env.db")
+    monkeypatch.setenv("BANKSIA_POSTGRES_SCHEMA", "environment_schema")
+    monkeypatch.setenv("BANKSIA_DATABASE_ECHO", "true")
+    monkeypatch.setenv("BANKSIA_API_HOST", "::1")
+    monkeypatch.setenv("BANKSIA_API_PORT", "9001")
+    monkeypatch.setenv("BANKSIA_OPENCLAW__GATEWAY_URL", "wss://gateway.example.test")
+    monkeypatch.setenv("BANKSIA_OPENCLAW__GATEWAY_PROFILE", "environment-profile")
+    monkeypatch.setenv("BANKSIA_RUNTIME__WATCHDOG_INACTIVITY_TIMEOUT_SECONDS", "99")
+    monkeypatch.setenv("BANKSIA_RUNTIME__WATCHDOG_SAME_ATTEMPT_REPLACEMENT_LIMIT", "4")
     monkeypatch.setenv(
-        "AUTOCLAW_RUNTIME__DISPATCH_LAUNCH_RETRY_INITIAL_BACKOFF_SECONDS",
+        "BANKSIA_RUNTIME__DISPATCH_LAUNCH_RETRY_INITIAL_BACKOFF_SECONDS",
         "0.3",
     )
     monkeypatch.setenv(
-        "AUTOCLAW_RUNTIME__DISPATCH_LAUNCH_RETRY_MAX_BACKOFF_SECONDS",
+        "BANKSIA_RUNTIME__DISPATCH_LAUNCH_RETRY_MAX_BACKOFF_SECONDS",
         "4.5",
     )
     config_module = _reload_config_module()
@@ -157,10 +206,10 @@ def test_get_settings_does_not_require_a_global_operator_key(
     monkeypatch: MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    config_path = tmp_path / "autoclaw-config.toml"
+    config_path = tmp_path / "banksia-config.toml"
     config_path.write_text('[server]\nhost = "127.0.0.1"\n', encoding="utf-8")
-    monkeypatch.setenv("AUTOCLAW_CONFIG", str(config_path))
-    monkeypatch.setenv("AUTOCLAW_ENV", "development")
+    monkeypatch.setenv("BANKSIA_CONFIG", str(config_path))
+    monkeypatch.setenv("BANKSIA_ENV", "development")
     config_module = _reload_config_module()
     config_module.get_settings.cache_clear()
     settings = config_module.get_settings()
@@ -271,7 +320,7 @@ def test_postgres_schema_rejects_public_system_or_unsafe_names(
     tmp_path: Path,
     postgres_schema: str,
 ) -> None:
-    config_path = tmp_path / "autoclaw-config.toml"
+    config_path = tmp_path / "banksia-config.toml"
     config_path.write_text(
         f"""
 [database]
@@ -280,8 +329,8 @@ postgres_schema = "{postgres_schema}"
         + "\n",
         encoding="utf-8",
     )
-    monkeypatch.setenv("AUTOCLAW_CONFIG", str(config_path))
-    monkeypatch.delenv("AUTOCLAW_POSTGRES_SCHEMA", raising=False)
+    monkeypatch.setenv("BANKSIA_CONFIG", str(config_path))
+    monkeypatch.delenv("BANKSIA_POSTGRES_SCHEMA", raising=False)
     config_module = _reload_config_module()
     config_module.get_settings.cache_clear()
 
@@ -310,7 +359,7 @@ def test_removed_watchdog_keys_fail_fast(
     tmp_path: Path,
     field_name: str,
 ) -> None:
-    config_path = tmp_path / "autoclaw-config.toml"
+    config_path = tmp_path / "banksia-config.toml"
     config_path.write_text(
         f"""
 [runtime]
@@ -320,7 +369,7 @@ def test_removed_watchdog_keys_fail_fast(
         encoding="utf-8",
     )
 
-    monkeypatch.setenv("AUTOCLAW_CONFIG", str(config_path))
+    monkeypatch.setenv("BANKSIA_CONFIG", str(config_path))
     config_module = _reload_config_module()
     config_module.get_settings.cache_clear()
 
@@ -346,7 +395,7 @@ def test_removed_provider_runtime_keys_fail_fast(
     tmp_path: Path,
     field_name: str,
 ) -> None:
-    config_path = tmp_path / "autoclaw-config.toml"
+    config_path = tmp_path / "banksia-config.toml"
     config_path.write_text(
         f"""
 [runtime]
@@ -356,7 +405,7 @@ def test_removed_provider_runtime_keys_fail_fast(
         encoding="utf-8",
     )
 
-    monkeypatch.setenv("AUTOCLAW_CONFIG", str(config_path))
+    monkeypatch.setenv("BANKSIA_CONFIG", str(config_path))
     config_module = _reload_config_module()
     config_module.get_settings.cache_clear()
 
@@ -370,7 +419,7 @@ def test_structured_config_sections_reject_non_table_values(
     tmp_path: Path,
     section_name: str,
 ) -> None:
-    config_path = tmp_path / "autoclaw-config.toml"
+    config_path = tmp_path / "banksia-config.toml"
     config_path.write_text(
         f"""
 {section_name} = "not-a-table"
@@ -379,7 +428,7 @@ def test_structured_config_sections_reject_non_table_values(
         encoding="utf-8",
     )
 
-    monkeypatch.setenv("AUTOCLAW_CONFIG", str(config_path))
+    monkeypatch.setenv("BANKSIA_CONFIG", str(config_path))
     config_module = _reload_config_module()
     config_module.get_settings.cache_clear()
 
@@ -411,7 +460,7 @@ def test_watchdog_settings_reject_invalid_values(
     field_name: str,
     value: int,
 ) -> None:
-    config_path = tmp_path / "autoclaw-config.toml"
+    config_path = tmp_path / "banksia-config.toml"
     config_path.write_text(
         f"""
 [runtime]
@@ -421,7 +470,7 @@ def test_watchdog_settings_reject_invalid_values(
         encoding="utf-8",
     )
 
-    monkeypatch.setenv("AUTOCLAW_CONFIG", str(config_path))
+    monkeypatch.setenv("BANKSIA_CONFIG", str(config_path))
     config_module = _reload_config_module()
     config_module.get_settings.cache_clear()
 

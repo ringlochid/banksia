@@ -5,8 +5,8 @@ from pathlib import Path
 from typing import cast
 
 import pytest
-from autoclaw.persistence import RuntimeBase
-from autoclaw.persistence.models import (
+from banksia.persistence import RuntimeBase
+from banksia.persistence.models import (
     AssignmentDecisionModel,
     AssignmentModel,
     FlowEdgeModel,
@@ -14,10 +14,10 @@ from autoclaw.persistence.models import (
     FlowRevisionModel,
     NodePlanRevisionModel,
 )
-from autoclaw.runtime.dispatch.authority import read_node_operation_authority
-from autoclaw.runtime.errors import RuntimeOperationError
-from autoclaw.runtime.node_operations import NodeOperationScope
-from autoclaw.runtime.node_operations.release.evidence import (
+from banksia.runtime.dispatch.authority import read_node_operation_authority
+from banksia.runtime.errors import RuntimeOperationError
+from banksia.runtime.node_operations import NodeOperationScope
+from banksia.runtime.node_operations.release.evidence import (
     _current_assignments_by_node,
 )
 from sqlalchemy import Connection, func, select

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from autoclaw.persistence import RuntimeBase
+from banksia.persistence import RuntimeBase
 from sqlalchemy import Connection
 
 

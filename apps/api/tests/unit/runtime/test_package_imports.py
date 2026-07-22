@@ -10,13 +10,13 @@ import pytest
     "imports",
     (
         (
-            "from autoclaw.runtime.checkpoint import "
+            "from banksia.runtime.checkpoint import "
             "require_legal_checkpoint_successor; "
-            "from autoclaw.runtime.node_operations import NodeOperationExecutor"
+            "from banksia.runtime.node_operations import NodeOperationExecutor"
         ),
         (
-            "from autoclaw.runtime.node_operations import NodeOperationExecutor; "
-            "from autoclaw.runtime.checkpoint import "
+            "from banksia.runtime.node_operations import NodeOperationExecutor; "
+            "from banksia.runtime.checkpoint import "
             "require_legal_checkpoint_successor"
         ),
     ),

@@ -6,19 +6,19 @@ from pathlib import Path
 from typing import cast
 
 import pytest
-from autoclaw.persistence import RuntimeBase
-from autoclaw.persistence.models import (
+from banksia.persistence import RuntimeBase
+from banksia.persistence.models import (
     AttemptCheckpointModel,
     DispatchTurnModel,
     FlowModel,
     FlowNodeModel,
     FlowRevisionModel,
 )
-from autoclaw.runtime.contracts.operation_failure import OperationFailureCode
-from autoclaw.runtime.dispatch.authority import read_node_operation_authority
-from autoclaw.runtime.errors import RuntimeOperationError
-from autoclaw.runtime.node_operations.contracts import AddChildRequest, NodeOperationName
-from autoclaw.runtime.node_operations.structural_revisions import adopt_structural_revision
+from banksia.runtime.contracts.operation_failure import OperationFailureCode
+from banksia.runtime.dispatch.authority import read_node_operation_authority
+from banksia.runtime.errors import RuntimeOperationError
+from banksia.runtime.node_operations.contracts import AddChildRequest, NodeOperationName
+from banksia.runtime.node_operations.structural_revisions import adopt_structural_revision
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from tests.helpers.executor_harness import (

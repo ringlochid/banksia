@@ -7,16 +7,16 @@ from pathlib import Path
 from typing import cast
 
 import pytest
-from autoclaw.persistence.models import FlowModel, TransientLocalizationModel
-from autoclaw.runtime.flow.service import cancel_runtime_flow
-from autoclaw.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
-from autoclaw.runtime.post_commit import (
+from banksia.persistence.models import FlowModel, TransientLocalizationModel
+from banksia.runtime.flow.service import cancel_runtime_flow
+from banksia.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
+from banksia.runtime.post_commit import (
     CapturedRuntimeEffectPublisher,
     DispatchCleanupRequested,
     TransientCleanupRequested,
 )
-from autoclaw.runtime.post_commit.bootstrap import read_transient_cleanup_page
-from autoclaw.runtime.task_root import cleanup_expired_transient
+from banksia.runtime.post_commit.bootstrap import read_transient_cleanup_page
+from banksia.runtime.task_root import cleanup_expired_transient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from tests.helpers.executor_harness import (

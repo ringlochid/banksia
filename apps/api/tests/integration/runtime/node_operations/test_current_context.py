@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from autoclaw.persistence.models import (
+from banksia.persistence.models import (
     AcceptedBoundaryModel,
     DispatchTurnModel,
     FlowModel,
 )
-from autoclaw.runtime.clock import utc_now
-from autoclaw.runtime.node_operations import NodeOperationScope
+from banksia.runtime.clock import utc_now
+from banksia.runtime.node_operations import NodeOperationScope
 from sqlalchemy import update
 from tests.helpers.executor_harness import SessionFactory, seeded_executor
 

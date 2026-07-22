@@ -5,8 +5,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from autoclaw.runtime.post_commit.deadlines import DeadlineScheduler
-from autoclaw.runtime.post_commit.signals import (
+from banksia.runtime.post_commit.deadlines import DeadlineScheduler
+from banksia.runtime.post_commit.signals import (
     CommandRunDue,
     DispatchStartDue,
     HumanRequestDue,

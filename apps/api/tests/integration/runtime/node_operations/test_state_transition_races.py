@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import cast
 
 import pytest
-from autoclaw.persistence.models import (
+from banksia.persistence.models import (
     ArtifactCurrentPointerModel,
     ArtifactPublicationModel,
     AssignmentCriteriaRefModel,
@@ -20,14 +20,14 @@ from autoclaw.persistence.models import (
     FlowWaitModel,
     HumanRequestModel,
 )
-from autoclaw.runtime.clock import utc_now
-from autoclaw.runtime.contracts.operation_failure import OperationFailureCode
-from autoclaw.runtime.dispatch.authority import read_node_operation_authority
-from autoclaw.runtime.errors import RuntimeOperationError
-from autoclaw.runtime.node_operations import NodeOperationScope
-from autoclaw.runtime.node_operations.catalog import get_node_operation_descriptor
-from autoclaw.runtime.node_operations.contracts import NodeOperationName
-from autoclaw.runtime.node_operations.domain_handlers import execute_controller_node_operation
+from banksia.runtime.clock import utc_now
+from banksia.runtime.contracts.operation_failure import OperationFailureCode
+from banksia.runtime.dispatch.authority import read_node_operation_authority
+from banksia.runtime.errors import RuntimeOperationError
+from banksia.runtime.node_operations import NodeOperationScope
+from banksia.runtime.node_operations.catalog import get_node_operation_descriptor
+from banksia.runtime.node_operations.contracts import NodeOperationName
+from banksia.runtime.node_operations.domain_handlers import execute_controller_node_operation
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from tests.helpers.executor_harness import (

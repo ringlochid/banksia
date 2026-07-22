@@ -4,10 +4,10 @@ import argparse
 from contextlib import nullcontext
 from pathlib import Path
 
-import autoclaw.definitions.registry.seeds as registry_seeds
-import autoclaw.interfaces.cli as cli
+import banksia.definitions.registry.seeds as registry_seeds
+import banksia.interfaces.cli as cli
 import pytest
-from autoclaw.persistence.session import dispose_db_engine
+from banksia.persistence.session import dispose_db_engine
 
 
 @pytest.mark.asyncio
@@ -15,8 +15,8 @@ async def test_init_fails_when_packaged_seed_definitions_are_missing(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    config_path = tmp_path / "autoclaw-config.toml"
-    data_dir = tmp_path / "autoclaw-data"
+    config_path = tmp_path / "banksia-config.toml"
+    data_dir = tmp_path / "banksia-data"
     empty_seed_root = tmp_path / "missing-packaged-definitions"
     empty_seed_root.mkdir()
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from autoclaw.runtime.node_operations import NODE_OPERATION_CATALOG
+from banksia.runtime.node_operations import NODE_OPERATION_CATALOG
 
 
 def test_node_operation_catalog_owns_provider_neutral_teaching_metadata() -> None:

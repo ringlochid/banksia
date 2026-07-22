@@ -4,10 +4,10 @@ import os
 from pathlib import Path
 from typing import cast
 
-import autoclaw.runtime.node_operations.executor as executor_module
-import autoclaw.runtime.task_root.file_access as file_access_module
+import banksia.runtime.node_operations.executor as executor_module
+import banksia.runtime.task_root.file_access as file_access_module
 import pytest
-from autoclaw.persistence.models import (
+from banksia.persistence.models import (
     ArtifactCurrentPointerModel,
     ArtifactPublicationModel,
     AssignmentModel,
@@ -16,11 +16,11 @@ from autoclaw.persistence.models import (
     CheckpointTransientModel,
     TransientLocalizationModel,
 )
-from autoclaw.runtime.checkpoint import CheckpointPreparation
-from autoclaw.runtime.contracts.operation_failure import OperationFailureCode
-from autoclaw.runtime.errors import RuntimeOperationError
-from autoclaw.runtime.node_operations import NodeOperationScope, get_node_operation_descriptor
-from autoclaw.runtime.node_operations.contracts import RecordCheckpointRequest
+from banksia.runtime.checkpoint import CheckpointPreparation
+from banksia.runtime.contracts.operation_failure import OperationFailureCode
+from banksia.runtime.errors import RuntimeOperationError
+from banksia.runtime.node_operations import NodeOperationScope, get_node_operation_descriptor
+from banksia.runtime.node_operations.contracts import RecordCheckpointRequest
 from pydantic import ValidationError
 from sqlalchemy import func, select
 from tests.helpers.executor_harness import (

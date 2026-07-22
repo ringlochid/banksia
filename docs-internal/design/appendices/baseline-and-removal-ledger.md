@@ -86,6 +86,8 @@ The six failures are pre-existing Flow-era schema reflection and cross-owner gua
 5. `test_lifespan_fails_closed_on_stale_runtime_schema`; and
 6. `test_lifespan_creates_schema_only_for_genuinely_empty_database`.
 
+WP-01 corrected the disposable Postgres environment and reran the same 188-test container lane through Banksia identity. Its result was 181 passed and 7 failed, with no skipped test. The reclassified seventh case is `test_postgres_reset_recreates_only_dedicated_schema_and_seeds`: it had been the one skipped case in the WP-00 result because the old Compose harness did not expose its disposable URL under the test's expected environment name. It now runs and reaches the same pre-existing exact-schema reflection defect family as the six cases above. This is added evidence, not a new identity regression or a waiver. WP-02/WP-03/WP-07 must replace and make green the affected seed, Task/runtime-schema, and currentness constraints; their final Postgres proof must include this reset case.
+
 ### Legacy Console browser exceptions
 
 The eight failures are stale copy or locator expectations in the disposable legacy Console and are replacement-owned by WP-10/WP-11:

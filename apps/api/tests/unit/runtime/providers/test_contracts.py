@@ -5,13 +5,13 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 import pytest
-from autoclaw.definitions.contracts.registry import NetworkAccess, ProviderNativeAccess
-from autoclaw.definitions.contracts.workflow import ProviderKind
-from autoclaw.runtime.contracts.provider_resolution import (
+from banksia.definitions.contracts.registry import NetworkAccess, ProviderNativeAccess
+from banksia.definitions.contracts.workflow import ProviderKind
+from banksia.runtime.contracts.provider_resolution import (
     CodexProviderRoute,
     OpenClawProviderRoute,
 )
-from autoclaw.runtime.providers.contracts import (
+from banksia.runtime.providers.contracts import (
     CompatibilityNodeMcpConnection,
     DispatchStartRequest,
     ManagedNodeMcpConnection,
@@ -20,7 +20,7 @@ from autoclaw.runtime.providers.contracts import (
     ProviderStartAccepted,
     ProviderStopOutcome,
 )
-from autoclaw.runtime.providers.registry import ProviderAdapterRegistry
+from banksia.runtime.providers.registry import ProviderAdapterRegistry
 from pydantic import SecretStr, ValidationError
 
 

@@ -6,7 +6,7 @@ Use this guide for schema, persistence, reset, registry, SQLite, or PostgreSQL c
 
 SQLite is the default local database. The optional `postgres` package extra adds `asyncpg`; a PostgreSQL URL still must be configured explicitly.
 
-AutoClaw has one exact current schema. Startup and `autoclaw db upgrade` create it only for an empty database. Any incompatible non-empty schema fails with `autoclaw db reset` guidance. There is no legacy migration, repair, or backup lane.
+Banksia has one exact current schema. Startup and `banksia db upgrade` create it only for an empty database. Any incompatible non-empty schema fails with `banksia db reset` guidance. There is no legacy migration, repair, or backup lane.
 
 ## Reset boundary
 

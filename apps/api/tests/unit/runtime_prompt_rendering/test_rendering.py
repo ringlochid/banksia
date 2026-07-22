@@ -4,8 +4,8 @@ import json
 import re
 
 import pytest
-from autoclaw.runtime.contracts.prompt import PROMPT_DYNAMIC_INPUT_KEYS
-from autoclaw.runtime.prompt import render_dispatch_request, render_dynamic_input
+from banksia.runtime.contracts.prompt import PROMPT_DYNAMIC_INPUT_KEYS
+from banksia.runtime.prompt import render_dispatch_request, render_dynamic_input
 
 from .samples import all_trigger_samples, sample_dynamic_input, sample_request
 

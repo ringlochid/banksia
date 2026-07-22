@@ -6,7 +6,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CONSOLE_DIST_DIR = REPO_ROOT / "apps" / "console" / "dist"
 PACKAGED_CONSOLE_ASSETS_DIR = (
-    REPO_ROOT / "apps" / "api" / "src" / "autoclaw" / "interfaces" / "web_console" / "assets"
+    REPO_ROOT / "apps" / "api" / "src" / "banksia" / "interfaces" / "web_console" / "assets"
 )
 _DEVELOPMENT_ONLY_ASSET_NAMES = frozenset({"mockServiceWorker.js"})
 

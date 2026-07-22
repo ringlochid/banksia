@@ -6,8 +6,8 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
-from autoclaw.persistence import RuntimeBase
-from autoclaw.persistence.schema_contract import verify_schema_contract
+from banksia.persistence import RuntimeBase
+from banksia.persistence.schema_contract import verify_schema_contract
 from sqlalchemy import Connection, inspect, make_url, select
 from sqlalchemy.engine import URL
 from sqlalchemy.exc import IntegrityError
@@ -203,7 +203,7 @@ async def test_postgresql_reflects_and_enforces_current_dispatch_constraints() -
     if database_url is None:
         pytest.skip("a disposable PostgreSQL test database is not configured")
 
-    schema_name = f"autoclaw_currentness_{uuid4().hex}"
+    schema_name = f"banksia_currentness_{uuid4().hex}"
     engine = create_async_engine(
         database_url,
         execution_options={"schema_translate_map": {None: schema_name}},
@@ -384,9 +384,7 @@ def _reflected_currentness_computed_columns(
 
 
 def _disposable_postgres_url() -> URL | None:
-    raw_url = os.environ.get("AUTOCLAW_TEST_POSTGRES_URL") or os.environ.get(
-        "AUTOCLAW_DATABASE_URL"
-    )
+    raw_url = os.environ.get("BANKSIA_TEST_POSTGRES_URL") or os.environ.get("BANKSIA_DATABASE_URL")
     if raw_url is None:
         return None
     database_url = make_url(raw_url)

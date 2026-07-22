@@ -4,23 +4,23 @@ import warnings
 from typing import Any
 
 import pytest
-from autoclaw.definitions.contracts import (
+from banksia.definitions.contracts import (
     CapabilityDecision as AuthoredCapabilityDecision,
 )
-from autoclaw.definitions.contracts import (
+from banksia.definitions.contracts import (
     HumanRequestKind as AuthoredHumanRequestKind,
 )
-from autoclaw.definitions.contracts import (
+from banksia.definitions.contracts import (
     PolicyDefinitionFile,
     PolicyDefinitionInput,
     ProviderKind,
     RoleDefinitionFile,
     RoleDefinitionInput,
 )
-from autoclaw.runtime.contracts import (
+from banksia.runtime.contracts import (
     CapabilityDecision as RuntimeCapabilityDecision,
 )
-from autoclaw.runtime.contracts import (
+from banksia.runtime.contracts import (
     HumanRequestKind as RuntimeHumanRequestKind,
 )
 from pydantic import ValidationError

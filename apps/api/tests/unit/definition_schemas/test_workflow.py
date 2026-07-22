@@ -4,7 +4,7 @@ from copy import deepcopy
 from typing import Any
 
 import pytest
-from autoclaw.definitions.contracts import NodeKind, WorkflowDefinitionFile, WorkflowNodeInput
+from banksia.definitions.contracts import NodeKind, WorkflowDefinitionFile, WorkflowNodeInput
 from pydantic import ValidationError
 
 from .support import bounded_workflow_payload

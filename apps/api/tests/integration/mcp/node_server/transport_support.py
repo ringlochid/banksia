@@ -7,13 +7,13 @@ from dataclasses import dataclass
 from typing import Any, cast
 
 import httpx
-from autoclaw.interfaces.mcp.node import NodeMcpApplications, create_node_mcp_apps
-from autoclaw.interfaces.mcp.transport import node_mcp_transport_policy
-from autoclaw.runtime.node_mcp import (
+from banksia.interfaces.mcp.node import NodeMcpApplications, create_node_mcp_apps
+from banksia.interfaces.mcp.transport import node_mcp_transport_policy
+from banksia.runtime.node_mcp import (
     DispatchMcpBindingRegistry,
     IssuedDispatchMcpBinding,
 )
-from autoclaw.runtime.node_operations import (
+from banksia.runtime.node_operations import (
     NODE_OPERATION_CATALOG,
     NodeOperationDescriptor,
     NodeOperationExecutor,

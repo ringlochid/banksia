@@ -4,7 +4,7 @@ import asyncio
 from types import SimpleNamespace
 from typing import Any, cast
 
-import autoclaw.persistence.session as persistence_session
+import banksia.persistence.session as persistence_session
 import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine
 
@@ -21,9 +21,9 @@ def test_postgres_engine_configuration_does_not_install_sqlite_transaction_hooks
         return postgres_engine
 
     settings = SimpleNamespace(
-        database_url="postgresql+asyncpg://autoclaw@localhost/autoclaw",
+        database_url="postgresql+asyncpg://banksia@localhost/banksia",
         database_echo=False,
-        postgres_schema="autoclaw_test",
+        postgres_schema="banksia_test",
     )
     monkeypatch.setattr(persistence_session, "get_settings", lambda: settings)
     monkeypatch.setattr(persistence_session, "create_async_engine", capture_engine)
@@ -41,7 +41,7 @@ def test_postgres_engine_configuration_does_not_install_sqlite_transaction_hooks
         "engine_kwargs": {
             "echo": False,
             "pool_pre_ping": True,
-            "connect_args": {"server_settings": {"search_path": "autoclaw_test"}},
-            "execution_options": {"schema_translate_map": {None: "autoclaw_test"}},
+            "connect_args": {"server_settings": {"search_path": "banksia_test"}},
+            "execution_options": {"schema_translate_map": {None: "banksia_test"}},
         },
     }

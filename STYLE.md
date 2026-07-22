@@ -46,7 +46,7 @@ This file holds the repo-wide measurable engineering rules for touched code. Kee
 - name files and modules for their dominant responsibility, not for migration leftovers, chronology, or vague categorization
 - avoid new generic names such as `utils.py`, `helpers.py`, `misc.py`, `common.py`, or `support.py` when the responsibility can be named directly
 - avoid steady-state path names with temporary or migration suffixes such as `new`, `old`, `temp`, `final`, or `v2`
-- converge on one canonical `banksia/**` backend package; the imported `autoclaw/**` tree is migration baseline only, not a second long-lived namespace
+- converge on one canonical `banksia/**` backend package; `apps/api/src/banksia/**` temporarily hosts imported baseline semantics while later work packages replace them, not a second namespace or compatibility surface
 - keep top-level shared surfaces explicit: shared helpers, adapters, selectors, and mappers should be public and non-underscored
 - keep only explicit public-boundary exceptions flat: real `__init__.py` package surfaces, thin `cli.py` entrypoints, and required `conftest.py` discovery surfaces
 - do not keep long-lived compatibility wrappers, import-only shims, or placeholder-only tracked trees as steady-state layout

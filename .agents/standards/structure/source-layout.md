@@ -28,7 +28,7 @@ The final top level is product- and ownership-oriented:
 
 Do not reserve an `apps/**` taxonomy for hypothetical future applications. Do not add top-level directories merely to sort by language, build tool, or temporary migration state when an existing owner fits.
 
-During the ordered migration only, `apps/api/src/autoclaw/**`, `apps/api/tests/**`, and `apps/console/**` remain current AutoClaw baseline locations. They are migration evidence and temporary implementation hosts, not Banksia target layout or naming authority. Never create a parallel target package beside them before the planned root-layout cutover.
+During the ordered migration only, `apps/api/src/banksia/**`, `apps/api/tests/**`, and `apps/console/**` remain temporary hosts for imported AutoClaw baseline behavior and its proof. They are migration evidence, not Banksia target layout authority. Never create a parallel target package beside them before the planned root-layout cutover.
 
 ## Canonical backend package rule
 

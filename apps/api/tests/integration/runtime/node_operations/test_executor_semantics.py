@@ -4,9 +4,9 @@ from datetime import timedelta
 from pathlib import Path
 from typing import cast
 
-import autoclaw.runtime.node_operations.executor as executor_module
+import banksia.runtime.node_operations.executor as executor_module
 import pytest
-from autoclaw.persistence.models import (
+from banksia.persistence.models import (
     AssignmentModel,
     AttemptCheckpointModel,
     AttemptModel,
@@ -16,14 +16,14 @@ from autoclaw.persistence.models import (
     PolicyRevisionModel,
     RoleRevisionModel,
 )
-from autoclaw.runtime.clock import utc_now
-from autoclaw.runtime.contracts.operation_failure import OperationFailureCode
-from autoclaw.runtime.dispatch.authority import (
+from banksia.runtime.clock import utc_now
+from banksia.runtime.contracts.operation_failure import OperationFailureCode
+from banksia.runtime.dispatch.authority import (
     read_node_operation_authority,
     refresh_node_activity,
 )
-from autoclaw.runtime.errors import RuntimeOperationError
-from autoclaw.runtime.node_operations import NodeActivitySignal, NodeOperationScope
+from banksia.runtime.errors import RuntimeOperationError
+from banksia.runtime.node_operations import NodeActivitySignal, NodeOperationScope
 from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession

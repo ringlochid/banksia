@@ -2,16 +2,16 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from autoclaw.definitions.contracts.workflow import NodeKind
-from autoclaw.runtime.contracts.capabilities import EffectiveCapabilitySet
-from autoclaw.runtime.contracts.command_runs import CommandRunStartRequest
-from autoclaw.runtime.contracts.human_requests import (
+from banksia.definitions.contracts.workflow import NodeKind
+from banksia.runtime.contracts.capabilities import EffectiveCapabilitySet
+from banksia.runtime.contracts.command_runs import CommandRunStartRequest
+from banksia.runtime.contracts.human_requests import (
     HumanRequestItem,
     HumanRequestResolution,
     HumanRequestTimeout,
     PendingHumanRequest,
 )
-from autoclaw.runtime.contracts.primitives import (
+from banksia.runtime.contracts.primitives import (
     CheckpointOutcome,
     EgressBoundary,
     HumanRequestKind,
@@ -19,7 +19,7 @@ from autoclaw.runtime.contracts.primitives import (
     HumanRequestResolutionSurface,
     HumanRequestStatus,
 )
-from autoclaw.runtime.contracts.prompt import (
+from banksia.runtime.contracts.prompt import (
     AcceptedBoundaryTrigger,
     ChildReturnTrigger,
     CommandResultTrigger,

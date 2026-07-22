@@ -36,6 +36,6 @@ Focused runtime integration tests own command exit, cancellation, timeout, reap,
 make console-e2e-real
 ```
 
-Playwright starts a disposable AutoClaw backend, waits for `/healthz`, runs the focused browser smoke, and stops the process. The smoke reads stored definitions, starts a task, performs guarded pause and cancel mutations, receives their SSE events, checks cursor reset, and verifies local Host/Origin admission without a browser API key. It does not contact a live provider or mutate a real user service.
+Playwright starts a disposable Banksia backend, waits for `/healthz`, runs the focused browser smoke, and stops the process. The smoke reads stored definitions, starts a task, performs guarded pause and cancel mutations, receives their SSE events, checks cursor reset, and verifies local Host/Origin admission without a browser API key. It does not contact a live provider or mutate a real user service.
 
 The exact backend test paths live in `scripts/testing/run_api_pytest_groups.sh`. The browser server is owned by `apps/console/playwright.real-backend.config.ts` and `scripts/testing/run_console_real_backend.py`.

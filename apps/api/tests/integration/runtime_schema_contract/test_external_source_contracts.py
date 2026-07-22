@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
-from autoclaw.persistence import RuntimeBase
+from banksia.persistence import RuntimeBase
 from sqlalchemy import Connection, select
 from sqlalchemy.exc import IntegrityError
 from tests.helpers.catalog_seed import seed_catalog

@@ -10,7 +10,7 @@ Passive commands do not turn missing checks into success. Provider authenticatio
 
 ## Safe boundaries
 
-- `setup` and `providers configure` change AutoClaw config only.
+- `setup` and `providers configure` change Banksia config only.
 - `providers check` is a bounded diagnostic, not a model turn.
 - `task-compose start` returns after bootstrap commit, before provider start.
 - `service install --no-start` writes and enables the unit without starting it.

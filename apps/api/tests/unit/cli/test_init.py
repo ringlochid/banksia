@@ -3,11 +3,11 @@ from __future__ import annotations
 import tomllib
 from pathlib import Path
 
-import autoclaw.interfaces.cli as cli
+import banksia.interfaces.cli as cli
 import pytest
-from autoclaw.config import DEFAULT_LOG_LEVEL
-from autoclaw.definitions.seeds import get_packaged_seed_definitions_root
-from autoclaw.persistence.session import dispose_db_engine
+from banksia.config import DEFAULT_LOG_LEVEL
+from banksia.definitions.seeds import get_packaged_seed_definitions_root
+from banksia.persistence.session import dispose_db_engine
 
 from .cli_test_support import assert_seeded_registry_is_bootstrapped, build_cli_init_args
 
@@ -17,8 +17,8 @@ async def test_init_writes_canonical_config_and_db_file(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    config_path = tmp_path / "autoclaw-config.toml"
-    data_dir = tmp_path / "autoclaw-data"
+    config_path = tmp_path / "banksia-config.toml"
+    data_dir = tmp_path / "banksia-data"
 
     try:
         result = await cli.cmd_init(build_cli_init_args(config_path, data_dir))
@@ -27,7 +27,7 @@ async def test_init_writes_canonical_config_and_db_file(
 
     assert result == 0
     assert config_path.exists()
-    assert data_dir.joinpath("autoclaw.persistence").exists()
+    assert data_dir.joinpath("banksia.persistence").exists()
 
     config_text = config_path.read_text(encoding="utf-8")
     config_payload = tomllib.loads(config_text)
@@ -40,7 +40,7 @@ async def test_init_writes_canonical_config_and_db_file(
     assert "claude" not in config_payload
     assert "openclaw" not in config_payload
     assert "runtime" not in config_payload
-    assert_seeded_registry_is_bootstrapped(data_dir / "autoclaw.persistence")
+    assert_seeded_registry_is_bootstrapped(data_dir / "banksia.persistence")
     assert '"ok": true' in capsys.readouterr().out
 
 
@@ -50,9 +50,9 @@ async def test_init_keeps_sql_echo_quiet_when_legacy_debug_env_is_set(
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    config_path = tmp_path / "autoclaw-config.toml"
-    data_dir = tmp_path / "autoclaw-data"
-    monkeypatch.setenv("AUTOCLAW_DEBUG", "true")
+    config_path = tmp_path / "banksia-config.toml"
+    data_dir = tmp_path / "banksia-data"
+    monkeypatch.setenv("BANKSIA_DEBUG", "true")
 
     try:
         result = await cli.cmd_init(build_cli_init_args(config_path, data_dir))

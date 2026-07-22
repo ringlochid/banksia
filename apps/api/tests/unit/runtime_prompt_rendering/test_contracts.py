@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import pytest
-from autoclaw.definitions.contracts.workflow import NodeKind
-from autoclaw.runtime.contracts.prompt import (
+from banksia.definitions.contracts.workflow import NodeKind
+from banksia.runtime.contracts.prompt import (
     PROMPT_DYNAMIC_INPUT_KEYS,
     DispatchRequestRenderInput,
     OperatorContinueTrigger,

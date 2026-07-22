@@ -10,19 +10,19 @@ from threading import Event, Thread, current_thread
 from typing import Any, cast
 
 import pytest
-from autoclaw.definitions.contracts.registry import RoleDefinitionInput
-from autoclaw.definitions.registry import (
+from banksia.definitions.contracts.registry import RoleDefinitionInput
+from banksia.definitions.registry import (
     load_current_role,
     seed_definition_registry,
     upsert_role_definition,
 )
-from autoclaw.definitions.registry.revisions.ids import canonical_content_hash, role_revision_id
-from autoclaw.definitions.registry.revisions.types import PreparedDefinitionRevisionUpsert
-from autoclaw.definitions.registry.revisions.writes import (
+from banksia.definitions.registry.revisions.ids import canonical_content_hash, role_revision_id
+from banksia.definitions.registry.revisions.types import PreparedDefinitionRevisionUpsert
+from banksia.definitions.registry.revisions.writes import (
     insert_definition_revision,
     load_definition_for_update,
 )
-from autoclaw.persistence import RoleDefinitionModel, RoleRevisionModel
+from banksia.persistence import RoleDefinitionModel, RoleRevisionModel
 from sqlalchemy import Engine, event, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession

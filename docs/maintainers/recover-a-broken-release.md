@@ -6,7 +6,7 @@ Preserve evidence, identify the failed shipped surface, fix its owner, and publi
 
 - package version, artifact type, platform, and Python version
 - exact install command and error
-- `autoclaw status --json` and `autoclaw config show --json`
+- `banksia status --json` and `banksia config show --json`
 - service status or foreground logs
 - task ID, current runtime read, and task events when runtime work failed
 

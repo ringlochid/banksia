@@ -1,6 +1,6 @@
-# AutoClaw documentation
+# Banksia documentation
 
-AutoClaw runs structured AI work from controller-owned tasks, assignments, and evidence. Start one task first. Read the concepts when you need to design or operate a larger workflow.
+Banksia runs structured AI work from controller-owned tasks, assignments, and evidence. Start one task first. Read the concepts when you need to design or operate a larger workflow.
 
 ## Browse by section
 
@@ -13,7 +13,7 @@ AutoClaw runs structured AI work from controller-owned tasks, assignments, and e
 
 ## Start here
 
-1. [Install and set up AutoClaw](start/getting-started.md).
+1. [Install and set up Banksia](start/getting-started.md).
 2. [Choose and check a provider](start/configuration-and-settings.md).
 3. [Start a task](start/start-a-task.md).
 4. [Inspect the task](start/inspect-a-task.md).

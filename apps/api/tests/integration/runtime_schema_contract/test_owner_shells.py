@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import autoclaw.persistence as persistence
-import autoclaw.persistence.models as persistence_models
-import autoclaw.persistence.models.runtime as runtime_models
-from autoclaw.persistence import session as persistence_session
+import banksia.persistence as persistence
+import banksia.persistence.models as persistence_models
+import banksia.persistence.models.runtime as runtime_models
+from banksia.persistence import session as persistence_session
 
 REMOVED_MODEL_NAMES = {
     "BudgetCounterModel",

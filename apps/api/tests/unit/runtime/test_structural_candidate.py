@@ -1,10 +1,10 @@
 import pytest
-from autoclaw.definitions.contracts.workflow import NodeKind, ProviderKind
-from autoclaw.runtime.contracts import ChildNodeDraft, ChildNodePatch
-from autoclaw.runtime.node_operations.structural_candidate.models import (
+from banksia.definitions.contracts.workflow import NodeKind, ProviderKind
+from banksia.runtime.contracts import ChildNodeDraft, ChildNodePatch
+from banksia.runtime.node_operations.structural_candidate.models import (
     StructuralNodeCandidate,
 )
-from autoclaw.runtime.node_operations.structural_candidate.validation import (
+from banksia.runtime.node_operations.structural_candidate.validation import (
     build_structural_revision_candidate,
 )
 from pydantic import ValidationError

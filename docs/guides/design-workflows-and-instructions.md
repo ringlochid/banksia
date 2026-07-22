@@ -38,7 +38,7 @@ List the artifacts and criteria the root needs at closure. Then add only the nod
 
 ## Check real tools
 
-Confirm the selected provider can use the required file, shell, browser, document, or service tools. Provider-native tools are separate from AutoClaw node capabilities. Long commands belong in a command-run-enabled worker; human judgment belongs in a human-request-enabled node.
+Confirm the selected provider can use the required file, shell, browser, document, or service tools. Provider-native tools are separate from Banksia node capabilities. Long commands belong in a command-run-enabled worker; human judgment belongs in a human-request-enabled node.
 
 ## Pilot before scaling
 

@@ -4,10 +4,10 @@ from pathlib import Path
 from typing import cast
 
 import pytest
-from autoclaw.config import CodexSettings, RuntimeSettings, Settings
-from autoclaw.definitions.contracts.registry import PolicyDefinitionInput
-from autoclaw.definitions.contracts.workflow import NodeKind, ProviderKind
-from autoclaw.persistence.models import (
+from banksia.config import CodexSettings, RuntimeSettings, Settings
+from banksia.definitions.contracts.registry import PolicyDefinitionInput
+from banksia.definitions.contracts.workflow import NodeKind, ProviderKind
+from banksia.persistence.models import (
     AcceptedBoundaryModel,
     AssignmentDecisionModel,
     AssignmentModel,
@@ -18,15 +18,15 @@ from autoclaw.persistence.models import (
     FlowNodeModel,
     PolicyRevisionModel,
 )
-from autoclaw.runtime.boundary import open_boundary_successor
-from autoclaw.runtime.clock import utc_now
-from autoclaw.runtime.contracts.operation_failure import OperationFailureCode
-from autoclaw.runtime.dispatch.preparation import DispatchOpeningDependencies
-from autoclaw.runtime.errors import RuntimeOperationError
-from autoclaw.runtime.flow.continuation import continue_paused_flow
-from autoclaw.runtime.flow.service import runtime_flow_read
-from autoclaw.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
-from autoclaw.runtime.post_commit import (
+from banksia.runtime.boundary import open_boundary_successor
+from banksia.runtime.clock import utc_now
+from banksia.runtime.contracts.operation_failure import OperationFailureCode
+from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
+from banksia.runtime.errors import RuntimeOperationError
+from banksia.runtime.flow.continuation import continue_paused_flow
+from banksia.runtime.flow.service import runtime_flow_read
+from banksia.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
+from banksia.runtime.post_commit import (
     BoundaryAccepted,
     CapturedRuntimeEffectPublisher,
     DispatchStartDue,

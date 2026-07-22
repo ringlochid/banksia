@@ -5,13 +5,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 
-import autoclaw.interfaces.http.routers.control as control_router_module
-import autoclaw.interfaces.http.routers.tasks as tasks_router_module
+import banksia.interfaces.http.routers.control as control_router_module
+import banksia.interfaces.http.routers.tasks as tasks_router_module
 import httpx
 import pytest
-from autoclaw.main import create_app
-from autoclaw.persistence.session import get_db_session
-from autoclaw.runtime.contracts import (
+from banksia.main import create_app
+from banksia.persistence.session import get_db_session
+from banksia.runtime.contracts import (
     FlowStatus,
     HumanRequestResolution,
     HumanRequestResolutionKind,

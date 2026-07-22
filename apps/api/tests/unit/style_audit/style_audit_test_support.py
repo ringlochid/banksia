@@ -159,11 +159,11 @@ def _build_results_import_findings_payload(models: Any, tmp_path: Path) -> dict[
     return {
         "import_direction_findings": (
             models.ImportDirectionFinding(
-                path=tmp_path / "autoclaw" / "consumer.py",
+                path=tmp_path / "banksia" / "consumer.py",
                 line=5,
                 statement="from app.runtime.owner import VALUE",
-                owner_family="autoclaw",
-                violated_rule="autoclaw-consumer-imports-app-owner",
+                owner_family="banksia",
+                violated_rule="banksia-consumer-imports-app-owner",
             ),
         ),
         "import_placement_findings": (
@@ -237,10 +237,10 @@ def _build_results_layout_findings_payload(models: Any, tmp_path: Path) -> dict[
         ),
         "duplicate_module_name_findings": (
             models.DuplicateModuleNameFinding(
-                module_name="autoclaw.common",
+                module_name="banksia.common",
                 paths=(
-                    tmp_path / "apps" / "api" / "autoclaw" / "common.py",
-                    tmp_path / "apps" / "api" / "src" / "autoclaw" / "common.py",
+                    tmp_path / "apps" / "api" / "banksia" / "common.py",
+                    tmp_path / "apps" / "api" / "src" / "banksia" / "common.py",
                 ),
             ),
         ),

@@ -5,15 +5,15 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from datetime import UTC, datetime
 
-import autoclaw.runtime.post_commit.bootstrap as bootstrap_module
+import banksia.runtime.post_commit.bootstrap as bootstrap_module
 import pytest
-from autoclaw.runtime.post_commit import CapturedRuntimeEffectPublisher
-from autoclaw.runtime.post_commit.bootstrap import audit_startup_runtime_effects
-from autoclaw.runtime.post_commit.router import (
+from banksia.runtime.post_commit import CapturedRuntimeEffectPublisher
+from banksia.runtime.post_commit.bootstrap import audit_startup_runtime_effects
+from banksia.runtime.post_commit.router import (
     AsyncSessionContextFactory,
     RuntimeEffectRouter,
 )
-from autoclaw.runtime.post_commit.signals import (
+from banksia.runtime.post_commit.signals import (
     BoundaryAccepted,
     CommandRunCancellationRequested,
     CommandRunPending,
@@ -26,7 +26,7 @@ from autoclaw.runtime.post_commit.signals import (
     TransientCleanupRequested,
     WatchdogDeadlineChanged,
 )
-from autoclaw.runtime.startup_audit import StartupAuditPage
+from banksia.runtime.startup_audit import StartupAuditPage
 from sqlalchemy.ext.asyncio import AsyncSession
 
 type PageReader = Callable[

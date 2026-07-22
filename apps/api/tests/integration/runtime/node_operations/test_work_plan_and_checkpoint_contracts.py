@@ -3,11 +3,11 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-import autoclaw.runtime.work_plan.operations as work_plan_operations
+import banksia.runtime.work_plan.operations as work_plan_operations
 import pytest
-from autoclaw.runtime.contracts import CheckpointHandoffRead
-from autoclaw.runtime.node_operations import NodeOperationScope
-from autoclaw.runtime.work_plan import SetWorkPlanRequest
+from banksia.runtime.contracts import CheckpointHandoffRead
+from banksia.runtime.node_operations import NodeOperationScope
+from banksia.runtime.work_plan import SetWorkPlanRequest
 from pydantic import ValidationError
 from tests.helpers.executor_harness import seeded_executor
 

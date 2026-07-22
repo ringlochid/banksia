@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import cast
 
-import autoclaw.persistence as persistence
-from autoclaw.persistence import RuntimeBase
-from autoclaw.persistence.session import RuntimeAsyncSession
+import banksia.persistence as persistence
+from banksia.persistence import RuntimeBase
+from banksia.persistence.session import RuntimeAsyncSession
 from sqlalchemy import JSON, Table
 from sqlalchemy.dialects import postgresql, sqlite
 from sqlalchemy.ext.asyncio import AsyncSession

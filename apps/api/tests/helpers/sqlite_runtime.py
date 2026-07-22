@@ -7,8 +7,8 @@ from contextlib import asynccontextmanager, contextmanager
 from pathlib import Path
 from typing import Any, cast
 
-from autoclaw.persistence import RuntimeBase
-from autoclaw.persistence.session import install_sqlite_transaction_control
+from banksia.persistence import RuntimeBase
+from banksia.persistence.session import install_sqlite_transaction_control
 from sqlalchemy import Engine, create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 

@@ -9,9 +9,9 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
-from autoclaw.interfaces.cli.bootstrap.database import reset_database
-from autoclaw.interfaces.cli.support import command_env, temporary_env
-from autoclaw.persistence.session import dispose_db_engine, get_async_engine
+from banksia.interfaces.cli.bootstrap.database import reset_database
+from banksia.interfaces.cli.support import command_env, temporary_env
+from banksia.persistence.session import dispose_db_engine, get_async_engine
 from sqlalchemy import inspect, text
 from sqlalchemy.engine import make_url
 
@@ -32,7 +32,7 @@ def _run_packaged_cli(*args: str) -> subprocess.CompletedProcess[str]:
 
 
 def _invoke_packaged_cli(*args: str) -> subprocess.CompletedProcess[str]:
-    env = {key: value for key, value in os.environ.items() if not key.startswith("AUTOCLAW_")}
+    env = {key: value for key, value in os.environ.items() if not key.startswith("BANKSIA_")}
     existing_pythonpath = env.get("PYTHONPATH")
     env["PYTHONPATH"] = (
         str(PACKAGE_ROOT)
@@ -40,7 +40,7 @@ def _invoke_packaged_cli(*args: str) -> subprocess.CompletedProcess[str]:
         else os.pathsep.join((str(PACKAGE_ROOT), existing_pythonpath))
     )
     return subprocess.run(
-        [sys.executable, "-m", "autoclaw", *args],
+        [sys.executable, "-m", "banksia", *args],
         cwd=PACKAGE_ROOT,
         env=env,
         capture_output=True,
@@ -52,9 +52,17 @@ def _invoke_packaged_cli(*args: str) -> subprocess.CompletedProcess[str]:
 def test_db_reset_recreates_seeded_sqlite_database_on_packaged_cli_path(
     tmp_path: Path,
 ) -> None:
-    config_path = tmp_path / "autoclaw-config.toml"
-    data_dir = tmp_path / "autoclaw-data"
-    database_path = data_dir / "autoclaw.persistence"
+    config_path = tmp_path / "banksia-config.toml"
+    data_dir = tmp_path / "banksia-data"
+    database_path = data_dir / "banksia.persistence"
+    legacy_files = {
+        tmp_path / "config" / "autoclaw" / "config.toml": b"legacy config marker\n",
+        tmp_path / "data" / "autoclaw" / "keep.txt": b"legacy data marker\n",
+        tmp_path / "config" / "systemd" / "user" / "autoclaw.service": (b"legacy service marker\n"),
+    }
+    for path, payload in legacy_files.items():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(payload)
 
     _run_packaged_cli(
         "init",
@@ -103,14 +111,15 @@ def test_db_reset_recreates_seeded_sqlite_database_on_packaged_cli_path(
     assert role_count > 0
     assert policy_count > 0
     assert workflow_count > 0
+    assert {path: path.read_bytes() for path in legacy_files} == legacy_files
 
 
 def test_db_reset_deletes_controller_task_root_but_preserves_external_workspace(
     tmp_path: Path,
 ) -> None:
-    config_path = tmp_path / "autoclaw-config.toml"
-    data_dir = tmp_path / "autoclaw-data"
-    database_path = data_dir / "autoclaw.persistence"
+    config_path = tmp_path / "banksia-config.toml"
+    data_dir = tmp_path / "banksia-data"
+    database_path = data_dir / "banksia.persistence"
     task_root = data_dir / "tasks" / "task.alpha"
     external_workspace = tmp_path / "external-workspace"
 
@@ -153,9 +162,9 @@ def test_db_reset_deletes_controller_task_root_but_preserves_external_workspace(
 def test_db_reset_rejects_controller_task_root_outside_data_boundary_before_destruction(
     tmp_path: Path,
 ) -> None:
-    config_path = tmp_path / "autoclaw-config.toml"
-    data_dir = tmp_path / "autoclaw-data"
-    database_path = data_dir / "autoclaw.persistence"
+    config_path = tmp_path / "banksia-config.toml"
+    data_dir = tmp_path / "banksia-data"
+    database_path = data_dir / "banksia.persistence"
     external_task_root = tmp_path / "external-task-root"
 
     _run_packaged_cli(
@@ -183,7 +192,7 @@ def test_db_reset_rejects_controller_task_root_outside_data_boundary_before_dest
     )
 
     assert result.returncode != 0
-    assert "escapes the configured AutoClaw data boundary" in (result.stderr + result.stdout)
+    assert "escapes the configured Banksia data boundary" in (result.stderr + result.stdout)
     assert external_task_root.is_dir()
     with sqlite3.connect(database_path) as connection:
         assert connection.execute("SELECT COUNT(*) FROM tasks").fetchone()[0] == 1
@@ -192,9 +201,9 @@ def test_db_reset_rejects_controller_task_root_outside_data_boundary_before_dest
 def test_db_reset_rejects_symlinked_controller_task_root_before_destruction(
     tmp_path: Path,
 ) -> None:
-    config_path = tmp_path / "autoclaw-config.toml"
-    data_dir = tmp_path / "autoclaw-data"
-    database_path = data_dir / "autoclaw.persistence"
+    config_path = tmp_path / "banksia-config.toml"
+    data_dir = tmp_path / "banksia-data"
+    database_path = data_dir / "banksia.persistence"
     external_task_root = tmp_path / "external-task-root"
     linked_task_root = data_dir / "tasks" / "task-link"
 
@@ -235,9 +244,9 @@ def test_db_reset_rejects_symlinked_controller_task_root_before_destruction(
 def test_db_reset_rejects_symlinked_task_root_ancestor_before_destruction(
     tmp_path: Path,
 ) -> None:
-    config_path = tmp_path / "autoclaw-config.toml"
-    data_dir = tmp_path / "autoclaw-data"
-    database_path = data_dir / "autoclaw.persistence"
+    config_path = tmp_path / "banksia-config.toml"
+    data_dir = tmp_path / "banksia-data"
+    database_path = data_dir / "banksia.persistence"
     real_task_parent = data_dir / "real-tasks"
     real_task_root = real_task_parent / "task.alpha"
     linked_task_parent = data_dir / "tasks"
@@ -278,9 +287,9 @@ def test_db_reset_rejects_symlinked_task_root_ancestor_before_destruction(
 def test_db_reset_rejects_unsafe_sidecar_before_deleting_task_roots(
     tmp_path: Path,
 ) -> None:
-    config_path = tmp_path / "autoclaw-config.toml"
-    data_dir = tmp_path / "autoclaw-data"
-    database_path = data_dir / "autoclaw.persistence"
+    config_path = tmp_path / "banksia-config.toml"
+    data_dir = tmp_path / "banksia-data"
+    database_path = data_dir / "banksia.persistence"
     task_root = data_dir / "tasks" / "task.alpha"
     unsafe_sidecar = Path(f"{database_path}-journal")
 
@@ -323,13 +332,13 @@ async def test_postgres_reset_recreates_only_dedicated_schema_and_seeds(
     tmp_path: Path,
 ) -> None:
     database_url = _require_disposable_postgres_url()
-    config_path = tmp_path / "autoclaw-config.toml"
-    data_dir = tmp_path / "autoclaw-data"
+    config_path = tmp_path / "banksia-config.toml"
+    data_dir = tmp_path / "banksia-data"
     task_root = data_dir / "tasks" / "task.postgres"
 
     try:
         with (
-            temporary_env({"AUTOCLAW_POSTGRES_SCHEMA": "autoclaw"}),
+            temporary_env({"BANKSIA_POSTGRES_SCHEMA": "banksia"}),
             command_env(
                 config_path=config_path,
                 data_dir=data_dir,
@@ -355,13 +364,13 @@ async def test_postgres_reset_recreates_only_dedicated_schema_and_seeds(
         readback.dedicated_schema_table_names
     )
     assert readback.role_definition_count > 0
-    assert "autoclaw_reset_sentinel" in readback.public_schema_table_names
+    assert "banksia_reset_sentinel" in readback.public_schema_table_names
 
 
 def _require_disposable_postgres_url() -> str:
-    database_url = os.environ.get("AUTOCLAW_TEST_POSTGRES_URL")
+    database_url = os.environ.get("BANKSIA_TEST_POSTGRES_URL")
     if not database_url:
-        pytest.skip("AUTOCLAW_TEST_POSTGRES_URL not set")
+        pytest.skip("BANKSIA_TEST_POSTGRES_URL not set")
     database_name = make_url(database_url).database or ""
     if "test" not in database_name.casefold():
         pytest.skip("PostgreSQL reset proof requires an explicitly disposable test database")
@@ -372,7 +381,7 @@ async def _create_postgres_reset_sentinel() -> None:
     engine = get_async_engine()
     async with engine.begin() as connection:
         await connection.exec_driver_sql(
-            "CREATE TABLE IF NOT EXISTS public.autoclaw_reset_sentinel (id INTEGER)"
+            "CREATE TABLE IF NOT EXISTS public.banksia_reset_sentinel (id INTEGER)"
         )
     await dispose_db_engine()
 
@@ -383,7 +392,7 @@ async def _insert_postgres_reset_task(task_root: Path) -> None:
         await connection.execute(
             text(
                 """
-                INSERT INTO autoclaw.tasks (
+                INSERT INTO banksia.tasks (
                     task_id,
                     task_key,
                     title,
@@ -412,12 +421,12 @@ async def _read_postgres_reset_state() -> _PostgresResetReadback:
     async with engine.connect() as connection:
         dedicated_schema_table_names = frozenset(
             await connection.run_sync(
-                lambda sync_connection: inspect(sync_connection).get_table_names(schema="autoclaw")
+                lambda sync_connection: inspect(sync_connection).get_table_names(schema="banksia")
             )
         )
         role_definition_count = int(
             (
-                await connection.exec_driver_sql("SELECT COUNT(*) FROM autoclaw.role_definitions")
+                await connection.exec_driver_sql("SELECT COUNT(*) FROM banksia.role_definitions")
             ).scalar_one()
         )
         public_schema_table_names = frozenset(
@@ -435,7 +444,7 @@ async def _read_postgres_reset_state() -> _PostgresResetReadback:
 async def _drop_postgres_reset_sentinel() -> None:
     engine = get_async_engine()
     async with engine.begin() as connection:
-        await connection.exec_driver_sql("DROP TABLE IF EXISTS public.autoclaw_reset_sentinel")
+        await connection.exec_driver_sql("DROP TABLE IF EXISTS public.banksia_reset_sentinel")
 
 
 def _insert_task(database_path: Path, *, task_root: Path) -> None:

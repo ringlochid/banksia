@@ -5,15 +5,15 @@ import socket
 import sqlite3
 from pathlib import Path
 
-from autoclaw.config import DEFAULT_API_PORT, DEFAULT_LOG_LEVEL
-from autoclaw.definitions.contracts.workflow import ProviderKind
-from autoclaw.definitions.seeds import resolve_packaged_seed_definitions_root
-from autoclaw.interfaces.cli.bootstrap.config import settings_to_config_text
-from autoclaw.interfaces.cli.providers.contracts import (
+from banksia.config import DEFAULT_API_PORT, DEFAULT_LOG_LEVEL
+from banksia.definitions.contracts.workflow import ProviderKind
+from banksia.definitions.seeds import resolve_packaged_seed_definitions_root
+from banksia.interfaces.cli.bootstrap.config import settings_to_config_text
+from banksia.interfaces.cli.providers.contracts import (
     ProviderCheckOutcome,
     ProviderCheckSnapshot,
 )
-from autoclaw.runtime.providers import (
+from banksia.runtime.providers import (
     ProviderAuthenticationMethod,
     ProviderCheckAxisStatus,
 )
@@ -54,7 +54,7 @@ def write_local_cli_config(tmp_path: Path) -> Path:
     config_path.write_text(
         settings_to_config_text(
             data_dir=data_dir,
-            database_url=f"sqlite+aiosqlite:///{data_dir / 'autoclaw.persistence'}",
+            database_url=f"sqlite+aiosqlite:///{data_dir / 'banksia.persistence'}",
             host="127.0.0.1",
             port=18125,
             log_level="WARNING",
@@ -140,7 +140,7 @@ def write_systemctl_show_script(
             "UnitFileState=enabled",
             f"ActiveState={active_state}",
             f"SubState={sub_state}",
-            "FragmentPath=/tmp/autoclaw.service",
+            "FragmentPath=/tmp/banksia.service",
         ]
     )
     script_path.write_text(

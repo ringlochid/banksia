@@ -16,7 +16,7 @@ Use this guide when the work includes moving files, splitting packages, renaming
 
 ## Root map
 
-- `apps/api/src/autoclaw/**`: current AutoClaw migration-baseline backend until the ordered Banksia identity, semantic-contraction, and root-layout packages move proven code; never create a parallel target runtime beside it
+- `apps/api/src/banksia/**`: current Banksia-named migration-baseline backend until the ordered semantic-contraction and root-layout packages move proven code; never create a parallel target runtime beside it
 - `apps/api/tests/**`: current backend proof until the root-layout cutover moves target-aligned tests to `tests/**`
 - `apps/console/**`: disposable legacy Console used only for baseline evidence until the fresh root `console/**` replacement is proven
 - `definitions/**`: legacy authored inputs removed by Workflow-only catalog cutover; packaged seed files are bootstrap inputs, not runtime authority
@@ -76,21 +76,21 @@ Extended guidance: [Naming](../code/naming.md)
 
 ## Backend layout guidance
 
-- while the migration baseline remains under `apps/api/src/autoclaw/**`, keep one coherent taxonomy there and do not open a parallel `banksia_v2` tree; the ordered root-layout package moves the proven final backend to `src/banksia/**`
-- prefer public interfaces under `apps/api/src/autoclaw/interfaces/**`
-- keep HTTP surfaces under `apps/api/src/autoclaw/interfaces/http/**`
-- keep HTTP-only support contracts, presenters, and transport models under `apps/api/src/autoclaw/interfaces/http/contracts/**`
-- keep noun-owned HTTP route modules under `apps/api/src/autoclaw/interfaces/http/routers/**`
-- keep CLI entrypoints and noun-family orchestration under `apps/api/src/autoclaw/interfaces/cli/**`
-- keep MCP or similar server-facing entrypoints under `apps/api/src/autoclaw/interfaces/mcp/**`
+- while the Banksia-named migration baseline remains under `apps/api/src/banksia/**`, keep one coherent taxonomy there and do not open a parallel `banksia_v2` tree; the ordered root-layout package moves the proven final backend to `src/banksia/**`
+- prefer public interfaces under `apps/api/src/banksia/interfaces/**`
+- keep HTTP surfaces under `apps/api/src/banksia/interfaces/http/**`
+- keep HTTP-only support contracts, presenters, and transport models under `apps/api/src/banksia/interfaces/http/contracts/**`
+- keep noun-owned HTTP route modules under `apps/api/src/banksia/interfaces/http/routers/**`
+- keep CLI entrypoints and noun-family orchestration under `apps/api/src/banksia/interfaces/cli/**`
+- keep MCP or similar server-facing entrypoints under `apps/api/src/banksia/interfaces/mcp/**`
 - keep interface packages thin; parsing, dependency wiring, dispatch, and rendering belong there, not long-lived runtime or registry business logic
-- keep authored-definition families grouped under `apps/api/src/autoclaw/definitions/**`
-- keep definition-owned contracts under `apps/api/src/autoclaw/definitions/contracts/**`
-- keep persistence and ORM models under `apps/api/src/autoclaw/persistence/**`
-- keep runtime-owned contracts under `apps/api/src/autoclaw/runtime/contracts/**`
-- keep runtime orchestration under `apps/api/src/autoclaw/runtime/**`
-- keep platform-owned setup and environment code under `apps/api/src/autoclaw/platform/**`
-- when provider integration becomes substantial, keep reusable substrate under `apps/api/src/autoclaw/integrations/**` and keep runtime usage under the owning runtime family
+- keep authored-definition families grouped under `apps/api/src/banksia/definitions/**`
+- keep definition-owned contracts under `apps/api/src/banksia/definitions/contracts/**`
+- keep persistence and ORM models under `apps/api/src/banksia/persistence/**`
+- keep runtime-owned contracts under `apps/api/src/banksia/runtime/contracts/**`
+- keep runtime orchestration under `apps/api/src/banksia/runtime/**`
+- keep platform-owned setup and environment code under `apps/api/src/banksia/platform/**`
+- when provider integration becomes substantial, keep reusable substrate under `apps/api/src/banksia/integrations/**` and keep runtime usage under the owning runtime family
 
 ## Frontend layout guidance
 

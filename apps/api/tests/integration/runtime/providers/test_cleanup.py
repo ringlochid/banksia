@@ -6,10 +6,10 @@ from pathlib import Path
 from typing import cast
 
 import pytest
-from autoclaw.definitions.contracts.workflow import ProviderKind
-from autoclaw.persistence import RuntimeBase
-from autoclaw.runtime.post_commit import DispatchCleanupRequested
-from autoclaw.runtime.providers import (
+from banksia.definitions.contracts.workflow import ProviderKind
+from banksia.persistence import RuntimeBase
+from banksia.runtime.post_commit import DispatchCleanupRequested
+from banksia.runtime.providers import (
     DispatchStartRequest,
     ProviderAdapterRegistry,
     ProviderCheckResult,
@@ -17,7 +17,7 @@ from autoclaw.runtime.providers import (
     ProviderStartAccepted,
     ProviderStopOutcome,
 )
-from autoclaw.runtime.providers.cleanup import create_provider_dispatch_cleanup_handler
+from banksia.runtime.providers.cleanup import create_provider_dispatch_cleanup_handler
 from sqlalchemy.ext.asyncio import AsyncSession
 from tests.helpers.sqlite_runtime import (
     SyncSessionAdapter,

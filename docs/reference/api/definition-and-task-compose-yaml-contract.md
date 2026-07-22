@@ -43,7 +43,7 @@ Current fields are:
 
 `allowed_node_kinds` is a non-empty list of `root | parent | worker`. `title` is optional display metadata. `labels` is an optional list of portable search or grouping tags and defaults to an empty list.
 
-`description` should explain the reusable role purpose. `instruction` should explain the role's mode, evidence posture, criteria posture, and checkpoint expectations without assuming the node already knows AutoClaw terms.
+`description` should explain the reusable role purpose. `instruction` should explain the role's mode, evidence posture, criteria posture, and checkpoint expectations without assuming the node already knows Banksia terms.
 
 ### Policy YAML
 
@@ -261,7 +261,7 @@ Current shipped workflow fixtures are:
 - `project-management-delivery`
 - `topic-research-brief`
 
-The packaged bootstrap mirror under `apps/api/src/autoclaw/definitions/seeds/workflows/*.yaml` is the committed authored and shipped seed source for those fixtures. No repo-root definitions mirror is required by shipped paths.
+The packaged bootstrap mirror under `apps/api/src/banksia/definitions/seeds/workflows/*.yaml` is the committed authored and shipped seed source for those fixtures. No repo-root definitions mirror is required by shipped paths.
 
 Current shipped policy fixtures are:
 

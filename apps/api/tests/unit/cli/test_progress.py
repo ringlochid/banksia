@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 from io import StringIO
 
-from autoclaw.interfaces.cli.progress import CliProgress, sanitize_command_label
+from banksia.interfaces.cli.progress import CliProgress, sanitize_command_label
 
 
 def test_cli_progress_suppresses_json_output() -> None:

@@ -3,15 +3,15 @@
 Start with read-only checks:
 
 ```bash
-autoclaw status --json
-autoclaw config show --json
-autoclaw providers status
-autoclaw service status --json
+banksia status --json
+banksia config show --json
+banksia providers status
+banksia service status --json
 curl -sS http://127.0.0.1:18125/healthz
 curl -sS http://127.0.0.1:18125/readyz
 ```
 
-Run `autoclaw providers check <provider> --json` when a fresh provider diagnostic matters. Inspect the separate authentication and reachability axes. For Codex and Claude, a supported credential source may be found while model reachability remains `not_checked` because the check sends no model request.
+Run `banksia providers check <provider> --json` when a fresh provider diagnostic matters. Inspect the separate authentication and reachability axes. For Codex and Claude, a supported credential source may be found while model reachability remains `not_checked` because the check sends no model request.
 
 | Symptom | Help page |
 | --- | --- |

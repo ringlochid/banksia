@@ -32,6 +32,6 @@ It is appropriate when you need:
 
 ## Notes
 
-- `make test-api-db` brings up the isolated test compose project, recreates `autoclaw_test`, builds `infra/testing/api/Dockerfile`, runs the grouped integration suite, and tears the test project down on exit.
+- `make test-api-db` brings up the isolated test compose project, recreates `banksia_test`, builds `infra/testing/api/Dockerfile`, runs the grouped integration suite, and tears the test project down on exit.
 - The Dockerfile is test-only. It is not a shipped deployment image.
 - `make docker-up` and `make docker-down` remain the manual development stack commands; they are not required for this proof lane.

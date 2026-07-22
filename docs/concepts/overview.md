@@ -1,6 +1,6 @@
 # Product overview
 
-AutoClaw is a local-first controller for multi-step AI work. It turns reusable definitions and one launch request into a task that can be inspected, resumed, reviewed, and recovered.
+Banksia is a local-first controller for multi-step AI work. It turns reusable definitions and one launch request into a task that can be inspected, resumed, reviewed, and recovered.
 
 Use it when work needs more than one unstructured agent turn:
 
@@ -10,7 +10,7 @@ Use it when work needs more than one unstructured agent turn:
 - human decisions or long command waits
 - retry, replan, and operator recovery
 
-AutoClaw is not a provider transcript, prompt library, or generic shell runner. Providers run agent loops. AutoClaw owns the task, current assignment, legal state changes, and evidence needed to finish.
+Banksia is not a provider transcript, prompt library, or generic shell runner. Providers run agent loops. Banksia owns the task, current assignment, legal state changes, and evidence needed to finish.
 
 The shortest path is:
 

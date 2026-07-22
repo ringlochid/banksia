@@ -11,7 +11,7 @@ The wheel must contain the backend, definition seeds, prompt instruction assets,
 For a built artifact, the Linux helper can install into a dedicated virtual environment and user service:
 
 ```bash
-scripts/install-systemd-user.sh --wheel dist/autoclaw-*.whl --no-start
+scripts/install-systemd-user.sh --wheel dist/banksia_ai-*.whl --no-start
 ```
 
 `--no-start` is the safe release-proof path. Starting a real user service is a separate operator action.

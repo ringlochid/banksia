@@ -6,15 +6,16 @@ import os
 import subprocess
 import sys
 import tomllib
+from importlib.metadata import version
 from pathlib import Path
 from typing import Any, cast
 
-import autoclaw
-from autoclaw.definitions.seeds import get_packaged_seed_definitions_root
-from autoclaw.interfaces.cli.main import main
-from autoclaw.interfaces.web_console import get_packaged_web_console_assets_root
-from autoclaw.main import app, create_app
-from autoclaw.platform.managed_services.resources import get_managed_service_resources_root
+import banksia
+from banksia.definitions.seeds import get_packaged_seed_definitions_root
+from banksia.interfaces.cli.main import main
+from banksia.interfaces.web_console import get_packaged_web_console_assets_root
+from banksia.main import app, create_app
+from banksia.platform.managed_services.resources import get_managed_service_resources_root
 from fastapi import FastAPI
 
 
@@ -37,24 +38,24 @@ def _load_project_configuration() -> dict[str, Any]:
     return cast(dict[str, Any], pyproject["project"])
 
 
-def test_autoclaw_package_uses_src_modules_only() -> None:
+def test_banksia_package_uses_src_modules_only() -> None:
     package_root = Path(__file__).resolve().parents[2]
-    src_root = package_root / "src" / "autoclaw"
-    packaged_definitions = importlib.import_module("autoclaw.definitions")
-    packaged_definitions_contracts = importlib.import_module("autoclaw.definitions.contracts")
-    packaged_definitions_registry = importlib.import_module("autoclaw.definitions.registry")
-    packaged_http = importlib.import_module("autoclaw.interfaces.http")
-    packaged_cli_owner = importlib.import_module("autoclaw.interfaces.cli")
-    packaged_mcp_owner = importlib.import_module("autoclaw.interfaces.mcp")
-    packaged_web_console_owner = importlib.import_module("autoclaw.interfaces.web_console")
-    packaged_main_module = importlib.import_module("autoclaw.main")
-    packaged_persistence = importlib.import_module("autoclaw.persistence")
-    packaged_runtime_contracts = importlib.import_module("autoclaw.runtime.contracts")
+    src_root = package_root / "src" / "banksia"
+    packaged_definitions = importlib.import_module("banksia.definitions")
+    packaged_definitions_contracts = importlib.import_module("banksia.definitions.contracts")
+    packaged_definitions_registry = importlib.import_module("banksia.definitions.registry")
+    packaged_http = importlib.import_module("banksia.interfaces.http")
+    packaged_cli_owner = importlib.import_module("banksia.interfaces.cli")
+    packaged_mcp_owner = importlib.import_module("banksia.interfaces.mcp")
+    packaged_web_console_owner = importlib.import_module("banksia.interfaces.web_console")
+    packaged_main_module = importlib.import_module("banksia.main")
+    packaged_persistence = importlib.import_module("banksia.persistence")
+    packaged_runtime_contracts = importlib.import_module("banksia.runtime.contracts")
 
-    assert autoclaw.__file__ is not None
-    assert Path(autoclaw.__file__).resolve() == src_root / "__init__.py"
-    assert list(autoclaw.__path__) == [str(src_root)]
-    assert importlib.util.find_spec("autoclaw.cli") is None
+    assert banksia.__file__ is not None
+    assert Path(banksia.__file__).resolve() == src_root / "__init__.py"
+    assert list(banksia.__path__) == [str(src_root)]
+    assert importlib.util.find_spec("banksia.cli") is None
     assert packaged_definitions.__file__ is not None
     assert Path(packaged_definitions.__file__).resolve() == src_root / "definitions" / "__init__.py"
     assert packaged_definitions_contracts.__file__ is not None
@@ -100,12 +101,12 @@ def test_autoclaw_package_uses_src_modules_only() -> None:
 def test_cli_and_main_entrypoints_use_only_canonical_modules() -> None:
     project_config = _load_project_configuration()
     project_version = cast(str, project_config["version"])
-    packaged_main_module = importlib.import_module("autoclaw.main")
+    packaged_main_module = importlib.import_module("banksia.main")
     packaged_app = cast(FastAPI, packaged_main_module.app)
     packaged_create_app = cast(Any, packaged_main_module.create_app)
 
     assert main(["--help"]) == 0
-    assert app.title == packaged_app.title == "AutoClaw API"
+    assert app.title == packaged_app.title == "Banksia API"
     assert app.version == packaged_app.version == project_version
     assert _route_paths(create_app(should_enable_mcp_mounts=False).routes) == _route_paths(
         packaged_create_app(should_enable_mcp_mounts=False).routes
@@ -122,15 +123,19 @@ def test_pyproject_ships_canonical_packages_only() -> None:
     package_data = cast(dict[str, list[str]], setuptools_config["package-data"])
     scripts = cast(dict[str, str], project_config["scripts"])
 
+    assert project_config["name"] == "banksia-ai"
+    assert project_config["version"] == "0.1.8"
+    assert version("banksia-ai") == "0.1.8"
     assert package_dir == {"": "apps/api/src"}
     assert packages_find == {
         "where": ["apps/api/src"],
-        "include": ["autoclaw*"],
+        "include": ["banksia*"],
         "namespaces": False,
     }
-    assert scripts["autoclaw"] == "autoclaw.interfaces.cli.main:main"
-    assert "autoclaw" in package_data
-    assert package_data["autoclaw"] == [
+    assert scripts["banksia"] == "banksia.interfaces.cli.main:main"
+    assert "autoclaw" not in scripts
+    assert "banksia" in package_data
+    assert package_data["banksia"] == [
         "definitions/seeds/policies/*.yaml",
         "definitions/seeds/roles/*.yaml",
         "definitions/seeds/workflows/*.yaml",
@@ -142,7 +147,7 @@ def test_pyproject_ships_canonical_packages_only() -> None:
     ]
 
 
-def test_python_m_autoclaw_invokes_main() -> None:
+def test_python_m_banksia_invokes_main() -> None:
     package_root = Path(__file__).resolve().parents[2]
     repo_root = package_root.parent.parent
     env = os.environ.copy()
@@ -153,7 +158,7 @@ def test_python_m_autoclaw_invokes_main() -> None:
         else os.pathsep.join((str(package_root / "src"), existing_pythonpath))
     )
     result = subprocess.run(
-        [sys.executable, "-m", "autoclaw", "--help"],
+        [sys.executable, "-m", "banksia", "--help"],
         cwd=repo_root,
         env=env,
         capture_output=True,
@@ -162,10 +167,10 @@ def test_python_m_autoclaw_invokes_main() -> None:
     )
 
     assert result.returncode == 0
-    assert "Usage: autoclaw" in result.stdout
+    assert "Usage: banksia" in result.stdout
 
 
-def test_python_m_autoclaw_interfaces_cli_invokes_main() -> None:
+def test_python_m_banksia_interfaces_cli_invokes_main() -> None:
     package_root = Path(__file__).resolve().parents[2]
     repo_root = package_root.parent.parent
     env = os.environ.copy()
@@ -176,7 +181,7 @@ def test_python_m_autoclaw_interfaces_cli_invokes_main() -> None:
         else os.pathsep.join((str(package_root / "src"), existing_pythonpath))
     )
     result = subprocess.run(
-        [sys.executable, "-m", "autoclaw.interfaces.cli", "--help"],
+        [sys.executable, "-m", "banksia.interfaces.cli", "--help"],
         cwd=repo_root,
         env=env,
         capture_output=True,
@@ -185,7 +190,7 @@ def test_python_m_autoclaw_interfaces_cli_invokes_main() -> None:
     )
 
     assert result.returncode == 0
-    assert "Usage: autoclaw" in result.stdout
+    assert "Usage: banksia" in result.stdout
 
 
 def test_fresh_interpreter_can_import_canonical_package_roots() -> None:
@@ -204,17 +209,17 @@ def test_fresh_interpreter_can_import_canonical_package_roots() -> None:
             "-c",
             (
                 "from importlib import resources; "
-                "import autoclaw.definitions.compiler; "
-                "import autoclaw.definitions.registry; "
-                "import autoclaw.persistence; "
-                "import autoclaw.runtime.contracts; "
-                "import autoclaw.platform.managed_services.resources; "
-                "import autoclaw.runtime.prompt.assets; "
-                "import autoclaw.interfaces.web_console; "
-                "seed_root = resources.files('autoclaw.definitions.seeds'); "
-                "service_root = resources.files('autoclaw.platform.managed_services.resources'); "
-                "prompt_root = resources.files('autoclaw.runtime.prompt.assets'); "
-                "console_root = resources.files('autoclaw.interfaces.web_console'); "
+                "import banksia.definitions.compiler; "
+                "import banksia.definitions.registry; "
+                "import banksia.persistence; "
+                "import banksia.runtime.contracts; "
+                "import banksia.platform.managed_services.resources; "
+                "import banksia.runtime.prompt.assets; "
+                "import banksia.interfaces.web_console; "
+                "seed_root = resources.files('banksia.definitions.seeds'); "
+                "service_root = resources.files('banksia.platform.managed_services.resources'); "
+                "prompt_root = resources.files('banksia.runtime.prompt.assets'); "
+                "console_root = resources.files('banksia.interfaces.web_console'); "
                 "assert seed_root.name == 'seeds'; "
                 "assert service_root.name == 'resources'; "
                 "assert prompt_root.name == 'assets'; "
@@ -235,6 +240,32 @@ def test_fresh_interpreter_can_import_canonical_package_roots() -> None:
     )
 
 
+def test_fresh_interpreter_cannot_import_removed_autoclaw_package() -> None:
+    package_root = Path(__file__).resolve().parents[2]
+    repo_root = package_root.parent.parent
+    env = os.environ.copy()
+    existing_pythonpath = env.get("PYTHONPATH")
+    env["PYTHONPATH"] = (
+        str(package_root / "src")
+        if not existing_pythonpath
+        else os.pathsep.join((str(package_root / "src"), existing_pythonpath))
+    )
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "from importlib.util import find_spec; assert find_spec('autoclaw') is None",
+        ],
+        cwd=repo_root,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+
 def test_resource_owner_helpers_point_to_canonical_package_paths() -> None:
     seed_root = get_packaged_seed_definitions_root()
     service_root = get_managed_service_resources_root()
@@ -243,7 +274,8 @@ def test_resource_owner_helpers_point_to_canonical_package_paths() -> None:
     assert seed_root.name == "seeds"
     assert seed_root.joinpath("roles", "planning_lead.yaml").is_file()
     assert service_root.name == "resources"
-    assert service_root.joinpath("systemd", "autoclaw.service").is_file()
+    # WP-01 slice B owns the operational service-resource rename.
+    assert service_root.joinpath("systemd", "banksia.service").is_file()
     assert console_assets_root.name == "assets"
     assert console_assets_root.joinpath("index.html").is_file()
     assert console_assets_root.joinpath("app-icon.png").is_file()

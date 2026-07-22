@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from autoclaw.runtime.contracts.prompt import PromptFamily, PromptInstructionGuidance
-from autoclaw.runtime.prompt import (
+from banksia.runtime.contracts.prompt import PromptFamily, PromptInstructionGuidance
+from banksia.runtime.prompt import (
     INSTRUCTION_ASSETS,
     InstructionAsset,
     instruction_asset_path,

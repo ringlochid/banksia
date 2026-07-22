@@ -26,7 +26,7 @@ Good criteria can reject the result: the patch fixes the reproduced defect, the 
 Publish with the console authoring workbench or:
 
 ```bash
-autoclaw definitions import --file ./workflow.yaml
+banksia definitions import --file ./workflow.yaml
 ```
 
 Use `--overwrite allow_new_revision` only when you intend to publish changed content as a new current revision. See the [workflow examples](../reference/definitions/workflows/README.md) for exact YAML.

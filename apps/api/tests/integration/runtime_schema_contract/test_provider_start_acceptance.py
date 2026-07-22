@@ -10,14 +10,14 @@ from pathlib import Path
 from threading import Barrier
 from typing import cast
 
-from autoclaw.persistence import RuntimeBase
-from autoclaw.runtime.dispatch import (
+from banksia.persistence import RuntimeBase
+from banksia.runtime.dispatch import (
     ProviderStartAcceptanceResult,
     accept_provider_start_if_current,
 )
-from autoclaw.runtime.dispatch.authority import read_node_operation_authority
-from autoclaw.runtime.node_operations.contracts import NodeOperationScope
-from autoclaw.runtime.node_operations.source_transitions import close_source_dispatch
+from banksia.runtime.dispatch.authority import read_node_operation_authority
+from banksia.runtime.node_operations.contracts import NodeOperationScope
+from banksia.runtime.node_operations.source_transitions import close_source_dispatch
 from sqlalchemy import Connection, Engine, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession

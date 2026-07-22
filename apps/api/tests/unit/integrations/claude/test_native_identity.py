@@ -4,8 +4,8 @@ import json
 import subprocess
 
 import pytest
-from autoclaw.integrations.claude.native_identity import read_claude_authentication
-from autoclaw.runtime.providers import ProviderAuthenticationMethod
+from banksia.integrations.claude.native_identity import read_claude_authentication
+from banksia.runtime.providers import ProviderAuthenticationMethod
 
 
 @pytest.mark.parametrize(
@@ -23,7 +23,7 @@ def test_claude_auth_status_accepts_subscription_and_api_key_without_account_rea
     expected: ProviderAuthenticationMethod,
 ) -> None:
     monkeypatch.setattr(
-        "autoclaw.integrations.claude.native_identity.bundled_claude_path",
+        "banksia.integrations.claude.native_identity.bundled_claude_path",
         lambda: "/sdk/claude",
     )
     command_calls: list[list[str]] = []
@@ -54,7 +54,7 @@ def test_claude_auth_status_accepts_subscription_and_api_key_without_account_rea
 
 def test_claude_auth_status_reports_missing_login(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        "autoclaw.integrations.claude.native_identity.bundled_claude_path",
+        "banksia.integrations.claude.native_identity.bundled_claude_path",
         lambda: "/sdk/claude",
     )
 
@@ -76,7 +76,7 @@ def test_claude_auth_status_keeps_unstructured_native_failure_distinct(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "autoclaw.integrations.claude.native_identity.bundled_claude_path",
+        "banksia.integrations.claude.native_identity.bundled_claude_path",
         lambda: "/sdk/claude",
     )
 

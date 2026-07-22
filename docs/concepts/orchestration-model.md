@@ -1,6 +1,6 @@
 # Orchestration model
 
-AutoClaw coordinates delegated work that must stay inspectable and recoverable. A provider runs an agent loop; AutoClaw decides what work is current, what authority it has, and which evidence can advance the task.
+Banksia coordinates delegated work that must stay inspectable and recoverable. A provider runs an agent loop; Banksia decides what work is current, what authority it has, and which evidence can advance the task.
 
 ## Why a controller exists
 
@@ -12,13 +12,13 @@ A transcript alone cannot reliably answer:
 - Is the task working, waiting, paused, or complete?
 - Can a retry or late tool call still change state?
 
-AutoClaw records those answers in controller-owned runtime rows.
+Banksia records those answers in controller-owned runtime rows.
 
 ## The execution loop
 
 1. A user publishes roles, policies, and a workflow.
 2. Task-compose selects the workflow for one request.
-3. AutoClaw commits a task, flow, root assignment, root attempt, and exact flow-start source.
+3. Banksia commits a task, flow, root assignment, root attempt, and exact flow-start source.
 4. After that commit, an independent handler rereads the source, publishes the immutable request pair, and commits the starting dispatch with its refs.
 5. Provider start runs independently after the dispatch commit.
 6. The provider receives the request and its role-appropriate Node tools.

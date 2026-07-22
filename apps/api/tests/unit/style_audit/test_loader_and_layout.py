@@ -90,7 +90,7 @@ def test_build_audit_settings_exposes_phase6_wrapper_and_direction_scopes() -> N
 
     expected_roots = {
         Path("scripts/docs"),
-        Path("apps/api/src/autoclaw"),
+        Path("apps/api/src/banksia"),
         Path("apps/api/tests/e2e"),
         Path("apps/api/tests/helpers"),
         Path("apps/api/tests/integration"),
@@ -101,9 +101,9 @@ def test_build_audit_settings_exposes_phase6_wrapper_and_direction_scopes() -> N
     approved_wrappers = {
         path.relative_to(settings.root) for path in settings.approved_wrapper_modules
     }
-    assert approved_wrappers == {Path("apps/api/src/autoclaw/interfaces/http/router.py")}
+    assert approved_wrappers == {Path("apps/api/src/banksia/interfaces/http/router.py")}
     assert all(
-        not str(path).startswith("apps/api/app/") and not str(path).startswith("apps/api/autoclaw/")
+        not str(path).startswith("apps/api/app/") and not str(path).startswith("apps/api/banksia/")
         for path in approved_wrappers
     )
     assert all((settings.root / path).exists() for path in approved_wrappers)
@@ -124,35 +124,37 @@ def test_build_audit_settings_exposes_phase6_wrapper_and_direction_scopes() -> N
     public_naming_roots = {
         path.relative_to(settings.root) for path in settings.public_naming_scan_roots
     }
-    assert public_naming_roots == {Path("apps/api/src/autoclaw")}
+    assert public_naming_roots == {Path("apps/api/src/banksia")}
     assert settings.public_naming_extra_modules == frozenset()
     module_shape_roots = {
         path.relative_to(settings.root) for path in settings.module_shape_scan_roots
     }
-    assert module_shape_roots == {Path("apps/api/src/autoclaw")}
+    assert module_shape_roots == {Path("apps/api/src/banksia")}
     public_naming_exceptions = {
         (path.relative_to(settings.root), name)
         for path, name in settings.approved_public_naming_exceptions
     }
-    assert (
-        Path("apps/api/src/autoclaw/integrations/openclaw/gateway/adapter.py"),
-        "check_compatibility",
-    ) in public_naming_exceptions
-    assert (Path("apps/api/src/autoclaw/config.py"), "value_is_complex") in (
-        public_naming_exceptions
-    )
-    assert (
-        Path("apps/api/src/autoclaw/runtime/replan/defaults.py"),
-        "apply_child_defaults",
-    ) in public_naming_exceptions
-    assert (
-        Path("apps/api/src/autoclaw/runtime/watchdog/manager.py"),
-        "stop_requested",
-    ) in public_naming_exceptions
+    assert public_naming_exceptions == {
+        (Path("apps/api/src/banksia/config.py"), "enabled"),
+        (Path("apps/api/src/banksia/config.py"), "value_is_complex"),
+        (
+            Path("apps/api/src/banksia/integrations/openclaw/gateway/adapter.py"),
+            "check",
+        ),
+        (
+            Path("apps/api/src/banksia/runtime/contracts/operation_failure.py"),
+            "ok",
+        ),
+        (
+            Path("apps/api/src/banksia/runtime/contracts/operation_failure.py"),
+            "retryable",
+        ),
+        (Path("apps/api/src/banksia/runtime/work_plan/contracts.py"), "changed"),
+    }
     assert all(
         (settings.root / path).exists()
         and not str(path).startswith("apps/api/app/")
-        and not str(path).startswith("apps/api/autoclaw/")
+        and not str(path).startswith("apps/api/banksia/")
         for path, _name in public_naming_exceptions
     )
 
@@ -255,11 +257,11 @@ def test_layout_scan_requires_exact_allowlist_for_alias_wrapper_shells(tmp_path:
     assert findings.import_wrapper_modules == (blocked_alias,)
 
 
-def test_layout_scan_flags_duplicate_module_name_ownership_across_legacy_and_src_autoclaw(
+def test_layout_scan_flags_duplicate_module_name_ownership_across_legacy_and_src_banksia(
     tmp_path: Path,
 ) -> None:
-    legacy_root = tmp_path / "apps" / "api" / "autoclaw"
-    src_root = tmp_path / "apps" / "api" / "src" / "autoclaw"
+    legacy_root = tmp_path / "apps" / "api" / "banksia"
+    src_root = tmp_path / "apps" / "api" / "src" / "banksia"
     settings = build_style_audit_settings(tmp_path, scan_roots=(legacy_root, src_root))
     audit = load_style_audit_namespace()
 
@@ -271,13 +273,13 @@ def test_layout_scan_flags_duplicate_module_name_ownership_across_legacy_and_src
 
     assert len(findings.duplicate_module_name_findings) == 1
     finding = findings.duplicate_module_name_findings[0]
-    assert finding.module_name == "autoclaw.common"
+    assert finding.module_name == "banksia.common"
     assert finding.paths == (legacy_root / "common.py", src_root / "common.py")
 
 
 def test_layout_scan_ignores_approved_duplicate_module_name_shims(tmp_path: Path) -> None:
-    legacy_root = tmp_path / "apps" / "api" / "autoclaw"
-    src_root = tmp_path / "apps" / "api" / "src" / "autoclaw"
+    legacy_root = tmp_path / "apps" / "api" / "banksia"
+    src_root = tmp_path / "apps" / "api" / "src" / "banksia"
     legacy_main = legacy_root / "main.py"
     src_main = src_root / "main.py"
     settings = replace(

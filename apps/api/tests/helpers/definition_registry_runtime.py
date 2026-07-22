@@ -6,10 +6,10 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from sqlite3 import Connection as SQLiteConnection
 
-import autoclaw.interfaces.cli as cli
-from autoclaw.config import get_settings
-from autoclaw.paths import default_database_url
-from autoclaw.persistence.session import (
+import banksia.interfaces.cli as cli
+from banksia.config import get_settings
+from banksia.paths import default_database_url
+from banksia.persistence.session import (
     RuntimeAsyncSession,
     dispose_test_db_engine,
     install_sqlite_transaction_control,
@@ -78,8 +78,8 @@ def _build_init_args(config_path: Path, data_dir: Path) -> argparse.Namespace:
 
 @asynccontextmanager
 async def initialized_registry(tmp_path: Path) -> AsyncIterator[AsyncSessionFactory]:
-    config_path = tmp_path / "autoclaw-config.toml"
-    data_dir = tmp_path / "autoclaw-data"
+    config_path = tmp_path / "banksia-config.toml"
+    data_dir = tmp_path / "banksia-data"
     database_url = default_database_url(data_dir)
     engine: AsyncEngine | None = None
 

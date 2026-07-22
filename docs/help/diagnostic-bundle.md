@@ -5,23 +5,23 @@ Collect the smallest evidence that explains the failure.
 ## Local state
 
 ```bash
-autoclaw --version
-autoclaw status --json
-autoclaw config show --json
-autoclaw providers status
-autoclaw service status --json
+banksia --version
+banksia status --json
+banksia config show --json
+banksia providers status
+banksia service status --json
 ```
 
-Add `autoclaw providers check <provider> --json` only when a fresh provider diagnostic is relevant. Inspect its separate authentication and reachability axes rather than assuming that a found credential source also proves model reachability.
+Add `banksia providers check <provider> --json` only when a fresh provider diagnostic is relevant. Inspect its separate authentication and reachability axes rather than assuming that a found credential source also proves model reachability.
 
 For a failed managed service, also collect:
 
 ```bash
-systemctl --user status autoclaw.service --no-pager
-journalctl --user -u autoclaw.service -n 50 --no-pager
+systemctl --user status banksia.service --no-pager
+journalctl --user -u banksia.service -n 50 --no-pager
 ```
 
-Review journal output locally before sharing it. A dependency or older AutoClaw release may have logged a rejected configuration value even though the current CLI redacts validation inputs.
+Review journal output locally before sharing it. A dependency or older Banksia release may have logged a rejected configuration value even though the current CLI redacts validation inputs.
 
 ## Server state
 

@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from autoclaw.definitions.compiler import (
+from banksia.definitions.compiler import (
     MappingRolePolicyLookup,
     NormalizedCompiledPlan,
     PolicyRevisionDefinition,
@@ -12,13 +12,13 @@ from autoclaw.definitions.compiler import (
     WorkflowRevisionMetadata,
     compile_workflow,
 )
-from autoclaw.definitions.contracts import (
+from banksia.definitions.contracts import (
     PolicyDefinitionFile,
     RoleDefinitionFile,
     WorkflowDefinitionFile,
     WorkflowDefinitionInput,
 )
-from autoclaw.definitions.seeds import resolve_packaged_seed_definitions_root
+from banksia.definitions.seeds import resolve_packaged_seed_definitions_root
 
 ROLE_REVISIONS = {
     "architect": 48,

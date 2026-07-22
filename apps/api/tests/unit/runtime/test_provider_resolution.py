@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from autoclaw.config import (
+from banksia.config import (
     CONFIG_ENV_VAR,
     ClaudeSettings,
     CodexSettings,
@@ -12,14 +12,14 @@ from autoclaw.config import (
     Settings,
     load_settings,
 )
-from autoclaw.definitions.contracts import (
+from banksia.definitions.contracts import (
     ClaudeProviderSelection,
     CodexProviderSelection,
     OpenClawProviderSelection,
     ProviderKind,
 )
-from autoclaw.definitions.contracts.registry import NetworkAccess, ProviderNativeAccess
-from autoclaw.runtime.contracts import (
+from banksia.definitions.contracts.registry import NetworkAccess, ProviderNativeAccess
+from banksia.runtime.contracts import (
     CapabilitySource,
     EffectiveCapabilitySet,
     EffectiveNetworkAccess,
@@ -27,7 +27,7 @@ from autoclaw.runtime.contracts import (
     ProviderRoute,
     ProviderSelectionBasis,
 )
-from autoclaw.runtime.providers import (
+from banksia.runtime.providers import (
     ProviderResolutionError,
     ProviderResolutionErrorCode,
     narrow_provider_capabilities,

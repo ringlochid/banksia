@@ -18,6 +18,10 @@ CONTRACT_MARKDOWN_FILES = (
     Path("STYLE.md"),
     Path("docs-internal/README.md"),
 )
+FROZEN_LEGACY_VERSION_ROOTS_BY_FAMILY = {
+    "design": ("v1", "v2"),
+    "current": ("v1",),
+}
 
 
 def iter_contract_markdown_files(root: Path = ROOT) -> list[Path]:
@@ -41,8 +45,14 @@ def discover_front_doors(root: Path = ROOT) -> list[FrontDoor]:
         scope_root=root / "docs",
         entrypoint=root / "docs" / "README.md",
     )
-    add_versioned_front_doors(front_doors, root=root, family="design")
-    add_versioned_front_doors(front_doors, root=root, family="current")
+    add_front_door(
+        front_doors,
+        label="Banksia design",
+        scope_root=root / "docs-internal" / "design",
+        entrypoint=root / "docs-internal" / "design" / "README.md",
+    )
+    add_legacy_version_front_doors(front_doors, root=root, family="design")
+    add_legacy_version_front_doors(front_doors, root=root, family="current")
     add_front_door(
         front_doors,
         label="accepted decisions",
@@ -58,7 +68,7 @@ def discover_front_doors(root: Path = ROOT) -> list[FrontDoor]:
     return front_doors
 
 
-def add_versioned_front_doors(
+def add_legacy_version_front_doors(
     front_doors: list[FrontDoor],
     *,
     root: Path,
@@ -67,7 +77,12 @@ def add_versioned_front_doors(
     family_root = root / "docs-internal" / family
     if not family_root.exists():
         return
-    for version_root in sorted(path for path in family_root.iterdir() if path.is_dir()):
+    version_roots = (
+        family_root / version for version in FROZEN_LEGACY_VERSION_ROOTS_BY_FAMILY.get(family, ())
+    )
+    for version_root in version_roots:
+        if not version_root.is_dir():
+            continue
         add_front_door(
             front_doors,
             label=f"{family} {version_root.name}",

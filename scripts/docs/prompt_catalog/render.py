@@ -15,19 +15,22 @@ from autoclaw.runtime.prompt import (
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 PROMPT_CONTRACT_READBACK_PATH = (
-    REPO_ROOT / "docs-internal/design/v2/prompt-layer/generated/contract-readback.md"
+    REPO_ROOT / "docs-internal/design/appendices/generated/task-member-prompt-contract-readback.md"
 )
 
 
 def render_prompt_contract_readback() -> str:
     lines = [
-        "# V2 prompt contract readback",
+        "# Shipped AutoClaw Task-member prompt baseline readback",
         "",
         "Status: Reference",
         "",
-        "This page is generated from the shipped V2 prompt contracts and five instruction "
-        "assets. Run `make docs-prompt-generate` after changing either input, then run "
-        "`make docs-prompt-check`.",
+        "This page is generated from the shipped AutoClaw 0.1.8 prompt contracts and five "
+        "instruction assets. It is deterministic migration-baseline evidence, not Banksia "
+        "target prompt truth. The versionless [Task-member system-prompt contract]"
+        "(../../system-prompts.md) is normative; WP-05 replaces these inputs and regenerates "
+        "this same versionless readback. Run `make docs-prompt-generate` after changing an "
+        "input, then run `make docs-prompt-check`.",
         "",
         "## Instruction assets",
         "",

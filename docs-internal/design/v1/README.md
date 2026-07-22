@@ -1,6 +1,12 @@
 # Design docs
 
-Status: Target
+Status: Reference
+
+> **Frozen migration evidence:** This tree records an earlier AutoClaw design
+> baseline. It is not Banksia target authority and is no longer maintained
+> except for link repair needed during migration. The versionless
+> [Banksia design canon](../README.md) wins on every conflict; WP-12 deletes
+> this frozen tree after replacement proof.
 
 This tree describes the target design contract.
 

@@ -205,7 +205,7 @@ Avoid:
 
 ## Frontend TypeScript and React naming rules
 
-Use the ecosystem conventions where they carry framework meaning, then apply AutoClaw domain vocabulary inside them.
+Use the ecosystem conventions where they carry framework meaning, then apply Banksia domain vocabulary inside them.
 
 - React components use `PascalCase`: `TaskTable`, `HumanRequestDrawer`, `CommandRunLog`
 - component files use `PascalCase.tsx` when the file primarily exports one component: `TaskTable.tsx`
@@ -221,7 +221,7 @@ Use the ecosystem conventions where they carry framework meaning, then apply Aut
 - boolean props and state use `is*`, `has*`, `can*`, or `should*`
 - reducer actions should name the event that occurred, not the implementation: `taskEventAppended`, `humanRequestResolved`
 - context owners use one family stem: `TaskSelectionContext`, `TaskSelectionProvider`, `useTaskSelection`
-- console CSS custom properties use the `--ac-*` namespace; do not keep ambiguous prototype prefixes from the design handoff
+- console CSS custom properties use the `--banksia-*` namespace; do not keep the legacy `--ac-*` namespace or ambiguous prototype prefixes
 
 Avoid:
 
@@ -238,13 +238,13 @@ Generated OpenAPI names are allowed to follow generator output. Do not rename ge
 - package levels should reflect ownership and responsibility, not generic categorization
 - one or two meaningful levels are usually enough
 - avoid adding directory layers merely to group similar leftovers
-- use version directories, not filename suffixes, for internal docs eras
+- keep active Banksia owner docs versionless; use version directories only for explicitly frozen historical evidence
 
 Prefer:
 
 - `runtime/watchdog/`
 - `registry/revisions/`
-- `docs-internal/design/<version>/`
+- `docs-internal/design/appendices/`
 
 Avoid:
 

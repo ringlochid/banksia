@@ -56,7 +56,7 @@ Group long-form standards by concern:
 - `structure/`: source tree, package, runtime, integration, and test layout rules
 - `docs/`: docs information architecture and docs-writing structure rules
 
-For AutoClaw, the preferred grouped files are:
+For Banksia, the preferred grouped files are:
 
 - [readability and refactor standard](./code/readability-refactor.md)
 - [naming standard](./code/naming.md)

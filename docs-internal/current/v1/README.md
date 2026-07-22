@@ -1,8 +1,14 @@
 # Current implementation
 
-Status: Current
+Status: Reference
 
 Last verified: 2026-07-19
+
+> **Frozen shipped-baseline evidence:** This tree is the characterized
+> AutoClaw 0.1.8 migration snapshot, not a live Banksia current lane or target
+> owner. Use the versionless [Banksia design canon](../../design/README.md) for
+> intended behavior. This tree changes only for necessary link repair until
+> WP-12 deletes it after replacement proof.
 
 This tree describes what AutoClaw ships now. It is implementation evidence, not target design. When this tree and target design disagree about future behavior, the target design wins.
 

@@ -1,4 +1,4 @@
-# AutoClaw extended standards
+# Banksia extended standards
 
 Status: Reference
 
@@ -8,7 +8,8 @@ This directory holds long-form agent guidance that supports the [root agent cont
 
 - the [root agent contract](../../AGENTS.md) wins on repo policy, routing, verification, and delegation
 - the [repo coding standard](../../STYLE.md) wins on measurable coding standards and refactor triggers
-- the owning design/current pages win on surface-specific target and shipped-behavior truth
+- the versionless owner pages under `docs-internal/design/**` and their named appendices win on Banksia target truth
+- accepted ADRs own durable decisions; frozen V1/V2/current pages are AutoClaw migration evidence only
 - files in this directory explain how to apply those rules in larger structural or cleanup work
 
 ## Use order
@@ -17,8 +18,9 @@ Read only the smallest relevant subset:
 
 1. the [root agent contract](../../AGENTS.md)
 2. the [repo coding standard](../../STYLE.md)
-3. the relevant design/current owner page
-4. the relevant file in this directory
+3. the relevant versionless design owner and named appendix
+4. frozen design/current evidence only when migration or shipped-baseline contrast is relevant
+5. the relevant file in this directory
 
 If a future subtree `AGENTS.md` exists near the code you are touching, read it after the root files and before applying the matching standard.
 

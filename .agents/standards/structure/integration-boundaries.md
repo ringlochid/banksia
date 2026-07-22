@@ -8,7 +8,7 @@ Use this guide when a change touches seams between backend layers, OpenClaw inte
 
 - keep controller-owned truth separate from provider behavior and support readbacks
 - keep public surfaces separate from internal implementation helpers
-- keep phase ownership explicit when several subsystems meet at one seam
+- keep package and slice ownership explicit when several subsystems meet at one seam
 - do not move business rules into adapters, routes, or support-state readers just because that is where the data arrives
 
 ## Backend boundaries
@@ -17,15 +17,17 @@ Use this guide when a change touches seams between backend layers, OpenClaw inte
 - `interfaces/cli/**` owns command parsing, prompting, rendering, and exit-status mapping only
 - `interfaces/mcp/**` owns MCP or server-facing transport wiring, tool exposure, and transport translation only
 - inside `interfaces/http/**`, keep route modules under `routers/**`, keep HTTP-only support contracts and presenters under `contracts/**`, and keep shared HTTP wiring such as `router.py`, `dependencies.py`, and `errors.py` at the interface-owner root
-- if older code still uses `api/**` or `cli/**`, apply the same entrypoint-thinness rules there
-- do not keep DB transaction control, runtime effect-runner coordination, or controller orchestration inside interface modules unless canon names an explicit phase-bounded exception
+- if migration-baseline code still uses older transport paths, apply the same entrypoint-thinness rules there without treating those paths as target layout
+- do not keep DB transaction control, runtime effect-runner coordination, or controller orchestration inside interface modules unless canon names an explicit package-bounded exception
 - do not expose internal execution routing labels, package names, or internal-doc chronology in shipped API, CLI, MCP, operator, or runtime teaching strings when current product behavior can be described directly instead
 - `services/**` owns orchestration, transaction-aware behavior, and domain flows only when that owner name is precise; otherwise keep orchestration under the named domain owner
-- `definitions/**` owns authored-definition compilation, registry lookup, seed-definition, and related definition-domain behavior when those concerns are converged under one owner
+- `workflows/**` owns Workflow parsing, drafts, publication, immutable revisions, catalog reads, and Starter Workflow bootstrap behavior
 - `runtime/**` owns runtime records, manifests, task-root materialization, prompt assembly, and controller-loop behavior named by canon
 - `integrations/**` owns reusable provider substrate rather than runtime-specific controller behavior
 - `persistence/**` owns persistence models and DB access surfaces; if legacy `db/**` remains, apply the same ownership rule there
-- keep typed contracts near the owning domain, for example `definitions/contracts/**` and `runtime/contracts/**`; if legacy `schemas/**` remains, treat it as transitional contract ownership that must converge
+- keep typed contracts near the owning domain, for example `workflows/contracts/**` and `runtime/contracts/**`; if migration-baseline `schemas/**` remains, treat it as transitional contract ownership that must converge
+
+These paths are relative to the target `src/banksia/**` package. The current `apps/api/src/autoclaw/**` location is an AutoClaw migration baseline only; it must follow the same ownership rules while it remains, but it does not define the final package root or identity.
 
 ## OpenClaw and support-state boundaries
 
@@ -62,16 +64,16 @@ Rules:
 - keep one API client responsible for base URL resolution, request headers, query construction, JSON parsing, and error envelopes
 - keep local admission in the API boundary: direct loopback peer, exact loopback `Host`, and exact allowed `Origin` for unsafe browser requests; do not add a browser API key, cookie, or session authority beside it
 - keep one SSE client responsible for task event stream URLs, cursor resume, `Last-Event-ID` handling when used, backfill handoff, dedupe, and reset behavior
-- keep runtime task list reads on `GET /runtime/tasks` until a real `/control/tasks` list route exists
-- keep selected task, snapshot, trace, events, human requests, and command runs on `/control/tasks/{task_id}/*`
-- keep stored definition browsing on `/definitions/*`
-- keep flat definition draft create/read/save/delete/validate/publish on `/authoring/*`
-- keep task launch on `POST /tasks/start`
-- do not reconstruct runtime chronology from snapshot, trace, observability refs, support files, logs, screenshots, or local browser state when `task_event` is the replayable source
+- consume the generated product API for Workflow discovery/drafts/publication, Run start/read/control, Human Requests, Actions, Results, and Operator conversations
+- keep support/audit routes and contracts separate from the ordinary product client
+- consume semantic `TaskActivity` plus controller-truth refetch hints; do not reconstruct product chronology from raw runtime events, snapshots, traces, support files, logs, screenshots, or local browser state
 - do not reconstruct human-request currentness or command-run state from support files, logs, missing buttons, or local UI memory
-- do not use `continue` for human-request resolution or command-run completion; use the dedicated control routes
+- use the dedicated typed Human Request and Action operations; do not route them through a generic continue or execute-anything operation
+- render only controller-returned legal actions and semantic product states; do not derive legality from runtime fields in the browser
 - do not turn OpenAPI-generated types into edited source; add view-model mappers when render shape differs from controller shape
 - do not let React, Tailwind, route names, or component names leak into runtime docs, provider docs, backend contracts, or API schemas
+
+The legacy `apps/console/**` client, its `/runtime`, `/control`, `/definitions`, `/authoring`, and `/tasks/start` route families, and its `--ac-*` tokens are current AutoClaw migration evidence only. Minimum compatibility work may keep that baseline running until deletion, but no new Banksia product contract or target component may take authority from it.
 
 View-model boundaries:
 
@@ -84,8 +86,8 @@ Design handoff boundaries:
 
 - design repo charters, static HTML, screenshots, and shared CSS define visual language, interaction cadence, and expected states
 - implementation extracts reusable console tokens, primitives, layouts, and state fixtures from the handoff instead of copying prototype page code
-- `apps/console/src/styles/tokens.css` owns the implementation token vocabulary and uses the `--ac-*` namespace even when the design prototype uses a different prefix
-- backend current docs, V2 contracts, OpenAPI, and route tests define legal routes, field names, state names, actions, and currentness
+- `console/src/styles/tokens.css` owns the target implementation token vocabulary and uses the `--banksia-*` namespace even when the design prototype uses a different prefix
+- versionless Banksia owner contracts, generated OpenAPI, and route tests define legal routes, field names, state names, actions, and currentness
 - when design handoff and controller truth disagree, patch the contract or the design handoff before encoding the behavior in components
 
 ## Review checklist
@@ -93,6 +95,6 @@ Design handoff boundaries:
 - which layer owns the behavior that changed
 - did the diff move logic toward the correct owner or away from it
 - did a support or transport surface start acting like the system of record
-- did the change widen into another phase or public surface without explicit approval
+- did the change widen into another package, slice, or public surface without explicit approval
 - did console code keep API/SSE, view-model, component, and design-token responsibilities separate
 - did console code preserve the route-family split instead of hiding it behind a fake merged client contract

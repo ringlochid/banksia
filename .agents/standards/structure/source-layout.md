@@ -7,23 +7,28 @@ Use this guide when restructuring the repo tree, choosing package roots, consoli
 ## Goals
 
 - keep one obvious owner for each major source tree
-- keep the monorepo organized by product/app, docs, infra, scripts, and authored inputs
+- keep the repository organized by shipped source, product surfaces, docs, infrastructure, scripts, and maintained examples
 - keep shipped backend code under one canonical import package
 - keep transport surfaces thin and runtime/domain packages owner-driven
 - let tests mirror product and boundary ownership rather than redesign history
 
-## Monorepo root rules
+## Repository root rules
 
-The steady-state top level should stay product-oriented:
+The final top level is product- and ownership-oriented:
 
-- `apps/**`: deployable applications and product surfaces
-- `definitions/**`: authored workflow/role/policy or similar product inputs
+- `src/banksia/**`: the one shipped Python backend package
+- `tests/**`: backend proof mirroring package and boundary ownership
+- `console/**`: the independently authored browser product
 - `docs/**`: public docs
 - `docs-internal/**`: internal canon docs
-- `infra/**`: deployment, runtime infra, packaging, migrations
-- `scripts/**`: repo tooling, docs tooling, and testing helpers
+- `examples/**`: maintained importable examples, never runtime authority
+- `infra/**`: deployment, runtime infrastructure, and packaging support
+- `scripts/**`: repo, docs, and test tooling
+- `tmp/**`: ignored research and orchestration material
 
-Do not add new top-level directories just to sort code by language, build tool, or temporary migration state when an existing owner already fits.
+Do not reserve an `apps/**` taxonomy for hypothetical future applications. Do not add top-level directories merely to sort by language, build tool, or temporary migration state when an existing owner fits.
+
+During the ordered migration only, `apps/api/src/autoclaw/**`, `apps/api/tests/**`, and `apps/console/**` remain current AutoClaw baseline locations. They are migration evidence and temporary implementation hosts, not Banksia target layout or naming authority. Never create a parallel target package beside them before the planned root-layout cutover.
 
 ## Canonical backend package rule
 
@@ -31,7 +36,7 @@ Do not add new top-level directories just to sort code by language, build tool, 
 - compatibility import paths may exist during migration, but they must stay thin and explicitly temporary
 - do not let two long-lived source trees both act like the real backend owner
 
-For AutoClaw, the steady-state direction should be a canonical backend package such as `autoclaw/**`, not parallel first-class source trees with duplicated ownership.
+For Banksia, the canonical backend package is `src/banksia/**`. No parallel `autoclaw`, `banksia_v2`, or unwrapped package tree may remain in the final layout.
 
 ## Packaging-aware source root rule
 
@@ -39,33 +44,33 @@ For AutoClaw, the steady-state direction should be a canonical backend package s
 - the `src/` layout is the steady-state default when it helps prevent local import leakage and packaging mistakes
 - use flat package layout only when the simplicity benefit clearly outweighs the import-path risk
 
-For AutoClaw, a strong steady-state target is:
+For Banksia, the steady-state package boundary is:
 
 ```text
-apps/api/
-  pyproject.toml
-  src/
-    autoclaw/
-  tests/
+pyproject.toml
+src/
+  banksia/
+tests/
 ```
 
 ## Transport-layer thinness
 
 Transport owners exist to expose product surfaces, not to become business-logic dumps.
 
-- `api/**` should own HTTP parsing, dependency wiring, handler dispatch, and response mapping
-- `cli/**` should own command parsing, prompting, rendering, and exit-status mapping
+- `interfaces/http/**` should own HTTP parsing, dependency wiring, handler dispatch, and response mapping
+- `interfaces/cli/**` should own command parsing, prompting, rendering, and exit-status mapping
 - transport owners should not become the long-term home of runtime, registry, or provider-integration business logic
 
-For AutoClaw, this means CLI code should converge toward one coherent owner such as:
+For Banksia, CLI code should converge toward one coherent owner inside `src/banksia/**`, such as:
 
 ```text
-cli/
-  commands/
-  output/
-  prompts/
-  main.py
-  root.py
+interfaces/
+  cli/
+    commands/
+    output/
+    prompts/
+    main.py
+    root.py
 ```
 
 instead of splitting durable CLI ownership across several top-level lanes.
@@ -76,8 +81,8 @@ Choose one clear top-level organizing model per shipped package root.
 
 - do not mix transport owners, domain owners, and generic substrate buckets as peer top-level families in the same steady-state package without an explicit canon reason
 - when a backend package exposes several public edges, prefer one `interfaces/**` owner with subowners such as HTTP, CLI, and MCP instead of separate sibling transport trees
-- when several source families belong to one bounded domain such as authored definitions, prefer one domain owner such as `definitions/**` over separate root siblings such as compiler, registry, and seed-resource trees
-- prefer `persistence/**` for durable storage ownership, and prefer domain-owned contract lanes such as `definitions/contracts/**` and `runtime/contracts/**` over one generic root contract bucket when contract ownership is clear
+- when several source families belong to one bounded domain such as Workflows, prefer one domain owner such as `workflows/**` over separate root siblings for parsing, drafts, publication, history, and Starter seed resources
+- prefer `persistence/**` for durable storage ownership, and prefer domain-owned contract lanes such as `workflows/contracts/**` and `runtime/contracts/**` over one generic root contract bucket when contract ownership is clear
 - keep `runtime/**` as the owner of controller behavior, and keep reusable provider substrate under `integrations/**`
 
 ## Public interfaces rule
@@ -97,7 +102,7 @@ When the package exposes several public transport edges, group them under one ex
 
 Prefer bounded-context or product-owner packages before top-level implementation-mechanic packages.
 
-- split first by domain owner: `dispatch`, `flow`, `checkpoint`, `watchdog`, `registry`, `compiler`
+- split first by domain owner: `tasks`, `workflows`, `assignments`, `attempts`, `waves`, `checkpoints`, `human_requests`, and `command_runs`
 - split second by technical role inside that owner when needed: `service.py`, `writes.py`, `reads.py`, `recording.py`, `projection.py`
 - avoid top-level owner buckets such as `control`, `effects`, or `helpers` when one bounded context can hold the same code more coherently
 
@@ -133,21 +138,21 @@ Do not scatter the same provider boundary across unrelated runtime, CLI, and wra
 ## DB and schema ownership rule
 
 - keep persistence truth under `persistence/**`
-- keep shared typed contracts near the domain that owns them, for example `definitions/contracts/**` and `runtime/contracts/**`
+- keep shared typed contracts near the domain that owns them, for example `workflows/contracts/**` and `runtime/contracts/**`
 - avoid parallel contract-model trees unless their semantic role is explicitly different from API/runtime schemas
 
 If a runtime-specific contract lane exists, it must explain why it is not just another schema tree.
 
 ## Console frontend source rule
 
-`apps/console/**` owns the browser console app only.
+The final root `console/**` tree owns the browser Console only. The current `apps/console/**` tree is disposable AutoClaw migration evidence, not a source to rename or incrementally turn into the target.
 
 It consumes controller-owned API truth and design handoff truth; it does not define runtime truth, registry truth, node-tool truth, or support-state truth.
 
 Use one app-local package and toolchain:
 
 ```text
-apps/console/
+console/
   package.json
   index.html
   vite.config.ts
@@ -162,13 +167,13 @@ apps/console/
       ui/
       layout/
     features/
-      tasks/
-      task-detail/
+      workflows/
+      workflow-studio/
+      runs/
+      run-studio/
       human-requests/
-      command-runs/
-      definitions/
-      definition-editor/
-      task-start/
+      actions/
+      operator/
     mocks/
     lib/
   tests/
@@ -180,9 +185,9 @@ Rules:
 - keep generated OpenAPI types under `src/api/generated/**`; do not edit them manually
 - keep the API client, SSE client, error handling, and request/query helpers under `src/api/**`
 - keep shared design tokens and Tailwind entry CSS under `src/styles/**`
-- keep console CSS custom properties under the `--ac-*` namespace, then expose reusable Tailwind theme tokens from them
+- keep Console CSS custom properties under the `--banksia-*` namespace, then expose reusable Tailwind theme tokens from them
 - derive reusable color, typography, spacing, size, radius, border, shadow, and status tokens from the design handoff before building page components
-- do not port design-repo static HTML, page-local CSS selectors, or inline prototype JavaScript into `apps/console/**`
+- do not port design-repo static HTML, page-local CSS selectors, or inline prototype JavaScript into `console/**`
 - keep reusable primitives under `src/components/ui/**` and layout shells under `src/components/layout/**`
 - keep page and flow ownership under feature folders named for product pages, not stale backend nouns or design-process labels
 - keep MSW handlers and API-shaped browser fixtures under `src/mocks/**` or `tests/fixtures/**`
@@ -194,16 +199,16 @@ Preferred first-page ownership is:
 
 ```text
 features/
-  tasks/
-  task-detail/
+  workflows/
+  workflow-studio/
+  runs/
+  run-studio/
   human-requests/
-  command-runs/
-  definitions/
-  definition-editor/
-  task-start/
+  actions/
+  operator/
 ```
 
-Avoid steady-state folders such as `flows`, `approvals`, `registry`, or `observability` when the UI page model is now `Tasks`, `Human Requests`, `Command Runs`, and `Definitions`.
+Avoid steady-state folders such as `flows`, `approvals`, `registry`, or `observability` when the product model is Workflows, Runs, Human Requests, Actions, and Operator.
 
 ## Test-tree rule
 
@@ -217,8 +222,7 @@ Prefer:
 tests/
   unit/
     cli/
-    compiler/
-    registry/
+    workflows/
     runtime/
     integrations/
   integration/
@@ -229,63 +233,61 @@ tests/
     integrations/
   e2e/
     workflows/
-    gateway/
+    providers/
     operator/
 ```
 
 Avoid keeping `phase2/`, `phase3/`, `phase4a/`, and similar folders as the long-term primary source of test ownership once the redesign history is no longer the important axis.
 
-For AutoClaw, this test-tree direction is canonical enough that new structural test-layout work should follow it by default unless a documented migration exception is recorded.
+For Banksia, this test-tree direction is canonical enough that new structural test-layout work should follow it by default unless a documented migration exception is recorded.
 
-## AutoClaw steady-state direction
+## Banksia steady-state direction
 
-The strongest long-term direction for AutoClaw source layout is:
+The Banksia source layout target is:
 
 ```text
-apps/api/
-  pyproject.toml
-  src/
-    autoclaw/
-      interfaces/
-        http/
-          router.py
-          dependencies.py
-          errors.py
-          contracts/
-          routers/
-        cli/
-          main.py
-          root.py
-          commands/
-          terminal/
-        mcp/
-          node/
-          operator/
-      definitions/
-        compiler/
-        registry/
-        seeds/
+pyproject.toml
+src/
+  banksia/
+    interfaces/
+      http/
+        router.py
+        dependencies.py
+        errors.py
         contracts/
-      runtime/
-        contracts/
-      integrations/
-      persistence/
-      platform/
-      config.py
-      paths.py
-      main.py
-  tests/
+        routers/
+      cli/
+        main.py
+        root.py
+        commands/
+        terminal/
+      mcp/
+        node/
+        operator/
+    workflows/
+      contracts/
+    runtime/
+      contracts/
+    integrations/
+    persistence/
+    platform/
+    config.py
+    paths.py
+    main.py
+tests/
+console/
 ```
 
 Key implications:
 
-- `autoclaw/` becomes the canonical backend package
+- `src/banksia/` is the canonical backend package
 - public edges group under one `interfaces/**` owner instead of several sibling transport trees
-- definition families group under one `definitions/**` owner instead of separate root siblings
+- Workflow families group under one `workflows/**` owner instead of generic Definition/compiler/registry siblings
 - runtime packages become domain-first
 - provider integration substrate becomes explicit
 - persistence becomes an explicit storage owner while typed contracts stay with the domains that own them
 - tests converge to feature/domain ownership
+- the independently authored Console stays at root `console/**`
 
 ## Review checklist
 

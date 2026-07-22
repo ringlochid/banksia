@@ -1,0 +1,44 @@
+kind: workflow
+id: evidence-research
+description: >-
+    Use for a research question that needs source discovery, contextual evidence,
+    synthesis, and independent criticism before a conclusion is accepted.
+note: >-
+    The team separates evidence collection from synthesis and criticism. The lead
+    owns source quality, reconciles disagreements, and returns a conclusion whose
+    confidence and limitations match the evidence.
+lead:
+    id: lead
+    title: Research lead
+    description: Owns the question, evidence standard, and integrated conclusion.
+    instruction: >-
+        Keep the research question and decision context explicit. Reconcile the
+        evidence, distinguish fact from inference, and return a useful conclusion
+        with sources, uncertainty, and limitations proportionate to the stakes.
+    children:
+        - id: context-research
+          title: Context researcher
+          description: Examines the supplied workspace and existing local evidence.
+          instruction: >-
+              Inspect the available local material for relevant facts, constraints,
+              prior decisions, and contradictions. Cite exact locations and identify
+              where local evidence is incomplete.
+        - id: source-research
+          title: Source researcher
+          description: Finds authoritative external evidence when the task needs it.
+          instruction: >-
+              Locate and compare primary or otherwise authoritative sources relevant
+              to the question. Record provenance, recency, scope, and disagreements.
+        - id: synthesis
+          title: Research synthesizer
+          description: Turns the collected evidence into a decision-ready account.
+          instruction: >-
+              Connect the evidence to the research question, separate supported facts
+              from inference, compare alternatives, and make uncertainty explicit.
+        - id: critical-review
+          title: Independent critic
+          description: Challenges source quality, coverage, and the proposed conclusion.
+          instruction: >-
+              Look for missing evidence, weak provenance, unsupported generalization,
+              stale assumptions, and plausible counterexamples. Rank findings by
+              their effect on the conclusion.

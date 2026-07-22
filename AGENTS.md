@@ -1,4 +1,4 @@
-# AutoClaw coding agent contract
+# Banksia coding agent contract
 
 Status: Reference
 
@@ -6,19 +6,19 @@ This is the canonical root instruction surface for coding agents in this repo. K
 
 ## Product purpose
 
-AutoClaw is a controlled agent runtime for multi-step work that must stay auditable, replayable, and operationally recoverable.
+Banksia is an accountable agent-team runtime for complex work that must remain auditable, reproducible, trackable, and operationally recoverable. The current codebase is an imported AutoClaw 0.1.8 migration baseline; its names and public model are not target authority.
 
 We are building it so:
 
 - controller-owned runtime truth stays separate from provider behavior
 - explicit routing and boundaries beat hidden conversational continuity
-- parent, worker, operator, and support lanes stay distinct products
-- prompts, plans, artifacts, reviews, and observability stay explicit enough to validate and recover
+- Task-member, Operator, product, and support/audit lanes stay distinct
+- prompts, Work Plans, loose files, reviews, and observability stay explicit enough to validate and recover
 
 ## Design philosophy
 
 - document target truth before trusting old code shape
-- prefer rewrite-first when the current structure hides the target model
+- replace one ownership seam at a time while preserving proven controller invariants
 - keep recovery, routing, and ownership rules teachable
 - treat docs, prompts, examples, and gates as implementation inputs
 - keep support observability subordinate to controller truth
@@ -31,13 +31,13 @@ We are building it so:
 - do not assume filesystem state is canonical runtime truth unless canon says so
 - do not assume repo-local YAML or packaged definition files stay canonical after a controller-owned definition registry exists
 - do not assume validation preview is equivalent to publish-, start-, commit-, or runtime-time legality
-- treat Phase 0-3 as one-process local-tool-first until canon explicitly reopens MQ or distributed-safe compatibility
+- treat the current Banksia program as one-process local-tool-first until canon explicitly reopens MQ or distributed-safe compatibility
 - do not assume retries are safe to replay across queued or distributed delivery
 - do not assume support-state files are authoritative controller truth
 - do not assume old compatibility layers deserve to survive
 - do not assume provider terminal success implies assignment success
 - do not assume missing contract details can be reconstructed safely from nearby code shape
-- keep exact inline-versus-after-return timing and sync/async ownership with the owning Phase 2 or Phase 3 docs
+- keep exact inline-versus-after-return timing and sync/async ownership with the owning versionless subject page
 
 ## Authority split
 
@@ -47,8 +47,9 @@ We are building it so:
 - [Naming standard](.agents/standards/code/naming.md) owns long-form symbol, module, and package naming guidance
 - [Source layout standard](.agents/standards/structure/source-layout.md) owns long-form monorepo, package-root, domain-first runtime, transport-thinness, and test-layout guidance
 - public product docs, public reference/internals docs, and internal canon docs should remain distinct methodology layers
-- `docs-internal/design/**` is the long-term home for target design truth
-- `docs-internal/current/**` is the long-term home for shipped-behavior contrast
+- `docs-internal/design/README.md` and its eight versionless subject pages own Banksia target design truth
+- `docs-internal/design/appendices/**` owns exact design fixtures, baseline traceability, and bounded reference protocols
+- `docs-internal/design/v1/**`, `docs-internal/design/v2/**`, and `docs-internal/current/v1/**` are frozen AutoClaw migration evidence only
 - durable accepted decisions live under `docs-internal/adr/**`
 - design appendix owners own exhaustive API, schema, prompt, and payload detail
 
@@ -56,35 +57,35 @@ We are building it so:
 
 - read this file first
 - read `STYLE.md` second
-- read the relevant `docs-internal/design/**` and `docs-internal/current/**` owner pages before implementation work
+- read the relevant versionless `docs-internal/design/**` owner page and exact appendix before implementation work
+- read frozen design/current pages only when shipped-baseline or removal evidence is relevant
 - use `.agents/standards/*` for extended cleanup and layout guidance after the root surfaces
 - if a closer subtree `AGENTS.md` is added later, treat it as local routing for that subtree, not a silent replacement for root canon
 
 ## Docs layout rule
 
-The current docs layout is:
+The current migration-stage docs layout is:
 
 - public docs under `docs/**`
-- V2 target design truth under `docs-internal/design/v2/**`
-- V1 target baseline and existing execution-era design truth under `docs-internal/design/v1/**`
-- shipped-behavior contrast under `docs-internal/current/v1/**`
+- versionless Banksia target truth under the direct owner pages in `docs-internal/design/**`
+- exact target fixtures and implementation-reference protocols under `docs-internal/design/appendices/**`
+- frozen AutoClaw design/shipped evidence under `docs-internal/design/v1/**`, `docs-internal/design/v2/**`, and `docs-internal/current/v1/**`
 - durable accepted decisions under `docs-internal/adr/**`
 
 Rules:
 
 - prefer `design/` rather than `redesign/` in all live canon naming
 - keep public docs versionless by default
-- keep internal version eras explicit with directories such as `v1/`, `v2/`, and future draft-version directories
+- do not create another live version-era target beside the versionless Banksia owners
 - do not recreate deleted execution or archive trees just to satisfy stale references
 
 ## Source of truth rule
 
-- `docs-internal/design/v2/**` is the current target product and implementation source of truth for V2-owned surfaces
-- `docs-internal/design/v1/**` remains the target baseline for existing V1 execution-era surfaces that V2 does not supersede
-- `docs-internal/current/v1/**` is the current shipped-behavior contrast lane
-- `apps/console/**` frontend work consumes controller contracts, OpenAPI, and V2 UI docs as data truth
-- external design repos, screenshots, and static HTML handoffs are visual, state, and interaction references only; they do not override controller-owned routes, fields, states, or legality
-- when V2 target pages and V1 target pages disagree about a V2-owned surface, V2 wins
+- `docs-internal/design/**` direct subject pages are the current Banksia target product and implementation source of truth
+- named files under `docs-internal/design/appendices/**` own exact schema, fixture, baseline, prompt-readback, and reference-protocol detail
+- `docs-internal/design/v1/**`, `docs-internal/design/v2/**`, and `docs-internal/current/v1/**` are frozen evidence, never fallback target owners
+- frontend work consumes the versionless product/interface owner, generated controller contracts, and the tracked n8n reference protocol as its data and study boundaries
+- external design repos, ignored source clones, screenshots, and static HTML handoffs are visual, state, and interaction references only; they do not override controller-owned routes, fields, states, or legality
 - when target design truth and shipped contrast disagree about target behavior, target design truth wins
 - code and tests can expose drift, but they do not overrule target design truth unless canon is silent and is being patched
 
@@ -93,30 +94,30 @@ Rules:
 Read these in order before non-trivial implementation:
 
 1. `STYLE.md`
-2. the primary `docs-internal/design/**` owner page for the touched surface
-3. any relevant `docs-internal/current/**` shipped-behavior contrast page
-4. named appendix owners for exact API, schema, prompt, or payload detail
+2. the primary versionless `docs-internal/design/**` owner page for the touched surface
+3. named appendix owners for exact schema, fixture, baseline, prompt-readback, or reference-protocol detail
+4. any relevant frozen design/current page needed as migration or shipped-behavior evidence
 5. the smallest relevant subset of `.agents/standards/*`
 
-For non-trivial `apps/console/**` frontend implementation, also read the relevant UI contract and route sources before touching components:
+For non-trivial frontend or UI-facing backend implementation, also read the relevant product contract and route sources before touching components:
 
-1. `docs-internal/design/v2/interfaces/console-runtime-surfaces.md`
-2. `docs-internal/design/v2/interfaces/control-api.md` for current task state and task controls
-3. `docs-internal/design/v2/interfaces/task-event-stream.md` for task chronology, SSE, and cursor reset
-4. `docs-internal/design/v2/interfaces/human-request-and-approval-contract.md` for human-request surfaces
-5. `docs-internal/design/v2/architecture/command-run-and-external-wait.md` for command-run surfaces
-6. `docs-internal/design/v2/interfaces/definition-authoring-api-and-flat-draft-contract.md` for authoring surfaces
-7. `docs/reference/api/api-surface-and-route-map.md` for current shipped route families
-8. the relevant design-repo product brief, navigation contract, page charter, static HTML, screenshot, and shared CSS handoff
+1. `docs-internal/design/interfaces-console-and-operator.md`
+2. `docs-internal/design/product-and-workflow.md`
+3. `docs-internal/design/runtime.md` and `docs-internal/design/runtime-tools.md`
+4. `docs-internal/design/workspace-files-and-prompt.md`
+5. `docs-internal/design/verification-gates.md`
+6. `docs-internal/design/appendices/n8n-reference-protocol.md`, including the exact packet and upstream files named for the slice
+7. generated product contracts and current route sources for the implementation being changed
+8. frozen shipped-current evidence only when extracting a behavior or removal case
 
-For non-trivial V2 runtime implementation, start with these owner pages before reading provider-specific or shipped-contrast detail:
+For non-trivial runtime implementation, start with these versionless owner pages before provider-specific or frozen shipped-contrast detail:
 
-1. `docs-internal/design/v2/architecture/runtime-lifecycle-and-watchdog.md`
-2. `docs-internal/design/v2/architecture/runtime-records-and-control-state.md`
-3. `docs-internal/design/v2/architecture/work-plan-and-checkpoint-contract.md`
-4. `docs-internal/design/v2/architecture/task-root-and-file-access.md`
-5. `docs-internal/design/v2/architecture/controller-contract-and-resumable-execution.md`
-6. `docs-internal/design/v2/architecture/adapter-contract.md`
+1. `docs-internal/design/runtime.md`
+2. `docs-internal/design/runtime-tools.md`
+3. `docs-internal/design/workspace-files-and-prompt.md`
+4. `docs-internal/design/system-prompts.md`
+5. `docs-internal/design/product-and-workflow.md`
+6. `docs-internal/design/verification-gates.md`
 
 ## Implementation fast path
 
@@ -132,15 +133,16 @@ For non-trivial V2 runtime implementation, start with these owner pages before r
 
 Use this order when a design or implementation question comes up:
 
-1. `docs-internal/design/v2/**` for V2-owned surfaces
-2. `docs-internal/design/v1/**` and named design appendix owners for baseline or still-V1 surfaces
-3. `docs-internal/current/v1/**`
-4. repo code and tests
+1. versionless subject owners under `docs-internal/design/**`
+2. named files under `docs-internal/design/appendices/**`
+3. accepted ADRs under `docs-internal/adr/**`
+4. frozen AutoClaw design/current evidence
+5. repo code and tests
 
 Rules:
 
 - do not ask the user for answers already covered by design or current docs
-- for V2 implementation slices, start from `docs-internal/design/v2/README.md` and the V2 owner page before falling back to V1
+- start from `docs-internal/design/README.md` and the versionless subject owner; never fall back to a frozen tree for target truth
 - when design and current disagree about target behavior, design wins
 - use current only for migration truth or shipped-behavior contrast
 - if canonical docs are silent, record the exact gap and patch canon before treating the answer as settled

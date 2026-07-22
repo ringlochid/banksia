@@ -1,4 +1,4 @@
-# AutoClaw coding standards
+# Banksia coding standards
 
 Status: Reference
 
@@ -46,7 +46,7 @@ This file holds the repo-wide measurable engineering rules for touched code. Kee
 - name files and modules for their dominant responsibility, not for migration leftovers, chronology, or vague categorization
 - avoid new generic names such as `utils.py`, `helpers.py`, `misc.py`, `common.py`, or `support.py` when the responsibility can be named directly
 - avoid steady-state path names with temporary or migration suffixes such as `new`, `old`, `temp`, `final`, or `v2`
-- prefer one canonical backend package such as `autoclaw/**` over parallel long-lived source trees with duplicated ownership
+- converge on one canonical `banksia/**` backend package; the imported `autoclaw/**` tree is migration baseline only, not a second long-lived namespace
 - keep top-level shared surfaces explicit: shared helpers, adapters, selectors, and mappers should be public and non-underscored
 - keep only explicit public-boundary exceptions flat: real `__init__.py` package surfaces, thin `cli.py` entrypoints, and required `conftest.py` discovery surfaces
 - do not keep long-lived compatibility wrappers, import-only shims, or placeholder-only tracked trees as steady-state layout
@@ -171,7 +171,7 @@ Source: [SQLAlchemy declarative mapping](https://docs.sqlalchemy.org/en/20/orm/d
 - event callback props should be named `on*`; local event handlers should be named `handle*`
 - use generated OpenAPI types for controller-backed API payloads; do not hand-maintain duplicate TypeScript API contracts
 - keep one narrow API/SSE client layer for base URL resolution, request headers, error envelopes, query construction, SSE cursor handling, backfill, and reset behavior
-- V2 loopback console and control clients do not add a global operator API key or browser credential bootstrap; follow the owning V2 security contract for local admission
+- Banksia loopback Console and control clients do not add a global operator API key or browser credential bootstrap; follow the owning versionless interface contract for local admission
 - render frontend view-models such as task rows, event items, human-request items, command-run rows, and definition summaries instead of passing raw controller payloads directly through component trees
 - translate generated snake_case controller fields into camelCase view-model fields only inside explicit mappers
 - keep controller vocabulary exact for route names, states, event families, command-run states, human-request kinds, and definition kinds
@@ -184,7 +184,7 @@ Source: [SQLAlchemy declarative mapping](https://docs.sqlalchemy.org/en/20/orm/d
 - use `memo`, `useMemo`, and `useCallback` only for measured churn, expensive calculations, or identity-sensitive APIs
 - keep shared visual language in tokens and reusable primitives; avoid page-local Tailwind utility sprawl once a pattern repeats
 - use design tokens for colors, spacing, radius, shadow, typography, and status treatments instead of ad hoc utility values for controller surfaces
-- console CSS custom properties use the `--ac-*` namespace; do not carry prototype-only token prefixes such as `--oc-*` into implementation
+- Console CSS custom properties use the `--banksia-*` namespace; do not carry AutoClaw or prototype-only token prefixes into implementation
 - derive reusable style tokens from the design handoff once, including color, typography, spacing, size, radius, border, shadow, and status treatments
 - do not copy design-repo static HTML, page-local CSS selectors, or inline prototype JavaScript into the console app
 - map state and variants to explicit Tailwind class strings; do not build dynamic classes such as `` `bg-${status}` ``
@@ -200,7 +200,7 @@ Source: [React custom hooks](https://legacy.reactjs.org/docs/hooks-custom.html) 
 - separate public product/operator docs, public reference/internals docs, and internal canon docs
 - prefer `design/` over `redesign/` in steady-state internal naming
 - keep internal canon under `docs-internal/**` in the steady state
-- version internal canon explicitly with directories such as `v1/`, `v2/`, and `vnext/`
+- keep Banksia target canon versionless under the direct `docs-internal/design/**` owners; treat existing V1/V2/current trees as frozen migration evidence until deletion
 - keep public docs versionless by default unless multiple supported public product versions must coexist
 - do not recreate deleted execution or archive trees just to satisfy stale references
 - keep stable implementation-heavy reference in a dedicated internals or maintainer lane, not in onboarding or general concept pages

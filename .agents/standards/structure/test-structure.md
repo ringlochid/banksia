@@ -20,7 +20,7 @@ Use this guide when adding tests, reorganizing test trees, or deciding what coun
 - `make console-test`: frontend unit and component behavior under `apps/console/tests/unit` and `apps/console/tests/component`
 - `make console-test-integration`: MSW-backed frontend flow behavior under `apps/console/tests/integration`
 - `make console-e2e`: browser end-to-end behavior under `apps/console/tests/e2e`
-- `make console-e2e-real`: focused browser behavior against a disposable real AutoClaw backend
+- `make console-e2e-real`: focused browser behavior against the disposable real AutoClaw migration-baseline backend
 - `make console-openapi-check`: generated frontend API type drift against the current FastAPI OpenAPI schema
 
 ## Placement rules

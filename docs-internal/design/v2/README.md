@@ -1,6 +1,12 @@
 # Design docs (v2)
 
-Status: Target
+Status: Reference
+
+> **Frozen migration evidence:** This tree records the final AutoClaw V2 target
+> baseline. It is not Banksia target authority and is no longer maintained
+> except for link repair needed during migration. The versionless
+> [Banksia design canon](../README.md) wins on every conflict; WP-12 deletes
+> this frozen tree after replacement proof.
 
 This tree is the current target product and implementation source of truth for V2-owned surfaces. It succeeds the V1 target baseline where an owner page exists; it is not shipped-behavior contrast and does not claim that target implementation has landed.
 

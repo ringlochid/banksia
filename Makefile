@@ -169,7 +169,10 @@ docs-prompt-check: $(PYTHON)
 
 test-docs: $(PYTHON)
 	@mkdir -p $(CURDIR)/tmp
-	cd apps/api && TMPDIR=$(CURDIR)/tmp PYTHONPATH=src $(PYTEST) tests/unit/test_docs_contract.py
+	cd apps/api && TMPDIR=$(CURDIR)/tmp PYTHONPATH=src $(PYTEST) \
+		tests/unit/test_docs_contract.py \
+		tests/unit/test_workflow_fixture_contract.py \
+		tests/unit/test_prompt_catalog_tooling.py
 
 check-docs: $(PYTHON)
 	$(MAKE) docs-format-check

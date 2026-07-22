@@ -56,12 +56,12 @@ def validate_prompt_contract(*, should_check_generated_readback: bool = True) ->
 
     if should_check_generated_readback:
         if not PROMPT_CONTRACT_READBACK_PATH.is_file():
-            errors.append("generated V2 prompt contract readback is missing")
+            errors.append("generated Task-member prompt baseline readback is missing")
         elif (
             PROMPT_CONTRACT_READBACK_PATH.read_text(encoding="utf-8")
             != render_prompt_contract_readback()
         ):
-            errors.append("generated V2 prompt contract readback is stale")
+            errors.append("generated Task-member prompt baseline readback is stale")
 
     return tuple(errors)
 

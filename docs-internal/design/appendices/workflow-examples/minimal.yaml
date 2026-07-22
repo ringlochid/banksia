@@ -1,0 +1,5 @@
+kind: workflow
+id: direct-work
+description: Complete a task with one accountable lead.
+lead:
+    id: lead

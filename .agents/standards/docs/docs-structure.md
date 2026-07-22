@@ -6,7 +6,7 @@ Use this guide when adding, moving, splitting, versioning, or redesigning docs p
 
 ## Core model
 
-AutoClaw docs should separate **audience**, **task**, **page type**, and **version**.
+Banksia docs should separate **audience**, **task**, **page type**, and **authority**. Version is a release concern, not a reason to fork live target truth during this migration.
 
 Do not treat the docs tree as a direct mirror of the code tree, the execution program, or the implementation timeline.
 
@@ -19,9 +19,9 @@ Use three layers:
 3. **Internal canon docs**
    - for design truth, shipped-behavior contrast, migration notes, ADRs, and version-era implementation contracts
 
-## Public versus internal versioning
+## Public and internal authority
 
-Version public docs only when AutoClaw intentionally supports multiple public product versions in parallel.
+Version public docs only when Banksia intentionally supports multiple public product versions in parallel.
 
 Default rule for public docs:
 
@@ -29,21 +29,21 @@ Default rule for public docs:
 - do not add `v1`, `v2`, or `vnext` folders under public docs just because the internal design changed
 - only add public version selectors or versioned public folders when multiple supported public releases must coexist for readers
 
-Default rule for internal canon:
+Default rule for active internal canon:
 
-- version internal docs explicitly by directory
-- prefer `v1/`, `v2/`, and `vnext/`
-- use directory-level versioning, not filename suffixes such as `runtime-v2-final.md`
-- freeze one internal version when it becomes historical and move active future design into `vnext/`
+- keep one versionless Banksia target owner per subject
+- put exact schema, fixture, baseline, generated-readback, and bounded reference detail under the named versionless appendix owner
+- keep existing `v1/`, `v2/`, and `current/v1/` trees frozen as AutoClaw migration evidence only until their planned deletion
+- do not create `vnext/`, filename suffixes such as `runtime-v2-final.md`, or a second live target lane
 
 ## Current layout rule
 
 The current layout is:
 
 - public docs under `docs/**`
-- V2 target design truth under `docs-internal/design/v2/**`
-- V1 target baseline under `docs-internal/design/v1/**` for surfaces V2 has not superseded
-- shipped-behavior contrast under `docs-internal/current/v1/**`
+- versionless Banksia target subject owners directly under `docs-internal/design/**`
+- exact target fixtures and implementation-reference protocols under `docs-internal/design/appendices/**`
+- frozen AutoClaw design/shipped evidence under `docs-internal/design/v1/**`, `docs-internal/design/v2/**`, and `docs-internal/current/v1/**`
 - durable accepted decisions under `docs-internal/adr/**`
 
 Treat that as the live information architecture.
@@ -102,29 +102,22 @@ The exact folder names can change during the redesign, but the three-layer model
 
 ## Target internal canon methodology
 
-Internal canon should be explicit about version era.
+During the implementation program, use:
 
-Recommended internal top-level structure:
+- `docs-internal/design/*.md` for versionless Banksia target subject owners;
+- `docs-internal/design/appendices/**` for exact secondary contracts and fixtures named by a subject owner;
+- `docs-internal/adr/**` for durable accepted decisions; and
+- the existing versioned design/current trees only for frozen migration evidence.
 
-- `docs-internal/design/v1/**`
-- `docs-internal/design/v2/**`
-- `docs-internal/design/vnext/**`
-- `docs-internal/current/v1/**`
-- `docs-internal/current/v2/**`
-- `docs-internal/current/vnext/**` only when current shipped contrast genuinely exists for a next-era branch or long-lived prerelease line
-- `docs-internal/adr/**`
+The final shipped documentation contraction is owned by the migration canon. Its destination is `docs-internal/{architecture,interfaces,operations,verification,adr}/`, with no V1/V2/vnext/current-versus-target lanes. Do not move WP-00 subject owners early merely to imitate that final tree; move them only with the planned whole-corpus cutover and link/tooling proof.
 
-Rules:
-
-- `design/` replaces `redesign/` as the steady-state name
-- `current/` remains contrast, not target truth
-- `adr/` is for durable accepted decisions, not speculative plans or raw design notes
+`adr/` is for durable accepted decisions, not speculative plans, raw research, or concern-reconciliation notes.
 
 ## Placement rules
 
 ### Put a page in public product or operator docs when:
 
-- a reader needs it to install, onboard, author, operate, troubleshoot, or use AutoClaw safely
+- a reader needs it to install, onboard, author, operate, troubleshoot, or use Banksia safely
 - the page teaches a workflow, concept, responsibility boundary, or operational behavior
 - the behavior is part of the supported product surface
 - the page can stand on supported behavior without page-local internal review evidence headings such as `## Evidence` or `## Verification`
@@ -244,7 +237,7 @@ Do not let scratch pages compete with design, current, execution, archive, or pu
 - do not duplicate the same contract across public guide, public reference, and internal canon pages unless one page is intentionally a short routing summary
 - if a public page depends on deep implementation detail, summarize the implication and link to the owning reference or internals page
 - if an internal design or current page exists only to preserve temporary contrast, keep it out of stable public reference lanes
-- if a version split exists internally, avoid repeating the same stable content across `v1/`, `v2/`, and `vnext/` unless the contract truly changed
+- do not duplicate a versionless Banksia target contract into a frozen V1/V2/current tree
 
 ## Migration rules
 
@@ -252,14 +245,14 @@ When redesigning the docs tree:
 
 1. classify the page as public product/operator, public reference/internals, or internal canon
 2. decide the page type before moving or rewriting it
-3. decide whether the content belongs to a specific internal version era
+3. decide whether the content is active Banksia target truth, durable rationale, or frozen migration evidence
 4. preserve canonical transitional truth until a replacement owner is explicit
 5. move stable reader-facing material into the public `docs/**` lanes
-6. move internal versioned material into `docs-internal/**`
+6. move active internal truth into its one versionless owner under `docs-internal/**`
 7. add redirects or routing notes when a moved page had meaningful prior entry points
-8. when renaming `redesign` to `design`, update routing language together with the path move so truth does not fork
+8. update routing language together with any path move so truth does not fork
 
-Do not flatten `docs-internal/design/v1` and `docs-internal/current/v1` directly into one public tree without reclassifying the audience, page type, and version ownership first.
+Do not flatten frozen AutoClaw design/current evidence directly into public docs or active Banksia canon. Reclassify the audience and page type, promote only still-governing truth, and delete obsolete material at the owning cutover.
 
 ## Cross-checks
 
@@ -268,4 +261,4 @@ Do not flatten `docs-internal/design/v1` and `docs-internal/current/v1` directly
 - if the page claims public reference, verify the contract is stable enough to expose as durable reference
 - if the page claims internals, verify the audience is contributor or maintainer and the mechanics are not just temporary execution notes
 - if the page is guidance only, verify it does not silently compete with root canon
-- if the page sits under internal canon, verify its version-era home is explicit or intentionally versionless for ADR reasons
+- if the page sits under internal canon, verify it is a versionless Banksia owner/appendix/ADR or is explicitly frozen migration evidence

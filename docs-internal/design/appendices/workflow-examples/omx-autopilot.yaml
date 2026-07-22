@@ -1,0 +1,166 @@
+kind: workflow
+id: omx-autopilot-delivery
+description: >-
+    Carry a nontrivial product change from material clarification through
+    consensus planning, implementation, independent review, and adversarial QA.
+note: |
+    This team adapts OMX Autopilot's intent, consensus planning, delivery, code
+    review, and QA responsibilities. The intent partner identifies choices that
+    would alter the product boundary. The planning council reconciles an
+    architect proposal with a separate critic. Delivery follows the accepted
+    constraints, after which review and adversarial QA remain independent.
+
+    Findings that invalidate an accepted constraint return to planning; local
+    implementation defects return to delivery. A clean review is not a
+    substitute for adversarial QA, and QA success is not a substitute for code
+    review.
+
+lead:
+    id: autopilot-lead
+    title: Autopilot lead
+    description: Own product intent, cross-team decisions, and final delivery judgment.
+    instruction: |
+        Preserve the separation between intent, plan consensus, delivery, review,
+        and QA. Decide whether new evidence changes product intent, invalidates the
+        accepted plan, or calls only for a local repair. Reconcile all five
+        responsibilities before presenting the delivery outcome.
+    provider:
+        kind: codex
+        model: gpt-5.6
+        effort: high
+        sandbox:
+            mode: full_access
+            network: allow
+    capabilities:
+        human_request:
+            - approval
+            - review
+    children:
+        - id: intent-partner
+          title: Intent partner
+          description: Isolate ambiguities that would change the product boundary.
+          instruction: |
+              Compare the request with available product and compatibility evidence.
+              Produce a short intent brief separating settled requirements from the
+              smallest set of consequential unresolved choices. Do not design or
+              implement the solution.
+          provider:
+              kind: claude
+              sandbox:
+                  mode: workspace_write
+                  network: deny
+          capabilities:
+              human_request:
+                  - input
+                  - direction
+
+        - id: planning-council
+          title: Planning council
+          description: Reconcile an implementation proposal with independent criticism.
+          instruction: |
+              Ask the architect for a bounded design and the critic for an independent
+              challenge of that design against the original intent. Preserve accepted
+              constraints, rejected alternatives, migration risk, and proof duties in
+              one council recommendation.
+          provider:
+              kind: codex
+              effort: high
+              sandbox:
+                  mode: workspace_write
+                  network: deny
+          children:
+              - id: architect
+                title: Architect
+                description: Propose boundaries, invariants, change shape, and proof.
+                instruction: |
+                    Inspect the current system and propose the smallest coherent design
+                    that satisfies the intent brief. Cover invariants, dependencies,
+                    migration, verification, and material tradeoffs. Do not implement.
+                provider:
+                    kind: codex
+                    sandbox:
+                        mode: read_only
+                        network: deny
+
+              - id: plan-critic
+                title: Plan critic
+                description: Challenge the proposal and its acceptance coverage.
+                instruction: |
+                    Test the proposed design against the original request and intent
+                    brief. Find consequential missing constraints, unsafe assumptions,
+                    unnecessary complexity, and weak proof. Do not rewrite the proposal
+                    merely for style.
+                provider:
+                    kind: claude
+                    sandbox:
+                        mode: read_only
+                        network: deny
+
+        - id: delivery-manager
+          title: Delivery manager
+          description: Own implementation, proof, and integration of the accepted plan.
+          instruction: |
+              Translate the council recommendation into product implementation and
+              test responsibilities. Keep both aligned with accepted invariants,
+              integrate their changes, and own focused repairs raised by review or QA.
+          provider:
+              kind: codex
+              model: gpt-5.6
+              effort: high
+              sandbox:
+                  mode: full_access
+                  network: allow
+          capabilities:
+              command_run: allow
+          children:
+              - id: product-implementer
+                title: Product implementer
+                description: Implement the bounded product-code scope.
+                instruction: |
+                    Implement the accepted product scope and preserve unrelated work.
+                    Keep the change aligned with the council's invariants and call out
+                    any code fact that makes the accepted plan invalid.
+                provider:
+                    kind: codex
+                    sandbox:
+                        mode: workspace_write
+                        network: deny
+
+              - id: test-engineer
+                title: Test engineer
+                description: Build focused proof for the accepted behavior.
+                instruction: |
+                    Derive tests from the original intent and accepted invariants.
+                    Concentrate on regression, migration, failure, and compatibility
+                    behavior rather than mirroring implementation structure.
+                provider:
+                    kind: claude
+                    sandbox:
+                        mode: workspace_write
+                        network: deny
+
+        - id: merge-readiness-reviewer
+          title: Merge-readiness reviewer
+          description: Independently assess correctness and architecture risk.
+          instruction: |
+              Review the integrated diff and fresh verification without editing.
+              Rank correctness, architecture, compatibility, and regression findings,
+              and identify any accepted invariant that remains unproved.
+          provider:
+              kind: claude
+              sandbox:
+                  mode: read_only
+                  network: deny
+
+        - id: adversarial-qa
+          title: Adversarial QA
+          description: Exercise realistic user, failure, and recovery scenarios.
+          instruction: |
+              Exercise the integrated product from realistic and hostile user
+              perspectives. Cover boundary, stale-state, interruption, and cleanup
+              behavior when relevant. Do not edit product files during this pass.
+          provider:
+              kind: claude
+              sandbox:
+                  mode: workspace_write
+                  network: deny

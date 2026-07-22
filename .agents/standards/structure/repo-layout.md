@@ -16,13 +16,14 @@ Use this guide when the work includes moving files, splitting packages, renaming
 
 ## Root map
 
-- `apps/api/src/autoclaw/**`: canonical shipped backend code and internal runtime/controller surfaces
-- `apps/api/tests/**`: unit, integration, and e2e proof for backend behavior
-- `apps/console/**`: frontend and console-specific build/test surfaces
-- `definitions/**`: authored workflow, role, and policy inputs
+- `apps/api/src/autoclaw/**`: current AutoClaw migration-baseline backend until the ordered Banksia identity, semantic-contraction, and root-layout packages move proven code; never create a parallel target runtime beside it
+- `apps/api/tests/**`: current backend proof until the root-layout cutover moves target-aligned tests to `tests/**`
+- `apps/console/**`: disposable legacy Console used only for baseline evidence until the fresh root `console/**` replacement is proven
+- `definitions/**`: legacy authored inputs removed by Workflow-only catalog cutover; packaged seed files are bootstrap inputs, not runtime authority
 - `docs/**`: public product, operator, reference, and help docs
-- `docs-internal/design/**`: target design truth, versioned by product era
-- `docs-internal/current/**`: shipped-behavior contrast, versioned by product era
+- direct owner pages under `docs-internal/design/**`: versionless Banksia target truth
+- `docs-internal/design/appendices/**`: exact target fixtures, baseline traceability, generated readbacks, and bounded reference protocols
+- `docs-internal/design/v1/**`, `docs-internal/design/v2/**`, and `docs-internal/current/v1/**`: frozen AutoClaw migration evidence
 - `docs-internal/adr/**`: durable accepted decisions
 - `scripts/docs/**`: docs and prompt tooling
 - `scripts/testing/**`: test runners and support scripts
@@ -67,7 +68,7 @@ Prefer splitting when:
 - package names should represent ownership, not generic categorization buckets
 - avoid placeholder names such as `utils`, `helpers`, `misc`, `common`, `support`, or `wrapper` unless the directory truly owns that narrow concern
 - avoid version suffixes or temporary migration names in steady-state code paths
-- use version directories, not filename suffixes, for versioned internal docs
+- keep active Banksia canon versionless and do not add new V1/V2/vnext target lanes or version-suffixed owner files
 - keep public shared helpers non-underscored
 - keep test filenames aligned with the feature or contract they verify, not with incidental helper names
 
@@ -75,7 +76,7 @@ Extended guidance: [Naming](../code/naming.md)
 
 ## Backend layout guidance
 
-- keep one coherent root taxonomy under `apps/api/src/autoclaw/**`; do not leave transport, domain, and substrate families mixed together as peer buckets in the final tree
+- while the migration baseline remains under `apps/api/src/autoclaw/**`, keep one coherent taxonomy there and do not open a parallel `banksia_v2` tree; the ordered root-layout package moves the proven final backend to `src/banksia/**`
 - prefer public interfaces under `apps/api/src/autoclaw/interfaces/**`
 - keep HTTP surfaces under `apps/api/src/autoclaw/interfaces/http/**`
 - keep HTTP-only support contracts, presenters, and transport models under `apps/api/src/autoclaw/interfaces/http/contracts/**`
@@ -93,7 +94,7 @@ Extended guidance: [Naming](../code/naming.md)
 
 ## Frontend layout guidance
 
-- keep console app code under `apps/console/**`; do not add another top-level frontend tree for the same browser surface
+- treat `apps/console/**` as frozen migration evidence except for minimum compatibility needed by earlier packages; the Workflow Studio package creates a fresh independently authored root `console/**` and the cleanup package deletes the legacy app after replacement proof
 - keep package manager, Vite, TypeScript, ESLint, Prettier, Vitest, Playwright, and Tailwind config app-local unless a second JS app later proves a shared workspace is needed
 - keep generated OpenAPI output under `apps/console/src/api/generated/**` and treat it as generated contract input, not authored source
 - keep API/SSE wiring under `apps/console/src/api/**` and keep feature components behind view-model mappers instead of direct raw-payload rendering
@@ -117,7 +118,7 @@ Extended guidance: [Naming](../code/naming.md)
 - keep public docs under `docs/**`
 - keep internal canon under `docs-internal/**`
 - use `design/` rather than `redesign/` in steady-state internal naming
-- make internal version eras explicit with directories such as `v1/`, `v2/`, and `vnext/`
+- keep active Banksia design owners versionless; existing V1/V2/current paths are frozen evidence and no new version-era target path is allowed
 - do not use the public docs tree as a catch-all for versioned implementation programs, historical design drafts, or execution artifacts
 
 ## Local instruction files

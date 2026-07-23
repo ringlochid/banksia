@@ -15,7 +15,7 @@ from banksia.runtime.startup_audit import (
     audit_startup_support_projections,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
-from tests.helpers.executor_harness import seeded_executor
+from tests.helpers.executor_harness import seeded_executor, seeded_task_root
 
 
 async def test_manifest_is_the_only_retained_support_projection(
@@ -38,7 +38,7 @@ async def test_manifest_is_the_only_retained_support_projection(
                 WorkflowManifestProjection(ids.flow_id, "revision.stale"),
             )
 
-    task_root = tmp_path / "task-support-manifest"
+    task_root = seeded_task_root(tmp_path, "support-manifest")
     manifest = (task_root / "manifest.md").read_text(encoding="utf-8")
     assert "# Banksia team" in manifest
     assert f"- Task: `{ids.task_id}`" in manifest

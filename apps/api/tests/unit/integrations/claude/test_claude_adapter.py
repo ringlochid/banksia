@@ -253,7 +253,10 @@ async def test_claude_workspace_write_hook_denies_symlink_escape_and_allows_regu
         {"signal": None},
     )
     allowed = await hook(
-        _pre_tool_input(tool_name="Write", tool_input={"file_path": "notes/result.txt"}),
+        _pre_tool_input(
+            tool_name="Write",
+            tool_input={"file_path": ".banksia/t_01234567/notes/result.txt"},
+        ),
         "tool-use-inside",
         {"signal": None},
     )

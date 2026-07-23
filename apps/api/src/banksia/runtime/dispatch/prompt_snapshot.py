@@ -275,8 +275,6 @@ def _root_start_actions(snapshot: RootPromptSnapshot) -> tuple[str, ...]:
     actions = {
         "checkpoint",
         "get_current_context",
-        "list_files",
-        "read_file",
         "return_boundary",
         "set_work_plan",
     }
@@ -303,8 +301,6 @@ def _boundary_actions(
     actions = {
         "checkpoint",
         "get_current_context",
-        "list_files",
-        "read_file",
         "set_work_plan",
         "return_boundary",
     }

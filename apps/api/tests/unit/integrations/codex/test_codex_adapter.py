@@ -78,12 +78,12 @@ class _FakeAvailabilityCodex:
         self.was_closed = True
 
 
-def _request() -> DispatchStartRequest:
+def _request(*, working_directory: Path | None = None) -> DispatchStartRequest:
     return DispatchStartRequest(
         task_id="task-1",
         dispatch_id="dispatch-1",
         provider_start_revision=0,
-        working_directory=Path("/tmp/workspace"),
+        working_directory=working_directory or Path("/tmp/workspace"),
         instructions=b"exact instructions",
         input=b"exact input",
         provider_route=CodexProviderRoute(
@@ -204,6 +204,7 @@ async def test_codex_check_reports_only_missing_required_authentication(
     ),
 )
 async def test_codex_start_uses_ephemeral_overlay_and_returns_before_output(
+    tmp_path: Path,
     sandbox_mode: ManagedSandboxMode,
     provider_native_access: ProviderNativeAccess,
     network_access: NetworkAccess,
@@ -213,7 +214,10 @@ async def test_codex_start_uses_ephemeral_overlay_and_returns_before_output(
     adapter = CodexAdapter(
         codex_factory=cast(Callable[[], AsyncCodex], lambda: fake),
     )
-    request = _request().model_copy(
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (workspace / ".banksia").mkdir()
+    request = _request(working_directory=workspace).model_copy(
         update={
             "provider_native_access": provider_native_access,
             "network_access": network_access,
@@ -225,7 +229,7 @@ async def test_codex_start_uses_ephemeral_overlay_and_returns_before_output(
         await adapter.start(request)
 
         assert fake.thread_kwargs["developer_instructions"] == "exact instructions"
-        assert fake.thread_kwargs["cwd"] == "/tmp/workspace"
+        assert fake.thread_kwargs["cwd"] == str(workspace)
         assert fake.thread_kwargs["ephemeral"] is True
         assert fake.thread_kwargs["sandbox"] is expected_sandbox
         assert fake.thread.input == "exact input"

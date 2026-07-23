@@ -145,7 +145,6 @@ export interface HumanRequestPreview {
 
 export interface CommandRunPreview {
     readonly description: string | null;
-    readonly hasLog: boolean;
     readonly runId: string;
     readonly state: components["schemas"]["CommandRunState"];
     readonly summary: string | null;

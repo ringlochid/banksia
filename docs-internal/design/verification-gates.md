@@ -47,7 +47,7 @@ This table is the sole numeric owner of controller-only baseline safety bounds t
 | Command Run shell text | 16 KiB UTF-8. |
 | Command Run summary | 2,048 characters. |
 | Command Run timeout | At most 86,400 seconds. |
-| Command Run retained output | 1 MiB while observed bytes continue to drain and count. |
+| Command Run output read/preview | At most 1 MiB per controller/API response; the full combined stream is written only to the Task-workspace log. |
 
 Text admission converts CRLF and lone CR to LF, preserves all other whitespace and Unicode exactly, and uses trimming only for nonblank/optional-omission decisions. NUL and XML 1.0-illegal characters reject. The controller never silently replaces, drops, or Unicode-normalizes accepted characters; prompt XML escapes them during rendering.
 
@@ -232,13 +232,13 @@ Invalid ownership shapes—wrong parent, non-direct child Assignment, boundary f
 - Managed `start_command_run` accepts only `request` with explicit argv or shell command, optional contained cwd, optional positive timeout, and bounded human purpose. Agent-authored environment refs, expected outputs, Task IDs, Dispatch IDs, and implicit shell conversion reject.
 - Intent/wait commits before process launch; exact ownership, timeout, cancellation, termination, kill, reap, and ambiguous-restart behavior remain correct.
 - stderr is redirected to stdout at process creation and one pipe is continuously drained to EOF.
-- One visible `command-runs/c_<id>/output.log` and one protected retained output body contain the retained prefix/marker while DB records exact retained bytes, observed bytes, and truncation.
-- Cap exhaustion never stops draining and cannot deadlock the child.
+- One `command-runs/c_<id>/output.log` receives the complete OS-observed combined stream. The database stores its path, observed/written byte counts, completeness, and lifecycle, but no second full output body.
+- A bounded UI/API read limit never stops pipe draining or file writing and cannot deadlock the child.
 - Success with stderr and failure with stdout show the complete observed combined stream rather than a preferred-stream heuristic.
 - Invalid UTF-8, ANSI/control content, large tails, live reads, search/copy, scoped download, and browser sanitization are tested.
-- Mutating visible `output.log` cannot change DB lifecycle or protected audit bytes; UI states which view is truncated/incomplete.
+- Mutating or removing `output.log` cannot change DB lifecycle. UI identifies bounded views and reports a missing, changed-size, or incomplete current file honestly without claiming immutable audit bytes.
 - Restart never relaunches an ambiguously owned command from file presence.
-- Terminal continuation contains state, summary, optional exit/failure code, timing, one combined log path, retained/observed/truncated facts, and provenance exactly once; it contains neither raw output nor split log refs.
+- Terminal continuation contains state, summary, optional exit/failure code, timing, one combined log path, observed/written/completeness facts, and provenance exactly once; it contains neither raw output nor split log refs.
 
 ## Prompt and current context
 
@@ -374,7 +374,7 @@ From a fresh clone and reset state:
 4. use the canvas to add nested Members, Undo, publish, and start with one prompt in a Git workspace;
 5. observe one shared `.banksia/t_<id>/`, correct manifest/Workflow note, initialized `notes/` and `artifacts/`, and exact root Assignment;
 6. execute sequence, parallel, nested Wave, retry, command, Human Request, replan, iteration, batch, pause/restart/resume, and cancellation cases;
-7. create and reference a working note, a reviewable artifact, and an ordinary project file; change and remove loose files, verify references stay truthful without claiming frozen bytes, and inspect a truncated Action log;
+7. create and reference a working note, a reviewable artifact, and an ordinary project file; change and remove loose files, verify references stay truthful without claiming frozen bytes, and inspect a bounded tail of a large full Action log;
 8. verify a Task lead cannot finish green without current-child participation;
 9. receive exactly one integrated completed or blocked Result and semantic Activity; and
 10. verify normal product network/DOM surfaces contain no technical runtime data while support audit retains exact lineage.

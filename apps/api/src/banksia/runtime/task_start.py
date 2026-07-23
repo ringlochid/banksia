@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass
 from pathlib import Path
@@ -33,7 +34,7 @@ from banksia.runtime.providers import (
     validate_provider_execution_configuration,
 )
 from banksia.runtime.team import plan_initial_task_team
-from banksia.runtime.workspace_admission import (
+from banksia.runtime.workspace.admission import (
     TaskWorkspaceAdmission,
     accept_task_workspace,
     allocate_task_id,
@@ -41,6 +42,8 @@ from banksia.runtime.workspace_admission import (
     recover_task_workspace_admissions,
     stage_task_workspace,
 )
+from banksia.runtime.workspace.git_exclusion import prepare_workspace_git_exclusion
+from banksia.runtime.workspace.storage import WorkspaceIdentity, capture_workspace_identity
 from banksia.workflows.catalog import read_current_published_workflow
 from banksia.workflows.contracts import NormalizedMember, PublishedWorkflowRevision
 from banksia.workflows.service_errors import WorkflowNotFoundError
@@ -53,6 +56,7 @@ class _CommittedTaskAdmission:
     task_id: str
     workflow_revision: PublishedWorkflowRevision
     prepared_dispatch: PreparedDispatchRequest
+    is_workspace_ready: bool
 
 
 async def start_task(
@@ -99,16 +103,17 @@ async def _start_task(
             dependencies=dependencies,
         )
 
-    try:
-        publish_dispatch_start_due(dependencies, admission.prepared_dispatch)
-    except Exception:
-        logger.exception(
-            "failed to publish committed Task provider-start hint",
-            extra={
-                "task_id": admission.task_id,
-                "dispatch_id": admission.prepared_dispatch.dispatch_id,
-            },
-        )
+    if admission.is_workspace_ready:
+        try:
+            publish_dispatch_start_due(dependencies, admission.prepared_dispatch)
+        except Exception:
+            logger.exception(
+                "failed to publish committed Task provider-start hint",
+                extra={
+                    "task_id": admission.task_id,
+                    "dispatch_id": admission.prepared_dispatch.dispatch_id,
+                },
+            )
     return TaskStartResponse(
         task_id=admission.task_id,
         workflow=admission.workflow_revision.workflow_id,
@@ -135,10 +140,18 @@ async def _admit_task_in_workspace_lane(
         raise FileNotFoundError(str(exc)) from exc
     _validate_workflow_execution(workflow_revision, dependencies=dependencies)
     assignment = AssignmentBody(prompt=request.prompt, files=files)
-    await recover_task_workspace_admissions(session, workspaces=(workspace,))
+    workspace_identity = await asyncio.to_thread(capture_workspace_identity, workspace)
+    await asyncio.to_thread(prepare_workspace_git_exclusion, workspace)
+    await recover_task_workspace_admissions(
+        session,
+        workspaces=(workspace,),
+        expected_workspace_identities={workspace: workspace_identity},
+        publish_recovered_provider_start=dependencies.post_commit_publisher.publish,
+    )
     task_id, workspace_admission = await _stage_task_workspace(
         session,
         workspace=workspace,
+        workspace_identity=workspace_identity,
         workflow_revision=workflow_revision,
     )
     prepared = await _stage_initial_task(
@@ -150,7 +163,7 @@ async def _admit_task_in_workspace_lane(
         assignment=assignment,
         dependencies=dependencies,
     )
-    await _commit_task_admission(
+    is_workspace_ready = await _commit_task_admission(
         session,
         workspace_admission=workspace_admission,
     )
@@ -158,6 +171,7 @@ async def _admit_task_in_workspace_lane(
         task_id=task_id,
         workflow_revision=workflow_revision,
         prepared_dispatch=prepared,
+        is_workspace_ready=is_workspace_ready,
     )
 
 
@@ -206,7 +220,7 @@ async def _commit_task_admission(
     session: AsyncSession,
     *,
     workspace_admission: TaskWorkspaceAdmission,
-) -> None:
+) -> bool:
     try:
         await session.commit()
     except BaseException:
@@ -224,7 +238,7 @@ async def _commit_task_admission(
 
     try:
         accept_task_workspace(workspace_admission)
-    except BaseException:
+    except Exception:
         logger.exception(
             "committed Task retained its initialization marker",
             extra={
@@ -232,12 +246,15 @@ async def _commit_task_admission(
                 "task_root": str(workspace_admission.task_root),
             },
         )
+        return False
+    return True
 
 
 async def _stage_task_workspace(
     session: AsyncSession,
     *,
     workspace: Path,
+    workspace_identity: WorkspaceIdentity,
     workflow_revision: PublishedWorkflowRevision,
 ) -> tuple[str, TaskWorkspaceAdmission]:
     for _ in range(128):
@@ -249,6 +266,7 @@ async def _stage_task_workspace(
                 task_id=task_id,
                 workflow_revision=workflow_revision,
                 initial_team=initial_team,
+                workspace_identity=workspace_identity,
             )
         except FileExistsError:
             continue

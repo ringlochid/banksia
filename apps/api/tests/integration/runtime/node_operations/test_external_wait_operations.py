@@ -199,6 +199,52 @@ async def test_human_request_open_persists_typed_source_and_exact_wait(
         assert [signal.activity_revision for signal in signals] == [1]
 
 
+async def test_human_request_rejects_invalid_file_without_opening_wait(
+    tmp_path: Path,
+) -> None:
+    async with seeded_executor(tmp_path, suffix="human-invalid-file") as (
+        executor,
+        session_factory,
+        ids,
+        _signals,
+    ):
+        with pytest.raises(RuntimeOperationError, match="referenced file does not exist"):
+            await executor.execute(
+                scope=NodeOperationScope(
+                    task_id=ids.task_id,
+                    dispatch_id=ids.current_dispatch_id,
+                ),
+                operation_name="open_human_request",
+                arguments={
+                    "request": {
+                        "kind": "direction",
+                        "summary": "This request must roll back.",
+                        "items": [
+                            {
+                                "id": "direction",
+                                "prompt": "Which direction?",
+                                "options": [{"id": "a", "title": "A"}],
+                            }
+                        ],
+                        "files": [{"path": "missing.md"}],
+                    }
+                },
+            )
+
+        async with session_factory() as session:
+            source = await session.scalar(
+                select(HumanRequestModel).where(HumanRequestModel.task_id == ids.task_id)
+            )
+            wait = await session.get(FlowWaitModel, ids.flow_id)
+            dispatch = await session.get(DispatchTurnModel, ids.current_dispatch_id)
+            flow = await session.get(FlowModel, ids.flow_id)
+
+        assert source is None
+        assert wait is None
+        assert dispatch is not None and dispatch.status == "open"
+        assert flow is not None and flow.waiting_cause == "none"
+
+
 async def test_human_request_answer_persists_typed_map_and_clears_exact_wait(
     tmp_path: Path,
 ) -> None:
@@ -330,7 +376,7 @@ async def test_human_request_answer_preserves_competing_wait_pointer(
         _signals,
     ):
         request_id = await _open_direction_human_request(executor, ids)
-        competing_source_id = "command-run.competing"
+        competing_source_id = "c_76543210"
         async with session_factory() as session:
             flow = await session.get(FlowModel, ids.flow_id)
             assert flow is not None
@@ -403,91 +449,6 @@ async def test_human_request_answer_rolls_back_when_exact_wait_is_missing(
         assert flow is not None and flow.waiting_source_id == request_id
         assert event is None
         assert publisher.signals == ()
-
-
-async def test_command_run_start_persists_discriminated_request_without_launching(
-    tmp_path: Path,
-) -> None:
-    async with seeded_executor(tmp_path, suffix="command") as (
-        executor,
-        session_factory,
-        ids,
-        _signals,
-    ):
-        result = await executor.execute(
-            scope=NodeOperationScope(
-                task_id=ids.task_id,
-                dispatch_id=ids.current_dispatch_id,
-            ),
-            operation_name="start_command_run",
-            arguments={
-                "request": {
-                    "command": {"kind": "argv", "argv": ["python", "-V"]},
-                    "cwd": "workspace/tools",
-                    "environment": ["python.safe"],
-                    "timeout_seconds": 30,
-                    "summary": "Read the Python version.",
-                    "expected_outputs": [
-                        {
-                            "path": "outputs/python-version.txt",
-                            "description": "Captured version.",
-                        }
-                    ],
-                }
-            },
-        )
-        run_id = result.model_dump()["run_id"]
-        async with session_factory() as session:
-            source = await session.get(CommandRunModel, run_id)
-            dispatch = await session.get(DispatchTurnModel, ids.current_dispatch_id)
-            flow = await session.get(FlowModel, ids.flow_id)
-        assert source is not None and source.state == "pending_start"
-        assert source.command_spec_json == {"kind": "argv", "argv": ["python", "-V"]}
-        assert source.cwd_policy_json == {"logical_path": "workspace/tools"}
-        assert source.environment_refs_json == ["python.safe"]
-        assert source.expected_outputs_json == [
-            {
-                "path": "outputs/python-version.txt",
-                "description": "Captured version.",
-            }
-        ]
-        assert dispatch is not None and dispatch.status == "closed"
-        assert flow is not None and flow.waiting_source_id == run_id
-        assert flow.waiting_cause == "command_run"
-
-
-async def test_invalid_command_cwd_creates_no_source_or_wait(tmp_path: Path) -> None:
-    async with seeded_executor(tmp_path, suffix="command-path") as (
-        executor,
-        session_factory,
-        ids,
-        _signals,
-    ):
-        with pytest.raises(RuntimeOperationError):
-            await executor.execute(
-                scope=NodeOperationScope(
-                    task_id=ids.task_id,
-                    dispatch_id=ids.current_dispatch_id,
-                ),
-                operation_name="start_command_run",
-                arguments={
-                    "request": {
-                        "command": {"kind": "shell", "command": "pwd"},
-                        "cwd": "outputs",
-                        "summary": "Reject non-workspace cwd.",
-                    }
-                },
-            )
-        async with session_factory() as session:
-            source = await session.scalar(
-                select(CommandRunModel).where(CommandRunModel.task_id == ids.task_id)
-            )
-            dispatch = await session.get(DispatchTurnModel, ids.current_dispatch_id)
-            flow = await session.get(FlowModel, ids.flow_id)
-        assert source is None
-        assert dispatch is not None and dispatch.status == "open"
-        assert flow is not None and flow.current_dispatch_id == ids.current_dispatch_id
-        assert flow.waiting_cause == "none"
 
 
 @pytest.mark.parametrize(

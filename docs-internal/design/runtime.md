@@ -519,7 +519,7 @@ request:
 
 There is no agent-authored environment-ref list or `expected_outputs` contract. The process receives the controller-approved Task environment. A member may reference the visible Command Run log or any other useful regular workspace file through the same `files` field; no copy or capture operation exists. `cwd` must remain within the Task workspace. The argv form is preferred; shell form is explicit and never inferred from prose.
 
-The open result returns Command ID, committed pending state, visible combined log path, and the instruction to stop. The terminal result contains exact `succeeded | failed | timed_out | cancelled | abandoned` state, bounded summary, optional exit/failure code, start/end time, combined log path, retained/observed byte counts, truncation, and terminal provenance. It contains no separate stdout/stderr refs and never copies raw output into the Continuation.
+The open result returns Command ID, committed pending state, visible combined log path, and the instruction to stop. The terminal result contains exact `succeeded | failed | timed_out | cancelled | abandoned` state, bounded summary, optional exit/failure code, start/end time, combined log path, observed/written byte counts, output completeness, and terminal provenance. It contains no separate stdout/stderr refs and never copies raw output into the Continuation or controller body storage.
 
 Command execution preserves commit-before-launch, exact ownership, bounded continuous draining, timeout/cancel/terminate/kill/reap behavior, startup ambiguity handling, and no blind relaunch. Its provider-visible file shape is defined in [Workspace, files, and prompt](workspace-files-and-prompt.md).
 

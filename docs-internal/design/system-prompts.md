@@ -622,7 +622,7 @@ Rules:
 - a successor Continuation contains one exact trigger kind, source, and complete typed result;
 - a Wave result includes every complete returned child Assignment, terminal Checkpoint, and file reference in delegation order;
 - a Human Request result includes the exact committed question and answer;
-- a Command Run result includes its terminal state, timing/failure facts, retained/observed/truncated facts, and combined output path;
+- a Command Run result includes its terminal state, timing/failure facts, observed/written/completeness facts, and combined output path;
 - a replan result includes the exact added/updated/removed sets plus fresh team, participation, behavior, capabilities, and legal actions after manifest health is restored;
 - direct-team configuration and participation are fresh at render time;
 - capabilities are effective grants, not merely authored requests;

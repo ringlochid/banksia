@@ -70,7 +70,6 @@ const isNullablePositiveInteger = acceptsNullable(isPositiveInteger);
 const isWorkPlanSteps = acceptsArray(isWorkPlanStep, 1, 9);
 const isArtifactRefs = acceptsArray(isArtifactRef, 0, 32);
 const isTransientRefs = acceptsArray(isTransientRef, 0, 32);
-const isLogRefs = acceptsArray(isRef, 0, 2);
 
 const taskEventPayloadValidators = {
     boundary_accepted: isBoundaryAcceptedPayload,
@@ -366,6 +365,7 @@ function isCommandRunOpenedPayload(value: unknown): boolean {
             command: isSummary,
             created_at: acceptsDateTime,
             description: isSummary,
+            output_path: isRef,
             ownership_revision: acceptsLiteral(0),
             run_id: isIdentifier,
             source_dispatch_id: isIdentifier,
@@ -384,7 +384,7 @@ function isCommandRunStartedPayload(value: unknown): boolean {
         {
             command: isSummary,
             description: isSummary,
-            log_refs: isLogRefs,
+            output_path: isRef,
             ownership_revision: isPositiveInteger,
             run_id: isIdentifier,
             source_dispatch_id: isIdentifier,
@@ -399,18 +399,15 @@ function isCommandRunStartedPayload(value: unknown): boolean {
 }
 
 function isCommandRunProgressedPayload(value: unknown): boolean {
-    return matchesExactRecord(
-        value,
-        {
-            occurred_at: acceptsDateTime,
-            ownership_revision: isPositiveInteger,
-            run_id: isIdentifier,
-            source_dispatch_id: isIdentifier,
-            state: isCommandProgressState,
-            summary: isSummary,
-        },
-        { log_ref: isNullableRef },
-    );
+    return matchesExactRecord(value, {
+        occurred_at: acceptsDateTime,
+        output_path: isRef,
+        ownership_revision: isPositiveInteger,
+        run_id: isIdentifier,
+        source_dispatch_id: isIdentifier,
+        state: isCommandProgressState,
+        summary: isSummary,
+    });
 }
 
 function isCommandRunCancelRequestedPayload(value: unknown): boolean {
@@ -432,7 +429,11 @@ function isCommandRunTerminalPayload(
             value,
             {
                 ended_at: acceptsDateTime,
-                log_refs: isLogRefs,
+                output_complete: isBoolean,
+                output_encoding: acceptsLiteral("raw_bytes"),
+                output_observed_bytes: isNonNegativeInteger,
+                output_path: isRef,
+                output_written_bytes: isNonNegativeInteger,
                 ownership_revision: isNonNegativeInteger,
                 run_id: isIdentifier,
                 source_dispatch_id: isIdentifier,
@@ -456,6 +457,14 @@ function isCommandRunTerminalPayload(
     }
 
     if (value.state !== expectedState) {
+        return false;
+    }
+    const outputObservedBytes = value.output_observed_bytes as number;
+    const outputWrittenBytes = value.output_written_bytes as number;
+    if (
+        outputWrittenBytes > outputObservedBytes ||
+        (value.output_complete === true && outputWrittenBytes !== outputObservedBytes)
+    ) {
         return false;
     }
     return expectedState !== "abandoned" || value.failure_code === "command_ownership_lost";
@@ -552,6 +561,10 @@ function acceptsBoundedText(maxLength: number): UnknownValidator {
 
 function acceptsNonEmptyText(value: unknown): value is string {
     return typeof value === "string" && value.length > 0 && value.trim() === value;
+}
+
+function isBoolean(value: unknown): value is boolean {
+    return typeof value === "boolean";
 }
 
 function acceptsDateTime(value: unknown): value is string {

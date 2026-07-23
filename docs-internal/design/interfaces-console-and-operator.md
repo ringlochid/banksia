@@ -148,7 +148,7 @@ Cursor reset triggers silent authoritative refetch. The UI only reports a live u
 
 A controller-managed Command Run appears as one evolving **Action** with a human purpose, member, running/terminal outcome, elapsed time, `View output`, and Cancel only when legal. It does not show argv, cwd, process state, exit code, physical log path, ownership revision, or runtime ID by default.
 
-`View output` opens a scoped contextual view with sanitized bounded tail, search, copy, optional download, and explicit truncation/incomplete notices. Routine provider-native shell calls do not become product Activity.
+`View output` opens a scoped contextual view with sanitized bounded tail, search, copy, optional download, and explicit bounded-view/incomplete notices. Routine provider-native shell calls do not become product Activity.
 
 ### Human Request -> Needs your attention
 

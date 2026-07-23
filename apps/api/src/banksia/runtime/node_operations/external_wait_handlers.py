@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import asyncio
+import os
+import secrets
 import shlex
 from datetime import datetime
+from pathlib import Path
 from uuid import uuid4
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,8 +17,8 @@ from banksia.persistence.models import (
     HumanRequestModel,
 )
 from banksia.runtime.clock import utc_now
+from banksia.runtime.command_run.task_paths import normalize_command_working_directory
 from banksia.runtime.contracts import (
-    CommandExpectedOutput,
     CommandRunStartResponse,
     CommandRunState,
     FileReference,
@@ -32,8 +36,10 @@ from banksia.runtime.node_operations.contracts import (
 )
 from banksia.runtime.node_operations.source_transitions import close_source_dispatch
 from banksia.runtime.task_events import append_task_event
-from banksia.runtime.task_root.logical_paths import normalize_logical_task_path
+from banksia.runtime.task_root.paths import command_run_output_path
 from banksia.runtime.task_root.reads import read_task_root_paths
+
+COMMAND_ID_ALPHABET = "0123456789abcdefghjkmnpqrstvwxyz"
 
 
 async def open_human_request(
@@ -114,11 +120,19 @@ async def start_command_run(
     authority: NodeOperationAuthority,
     request: StartCommandRunRequest,
 ) -> CommandRunStartResponse:
-    run_id = f"command-run.{authority.task_id}.{uuid4().hex}"
+    paths = await read_task_root_paths(session, authority.task_id)
+    run_id = await _allocate_command_run_id(
+        session,
+        task_id=authority.task_id,
+        workspace=paths.workspace_path,
+    )
+    output_path = command_run_output_path(
+        task_id=authority.task_id,
+        run_id=run_id,
+    ).as_posix()
     body = request.request
     now = utc_now()
     cwd = _normalize_command_cwd(body.cwd)
-    expected_outputs = _normalize_expected_outputs(body.expected_outputs)
     await close_source_dispatch(
         session,
         authority,
@@ -133,7 +147,7 @@ async def start_command_run(
         run_id=run_id,
         request=request,
         cwd=cwd,
-        expected_outputs=expected_outputs,
+        output_path=output_path,
     )
     await _append_command_run_opened_event(
         session,
@@ -141,6 +155,7 @@ async def start_command_run(
         run_id=run_id,
         request=request,
         cwd=cwd,
+        output_path=output_path,
         occurred_at=now,
     )
     await session.commit()
@@ -148,6 +163,7 @@ async def start_command_run(
         run_id=run_id,
         task_id=authority.task_id,
         state=CommandRunState.PENDING_START,
+        output_path=output_path,
     )
 
 
@@ -168,18 +184,6 @@ def _stage_human_request_files(
     )
 
 
-def _normalize_expected_outputs(
-    expected_outputs: tuple[CommandExpectedOutput, ...],
-) -> list[dict[str, str]]:
-    return [
-        {
-            "path": normalize_logical_task_path(output.path),
-            "description": output.description,
-        }
-        for output in expected_outputs
-    ]
-
-
 def _stage_command_run_rows(
     session: AsyncSession,
     authority: NodeOperationAuthority,
@@ -187,7 +191,7 @@ def _stage_command_run_rows(
     run_id: str,
     request: StartCommandRunRequest,
     cwd: str | None,
-    expected_outputs: list[dict[str, str]],
+    output_path: str,
 ) -> None:
     body = request.request
     session.add(
@@ -200,11 +204,10 @@ def _stage_command_run_rows(
             source_dispatch_id=authority.dispatch_id,
             command_spec_json=body.command.model_dump(mode="json"),
             cwd_policy_json={"logical_path": cwd} if cwd is not None else None,
-            environment_refs_json=list(body.environment) or None,
             summary=body.summary,
-            expected_outputs_json=expected_outputs or None,
             timeout_seconds=body.timeout_seconds,
             due_at=None,
+            output_path=output_path,
             state=CommandRunState.PENDING_START,
             ownership_revision=0,
         )
@@ -227,6 +230,7 @@ async def _append_command_run_opened_event(
     run_id: str,
     request: StartCommandRunRequest,
     cwd: str | None,
+    output_path: str,
     occurred_at: datetime,
 ) -> None:
     body = request.request
@@ -251,6 +255,7 @@ async def _append_command_run_opened_event(
             "created_at": occurred_at,
             "timeout_seconds": body.timeout_seconds,
             "ownership_revision": 0,
+            "output_path": output_path,
         },
     )
 
@@ -258,14 +263,36 @@ async def _append_command_run_opened_event(
 def _normalize_command_cwd(cwd: str | None) -> str | None:
     if cwd is None:
         return None
-    normalized = normalize_logical_task_path(cwd)
-    if normalized != "workspace" and not normalized.startswith("workspace/"):
+    try:
+        return normalize_command_working_directory(cwd)
+    except ValueError as exc:
         raise RuntimeOperationError(
             code=OperationFailureCode.INVALID_TASK_PATH,
-            summary="command cwd must be inside the task workspace",
+            summary=str(exc),
             is_retryable=False,
-        )
-    return normalized
+        ) from exc
+
+
+async def _allocate_command_run_id(
+    session: AsyncSession,
+    *,
+    task_id: str,
+    workspace: Path,
+) -> str:
+    for _ in range(128):
+        candidate = _new_command_run_id()
+        if await session.get(CommandRunModel, candidate) is not None:
+            continue
+        directory = workspace / command_run_output_path(task_id=task_id, run_id=candidate).parent
+        if not await asyncio.to_thread(os.path.lexists, directory):
+            return candidate
+    raise RuntimeError("could not allocate a collision-free Command identifier")
+
+
+def _new_command_run_id() -> str:
+    value = int.from_bytes(secrets.token_bytes(5), "big")
+    encoded = "".join(COMMAND_ID_ALPHABET[(value >> shift) & 0x1F] for shift in range(35, -1, -5))
+    return f"c_{encoded}"
 
 
 __all__ = ["open_human_request", "start_command_run"]

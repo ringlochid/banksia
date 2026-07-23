@@ -22,12 +22,15 @@ import {
 
 const EMPTY_ROWS: readonly CommandRunRowView[] = [];
 
-export interface CommandRunLogState {
+export interface CommandRunOutputState {
     readonly content: string | null;
     readonly error: ConsoleErrorView | null;
+    readonly fileSize: number | null;
+    readonly isBounded: boolean;
     readonly isLoading: boolean;
     readonly isVisible: boolean;
-    readonly logRef: string | null;
+    readonly outputComplete: boolean;
+    readonly outputPath: string;
 }
 
 export interface CommandRunsController {
@@ -43,7 +46,7 @@ export interface CommandRunsController {
     readonly isLoadingMore: boolean;
     readonly isRefreshing: boolean;
     readonly loadMore: () => void;
-    readonly logStatesByRunId: Readonly<Record<string, CommandRunLogState | undefined>>;
+    readonly outputStatesByRunId: Readonly<Record<string, CommandRunOutputState | undefined>>;
     readonly nextCursor: string | null;
     readonly refresh: () => void;
     readonly retryDetail: (runId: string) => void;
@@ -55,7 +58,7 @@ export interface CommandRunsController {
     readonly taskTitle: string | null;
     readonly taskWaitingCause: components["schemas"]["RuntimeFlowWaitingCause"] | null;
     readonly toggleExpandedRun: (runId: string) => void;
-    readonly toggleLogs: (runId: string) => void;
+    readonly toggleOutput: (runId: string) => void;
 }
 
 interface CommandRunsPageState {
@@ -95,15 +98,26 @@ const missingTaskIdError: ConsoleErrorView = {
     title: "Missing Task Id",
 };
 
-const commandLogMismatchError: ConsoleErrorView = {
-    code: "stale_command_log_read",
+const commandOutputMismatchError: ConsoleErrorView = {
+    code: "stale_command_output_read",
     fieldErrors: [],
     isRetryable: true,
     source: "unknown",
     status: null,
-    suggestedNextStep: "Retry the log read from the current command-run detail.",
-    summary: "The command log changed while it was loading.",
-    title: "Command Log Changed",
+    suggestedNextStep: "Retry the output read from the current command-run detail.",
+    summary: "The command output changed while it was loading.",
+    title: "Command Output Changed",
+};
+
+const commandOutputMissingError: ConsoleErrorView = {
+    code: "command_output_missing",
+    fieldErrors: [],
+    isRetryable: true,
+    source: "unknown",
+    status: 404,
+    suggestedNextStep: "Retry after checking whether the workspace file is available.",
+    summary: "The current command output file is missing.",
+    title: "Command Output Missing",
 };
 
 export function useCommandRunsController(taskId: string | null): CommandRunsController {
@@ -116,8 +130,8 @@ export function useCommandRunsController(taskId: string | null): CommandRunsCont
         Readonly<Record<string, ConsoleErrorView | undefined>>
     >({});
     const [isDetailLoadingRunId, setIsDetailLoadingRunId] = useState<string | null>(null);
-    const [logStatesByRunId, setLogStatesByRunId] = useState<
-        Readonly<Record<string, CommandRunLogState | undefined>>
+    const [outputStatesByRunId, setOutputStatesByRunId] = useState<
+        Readonly<Record<string, CommandRunOutputState | undefined>>
     >({});
     const [cancelErrorsByRunId, setCancelErrorsByRunId] = useState<
         Readonly<Record<string, ConsoleErrorView | undefined>>
@@ -147,11 +161,13 @@ export function useCommandRunsController(taskId: string | null): CommandRunsCont
             setIsDetailLoadingRunId((currentRunId) =>
                 currentRunId === runId ? null : currentRunId,
             );
-            setLogStatesByRunId((currentStates) => {
-                const currentLogState = currentStates[runId];
+            setOutputStatesByRunId((currentStates) => {
+                const currentOutputState = currentStates[runId];
                 if (
-                    currentLogState === undefined ||
-                    currentLogState.logRef === detail.preferredLogRef
+                    currentOutputState === undefined ||
+                    (currentOutputState.outputPath === detail.outputPath &&
+                        currentOutputState.fileSize === detail.outputWrittenBytes &&
+                        currentOutputState.outputComplete === detail.outputComplete)
                 ) {
                     return currentStates;
                 }
@@ -289,7 +305,7 @@ export function useCommandRunsController(taskId: string | null): CommandRunsCont
     const refresh = useCallback(() => {
         setCancelErrorsByRunId({});
         setDetailErrorsByRunId({});
-        setLogStatesByRunId({});
+        setOutputStatesByRunId({});
         setRefreshToken((value) => value + 1);
     }, []);
 
@@ -343,17 +359,17 @@ export function useCommandRunsController(taskId: string | null): CommandRunsCont
         [detailViewsByRunId, fetchDetail],
     );
 
-    const toggleLogs = useCallback(
+    const toggleOutput = useCallback(
         (runId: string) => {
             const detail = detailViewsByRunId[runId];
-            const logRef = detail?.preferredLogRef ?? null;
-            if (taskId === null || logRef === null) {
+            if (taskId === null || detail === undefined) {
                 return;
             }
+            const outputPath = detail.outputPath;
 
-            const currentLogState = logStatesByRunId[runId];
-            if (currentLogState?.isVisible === true) {
-                setLogStatesByRunId((currentStates) => ({
+            const currentOutputState = outputStatesByRunId[runId];
+            if (currentOutputState?.isVisible === true) {
+                setOutputStatesByRunId((currentStates) => ({
                     ...currentStates,
                     [runId]:
                         currentStates[runId] === undefined
@@ -363,15 +379,21 @@ export function useCommandRunsController(taskId: string | null): CommandRunsCont
                 return;
             }
 
-            if (currentLogState?.logRef === logRef && currentLogState.content !== null) {
-                setLogStatesByRunId((currentStates) => {
-                    const latestLogState = currentStates[runId];
-                    if (latestLogState?.logRef !== logRef || latestLogState.content === null) {
+            if (
+                currentOutputState?.outputPath === outputPath &&
+                currentOutputState.content !== null
+            ) {
+                setOutputStatesByRunId((currentStates) => {
+                    const latestOutputState = currentStates[runId];
+                    if (
+                        latestOutputState?.outputPath !== outputPath ||
+                        latestOutputState.content === null
+                    ) {
                         return currentStates;
                     }
                     return {
                         ...currentStates,
-                        [runId]: { ...latestLogState, error: null, isVisible: true },
+                        [runId]: { ...latestOutputState, error: null, isVisible: true },
                     };
                 });
                 return;
@@ -381,33 +403,52 @@ export function useCommandRunsController(taskId: string | null): CommandRunsCont
                 logRequestGenerationsRef.current,
                 runId,
             );
-            setLogStatesByRunId((currentStates) => ({
+            setOutputStatesByRunId((currentStates) => ({
                 ...currentStates,
                 [runId]: {
                     content: null,
                     error: null,
+                    fileSize: null,
+                    isBounded: false,
                     isLoading: true,
                     isVisible: true,
-                    logRef,
+                    outputComplete: detail.outputComplete,
+                    outputPath,
                 },
             }));
             void readCommandRunLog(taskId, runId)
-                .then((logRead) => {
-                    setLogStatesByRunId((currentStates) => {
-                        const latestLogState = currentStates[runId];
+                .then((outputRead) => {
+                    setOutputStatesByRunId((currentStates) => {
+                        const latestOutputState = currentStates[runId];
                         if (
                             logRequestGenerationsRef.current.get(runId) !== requestGeneration ||
-                            latestLogState?.logRef !== logRef
+                            latestOutputState?.outputPath !== outputPath
                         ) {
                             return currentStates;
                         }
-                        if (logRead.run_id !== runId || logRead.log_ref !== logRef) {
+                        if (
+                            outputRead.run_id !== runId ||
+                            outputRead.output_path !== outputPath ||
+                            outputRead.is_changed
+                        ) {
                             return {
                                 ...currentStates,
                                 [runId]: {
-                                    ...latestLogState,
+                                    ...latestOutputState,
                                     content: null,
-                                    error: commandLogMismatchError,
+                                    error: commandOutputMismatchError,
+                                    isLoading: false,
+                                },
+                            };
+                        }
+                        if (outputRead.is_missing) {
+                            return {
+                                ...currentStates,
+                                [runId]: {
+                                    ...latestOutputState,
+                                    content: null,
+                                    error: commandOutputMissingError,
+                                    fileSize: null,
                                     isLoading: false,
                                 },
                             };
@@ -415,10 +456,13 @@ export function useCommandRunsController(taskId: string | null): CommandRunsCont
                         return {
                             ...currentStates,
                             [runId]: {
-                                ...latestLogState,
-                                content: logRead.content,
+                                ...latestOutputState,
+                                content: outputRead.content,
                                 error: null,
+                                fileSize: outputRead.file_size ?? null,
+                                isBounded: outputRead.next_offset !== null,
                                 isLoading: false,
+                                outputComplete: outputRead.output_complete,
                             },
                         };
                     });
@@ -427,18 +471,18 @@ export function useCommandRunsController(taskId: string | null): CommandRunsCont
                     if (isAbortError(error)) {
                         return;
                     }
-                    setLogStatesByRunId((currentStates) => {
-                        const latestLogState = currentStates[runId];
+                    setOutputStatesByRunId((currentStates) => {
+                        const latestOutputState = currentStates[runId];
                         if (
                             logRequestGenerationsRef.current.get(runId) !== requestGeneration ||
-                            latestLogState?.logRef !== logRef
+                            latestOutputState?.outputPath !== outputPath
                         ) {
                             return currentStates;
                         }
                         return {
                             ...currentStates,
                             [runId]: {
-                                ...latestLogState,
+                                ...latestOutputState,
                                 content: null,
                                 error: toErrorView(error),
                                 isLoading: false,
@@ -447,7 +491,7 @@ export function useCommandRunsController(taskId: string | null): CommandRunsCont
                     });
                 });
         },
-        [detailViewsByRunId, logStatesByRunId, taskId],
+        [detailViewsByRunId, outputStatesByRunId, taskId],
     );
 
     const cancelRun = useCallback(
@@ -585,7 +629,7 @@ export function useCommandRunsController(taskId: string | null): CommandRunsCont
         isLoadingMore: pageState.isLoadingMore,
         isRefreshing: pageState.isRefreshing,
         loadMore,
-        logStatesByRunId,
+        outputStatesByRunId,
         nextCursor: pageState.nextCursor,
         refresh,
         retryDetail: fetchDetail,
@@ -599,7 +643,7 @@ export function useCommandRunsController(taskId: string | null): CommandRunsCont
         taskWaitingCause:
             pageState.settledTaskId === taskId ? (pageState.task?.waiting_cause ?? null) : null,
         toggleExpandedRun,
-        toggleLogs,
+        toggleOutput,
     };
 }
 

@@ -420,7 +420,6 @@
         "properties": {
           "argv": {
             "items": {
-              "minLength": 1,
               "type": "string"
             },
             "maxItems": 256,
@@ -439,33 +438,6 @@
           "argv"
         ],
         "title": "CommandArgvSpec",
-        "type": "object"
-      },
-      "CommandEnvironmentRef": {
-        "maxLength": 128,
-        "minLength": 1,
-        "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$",
-        "type": "string"
-      },
-      "CommandExpectedOutput": {
-        "additionalProperties": false,
-        "properties": {
-          "description": {
-            "minLength": 1,
-            "title": "Description",
-            "type": "string"
-          },
-          "path": {
-            "minLength": 1,
-            "title": "Path",
-            "type": "string"
-          }
-        },
-        "required": [
-          "path",
-          "description"
-        ],
-        "title": "CommandExpectedOutput",
         "type": "object"
       },
       "CommandRunCancelRequestedEventPayload": {
@@ -582,17 +554,29 @@
             ],
             "title": "Failure Code"
           },
-          "log_ref": {
-            "anyOf": [
-              {
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Log Ref"
+          "output_complete": {
+            "title": "Output Complete",
+            "type": "boolean"
+          },
+          "output_encoding": {
+            "const": "raw_bytes",
+            "title": "Output Encoding",
+            "type": "string"
+          },
+          "output_observed_bytes": {
+            "minimum": 0.0,
+            "title": "Output Observed Bytes",
+            "type": "integer"
+          },
+          "output_path": {
+            "minLength": 1,
+            "title": "Output Path",
+            "type": "string"
+          },
+          "output_written_bytes": {
+            "minimum": 0.0,
+            "title": "Output Written Bytes",
+            "type": "integer"
           },
           "run_id": {
             "minLength": 1,
@@ -667,7 +651,12 @@
           "run_id",
           "state",
           "command",
-          "created_at"
+          "created_at",
+          "output_path",
+          "output_observed_bytes",
+          "output_written_bytes",
+          "output_complete",
+          "output_encoding"
         ],
         "title": "CommandRunListItem",
         "type": "object"
@@ -710,13 +699,70 @@
       "CommandRunLogReadResponse": {
         "additionalProperties": false,
         "properties": {
+          "bytes_read": {
+            "minimum": 0.0,
+            "title": "Bytes Read",
+            "type": "integer"
+          },
           "content": {
             "title": "Content",
             "type": "string"
           },
-          "log_ref": {
+          "file_size": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Size"
+          },
+          "is_changed": {
+            "title": "Is Changed",
+            "type": "boolean"
+          },
+          "is_missing": {
+            "title": "Is Missing",
+            "type": "boolean"
+          },
+          "next_offset": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Offset"
+          },
+          "offset": {
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "output_complete": {
+            "title": "Output Complete",
+            "type": "boolean"
+          },
+          "output_encoding": {
+            "const": "raw_bytes",
+            "title": "Output Encoding",
+            "type": "string"
+          },
+          "output_path": {
             "minLength": 1,
-            "title": "Log Ref",
+            "title": "Output Path",
+            "type": "string"
+          },
+          "read_encoding": {
+            "const": "utf-8-replacement",
+            "default": "utf-8-replacement",
+            "title": "Read Encoding",
             "type": "string"
           },
           "run_id": {
@@ -733,8 +779,14 @@
         "required": [
           "task_id",
           "run_id",
-          "log_ref",
-          "content"
+          "output_path",
+          "content",
+          "offset",
+          "bytes_read",
+          "is_missing",
+          "is_changed",
+          "output_complete",
+          "output_encoding"
         ],
         "title": "CommandRunLogReadResponse",
         "type": "object"
@@ -752,6 +804,9 @@
           },
           "description": {
             "$ref": "#/components/schemas/TaskEventSummary"
+          },
+          "output_path": {
+            "$ref": "#/components/schemas/TaskEventRef"
           },
           "ownership_revision": {
             "const": 0,
@@ -799,7 +854,8 @@
           "state",
           "command",
           "description",
-          "created_at"
+          "created_at",
+          "output_path"
         ],
         "title": "CommandRunOpenedEventPayload",
         "type": "object"
@@ -807,20 +863,13 @@
       "CommandRunProgressedEventPayload": {
         "additionalProperties": false,
         "properties": {
-          "log_ref": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/TaskEventRef"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
           "occurred_at": {
             "format": "date-time",
             "title": "Occurred At",
             "type": "string"
+          },
+          "output_path": {
+            "$ref": "#/components/schemas/TaskEventRef"
           },
           "ownership_revision": {
             "minimum": 1.0,
@@ -851,7 +900,8 @@
           "state",
           "summary",
           "occurred_at",
-          "ownership_revision"
+          "ownership_revision",
+          "output_path"
         ],
         "title": "CommandRunProgressedEventPayload",
         "type": "object"
@@ -927,6 +977,30 @@
             "title": "Flow Id",
             "type": "string"
           },
+          "output_complete": {
+            "title": "Output Complete",
+            "type": "boolean"
+          },
+          "output_encoding": {
+            "const": "raw_bytes",
+            "title": "Output Encoding",
+            "type": "string"
+          },
+          "output_observed_bytes": {
+            "minimum": 0.0,
+            "title": "Output Observed Bytes",
+            "type": "integer"
+          },
+          "output_path": {
+            "minLength": 1,
+            "title": "Output Path",
+            "type": "string"
+          },
+          "output_written_bytes": {
+            "minimum": 0.0,
+            "title": "Output Written Bytes",
+            "type": "integer"
+          },
           "ownership_revision": {
             "minimum": 0.0,
             "title": "Ownership Revision",
@@ -959,30 +1033,6 @@
           },
           "state": {
             "$ref": "#/components/schemas/CommandRunState"
-          },
-          "stderr_log_ref": {
-            "anyOf": [
-              {
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Stderr Log Ref"
-          },
-          "stdout_log_ref": {
-            "anyOf": [
-              {
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Stdout Log Ref"
           },
           "successor_dispatch_id": {
             "anyOf": [
@@ -1022,7 +1072,12 @@
           "request",
           "state",
           "ownership_revision",
-          "created_at"
+          "created_at",
+          "output_path",
+          "output_observed_bytes",
+          "output_written_bytes",
+          "output_complete",
+          "output_encoding"
         ],
         "title": "CommandRunRecord",
         "type": "object"
@@ -1045,32 +1100,14 @@
             ],
             "title": "Cwd"
           },
-          "environment": {
-            "default": [],
-            "items": {
-              "$ref": "#/components/schemas/CommandEnvironmentRef"
-            },
-            "maxItems": 32,
-            "title": "Environment",
-            "type": "array"
-          },
-          "expected_outputs": {
-            "default": [],
-            "items": {
-              "$ref": "#/components/schemas/CommandExpectedOutput"
-            },
-            "maxItems": 32,
-            "title": "Expected Outputs",
-            "type": "array"
-          },
           "summary": {
-            "minLength": 1,
             "title": "Summary",
             "type": "string"
           },
           "timeout_seconds": {
             "anyOf": [
               {
+                "maximum": 86400.0,
                 "minimum": 1.0,
                 "type": "integer"
               },
@@ -1109,14 +1146,8 @@
             ],
             "title": "Due At"
           },
-          "log_refs": {
-            "default": [],
-            "items": {
-              "$ref": "#/components/schemas/TaskEventRef"
-            },
-            "maxItems": 2,
-            "title": "Log Refs",
-            "type": "array"
+          "output_path": {
+            "$ref": "#/components/schemas/TaskEventRef"
           },
           "ownership_revision": {
             "minimum": 1.0,
@@ -1157,7 +1188,8 @@
           "command",
           "description",
           "started_at",
-          "ownership_revision"
+          "ownership_revision",
+          "output_path"
         ],
         "title": "CommandRunStartedEventPayload",
         "type": "object"
@@ -1267,14 +1299,27 @@
               }
             ]
           },
-          "log_refs": {
-            "default": [],
-            "items": {
-              "$ref": "#/components/schemas/TaskEventRef"
-            },
-            "maxItems": 2,
-            "title": "Log Refs",
-            "type": "array"
+          "output_complete": {
+            "title": "Output Complete",
+            "type": "boolean"
+          },
+          "output_encoding": {
+            "const": "raw_bytes",
+            "title": "Output Encoding",
+            "type": "string"
+          },
+          "output_observed_bytes": {
+            "minimum": 0.0,
+            "title": "Output Observed Bytes",
+            "type": "integer"
+          },
+          "output_path": {
+            "$ref": "#/components/schemas/TaskEventRef"
+          },
+          "output_written_bytes": {
+            "minimum": 0.0,
+            "title": "Output Written Bytes",
+            "type": "integer"
           },
           "ownership_revision": {
             "minimum": 0.0,
@@ -1320,7 +1365,12 @@
           "state",
           "summary",
           "ended_at",
-          "ownership_revision"
+          "ownership_revision",
+          "output_path",
+          "output_observed_bytes",
+          "output_written_bytes",
+          "output_complete",
+          "output_encoding"
         ],
         "title": "CommandRunTerminalEventPayload",
         "type": "object"
@@ -1356,6 +1406,30 @@
             ],
             "title": "Failure Code"
           },
+          "output_complete": {
+            "title": "Output Complete",
+            "type": "boolean"
+          },
+          "output_encoding": {
+            "const": "raw_bytes",
+            "title": "Output Encoding",
+            "type": "string"
+          },
+          "output_observed_bytes": {
+            "minimum": 0.0,
+            "title": "Output Observed Bytes",
+            "type": "integer"
+          },
+          "output_path": {
+            "minLength": 1,
+            "title": "Output Path",
+            "type": "string"
+          },
+          "output_written_bytes": {
+            "minimum": 0.0,
+            "title": "Output Written Bytes",
+            "type": "integer"
+          },
           "started_at": {
             "anyOf": [
               {
@@ -1370,30 +1444,6 @@
           },
           "state": {
             "$ref": "#/components/schemas/CommandRunTerminalState"
-          },
-          "stderr_log_ref": {
-            "anyOf": [
-              {
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Stderr Log Ref"
-          },
-          "stdout_log_ref": {
-            "anyOf": [
-              {
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Stdout Log Ref"
           },
           "summary": {
             "minLength": 1,
@@ -1420,6 +1470,11 @@
           "state",
           "summary",
           "ended_at",
+          "output_path",
+          "output_observed_bytes",
+          "output_written_bytes",
+          "output_complete",
+          "output_encoding",
           "terminal_event_source"
         ],
         "title": "CommandRunTerminalResult",
@@ -1449,7 +1504,6 @@
         "additionalProperties": false,
         "properties": {
           "command": {
-            "minLength": 1,
             "title": "Command",
             "type": "string"
           },
@@ -7735,6 +7789,29 @@
             "schema": {
               "title": "Run Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "byte_limit",
+            "required": false,
+            "schema": {
+              "default": 1048576,
+              "maximum": 1048576,
+              "minimum": 1,
+              "title": "Byte Limit",
+              "type": "integer"
             }
           }
         ],

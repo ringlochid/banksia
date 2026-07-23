@@ -5,104 +5,16 @@ import os
 import stat
 from collections.abc import Iterator
 from contextlib import contextmanager
-from itertools import islice
 from pathlib import Path
-from typing import Literal
 
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
 from banksia.runtime.errors import RuntimeOperationError
 from banksia.runtime.task_root.logical_paths import (
-    LOGICAL_TASK_ROOTS,
     ResolvedLogicalTaskPath,
     resolve_logical_task_path,
 )
 
-DEFAULT_DIRECTORY_ENTRY_LIMIT = 1_000
 DEFAULT_FILE_READ_BYTE_LIMIT = 1_048_576
-type LogicalDirectoryEntryKind = Literal["file", "directory", "symlink", "other"]
-type LogicalDirectoryEntry = tuple[str, str, LogicalDirectoryEntryKind, int | None]
-
-
-def list_logical_directory(
-    paths: object,
-    directory: str,
-    *,
-    entry_limit: int = DEFAULT_DIRECTORY_ENTRY_LIMIT,
-) -> tuple[str, tuple[LogicalDirectoryEntry, ...]]:
-    from banksia.runtime.contracts import TaskRootPaths
-
-    if not isinstance(paths, TaskRootPaths):
-        raise TypeError("paths must be TaskRootPaths")
-    if entry_limit < 0:
-        raise ValueError("entry_limit must be non-negative")
-
-    resolved = resolve_logical_task_path(paths, directory, is_root_listing_allowed=True)
-    if resolved is None:
-        root_entries = tuple(LOGICAL_TASK_ROOTS[: entry_limit + 1])
-        if len(root_entries) > entry_limit:
-            raise _directory_limit_error()
-        return ".", tuple((name, name, "directory", None) for name in sorted(root_entries))
-
-    _require_descriptor_access(needs_scandir=True)
-    with _opened_resolved_target(resolved, require_directory=True) as directory_fd:
-        try:
-            with os.scandir(directory_fd) as iterator:
-                children = list(islice(iterator, entry_limit + 1))
-                if len(children) > entry_limit:
-                    raise _directory_limit_error()
-                entries = [
-                    _logical_directory_entry(resolved.logical_path, child) for child in children
-                ]
-        except RuntimeOperationError:
-            raise
-        except OSError as exc:
-            raise _descriptor_error(exc, require_directory=True) from exc
-
-    entries.sort(key=lambda entry: entry[0])
-    return resolved.logical_path, tuple(entries)
-
-
-def read_logical_text_file(
-    paths: object,
-    logical_path: str,
-    *,
-    start_line: int,
-    max_lines: int,
-    byte_limit: int = DEFAULT_FILE_READ_BYTE_LIMIT,
-) -> tuple[str, str, int, bool, int | None]:
-    from banksia.runtime.contracts import TaskRootPaths
-
-    if not isinstance(paths, TaskRootPaths):
-        raise TypeError("paths must be TaskRootPaths")
-    if byte_limit < 0:
-        raise ValueError("byte_limit must be non-negative")
-
-    resolved = resolve_logical_task_path(paths, logical_path)
-    assert resolved is not None
-    _require_descriptor_access(needs_scandir=False)
-    with _opened_resolved_target(resolved, require_directory=False) as file_fd:
-        metadata = os.fstat(file_fd)
-        if not stat.S_ISREG(metadata.st_mode):
-            raise _file_error(
-                OperationFailureCode.NOT_A_FILE,
-                "task path is not a regular file",
-            )
-        if metadata.st_size > byte_limit:
-            raise _file_read_limit_error()
-        payload = _read_bounded_bytes(file_fd, byte_limit=byte_limit)
-
-    if len(payload) > byte_limit:
-        raise _file_read_limit_error()
-    try:
-        text = payload.decode("utf-8")
-    except UnicodeDecodeError as exc:
-        raise _file_error(OperationFailureCode.BINARY_FILE, "file is not UTF-8 text") from exc
-
-    lines = text.splitlines(keepends=True)
-    selected = lines[start_line - 1 : start_line - 1 + max_lines]
-    has_more = start_line - 1 + len(selected) < len(lines)
-    next_start_line = start_line + len(selected) if has_more else None
-    return resolved.logical_path, "".join(selected), len(selected), has_more, next_start_line
 
 
 def read_logical_regular_file_bytes(
@@ -121,8 +33,8 @@ def read_logical_regular_file_bytes(
 
     resolved = resolve_logical_task_path(paths, logical_path)
     assert resolved is not None
-    _require_descriptor_access(needs_scandir=False)
-    with _opened_resolved_target(resolved, require_directory=False) as file_fd:
+    _require_descriptor_access()
+    with _opened_resolved_target(resolved) as file_fd:
         metadata = os.fstat(file_fd)
         if not stat.S_ISREG(metadata.st_mode):
             raise _file_error(
@@ -149,42 +61,16 @@ def _read_bounded_bytes(file_fd: int, *, byte_limit: int) -> bytes:
     return bytes(payload)
 
 
-def _logical_directory_entry(
-    logical_directory: str,
-    entry: os.DirEntry[str],
-) -> LogicalDirectoryEntry:
-    metadata = entry.stat(follow_symlinks=False)
-    kind, size = _entry_kind_and_size(metadata)
-    return entry.name, f"{logical_directory}/{entry.name}", kind, size
-
-
-def _entry_kind_and_size(
-    metadata: os.stat_result,
-) -> tuple[LogicalDirectoryEntryKind, int | None]:
-    if stat.S_ISLNK(metadata.st_mode):
-        return "symlink", None
-    if stat.S_ISREG(metadata.st_mode):
-        return "file", metadata.st_size
-    if stat.S_ISDIR(metadata.st_mode):
-        return "directory", None
-    return "other", None
-
-
 @contextmanager
 def _opened_resolved_target(
     resolved: ResolvedLogicalTaskPath,
-    *,
-    require_directory: bool,
 ) -> Iterator[int]:
     try:
-        file_descriptor = _open_canonical_target(
-            resolved,
-            require_directory=require_directory,
-        )
+        file_descriptor = _open_canonical_target(resolved)
     except RuntimeOperationError:
         raise
     except OSError as exc:
-        raise _descriptor_error(exc, require_directory=require_directory) from exc
+        raise _descriptor_error(exc) from exc
     try:
         yield file_descriptor
     finally:
@@ -193,8 +79,6 @@ def _opened_resolved_target(
 
 def _open_canonical_target(
     resolved: ResolvedLogicalTaskPath,
-    *,
-    require_directory: bool,
 ) -> int:
     try:
         relative_target = resolved.physical_path.relative_to(resolved.physical_root)
@@ -209,9 +93,7 @@ def _open_canonical_target(
         components = relative_target.parts
         for index, component in enumerate(components):
             is_final = index == len(components) - 1
-            flags = (
-                _directory_open_flags() if not is_final or require_directory else _file_open_flags()
-            )
+            flags = _file_open_flags() if is_final else _directory_open_flags()
             next_fd = _open_path_component(component, flags=flags, parent_fd=current_fd)
             previous_fd = current_fd
             current_fd = next_fd
@@ -294,9 +176,8 @@ def _is_symlink_at(component: str, *, parent_fd: int) -> bool:
         return False
 
 
-def _require_descriptor_access(*, needs_scandir: bool) -> None:
-    descriptor_scan_available = not needs_scandir or os.scandir in os.supports_fd
-    if _descriptor_walk_available() and descriptor_scan_available:
+def _require_descriptor_access() -> None:
+    if _descriptor_walk_available():
         return
     raise _file_error(
         OperationFailureCode.INVALID_TASK_ROOT,
@@ -317,8 +198,6 @@ def _descriptor_walk_available() -> bool:
 
 def _descriptor_error(
     exc: OSError,
-    *,
-    require_directory: bool,
 ) -> RuntimeOperationError:
     if isinstance(exc, FileNotFoundError):
         return _file_error(OperationFailureCode.MISSING_RESOURCE, "task path does not exist")
@@ -327,23 +206,9 @@ def _descriptor_error(
             OperationFailureCode.PATH_ESCAPE,
             "task path changed to a symlink while it was being opened",
         )
-    code = (
-        OperationFailureCode.NOT_A_DIRECTORY
-        if require_directory
-        else OperationFailureCode.NOT_A_FILE
-    )
-    summary = (
-        "task path is not a safely readable directory"
-        if require_directory
-        else "task path is not a safely readable regular file"
-    )
-    return _file_error(code, summary)
-
-
-def _directory_limit_error() -> RuntimeOperationError:
     return _file_error(
-        OperationFailureCode.DIRECTORY_LIMIT_EXCEEDED,
-        "directory exceeds the configured entry limit",
+        OperationFailureCode.NOT_A_FILE,
+        "task path is not a safely readable regular file",
     )
 
 
@@ -364,10 +229,6 @@ def _file_error(code: OperationFailureCode, summary: str) -> RuntimeOperationErr
 
 
 __all__ = [
-    "DEFAULT_DIRECTORY_ENTRY_LIMIT",
     "DEFAULT_FILE_READ_BYTE_LIMIT",
-    "LogicalDirectoryEntry",
-    "LogicalDirectoryEntryKind",
-    "list_logical_directory",
-    "read_logical_text_file",
+    "read_logical_regular_file_bytes",
 ]

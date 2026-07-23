@@ -131,7 +131,11 @@ function createAbandonedCommandEvent(): TestEvent {
     return createEvent("command_run_abandoned", {
         ended_at: TEST_UPDATED_AT,
         failure_code: "command_ownership_lost",
-        log_refs: ["_runtime/command-runs/run-001.log"],
+        output_complete: true,
+        output_encoding: "raw_bytes",
+        output_observed_bytes: 128,
+        output_path: ".banksia/t_01234567/command-runs/run-001/output.log",
+        output_written_bytes: 128,
         ownership_revision: 2,
         run_id: "run-001",
         source_dispatch_id: "dispatch-001",

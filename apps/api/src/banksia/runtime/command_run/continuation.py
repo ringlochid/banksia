@@ -185,8 +185,11 @@ def command_run_continuation_basis(
                 summary=source.terminal_summary,
                 started_at=source.started_at,
                 ended_at=source.ended_at,
-                stdout_log_ref=source.stdout_logical_path,
-                stderr_log_ref=source.stderr_logical_path,
+                output_path=source.output_path,
+                output_observed_bytes=source.output_observed_bytes,
+                output_written_bytes=source.output_written_bytes,
+                output_complete=source.output_complete,
+                output_encoding="raw_bytes",
                 failure_code=source.terminal_failure_code,
                 terminal_event_source=PromptCommandTerminalSource(source.terminal_event_source),
                 terminal_actor_ref=source.terminal_actor_ref,
@@ -209,10 +212,8 @@ def _command_request(source: CommandRunModel) -> CommandRunStartRequest:
         {
             "command": source.command_spec_json,
             "cwd": cwd,
-            "environment": source.environment_refs_json or (),
             "timeout_seconds": source.timeout_seconds,
             "summary": source.summary,
-            "expected_outputs": source.expected_outputs_json or (),
         }
     )
 
@@ -221,10 +222,6 @@ def _command_request_predicates(
     request: CommandRunStartRequest,
 ) -> tuple[ColumnElement[bool], ...]:
     cwd_policy = {"logical_path": request.cwd} if request.cwd is not None else None
-    environment_refs = list(request.environment) or None
-    expected_outputs = [
-        output.model_dump(mode="json") for output in request.expected_outputs
-    ] or None
     return (
         CommandRunModel.command_spec_json == request.command.model_dump(mode="json"),
         (
@@ -232,17 +229,7 @@ def _command_request_predicates(
             if cwd_policy is None
             else CommandRunModel.cwd_policy_json == cwd_policy
         ),
-        (
-            CommandRunModel.environment_refs_json.is_(None)
-            if environment_refs is None
-            else CommandRunModel.environment_refs_json == environment_refs
-        ),
         CommandRunModel.summary == request.summary,
-        (
-            CommandRunModel.expected_outputs_json.is_(None)
-            if expected_outputs is None
-            else CommandRunModel.expected_outputs_json == expected_outputs
-        ),
         (
             CommandRunModel.timeout_seconds.is_(None)
             if request.timeout_seconds is None
@@ -268,16 +255,11 @@ def _command_result_predicates(
             else CommandRunModel.started_at == result.started_at
         ),
         CommandRunModel.ended_at == result.ended_at,
-        (
-            CommandRunModel.stdout_logical_path.is_(None)
-            if result.stdout_log_ref is None
-            else CommandRunModel.stdout_logical_path == result.stdout_log_ref
-        ),
-        (
-            CommandRunModel.stderr_logical_path.is_(None)
-            if result.stderr_log_ref is None
-            else CommandRunModel.stderr_logical_path == result.stderr_log_ref
-        ),
+        CommandRunModel.output_path == result.output_path,
+        CommandRunModel.output_observed_bytes == result.output_observed_bytes,
+        CommandRunModel.output_written_bytes == result.output_written_bytes,
+        CommandRunModel.output_complete == result.output_complete,
+        CommandRunModel.output_encoding == result.output_encoding,
         (
             CommandRunModel.terminal_failure_code.is_(None)
             if result.failure_code is None
@@ -293,35 +275,11 @@ def _command_result_predicates(
 
 
 def _command_result_files(source: CommandRunModel) -> tuple[FileReference, ...]:
-    files: list[FileReference] = []
-    _append_log_file(files, source.stdout_logical_path, "Full command standard-output log.")
-    _append_log_file(files, source.stderr_logical_path, "Full command standard-error log.")
-    for row in source.expected_outputs_json or ():
-        path = row.get("path")
-        description = row.get("description")
-        if not isinstance(path, str) or not isinstance(description, str):
-            raise ValueError("command expected outputs require text path and description")
-        files.append(
-            FileReference(
-                path=path,
-                description=description,
-            )
-        )
-    return tuple(files)
-
-
-def _append_log_file(
-    files: list[FileReference],
-    path: str | None,
-    description: str,
-) -> None:
-    if path is None:
-        return
-    files.append(
+    return (
         FileReference(
-            path=path,
-            description=description,
-        )
+            path=source.output_path,
+            description="Current combined command output.",
+        ),
     )
 
 

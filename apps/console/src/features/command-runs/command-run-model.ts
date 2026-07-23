@@ -18,19 +18,19 @@ export interface CommandRunDetailView {
     readonly description: string;
     readonly dueAt: string | null;
     readonly endedAt: string | null;
-    readonly expectedOutputs: readonly components["schemas"]["CommandExpectedOutput"][];
     readonly failureCode: string | null;
     readonly flowId: string;
+    readonly outputComplete: boolean;
+    readonly outputObservedBytes: number;
+    readonly outputPath: string;
+    readonly outputWrittenBytes: number;
     readonly ownershipRevision: number;
-    readonly preferredLogRef: string | null;
     readonly runId: string;
     readonly sourceDispatchId: string;
     readonly startedAt: string | null;
     readonly state: CommandRunState;
     readonly stateLabel: string;
     readonly stateTone: StatusTone;
-    readonly stderrLogRef: string | null;
-    readonly stdoutLogRef: string | null;
     readonly successorDispatchId: string | null;
     readonly taskId: string;
     readonly terminalActorRef: string | null;
@@ -57,8 +57,6 @@ export function mapCommandRunRowView(row: CommandRunRow): CommandRunRowView {
 
 export function mapCommandRunDetailView(record: CommandRunRecord): CommandRunDetailView {
     const terminalResult = record.terminal_result ?? null;
-    const stdoutLogRef = record.stdout_log_ref ?? null;
-    const stderrLogRef = record.stderr_log_ref ?? null;
 
     return {
         assignmentId: record.assignment_id,
@@ -70,19 +68,19 @@ export function mapCommandRunDetailView(record: CommandRunRecord): CommandRunDet
         description: record.request.summary,
         dueAt: record.due_at ?? null,
         endedAt: terminalResult?.ended_at ?? record.ended_at ?? null,
-        expectedOutputs: record.request.expected_outputs,
         failureCode: terminalResult?.failure_code ?? null,
         flowId: record.flow_id,
+        outputComplete: record.output_complete,
+        outputObservedBytes: record.output_observed_bytes,
+        outputPath: record.output_path,
+        outputWrittenBytes: record.output_written_bytes,
         ownershipRevision: record.ownership_revision,
-        preferredLogRef: preferredCommandLogRef(record.state, stdoutLogRef, stderrLogRef),
         runId: record.run_id,
         sourceDispatchId: record.source_dispatch_id,
         startedAt: terminalResult?.started_at ?? record.started_at ?? null,
         state: record.state,
         stateLabel: commandRunStateLabel(record.state),
         stateTone: commandRunStateTone(record.state),
-        stderrLogRef,
-        stdoutLogRef,
         successorDispatchId: record.successor_dispatch_id ?? null,
         taskId: record.task_id,
         terminalActorRef: terminalResult?.terminal_actor_ref ?? null,
@@ -91,16 +89,6 @@ export function mapCommandRunDetailView(record: CommandRunRecord): CommandRunDet
         timeoutSeconds: record.request.timeout_seconds ?? null,
         workdir: record.request.cwd ?? null,
     };
-}
-
-function preferredCommandLogRef(
-    state: CommandRunState,
-    stdoutLogRef: string | null,
-    stderrLogRef: string | null,
-): string | null {
-    return state === "failed" || state === "timed_out"
-        ? (stderrLogRef ?? stdoutLogRef)
-        : (stdoutLogRef ?? stderrLogRef);
 }
 
 export function formatCommandSpec(command: components["schemas"]["CommandSpec"]): string {

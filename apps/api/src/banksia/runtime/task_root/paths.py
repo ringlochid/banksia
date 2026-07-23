@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Literal
 
 from banksia.runtime.contracts import TaskRootPaths
 
@@ -25,47 +24,16 @@ def resolve_task_root_paths(
     )
 
 
-def ensure_task_root_layout(paths: TaskRootPaths) -> None:
-    for path in (
-        paths.task_root,
-        paths.workspace_path,
-        paths.outputs_path,
-        paths.artifacts_path,
-        paths.tmp_path,
-        paths.runtime_path,
-        paths.dispatch_path,
-    ):
-        path.mkdir(parents=True, exist_ok=True)
-
-
-def instructions_markdown_path(*, paths: TaskRootPaths, dispatch_id: str) -> Path:
-    return dispatch_dir_path(paths=paths, dispatch_id=dispatch_id) / "instructions.md"
-
-
-def input_markdown_path(*, paths: TaskRootPaths, dispatch_id: str) -> Path:
-    return dispatch_dir_path(paths=paths, dispatch_id=dispatch_id) / "input.md"
-
-
-def command_run_log_path(
+def command_run_output_path(
     *,
-    paths: TaskRootPaths,
+    task_id: str,
     run_id: str,
-    stream: Literal["stdout", "stderr"],
 ) -> Path:
-    return paths.task_root / command_run_logical_path(run_id=run_id, stream=stream)
+    """Return the sole workspace-relative full-output path for one Command Run."""
 
-
-def command_run_logical_path(
-    *,
-    run_id: str,
-    stream: Literal["stdout", "stderr"],
-) -> Path:
+    _validate_path_component(task_id, label="Task ID")
     _validate_path_component(run_id, label="command run ID")
-    return Path("_runtime") / "command-runs" / run_id / f"{stream}.log"
-
-
-def dispatch_dir_path(*, paths: TaskRootPaths, dispatch_id: str) -> Path:
-    return paths.dispatch_path / dispatch_id
+    return Path(".banksia") / task_id / "command-runs" / run_id / "output.log"
 
 
 def coerce_path(path: str | Path) -> Path:

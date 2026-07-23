@@ -3,6 +3,7 @@ import type { components } from "../../src/api/generated/openapi";
 import type { TaskEventType } from "../../src/api/view-models";
 import { TASK_EVENT_TYPES } from "../../src/features/task-detail/task-detail-model";
 import {
+    commandOutputPath,
     createCommandRunListItem,
     createConsoleMockScenario,
     createHumanRequestRead,
@@ -884,6 +885,7 @@ function payloadForEvent(
                 command: "npm --prefix apps/console run typecheck",
                 created_at: TASK_DETAIL_UPDATED_AT,
                 description: "Verify the target-shaped runtime client.",
+                output_path: commandOutputPath("run-task-detail-check"),
                 ownership_revision: 0,
                 run_id: "run-task-detail-check",
                 source_dispatch_id: `dispatch-${nodeKey}`,
@@ -896,7 +898,7 @@ function payloadForEvent(
                 command: "npm --prefix apps/console run typecheck",
                 description: "Verify the target-shaped runtime client.",
                 due_at: "2026-06-21T16:00:00Z",
-                log_refs: ["tmp/command-runs/run-task-detail-check.log"],
+                output_path: commandOutputPath("run-task-detail-check"),
                 ownership_revision: 1,
                 run_id: "run-task-detail-check",
                 source_dispatch_id: `dispatch-${nodeKey}`,
@@ -906,8 +908,8 @@ function payloadForEvent(
             };
         case "command_run_progressed":
             return {
-                log_ref: "tmp/command-runs/run-task-detail-check.log",
                 occurred_at: TASK_DETAIL_UPDATED_AT,
+                output_path: commandOutputPath("run-task-detail-check"),
                 ownership_revision: 1,
                 run_id: "run-task-detail-check",
                 source_dispatch_id: `dispatch-${nodeKey}`,
@@ -983,7 +985,11 @@ function commandTerminalPayload(
         ended_at: TASK_DETAIL_UPDATED_AT,
         exit_code: state === "succeeded" ? 0 : null,
         failure_code: state === "abandoned" ? "command_ownership_lost" : null,
-        log_refs: ["tmp/command-runs/run-task-detail-check.log"],
+        output_complete: true,
+        output_encoding: "raw_bytes",
+        output_observed_bytes: 256,
+        output_path: commandOutputPath("run-task-detail-check"),
+        output_written_bytes: 256,
         ownership_revision: 1,
         run_id: "run-task-detail-check",
         source_dispatch_id: `dispatch-${nodeKey}`,

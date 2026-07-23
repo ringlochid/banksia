@@ -39,6 +39,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from tests.helpers.executor_harness import (
     seeded_executor,
+    seeded_task_root,
     synchronized_transition_claims,
 )
 from tests.helpers.team_persistence_seed import team_revision_id
@@ -115,7 +116,7 @@ async def test_manifest_barrier_opens_one_same_attempt_successor(
         assert successor_node.current_assignment is not None
         assert successor_node.current_assignment.assignment_id == ids.root_assignment_id
         assert refs is not None
-        task_root = tmp_path / "task-recursive-continuation"
+        task_root = seeded_task_root(tmp_path, "recursive-continuation")
         input_text = (task_root / refs.input_logical_path).read_text(encoding="utf-8")
         assert '"kind": "structural_replan"' in input_text
         assert '"operation": "add_child"' in input_text

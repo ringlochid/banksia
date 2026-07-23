@@ -60,7 +60,6 @@ export function buildTaskDetailView({
             const row = mapCommandRunRow(run);
             return {
                 description: row.description,
-                hasLog: row.hasLog,
                 runId: row.runId,
                 state: row.state,
                 summary: row.summary,

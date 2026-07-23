@@ -1,36 +1,40 @@
 from __future__ import annotations
 
+import errno
 from pathlib import Path
 
 from banksia.runtime.contracts import FileReference
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
 from banksia.runtime.errors import RuntimeOperationError
+from banksia.runtime.workspace.regular_files import validate_workspace_regular_file
 
 
 def validate_file_references(
     workspace: Path,
     files: tuple[FileReference, ...],
 ) -> tuple[FileReference, ...]:
-    """Validate the provisional WP-03 physical contract for ordered file references."""
+    """Validate ordered loose-file navigation values at their owning boundary."""
 
-    normalized_workspace = validate_workspace(workspace)
+    if not workspace.is_absolute():
+        raise _invalid_workspace("workspace must be an absolute path")
     seen: set[str] = set()
     validated: list[FileReference] = []
     for file in files:
         if file.path in seen:
             raise _invalid_file_reference(f"files contains duplicate normalized path {file.path!r}")
         seen.add(file.path)
-        candidate = normalized_workspace.joinpath(*file.path.split("/"))
         try:
-            resolved = candidate.resolve(strict=True)
+            validate_workspace_regular_file(workspace, file.path)
         except FileNotFoundError as exc:
             raise _invalid_file_reference(f"referenced file does not exist: {file.path}") from exc
-        if not resolved.is_relative_to(normalized_workspace):
+        except OSError as exc:
+            if exc.errno == errno.ELOOP:
+                raise _invalid_file_reference(
+                    f"referenced path contains a symbolic link: {file.path}"
+                ) from exc
             raise _invalid_file_reference(
-                f"referenced file escapes the Task workspace: {file.path}"
-            )
-        if not resolved.is_file():
-            raise _invalid_file_reference(f"referenced path is not a regular file: {file.path}")
+                f"referenced path is not a regular file: {file.path}"
+            ) from exc
         validated.append(file)
     return tuple(validated)
 

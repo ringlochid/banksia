@@ -85,7 +85,7 @@ from banksia.runtime.watchdog import (
     create_watchdog_deadline_changed_handler,
     create_watchdog_due_handler,
 )
-from banksia.runtime.workspace_admission import recover_task_workspace_admissions
+from banksia.runtime.workspace.admission import recover_task_workspace_admissions
 
 _RUNTIME_STARTUP_ROUTED_SIGNAL_TYPES = (
     FlowStartCommitted,

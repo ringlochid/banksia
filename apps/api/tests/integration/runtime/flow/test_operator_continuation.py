@@ -33,6 +33,7 @@ from sqlalchemy.orm import sessionmaker
 from tests.helpers.executor_harness import (
     SessionFactory,
     seeded_executor,
+    seeded_task_root,
 )
 from tests.helpers.launch_foundation import (
     build_launch_foundation_input,
@@ -93,9 +94,9 @@ async def test_continue_resumes_one_closed_lineage_tail_and_rejects_duplicate(
     assert successor is not None and successor.opened_reason == "operator_continue"
     assert successor.predecessor_dispatch_id == ids.current_dispatch_id
     assert refs is not None
-    input_text = (tmp_path / "task-operator-continue" / refs.input_logical_path).read_text(
-        encoding="utf-8"
-    )
+    input_text = (
+        seeded_task_root(tmp_path, "operator-continue") / refs.input_logical_path
+    ).read_text(encoding="utf-8")
     assert '"kind": "operator_continue"' in input_text
     assert duplicate_error.value.code == OperationFailureCode.CONFLICT
     assert dispatch_count == 4
@@ -140,7 +141,7 @@ async def test_continue_consumes_terminal_human_source_retained_while_paused(
     assert successor.assignment_id == ids.root_assignment_id
     assert successor.attempt_id == ids.root_attempt_id
     assert refs is not None
-    input_text = (tmp_path / "task-operator-human" / refs.input_logical_path).read_text(
+    input_text = (seeded_task_root(tmp_path, "operator-human") / refs.input_logical_path).read_text(
         encoding="utf-8"
     )
     assert '"kind": "human_result"' in input_text

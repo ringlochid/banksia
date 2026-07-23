@@ -23,8 +23,6 @@ from banksia.runtime.work_plan import WorkPlanRead
 
 class NodeOperationName(StrEnum):
     GET_CURRENT_CONTEXT = "get_current_context"
-    LIST_FILES = "list_files"
-    READ_FILE = "read_file"
     SET_WORK_PLAN = "set_work_plan"
     CHECKPOINT = "checkpoint"
     RETURN_BOUNDARY = "return_boundary"
@@ -146,48 +144,6 @@ class GetCurrentContextResponse(BaseModel):
     continuation: dict[str, object] | None = None
 
 
-class ListFilesRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    directory: str = "."
-
-
-class FileEntryRead(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    name: RuntimeSchemaText
-    path: RuntimeSchemaText
-    kind: Literal["file", "directory", "symlink", "other"]
-    size_bytes: int | None = Field(default=None, ge=0)
-
-
-class ListFilesResponse(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    directory: RuntimeSchemaText
-    entries: tuple[FileEntryRead, ...]
-
-
-class ReadFileRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    path: RuntimeSchemaText
-    start_line: int = Field(default=1, ge=1)
-    max_lines: int = Field(default=400, ge=1)
-
-
-class ReadFileResponse(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    path: RuntimeSchemaText
-    start_line: int = Field(ge=1)
-    max_lines: int = Field(ge=1)
-    content: str
-    lines_returned: int = Field(ge=0)
-    has_more: bool
-    next_start_line: int | None = Field(default=None, ge=1)
-
-
 class ReturnBoundaryRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -238,19 +194,14 @@ __all__ = [
     "EffectiveCapabilitySetRead",
     "EffectiveValueRead",
     "EmptyNodeOperationRequest",
-    "FileEntryRead",
     "GetCurrentContextResponse",
     "HumanRequestCapabilityRead",
-    "ListFilesRequest",
-    "ListFilesResponse",
     "NodeOperationCapability",
     "NodeOperationDescriptor",
     "NodeOperationMutationKind",
     "NodeOperationName",
     "NodeOperationScope",
     "OpenHumanRequestRequest",
-    "ReadFileRequest",
-    "ReadFileResponse",
     "RemoveChildRequest",
     "ReturnBoundaryRequest",
     "StartCommandRunRequest",

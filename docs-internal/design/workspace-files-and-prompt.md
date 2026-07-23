@@ -34,12 +34,11 @@ OpenClaw is supported only when the user externally configures it to expose `W` 
 | --- | --- |
 | Ordinary project paths | Actual source, tests, project documents, and user-requested deliverables. Any existing regular file beneath the workspace may be referenced by path when another context should inspect it. |
 | Controller database | Canonical Task, team, Assignment, Attempt, Dispatch, wait, Wave, Checkpoint, ordered `FileReference` values, control, and event truth. It records path/description values, never general file contents. |
-| Protected controller body storage | Protected Command Run output bytes needed for truthful bounded output and recovery. It is not a general file store and is not provider-visible. |
 | `.banksia/t_<id>/manifest.md` | Controller-generated organization projection. Never legality or live progress truth. |
 | `workflow-note.md` | Immutable Task projection of the pinned Workflow’s optional shared note. |
 | `notes/**` | Free-form shared Task working memory for coordination, investigation, review, and recovery. Native and mutable; not controller truth or automatically inserted into prompts. |
 | `artifacts/**` | Free-form reviewable deliverables created for another Member or the user, such as plans, reports, reviews, verification records, diagrams, images, recordings, or patch files. They remain loose mutable files, not controller-owned Artifact resources. |
-| `command-runs/**/output.log` | Controller-managed visible combined output file. DB lifecycle and protected retained Command output remain authoritative. It is not one of the two controller projections. |
+| `command-runs/**/output.log` | Controller-written workspace file containing the complete OS-observed combined stream when output persistence succeeds. DB lifecycle, path, byte counts, and completeness remain authoritative; the bytes do not. It is not one of the two controller projections. |
 
 Do not put the database, credentials, provider sessions, service state, locks, controller logs, raw events, or runtime-record JSON under `.banksia/`.
 
@@ -65,7 +64,7 @@ For a Git worktree, Task workspace preparation:
 5. does not follow symlinks while creating controller-owned paths; and
 6. creates the Task directory without overwriting an existing path.
 
-Non-Git workspaces need no pretend ignore file. The Task path remains visible and user-owned for cleanup policy, while DB truth and any separately retained Command Run output remain in the controller data boundary.
+Non-Git workspaces need no pretend ignore file. The Task path remains visible and user-owned for cleanup policy, while DB lifecycle truth remains in the controller data boundary.
 
 Task admission creates the collision-safe directory with a controller-owned initialization marker, writes only the manifest/optional Workflow-note projections plus empty conventional directories, commits controller truth, then clears the marker before provider-start publication. Recovery may remove only a stale marked directory with no committed Task; it repairs a committed marked Task in place. Reset and generic cleanup never recursively delete an accepted `.banksia/t_<id>/` directory.
 
@@ -186,7 +185,7 @@ Command Run preserves controller-owned lifecycle and process supervision while u
 .banksia/t_7m4k2d9x/command-runs/c_q3m8y1ka/output.log
 ```
 
-The process is launched with stderr redirected to stdout at creation. Banksia drains that single pipe continuously, including after the retention cap, so it preserves the OS-observed combined stream and cannot deadlock on a full pipe. It does not attempt to merge separately buffered stdout/stderr after the fact.
+The process is launched with stderr redirected to stdout at creation. Banksia drains that single pipe continuously to EOF and writes the same observed bytes to `output.log`, so it preserves stream ordering and cannot deadlock on a full pipe. It does not attempt to merge separately buffered stdout/stderr after the fact.
 
 The canonical record includes:
 
@@ -197,16 +196,15 @@ CommandRun
   pending/running/terminal state and ownership revision
   timeout/cancel/reap facts
   start/end timestamps, exit/failure facts
-  visible log path
-  retained_bytes, observed_bytes, truncated
-  protected output body locator
+  output_path
+  observed_bytes, written_bytes, output_complete
 ```
 
-The controller commits intent and the Attempt wait before external launch, claims exact process ownership, creates files without following/replacing, and records terminal state only after reap and protected output flush. It never blindly relaunches an ambiguously owned command after restart.
+The controller commits intent and the Attempt wait before external launch, claims exact process ownership, creates files without following/replacing, and records terminal state only after reap and log flush. It never blindly relaunches an ambiguously owned command after restart.
 
-When retained bytes are truncated, the visible file ends with a clear Banksia truncation marker and the DB retains exact counts. The controller continues draining discarded bytes. A browser reads authorized bounded ranges/tails through a scoped API rather than a host path.
+The full stream is not copied into the database or protected body storage. A file write or flush failure is recorded as incomplete, the pipe is still drained to EOF, and the terminal result cannot present the log as complete. The database may expose a bounded sanitized preview derived from the file for a single response, but it does not persist another output body. A browser reads authorized bounded ranges or tails and streams an optional download through a scoped API rather than loading the entire file into controller memory or the DOM.
 
-`output.log` is a writable controller-managed workspace file and must not be presented as immutable evidence. Protected controller-retained output plus DB lifecycle is the Command Run audit truth. An agent may reference the visible log directly through a generic `FileReference` when another context should open it; no copy, publication, or domain conversion is required.
+`output.log` is a mutable workspace file written by the controller during the run and must not be presented as immutable audit evidence. DB lifecycle, exact path, byte counts, and completeness are controller truth; the file is the sole full-output copy and may later be missing or changed. An agent may reference it directly through a generic `FileReference`; no copy, publication, or domain conversion is required.
 
 The only controller projections under the Task directory are `manifest.md` and the optional `workflow-note.md`. Notes and artifacts are agent-authored loose files, and Command Run logs are controller-managed execution output, not projections of general controller records.
 

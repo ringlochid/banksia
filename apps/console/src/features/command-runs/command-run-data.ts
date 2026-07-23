@@ -17,6 +17,7 @@ import { superviseTaskEventStream, type TaskEventStreamSupervisionResult } from 
 import { mapCommandRunDetailView, type CommandRunDetailView } from "./command-run-model";
 
 const COMMAND_RUN_PAGE_SIZE = 25;
+const COMMAND_RUN_OUTPUT_READ_LIMIT = 1_048_576;
 
 export type CommandRunListResponse = components["schemas"]["CommandRunListResponse"];
 export type CommandRunCancelResponse = components["schemas"]["CommandRunCancelResponse"];
@@ -88,9 +89,13 @@ export async function readCommandRunLog(
     taskId: string,
     runId: string,
 ): Promise<CommandRunLogReadResponse> {
-    const route = commandRunLogRoute(taskId, runId);
+    const route = commandRunLogRoute(taskId, runId, {
+        byte_limit: COMMAND_RUN_OUTPUT_READ_LIMIT,
+        offset: 0,
+    });
     return requestJson<CommandRunLogReadResponse>({
         path: route.path,
+        query: route.query,
     });
 }
 

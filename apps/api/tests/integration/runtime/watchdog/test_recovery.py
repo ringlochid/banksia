@@ -49,6 +49,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from tests.helpers.executor_harness import (
     SessionFactory,
     seeded_executor,
+    seeded_task_root,
 )
 from tests.helpers.lineage_seed import RuntimeIds
 
@@ -114,9 +115,9 @@ async def test_watchdog_replaces_one_stale_dispatch_and_duplicate_signal_loses(
     assert flow is not None and flow.current_dispatch_id == first.dispatch_id
     assert dispatch_count == 4
     assert refs is not None
-    input_text = (tmp_path / "task-watchdog-replace" / refs.input_logical_path).read_text(
-        encoding="utf-8"
-    )
+    input_text = (
+        seeded_task_root(tmp_path, "watchdog-replace") / refs.input_logical_path
+    ).read_text(encoding="utf-8")
     assert '"kind": "watchdog_recovery"' in input_text
     assert '"recovery_count": 1' in input_text
     assert event is not None
@@ -492,7 +493,7 @@ def _add_terminal_source(
         return
     session.add(
         CommandRunModel(
-            run_id=f"command-run.{ids.suffix}",
+            run_id="c_01234567",
             task_id=ids.task_id,
             flow_id=ids.flow_id,
             assignment_id=ids.root_assignment_id,
@@ -500,11 +501,10 @@ def _add_terminal_source(
             source_dispatch_id=ids.current_dispatch_id,
             command_spec_json={"kind": "argv", "argv": ["true"]},
             cwd_policy_json=None,
-            environment_refs_json=None,
             summary="Already complete.",
-            expected_outputs_json=None,
             timeout_seconds=None,
             due_at=None,
+            output_path=(f".banksia/{ids.task_id}/command-runs/c_01234567/output.log"),
             state="succeeded",
             ownership_revision=1,
             terminal_summary="Succeeded.",

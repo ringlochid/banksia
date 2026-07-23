@@ -10,6 +10,7 @@ import { CommandRunsPage } from "../../../src/features/command-runs/CommandRunsP
 import {
     createOperationFailureBody,
     TEST_API_BASE_URL,
+    commandOutputPath,
     createRuntimeFlowRead,
     createTaskEventRecord,
     createTaskEventStreamFrame,
@@ -47,7 +48,7 @@ afterAll(() => {
 });
 
 describe("CommandRunsPage", () => {
-    it("renders every state and keeps logs hidden until requested", async () => {
+    it("renders every state and keeps output hidden until requested", async () => {
         mockCommandRuns();
         const user = userEvent.setup();
 
@@ -73,19 +74,17 @@ describe("CommandRunsPage", () => {
         expect(screen.getByText("Command")).toBeVisible();
         expect(screen.getByText("Timing")).toBeVisible();
         expect(screen.getByText("Provenance")).toBeVisible();
-        expect(screen.getByText("Log access")).toBeVisible();
+        expect(screen.getByText("Command output")).toBeVisible();
         expect(screen.getByText("Failed")).toBeVisible();
         expect(screen.getAllByText("1").length).toBeGreaterThan(0);
-        expect(screen.getByText("Expected outputs")).toBeVisible();
-        expect(screen.getByText("tmp/pytest-command-run.txt")).toBeVisible();
         expect(screen.getByText("Source dispatch")).toBeVisible();
         expect(screen.getByText("Ownership revision")).toBeVisible();
         expect(screen.queryByText(/continuation context missing terminal/)).not.toBeInTheDocument();
 
-        await user.click(screen.getByRole("button", { name: "View logs" }));
+        await user.click(screen.getByRole("button", { name: "View output" }));
 
         expect(await screen.findByText(/continuation context missing terminal/)).toBeVisible();
-        await user.click(screen.getByRole("button", { name: "Hide logs" }));
+        await user.click(screen.getByRole("button", { name: "Hide output" }));
         expect(screen.queryByText(/continuation context missing terminal/)).not.toBeInTheDocument();
 
         await user.click(screen.getByText("Inspect a command whose process ownership was lost."));
@@ -183,16 +182,22 @@ describe("CommandRunsPage", () => {
         const detailByRunId = createCommandRunDetailMap();
         const terminalDetail = createCommandRunDetail("run-running", {
             ended_at: "2026-06-29T14:28:00Z",
+            output_complete: true,
+            output_observed_bytes: 256,
+            output_written_bytes: 256,
             state: "succeeded",
             successor_dispatch_id: "dispatch-run-running-successor",
             terminal_result: {
                 ended_at: "2026-06-29T14:28:00Z",
                 exit_code: 0,
                 failure_code: null,
+                output_complete: true,
+                output_encoding: "raw_bytes",
+                output_observed_bytes: 256,
+                output_path: commandOutputPath("run-running"),
+                output_written_bytes: 256,
                 started_at: "2026-06-29T14:20:00Z",
                 state: "succeeded",
-                stderr_log_ref: "outputs/command-runs/run-running.stderr.log",
-                stdout_log_ref: "outputs/command-runs/run-running.stdout.log",
                 summary: "Refreshed selected command detail.",
                 terminal_actor_ref: null,
                 terminal_event_source: "process_owner",
@@ -209,7 +214,11 @@ describe("CommandRunsPage", () => {
                 ended_at: "2026-06-29T14:28:00Z",
                 exit_code: 0,
                 failure_code: null,
-                log_refs: ["outputs/command-runs/run-running.log"],
+                output_complete: true,
+                output_encoding: "raw_bytes",
+                output_observed_bytes: 256,
+                output_path: commandOutputPath("run-running"),
+                output_written_bytes: 256,
                 ownership_revision: 1,
                 run_id: "run-running",
                 source_dispatch_id: "dispatch-run-running",
@@ -254,7 +263,7 @@ describe("CommandRunsPage", () => {
         expect(detailReads).toBeGreaterThanOrEqual(2);
     });
 
-    it("keeps a hidden log closed when its exact read finishes", async () => {
+    it("keeps hidden output closed when its exact read finishes", async () => {
         const user = userEvent.setup();
         const allowLogRead = createDeferred();
         mockCommandRuns();
@@ -270,26 +279,54 @@ describe("CommandRunsPage", () => {
         renderCommandRunsPage();
 
         await user.click(await screen.findByText("Check prompt continuation rendering."));
-        await user.click(await screen.findByRole("button", { name: "View logs" }));
-        expect(await screen.findByText("Loading logs")).toBeVisible();
-        await user.click(screen.getByRole("button", { name: "Hide logs" }));
+        await user.click(await screen.findByRole("button", { name: "View output" }));
+        expect(await screen.findByText("Loading output")).toBeVisible();
+        await user.click(screen.getByRole("button", { name: "Hide output" }));
         allowLogRead.resolve();
 
         await waitFor(() => {
-            expect(screen.getByRole("button", { name: "View logs" })).toBeVisible();
+            expect(screen.getByRole("button", { name: "View output" })).toBeVisible();
         });
         expect(screen.queryByText(/continuation context missing terminal/)).not.toBeInTheDocument();
     });
 
-    it("rejects a command log readback for a different log ref", async () => {
+    it("labels bounded output while a command is still running", async () => {
+        const user = userEvent.setup();
+        mockCommandRuns();
+        server.use(
+            http.get("*/control/tasks/:taskId/command-runs/:runId/log", ({ params, request }) => {
+                const url = new URL(request.url);
+                expect(url.searchParams.get("offset")).toBe("0");
+                expect(url.searchParams.get("byte_limit")).toBe("1048576");
+                return HttpResponse.json({
+                    ...createCommandRunLogRead(String(params.runId ?? "run-running")),
+                    next_offset: 1_048_576,
+                });
+            }),
+        );
+
+        renderCommandRunsPage();
+
+        await user.click(await screen.findByText("Verify command-run runner behavior."));
+        await user.click(await screen.findByRole("button", { name: "View output" }));
+
+        expect(
+            await screen.findByText("This bounded view does not include the full output file."),
+        ).toBeVisible();
+        expect(
+            screen.getByText("This action is still running, so more output may arrive."),
+        ).toBeVisible();
+    });
+
+    it("rejects command output readback for a different output path", async () => {
         const user = userEvent.setup();
         mockCommandRuns();
         server.use(
             http.get("*/control/tasks/:taskId/command-runs/:runId/log", ({ params }) =>
                 HttpResponse.json({
                     ...createCommandRunLogRead(String(params.runId ?? "run-failed")),
-                    content: "stale log content",
-                    log_ref: "outputs/command-runs/stale.log",
+                    content: "stale output content",
+                    output_path: commandOutputPath("stale"),
                 }),
             ),
         );
@@ -297,22 +334,33 @@ describe("CommandRunsPage", () => {
         renderCommandRunsPage();
 
         await user.click(await screen.findByText("Check prompt continuation rendering."));
-        await user.click(await screen.findByRole("button", { name: "View logs" }));
+        await user.click(await screen.findByRole("button", { name: "View output" }));
 
-        expect(await screen.findByText("Logs could not load")).toBeVisible();
-        expect(screen.getByText("The command log changed while it was loading.")).toBeVisible();
-        expect(screen.queryByText("stale log content")).not.toBeInTheDocument();
+        expect(await screen.findByText("Output could not load")).toBeVisible();
+        expect(screen.getByText("The command output changed while it was loading.")).toBeVisible();
+        expect(screen.queryByText("stale output content")).not.toBeInTheDocument();
     });
 
-    it("renders missing-log, empty, local-admission, and task-detail navigation states", async () => {
+    it("renders missing-output, empty, local-admission, and navigation states", async () => {
         mockCommandRuns();
         const user = userEvent.setup();
+        server.use(
+            http.get("*/control/tasks/:taskId/command-runs/:runId/log", ({ params }) =>
+                HttpResponse.json({
+                    ...createCommandRunLogRead(String(params.runId ?? "run-cancelled"), ""),
+                    file_size: null,
+                    is_missing: true,
+                }),
+            ),
+        );
 
         const { unmount } = renderCommandRunsPage();
 
         await user.click(await screen.findByText("Retire old proof lane."));
-        expect(await screen.findByText("This run does not expose a log ref.")).toBeVisible();
-        expect(screen.queryByRole("button", { name: "View logs" })).not.toBeInTheDocument();
+        await user.click(await screen.findByRole("button", { name: "View output" }));
+        expect(
+            await screen.findByText("The current command output file is missing."),
+        ).toBeVisible();
 
         await user.click(screen.getByRole("link", { name: "Open task detail" }));
         expect(await screen.findByTestId("task-detail-target")).toHaveTextContent(

@@ -10,13 +10,6 @@ from sqlalchemy.orm import raiseload
 from banksia.persistence.models import TaskModel, WorkspaceBindingModel
 from banksia.runtime.contracts import TaskRootPaths
 from banksia.runtime.errors import illegal_state_error, missing_resource_error
-from banksia.runtime.task_root.paths import ensure_task_root_layout
-
-
-async def load_task_root_paths(session: AsyncSession, task_id: str) -> TaskRootPaths:
-    paths = await read_task_root_paths(session, task_id)
-    ensure_task_root_layout(paths)
-    return paths
 
 
 async def read_task_root_paths(session: AsyncSession, task_id: str) -> TaskRootPaths:
@@ -61,4 +54,4 @@ def _task_root_paths(
     )
 
 
-__all__ = ["load_task_root_paths", "read_task_root_paths"]
+__all__ = ["read_task_root_paths"]

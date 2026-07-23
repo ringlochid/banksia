@@ -6,6 +6,10 @@ export const TEST_API_BASE_URL = "http://127.0.0.1:18125";
 export const TEST_TASK_ID = "task-console-fixture";
 export const TEST_UPDATED_AT = "2026-06-29T14:00:00Z";
 
+export function commandOutputPath(runId: string): string {
+    return `.banksia/t_01234567/command-runs/${runId}/output.log`;
+}
+
 export interface TaskEventStreamFixtureOptions {
     readonly chunks?: readonly string[];
     readonly chunksByCursor?: Readonly<Record<string, readonly string[]>>;
@@ -245,8 +249,17 @@ function createCommandRunScenario(): Pick<
             task_id: TEST_TASK_ID,
         },
         commandRunLog: {
+            bytes_read: 14,
             content: "command output",
-            log_ref: "tmp/command-runs/run-001.log",
+            file_size: 14,
+            is_changed: false,
+            is_missing: false,
+            next_offset: null,
+            offset: 0,
+            output_complete: false,
+            output_encoding: "raw_bytes",
+            output_path: commandOutputPath("run-001"),
+            read_encoding: "utf-8-replacement",
             run_id: "run-001",
             task_id: TEST_TASK_ID,
         },
@@ -474,17 +487,29 @@ export function createHumanRequestRead(
 export function createCommandRunListItem(
     overrides: Partial<components["schemas"]["CommandRunListItem"]> = {},
 ): components["schemas"]["CommandRunListItem"] {
+    const state = overrides.state ?? "running";
+    const outputComplete =
+        state === "succeeded" ||
+        state === "failed" ||
+        state === "timed_out" ||
+        state === "cancelled" ||
+        state === "abandoned";
+    const runId = overrides.run_id ?? "run-001";
     return {
         command: "make console-test-integration",
         created_at: TEST_UPDATED_AT,
         description: "Run console integration tests.",
         ended_at: null,
         exit_code: null,
-        log_ref: "tmp/command-runs/run-001.log",
-        run_id: "run-001",
+        output_complete: outputComplete,
+        output_encoding: "raw_bytes",
+        output_observed_bytes: 14,
+        output_path: commandOutputPath(runId),
+        output_written_bytes: 14,
+        run_id: runId,
         signal: null,
         started_at: TEST_UPDATED_AT,
-        state: "running",
+        state,
         summary: "Integration tests are running.",
         timeout_seconds: 120,
         workdir: "apps/console",
@@ -504,12 +529,15 @@ export function createCommandRunRecord(
         due_at: "2026-06-29T14:02:00Z",
         ended_at: null,
         flow_id: "flow-001",
+        output_complete: false,
+        output_encoding: "raw_bytes",
+        output_observed_bytes: 14,
+        output_path: commandOutputPath("run-001"),
+        output_written_bytes: 14,
         ownership_revision: 1,
         request: {
             command: { command: "make console-test-integration", kind: "shell" },
             cwd: "apps/console",
-            environment: [],
-            expected_outputs: [],
             summary: "Run console integration tests.",
             timeout_seconds: 120,
         },
@@ -517,8 +545,6 @@ export function createCommandRunRecord(
         source_dispatch_id: "dispatch-001",
         started_at: TEST_UPDATED_AT,
         state: "running",
-        stderr_log_ref: "tmp/command-runs/run-001.stderr.log",
-        stdout_log_ref: "tmp/command-runs/run-001.stdout.log",
         successor_dispatch_id: null,
         task_id: TEST_TASK_ID,
         terminal_result: null,

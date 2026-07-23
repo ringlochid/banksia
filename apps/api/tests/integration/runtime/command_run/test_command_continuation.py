@@ -29,6 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from tests.helpers.executor_harness import (
     SessionFactory,
     seeded_executor,
+    seeded_task_root,
 )
 from tests.helpers.lineage_seed import RuntimeIds
 
@@ -86,11 +87,14 @@ async def test_terminal_command_source_opens_one_same_attempt_successor(
     assert successor.attempt_id == ids.root_attempt_id
     assert dispatch_count == 4
     assert refs is not None
-    trigger = _read_trigger(tmp_path / "task-command-continuation" / refs.input_logical_path)
+    trigger = _read_trigger(
+        seeded_task_root(tmp_path, "command-continuation") / refs.input_logical_path
+    )
     _assert_command_trigger(
         trigger,
         run_id=run_id,
         source_dispatch_id=ids.current_dispatch_id,
+        output_path=f".banksia/{ids.task_id}/command-runs/{run_id}/output.log",
     )
     assert len(publisher.signals) == 1
     signal = publisher.signals[0]
@@ -103,6 +107,7 @@ def _assert_command_trigger(
     *,
     run_id: str,
     source_dispatch_id: str,
+    output_path: str,
 ) -> None:
     result_payload = cast(dict[str, object], trigger["result"])
     assert trigger["kind"] == "command_result"
@@ -111,30 +116,23 @@ def _assert_command_trigger(
     assert trigger["request"] == {
         "command": {"kind": "argv", "argv": ["python", "-V"]},
         "cwd": None,
-        "environment": [],
         "timeout_seconds": None,
         "summary": "Read the Python version.",
-        "expected_outputs": [
-            {
-                "path": "outputs/python-version.txt",
-                "description": "Captured Python version.",
-            }
-        ],
     }
     assert result_payload["state"] == "succeeded"
     assert result_payload["exit_code"] == 0
     assert result_payload["summary"] == "Python reported its version successfully."
     assert result_payload["started_at"] == result_payload["ended_at"]
-    assert result_payload["stdout_log_ref"] == "tmp/transfers/localized/python-version.log"
+    assert result_payload["output_path"] == output_path
+    assert result_payload["output_observed_bytes"] == 21
+    assert result_payload["output_written_bytes"] == 21
+    assert result_payload["output_complete"] is True
+    assert result_payload["output_encoding"] == "raw_bytes"
     assert result_payload["terminal_event_source"] == "process_owner"
     assert trigger["files"] == [
         {
-            "path": "tmp/transfers/localized/python-version.log",
-            "description": "Full command standard-output log.",
-        },
-        {
-            "path": "outputs/python-version.txt",
-            "description": "Captured Python version.",
+            "path": output_path,
+            "description": "Current combined command output.",
         },
     ]
 
@@ -207,12 +205,6 @@ async def _open_command_run(executor: NodeOperationExecutor, ids: RuntimeIds) ->
             "request": {
                 "command": {"kind": "argv", "argv": ["python", "-V"]},
                 "summary": "Read the Python version.",
-                "expected_outputs": [
-                    {
-                        "path": "outputs/python-version.txt",
-                        "description": "Captured Python version.",
-                    }
-                ],
             }
         },
     )
@@ -236,7 +228,9 @@ async def _terminalize_command_run(
         source.terminal_summary = "Python reported its version successfully."
         source.terminal_exit_code = 0
         source.terminal_event_source = "process_owner"
-        source.stdout_logical_path = "tmp/transfers/localized/python-version.log"
+        source.output_observed_bytes = 21
+        source.output_written_bytes = 21
+        source.output_complete = True
         await session.execute(
             delete(FlowWaitModel).where(
                 FlowWaitModel.flow_id == ids.flow_id,

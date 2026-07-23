@@ -26,8 +26,6 @@ from banksia.runtime.node_operations.contracts import NodeOperationName
 _READ_OPERATIONS = frozenset(
     {
         NodeOperationName.GET_CURRENT_CONTEXT,
-        NodeOperationName.LIST_FILES,
-        NodeOperationName.READ_FILE,
     }
 )
 _REPLAN_OPERATIONS = frozenset(

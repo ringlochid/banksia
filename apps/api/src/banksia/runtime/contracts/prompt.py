@@ -208,8 +208,11 @@ class PromptCommandResult(PromptContract):
     summary: PromptText
     started_at: datetime | None = None
     ended_at: datetime
-    stdout_log_ref: PromptLogicalPath | None = None
-    stderr_log_ref: PromptLogicalPath | None = None
+    output_path: PromptLogicalPath
+    output_observed_bytes: int = Field(ge=0)
+    output_written_bytes: int = Field(ge=0)
+    output_complete: bool
+    output_encoding: Literal["raw_bytes"]
     failure_code: PromptIdentifier | None = None
     terminal_event_source: PromptCommandTerminalSource
     terminal_actor_ref: PromptIdentifier | None = None
@@ -223,6 +226,10 @@ class PromptCommandResult(PromptContract):
             and self.failure_code != "command_ownership_lost"
         ):
             raise ValueError("abandoned command results require command_ownership_lost")
+        if self.output_written_bytes > self.output_observed_bytes:
+            raise ValueError("command output written bytes cannot exceed observed bytes")
+        if self.output_complete and self.output_written_bytes != self.output_observed_bytes:
+            raise ValueError("complete command output requires every observed byte to be written")
         return self
 
 

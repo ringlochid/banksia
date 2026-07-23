@@ -186,7 +186,7 @@ async def test_managed_app_shutdown_revokes_every_issued_binding() -> None:
         registry,
         task_id="task.shutdown-b",
         dispatch_id="dispatch.shutdown-b",
-        exposure_ceiling=(NodeOperationName.LIST_FILES,),
+        exposure_ceiling=(NodeOperationName.SET_WORK_PLAN,),
     )
 
     async with applications.managed.router.lifespan_context(applications.managed):

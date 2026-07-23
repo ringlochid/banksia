@@ -171,15 +171,17 @@ GET_COMMAND_RUN_TEACHING = read_only_tool_teaching(
     summary="Inspect one controller-owned command-run record.",
     details=(
         "Use this when you need per-run timestamps, latest update, or terminal result detail.",
-        "Read the log separately only when the run already exposes a log_ref.",
+        "Read output separately only when the run exposes its output_path.",
     ),
 )
 GET_COMMAND_RUN_LOG_TEACHING = read_only_tool_teaching(
     name="get_command_run_log",
-    summary="Read the current or terminal command-run log text when one exists.",
+    summary="Read a bounded current range of one command-run output file.",
     details=(
-        "Use this only after get_command_runs or get_command_run confirms a log_ref is available.",
-        "Logs are bounded controller-backed readback, not a second state source.",
+        "Use this only after get_command_runs or get_command_run confirms the output_path.",
+        "Use next_offset to continue; each response is bounded and reads the current "
+        "workspace file.",
+        "The file may be missing or changed and is not a second controller state source.",
     ),
 )
 CANCEL_COMMAND_RUN_TEACHING = mutating_tool_teaching(
@@ -438,9 +440,20 @@ def register_command_run_tools(
         description=GET_COMMAND_RUN_LOG_TEACHING.description,
         annotations=GET_COMMAND_RUN_LOG_TEACHING.annotations,
     )
-    async def get_command_run_log(task_id: str, run_id: str) -> CommandRunLogReadResponse:
+    async def get_command_run_log(
+        task_id: str,
+        run_id: str,
+        offset: int = 0,
+        byte_limit: int = 1_048_576,
+    ) -> CommandRunLogReadResponse:
         return await read_session_operation(
-            lambda session: read_command_run_log(session, task_id=task_id, run_id=run_id)
+            lambda session: read_command_run_log(
+                session,
+                task_id=task_id,
+                run_id=run_id,
+                offset=offset,
+                byte_limit=byte_limit,
+            )
         )
 
     @server.tool(

@@ -14,7 +14,7 @@ from banksia.runtime.contracts import (
     HumanRequestOpenRequest,
     TaskStartRequest,
 )
-from banksia.runtime.workspace_admission import TaskWorkspaceAdmissionCoordinator
+from banksia.runtime.workspace.admission import TaskWorkspaceAdmissionCoordinator
 from fastapi import FastAPI
 from pydantic import ValidationError
 

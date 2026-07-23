@@ -4,7 +4,7 @@ import asyncio
 import sys
 from collections.abc import Callable
 from contextlib import AbstractAsyncContextManager
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, timedelta
 from pathlib import Path
 from typing import cast
 
@@ -12,97 +12,56 @@ import banksia.runtime.command_run.process_owner as process_owner_module
 import pytest
 from banksia.persistence.models import CommandRunModel, FlowModel, FlowWaitModel, TaskEventModel
 from banksia.runtime.command_run import (
-    CommandProcessOwner,
     cancel_command_run,
     list_command_runs,
     read_command_run,
     read_command_run_log,
 )
-from banksia.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
+from banksia.runtime.command_run.task_paths import (
+    StableCommandWorkingDirectory,
+)
 from banksia.runtime.post_commit import (
     CommandProcessExited,
-    CommandRunCancellationRequested,
     CommandRunDue,
     CommandRunPending,
-    CommandRunTerminal,
-    RuntimeEffectSignal,
 )
 from banksia.runtime.post_commit.bootstrap import read_command_running_page
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from tests.helpers.executor_harness import (
-    SessionFactory,
-    seeded_executor,
+from tests.helpers.command_process import (
+    MutableClock as _MutableClock,
 )
+from tests.helpers.command_process import (
+    OwnerSignalDriver as _OwnerSignalDriver,
+)
+from tests.helpers.command_process import (
+    command_process_owner as _command_owner,
+)
+from tests.helpers.command_process import (
+    launch_pending_command as _handle_pending,
+)
+from tests.helpers.command_process import (
+    open_argv_command as _open_argv_command,
+)
+from tests.helpers.command_process import (
+    wait_for_command_output as _wait_for_output,
+)
+from tests.helpers.executor_harness import SessionFactory, seeded_executor, seeded_task_root
 from tests.helpers.lineage_seed import RuntimeIds
 
 
-class _MutableClock:
-    def __init__(self) -> None:
-        self.now = datetime(2026, 7, 18, 12, tzinfo=UTC)
-
-    def __call__(self) -> datetime:
-        return self.now
-
-
-class _OwnerSignalDriver:
-    def __init__(self, session_factory: SessionFactory) -> None:
-        self._session_factory = session_factory
-        self.owner: CommandProcessOwner | None = None
-        self.signals: list[RuntimeEffectSignal] = []
-        self.deadlines: list[CommandRunDue] = []
-        self.terminal = asyncio.Event()
-        self.deadline_registered = asyncio.Event()
-        self._tasks: set[asyncio.Task[None]] = set()
-
-    def publish(self, signal: RuntimeEffectSignal) -> bool:
-        self.signals.append(signal)
-        if isinstance(signal, CommandProcessExited):
-            self._track(self._dispatch_exit(signal))
-        elif isinstance(signal, CommandRunCancellationRequested):
-            self._track(self._dispatch_cancellation(signal))
-        elif isinstance(signal, CommandRunTerminal):
-            self.terminal.set()
-        return True
-
-    def register_due(self, signal: CommandRunDue) -> None:
-        self.deadlines.append(signal)
-        self.deadline_registered.set()
-
-    async def wait_for_terminal(self) -> None:
-        await asyncio.wait_for(self.terminal.wait(), timeout=5)
-        while self._tasks:
-            tasks = tuple(self._tasks)
-            await asyncio.gather(*tasks)
-            self._tasks.difference_update(task for task in tasks if task.done())
-
-    async def _dispatch_exit(self, signal: CommandProcessExited) -> None:
-        assert self.owner is not None
-        async with self._session_factory() as session:
-            await self.owner.record_command_process_exit(cast(AsyncSession, session), signal)
-
-    async def _dispatch_cancellation(
-        self,
-        signal: CommandRunCancellationRequested,
-    ) -> None:
-        assert self.owner is not None
-        async with self._session_factory() as session:
-            await self.owner.terminate_cancelled_command(cast(AsyncSession, session), signal)
-
-    def _track(self, coroutine: object) -> None:
-        assert asyncio.iscoroutine(coroutine)
-        task = asyncio.create_task(coroutine)
-        self._tasks.add(task)
-        task.add_done_callback(self._tasks.discard)
-
-
-async def test_process_owner_drains_both_pipes_and_terminalizes_once(
+async def test_process_owner_preserves_combined_stream_and_terminalizes_once(
     tmp_path: Path,
 ) -> None:
+    records = [f"out-{index}\nerr-{index}\n".encode() for index in range(2_000)]
+    expected_output = b"".join(records)
     script = (
-        "import sys; "
-        "sys.stdout.write('o' * 200000); sys.stdout.flush(); "
-        "sys.stderr.write('e' * 200000); sys.stderr.flush()"
+        "import os; "
+        "["
+        "(os.write(1, f'out-{index}\\n'.encode()), "
+        "os.write(2, f'err-{index}\\n'.encode())) "
+        "for index in range(2000)"
+        "]"
     )
     async with seeded_executor(tmp_path, suffix="command-process-output") as (
         executor,
@@ -112,50 +71,19 @@ async def test_process_owner_drains_both_pipes_and_terminalizes_once(
     ):
         run_id = await _open_argv_command(executor, ids, [sys.executable, "-c", script])
         driver = _OwnerSignalDriver(session_factory)
-        owner = _command_owner(session_factory, driver, log_byte_limit=4096)
+        owner = _command_owner(session_factory, driver)
         driver.owner = owner
         async with owner:
             await _handle_pending(owner, session_factory, run_id)
             await driver.wait_for_terminal()
 
-            async with session_factory() as session:
-                source = await session.get(CommandRunModel, run_id)
-                record = await read_command_run(
-                    cast(AsyncSession, session),
-                    task_id=ids.task_id,
-                    run_id=run_id,
-                )
-                listed = await list_command_runs(
-                    cast(AsyncSession, session),
-                    task_id=ids.task_id,
-                )
-                log = await read_command_run_log(
-                    cast(AsyncSession, session),
-                    task_id=ids.task_id,
-                    run_id=run_id,
-                )
-            assert source is not None
-            assert source.state == "succeeded"
-            assert source.process_metadata_json is None
-            assert source.stdout_logical_path == (f"_runtime/command-runs/{run_id}/stdout.log")
-            assert source.stderr_logical_path == (f"_runtime/command-runs/{run_id}/stderr.log")
-            assert record.state.value == "succeeded"
-            assert record.stdout_log_ref == source.stdout_logical_path
-            assert record.stderr_log_ref == source.stderr_logical_path
-            assert record.successor_dispatch_id is None
-            assert record.terminal_result is not None
-            assert record.terminal_result.state.value == "succeeded"
-            assert record.terminal_result.started_at == record.started_at
-            assert record.terminal_result.ended_at == record.ended_at
-            assert record.terminal_result.stdout_log_ref == source.stdout_logical_path
-            assert record.terminal_result.stderr_log_ref == source.stderr_logical_path
-            assert record.terminal_result.terminal_event_source.value == "process_owner"
-            assert listed.items[0].run_id == run_id
-            assert log.log_ref == source.stdout_logical_path
-            assert log.content == "o" * 4096
-            assert (
-                tmp_path / "task-command-process-output" / cast(str, source.stderr_logical_path)
-            ).read_text(encoding="utf-8") == "e" * 4096
+            await _assert_combined_output_contract(
+                tmp_path,
+                session_factory,
+                ids,
+                run_id,
+                expected_output,
+            )
 
             exit_signal = next(
                 signal for signal in driver.signals if isinstance(signal, CommandProcessExited)
@@ -171,6 +99,66 @@ async def test_process_owner_drains_both_pipes_and_terminalizes_once(
                     .where(TaskEventModel.event_type == "command_run_succeeded")
                 )
             assert terminal_event_count == 1
+
+
+async def _assert_combined_output_contract(
+    tmp_path: Path,
+    session_factory: SessionFactory,
+    ids: RuntimeIds,
+    run_id: str,
+    expected_output: bytes,
+) -> None:
+    async with session_factory() as session:
+        source = await session.get(CommandRunModel, run_id)
+        record = await read_command_run(
+            cast(AsyncSession, session),
+            task_id=ids.task_id,
+            run_id=run_id,
+        )
+        listed = await list_command_runs(
+            cast(AsyncSession, session),
+            task_id=ids.task_id,
+        )
+        log = await read_command_run_log(
+            cast(AsyncSession, session),
+            task_id=ids.task_id,
+            run_id=run_id,
+        )
+    assert source is not None
+    assert source.state == "succeeded"
+    assert source.process_metadata_json is None
+    assert source.output_path == f".banksia/{ids.task_id}/command-runs/{run_id}/output.log"
+    assert source.output_observed_bytes == len(expected_output)
+    assert source.output_written_bytes == len(expected_output)
+    assert source.output_complete is True
+    assert source.output_encoding == "raw_bytes"
+    assert record.state.value == "succeeded"
+    assert record.output_path == source.output_path
+    assert record.successor_dispatch_id is None
+    assert record.terminal_result is not None
+    assert record.terminal_result.state.value == "succeeded"
+    assert record.terminal_result.started_at == record.started_at
+    assert record.terminal_result.ended_at == record.ended_at
+    assert record.terminal_result.output_path == source.output_path
+    assert record.terminal_result.output_observed_bytes == len(expected_output)
+    assert record.terminal_result.output_written_bytes == len(expected_output)
+    assert record.terminal_result.output_complete is True
+    assert record.terminal_result.terminal_event_source.value == "process_owner"
+    assert listed.items[0].run_id == run_id
+    assert listed.items[0].output_path == source.output_path
+    assert log.output_path == source.output_path
+    assert log.content.encode() == expected_output
+    assert log.bytes_read == len(expected_output)
+    assert log.next_offset is None
+    assert log.file_size == len(expected_output)
+    assert log.is_missing is False
+    assert log.is_changed is False
+    assert (
+        seeded_task_root(tmp_path, "command-process-output")
+        / "command-runs"
+        / run_id
+        / "output.log"
+    ).read_bytes() == expected_output
 
 
 async def test_process_owner_timeout_uses_launch_time_deadline(
@@ -248,17 +236,13 @@ async def test_process_owner_escalates_cancel_and_reaps_ignoring_child(
         driver.owner = owner
         async with owner:
             await _handle_pending(owner, session_factory, run_id)
-            stdout_path = (
-                tmp_path
-                / "task-command-process-cancel"
-                / "_runtime"
+            output_path = (
+                seeded_task_root(tmp_path, "command-process-cancel")
                 / "command-runs"
                 / run_id
-                / "stdout.log"
+                / "output.log"
             )
-            await asyncio.sleep(0.1)
-            assert stdout_path.exists()
-            assert "ready" in stdout_path.read_text(encoding="utf-8")
+            await _wait_for_output(output_path, b"ready")
             async with session_factory() as session:
                 response = await cancel_command_run(
                     cast(AsyncSession, session),
@@ -357,38 +341,22 @@ async def test_startup_running_command_routes_to_ownership_loss_recovery(
         assert recovered.terminal_failure_code == "command_ownership_lost"
 
 
-async def test_unresolved_environment_ref_fails_without_process_launch(
+async def test_spawn_failure_keeps_referenced_incomplete_command_output(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    async with seeded_executor(tmp_path, suffix="command-process-environment") as (
-        executor,
-        session_factory,
-        ids,
-        _,
-    ):
-        run_id = await _open_argv_command(
-            executor,
-            ids,
-            [sys.executable, "-V"],
-            environment=["approved.secret.ref"],
-        )
-        driver = _OwnerSignalDriver(session_factory)
-        owner = _command_owner(session_factory, driver)
-        driver.owner = owner
-        async with owner:
-            await _handle_pending(owner, session_factory, run_id)
-            await driver.wait_for_terminal()
-            async with session_factory() as session:
-                source = await session.get(CommandRunModel, run_id)
-            assert source is not None
-            assert source.state == "failed"
-            assert source.started_at is None
-            assert source.terminal_failure_code == ("command_environment_resolution_unavailable")
+    original_close = process_owner_module.close_command_working_directory
+    closed_descriptors: list[int] = []
 
+    def record_close(working_directory: StableCommandWorkingDirectory) -> None:
+        closed_descriptors.append(working_directory.descriptor)
+        original_close(working_directory)
 
-async def test_spawn_failure_removes_unreferenced_command_log_pair(
-    tmp_path: Path,
-) -> None:
+    monkeypatch.setattr(
+        process_owner_module,
+        "close_command_working_directory",
+        record_close,
+    )
     async with seeded_executor(tmp_path, suffix="command-process-missing-executable") as (
         executor,
         session_factory,
@@ -410,18 +378,18 @@ async def test_spawn_failure_removes_unreferenced_command_log_pair(
         async with session_factory() as session:
             source = await session.get(CommandRunModel, run_id)
         log_directory = (
-            tmp_path
-            / "task-command-process-missing-executable"
-            / "_runtime"
+            seeded_task_root(tmp_path, "command-process-missing-executable")
             / "command-runs"
             / run_id
         )
         assert source is not None
         assert source.state == "failed"
         assert source.started_at is None
-        assert source.stdout_logical_path is None
-        assert source.stderr_logical_path is None
-        assert not log_directory.exists()
+        assert source.output_observed_bytes == 0
+        assert source.output_written_bytes == 0
+        assert source.output_complete is False
+        assert (log_directory / "output.log").read_bytes() == b""
+        assert len(closed_descriptors) == 1
 
 
 async def test_process_owner_reaps_child_when_running_state_persistence_fails(
@@ -506,67 +474,6 @@ async def test_shutdown_owner_ignores_late_deadline_without_rewriting_runtime_tr
         assert source.state == "running"
         assert source.terminal_failure_code is None
         assert not driver.terminal.is_set()
-
-
-def _command_owner(
-    session_factory: SessionFactory,
-    driver: _OwnerSignalDriver,
-    *,
-    clock: _MutableClock | None = None,
-    log_byte_limit: int = 1_048_576,
-    terminate_grace_seconds: float = 0.5,
-) -> CommandProcessOwner:
-    return CommandProcessOwner(
-        session_factory=cast(
-            Callable[[], AbstractAsyncContextManager[AsyncSession]],
-            session_factory,
-        ),
-        runtime_effect_publisher=driver,
-        register_due=driver.register_due,
-        clock=clock or _MutableClock(),
-        log_byte_limit=log_byte_limit,
-        terminate_grace_seconds=terminate_grace_seconds,
-        kill_wait_seconds=0.5,
-        shutdown_seconds=2,
-    )
-
-
-async def _handle_pending(
-    owner: CommandProcessOwner,
-    session_factory: SessionFactory,
-    run_id: str,
-) -> None:
-    async with session_factory() as session:
-        await owner.launch_pending_command(
-            cast(AsyncSession, session),
-            CommandRunPending(run_id),
-        )
-
-
-async def _open_argv_command(
-    executor: NodeOperationExecutor,
-    ids: RuntimeIds,
-    argv: list[str],
-    *,
-    timeout_seconds: int | None = None,
-    environment: list[str] | None = None,
-) -> str:
-    response = await executor.execute(
-        scope=NodeOperationScope(
-            task_id=ids.task_id,
-            dispatch_id=ids.current_dispatch_id,
-        ),
-        operation_name="start_command_run",
-        arguments={
-            "request": {
-                "command": {"kind": "argv", "argv": argv},
-                "environment": environment or [],
-                "timeout_seconds": timeout_seconds,
-                "summary": "Run one focused command-owner fixture.",
-            }
-        },
-    )
-    return cast(str, response.model_dump()["run_id"])
 
 
 __all__ = []

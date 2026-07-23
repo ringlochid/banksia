@@ -7,9 +7,9 @@ from contextlib import AsyncExitStack
 from banksia.interfaces.mcp.node import NODE_TOOL_NAMES
 from banksia.runtime.node_operations import (
     NODE_OPERATION_CATALOG,
-    ListFilesResponse,
     NodeOperationName,
 )
+from banksia.runtime.work_plan import SetWorkPlanResponse
 from tests.integration.mcp.node_server.transport_support import (
     RecordingNodeOperationExecutor,
     call_tool_structured,
@@ -26,8 +26,6 @@ from tests.integration.mcp.node_server.transport_support import (
 
 _WORKER_CEILING = (
     NodeOperationName.GET_CURRENT_CONTEXT,
-    NodeOperationName.LIST_FILES,
-    NodeOperationName.READ_FILE,
     NodeOperationName.SET_WORK_PLAN,
     NodeOperationName.CHECKPOINT,
     NodeOperationName.RETURN_BOUNDARY,
@@ -83,7 +81,7 @@ async def test_compatibility_projection_lists_static_strict_explicit_id_catalog(
         tools_result = await session.list_tools()
 
     assert set(tool_names(tools_result)) == set(NODE_TOOL_NAMES)
-    assert len(NODE_TOOL_NAMES) == len(NODE_OPERATION_CATALOG) == 12
+    assert len(NODE_TOOL_NAMES) == len(NODE_OPERATION_CATALOG) == 10
     assert set(tool_names(tools_result)).isdisjoint(_OPERATOR_ONLY_NAMES)
     for tool_name in NODE_TOOL_NAMES:
         schema = tool_input_schema(tools_result, tool_name)
@@ -203,16 +201,16 @@ async def test_work_message_file_limits_are_hidden_from_tool_schemas() -> None:
 
 
 async def test_both_projections_call_one_executor_with_the_same_semantic_arguments() -> None:
-    response = ListFilesResponse(directory="workspace", entries=())
+    response = SetWorkPlanResponse(changed=False, plan=None)
     executor = RecordingNodeOperationExecutor(
-        results_by_name={NodeOperationName.LIST_FILES: response}
+        results_by_name={NodeOperationName.SET_WORK_PLAN: response}
     )
     applications, registry = create_test_node_mcp_apps(executor)
     issued = issue_test_binding(
         registry,
         task_id="task.call-parity",
         dispatch_id="dispatch.call-parity",
-        exposure_ceiling=(NodeOperationName.LIST_FILES,),
+        exposure_ceiling=(NodeOperationName.SET_WORK_PLAN,),
     )
 
     async with node_mcp_client_session(
@@ -221,17 +219,16 @@ async def test_both_projections_call_one_executor_with_the_same_semantic_argumen
     ) as managed_session:
         managed_result = await call_tool_structured(
             managed_session,
-            "list_files",
-            {"directory": "workspace"},
+            "set_work_plan",
+            {},
         )
     async with node_mcp_client_session(applications.compatibility) as compatibility_session:
         compatibility_result = await call_tool_structured(
             compatibility_session,
-            "list_files",
+            "set_work_plan",
             {
                 "task_id": "task.call-parity",
                 "dispatch_id": "dispatch.call-parity",
-                "directory": "workspace",
             },
         )
 
@@ -247,8 +244,8 @@ async def test_both_projections_call_one_executor_with_the_same_semantic_argumen
         },
     ]
     assert [call.arguments for call in executor.calls] == [
-        {"directory": "workspace"},
-        {"directory": "workspace"},
+        {},
+        {},
     ]
 
 
@@ -257,11 +254,11 @@ async def test_concurrent_managed_clients_keep_scope_and_tool_ceiling_isolated()
         listed_names_by_dispatch={
             "dispatch.concurrent-a": (
                 NodeOperationName.GET_CURRENT_CONTEXT,
-                NodeOperationName.LIST_FILES,
+                NodeOperationName.SET_WORK_PLAN,
             ),
             "dispatch.concurrent-b": (
                 NodeOperationName.GET_CURRENT_CONTEXT,
-                NodeOperationName.READ_FILE,
+                NodeOperationName.CHECKPOINT,
             ),
         }
     )
@@ -272,7 +269,7 @@ async def test_concurrent_managed_clients_keep_scope_and_tool_ceiling_isolated()
         dispatch_id="dispatch.concurrent-a",
         exposure_ceiling=(
             NodeOperationName.GET_CURRENT_CONTEXT,
-            NodeOperationName.LIST_FILES,
+            NodeOperationName.SET_WORK_PLAN,
         ),
     )
     issued_b = issue_test_binding(
@@ -281,7 +278,7 @@ async def test_concurrent_managed_clients_keep_scope_and_tool_ceiling_isolated()
         dispatch_id="dispatch.concurrent-b",
         exposure_ceiling=(
             NodeOperationName.GET_CURRENT_CONTEXT,
-            NodeOperationName.READ_FILE,
+            NodeOperationName.CHECKPOINT,
         ),
     )
 
@@ -304,8 +301,8 @@ async def test_concurrent_managed_clients_keep_scope_and_tool_ceiling_isolated()
                 session_b.list_tools(),
             )
 
-    assert set(tool_names(tools_a)) == {"get_current_context", "list_files"}
-    assert set(tool_names(tools_b)) == {"get_current_context", "read_file"}
+    assert set(tool_names(tools_a)) == {"get_current_context", "set_work_plan"}
+    assert set(tool_names(tools_b)) == {"checkpoint", "get_current_context"}
     assert {scope.dispatch_id for scope in executor.listed_scopes} == {
         "dispatch.concurrent-a",
         "dispatch.concurrent-b",

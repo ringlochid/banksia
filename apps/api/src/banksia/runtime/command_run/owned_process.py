@@ -3,7 +3,10 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass, field
 
-from banksia.runtime.command_run.process_resources import CommandTerminalCause
+from banksia.runtime.command_run.process_resources import (
+    CommandOutputCapture,
+    CommandTerminalCause,
+)
 from banksia.runtime.command_run.transitions import CommandRunLaunchClaim
 
 
@@ -11,6 +14,7 @@ from banksia.runtime.command_run.transitions import CommandRunLaunchClaim
 class OwnedCommandProcess:
     claim: CommandRunLaunchClaim
     process: asyncio.subprocess.Process | None = None
+    output_capture: CommandOutputCapture | None = None
     terminal_cause: CommandTerminalCause | None = None
     termination_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     launch_state_resolved: asyncio.Event = field(default_factory=asyncio.Event)

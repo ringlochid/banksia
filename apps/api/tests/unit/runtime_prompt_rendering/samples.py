@@ -169,24 +169,7 @@ def all_trigger_samples() -> tuple[PromptTrigger, ...]:
                 resolved_by_surface=HumanRequestResolutionSurface.CONTROLLER,
             ),
         ),
-        CommandResultTrigger(
-            run_id="command-run-1",
-            source_dispatch_id="dispatch-0",
-            request=CommandRunStartRequest.model_validate(
-                {
-                    "command": {"kind": "argv", "argv": ["python", "-V"]},
-                    "summary": "Read the Python version.",
-                }
-            ),
-            result=PromptCommandResult(
-                state=PromptCommandOutcome.SUCCEEDED,
-                exit_code=0,
-                summary="The command completed successfully.",
-                started_at=datetime(2026, 7, 18, 1, tzinfo=UTC),
-                ended_at=datetime(2026, 7, 18, 2, tzinfo=UTC),
-                terminal_event_source=PromptCommandTerminalSource.PROCESS_OWNER,
-            ),
-        ),
+        _sample_command_result_trigger(),
         WatchdogRecoveryTrigger(source_dispatch_id="dispatch-0", recovery_count=1),
         SemanticRetryTrigger(
             accepted_boundary_id="boundary-1",
@@ -198,5 +181,31 @@ def all_trigger_samples() -> tuple[PromptTrigger, ...]:
             source_dispatch_id="dispatch-0",
             control_revision=2,
             pause_reason="The task was paused for operator review.",
+        ),
+    )
+
+
+def _sample_command_result_trigger() -> CommandResultTrigger:
+    return CommandResultTrigger(
+        run_id="c_01234567",
+        source_dispatch_id="dispatch-0",
+        request=CommandRunStartRequest.model_validate(
+            {
+                "command": {"kind": "argv", "argv": ["python", "-V"]},
+                "summary": "Read the Python version.",
+            }
+        ),
+        result=PromptCommandResult(
+            state=PromptCommandOutcome.SUCCEEDED,
+            exit_code=0,
+            summary="The command completed successfully.",
+            started_at=datetime(2026, 7, 18, 1, tzinfo=UTC),
+            ended_at=datetime(2026, 7, 18, 2, tzinfo=UTC),
+            output_path=".banksia/t_01234567/command-runs/c_01234567/output.log",
+            output_observed_bytes=15,
+            output_written_bytes=15,
+            output_complete=True,
+            output_encoding="raw_bytes",
+            terminal_event_source=PromptCommandTerminalSource.PROCESS_OWNER,
         ),
     )

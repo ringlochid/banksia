@@ -1,12 +1,19 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
-from contextlib import suppress
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Literal
 
+from banksia.runtime.command_run.output_files import (
+    CommandOutputFile,
+    close_command_output_file,
+)
+from banksia.runtime.command_run.task_paths import (
+    StableCommandWorkingDirectory,
+    command_working_directory_spawn_path,
+)
 from banksia.runtime.command_run.transitions import CommandRunLaunchClaim
 from banksia.runtime.contracts import (
     CommandArgvSpec,
@@ -15,6 +22,8 @@ from banksia.runtime.contracts import (
 )
 
 type CommandTerminalCause = Literal["cancelled", "launch_failed", "timed_out"]
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -25,109 +34,146 @@ class CommandProcessExitResult:
     expected_states: tuple[CommandRunState, ...]
 
 
-class CommandEnvironmentResolutionUnavailableError(RuntimeError):
-    """Raised when authored environment refs have no configured resolver owner."""
+@dataclass(frozen=True, slots=True)
+class CommandOutputCapture:
+    observed_bytes: int
+    written_bytes: int
+    is_complete: bool
+
+
+@dataclass(frozen=True, slots=True)
+class CommandOutputWrite:
+    written_bytes: int
+    is_complete: bool
 
 
 async def spawn_command_process(
     claim: CommandRunLaunchClaim,
     *,
-    cwd: Path,
+    working_directory: StableCommandWorkingDirectory,
     environment: dict[str, str],
 ) -> asyncio.subprocess.Process:
-    """Spawn the explicitly discriminated argv or shell command as one direct child."""
+    """Spawn in the retained directory identity without resolving the authored path again."""
 
     command = claim.request.command
+    spawn_cwd = command_working_directory_spawn_path(working_directory)
+    inherited_descriptors = (working_directory.descriptor,)
     if isinstance(command, CommandArgvSpec):
         return await asyncio.create_subprocess_exec(
             *command.argv,
-            cwd=str(cwd),
+            cwd=spawn_cwd,
             env=environment,
+            pass_fds=inherited_descriptors,
             stdin=asyncio.subprocess.DEVNULL,
             stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
         )
     if isinstance(command, CommandShellSpec):
         return await asyncio.create_subprocess_shell(
             command.command,
-            cwd=str(cwd),
+            cwd=spawn_cwd,
             env=environment,
+            pass_fds=inherited_descriptors,
             stdin=asyncio.subprocess.DEVNULL,
             stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
         )
     raise TypeError(f"unsupported command specification: {type(command).__name__}")
 
 
-def resolve_command_environment(claim: CommandRunLaunchClaim) -> dict[str, str]:
-    """Return a non-secret baseline environment or reject unresolved authored refs."""
+def resolve_command_environment() -> dict[str, str]:
+    """Return the controller-owned non-secret baseline environment."""
 
-    if claim.request.environment:
-        raise CommandEnvironmentResolutionUnavailableError
     environment = {"PATH": os.defpath}
     if os.name == "nt" and "SystemRoot" in os.environ:
         environment["SystemRoot"] = os.environ["SystemRoot"]
     return environment
 
 
-async def drain_command_stream(
+async def drain_command_output(
     stream: asyncio.StreamReader,
-    destination: Path,
-    *,
-    byte_limit: int,
-) -> None:
-    """Consume one pipe to EOF while retaining only the configured bounded prefix."""
+    output: CommandOutputFile,
+) -> CommandOutputCapture:
+    """Drain one combined pipe to EOF while preserving truthful write counts."""
 
-    written = 0
-    with destination.open("ab", buffering=0) as output:
-        while chunk := await stream.read(64 * 1024):
-            if written >= byte_limit:
-                continue
-            retained = chunk[: byte_limit - written]
-            await asyncio.to_thread(output.write, retained)
-            written += len(retained)
-
-
-def create_command_log_pair(stdout_path: Path, stderr_path: Path) -> None:
-    """Create a new mode-0600 controller-owned log pair without replacement."""
-
-    stdout_path.parent.mkdir(parents=True, exist_ok=True)
-    if stdout_path.parent != stderr_path.parent:
-        raise ValueError("command log streams must share one owner directory")
-    created: list[Path] = []
+    observed_bytes = 0
+    written_bytes = 0
+    is_complete = True
+    can_write = True
     try:
-        for path in (stdout_path, stderr_path):
-            descriptor = os.open(
-                path,
-                os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_CLOEXEC", 0),
-                0o600,
-            )
-            os.close(descriptor)
-            created.append(path)
+        while chunk := await stream.read(64 * 1024):
+            observed_bytes += len(chunk)
+            if not can_write:
+                continue
+            try:
+                write = await asyncio.to_thread(
+                    write_command_output_chunk,
+                    output.descriptor,
+                    chunk,
+                )
+            except Exception:
+                logger.exception("command output write lane failed")
+                is_complete = False
+                can_write = False
+                continue
+            written_bytes += write.written_bytes
+            if not write.is_complete:
+                is_complete = False
+                can_write = False
     except Exception:
-        for path in created:
-            with suppress(FileNotFoundError):
-                path.unlink()
-        raise
+        logger.exception("command output pipe drain failed")
+        is_complete = False
+    finally:
+        if can_write:
+            try:
+                await asyncio.to_thread(os.fsync, output.descriptor)
+            except OSError:
+                logger.exception("command output flush failed")
+                is_complete = False
+        try:
+            close_command_output_file(output)
+        except OSError:
+            logger.exception("command output close failed")
+            is_complete = False
+    return CommandOutputCapture(
+        observed_bytes=observed_bytes,
+        written_bytes=written_bytes,
+        is_complete=is_complete and observed_bytes == written_bytes,
+    )
 
 
-def remove_command_log_pair(stdout_path: Path, stderr_path: Path) -> None:
-    """Remove only one unreferenced log pair created before process launch."""
+def write_command_output_chunk(
+    descriptor: int,
+    payload: bytes,
+) -> CommandOutputWrite:
+    """Write as much of one observed chunk as possible without hiding failure."""
 
-    if stdout_path.parent != stderr_path.parent:
-        raise ValueError("command log streams must share one owner directory")
-    for path in (stdout_path, stderr_path):
-        with suppress(FileNotFoundError):
-            path.unlink()
-    with suppress(OSError):
-        stdout_path.parent.rmdir()
+    written_bytes = 0
+    view = memoryview(payload)
+    try:
+        while written_bytes < len(payload):
+            count = os.write(descriptor, view[written_bytes:])
+            if count < 1:
+                return CommandOutputWrite(
+                    written_bytes=written_bytes,
+                    is_complete=False,
+                )
+            written_bytes += count
+    except OSError:
+        logger.exception("command output write failed")
+        return CommandOutputWrite(
+            written_bytes=written_bytes,
+            is_complete=False,
+        )
+    return CommandOutputWrite(
+        written_bytes=written_bytes,
+        is_complete=True,
+    )
 
 
 def command_launch_failure_code(exc: Exception) -> str:
     """Classify a launch exception without persisting raw exception text."""
 
-    if isinstance(exc, CommandEnvironmentResolutionUnavailableError):
-        return "command_environment_resolution_unavailable"
     if isinstance(exc, FileExistsError):
         return "command_log_path_conflict"
     if isinstance(exc, (FileNotFoundError, NotADirectoryError, ValueError)):
@@ -183,14 +229,14 @@ def classify_command_process_exit(
 
 
 __all__ = [
-    "CommandEnvironmentResolutionUnavailableError",
+    "CommandOutputCapture",
+    "CommandOutputWrite",
     "CommandProcessExitResult",
     "CommandTerminalCause",
     "classify_command_process_exit",
     "command_launch_failure_code",
-    "create_command_log_pair",
-    "drain_command_stream",
-    "remove_command_log_pair",
+    "drain_command_output",
     "resolve_command_environment",
     "spawn_command_process",
+    "write_command_output_chunk",
 ]

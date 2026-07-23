@@ -11,7 +11,7 @@ def test_managed_binding_registry_keeps_plaintext_out_of_binding_state() -> None
         task_id="task.binding-secret",
         dispatch_id="dispatch.binding-secret",
         provider_start_revision=3,
-        exposure_ceiling=("get_current_context", "list_files"),
+        exposure_ceiling=("get_current_context", "set_work_plan"),
     )
 
     assert issued.credential
@@ -52,7 +52,7 @@ def test_managed_binding_registry_revokes_one_dispatch_or_every_binding() -> Non
         task_id="task.binding-b",
         dispatch_id="dispatch.binding-b",
         provider_start_revision=0,
-        exposure_ceiling=("list_files",),
+        exposure_ceiling=("set_work_plan",),
     )
 
     assert first.credential != first_retry.credential

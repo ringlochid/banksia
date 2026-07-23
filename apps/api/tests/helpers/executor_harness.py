@@ -70,9 +70,15 @@ async def seeded_executor(
     ]
 ]:
     sync_engine: Engine = create_runtime_schema_engine(tmp_path, name=f"{suffix}.sqlite")
-    task_root = tmp_path / f"task-{suffix}"
-    workspace = task_root / "workspace"
-    workspace.mkdir(parents=True)
+    workspace = seeded_task_workspace(tmp_path, suffix)
+    task_root = seeded_task_root(tmp_path, suffix)
+    for path in (
+        task_root / "notes",
+        task_root / "artifacts",
+        task_root / "command-runs",
+        task_root / "_runtime" / "dispatch",
+    ):
+        path.mkdir(parents=True, exist_ok=True)
     try:
         with sync_engine.begin() as connection:
             seed_catalog(connection)
@@ -123,4 +129,18 @@ async def seeded_executor(
         sync_engine.dispose()
 
 
-__all__ = ["SessionFactory", "seeded_executor", "synchronized_transition_claims"]
+def seeded_task_workspace(tmp_path: Path, suffix: str) -> Path:
+    return tmp_path / f"task-{suffix}" / "workspace"
+
+
+def seeded_task_root(tmp_path: Path, suffix: str) -> Path:
+    return seeded_task_workspace(tmp_path, suffix) / ".banksia" / f"task.{suffix}"
+
+
+__all__ = [
+    "SessionFactory",
+    "seeded_executor",
+    "seeded_task_root",
+    "seeded_task_workspace",
+    "synchronized_transition_claims",
+]

@@ -8,8 +8,8 @@ from banksia.runtime.projection.signals import (
     WorkflowManifestProjection,
 )
 from banksia.runtime.task_root.reads import read_task_root_paths
-from banksia.runtime.task_root.writes import replace_projection_files
 from banksia.runtime.team import render_current_team_manifest
+from banksia.runtime.workspace.storage import replace_task_text
 
 
 async def project_support_signal(
@@ -36,7 +36,12 @@ async def project_workflow_manifest(
 
     content = await render_current_team_manifest(session, task_id=flow.task_id)
     paths = await read_task_root_paths(session, flow.task_id)
-    replace_projection_files({paths.task_root / "manifest.md": content.encode()})
+    replace_task_text(
+        paths.workspace_path,
+        flow.task_id,
+        "manifest.md",
+        content,
+    )
     return True
 
 

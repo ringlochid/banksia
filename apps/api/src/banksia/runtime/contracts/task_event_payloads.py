@@ -221,6 +221,7 @@ class CommandRunOpenedEventPayload(_TaskEventPayload):
     created_at: datetime
     timeout_seconds: int | None = Field(default=None, ge=1)
     ownership_revision: Literal[0] = 0
+    output_path: TaskEventRef
 
 
 class CommandRunStartedEventPayload(_TaskEventPayload):
@@ -233,7 +234,7 @@ class CommandRunStartedEventPayload(_TaskEventPayload):
     started_at: datetime
     due_at: datetime | None = None
     ownership_revision: int = Field(ge=1)
-    log_refs: tuple[TaskEventRef, ...] = Field(default=(), max_length=2)
+    output_path: TaskEventRef
 
 
 class CommandRunProgressedEventPayload(_TaskEventPayload):
@@ -243,7 +244,7 @@ class CommandRunProgressedEventPayload(_TaskEventPayload):
     summary: TaskEventSummary
     occurred_at: datetime
     ownership_revision: int = Field(ge=1)
-    log_ref: TaskEventRef | None = None
+    output_path: TaskEventRef
 
 
 class CommandRunCancelRequestedEventPayload(_TaskEventPayload):
@@ -270,7 +271,19 @@ class CommandRunTerminalEventPayload(_TaskEventPayload):
     exit_code: int | None = None
     failure_code: TaskEventIdentifier | None = None
     ownership_revision: int = Field(ge=0)
-    log_refs: tuple[TaskEventRef, ...] = Field(default=(), max_length=2)
+    output_path: TaskEventRef
+    output_observed_bytes: int = Field(ge=0)
+    output_written_bytes: int = Field(ge=0)
+    output_complete: bool
+    output_encoding: Literal["raw_bytes"]
+
+    @model_validator(mode="after")
+    def validate_output_counts(self) -> CommandRunTerminalEventPayload:
+        if self.output_written_bytes > self.output_observed_bytes:
+            raise ValueError("command output written bytes cannot exceed observed bytes")
+        if self.output_complete and self.output_written_bytes != self.output_observed_bytes:
+            raise ValueError("complete command output requires every observed byte to be written")
+        return self
 
 
 class TaskPausedEventPayload(_TaskEventPayload):

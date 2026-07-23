@@ -1,5 +1,5 @@
 import type { components } from "../../src/api/generated/openapi";
-import { TEST_UPDATED_AT, createCommandRunListItem } from "./console-api";
+import { TEST_UPDATED_AT, commandOutputPath, createCommandRunListItem } from "./console-api";
 
 export const COMMAND_RUN_TASK_ID = "task-runtime-copy-refresh";
 export const COMMAND_RUN_LOG_CONTENT =
@@ -87,10 +87,6 @@ export function createCommandRunPageList(
                         ? null
                         : "2026-06-29T14:26:00Z",
                 exit_code: run.state === "failed" ? 1 : run.state === "succeeded" ? 0 : null,
-                log_ref:
-                    run.state === "pending_start" || run.runId === "run-cancelled"
-                        ? null
-                        : `outputs/command-runs/${run.runId}.log`,
                 run_id: run.runId,
                 state: run.state,
                 summary: run.summary,
@@ -117,9 +113,8 @@ export function createCommandRunDetail(
         base.state === "timed_out" ||
         base.state === "cancelled" ||
         base.state === "abandoned";
-    const hasLogs = base.state === "pending_start" || base.runId === "run-cancelled" ? false : true;
-    const stdoutLogRef = hasLogs ? `outputs/command-runs/${base.runId}.stdout.log` : null;
-    const stderrLogRef = hasLogs ? `outputs/command-runs/${base.runId}.stderr.log` : null;
+    const outputPath = commandOutputPath(base.runId);
+    const outputBytes = base.state === "pending_start" ? 0 : 128;
 
     return {
         assignment_id: `assignment-${base.runId}`,
@@ -132,20 +127,15 @@ export function createCommandRunDetail(
         due_at: isTerminal ? null : "2026-06-29T14:30:00Z",
         ended_at: isTerminal ? "2026-06-29T14:26:00Z" : null,
         flow_id: "flow-command-runs",
+        output_complete: isTerminal,
+        output_encoding: "raw_bytes",
+        output_observed_bytes: outputBytes,
+        output_path: outputPath,
+        output_written_bytes: outputBytes,
         ownership_revision: base.state === "pending_start" ? 0 : 1,
         request: {
             command: { command: base.command, kind: "shell" },
             cwd: "apps/api",
-            environment: [],
-            expected_outputs:
-                base.runId === "run-failed"
-                    ? [
-                          {
-                              description: "Focused prompt-rendering test report.",
-                              path: "tmp/pytest-command-run.txt",
-                          },
-                      ]
-                    : [],
             summary: base.description,
             timeout_seconds: 120,
         },
@@ -153,8 +143,6 @@ export function createCommandRunDetail(
         source_dispatch_id: `dispatch-${base.runId}`,
         started_at: base.state === "pending_start" ? null : TEST_UPDATED_AT,
         state: base.state,
-        stderr_log_ref: stderrLogRef,
-        stdout_log_ref: stdoutLogRef,
         successor_dispatch_id:
             base.state === "succeeded" ? `dispatch-successor-${base.runId}` : null,
         task_id: COMMAND_RUN_TASK_ID,
@@ -163,10 +151,13 @@ export function createCommandRunDetail(
                   ended_at: "2026-06-29T14:26:00Z",
                   exit_code: base.state === "failed" ? 1 : base.state === "succeeded" ? 0 : null,
                   failure_code: base.state === "abandoned" ? "command_ownership_lost" : null,
+                  output_complete: true,
+                  output_encoding: "raw_bytes",
+                  output_observed_bytes: outputBytes,
+                  output_path: outputPath,
+                  output_written_bytes: outputBytes,
                   started_at: TEST_UPDATED_AT,
                   state: base.state,
-                  stderr_log_ref: stderrLogRef,
-                  stdout_log_ref: stdoutLogRef,
                   summary: base.summary,
                   terminal_actor_ref: null,
                   terminal_event_source: "process_owner",
@@ -188,12 +179,25 @@ export function createCommandRunLogRead(
     runId = "run-failed",
     content = COMMAND_RUN_LOG_CONTENT,
 ): components["schemas"]["CommandRunLogReadResponse"] {
+    const state = stateRuns.find((run) => run.runId === runId)?.state;
+    const outputComplete =
+        state === "succeeded" ||
+        state === "failed" ||
+        state === "timed_out" ||
+        state === "cancelled" ||
+        state === "abandoned";
     return {
+        bytes_read: content.length,
         content,
-        log_ref:
-            runId === "run-failed" || runId === "run-timed-out"
-                ? `outputs/command-runs/${runId}.stderr.log`
-                : `outputs/command-runs/${runId}.stdout.log`,
+        file_size: content.length,
+        is_changed: false,
+        is_missing: false,
+        next_offset: null,
+        offset: 0,
+        output_complete: outputComplete,
+        output_encoding: "raw_bytes",
+        output_path: commandOutputPath(runId),
+        read_encoding: "utf-8-replacement",
         run_id: runId,
         task_id: COMMAND_RUN_TASK_ID,
     };
@@ -205,7 +209,6 @@ export function createCommandRunSecondPage(): components["schemas"]["CommandRunL
             createCommandRunListItem({
                 command: "make console-openapi-check",
                 description: "Check generated OpenAPI drift.",
-                log_ref: "outputs/command-runs/run-openapi.log",
                 run_id: "run-openapi",
                 state: "succeeded",
                 summary: "OpenAPI generated types are current.",

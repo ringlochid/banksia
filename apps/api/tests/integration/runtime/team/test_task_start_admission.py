@@ -20,7 +20,7 @@ from banksia.runtime.contracts import FileReference, TaskStartRequest
 from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
 from banksia.runtime.post_commit import CapturedRuntimeEffectPublisher
 from banksia.runtime.task_start import start_task
-from banksia.runtime.workspace_admission import TASK_INITIALIZATION_MARKER
+from banksia.runtime.workspace.admission import TASK_INITIALIZATION_MARKER
 from sqlalchemy import func, select
 from tests.helpers.workflow_runtime import initialized_workflow_database
 

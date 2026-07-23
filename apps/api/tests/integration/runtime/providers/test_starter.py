@@ -143,6 +143,7 @@ async def test_accepted_start_opens_once_retains_binding_and_publishes_watchdog(
         assert dispatch.provider_start_attempt_count == 4
         assert request.instructions == b"controller instructions\n"
         assert request.input == b"dispatch input\n"
+        assert request.working_directory == (tmp_path / f"workspace-{database.ids.suffix}")
         assert request.managed_node_mcp is not None
         assert request.managed_node_mcp.enabled_tools == ("get_current_context",)
         credential = request.managed_node_mcp.bearer_token.get_secret_value()

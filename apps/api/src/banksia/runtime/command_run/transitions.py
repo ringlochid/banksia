@@ -30,8 +30,7 @@ class CommandRunLaunchClaim:
     source_dispatch_id: str
     ownership_revision: int
     request: CommandRunStartRequest
-    stdout_log_ref: str
-    stderr_log_ref: str
+    output_path: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,8 +44,6 @@ async def claim_command_run_launch(
     *,
     run_id: str,
     owner_ref: str,
-    stdout_log_ref: str,
-    stderr_log_ref: str,
     claimed_at: datetime,
 ) -> CommandRunLaunchClaim | None:
     """Claim one never-owned pending run without launching inside the transaction."""
@@ -97,8 +94,7 @@ async def claim_command_run_launch(
         source_dispatch_id=source.source_dispatch_id,
         ownership_revision=ownership_revision,
         request=request,
-        stdout_log_ref=stdout_log_ref,
-        stderr_log_ref=stderr_log_ref,
+        output_path=source.output_path,
     )
 
 
@@ -123,8 +119,6 @@ async def mark_command_run_running(
             state=CommandRunState.RUNNING.value,
             started_at=started_at,
             due_at=due_at,
-            stdout_logical_path=claim.stdout_log_ref,
-            stderr_logical_path=claim.stderr_log_ref,
             process_metadata_json={
                 "owner_ref": owner_ref,
                 "phase": "running",
@@ -154,7 +148,7 @@ async def mark_command_run_running(
             "started_at": started_at,
             "ownership_revision": claim.ownership_revision,
             "due_at": due_at,
-            "log_refs": [claim.stdout_log_ref, claim.stderr_log_ref],
+            "output_path": claim.output_path,
         },
     )
     await session.commit()
@@ -180,6 +174,9 @@ async def terminalize_command_run(
     should_match_due_at: bool = False,
     event_source: TaskEventSource = TaskEventSource.CONTROLLER,
     actor_ref: str | None = None,
+    output_observed_bytes: int | None = None,
+    output_written_bytes: int | None = None,
+    output_complete: bool | None = None,
 ) -> bool:
     """Commit one exact terminal winner and clear only its matching flow wait."""
 
@@ -206,6 +203,9 @@ async def terminalize_command_run(
         expected_due_at=expected_due_at,
         should_match_due_at=should_match_due_at,
         actor_ref=actor_ref,
+        output_observed_bytes=output_observed_bytes,
+        output_written_bytes=output_written_bytes,
+        output_complete=output_complete,
     ):
         await session.rollback()
         return False
@@ -225,6 +225,13 @@ async def terminalize_command_run(
         failure_code=failure_code,
         expected_ownership_revision=expected_ownership_revision,
         actor_ref=actor_ref,
+        output_observed_bytes=(
+            source.output_observed_bytes if output_observed_bytes is None else output_observed_bytes
+        ),
+        output_written_bytes=(
+            source.output_written_bytes if output_written_bytes is None else output_written_bytes
+        ),
+        output_complete=(source.output_complete if output_complete is None else output_complete),
     )
     await session.commit()
     return True
@@ -243,10 +250,8 @@ def command_run_request_from_model(source: CommandRunModel) -> CommandRunStartRe
         {
             "command": source.command_spec_json,
             "cwd": cwd,
-            "environment": source.environment_refs_json or (),
             "timeout_seconds": source.timeout_seconds,
             "summary": source.summary,
-            "expected_outputs": source.expected_outputs_json or (),
         }
     )
 
@@ -300,6 +305,9 @@ async def _persist_terminal_state(
     expected_due_at: datetime | None,
     should_match_due_at: bool,
     actor_ref: str | None,
+    output_observed_bytes: int | None,
+    output_written_bytes: int | None,
+    output_complete: bool | None,
 ) -> bool:
     predicates = [
         CommandRunModel.task_id == source.task_id,
@@ -309,6 +317,22 @@ async def _persist_terminal_state(
     ]
     if should_match_due_at:
         predicates.append(CommandRunModel.due_at == expected_due_at)
+    output_values: dict[str, object] = {}
+    if output_observed_bytes is not None:
+        if output_written_bytes is None or output_complete is None:
+            raise ValueError("command output terminal facts must be supplied together")
+        if output_written_bytes > output_observed_bytes:
+            raise ValueError("command output written bytes cannot exceed observed bytes")
+        if output_complete and output_written_bytes != output_observed_bytes:
+            raise ValueError("complete command output requires every observed byte to be written")
+        output_values = {
+            "output_observed_bytes": output_observed_bytes,
+            "output_written_bytes": output_written_bytes,
+            "output_complete": output_complete,
+        }
+    elif output_written_bytes is not None or output_complete is not None:
+        raise ValueError("command output terminal facts must be supplied together")
+
     won_run_id = await session.scalar(
         update(CommandRunModel)
         .where(*predicates)
@@ -321,6 +345,7 @@ async def _persist_terminal_state(
             terminal_event_source="process_owner",
             terminal_actor_ref=actor_ref,
             process_metadata_json=None,
+            **output_values,
         )
         .returning(CommandRunModel.run_id)
     )
@@ -386,6 +411,9 @@ async def _append_terminal_event(
     failure_code: str | None,
     expected_ownership_revision: int,
     actor_ref: str | None,
+    output_observed_bytes: int,
+    output_written_bytes: int,
+    output_complete: bool,
 ) -> None:
     await append_task_event(
         session,
@@ -406,11 +434,11 @@ async def _append_terminal_event(
             "exit_code": exit_code,
             "failure_code": failure_code,
             "ownership_revision": expected_ownership_revision,
-            "log_refs": [
-                ref
-                for ref in (source.stdout_logical_path, source.stderr_logical_path)
-                if ref is not None
-            ],
+            "output_path": source.output_path,
+            "output_observed_bytes": output_observed_bytes,
+            "output_written_bytes": output_written_bytes,
+            "output_complete": output_complete,
+            "output_encoding": source.output_encoding,
         },
     )
 

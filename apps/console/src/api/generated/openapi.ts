@@ -621,14 +621,6 @@ export interface components {
              */
             kind: "argv";
         };
-        CommandEnvironmentRef: string;
-        /** CommandExpectedOutput */
-        CommandExpectedOutput: {
-            /** Description */
-            description: string;
-            /** Path */
-            path: string;
-        };
         /** CommandRunCancelRequestedEventPayload */
         CommandRunCancelRequestedEventPayload: {
             /** Ownership Revision */
@@ -669,8 +661,19 @@ export interface components {
             exit_code?: number | null;
             /** Failure Code */
             failure_code?: string | null;
-            /** Log Ref */
-            log_ref?: string | null;
+            /** Output Complete */
+            output_complete: boolean;
+            /**
+             * Output Encoding
+             * @constant
+             */
+            output_encoding: "raw_bytes";
+            /** Output Observed Bytes */
+            output_observed_bytes: number;
+            /** Output Path */
+            output_path: string;
+            /** Output Written Bytes */
+            output_written_bytes: number;
             /** Run Id */
             run_id: string;
             /** Signal */
@@ -696,10 +699,35 @@ export interface components {
         };
         /** CommandRunLogReadResponse */
         CommandRunLogReadResponse: {
+            /** Bytes Read */
+            bytes_read: number;
             /** Content */
             content: string;
-            /** Log Ref */
-            log_ref: string;
+            /** File Size */
+            file_size?: number | null;
+            /** Is Changed */
+            is_changed: boolean;
+            /** Is Missing */
+            is_missing: boolean;
+            /** Next Offset */
+            next_offset?: number | null;
+            /** Offset */
+            offset: number;
+            /** Output Complete */
+            output_complete: boolean;
+            /**
+             * Output Encoding
+             * @constant
+             */
+            output_encoding: "raw_bytes";
+            /** Output Path */
+            output_path: string;
+            /**
+             * Read Encoding
+             * @default utf-8-replacement
+             * @constant
+             */
+            read_encoding: "utf-8-replacement";
             /** Run Id */
             run_id: string;
             /** Task Id */
@@ -714,6 +742,7 @@ export interface components {
              */
             created_at: string;
             description: components["schemas"]["TaskEventSummary"];
+            output_path: components["schemas"]["TaskEventRef"];
             /**
              * Ownership Revision
              * @default 0
@@ -733,12 +762,12 @@ export interface components {
         };
         /** CommandRunProgressedEventPayload */
         CommandRunProgressedEventPayload: {
-            log_ref?: components["schemas"]["TaskEventRef"] | null;
             /**
              * Occurred At
              * Format: date-time
              */
             occurred_at: string;
+            output_path: components["schemas"]["TaskEventRef"];
             /** Ownership Revision */
             ownership_revision: number;
             run_id: components["schemas"]["TaskEventIdentifier"];
@@ -771,6 +800,19 @@ export interface components {
             ended_at?: string | null;
             /** Flow Id */
             flow_id: string;
+            /** Output Complete */
+            output_complete: boolean;
+            /**
+             * Output Encoding
+             * @constant
+             */
+            output_encoding: "raw_bytes";
+            /** Output Observed Bytes */
+            output_observed_bytes: number;
+            /** Output Path */
+            output_path: string;
+            /** Output Written Bytes */
+            output_written_bytes: number;
             /** Ownership Revision */
             ownership_revision: number;
             request: components["schemas"]["CommandRunStartRequest"];
@@ -781,10 +823,6 @@ export interface components {
             /** Started At */
             started_at?: string | null;
             state: components["schemas"]["CommandRunState"];
-            /** Stderr Log Ref */
-            stderr_log_ref?: string | null;
-            /** Stdout Log Ref */
-            stdout_log_ref?: string | null;
             /** Successor Dispatch Id */
             successor_dispatch_id?: string | null;
             /** Task Id */
@@ -796,16 +834,6 @@ export interface components {
             command: components["schemas"]["CommandSpec"];
             /** Cwd */
             cwd?: string | null;
-            /**
-             * Environment
-             * @default []
-             */
-            environment: components["schemas"]["CommandEnvironmentRef"][];
-            /**
-             * Expected Outputs
-             * @default []
-             */
-            expected_outputs: components["schemas"]["CommandExpectedOutput"][];
             /** Summary */
             summary: string;
             /** Timeout Seconds */
@@ -817,11 +845,7 @@ export interface components {
             description: components["schemas"]["TaskEventSummary"];
             /** Due At */
             due_at?: string | null;
-            /**
-             * Log Refs
-             * @default []
-             */
-            log_refs: components["schemas"]["TaskEventRef"][];
+            output_path: components["schemas"]["TaskEventRef"];
             /** Ownership Revision */
             ownership_revision: number;
             run_id: components["schemas"]["TaskEventIdentifier"];
@@ -875,11 +899,18 @@ export interface components {
             /** Exit Code */
             exit_code?: number | null;
             failure_code?: components["schemas"]["TaskEventIdentifier"] | null;
+            /** Output Complete */
+            output_complete: boolean;
             /**
-             * Log Refs
-             * @default []
+             * Output Encoding
+             * @constant
              */
-            log_refs: components["schemas"]["TaskEventRef"][];
+            output_encoding: "raw_bytes";
+            /** Output Observed Bytes */
+            output_observed_bytes: number;
+            output_path: components["schemas"]["TaskEventRef"];
+            /** Output Written Bytes */
+            output_written_bytes: number;
             /** Ownership Revision */
             ownership_revision: number;
             run_id: components["schemas"]["TaskEventIdentifier"];
@@ -904,13 +935,22 @@ export interface components {
             exit_code?: number | null;
             /** Failure Code */
             failure_code?: string | null;
+            /** Output Complete */
+            output_complete: boolean;
+            /**
+             * Output Encoding
+             * @constant
+             */
+            output_encoding: "raw_bytes";
+            /** Output Observed Bytes */
+            output_observed_bytes: number;
+            /** Output Path */
+            output_path: string;
+            /** Output Written Bytes */
+            output_written_bytes: number;
             /** Started At */
             started_at?: string | null;
             state: components["schemas"]["CommandRunTerminalState"];
-            /** Stderr Log Ref */
-            stderr_log_ref?: string | null;
-            /** Stdout Log Ref */
-            stdout_log_ref?: string | null;
             /** Summary */
             summary: string;
             /** Terminal Actor Ref */
@@ -2913,7 +2953,10 @@ export interface operations {
     };
     get_control_command_run_log_control_tasks__task_id__command_runs__run_id__log_get: {
         parameters: {
-            query?: never;
+            query?: {
+                offset?: number;
+                byte_limit?: number;
+            };
             header?: never;
             path: {
                 task_id: string;

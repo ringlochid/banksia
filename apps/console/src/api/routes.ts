@@ -15,6 +15,9 @@ export type ControlTaskEventsQuery = NonNullable<
 export type CommandRunListQuery = NonNullable<
     operations["get_control_command_runs_control_tasks__task_id__command_runs_get"]["parameters"]["query"]
 >;
+export type CommandRunOutputQuery = NonNullable<
+    operations["get_control_command_run_log_control_tasks__task_id__command_runs__run_id__log_get"]["parameters"]["query"]
+>;
 export type DefinitionListQuery = NonNullable<
     operations["get_role_definitions_definitions_roles_get"]["parameters"]["query"]
 >;
@@ -92,9 +95,14 @@ export function commandRunRoute(taskId: string, runId: string): ApiRoute {
     };
 }
 
-export function commandRunLogRoute(taskId: string, runId: string): ApiRoute {
+export function commandRunLogRoute(
+    taskId: string,
+    runId: string,
+    query?: CommandRunOutputQuery,
+): ApiRoute {
     return {
         path: `/control/tasks/${encodeURIComponent(taskId)}/command-runs/${encodeURIComponent(runId)}/log`,
+        query: buildOptionalQuery(query),
     };
 }
 

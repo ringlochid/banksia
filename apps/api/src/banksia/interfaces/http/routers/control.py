@@ -73,6 +73,8 @@ type OperatorTraceParams = Annotated[OperatorFlowTraceQuery, Query()]
 type TaskEventListParams = Annotated[TaskEventListQuery, Query()]
 type CommandRunCursor = Annotated[str | None, Query(min_length=1)]
 type CommandRunLimit = Annotated[int, Query(ge=1, le=200)]
+type CommandOutputOffset = Annotated[int, Query(ge=0)]
+type CommandOutputLimit = Annotated[int, Query(ge=1, le=1_048_576)]
 type TaskEventStreamCursor = Annotated[str | None, Query(min_length=1)]
 type LastEventIdHeader = Annotated[str | None, Header(alias="Last-Event-ID", min_length=1)]
 
@@ -259,9 +261,17 @@ async def get_control_command_run_log(
     task_id: str,
     run_id: str,
     session: DBSession,
+    offset: CommandOutputOffset = 0,
+    byte_limit: CommandOutputLimit = 1_048_576,
 ) -> CommandRunLogReadResponse:
     try:
-        return await read_command_run_log(session, task_id=task_id, run_id=run_id)
+        return await read_command_run_log(
+            session,
+            task_id=task_id,
+            run_id=run_id,
+            offset=offset,
+            byte_limit=byte_limit,
+        )
     except Exception as exc:  # pragma: no cover - thin HTTP wrapper
         raise_runtime_exception(exc)
 

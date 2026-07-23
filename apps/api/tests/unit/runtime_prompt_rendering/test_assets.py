@@ -46,9 +46,10 @@ def test_worker_asset_does_not_teach_parent_root_operations() -> None:
 def test_context_asset_teaches_task_relative_readback_recovery() -> None:
     context_access = load_instruction_asset(InstructionAsset.CONTEXT_ACCESS)
 
-    assert "task-relative logical paths" in context_access
+    assert "relative to `.banksia/<task_id>/`" in context_access
     assert "Assignment files" in context_access
-    assert "read_file(path=readback_refs.input)" in context_access
+    assert ".banksia/<task_id>/<readback_refs.input>" in context_access
+    assert "native filesystem" in context_access
 
 
 def test_parent_root_asset_teaches_structural_operations() -> None:

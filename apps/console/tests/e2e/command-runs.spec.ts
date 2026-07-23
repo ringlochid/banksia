@@ -42,12 +42,12 @@ test("renders command-run detail, logs, cancel errors, and accessibility at desk
 
     await page.getByText("Check prompt continuation rendering.").click();
     await expect(page.getByText("Result")).toBeVisible();
-    await expect(page.getByText("Log access")).toBeVisible();
+    await expect(page.getByText("Command output")).toBeVisible();
     await expect(page.getByText(COMMAND_RUN_LOG_CONTENT)).toHaveCount(0);
 
-    await page.getByRole("button", { name: "View logs" }).click();
+    await page.getByRole("button", { name: "View output" }).click();
     await expect(page.getByText(COMMAND_RUN_LOG_CONTENT)).toBeVisible();
-    await expect(page.getByRole("button", { name: "Hide logs" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Hide output" })).toBeVisible();
 
     const taskDetailLink = page.getByRole("link", { name: "Open task detail" }).first();
     await taskDetailLink.focus();
@@ -78,11 +78,11 @@ test("keeps command-run rows and expanded detail usable at mobile width", async 
     await expect(page.getByText("Check prompt continuation rendering.")).toBeVisible();
     await page.getByText("Check prompt continuation rendering.").click();
     await expect(page.getByText("Result")).toBeVisible();
-    await expect(page.getByRole("button", { name: "View logs" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "View output" })).toBeVisible();
     await expectNoDocumentOverflow(page);
 
-    await page.getByRole("button", { name: "View logs" }).focus();
-    await expect(page.getByRole("button", { name: "View logs" })).toBeFocused();
+    await page.getByRole("button", { name: "View output" }).focus();
+    await expect(page.getByRole("button", { name: "View output" })).toBeFocused();
     await page.evaluate(() => {
         window.scrollTo(0, 0);
     });

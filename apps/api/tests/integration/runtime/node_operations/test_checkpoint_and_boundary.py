@@ -385,7 +385,7 @@ async def test_green_checkpoint_accepts_exact_current_child_basis(
             "duplicate",
         ),
         ([{"path": "missing.md"}], "does not exist"),
-        ([{"path": "escape.md"}], "escapes"),
+        ([{"path": "escape.md"}], "symbolic link"),
     ),
 )
 async def test_checkpoint_file_references_fail_atomically(

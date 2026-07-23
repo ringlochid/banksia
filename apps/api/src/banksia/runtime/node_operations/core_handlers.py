@@ -28,24 +28,14 @@ from banksia.runtime.node_operations.contracts import (
     EffectiveCapabilitySetRead,
     EffectiveValueRead,
     EmptyNodeOperationRequest,
-    FileEntryRead,
     GetCurrentContextResponse,
     HumanRequestCapabilityRead,
-    ListFilesRequest,
-    ListFilesResponse,
     NodeOperationName,
-    ReadFileRequest,
-    ReadFileResponse,
     WorkflowNeighborRead,
 )
 from banksia.runtime.node_operations.state_legality import (
     read_state_legal_node_operations,
 )
-from banksia.runtime.task_root.file_access import (
-    list_logical_directory,
-    read_logical_text_file,
-)
-from banksia.runtime.task_root.reads import read_task_root_paths
 from banksia.runtime.work_plan import (
     SetWorkPlanRequest,
     read_assignment_work_plan,
@@ -75,12 +65,6 @@ async def execute_core_node_operation(
     if operation_name == NodeOperationName.GET_CURRENT_CONTEXT:
         assert isinstance(request, EmptyNodeOperationRequest)
         return await _get_current_context(session, authority)
-    if operation_name == NodeOperationName.LIST_FILES:
-        assert isinstance(request, ListFilesRequest)
-        return await _list_files(session, authority, request)
-    if operation_name == NodeOperationName.READ_FILE:
-        assert isinstance(request, ReadFileRequest)
-        return await _read_file(session, authority, request)
     if operation_name == NodeOperationName.SET_WORK_PLAN:
         assert isinstance(request, SetWorkPlanRequest)
         return await set_assignment_work_plan(
@@ -217,45 +201,6 @@ async def _read_runtime_readback_refs(
         instructions=prompt_refs.instructions_logical_path,
         input=prompt_refs.input_logical_path,
         workflow_manifest="manifest.md",
-    )
-
-
-async def _list_files(
-    session: AsyncSession,
-    authority: NodeOperationAuthority,
-    request: ListFilesRequest,
-) -> ListFilesResponse:
-    paths = await read_task_root_paths(session, authority.task_id)
-    directory, entries = list_logical_directory(paths, request.directory)
-    return ListFilesResponse(
-        directory=directory,
-        entries=tuple(
-            FileEntryRead(name=name, path=path, kind=kind, size_bytes=size)
-            for name, path, kind, size in entries
-        ),
-    )
-
-
-async def _read_file(
-    session: AsyncSession,
-    authority: NodeOperationAuthority,
-    request: ReadFileRequest,
-) -> ReadFileResponse:
-    paths = await read_task_root_paths(session, authority.task_id)
-    path, content, line_count, has_more, next_line = read_logical_text_file(
-        paths,
-        request.path,
-        start_line=request.start_line,
-        max_lines=request.max_lines,
-    )
-    return ReadFileResponse(
-        path=path,
-        start_line=request.start_line,
-        max_lines=request.max_lines,
-        content=content,
-        lines_returned=line_count,
-        has_more=has_more,
-        next_start_line=next_line,
     )
 
 

@@ -34,6 +34,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from tests.helpers.executor_harness import (
     SessionFactory,
     seeded_executor,
+    seeded_task_root,
 )
 from tests.helpers.lineage_seed import RuntimeIds
 
@@ -259,7 +260,7 @@ async def test_terminal_worker_boundary_opens_its_exact_routed_target(
         assert successor.assignment_id == ids.root_assignment_id
         assert successor.attempt_id == ids.root_attempt_id
     assert refs is not None
-    request_root = tmp_path / f"task-boundary-{outcome}-continuation"
+    request_root = seeded_task_root(tmp_path, f"boundary-{outcome}-continuation")
     input_text = (request_root / refs.input_logical_path).read_text(encoding="utf-8")
     assert f'"kind": "{trigger_kind}"' in input_text
     assert input_text.count(checkpoint_id) == 1
@@ -341,7 +342,9 @@ def _read_input(
     suffix: str,
     refs: DispatchPromptRefsModel,
 ) -> str:
-    return (tmp_path / f"task-{suffix}" / refs.input_logical_path).read_text(encoding="utf-8")
+    return (seeded_task_root(tmp_path, suffix) / refs.input_logical_path).read_text(
+        encoding="utf-8"
+    )
 
 
 def _current_scope(ids: RuntimeIds) -> NodeOperationScope:

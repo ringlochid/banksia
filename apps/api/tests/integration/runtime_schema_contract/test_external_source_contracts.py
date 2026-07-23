@@ -128,18 +128,16 @@ def test_command_run_lifecycle_requires_complete_terminal_provenance(
             connection.execute(runs.insert(), _pending_command_run(ids))
             connection.execute(
                 runs.update()
-                .where(runs.c.run_id == "command-run.target")
+                .where(runs.c.run_id == "c_01234567")
                 .values(
                     state="running",
                     ownership_revision=1,
                     started_at=NOW + timedelta(seconds=1),
-                    stdout_logical_path="_runtime/commands/run/stdout.log",
-                    stderr_logical_path="_runtime/commands/run/stderr.log",
                 )
             )
             connection.execute(
                 runs.update()
-                .where(runs.c.run_id == "command-run.target")
+                .where(runs.c.run_id == "c_01234567")
                 .values(
                     state="succeeded",
                     terminal_summary="Command completed.",
@@ -170,7 +168,7 @@ def test_command_timeout_deadline_begins_only_after_process_start(
             connection.execute(runs.insert(), row)
             connection.execute(
                 runs.update()
-                .where(runs.c.run_id == "command-run.target")
+                .where(runs.c.run_id == "c_01234567")
                 .values(
                     state="running",
                     ownership_revision=1,
@@ -275,7 +273,7 @@ def test_command_successor_must_continue_its_exact_source_dispatch(
         ids = scopes["a"]
         row = _pending_command_run(ids)
         row.update(
-            run_id="command-run.invalid-successor",
+            run_id="c_76543210",
             source_dispatch_id=ids.root_dispatch_id,
             state="succeeded",
             terminal_summary="Completed.",
@@ -319,7 +317,7 @@ def _open_human_request(ids: RuntimeIds) -> dict[str, object]:
 
 def _pending_command_run(ids: RuntimeIds) -> dict[str, object]:
     return {
-        "run_id": "command-run.target",
+        "run_id": "c_01234567",
         "task_id": ids.task_id,
         "flow_id": ids.flow_id,
         "assignment_id": ids.root_assignment_id,
@@ -327,13 +325,14 @@ def _pending_command_run(ids: RuntimeIds) -> dict[str, object]:
         "source_dispatch_id": ids.current_dispatch_id,
         "command_spec_json": {"argv": ["true"]},
         "cwd_policy_json": None,
-        "environment_refs_json": None,
         "summary": "Run a target command.",
-        "expected_outputs_json": None,
         "timeout_seconds": None,
         "due_at": None,
-        "stdout_logical_path": None,
-        "stderr_logical_path": None,
+        "output_path": f".banksia/{ids.task_id}/command-runs/c_01234567/output.log",
+        "output_observed_bytes": 0,
+        "output_written_bytes": 0,
+        "output_complete": False,
+        "output_encoding": "raw_bytes",
         "state": "pending_start",
         "ownership_revision": 0,
         "process_metadata_json": None,

@@ -148,10 +148,10 @@ Exit: exact human/child prompts survive retry/continuation; one accepted root Ch
 ### 4. Shared physical workspace, loose files, and command output
 
 - Materialize the target `.banksia/t_<id>/` layout inside the user-selected shared workspace, including empty controller-created `notes/`, `artifacts/`, and `command-runs/` directories before first provider start.
-- Implement safe Git exclusion/tracked-path rejection, manifest/note projections, free-form notes, loose reviewable artifacts, safe regular-file reference validation, and combined protected/visible command output.
+- Implement safe Git exclusion/tracked-path rejection, manifest/note projections, free-form notes, loose reviewable artifacts, safe regular-file reference validation, and one complete workspace command log without a duplicate controller body.
 - Bind every adapter to the same workspace. OpenClaw readiness remains the user’s externally managed prerequisite; Banksia adds no inspection/fallback.
 
-Exit: paths, symlinks, overwrite, mutable/missing file references, note/artifact directory semantics, restart, and command truncation behave exactly as documented; the lowercase `artifacts/` convention exists but no legacy Artifact resource or capture machinery remains.
+Exit: paths, symlinks, overwrite, mutable/missing file references, note/artifact directory semantics, restart, complete command logging, bounded reads, and incomplete-write reporting behave exactly as documented; the lowercase `artifacts/` convention exists but no legacy Artifact resource or capture machinery remains.
 
 ### 5. Dispatch request and prompt
 

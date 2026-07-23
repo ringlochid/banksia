@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     JSON,
+    Boolean,
     CheckConstraint,
     ForeignKey,
     ForeignKeyConstraint,
@@ -13,6 +14,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    false,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -36,6 +38,7 @@ class CommandRunModel(RuntimeBase):
     __table_args__ = (
         UniqueConstraint("source_dispatch_id"),
         UniqueConstraint("run_id", "task_id", "flow_id", "source_dispatch_id"),
+        UniqueConstraint("task_id", "output_path"),
         CheckConstraint(
             f"state IN ({sql_in(COMMAND_RUN_STATE_VALUES)})",
             name="ck_command_runs_state",
@@ -44,6 +47,16 @@ class CommandRunModel(RuntimeBase):
         CheckConstraint(
             "timeout_seconds IS NULL OR timeout_seconds > 0",
             name="ck_command_runs_timeout_seconds",
+        ),
+        CheckConstraint(
+            "output_observed_bytes >= 0 AND output_written_bytes >= 0 AND "
+            "output_written_bytes <= output_observed_bytes AND "
+            "(NOT output_complete OR output_written_bytes = output_observed_bytes)",
+            name="ck_command_runs_output_byte_counts",
+        ),
+        CheckConstraint(
+            "output_encoding = 'raw_bytes'",
+            name="ck_command_runs_output_encoding",
         ),
         CheckConstraint(
             "(started_at IS NULL AND due_at IS NULL) OR "
@@ -121,18 +134,30 @@ class CommandRunModel(RuntimeBase):
     cwd_policy_json: Mapped[dict[str, object] | None] = mapped_column(
         JSON(none_as_null=True), nullable=True
     )
-    environment_refs_json: Mapped[list[str] | None] = mapped_column(
-        JSON(none_as_null=True), nullable=True
-    )
     summary: Mapped[str] = mapped_column(Text)
-    expected_outputs_json: Mapped[list[dict[str, object]] | None] = mapped_column(
-        JSON(none_as_null=True),
-        nullable=True,
-    )
     timeout_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
     due_at: Mapped[datetime | None] = mapped_column(UtcDateTime(), nullable=True)
-    stdout_logical_path: Mapped[str | None] = mapped_column(Text, nullable=True)
-    stderr_logical_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+    output_path: Mapped[str] = mapped_column(Text)
+    output_observed_bytes: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+        server_default="0",
+    )
+    output_written_bytes: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+        server_default="0",
+    )
+    output_complete: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        server_default=false(),
+    )
+    output_encoding: Mapped[str] = mapped_column(
+        String(32),
+        default="raw_bytes",
+        server_default="raw_bytes",
+    )
     state: Mapped[str] = mapped_column(String(64), default="pending_start")
     ownership_revision: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     process_metadata_json: Mapped[dict[str, object] | None] = mapped_column(

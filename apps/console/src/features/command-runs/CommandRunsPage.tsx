@@ -17,7 +17,7 @@ import {
     isAuthError,
     isStaleActionError,
     useCommandRunsController,
-    type CommandRunLogState,
+    type CommandRunOutputState,
     type CommandRunsController,
 } from "./command-run-controller";
 import {
@@ -232,12 +232,12 @@ function CommandRunExpandedDetail({
                 <CommandRunTimingSection detail={detail} />
                 <CommandRunProvenanceSection detail={detail} />
             </div>
-            <CommandRunLogSection
+            <CommandRunOutputSection
                 detail={detail}
-                logState={controller.logStatesByRunId[detail.runId] ?? null}
-                onToggleLogs={() => {
-                    controller.toggleLogs(detail.runId);
+                onToggleOutput={() => {
+                    controller.toggleOutput(detail.runId);
                 }}
+                outputState={controller.outputStatesByRunId[detail.runId] ?? null}
             />
         </div>
     );
@@ -262,20 +262,6 @@ function CommandRunCommandSection({ detail }: { readonly detail: CommandRunDetai
                     />
                 </div>
             </div>
-            {detail.expectedOutputs.length === 0 ? null : (
-                <div className="mt-4 border-t border-outline-soft pt-3">
-                    <p className="font-mono text-label font-medium uppercase text-muted">
-                        Expected outputs
-                    </p>
-                    <ul className="mt-2 space-y-2">
-                        {detail.expectedOutputs.map((output) => (
-                            <li className="min-w-0 text-compact text-muted" key={output.path}>
-                                <IdRefText value={output.path} /> · {output.description}
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-            )}
         </section>
     );
 }
@@ -432,77 +418,68 @@ function CommandRunDetailPanel({
     );
 }
 
-function CommandRunLogSection({
+function CommandRunOutputSection({
     detail,
-    logState,
-    onToggleLogs,
+    onToggleOutput,
+    outputState,
 }: {
     readonly detail: CommandRunDetailView;
-    readonly logState: CommandRunLogState | null;
-    readonly onToggleLogs: () => void;
+    readonly onToggleOutput: () => void;
+    readonly outputState: CommandRunOutputState | null;
 }) {
-    const logRef = detail.preferredLogRef;
-
     return (
         <section className="min-w-0 rounded-card border border-outline-soft bg-surface px-4 py-3">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
                     <p className="font-mono text-label font-medium uppercase text-muted">
-                        Log access
+                        Command output
                     </p>
-                    {detail.stdoutLogRef === null && detail.stderrLogRef === null ? (
-                        <p className="mt-1 text-compact text-muted">
-                            This run does not expose a log ref.
-                        </p>
-                    ) : (
-                        <dl className="mt-2 grid gap-2">
-                            {detail.stdoutLogRef === null ? null : (
-                                <div>
-                                    <dt className="font-mono text-label text-muted">Stdout</dt>
-                                    <dd>
-                                        <IdRefText value={detail.stdoutLogRef} />
-                                    </dd>
-                                </div>
-                            )}
-                            {detail.stderrLogRef === null ? null : (
-                                <div>
-                                    <dt className="font-mono text-label text-muted">Stderr</dt>
-                                    <dd>
-                                        <IdRefText value={detail.stderrLogRef} />
-                                    </dd>
-                                </div>
-                            )}
-                        </dl>
-                    )}
+                    <p className="mt-1 text-compact text-muted">
+                        {!isTerminalCommandRunState(detail.state)
+                            ? `${detail.outputWrittenBytes.toLocaleString()} bytes captured so far.`
+                            : detail.outputComplete
+                              ? `${detail.outputWrittenBytes.toLocaleString()} bytes captured.`
+                              : `${detail.outputWrittenBytes.toLocaleString()} of ${detail.outputObservedBytes.toLocaleString()} observed bytes were captured.`}
+                    </p>
                 </div>
-                {logRef === null ? null : (
-                    <Button icon={<FileText />} onClick={onToggleLogs}>
-                        {logState?.isVisible === true ? "Hide logs" : "View logs"}
-                    </Button>
-                )}
+                <Button icon={<FileText />} onClick={onToggleOutput}>
+                    {outputState?.isVisible === true ? "Hide output" : "View output"}
+                </Button>
             </div>
-            {logState?.error === undefined || logState.error === null ? null : (
+            {outputState?.error === undefined || outputState.error === null ? null : (
                 <div className="mt-4">
                     <StatePanel
-                        summary={logState.error.summary}
-                        title="Logs could not load"
-                        tone={logState.error.status === 404 ? "stale" : "error"}
+                        summary={outputState.error.summary}
+                        title="Output could not load"
+                        tone={outputState.error.status === 404 ? "stale" : "error"}
                     />
                 </div>
             )}
-            {logState?.isVisible === true && logState.isLoading ? (
+            {outputState?.isVisible === true && outputState.isLoading ? (
                 <div className="mt-4">
                     <StatePanel
-                        summary="Reading persisted command-run logs."
-                        title="Loading logs"
+                        summary="Reading the current workspace output file."
+                        title="Loading output"
                         tone="loading"
                     />
                 </div>
             ) : null}
-            {logState?.isVisible === true && logState.content !== null ? (
+            {outputState?.isVisible === true && outputState.content !== null ? (
                 <div className="mt-4">
-                    <CodeBlock className="bg-[#151923] text-[#e5e7eb]" title="Logs">
-                        {logState.content}
+                    {outputState.isBounded ? (
+                        <p className="mb-2 text-compact text-muted">
+                            This bounded view does not include the full output file.
+                        </p>
+                    ) : null}
+                    {outputState.outputComplete ? null : (
+                        <p className="mb-2 text-compact text-muted">
+                            {isTerminalCommandRunState(detail.state)
+                                ? "Banksia could not persist every observed output byte."
+                                : "This action is still running, so more output may arrive."}
+                        </p>
+                    )}
+                    <CodeBlock className="bg-[#151923] text-[#e5e7eb]" title="Command output">
+                        {outputState.content}
                     </CodeBlock>
                 </div>
             ) : null}

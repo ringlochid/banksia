@@ -10,13 +10,13 @@ from banksia.runtime.contracts.operation_failure import OperationFailureCode
 from banksia.runtime.errors import RuntimeOperationError
 from banksia.runtime.node_mcp import IssuedDispatchMcpBinding
 from banksia.runtime.node_operations import (
-    ListFilesResponse,
     NodeActivitySignal,
     NodeOperationDescriptor,
     NodeOperationExecutor,
     NodeOperationName,
     NodeOperationScope,
 )
+from banksia.runtime.work_plan import SetWorkPlanResponse
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from tests.helpers.executor_harness import (
@@ -79,40 +79,44 @@ class _PausedNodeOperationExecutor(NodeOperationExecutor):
 
 async def test_managed_call_scope_comes_only_from_the_authenticated_binding() -> None:
     executor = RecordingNodeOperationExecutor(
-        results_by_name={NodeOperationName.LIST_FILES: ListFilesResponse(directory=".", entries=())}
+        results_by_name={
+            NodeOperationName.SET_WORK_PLAN: SetWorkPlanResponse(changed=False, plan=None)
+        }
     )
     applications, registry = create_test_node_mcp_apps(executor)
     issued = issue_test_binding(
         registry,
         task_id="task.managed-scope",
         dispatch_id="dispatch.managed-scope",
-        exposure_ceiling=(NodeOperationName.LIST_FILES,),
+        exposure_ceiling=(NodeOperationName.SET_WORK_PLAN,),
     )
 
     async with node_mcp_client_session(
         applications.managed,
         headers=managed_headers(issued),
     ) as session:
-        result = await call_tool_structured(session, "list_files", {"directory": "."})
+        result = await call_tool_structured(session, "set_work_plan", {})
 
-    assert result == {"directory": ".", "entries": []}
+    assert result == {"changed": False, "plan": None}
     assert len(executor.calls) == 1
     assert executor.calls[0].scope.task_id == "task.managed-scope"
     assert executor.calls[0].scope.dispatch_id == "dispatch.managed-scope"
     assert executor.calls[0].scope.provider_start_revision == 0
-    assert executor.calls[0].arguments == {"directory": "."}
+    assert executor.calls[0].arguments == {}
 
 
 async def test_managed_call_rejects_model_visible_task_or_dispatch_selectors() -> None:
     executor = RecordingNodeOperationExecutor(
-        results_by_name={NodeOperationName.LIST_FILES: ListFilesResponse(directory=".", entries=())}
+        results_by_name={
+            NodeOperationName.SET_WORK_PLAN: SetWorkPlanResponse(changed=False, plan=None)
+        }
     )
     applications, registry = create_test_node_mcp_apps(executor)
     issued = issue_test_binding(
         registry,
         task_id="task.managed-selector-rejection",
         dispatch_id="dispatch.managed-selector-rejection",
-        exposure_ceiling=(NodeOperationName.LIST_FILES,),
+        exposure_ceiling=(NodeOperationName.SET_WORK_PLAN,),
     )
 
     async with node_mcp_client_session(
@@ -121,11 +125,10 @@ async def test_managed_call_rejects_model_visible_task_or_dispatch_selectors() -
     ) as session:
         result = await call_tool_result(
             session,
-            "list_files",
+            "set_work_plan",
             {
                 "task_id": "task.spoofed",
                 "dispatch_id": "dispatch.spoofed",
-                "directory": ".",
             },
         )
 
@@ -137,7 +140,9 @@ async def test_managed_call_rejects_model_visible_task_or_dispatch_selectors() -
 
 async def test_managed_binding_ceiling_rejects_an_unexposed_catalog_operation() -> None:
     executor = RecordingNodeOperationExecutor(
-        results_by_name={NodeOperationName.LIST_FILES: ListFilesResponse(directory=".", entries=())}
+        results_by_name={
+            NodeOperationName.SET_WORK_PLAN: SetWorkPlanResponse(changed=False, plan=None)
+        }
     )
     applications, registry = create_test_node_mcp_apps(executor)
     issued = issue_test_binding(
@@ -151,7 +156,7 @@ async def test_managed_binding_ceiling_rejects_an_unexposed_catalog_operation() 
         applications.managed,
         headers=managed_headers(issued),
     ) as session:
-        result = await call_tool_result(session, "list_files", {"directory": "."})
+        result = await call_tool_result(session, "set_work_plan", {})
 
     failure = tool_failure(result)
     assert failure["code"] == "illegal_caller"
@@ -271,15 +276,17 @@ async def test_rotated_managed_generation_rejects_inflight_old_binding_before_ad
 
 async def test_compatibility_call_rejects_missing_explicit_scope_before_execution() -> None:
     executor = RecordingNodeOperationExecutor(
-        results_by_name={NodeOperationName.LIST_FILES: ListFilesResponse(directory=".", entries=())}
+        results_by_name={
+            NodeOperationName.SET_WORK_PLAN: SetWorkPlanResponse(changed=False, plan=None)
+        }
     )
     applications, _registry = create_test_node_mcp_apps(executor)
 
     async with node_mcp_client_session(applications.compatibility) as session:
         result = await call_tool_result(
             session,
-            "list_files",
-            {"task_id": "task.compatibility-missing-dispatch", "directory": "."},
+            "set_work_plan",
+            {"task_id": "task.compatibility-missing-dispatch"},
         )
 
     failure = tool_failure(result)

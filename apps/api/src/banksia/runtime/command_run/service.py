@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import shlex
 from typing import cast
@@ -33,7 +34,8 @@ from banksia.runtime.post_commit import (
     RuntimeEffectPublisher,
 )
 from banksia.runtime.task_events import append_task_event
-from banksia.runtime.task_root import read_logical_text_file, read_task_root_paths
+from banksia.runtime.task_root import read_task_root_paths
+from banksia.runtime.workspace.regular_files import read_workspace_regular_file_range
 
 logger = logging.getLogger(__name__)
 
@@ -107,26 +109,74 @@ async def read_command_run_log(
     *,
     task_id: str,
     run_id: str,
+    offset: int = 0,
+    byte_limit: int = _MAX_COMMAND_LOG_READ_BYTES,
 ) -> CommandRunLogReadResponse:
+    if offset < 0:
+        raise ValueError("command output offset must be non-negative")
+    if not 1 <= byte_limit <= _MAX_COMMAND_LOG_READ_BYTES:
+        raise ValueError(
+            f"command output byte limit must be between 1 and {_MAX_COMMAND_LOG_READ_BYTES}"
+        )
     source = await _command_run_for_task(session, task_id=task_id, run_id=run_id)
     if source is None:
         raise missing_resource_error(f"unknown command run '{run_id}' for task '{task_id}'")
-    log_ref = _preferred_log_ref(source)
-    if log_ref is None:
-        raise missing_resource_error(f"command run '{run_id}' has no available log")
     paths = await read_task_root_paths(session, task_id)
-    _, content, _, _, _ = read_logical_text_file(
-        paths,
-        log_ref,
-        start_line=1,
-        max_lines=1_000_000,
-        byte_limit=_MAX_COMMAND_LOG_READ_BYTES,
-    )
+    try:
+        current = await asyncio.to_thread(
+            read_workspace_regular_file_range,
+            paths.workspace_path,
+            source.output_path,
+            offset=offset,
+            byte_limit=byte_limit,
+        )
+    except FileNotFoundError:
+        return CommandRunLogReadResponse(
+            task_id=task_id,
+            run_id=run_id,
+            output_path=source.output_path,
+            content="",
+            offset=offset,
+            bytes_read=0,
+            next_offset=None,
+            file_size=None,
+            is_missing=True,
+            is_changed=False,
+            output_complete=source.output_complete,
+            output_encoding="raw_bytes",
+        )
+    except OSError:
+        return CommandRunLogReadResponse(
+            task_id=task_id,
+            run_id=run_id,
+            output_path=source.output_path,
+            content="",
+            offset=offset,
+            bytes_read=0,
+            next_offset=None,
+            file_size=None,
+            is_missing=False,
+            is_changed=True,
+            output_complete=source.output_complete,
+            output_encoding="raw_bytes",
+        )
+
     return CommandRunLogReadResponse(
         task_id=task_id,
         run_id=run_id,
-        log_ref=log_ref,
-        content=content,
+        output_path=source.output_path,
+        content=current.payload.decode("utf-8", errors="replace"),
+        offset=min(offset, current.file_size),
+        bytes_read=len(current.payload),
+        next_offset=current.next_offset,
+        file_size=current.file_size,
+        is_missing=False,
+        is_changed=(
+            CommandRunState(source.state) in TERMINAL_COMMAND_RUN_STATES
+            and current.file_size != source.output_written_bytes
+        ),
+        output_complete=source.output_complete,
+        output_encoding="raw_bytes",
     )
 
 
@@ -248,8 +298,11 @@ def command_run_record_from_model(source: CommandRunModel) -> CommandRunRecord:
         started_at=source.started_at,
         due_at=source.due_at,
         ended_at=source.ended_at,
-        stdout_log_ref=source.stdout_logical_path,
-        stderr_log_ref=source.stderr_logical_path,
+        output_path=source.output_path,
+        output_observed_bytes=source.output_observed_bytes,
+        output_written_bytes=source.output_written_bytes,
+        output_complete=source.output_complete,
+        output_encoding="raw_bytes",
         cancellation_requested_at=source.cancellation_requested_at,
         cancellation_requested_by_actor_ref=source.cancellation_requested_by_actor_ref,
         terminal_result=_terminal_result(source),
@@ -262,10 +315,8 @@ def command_run_request_from_model(source: CommandRunModel) -> CommandRunStartRe
         {
             "command": source.command_spec_json,
             "cwd": _command_workdir(source),
-            "environment": source.environment_refs_json or (),
             "timeout_seconds": source.timeout_seconds,
             "summary": source.summary,
-            "expected_outputs": source.expected_outputs_json or (),
         }
     )
 
@@ -284,7 +335,11 @@ def command_run_list_item_from_model(source: CommandRunModel) -> CommandRunListI
         summary=source.terminal_summary,
         exit_code=source.terminal_exit_code,
         signal=_exit_signal(source.terminal_exit_code),
-        log_ref=_preferred_log_ref(source),
+        output_path=source.output_path,
+        output_observed_bytes=source.output_observed_bytes,
+        output_written_bytes=source.output_written_bytes,
+        output_complete=source.output_complete,
+        output_encoding="raw_bytes",
         failure_code=source.terminal_failure_code,
     )
 
@@ -372,18 +427,15 @@ def _terminal_result(source: CommandRunModel) -> CommandRunTerminalResult | None
         exit_code=source.terminal_exit_code,
         started_at=source.started_at,
         ended_at=source.ended_at,
-        stdout_log_ref=source.stdout_logical_path,
-        stderr_log_ref=source.stderr_logical_path,
+        output_path=source.output_path,
+        output_observed_bytes=source.output_observed_bytes,
+        output_written_bytes=source.output_written_bytes,
+        output_complete=source.output_complete,
+        output_encoding="raw_bytes",
         failure_code=source.terminal_failure_code,
         terminal_event_source=CommandRunTerminalSource(source.terminal_event_source),
         terminal_actor_ref=source.terminal_actor_ref,
     )
-
-
-def _preferred_log_ref(source: CommandRunModel) -> str | None:
-    if source.state in {CommandRunState.FAILED.value, CommandRunState.TIMED_OUT.value}:
-        return source.stderr_logical_path or source.stdout_logical_path
-    return source.stdout_logical_path or source.stderr_logical_path
 
 
 def _exit_signal(exit_code: int | None) -> str | None:

@@ -5,7 +5,6 @@ import logging
 from collections.abc import Callable
 from contextlib import AbstractAsyncContextManager, suppress
 from datetime import datetime, timedelta
-from pathlib import Path
 from types import TracebackType
 from typing import Self
 from uuid import uuid4
@@ -16,17 +15,25 @@ from sqlalchemy.orm import raiseload
 
 from banksia.persistence.models import CommandRunModel
 from banksia.runtime.clock import utc_now
+from banksia.runtime.command_run.output_files import (
+    CommandOutputFile,
+    close_command_output_file,
+)
 from banksia.runtime.command_run.owned_process import OwnedCommandProcess
 from banksia.runtime.command_run.ownership_recovery import abandon_unowned_command_run
 from banksia.runtime.command_run.process_resources import (
     CommandTerminalCause,
     classify_command_process_exit,
     command_launch_failure_code,
-    drain_command_stream,
+    drain_command_output,
     resolve_command_environment,
     spawn_command_process,
 )
-from banksia.runtime.command_run.task_paths import CommandProcessPaths
+from banksia.runtime.command_run.task_paths import (
+    CommandProcessPaths,
+    StableCommandWorkingDirectory,
+    close_command_working_directory,
+)
 from banksia.runtime.command_run.transitions import (
     CommandRunLaunchClaim,
     claim_command_run_launch,
@@ -43,13 +50,9 @@ from banksia.runtime.post_commit import (
     RuntimeEffectPublisher,
 )
 from banksia.runtime.post_commit.health import RuntimeEffectHealth
-from banksia.runtime.task_root import (
-    command_run_logical_path,
-)
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_COMMAND_LOG_BYTE_LIMIT = 1_048_576
 DEFAULT_COMMAND_TERMINATE_GRACE_SECONDS = 2.0
 DEFAULT_COMMAND_KILL_WAIT_SECONDS = 2.0
 DEFAULT_COMMAND_OWNER_SHUTDOWN_SECONDS = 5.0
@@ -70,13 +73,10 @@ class CommandProcessOwner:
         register_due: RegisterCommandRunDue,
         health: RuntimeEffectHealth | None = None,
         clock: CommandOwnerClock = utc_now,
-        log_byte_limit: int = DEFAULT_COMMAND_LOG_BYTE_LIMIT,
         terminate_grace_seconds: float = DEFAULT_COMMAND_TERMINATE_GRACE_SECONDS,
         kill_wait_seconds: float = DEFAULT_COMMAND_KILL_WAIT_SECONDS,
         shutdown_seconds: float = DEFAULT_COMMAND_OWNER_SHUTDOWN_SECONDS,
     ) -> None:
-        if log_byte_limit < 0:
-            raise ValueError("command log byte limit must be non-negative")
         for label, value in (
             ("terminate grace", terminate_grace_seconds),
             ("kill wait", kill_wait_seconds),
@@ -90,7 +90,6 @@ class CommandProcessOwner:
         self._register_due = register_due
         self._health = health or RuntimeEffectHealth()
         self._clock = clock
-        self._log_byte_limit = log_byte_limit
         self._terminate_grace_seconds = terminate_grace_seconds
         self._kill_wait_seconds = kill_wait_seconds
         self._shutdown_seconds = shutdown_seconds
@@ -126,20 +125,10 @@ class CommandProcessOwner:
         if self._is_shutting_down:
             return
         self._require_active()
-        stdout_ref = command_run_logical_path(
-            run_id=signal.run_id,
-            stream="stdout",
-        ).as_posix()
-        stderr_ref = command_run_logical_path(
-            run_id=signal.run_id,
-            stream="stderr",
-        ).as_posix()
         claim = await claim_command_run_launch(
             session,
             run_id=signal.run_id,
             owner_ref=self._owner_ref,
-            stdout_log_ref=stdout_ref,
-            stderr_log_ref=stderr_ref,
             claimed_at=self._clock(),
         )
         if claim is None:
@@ -252,6 +241,7 @@ class CommandProcessOwner:
             terminal_cause=owned.terminal_cause,
             returncode=process.returncode,
         )
+        output = owned.output_capture
         won = await terminalize_command_run(
             session,
             task_id=source.task_id,
@@ -265,6 +255,9 @@ class CommandProcessOwner:
             ended_at=self._clock(),
             expected_due_at=source.due_at,
             should_match_due_at=result.terminal_state == CommandRunState.TIMED_OUT,
+            output_observed_bytes=(output.observed_bytes if output is not None else None),
+            output_written_bytes=(output.written_bytes if output is not None else None),
+            output_complete=(output.is_complete if output is not None else None),
         )
         self._owned.pop(signal.run_id, None)
         if won:
@@ -272,23 +265,20 @@ class CommandProcessOwner:
 
     async def _launch_owned(self, owned: OwnedCommandProcess) -> None:
         claim = owned.claim
-        stdout_path: Path | None = None
-        stderr_path: Path | None = None
+        working_directory: StableCommandWorkingDirectory | None = None
+        output: CommandOutputFile | None = None
+        is_supervised = False
         try:
             if await self._finish_unlaunched_cancellation(owned):
                 return
-            cwd = await self._process_paths.resolve_working_directory(claim)
-            environment = resolve_command_environment(claim)
-            stdout_path, stderr_path = await self._process_paths.create_log_files(claim)
+            working_directory = await self._process_paths.open_working_directory(claim)
+            environment = resolve_command_environment()
+            output = await self._process_paths.create_output_file(claim)
             if await self._finish_unlaunched_cancellation(owned):
-                await self._process_paths.cleanup_unreferenced_log_files(
-                    stdout_path,
-                    stderr_path,
-                )
                 return
             process = await spawn_command_process(
                 claim,
-                cwd=cwd,
+                working_directory=working_directory,
                 environment=environment,
             )
             owned.process = process
@@ -296,12 +286,12 @@ class CommandProcessOwner:
                 asyncio.create_task(
                     self._supervise_process(
                         owned,
-                        stdout_path=stdout_path,
-                        stderr_path=stderr_path,
+                        output=output,
                     ),
                     name=f"banksia-command-supervise-{claim.run_id}",
                 )
             )
+            is_supervised = True
             await self._record_owned_process_start(owned)
         except asyncio.CancelledError:
             raise
@@ -310,11 +300,6 @@ class CommandProcessOwner:
                 "command process launch failed",
                 extra={"run_id": claim.run_id, "exception_type": type(exc).__name__},
             )
-            if owned.process is None and stdout_path is not None and stderr_path is not None:
-                await self._process_paths.cleanup_unreferenced_log_files(
-                    stdout_path,
-                    stderr_path,
-                )
             if self._is_shutting_down:
                 return
             if owned.process is not None:
@@ -330,6 +315,23 @@ class CommandProcessOwner:
                     claim,
                     failure_code=command_launch_failure_code(exc),
                 )
+        finally:
+            if working_directory is not None:
+                try:
+                    close_command_working_directory(working_directory)
+                except OSError:
+                    logger.exception(
+                        "command working directory descriptor close failed",
+                        extra={"run_id": claim.run_id},
+                    )
+            if output is not None and not is_supervised:
+                try:
+                    await asyncio.to_thread(close_command_output_file, output)
+                except OSError:
+                    logger.exception(
+                        "command output descriptor close failed before supervision",
+                        extra={"run_id": claim.run_id},
+                    )
 
     async def _record_owned_process_start(self, owned: OwnedCommandProcess) -> None:
         claim = owned.claim
@@ -366,46 +368,23 @@ class CommandProcessOwner:
         self,
         owned: OwnedCommandProcess,
         *,
-        stdout_path: Path,
-        stderr_path: Path,
+        output: CommandOutputFile,
     ) -> None:
         process = owned.process
         assert process is not None
         assert process.stdout is not None
-        assert process.stderr is not None
-        stdout_task = asyncio.create_task(
-            drain_command_stream(
-                process.stdout,
-                stdout_path,
-                byte_limit=self._log_byte_limit,
-            ),
-            name=f"banksia-command-stdout-{owned.claim.run_id}",
-        )
-        stderr_task = asyncio.create_task(
-            drain_command_stream(
-                process.stderr,
-                stderr_path,
-                byte_limit=self._log_byte_limit,
-            ),
-            name=f"banksia-command-stderr-{owned.claim.run_id}",
+        assert process.stderr is None
+        output_task = asyncio.create_task(
+            drain_command_output(process.stdout, output),
+            name=f"banksia-command-output-{owned.claim.run_id}",
         )
         try:
             await process.wait()
-            drain_results = await asyncio.gather(stdout_task, stderr_task, return_exceptions=True)
-            for result in drain_results:
-                if isinstance(result, BaseException):
-                    logger.error(
-                        "command log drain failed",
-                        extra={
-                            "run_id": owned.claim.run_id,
-                            "exception_type": type(result).__name__,
-                        },
-                    )
+            owned.output_capture = await output_task
         finally:
-            for task in (stdout_task, stderr_task):
-                if not task.done():
-                    task.cancel()
-            await asyncio.gather(stdout_task, stderr_task, return_exceptions=True)
+            if not output_task.done():
+                output_task.cancel()
+            await asyncio.gather(output_task, return_exceptions=True)
         if not self._is_shutting_down:
             await owned.launch_state_resolved.wait()
             self._runtime_effect_publisher.publish(
@@ -586,7 +565,6 @@ class CommandProcessOwner:
 
 __all__ = [
     "DEFAULT_COMMAND_KILL_WAIT_SECONDS",
-    "DEFAULT_COMMAND_LOG_BYTE_LIMIT",
     "DEFAULT_COMMAND_OWNER_SHUTDOWN_SECONDS",
     "DEFAULT_COMMAND_TERMINATE_GRACE_SECONDS",
     "CommandOwnerClock",

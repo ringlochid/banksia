@@ -45,8 +45,10 @@ export interface CommandRunRow {
     readonly description: string | null;
     readonly endedAt: string | null;
     readonly exitCode: number | null;
-    readonly hasLog: boolean;
-    readonly logRef: string | null;
+    readonly outputComplete: boolean;
+    readonly outputObservedBytes: number;
+    readonly outputPath: string;
+    readonly outputWrittenBytes: number;
     readonly runId: string;
     readonly signal: string | null;
     readonly startedAt: string | null;
@@ -133,8 +135,10 @@ export function mapCommandRunRow(run: components["schemas"]["CommandRunListItem"
         description: run.description ?? null,
         endedAt: run.ended_at ?? null,
         exitCode: run.exit_code ?? null,
-        hasLog: run.log_ref !== null && run.log_ref !== undefined,
-        logRef: run.log_ref ?? null,
+        outputComplete: run.output_complete,
+        outputObservedBytes: run.output_observed_bytes,
+        outputPath: run.output_path,
+        outputWrittenBytes: run.output_written_bytes,
         runId: run.run_id,
         signal: run.signal ?? null,
         startedAt: run.started_at ?? null,

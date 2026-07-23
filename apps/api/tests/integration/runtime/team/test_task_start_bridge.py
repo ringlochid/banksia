@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 import banksia.runtime.task_start as task_start_module
-import banksia.runtime.workspace_admission as workspace_admission_module
+import banksia.runtime.workspace.admission as workspace_admission_module
 import pytest
 from banksia.config import CodexSettings, RuntimeSettings, Settings
 from banksia.persistence.models import (
@@ -31,7 +31,7 @@ from banksia.runtime.projection.materialization import project_workflow_manifest
 from banksia.runtime.projection.signals import WorkflowManifestProjection
 from banksia.runtime.task_start import start_task
 from banksia.runtime.team import plan_initial_task_team
-from banksia.runtime.workspace_admission import (
+from banksia.runtime.workspace.admission import (
     TASK_INITIALIZATION_MARKER,
     recover_task_workspace_admissions,
     stage_task_workspace,
@@ -254,11 +254,11 @@ async def test_task_workspace_first_marker_write_failure_removes_exclusive_direc
             )
     task_id = "t_01234567"
 
-    def fail_first_write(path: Path, text: str) -> None:
-        del path, text
+    def fail_first_write(parent_descriptor: int, name: str, text: str) -> None:
+        del parent_descriptor, name, text
         raise OSError("marker storage unavailable")
 
-    monkeypatch.setattr(workspace_admission_module, "_write_new_text", fail_first_write)
+    monkeypatch.setattr(workspace_admission_module, "write_new_text", fail_first_write)
 
     with pytest.raises(OSError, match="marker storage unavailable"):
         stage_task_workspace(
@@ -310,7 +310,7 @@ async def test_task_start_retries_exclusive_workspace_collision(
     assert (workspace / ".banksia" / response.task_id / "manifest.md").is_file()
 
 
-async def test_task_start_marker_clear_failure_keeps_recovery_and_publishes_hint(
+async def test_task_start_marker_clear_failure_withholds_hint_until_recovery(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -332,9 +332,25 @@ async def test_task_start_marker_clear_failure_keeps_recovery_and_publishes_hint
             )
 
             task = await session.get(TaskModel, response.task_id)
+            marker = workspace / ".banksia" / response.task_id / TASK_INITIALIZATION_MARKER
+            assert task is not None
+            assert marker.is_file()
+            assert publisher.signals == []
 
-    assert task is not None
-    assert (workspace / ".banksia" / response.task_id / TASK_INITIALIZATION_MARKER).is_file()
+            first_recovery = await recover_task_workspace_admissions(
+                session,
+                workspaces=(workspace,),
+                publish_recovered_provider_start=publisher.publish,
+            )
+            second_recovery = await recover_task_workspace_admissions(
+                session,
+                workspaces=(workspace,),
+                publish_recovered_provider_start=publisher.publish,
+            )
+
+    assert first_recovery == (marker.parent,)
+    assert second_recovery == ()
+    assert not marker.exists()
     assert len(publisher.signals) == 1
     assert isinstance(publisher.signals[0], DispatchStartDue)
 

@@ -36,6 +36,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from tests.helpers.executor_harness import (
     SessionFactory,
     seeded_executor,
+    seeded_task_root,
 )
 from tests.helpers.lineage_seed import RuntimeIds
 
@@ -98,9 +99,9 @@ async def test_terminal_human_source_opens_one_same_attempt_successor(
     assert successor.attempt_id == ids.root_attempt_id
     assert dispatch_count == 4
     assert refs is not None
-    input_text = (tmp_path / "task-human-continuation" / refs.input_logical_path).read_text(
-        encoding="utf-8"
-    )
+    input_text = (
+        seeded_task_root(tmp_path, "human-continuation") / refs.input_logical_path
+    ).read_text(encoding="utf-8")
     assert '"kind": "human_result"' in input_text
     assert f'"request_id": "{request_id}"' in input_text
     assert '"prompt": "Which direction?"' in input_text
@@ -261,7 +262,7 @@ async def test_flow_read_rejects_multiple_retained_continuation_sources(
         async with session_factory() as session:
             session.add(
                 CommandRunModel(
-                    run_id=f"command-run.{ids.task_id}.ambiguous",
+                    run_id="c_76543210",
                     task_id=ids.task_id,
                     flow_id=ids.flow_id,
                     assignment_id=ids.root_assignment_id,
@@ -269,6 +270,7 @@ async def test_flow_read_rejects_multiple_retained_continuation_sources(
                     source_dispatch_id=ids.root_dispatch_id,
                     command_spec_json={"kind": "argv", "argv": ["true"]},
                     summary="Synthetic conflicting retained source.",
+                    output_path=(f".banksia/{ids.task_id}/command-runs/c_76543210/output.log"),
                     state="succeeded",
                     started_at=now,
                     ended_at=now,

@@ -3,7 +3,6 @@ from __future__ import annotations
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from banksia.persistence.models import (
-    CompiledPlanEdgeModel,
     CompiledPlanModel,
     CompiledPlanNodeModel,
     FlowNodeModel,
@@ -17,12 +16,10 @@ from banksia.runtime.contracts import (
     RuntimeBootstrapInput,
     RuntimeBootstrapResult,
 )
-from banksia.runtime.ids import compiled_plan_edge_id, compiled_plan_node_id
+from banksia.runtime.ids import compiled_plan_node_id
 from banksia.runtime.launch.bootstrap.context import LaunchBootstrapPersistenceContext
-from banksia.runtime.launch.bootstrap.criteria import build_node_criteria_json
 from banksia.runtime.launch.legacy_team_adapter import LegacyTeamNode
 from banksia.runtime.launch.persistence.flows import (
-    build_flow_edge_row,
     build_flow_node_row,
     build_flow_revision_row,
     build_flow_row,
@@ -69,10 +66,6 @@ async def _stage_task_root_rows(
     session.add(
         TaskModel(
             task_id=bootstrap_input.task_id,
-            task_key=bootstrap_input.task_compose.task.key,
-            title=bootstrap_input.task_compose.task.title,
-            summary=bootstrap_input.task_compose.task.summary,
-            instruction=bootstrap_input.task_compose.task.instruction,
             workflow_key=bootstrap_input.workflow_revision.workflow_id,
             workflow_revision_no=bootstrap_input.workflow_revision.revision_no,
             workflow_content_hash=bootstrap_input.workflow_revision.content_hash,
@@ -99,8 +92,8 @@ async def _stage_task_root_rows(
         WorkspaceBindingModel(
             workspace_binding_id=f"workspace-binding.{bootstrap_input.task_id}",
             task_id=bootstrap_input.task_id,
-            binding_mode=_workspace_binding_mode(context.workspace_binding_mode),
-            normalized_root_path=str(result.paths.workspace_path.resolve()),
+            binding_mode="external",
+            normalized_root_path=str(bootstrap_input.workspace),
         )
     )
     session.add(
@@ -114,14 +107,6 @@ async def _stage_task_root_rows(
         )
     )
     await session.flush()
-
-
-def _workspace_binding_mode(binding_mode: str) -> str:
-    if binding_mode == "ensure_task_default":
-        return "controller_owned"
-    if binding_mode in {"ensure_host_path", "use_existing_host"}:
-        return "external"
-    raise ValueError(f"unknown workspace binding mode: {binding_mode}")
 
 
 async def _stage_compiled_plan_graph_rows(
@@ -151,31 +136,7 @@ async def _stage_compiled_plan_graph_rows(
                 description=node.description,
                 node_instruction=node.node_instruction,
                 child_node_keys_json=list(node.child_node_keys),
-                consumes_json=(node.consumes.model_dump(mode="json") if node.consumes else None),
-                produces_json=(node.produces.model_dump(mode="json") if node.produces else None),
-                criteria_json=build_node_criteria_json(node=node),
-                child_defaults_json=node.child_defaults.model_dump(mode="json")
-                if node.child_defaults
-                else None,
                 order_index=node.order_index,
-            )
-        )
-    for edge in bootstrap_input.compiled_plan.dependency_edges:
-        session.add(
-            CompiledPlanEdgeModel(
-                compiled_plan_edge_id=compiled_plan_edge_id(
-                    context.compiled_plan_id,
-                    edge.consumer_node_key,
-                    edge.kind,
-                    edge.slot,
-                ),
-                compiled_plan_id=context.compiled_plan_id,
-                provider_node_key=edge.provider_node_key,
-                consumer_node_key=edge.consumer_node_key,
-                kind=edge.kind,
-                slot=edge.slot,
-                description=edge.description,
-                order_index=edge.order_index,
             )
         )
     await session.flush()
@@ -212,7 +173,6 @@ async def _stage_flow_rows(
     flow_node_rows, node_plan_revision_inputs = _stage_flow_node_rows(
         session,
         bootstrap_input=bootstrap_input,
-        result=result,
         context=context,
         flow_revision=flow_revision,
     )
@@ -227,16 +187,11 @@ async def _stage_flow_rows(
     )
     await session.flush()
 
-    for edge in bootstrap_input.compiled_plan.dependency_edges:
-        session.add(build_flow_edge_row(bootstrap_input=bootstrap_input, edge=edge))
-    await session.flush()
-
 
 def _stage_flow_node_rows(
     session: AsyncSession,
     *,
     bootstrap_input: RuntimeBootstrapInput,
-    result: RuntimeBootstrapResult,
     context: LaunchBootstrapPersistenceContext,
     flow_revision: FlowRevisionModel,
 ) -> tuple[list[FlowNodeModel], list[NodePlanRevisionInput]]:
@@ -244,7 +199,6 @@ def _stage_flow_node_rows(
     node_plan_revision_inputs: list[NodePlanRevisionInput] = []
     for node in bootstrap_input.compiled_plan.nodes:
         flow_node = build_flow_node_row(
-            result=result,
             flow_revision=flow_revision,
             context=context,
             bootstrap_input=bootstrap_input,

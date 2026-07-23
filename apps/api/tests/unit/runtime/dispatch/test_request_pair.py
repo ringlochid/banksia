@@ -201,17 +201,12 @@ def test_request_pair_rejects_symlinked_dispatch_root_escape(tmp_path: Path) -> 
 def task_root_paths(task_root: Path) -> TaskRootPaths:
     runtime_path = task_root / "_runtime"
     outputs_path = task_root / "outputs"
-    transfers_path = task_root / "tmp" / "transfers"
     return TaskRootPaths(
         task_root=task_root,
         workspace_path=task_root / "workspace",
         outputs_path=outputs_path,
         artifacts_path=outputs_path / "artifacts",
         tmp_path=task_root / "tmp",
-        transfers_path=transfers_path,
-        localized_path=transfers_path / "localized",
         runtime_path=runtime_path,
-        criteria_path=runtime_path / "criteria",
-        attempts_path=runtime_path / "attempts",
         dispatch_path=runtime_path / "dispatch",
     )

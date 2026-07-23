@@ -11,7 +11,6 @@ from banksia.persistence.models import (
     AssignmentModel,
     AttemptModel,
     CommandRunModel,
-    FlowEdgeModel,
     FlowModel,
     FlowNodeModel,
     FlowRevisionModel,
@@ -38,7 +37,6 @@ class ReplanCommitContext:
     team_revision: TeamRevisionModel
     flow_revision: FlowRevisionModel
     members: dict[str, PlannedMember]
-    edges: tuple[FlowEdgeModel, ...]
 
 
 async def read_replan_context(
@@ -67,15 +65,7 @@ async def read_replan_context(
         flow_id=flow.flow_id,
         flow_revision_id=flow_revision.flow_revision_id,
     )
-    edges = tuple(
-        await session.scalars(
-            select(FlowEdgeModel)
-            .options(raiseload("*"))
-            .where(FlowEdgeModel.flow_revision_id == flow_revision.flow_revision_id)
-            .order_by(FlowEdgeModel.order_index)
-        )
-    )
-    return ReplanCommitContext(task, flow, team_revision, flow_revision, members, edges)
+    return ReplanCommitContext(task, flow, team_revision, flow_revision, members)
 
 
 async def require_replan_admission(

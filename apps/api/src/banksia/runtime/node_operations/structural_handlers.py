@@ -3,7 +3,7 @@ from __future__ import annotations
 from uuid import uuid4
 
 from pydantic import BaseModel
-from sqlalchemy import case, insert, literal, select, update
+from sqlalchemy import case, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from banksia.persistence.models import (
@@ -11,20 +11,17 @@ from banksia.persistence.models import (
     AssignmentModel,
     AttemptCheckpointModel,
     AttemptModel,
-    FlowEdgeModel,
     FlowNodeModel,
 )
 from banksia.runtime.assignment import (
     AssignmentBudgetSnapshot,
-    AssignmentDurableInputs,
     read_task_assignment_budget_snapshot,
-    resolve_child_assignment_durable_inputs,
+    stage_assignment_file_references,
 )
 from banksia.runtime.clock import utc_now
 from banksia.runtime.contracts import (
     AssignChildSuccess,
-    ReleaseBlockedSuccess,
-    ReleaseGreenSuccess,
+    FileReference,
     TaskEventSource,
     TaskEventType,
 )
@@ -34,25 +31,19 @@ from banksia.runtime.dispatch.authority import (
     exact_node_operation_authority_exists,
 )
 from banksia.runtime.errors import RuntimeOperationError, budget_exhausted_error
-from banksia.runtime.launch.bootstrap.criteria import stage_assignment_criteria_refs
+from banksia.runtime.file_references import validate_file_references
 from banksia.runtime.node_operations.contracts import (
     AssignChildRequest,
     NodeOperationName,
-    ReleaseRequest,
 )
 from banksia.runtime.node_operations.follow_on import (
     CommittedNodeOperationFollowOn,
     CommittedNodeOperationResult,
 )
-from banksia.runtime.node_operations.release import (
-    add_release_basis_rows,
-    require_release_blocked_basis,
-    require_release_green_basis,
-)
 from banksia.runtime.node_operations.result_reads import runtime_flow_read
-from banksia.runtime.projection.signals import AttemptAssignmentProjection
 from banksia.runtime.replan import commit_replan
 from banksia.runtime.task_events import append_task_event
+from banksia.runtime.task_root.reads import read_task_root_paths
 
 
 async def execute_structural_node_operation(
@@ -70,12 +61,6 @@ async def execute_structural_node_operation(
     if operation_name == NodeOperationName.ASSIGN_CHILD:
         assert isinstance(request, AssignChildRequest)
         return await _assign_child(session, authority, request)
-    if operation_name == NodeOperationName.RELEASE_GREEN:
-        assert isinstance(request, ReleaseRequest)
-        return await _record_release(session, authority, request, blocked=False)
-    if operation_name == NodeOperationName.RELEASE_BLOCKED:
-        assert isinstance(request, ReleaseRequest)
-        return await _record_release(session, authority, request, blocked=True)
     raise RuntimeOperationError(
         code=OperationFailureCode.INVALID_REQUEST_SHAPE,
         summary=f"unsupported Node operation '{operation_name.value}'",
@@ -97,19 +82,16 @@ async def _assign_child(
         request,
     )
     budget = await read_task_assignment_budget_snapshot(session, authority)
-    durable_inputs = await resolve_child_assignment_durable_inputs(
-        session,
-        task_id=authority.task_id,
-        flow_id=authority.flow_id,
-        flow_revision_id=authority.flow_revision_id,
-        target=target,
+    paths = await read_task_root_paths(session, authority.task_id)
+    files = validate_file_references(
+        paths.workspace_path,
+        request.payload.assignment.files,
     )
     assignment, attempt = _build_child_assignment(
         authority,
         request,
         target,
         budget=budget,
-        durable_inputs=durable_inputs,
     )
     await _consume_child_assignment_budget(session, authority)
     await _claim_child_node(
@@ -124,12 +106,18 @@ async def _assign_child(
     if previous_assignment is not None:
         await _supersede_child_assignment(session, authority, previous_assignment)
 
-    await _stage_child_assignment_records(session, authority, assignment, attempt)
+    await _stage_child_assignment_records(
+        session,
+        authority,
+        assignment,
+        attempt,
+        files=files,
+    )
     await session.commit()
 
     flow = await runtime_flow_read(session, authority)
     response = AssignChildSuccess(
-        summary="Child assignment staged for a later yield boundary.",
+        summary="Child assignment staged for the selected direct child.",
         target_node_key=target.node_key,
         target_assignment_key=assignment.assignment_key,
         target_attempt_id=attempt.attempt_id,
@@ -138,15 +126,7 @@ async def _assign_child(
     )
     return CommittedNodeOperationResult(
         response=response,
-        follow_on=CommittedNodeOperationFollowOn(
-            projection_signals=(
-                AttemptAssignmentProjection(
-                    assignment_id=assignment.assignment_id,
-                    attempt_id=attempt.attempt_id,
-                    flow_revision_id=authority.flow_revision_id,
-                ),
-            ),
-        ),
+        follow_on=CommittedNodeOperationFollowOn(),
     )
 
 
@@ -155,9 +135,15 @@ async def _stage_child_assignment_records(
     authority: NodeOperationAuthority,
     assignment: AssignmentModel,
     attempt: AttemptModel,
+    *,
+    files: tuple[FileReference, ...],
 ) -> None:
     session.add_all((assignment, attempt))
-    stage_assignment_criteria_refs(session, assignment)
+    stage_assignment_file_references(
+        session,
+        assignment_id=assignment.assignment_id,
+        files=files,
+    )
     _stage_child_assignment_decision(session, authority, assignment, attempt)
     await append_task_event(
         session,
@@ -191,6 +177,7 @@ async def _consume_child_assignment_budget(
             AssignmentModel.flow_id == authority.flow_id,
             AssignmentModel.member_id == authority.flow_node.member_id,
             AssignmentModel.current_attempt_id == authority.attempt_id,
+            AssignmentModel.closed_at.is_(None),
             AssignmentModel.superseded_at.is_(None),
             (AssignmentModel.child_assignments_remaining.is_(None))
             | (AssignmentModel.child_assignments_remaining > 0),
@@ -279,6 +266,8 @@ async def _read_assignable_direct_child(
         or previous_assignment.node_key != target.node_key
         or not historical_parent_is_same_node
         or previous_assignment.superseded_at is not None
+        or previous_assignment.closed_at is None
+        or previous_assignment.terminal_outcome not in {"green", "blocked"}
         or previous_attempt is None
         or previous_attempt.task_id != authority.task_id
         or previous_attempt.flow_id != authority.flow_id
@@ -291,7 +280,6 @@ async def _read_assignable_direct_child(
         or previous_checkpoint.flow_id != authority.flow_id
         or previous_checkpoint.assignment_id != previous_assignment.assignment_id
         or previous_checkpoint.attempt_id != previous_attempt.attempt_id
-        or previous_checkpoint.checkpoint_kind != "terminal"
         or previous_checkpoint.outcome != previous_attempt.terminal_outcome
         or target.state not in {"done", "failed"}
     ):
@@ -300,39 +288,7 @@ async def _read_assignable_direct_child(
             summary="the target child already has active or inconsistent current work",
             is_retryable=False,
         )
-    await _require_no_assigned_artifact_consumer(session, authority, target)
     return target, previous_assignment
-
-
-async def _require_no_assigned_artifact_consumer(
-    session: AsyncSession,
-    authority: NodeOperationAuthority,
-    target: FlowNodeModel,
-) -> None:
-    assigned_consumer = await session.scalar(
-        select(FlowNodeModel.node_key)
-        .join(
-            FlowEdgeModel,
-            (FlowEdgeModel.flow_revision_id == FlowNodeModel.flow_revision_id)
-            & (FlowEdgeModel.consumer_node_key == FlowNodeModel.node_key),
-        )
-        .where(
-            FlowEdgeModel.flow_revision_id == authority.flow_revision_id,
-            FlowEdgeModel.provider_node_key == target.node_key,
-            FlowEdgeModel.kind == "artifact",
-            FlowNodeModel.current_assignment_id.is_not(None),
-        )
-        .limit(1)
-    )
-    if assigned_consumer is not None:
-        raise RuntimeOperationError(
-            code=OperationFailureCode.CONFLICT,
-            summary=(
-                f"cannot replace '{target.node_key}' while downstream artifact consumer "
-                f"'{assigned_consumer}' has current work"
-            ),
-            is_retryable=False,
-        )
 
 
 def _build_child_assignment(
@@ -341,7 +297,6 @@ def _build_child_assignment(
     target: FlowNodeModel,
     *,
     budget: AssignmentBudgetSnapshot,
-    durable_inputs: AssignmentDurableInputs,
 ) -> tuple[AssignmentModel, AttemptModel]:
     suffix = uuid4().hex
     assignment_id = f"assignment.{authority.task_id}.{target.node_key}.{suffix}"
@@ -349,21 +304,12 @@ def _build_child_assignment(
     assignment = AssignmentModel(
         assignment_id=assignment_id,
         task_id=authority.task_id,
-        team_revision_id=target.team_revision_id,
         member_id=target.member_id,
-        member_configuration_id=target.member_configuration_id,
-        member_branch_basis_id=target.member_branch_basis_id,
         flow_id=authority.flow_id,
-        flow_revision_id=authority.flow_revision_id,
-        flow_node_id=target.flow_node_id,
         assignment_key=f"{authority.task_id}.{target.node_key}.{suffix}",
         node_key=target.node_key,
         parent_assignment_id=authority.assignment_id,
-        summary=request.payload.assignment_intent.summary,
-        instruction=request.payload.assignment_intent.instruction,
-        criteria_json=list(durable_inputs.criteria),
-        consumes_json=list(durable_inputs.consumes),
-        produces_json=_flatten_slots(target.produces_json),
+        prompt=request.payload.assignment.prompt,
         current_attempt_id=attempt_id,
         work_plan_revision=0,
         child_assignment_limit=budget.child_assignment_limit,
@@ -466,93 +412,6 @@ def _stage_child_assignment_decision(
     )
 
 
-async def _record_release(
-    session: AsyncSession,
-    authority: NodeOperationAuthority,
-    request: ReleaseRequest,
-    *,
-    blocked: bool,
-) -> ReleaseGreenSuccess | ReleaseBlockedSuccess:
-    _require_expected_revision(authority, request.expected_structural_revision_id)
-    await _require_no_staged_decision(session, authority)
-    decision_kind = "release_blocked" if blocked else "release_green"
-    basis = (
-        await require_release_blocked_basis(session, authority)
-        if blocked
-        else await require_release_green_basis(session, authority)
-    )
-    decision_id = f"assignment-decision.{authority.dispatch_id}"
-    await _insert_release_decision_if_current(
-        session,
-        authority,
-        assignment_decision_id=decision_id,
-        decision_kind=decision_kind,
-    )
-    add_release_basis_rows(
-        session,
-        authority=authority,
-        assignment_decision_id=decision_id,
-        basis=basis,
-    )
-    await session.commit()
-    flow = await runtime_flow_read(session, authority)
-    result_type = ReleaseBlockedSuccess if blocked else ReleaseGreenSuccess
-    return result_type(
-        summary=f"Recorded {decision_kind} readiness for the current assignment.",
-        target_node_key=authority.node_key,
-        flow=flow,
-        workflow_manifest_ref=flow.workflow_manifest_ref,
-    )
-
-
-async def _insert_release_decision_if_current(
-    session: AsyncSession,
-    authority: NodeOperationAuthority,
-    *,
-    assignment_decision_id: str,
-    decision_kind: str,
-) -> None:
-    table = AssignmentDecisionModel.__table__
-    inserted_id = await session.scalar(
-        insert(AssignmentDecisionModel)
-        .from_select(
-            (
-                "assignment_decision_id",
-                "source_dispatch_id",
-                "task_id",
-                "flow_id",
-                "assignment_id",
-                "attempt_id",
-                "source_flow_revision_id",
-                "decision_kind",
-                "staged_child_assignment_id",
-                "staged_child_attempt_id",
-                "recorded_at",
-            ),
-            select(
-                literal(assignment_decision_id),
-                literal(authority.dispatch_id),
-                literal(authority.task_id),
-                literal(authority.flow_id),
-                literal(authority.assignment_id),
-                literal(authority.attempt_id),
-                literal(authority.flow_revision_id),
-                literal(decision_kind),
-                literal(None, type_=table.c.staged_child_assignment_id.type),
-                literal(None, type_=table.c.staged_child_attempt_id.type),
-                literal(utc_now(), type_=table.c.recorded_at.type),
-            ).where(exact_node_operation_authority_exists(authority)),
-        )
-        .returning(table.c.assignment_decision_id)
-    )
-    if inserted_id is None:
-        raise RuntimeOperationError(
-            code=OperationFailureCode.CONFLICT,
-            summary="another transition changed current release authority",
-            is_retryable=False,
-        )
-
-
 async def _require_no_staged_decision(
     session: AsyncSession,
     authority: NodeOperationAuthority,
@@ -580,19 +439,6 @@ def _require_expected_revision(
             summary="the structural revision changed before this operation",
             is_retryable=True,
         )
-
-
-def _flatten_slots(value: dict[str, object] | None) -> list[dict[str, object]]:
-    if value is None:
-        return []
-    flattened: list[dict[str, object]] = []
-    for kind, entries in value.items():
-        if not isinstance(entries, list):
-            continue
-        for entry in entries:
-            if isinstance(entry, dict):
-                flattened.append({"kind": kind.removesuffix("s"), **entry})
-    return flattened
 
 
 __all__ = ["execute_structural_node_operation"]

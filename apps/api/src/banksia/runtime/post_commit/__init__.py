@@ -35,7 +35,6 @@ from banksia.runtime.post_commit.signals import (
     HumanRequestTerminal,
     ReplanCommitted,
     RuntimeEffectSignal,
-    TransientCleanupRequested,
     WatchdogDeadlineChanged,
     WatchdogDue,
 )
@@ -67,7 +66,6 @@ __all__ = [
     "RuntimeEffectPublisher",
     "RuntimeEffectRouter",
     "RuntimeEffectSignal",
-    "TransientCleanupRequested",
     "WatchdogDeadlineChanged",
     "WatchdogDue",
 ]

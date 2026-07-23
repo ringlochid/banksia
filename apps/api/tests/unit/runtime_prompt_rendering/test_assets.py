@@ -47,8 +47,7 @@ def test_context_asset_teaches_task_relative_readback_recovery() -> None:
     context_access = load_instruction_asset(InstructionAsset.CONTEXT_ACCESS)
 
     assert "task-relative logical paths" in context_access
-    assert "read_file(path=checkpoint_to_resume_from)" in context_access
-    assert "support projection is missing or unreadable" in context_access
+    assert "Assignment files" in context_access
     assert "read_file(path=readback_refs.input)" in context_access
 
 

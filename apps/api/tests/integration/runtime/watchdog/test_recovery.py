@@ -474,8 +474,6 @@ def _add_terminal_source(
                 request_kind="input",
                 request_summary="Already answered.",
                 request_items_json=[{"id": "answer", "prompt": "Answer?"}],
-                context_refs_json=None,
-                suggested_human_instruction=None,
                 capability_basis_json={"decision": "allow", "kind": "input"},
                 due_at=None,
                 timeout_policy_json=None,

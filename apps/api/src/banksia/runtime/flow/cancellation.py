@@ -12,7 +12,6 @@ from banksia.persistence.models import (
     FlowNodeModel,
     FlowWaitModel,
     HumanRequestModel,
-    TransientLocalizationModel,
 )
 from banksia.runtime.command_run.service import request_command_run_cancellation
 from banksia.runtime.contracts import (
@@ -22,11 +21,7 @@ from banksia.runtime.contracts import (
 )
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
 from banksia.runtime.errors import RuntimeOperationError, illegal_state_error
-from banksia.runtime.post_commit import (
-    CommandRunCancellationRequested,
-    HumanRequestTerminal,
-    TransientCleanupRequested,
-)
+from banksia.runtime.post_commit import CommandRunCancellationRequested, HumanRequestTerminal
 from banksia.runtime.task_events import append_task_event
 
 
@@ -96,41 +91,6 @@ async def cancel_execution_rows(
         )
         .values(state="cancelled")
     )
-
-
-async def read_expired_transient_cleanup_signals(
-    session: AsyncSession,
-    *,
-    task_id: str,
-) -> tuple[TransientCleanupRequested, ...]:
-    rows = tuple(
-        (
-            await session.execute(
-                select(
-                    TransientLocalizationModel.transient_localization_id,
-                    TransientLocalizationModel.expires_at,
-                )
-                .where(
-                    TransientLocalizationModel.task_id == task_id,
-                    TransientLocalizationModel.retention_status == "expired",
-                )
-                .order_by(TransientLocalizationModel.transient_localization_id)
-            )
-        ).all()
-    )
-    signals: list[TransientCleanupRequested] = []
-    for transient_localization_id, expires_at in rows:
-        if expires_at is None:
-            raise illegal_state_error(
-                f"expired transient '{transient_localization_id}' has no retention generation"
-            )
-        signals.append(
-            TransientCleanupRequested(
-                transient_localization_id=transient_localization_id,
-                expires_at=expires_at,
-            )
-        )
-    return tuple(signals)
 
 
 async def _cancel_human_request(
@@ -252,5 +212,4 @@ def _flow_control_conflict(summary: str) -> RuntimeOperationError:
 __all__ = [
     "cancel_execution_rows",
     "cancel_external_wait",
-    "read_expired_transient_cleanup_signals",
 ]

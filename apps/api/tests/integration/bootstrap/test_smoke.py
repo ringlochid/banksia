@@ -9,7 +9,7 @@ from banksia.persistence.models import (
     FlowNodeModel,
     NodePlanRevisionModel,
 )
-from banksia.runtime import TaskComposeInput
+from banksia.runtime import TaskStartRequest
 from banksia.runtime.launch.persistence.runtime import (
     persist_bootstrap_runtime_from_precomputed,
 )
@@ -27,21 +27,16 @@ from tests.helpers.sqlite_runtime import (
 )
 
 
-def test_task_compose_payload_smoke() -> None:
-    payload = TaskComposeInput.model_validate(
+def test_task_start_payload_smoke() -> None:
+    payload = TaskStartRequest.model_validate(
         {
-            "task": {
-                "key": "settings-loader-cleanup",
-                "title": "Clean up settings loader",
-                "summary": "Make one scoped settings-loader change and publish evidence.",
-                "instruction": "Stay scoped to the settings-loader path only.",
-            },
-            "workflow": {"key": "bounded-change"},
+            "workflow": "bounded-change",
+            "prompt": "Make one scoped settings-loader change and publish evidence.",
         }
     )
 
-    assert payload.workflow.key == "bounded-change"
-    assert payload.task.key == "settings-loader-cleanup"
+    assert payload.workflow == "bounded-change"
+    assert payload.prompt == "Make one scoped settings-loader change and publish evidence."
 
 
 async def test_launch_persists_provider_budget_and_empty_checkpoint_pointer(

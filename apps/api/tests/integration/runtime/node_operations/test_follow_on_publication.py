@@ -3,24 +3,17 @@ from __future__ import annotations
 from datetime import timedelta
 from pathlib import Path
 
-import banksia.runtime.node_operations.executor as executor_module
-import pytest
-from banksia.persistence.models import AssignmentModel, CommandRunModel, HumanRequestModel
-from banksia.runtime.checkpoint import CheckpointPreparation
+from banksia.persistence.models import CommandRunModel, HumanRequestModel
 from banksia.runtime.clock import utc_now
 from banksia.runtime.node_operations import NodeOperationScope
 from banksia.runtime.post_commit.publisher import CapturedRuntimeEffectPublisher
 from banksia.runtime.post_commit.signals import (
+    BoundaryAccepted,
     CommandRunPending,
     HumanRequestOpened,
     RuntimeEffectSignal,
 )
-from banksia.runtime.projection.signals import (
-    ArtifactProjection,
-    LatestCheckpointProjection,
-    SupportProjectionSignal,
-    TransientProjection,
-)
+from banksia.runtime.projection.signals import SupportProjectionSignal
 from tests.helpers.executor_harness import seeded_executor
 
 
@@ -111,59 +104,29 @@ async def test_command_run_commit_survives_runtime_publication_exception(
     assert publisher.signals == [CommandRunPending(run_id)]
 
 
-async def test_checkpoint_publishes_exact_support_projection_signals(
+async def test_terminal_checkpoint_publishes_boundary_only_after_commit(
     tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    publisher = _CapturedProjectionPublisher()
-
-    async def keep_prepared_bodies(
-        preparation: CheckpointPreparation,
-    ) -> CheckpointPreparation:
-        return preparation
-
-    monkeypatch.setattr(
-        executor_module,
-        "publish_checkpoint_bodies",
-        keep_prepared_bodies,
-    )
+    runtime_publisher = CapturedRuntimeEffectPublisher()
+    projection_publisher = _CapturedProjectionPublisher()
     async with seeded_executor(
         tmp_path,
         suffix="checkpoint-follow-on",
-        support_projection_publisher=publisher,
-    ) as (executor, session_factory, ids, _activity_signals):
-        task_root = tmp_path / "task-checkpoint-follow-on"
-        (task_root / "workspace" / "report.md").write_text("report\n", encoding="utf-8")
-        (task_root / "workspace" / "run.log").write_text("log\n", encoding="utf-8")
-        async with session_factory() as session:
-            assignment = await session.get(AssignmentModel, ids.root_assignment_id)
-            assert assignment is not None
-            assignment.produces_json = [{"slot": "report", "description": "Report."}]
-            await session.commit()
-
+        runtime_effect_publisher=runtime_publisher,
+        support_projection_publisher=projection_publisher,
+    ) as (executor, _session_factory, ids, _activity_signals):
         response = await executor.execute(
             scope=NodeOperationScope(
                 task_id=ids.task_id,
                 dispatch_id=ids.current_dispatch_id,
             ),
-            operation_name="record_checkpoint",
+            operation_name="checkpoint",
             arguments={
-                "checkpoint": {
-                    "checkpoint_kind": "progress",
-                    "handoff": {"summary": "Recorded.", "next_step": "Continue."},
-                    "produced_artifacts": [{"slot": "report", "path": "workspace/report.md"}],
-                    "transient_surfaces": [
-                        {"path": "workspace/run.log", "description": "Run log."}
-                    ],
-                }
+                "summary": "The exact blocker is recorded.",
+                "outcome": "blocked",
             },
         )
 
-    checkpoint_id = response.model_dump()["checkpoint_id"]
-    assert publisher.signals[0] == LatestCheckpointProjection(
-        attempt_id=ids.root_attempt_id,
-        checkpoint_id=checkpoint_id,
-    )
-    assert isinstance(publisher.signals[1], ArtifactProjection)
-    assert publisher.signals[1].version == 1
-    assert isinstance(publisher.signals[2], TransientProjection)
+    assert response.model_dump()["terminal"] is True
+    assert runtime_publisher.signals == (BoundaryAccepted(ids.current_dispatch_id),)
+    assert projection_publisher.signals == []

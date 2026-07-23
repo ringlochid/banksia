@@ -6,17 +6,17 @@ from typing import cast
 
 from banksia.config import CodexSettings, RuntimeSettings, Settings
 from banksia.persistence.models import (
-    AssignmentCriteriaRefModel,
+    AcceptedBoundaryModel,
     AssignmentDecisionModel,
     AssignmentModel,
     AttemptModel,
     DispatchTurnModel,
-    FlowEdgeModel,
     FlowModel,
     FlowNodeModel,
 )
 from banksia.providers import ProviderKind
 from banksia.runtime.boundary import BoundaryOpeningResult, open_boundary_successor
+from banksia.runtime.checkpoint import read_task_result
 from banksia.runtime.dispatch import accept_provider_start_if_current
 from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
 from banksia.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
@@ -30,10 +30,12 @@ from tests.helpers.executor_harness import (
 from tests.helpers.lineage_seed import RuntimeIds
 
 
-async def test_parent_child_release_reaches_one_green_terminal_flow(tmp_path: Path) -> None:
+async def test_parent_child_checkpoints_select_exact_green_task_result(
+    tmp_path: Path,
+) -> None:
     publisher = CapturedRuntimeEffectPublisher()
     dependencies = _opening_dependencies(publisher)
-    async with seeded_executor(tmp_path, suffix="parent-child-release") as (
+    async with seeded_executor(tmp_path, suffix="parent-child-checkpoint") as (
         executor,
         session_factory,
         ids,
@@ -46,14 +48,14 @@ async def test_parent_child_release_reaches_one_green_terminal_flow(tmp_path: Pa
             dependencies,
             ids,
         )
-        child_checkpoint_id, parent_dispatch_id = await _complete_child_and_return(
+        child_checkpoint_id, parent_dispatch_id = await _complete_child_and_resume_parent(
             executor,
             session_factory,
             dependencies,
             ids,
             child_dispatch_id=child_dispatch_id,
         )
-        await _complete_parent_and_release(
+        await _complete_parent(
             executor,
             ids,
             parent_dispatch_id=parent_dispatch_id,
@@ -64,7 +66,7 @@ async def test_parent_child_release_reaches_one_green_terminal_flow(tmp_path: Pa
                 signal=BoundaryAccepted(parent_dispatch_id),
                 dependencies=dependencies,
             )
-        await _assert_terminal_release(
+        await _assert_terminal_result(
             session_factory,
             ids,
             child_attempt_id=child_attempt_id,
@@ -74,7 +76,7 @@ async def test_parent_child_release_reaches_one_green_terminal_flow(tmp_path: Pa
         )
 
 
-async def _assert_terminal_release(
+async def _assert_terminal_result(
     session_factory: SessionFactory,
     ids: RuntimeIds,
     *,
@@ -88,39 +90,39 @@ async def _assert_terminal_release(
         child_attempt = await session.get(AttemptModel, child_attempt_id)
         assert child_attempt is not None
         child_assignment = await session.get(AssignmentModel, child_attempt.assignment_id)
-        child_criteria_ref = await session.scalar(
-            select(AssignmentCriteriaRefModel).where(
-                AssignmentCriteriaRefModel.assignment_id == child_attempt.assignment_id
-            )
-        )
         child_decision = await session.scalar(
             select(AssignmentDecisionModel).where(
                 AssignmentDecisionModel.source_dispatch_id == ids.current_dispatch_id
             )
         )
-        release = await session.scalar(
-            select(AssignmentDecisionModel).where(
-                AssignmentDecisionModel.source_dispatch_id == parent_dispatch_id
+        root_boundary = await session.scalar(
+            select(AcceptedBoundaryModel).where(
+                AcceptedBoundaryModel.source_dispatch_id == parent_dispatch_id
             )
+        )
+        result = await read_task_result(
+            cast(AsyncSession, session),
+            task_id=ids.task_id,
+        )
+        decision_count = await session.scalar(
+            select(func.count()).select_from(AssignmentDecisionModel)
         )
         dispatch_count = await session.scalar(select(func.count()).select_from(DispatchTurnModel))
 
     assert child_decision is not None and child_decision.decision_kind == "staged_child"
     assert child_attempt.status == "completed" and child_attempt.terminal_outcome == "green"
     assert child_assignment is not None
-    assert child_assignment.criteria_json == [
-        {
-            "slot": "criteria",
-            "path": "_runtime/criteria/root.md",
-            "description": "Root criteria.",
-            "version": 1,
-        }
-    ]
-    assert child_assignment.consumes_json == []
-    assert child_criteria_ref is not None
-    assert child_criteria_ref.logical_path == "_runtime/criteria/root.md"
+    assert child_assignment.prompt == "Complete the bounded child work."
     assert child_checkpoint_id
-    assert release is not None and release.decision_kind == "release_green"
+    assert root_boundary is not None
+    assert root_boundary.outcome == "green"
+    assert root_boundary.checkpoint_id is not None
+    assert result is not None
+    assert result.outcome == "green"
+    assert result.summary == "The parent verified the completed child work."
+    assert result.details == "Return the verified result to the user."
+    assert result.files == ()
+    assert decision_count == 1
     assert terminal.outcome == "terminal" and terminal.dispatch_id is None
     assert flow is not None and flow.status == "completed" and flow.terminal_outcome == "green"
     assert int(dispatch_count or 0) == 5
@@ -139,7 +141,7 @@ async def _assign_child_and_yield(
             "expected_structural_revision_id": ids.flow_revision_id,
             "payload": {
                 "child_node_key": "child",
-                "assignment_intent": {"summary": "Complete the bounded child work."},
+                "assignment": {"prompt": "Complete the bounded child work."},
             },
         },
     )
@@ -157,7 +159,7 @@ async def _assign_child_and_yield(
     return str(staged.model_dump()["target_attempt_id"]), child_dispatch_id
 
 
-async def _complete_child_and_return(
+async def _complete_child_and_resume_parent(
     executor: NodeOperationExecutor,
     session_factory: SessionFactory,
     dependencies: DispatchOpeningDependencies,
@@ -165,35 +167,32 @@ async def _complete_child_and_return(
     *,
     child_dispatch_id: str,
 ) -> tuple[str, str]:
-    checkpoint = await executor.execute(
-        scope=_scope(ids.task_id, child_dispatch_id),
-        operation_name="record_checkpoint",
-        arguments={
-            "checkpoint": {
-                "checkpoint_kind": "terminal",
-                "outcome": "green",
-                "handoff": {
-                    "summary": "The child completed its bounded assignment.",
-                    "next_step": "Release the completed child from the parent.",
-                },
-            }
-        },
-    )
     await executor.execute(
         scope=_scope(ids.task_id, child_dispatch_id),
-        operation_name="return_boundary",
-        arguments={"boundary": "green"},
+        operation_name="checkpoint",
+        arguments={
+            "outcome": "green",
+            "summary": "The child completed its bounded assignment.",
+            "details": "The parent should verify the completed child work.",
+        },
     )
+    async with session_factory() as session:
+        child_checkpoint_id = await session.scalar(
+            select(AcceptedBoundaryModel.checkpoint_id).where(
+                AcceptedBoundaryModel.source_dispatch_id == child_dispatch_id
+            )
+        )
+    assert child_checkpoint_id is not None
     parent_dispatch_id = await _open_and_accept_successor(
         session_factory,
         dependencies,
         ids,
         source_dispatch_id=child_dispatch_id,
     )
-    return str(checkpoint.model_dump()["checkpoint_id"]), parent_dispatch_id
+    return child_checkpoint_id, parent_dispatch_id
 
 
-async def _complete_parent_and_release(
+async def _complete_parent(
     executor: NodeOperationExecutor,
     ids: RuntimeIds,
     *,
@@ -201,27 +200,12 @@ async def _complete_parent_and_release(
 ) -> None:
     await executor.execute(
         scope=_scope(ids.task_id, parent_dispatch_id),
-        operation_name="record_checkpoint",
+        operation_name="checkpoint",
         arguments={
-            "checkpoint": {
-                "checkpoint_kind": "terminal",
-                "outcome": "green",
-                "handoff": {
-                    "summary": "The parent verified the completed child work.",
-                    "next_step": "Release the completed workflow.",
-                },
-            }
+            "outcome": "green",
+            "summary": "The parent verified the completed child work.",
+            "details": "Return the verified result to the user.",
         },
-    )
-    await executor.execute(
-        scope=_scope(ids.task_id, parent_dispatch_id),
-        operation_name="release_green",
-        arguments={"expected_structural_revision_id": ids.flow_revision_id},
-    )
-    await executor.execute(
-        scope=_scope(ids.task_id, parent_dispatch_id),
-        operation_name="return_boundary",
-        arguments={"boundary": "green"},
     )
 
 
@@ -231,47 +215,14 @@ async def _make_child_assignable(
 ) -> None:
     async with session_factory() as session:
         parent = await session.get(AssignmentModel, ids.root_assignment_id)
-        root_node = await session.get(FlowNodeModel, ids.root_node_id)
-        previous_child_attempt = await session.get(AttemptModel, ids.child_attempt_id)
         child_node = await session.get(FlowNodeModel, ids.child_node_id)
         assert parent is not None
-        assert root_node is not None
-        assert previous_child_attempt is not None
         assert child_node is not None
 
         parent.child_assignment_limit = 1
         parent.child_assignments_remaining = 1
-        parent.criteria_json = [
-            {
-                "slot": "criteria",
-                "path": "_runtime/criteria/root.md",
-                "description": "Root criteria.",
-                "version": 1,
-                "criteria": ["Complete the bounded child work."],
-            }
-        ]
-        root_node.criteria_json = list(parent.criteria_json)
-        previous_child_attempt.status = "completed"
-        previous_child_attempt.terminal_outcome = "blocked"
-        previous_child_attempt.closed_at = datetime.now(UTC)
         child_node.current_assignment_id = None
         child_node.state = "ready"
-        child_node.consumes_json = {
-            "artifacts": [],
-            "criteria": [{"slot": "criteria", "required": True}],
-        }
-        session.add(
-            FlowEdgeModel(
-                flow_edge_id=f"flow-edge.{ids.suffix}.root-child-criteria",
-                flow_revision_id=ids.flow_revision_id,
-                provider_node_key="root",
-                consumer_node_key="child",
-                kind="criteria",
-                slot="criteria",
-                description="Root criteria.",
-                order_index=1,
-            )
-        )
         await session.commit()
 
 

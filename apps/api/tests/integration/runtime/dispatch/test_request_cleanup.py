@@ -261,10 +261,6 @@ async def _insert_task(
         session.add(
             TaskModel(
                 task_id=task_id,
-                task_key=task_id,
-                title="Cleanup test",
-                summary="Prove reference-safe request cleanup.",
-                instruction=None,
                 workflow_key="workflow.target",
                 workflow_revision_no=1,
                 workflow_content_hash=WORKFLOW_CONTENT_HASH,
@@ -292,17 +288,12 @@ def _set_age(path: Path, changed_at: datetime) -> None:
 def _task_root_paths(task_root: Path) -> TaskRootPaths:
     runtime_path = task_root / "_runtime"
     outputs_path = task_root / "outputs"
-    transfers_path = task_root / "tmp" / "transfers"
     return TaskRootPaths(
         task_root=task_root,
         workspace_path=task_root / "workspace",
         outputs_path=outputs_path,
         artifacts_path=outputs_path / "artifacts",
         tmp_path=task_root / "tmp",
-        transfers_path=transfers_path,
-        localized_path=transfers_path / "localized",
         runtime_path=runtime_path,
-        criteria_path=runtime_path / "criteria",
-        attempts_path=runtime_path / "attempts",
         dispatch_path=runtime_path / "dispatch",
     )

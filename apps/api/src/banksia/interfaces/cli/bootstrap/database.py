@@ -26,6 +26,7 @@ from banksia.persistence.session import (
 from banksia.workflows.bootstrap import seed_starter_workflows
 
 SQLITE_SIDECAR_SUFFIXES = ("-wal", "-shm", "-journal")
+_TASK_ID_ALPHABET = frozenset("0123456789abcdefghjkmnpqrstvwxyz")
 
 
 @dataclass(frozen=True)
@@ -97,7 +98,7 @@ async def reset_database(
             progress.step("database", "Deleting controller-owned task roots")
         deleted_task_roots = await asyncio.to_thread(
             delete_controller_task_roots,
-            task_root_paths,
+            _reset_deletable_task_roots(task_root_paths),
             data_boundary=data_boundary,
         )
 
@@ -130,6 +131,24 @@ def sqlite_database_path(database_url: str) -> Path | None:
     if url.get_backend_name() != "sqlite" or not url.database or url.database == ":memory:":
         return None
     return Path(url.database).expanduser().absolute()
+
+
+def _reset_deletable_task_roots(task_root_paths: tuple[str, ...]) -> tuple[str, ...]:
+    """Preserve accepted workspace Task directories across a DB reset."""
+
+    return tuple(
+        path for path in task_root_paths if not _is_workspace_task_root(Path(path).expanduser())
+    )
+
+
+def _is_workspace_task_root(path: Path) -> bool:
+    task_id = path.name
+    return (
+        path.parent.name == ".banksia"
+        and len(task_id) == 10
+        and task_id.startswith("t_")
+        and all(character in _TASK_ID_ALPHABET for character in task_id[2:])
+    )
 
 
 async def _seed_starter_workflows(*, progress: CliProgress | None) -> None:

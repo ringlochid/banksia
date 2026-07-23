@@ -19,10 +19,8 @@ class OperationFailureCode(StrEnum):
     STALE_DISPATCH = "stale_dispatch"
     STALE_FLOW_REVISION = "stale_flow_revision"
     STALE_ASSIGNMENT = "stale_assignment"
-    STALE_CHECKPOINT = "stale_checkpoint"
     NAME_COLLISION = "name_collision"
     MISSING_RESOURCE = "missing_resource"
-    MISSING_REQUIRED_PUBLICATION = "missing_required_publication"
     CONFLICTING_CONTINUATION = "conflicting_continuation"
     CURSOR_RESET_REQUIRED = "cursor_reset_required"
     BOUNDARY_PRECONDITION_FAILED = "boundary_precondition_failed"
@@ -36,7 +34,6 @@ class OperationFailureCode(StrEnum):
     BINARY_FILE = "binary_file"
     FILE_READ_LIMIT_EXCEEDED = "file_read_limit_exceeded"
     DIRECTORY_LIMIT_EXCEEDED = "directory_limit_exceeded"
-    REMOVED_SURFACE = "removed_surface"
     BUDGET_EXHAUSTED = "budget_exhausted"
     INTERNAL_ERROR = "internal_error"
 

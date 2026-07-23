@@ -67,6 +67,7 @@ async def open_root_dispatch(
             expected_active_flow_revision_id=None,
             expected_control_revision=None,
             due_at=transition_at,
+            rollback_before_request=True,
         )
         if candidate is None:
             await session.rollback()
@@ -83,10 +84,12 @@ async def open_root_dispatch(
         )
         return FlowStartOpeningResult(outcome="paused")
 
-    if not await _commit_root_dispatch_if_current(
+    if not await _stage_root_dispatch_if_current(
         session,
         snapshot=snapshot,
         prepared=prepared,
+        should_commit=True,
+        rollback_on_conflict=True,
     ):
         return FlowStartOpeningResult(outcome="skipped")
     publish_dispatch_start_due(dependencies, prepared)
@@ -113,6 +116,7 @@ async def continue_paused_root_dispatch(
             expected_active_flow_revision_id=expected_active_flow_revision_id,
             expected_control_revision=expected_control_revision,
             due_at=dependencies.clock(),
+            rollback_before_request=True,
         )
         if candidate is None:
             raise _root_continue_conflict("paused flow start is no longer current")
@@ -130,15 +134,50 @@ async def continue_paused_root_dispatch(
             suggested_next_step="Repair the exact source or provider route, then retry continue.",
         ) from exc
 
-    if not await _commit_root_dispatch_if_current(
+    if not await _stage_root_dispatch_if_current(
         session,
         snapshot=snapshot,
         prepared=prepared,
         resume_event=resume_event,
+        should_commit=True,
+        rollback_on_conflict=True,
     ):
         raise _root_continue_conflict("another controller transition won during continue")
     publish_dispatch_start_due(dependencies, prepared)
     return FlowStartOpeningResult(outcome="opened", dispatch_id=prepared.dispatch_id)
+
+
+async def stage_initial_root_dispatch(
+    session: AsyncSession,
+    *,
+    flow_id: str,
+    dependencies: DispatchOpeningDependencies,
+) -> PreparedDispatchRequest:
+    """Stage the first exact Dispatch inside the Task admission transaction."""
+
+    candidate = await _prepare_root_dispatch(
+        session,
+        flow_id=flow_id,
+        dependencies=dependencies,
+        expected_flow_status="running",
+        expected_active_flow_revision_id=None,
+        expected_control_revision=None,
+        due_at=dependencies.clock(),
+        rollback_before_request=False,
+    )
+    if candidate is None:
+        raise RuntimeError("new Task is missing its exact root Dispatch source")
+    snapshot, prepared = candidate
+    staged = await _stage_root_dispatch_if_current(
+        session,
+        snapshot=snapshot,
+        prepared=prepared,
+        should_commit=False,
+        rollback_on_conflict=False,
+    )
+    if not staged:
+        raise RuntimeError("new Task root Dispatch source changed during admission")
+    return prepared
 
 
 async def _prepare_root_dispatch(
@@ -150,6 +189,7 @@ async def _prepare_root_dispatch(
     expected_active_flow_revision_id: str | None,
     expected_control_revision: int | None,
     due_at: datetime,
+    rollback_before_request: bool,
 ) -> tuple[RootOpeningSnapshot, PreparedDispatchRequest] | None:
     dispatch_id = f"dispatch.{uuid4().hex}"
     snapshot = await read_root_opening_snapshot(
@@ -164,7 +204,8 @@ async def _prepare_root_dispatch(
     if snapshot is None:
         return None
     request = build_root_dispatch_request(snapshot.prompt, trigger=snapshot.trigger)
-    await session.rollback()
+    if rollback_before_request:
+        await session.rollback()
     prepared = prepare_dispatch_request(
         dependencies=dependencies,
         paths=snapshot.paths,
@@ -177,59 +218,31 @@ async def _prepare_root_dispatch(
     return snapshot, prepared
 
 
-async def _commit_root_dispatch_if_current(
+async def _stage_root_dispatch_if_current(
     session: AsyncSession,
     *,
     snapshot: RootOpeningSnapshot,
     prepared: PreparedDispatchRequest,
     resume_event: TaskResumeEventBasis | None = None,
+    should_commit: bool,
+    rollback_on_conflict: bool,
 ) -> bool:
     prompt = snapshot.prompt
-    claimed = await session.scalar(
-        update(FlowStartSourceModel)
-        .where(
-            FlowStartSourceModel.flow_id == prompt.flow_id,
-            FlowStartSourceModel.task_id == prompt.task_id,
-            FlowStartSourceModel.successor_dispatch_id.is_(None),
-            FlowStartSourceModel.committed_at == snapshot.source_committed_at,
-        )
-        .values(successor_dispatch_id=prepared.dispatch_id)
-        .returning(FlowStartSourceModel.flow_id)
-    )
-    if claimed is None:
-        await session.rollback()
+    if not await _claim_root_dispatch_source(
+        session,
+        snapshot=snapshot,
+        dispatch_id=prepared.dispatch_id,
+    ):
+        if rollback_on_conflict:
+            await session.rollback()
         return False
-
-    flow_predicates: list[ColumnElement[bool]] = [
-        FlowModel.flow_id == prompt.flow_id,
-        FlowModel.task_id == prompt.task_id,
-        FlowModel.compiled_plan_id == snapshot.compiled_plan_id,
-        FlowModel.status == snapshot.expected_flow_status,
-        FlowModel.active_flow_revision_id == prompt.flow_revision_id,
-        FlowModel.current_dispatch_id.is_(None),
-        FlowModel.waiting_cause == "none",
-        FlowModel.control_revision == snapshot.flow_control_revision,
-        root_context_is_current(snapshot),
-    ]
-    values: dict[str, object] = {
-        "current_dispatch_id": prepared.dispatch_id,
-        "updated_at": prepared.due_at,
-    }
-    if snapshot.expected_flow_status == "paused":
-        flow_predicates.append(FlowModel.pause_reason == snapshot.expected_pause_reason)
-        values.update(
-            status="running",
-            pause_reason=None,
-            pause_details=None,
-            paused_at=None,
-            paused_by_actor_ref=None,
-            control_revision=FlowModel.control_revision + 1,
-        )
-    updated_flow = await session.scalar(
-        update(FlowModel).where(*flow_predicates).values(**values).returning(FlowModel.flow_id)
-    )
-    if updated_flow is None:
-        await session.rollback()
+    if not await _advance_root_flow(
+        session,
+        snapshot=snapshot,
+        prepared=prepared,
+    ):
+        if rollback_on_conflict:
+            await session.rollback()
         return False
     await stage_starting_dispatch(
         session,
@@ -252,12 +265,72 @@ async def _commit_root_dispatch_if_current(
         ),
         prepared=prepared,
     )
-    try:
-        await session.commit()
-    except Exception:
-        await session.rollback()
-        raise
+    if should_commit:
+        try:
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
     return True
+
+
+async def _claim_root_dispatch_source(
+    session: AsyncSession,
+    *,
+    snapshot: RootOpeningSnapshot,
+    dispatch_id: str,
+) -> bool:
+    prompt = snapshot.prompt
+    claimed = await session.scalar(
+        update(FlowStartSourceModel)
+        .where(
+            FlowStartSourceModel.flow_id == prompt.flow_id,
+            FlowStartSourceModel.task_id == prompt.task_id,
+            FlowStartSourceModel.successor_dispatch_id.is_(None),
+            FlowStartSourceModel.committed_at == snapshot.source_committed_at,
+        )
+        .values(successor_dispatch_id=dispatch_id)
+        .returning(FlowStartSourceModel.flow_id)
+    )
+    return claimed is not None
+
+
+async def _advance_root_flow(
+    session: AsyncSession,
+    *,
+    snapshot: RootOpeningSnapshot,
+    prepared: PreparedDispatchRequest,
+) -> bool:
+    prompt = snapshot.prompt
+    predicates: list[ColumnElement[bool]] = [
+        FlowModel.flow_id == prompt.flow_id,
+        FlowModel.task_id == prompt.task_id,
+        FlowModel.compiled_plan_id == snapshot.compiled_plan_id,
+        FlowModel.status == snapshot.expected_flow_status,
+        FlowModel.active_flow_revision_id == prompt.flow_revision_id,
+        FlowModel.current_dispatch_id.is_(None),
+        FlowModel.waiting_cause == "none",
+        FlowModel.control_revision == snapshot.flow_control_revision,
+        root_context_is_current(snapshot),
+    ]
+    values: dict[str, object] = {
+        "current_dispatch_id": prepared.dispatch_id,
+        "updated_at": prepared.due_at,
+    }
+    if snapshot.expected_flow_status == "paused":
+        predicates.append(FlowModel.pause_reason == snapshot.expected_pause_reason)
+        values.update(
+            status="running",
+            pause_reason=None,
+            pause_details=None,
+            paused_at=None,
+            paused_by_actor_ref=None,
+            control_revision=FlowModel.control_revision + 1,
+        )
+    updated_flow = await session.scalar(
+        update(FlowModel).where(*predicates).values(**values).returning(FlowModel.flow_id)
+    )
+    return updated_flow is not None
 
 
 async def _pause_failed_flow_start(
@@ -310,4 +383,5 @@ __all__ = [
     "continue_paused_root_dispatch",
     "create_flow_start_handler",
     "open_root_dispatch",
+    "stage_initial_root_dispatch",
 ]

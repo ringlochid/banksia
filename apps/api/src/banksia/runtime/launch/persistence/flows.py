@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from banksia.persistence.models import (
-    FlowEdgeModel,
     FlowModel,
     FlowNodeModel,
     FlowRevisionModel,
@@ -9,12 +8,10 @@ from banksia.persistence.models import (
 )
 from banksia.runtime.contracts import (
     RuntimeBootstrapInput,
-    RuntimeBootstrapResult,
 )
-from banksia.runtime.ids import assignment_id, flow_edge_id, flow_node_id, node_plan_revision_id
+from banksia.runtime.ids import assignment_id, flow_node_id, node_plan_revision_id
 from banksia.runtime.launch.bootstrap.context import LaunchBootstrapPersistenceContext
-from banksia.runtime.launch.bootstrap.criteria import build_node_criteria_json
-from banksia.runtime.launch.legacy_team_adapter import LegacyDependencyEdge, LegacyTeamNode
+from banksia.runtime.launch.legacy_team_adapter import LegacyTeamNode
 
 
 def build_flow_row(
@@ -50,7 +47,6 @@ def build_flow_revision_row(
 
 def build_flow_node_row(
     *,
-    result: RuntimeBootstrapResult,
     flow_revision: FlowRevisionModel,
     context: LaunchBootstrapPersistenceContext,
     bootstrap_input: RuntimeBootstrapInput,
@@ -76,16 +72,12 @@ def build_flow_node_row(
         description=node.description,
         node_instruction=node.node_instruction,
         child_node_keys_json=list(node.child_node_keys),
-        consumes_json=(node.consumes.model_dump(mode="json") if node.consumes else None),
-        produces_json=(node.produces.model_dump(mode="json") if node.produces else None),
-        criteria_json=build_node_criteria_json(node=node),
-        child_defaults_json=node.child_defaults.model_dump(mode="json")
-        if node.child_defaults
+        current_assignment_id=assignment_id(bootstrap_input.assignment_key)
+        if node.node_key == bootstrap_input.initial_team.root_member_id
         else None,
-        current_assignment_id=assignment_id(result.assignment.assignment_key)
-        if node.node_key == result.assignment.node_key
-        else None,
-        state="running" if node.node_key == result.assignment.node_key else "ready",
+        state=(
+            "running" if node.node_key == bootstrap_input.initial_team.root_member_id else "ready"
+        ),
         order_index=node.order_index,
     )
 
@@ -112,26 +104,4 @@ def build_node_plan_revision_row(
         member_branch_basis_id=node.member_branch_basis_id,
         member_title=node.title,
         provider_kind=node.provider.kind if node.provider is not None else None,
-    )
-
-
-def build_flow_edge_row(
-    *,
-    bootstrap_input: RuntimeBootstrapInput,
-    edge: LegacyDependencyEdge,
-) -> FlowEdgeModel:
-    return FlowEdgeModel(
-        flow_edge_id=flow_edge_id(
-            bootstrap_input.active_flow_revision_id,
-            edge.consumer_node_key,
-            edge.kind,
-            edge.slot,
-        ),
-        flow_revision_id=bootstrap_input.active_flow_revision_id,
-        provider_node_key=edge.provider_node_key,
-        consumer_node_key=edge.consumer_node_key,
-        kind=edge.kind,
-        slot=edge.slot,
-        description=edge.description,
-        order_index=edge.order_index,
     )

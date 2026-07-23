@@ -27,7 +27,7 @@ EXPECTED_OPERATION_NAMES = (
     "list_files",
     "read_file",
     "set_work_plan",
-    "record_checkpoint",
+    "checkpoint",
     "return_boundary",
     "open_human_request",
     "start_command_run",
@@ -35,8 +35,6 @@ EXPECTED_OPERATION_NAMES = (
     "add_child",
     "update_child",
     "remove_child",
-    "release_green",
-    "release_blocked",
 )
 
 
@@ -45,8 +43,8 @@ def test_catalog_has_one_exact_node_kind_narrowed_operation_surface() -> None:
         EXPECTED_OPERATION_NAMES
     )
     assert len(list_node_operation_descriptors_for_kind(NodeKind.WORKER)) == 9
-    assert len(list_node_operation_descriptors_for_kind(NodeKind.PARENT)) == 13
-    assert len(list_node_operation_descriptors_for_kind(NodeKind.ROOT)) == 14
+    assert len(list_node_operation_descriptors_for_kind(NodeKind.PARENT)) == 12
+    assert len(list_node_operation_descriptors_for_kind(NodeKind.ROOT)) == 12
     for descriptor in NODE_OPERATION_CATALOG:
         request_properties = descriptor.request_model.model_json_schema().get("properties", {})
         assert "task_id" not in request_properties
@@ -65,8 +63,12 @@ def test_catalog_preserves_terminal_and_child_assignment_teaching() -> None:
         assert "stop the current outer response" in description
         assert "no further tool calls or prose" in description
 
+    checkpoint_description = get_node_operation_descriptor("checkpoint").description.lower()
+    assert "atomically finish" in checkpoint_description
+    assert "green, blocked, or retry" in checkpoint_description
+    assert "must_stop" in checkpoint_description
     assert "parent/root" in get_node_operation_descriptor("assign_child").description
-    assert "root-only" in get_node_operation_descriptor("release_blocked").description
+    assert "staged-child yield" in get_node_operation_descriptor("return_boundary").description
 
 
 def test_work_plan_contract_rejects_duplicate_and_multiple_active_steps() -> None:
@@ -433,11 +435,7 @@ def _task_root_paths(task_root: Path) -> TaskRootPaths:
         outputs_path=task_root / "outputs",
         artifacts_path=task_root / "outputs" / "artifacts",
         tmp_path=task_root / "tmp",
-        transfers_path=task_root / "tmp" / "transfers",
-        localized_path=task_root / "tmp" / "transfers" / "localized",
         runtime_path=task_root / "_runtime",
-        criteria_path=task_root / "_runtime" / "criteria",
-        attempts_path=task_root / "_runtime" / "attempts",
         dispatch_path=task_root / "_runtime" / "dispatch",
     )
 

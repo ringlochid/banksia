@@ -114,16 +114,15 @@ async def test_manifest_barrier_opens_one_same_attempt_successor(
         assert successor_node.flow_node_id != ids.root_node_id
         assert successor_node.current_assignment is not None
         assert successor_node.current_assignment.assignment_id == ids.root_assignment_id
-        assert successor_node.current_assignment.flow_node_id == ids.root_node_id
         assert refs is not None
-        input_text = (tmp_path / "task-recursive-continuation" / refs.input_logical_path).read_text(
-            encoding="utf-8"
-        )
+        task_root = tmp_path / "task-recursive-continuation"
+        input_text = (task_root / refs.input_logical_path).read_text(encoding="utf-8")
         assert '"kind": "structural_replan"' in input_text
         assert '"operation": "add_child"' in input_text
-        assert (
-            tmp_path / "task-recursive-continuation" / "_runtime" / "workflow-manifest.md"
-        ).is_file()
+        manifest = (task_root / "manifest.md").read_text(encoding="utf-8")
+        assert "# Banksia team" in manifest
+        assert "Reviewer" in manifest
+        assert "Member configuration" not in manifest
 
 
 async def test_manifest_failure_is_repairable_and_startup_discoverable(
@@ -391,16 +390,11 @@ async def test_replan_and_terminal_checkpoint_have_one_stable_winner(
                     ),
                     executor.execute(
                         scope=scope,
-                        operation_name="record_checkpoint",
+                        operation_name="checkpoint",
                         arguments={
-                            "checkpoint": {
-                                "checkpoint_kind": "terminal",
-                                "outcome": "blocked",
-                                "handoff": {
-                                    "summary": "The assignment is blocked.",
-                                    "next_step": "Return the exact terminal result.",
-                                },
-                            }
+                            "outcome": "blocked",
+                            "summary": "The assignment is blocked.",
+                            "details": "Return the exact terminal result.",
                         },
                     ),
                     return_exceptions=True,
@@ -426,7 +420,8 @@ async def test_replan_and_terminal_checkpoint_have_one_stable_winner(
         if transitions:
             assert source.closed_reason == "structural_replan"
         else:
-            assert source.status == "open"
+            assert source.status == "closed"
+            assert source.closed_reason == "boundary"
 
 
 @pytest.mark.parametrize("control_operation", ("pause", "cancel"))

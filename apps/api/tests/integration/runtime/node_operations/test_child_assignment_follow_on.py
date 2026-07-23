@@ -5,8 +5,6 @@ from pathlib import Path
 import banksia.runtime.node_operations.structural_handlers as structural_handlers
 import pytest
 from banksia.persistence.models import (
-    ArtifactCurrentPointerModel,
-    ArtifactPublicationModel,
     AssignmentDecisionModel,
     AssignmentModel,
     AttemptCheckpointModel,
@@ -17,10 +15,7 @@ from banksia.runtime.clock import utc_now
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
 from banksia.runtime.errors import RuntimeOperationError
 from banksia.runtime.node_operations import NodeOperationScope
-from banksia.runtime.projection.signals import (
-    AttemptAssignmentProjection,
-    SupportProjectionSignal,
-)
+from banksia.runtime.projection.signals import SupportProjectionSignal
 from sqlalchemy import func, select
 from tests.helpers.executor_harness import (
     SessionFactory,
@@ -38,7 +33,7 @@ class _CapturedProjectionPublisher:
         return True
 
 
-async def test_assign_child_consumes_budget_once_and_publishes_exact_attempt(
+async def test_assign_child_consumes_budget_once_without_assignment_projection(
     tmp_path: Path,
 ) -> None:
     publisher = _CapturedProjectionPublisher()
@@ -58,7 +53,6 @@ async def test_assign_child_consumes_budget_once_and_publishes_exact_attempt(
             arguments=_assign_child_arguments(ids.flow_revision_id),
         )
         assignment_key = response.model_dump()["target_assignment_key"]
-        attempt_id = response.model_dump()["target_attempt_id"]
         async with session_factory() as session:
             parent = await session.get(AssignmentModel, ids.root_assignment_id)
             assignment = await session.scalar(
@@ -66,13 +60,7 @@ async def test_assign_child_consumes_budget_once_and_publishes_exact_attempt(
             )
         assert parent is not None and parent.child_assignments_remaining == 0
         assert assignment is not None
-        assert publisher.signals == [
-            AttemptAssignmentProjection(
-                assignment.assignment_id,
-                attempt_id,
-                ids.flow_revision_id,
-            )
-        ]
+        assert publisher.signals == []
 
         with pytest.raises(RuntimeOperationError) as duplicate:
             await executor.execute(
@@ -87,128 +75,7 @@ async def test_assign_child_consumes_budget_once_and_publishes_exact_attempt(
             parent = await session.get(AssignmentModel, ids.root_assignment_id)
         assert duplicate.value.code == OperationFailureCode.ILLEGAL_STATE
         assert parent is not None and parent.child_assignments_remaining == 0
-        assert len(publisher.signals) == 1
-
-
-async def test_assign_child_pins_current_artifact_consume_ref(tmp_path: Path) -> None:
-    async with seeded_executor(tmp_path, suffix="child-artifact-input") as (
-        executor,
-        session_factory,
-        ids,
-        _activity_signals,
-    ):
-        await _prepare_assignable_child(session_factory, ids, remaining=1)
-        await _set_child_artifact_selector(
-            session_factory,
-            ids,
-            is_required=True,
-        )
-        await _publish_root_input(session_factory, ids)
-
-        response = await executor.execute(
-            scope=NodeOperationScope(
-                task_id=ids.task_id,
-                dispatch_id=ids.current_dispatch_id,
-            ),
-            operation_name="assign_child",
-            arguments=_assign_child_arguments(ids.flow_revision_id),
-        )
-
-        async with session_factory() as session:
-            assignment = await session.scalar(
-                select(AssignmentModel).where(
-                    AssignmentModel.assignment_key == response.model_dump()["target_assignment_key"]
-                )
-            )
-
-    assert assignment is not None
-    assert assignment.consumes_json == [
-        {
-            "kind": "artifact",
-            "slot": "input",
-            "version": 1,
-            "path": "outputs/artifacts/root/input/input.v01.md",
-            "description": "Root output consumed by child.",
-        }
-    ]
-
-
-async def test_assign_child_omits_missing_optional_artifact_consume(tmp_path: Path) -> None:
-    async with seeded_executor(tmp_path, suffix="child-optional-input") as (
-        executor,
-        session_factory,
-        ids,
-        _activity_signals,
-    ):
-        await _prepare_assignable_child(session_factory, ids, remaining=1)
-        await _set_child_artifact_selector(
-            session_factory,
-            ids,
-            is_required=False,
-        )
-
-        response = await executor.execute(
-            scope=NodeOperationScope(
-                task_id=ids.task_id,
-                dispatch_id=ids.current_dispatch_id,
-            ),
-            operation_name="assign_child",
-            arguments=_assign_child_arguments(ids.flow_revision_id),
-        )
-
-        async with session_factory() as session:
-            assignment = await session.scalar(
-                select(AssignmentModel).where(
-                    AssignmentModel.assignment_key == response.model_dump()["target_assignment_key"]
-                )
-            )
-
-    assert assignment is not None and assignment.consumes_json == []
-
-
-async def test_assign_child_missing_required_artifact_commits_nothing(
-    tmp_path: Path,
-) -> None:
-    async with seeded_executor(tmp_path, suffix="child-required-input") as (
-        executor,
-        session_factory,
-        ids,
-        _activity_signals,
-    ):
-        assignment_count = await _prepare_assignable_child(
-            session_factory,
-            ids,
-            remaining=1,
-        )
-        await _set_child_artifact_selector(
-            session_factory,
-            ids,
-            is_required=True,
-        )
-
-        with pytest.raises(RuntimeOperationError) as missing:
-            await executor.execute(
-                scope=NodeOperationScope(
-                    task_id=ids.task_id,
-                    dispatch_id=ids.current_dispatch_id,
-                ),
-                operation_name="assign_child",
-                arguments=_assign_child_arguments(ids.flow_revision_id),
-            )
-
-        async with session_factory() as session:
-            parent = await session.get(AssignmentModel, ids.root_assignment_id)
-            child = await session.get(FlowNodeModel, ids.child_node_id)
-            final_assignment_count = await session.scalar(
-                select(func.count()).select_from(AssignmentModel)
-            )
-            decision = await session.scalar(select(AssignmentDecisionModel))
-
-    assert missing.value.code == OperationFailureCode.MISSING_REQUIRED_PUBLICATION
-    assert parent is not None and parent.child_assignments_remaining == 1
-    assert child is not None and child.current_assignment_id is None
-    assert final_assignment_count == assignment_count
-    assert decision is None
+        assert publisher.signals == []
 
 
 async def test_assign_child_zero_budget_commits_nothing(tmp_path: Path) -> None:
@@ -324,21 +191,12 @@ async def test_assign_child_supersedes_terminal_child_with_fresh_assignment(
                 AssignmentModel(
                     assignment_id=historical_parent_id,
                     task_id=ids.task_id,
-                    team_revision_id=parent.team_revision_id,
                     member_id=parent.member_id,
-                    member_configuration_id=parent.member_configuration_id,
-                    member_branch_basis_id=parent.member_branch_basis_id,
                     flow_id=ids.flow_id,
-                    flow_revision_id=ids.flow_revision_id,
-                    flow_node_id=ids.root_node_id,
                     assignment_key=f"assignment-key.{ids.suffix}.root.previous",
                     node_key="root",
                     parent_assignment_id=None,
-                    summary="Previous root assignment.",
-                    instruction=None,
-                    criteria_json=[],
-                    consumes_json=[],
-                    produces_json=[],
+                    prompt="Previous root assignment.",
                     current_attempt_id=None,
                     work_plan_revision=0,
                     superseded_at=utc_now(),
@@ -353,6 +211,8 @@ async def test_assign_child_supersedes_terminal_child_with_fresh_assignment(
             previous_attempt.closed_at = utc_now()
             previous_attempt.latest_checkpoint_id = previous_checkpoint.checkpoint_id
             previous_checkpoint.outcome = "green"
+            previous.terminal_outcome = "green"
+            previous.closed_at = utc_now()
             await session.commit()
 
         response = await executor.execute(
@@ -410,15 +270,10 @@ async def test_staged_child_allows_progress_but_rejects_terminal_checkpoint(
                 task_id=ids.task_id,
                 dispatch_id=ids.current_dispatch_id,
             ),
-            operation_name="record_checkpoint",
+            operation_name="checkpoint",
             arguments={
-                "checkpoint": {
-                    "checkpoint_kind": "progress",
-                    "handoff": {
-                        "summary": "The child assignment is staged.",
-                        "next_step": "Return yield.",
-                    },
-                }
+                "summary": "The child assignment is staged.",
+                "details": "Return the temporary yield bridge next.",
             },
         )
 
@@ -428,24 +283,20 @@ async def test_staged_child_allows_progress_but_rejects_terminal_checkpoint(
                     task_id=ids.task_id,
                     dispatch_id=ids.current_dispatch_id,
                 ),
-                operation_name="record_checkpoint",
+                operation_name="checkpoint",
                 arguments={
-                    "checkpoint": {
-                        "checkpoint_kind": "terminal",
-                        "outcome": "green",
-                        "handoff": {
-                            "summary": "This dispatch has staged a child.",
-                            "next_step": "Return yield instead of terminal closure.",
-                        },
-                    }
+                    "summary": "This dispatch has staged a child.",
+                    "details": "Return yield instead of terminal closure.",
+                    "outcome": "green",
                 },
             )
 
         async with session_factory() as session:
             attempt = await session.get(AttemptModel, ids.root_attempt_id)
-        assert terminal.value.code == OperationFailureCode.ILLEGAL_STATE
+        assert terminal.value.code == OperationFailureCode.BOUNDARY_PRECONDITION_FAILED
         assert attempt is not None
-        assert attempt.latest_checkpoint_id == progress.model_dump()["checkpoint_id"]
+        assert attempt.latest_checkpoint_id is not None
+        assert progress.model_dump()["terminal"] is False
 
 
 async def _prepare_assignable_child(
@@ -467,65 +318,11 @@ async def _prepare_assignable_child(
     return int(assignment_count or 0)
 
 
-async def _set_child_artifact_selector(
-    session_factory: SessionFactory,
-    ids: RuntimeIds,
-    *,
-    is_required: bool,
-) -> None:
-    async with session_factory() as session:
-        child = await session.get(FlowNodeModel, ids.child_node_id)
-        assert child is not None
-        child.consumes_json = {
-            "artifacts": [{"slot": "input", "required": is_required}],
-            "criteria": [],
-        }
-        await session.commit()
-
-
-async def _publish_root_input(
-    session_factory: SessionFactory,
-    ids: RuntimeIds,
-) -> None:
-    publication_id = f"artifact-publication.{ids.suffix}.root.input.1"
-    async with session_factory() as session:
-        session.add(
-            ArtifactPublicationModel(
-                artifact_publication_id=publication_id,
-                task_id=ids.task_id,
-                flow_id=ids.flow_id,
-                assignment_id=ids.root_assignment_id,
-                attempt_id=ids.root_attempt_id,
-                checkpoint_id=ids.root_checkpoint_id,
-                slot="input",
-                version=1,
-                logical_path="outputs/artifacts/root/input/input.v01.md",
-                description="Root output consumed by child.",
-                supersedes_publication_id=None,
-                supersedes_version=None,
-            )
-        )
-        session.add(
-            ArtifactCurrentPointerModel(
-                artifact_current_pointer_id=(f"artifact-current-pointer.{ids.suffix}.root.input"),
-                task_id=ids.task_id,
-                flow_id=ids.flow_id,
-                assignment_id=ids.root_assignment_id,
-                slot="input",
-                current_publication_id=publication_id,
-                current_version=1,
-                attempt_id=ids.root_attempt_id,
-                checkpoint_id=ids.root_checkpoint_id,
-            )
-        )
-        await session.commit()
-
-
 def _assign_child_arguments(flow_revision_id: str) -> dict[str, object]:
     return {
         "expected_structural_revision_id": flow_revision_id,
         "payload": {
             "child_node_key": "child",
-            "assignment_intent": {"summary": "Do bounded child work."},
+            "assignment": {"prompt": "Do bounded child work."},
         },
     }

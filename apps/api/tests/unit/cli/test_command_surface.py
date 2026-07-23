@@ -43,15 +43,16 @@ def test_build_parser_supports_baseline_commands() -> None:
     assert "providers" in parser.commands
     assert "service" in parser.commands
     assert "workflow" in parser.commands
-    assert "task-compose" in parser.commands
+    assert "task" in parser.commands
+    assert "task-compose" not in parser.commands
     service_group = cast(Group, parser.commands["service"])
     workflow_group = cast(Group, parser.commands["workflow"])
-    task_compose_group = cast(Group, parser.commands["task-compose"])
+    task_group = cast(Group, parser.commands["task"])
     providers_group = cast(Group, parser.commands["providers"])
     assert "install" in service_group.commands
     assert "status" in service_group.commands
     assert set(workflow_group.commands) == {"import", "export"}
-    assert set(task_compose_group.commands) == {"start"}
+    assert set(task_group.commands) == {"start"}
     assert set(providers_group.commands) == {
         "check",
         "configure",

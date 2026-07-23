@@ -19,6 +19,7 @@ from banksia.runtime.dispatch.request_pair import (
 from banksia.runtime.post_commit import RuntimeEffectPublisher
 from banksia.runtime.prompt import render_dispatch_request
 from banksia.runtime.providers.resolution import validate_provider_execution_configuration
+from banksia.runtime.workspace_admission import TaskWorkspaceAdmissionCoordinator
 
 
 class DispatchRequestPairPublisher(Protocol):
@@ -39,6 +40,7 @@ class DispatchOpeningDependencies:
     clock: Callable[[], datetime]
     request_pair_publisher: DispatchRequestPairPublisher
     post_commit_publisher: RuntimeEffectPublisher
+    workspace_admission_coordinator: TaskWorkspaceAdmissionCoordinator
 
     @classmethod
     def create(
@@ -49,6 +51,7 @@ class DispatchOpeningDependencies:
         post_commit_publisher: RuntimeEffectPublisher,
         clock: Callable[[], datetime] = utc_now,
         request_pair_publisher: DispatchRequestPairPublisher = publish_dispatch_request_pair,
+        workspace_admission_coordinator: TaskWorkspaceAdmissionCoordinator | None = None,
     ) -> DispatchOpeningDependencies:
         return cls(
             settings=settings.model_copy(deep=True),
@@ -56,6 +59,9 @@ class DispatchOpeningDependencies:
             clock=clock,
             request_pair_publisher=request_pair_publisher,
             post_commit_publisher=post_commit_publisher,
+            workspace_admission_coordinator=(
+                workspace_admission_coordinator or TaskWorkspaceAdmissionCoordinator()
+            ),
         )
 
 

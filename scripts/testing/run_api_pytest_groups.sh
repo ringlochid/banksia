@@ -65,7 +65,7 @@ list_suite() {
     e2e-reviewed)
       describe_group \
         "workflow-reviewed" \
-        tests/e2e/workflows/test_parent_child_release.py
+        tests/e2e/workflows/test_parent_child_checkpoint.py
       ;;
     e2e-staged)
       describe_group \
@@ -109,7 +109,7 @@ run_e2e_suite() {
     e2e-reviewed)
       run_group \
         "workflow-reviewed" \
-        tests/e2e/workflows/test_parent_child_release.py
+        tests/e2e/workflows/test_parent_child_checkpoint.py
       ;;
     e2e-staged)
       run_group \

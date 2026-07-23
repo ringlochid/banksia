@@ -14,7 +14,8 @@ from banksia.persistence.models import (
     TaskModel,
 )
 from banksia.providers import ProviderKind
-from banksia.runtime import RuntimeLaunchInput, TaskComposeInput
+from banksia.runtime import RuntimeLaunchInput
+from banksia.runtime.contracts import AssignmentBody
 from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
 from banksia.runtime.launch.continuation import open_root_dispatch
 from banksia.runtime.launch.service import launch_task_runtime
@@ -36,6 +37,7 @@ from banksia.runtime.providers import (
     ProviderStopOutcome,
 )
 from banksia.runtime.providers.starter import DispatchStarter
+from banksia.workflows.catalog import read_current_published_workflow
 from sqlalchemy import select
 from tests.helpers.workflow_runtime import initialized_workflow_database
 
@@ -90,20 +92,19 @@ async def test_published_workflow_materializes_exact_team_and_starts_provider(
 
     async with initialized_workflow_database(tmp_path) as session_factory:
         async with session_factory() as session:
+            workflow_revision = await read_current_published_workflow(
+                session,
+                workflow_id="reviewed-delivery",
+            )
             await launch_task_runtime(
                 session,
                 RuntimeLaunchInput(
                     task_id="task.published-workflow-start",
                     task_root=tmp_path / "task.published-workflow-start",
-                    task_compose=TaskComposeInput.model_validate(
-                        {
-                            "task": {
-                                "key": "published-workflow-start",
-                                "title": "Published Workflow provider start",
-                                "summary": "Prove exact Team and provider start truth.",
-                            },
-                            "workflow": {"key": "reviewed-delivery"},
-                        }
+                    workspace=tmp_path,
+                    workflow_revision=workflow_revision,
+                    assignment=AssignmentBody(
+                        prompt="Prove exact Team and provider start truth.",
                     ),
                 ),
             )
@@ -170,13 +171,13 @@ def _assert_exact_runtime_truth(
     assert task.workflow_key == "reviewed-delivery" and task.workflow_revision_no == 1
     assert task.max_wave_members == 8
     assert assignment is not None
-    assert assignment.team_revision_id == task.current_team_revision_id
     assert assignment.member_id == "lead"
     assert assignment.child_assignment_limit == 20 and assignment.retry_limit == 1
     assert dispatch is not None and dispatch.status == "open"
-    assert dispatch.team_revision_id == assignment.team_revision_id
-    assert dispatch.member_configuration_id == assignment.member_configuration_id
-    assert dispatch.member_branch_basis_id == assignment.member_branch_basis_id
+    assert dispatch.team_revision_id == task.current_team_revision_id
+    assert dispatch.member_id == assignment.member_id
+    assert dispatch.member_configuration_id
+    assert dispatch.member_branch_basis_id
     assert dispatch.requested_provider == dispatch.resolved_provider == "codex"
     assert dispatch.provider_selection_basis == "default"
     assert capabilities is not None

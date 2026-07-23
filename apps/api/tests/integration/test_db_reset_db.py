@@ -170,6 +170,43 @@ def test_db_reset_deletes_controller_task_root_but_preserves_external_workspace(
     assert external_file.read_text(encoding="utf-8") == "user owned"
 
 
+def test_db_reset_preserves_accepted_workspace_task_directory(tmp_path: Path) -> None:
+    config_path = tmp_path / "banksia-config.toml"
+    data_dir = tmp_path / "banksia-data"
+    database_path = data_dir / "banksia.persistence"
+    task_root = tmp_path / "workspace" / ".banksia" / "t_01234567"
+    retained_file = task_root / "notes" / "retain.md"
+
+    _run_packaged_cli(
+        "init",
+        "--config",
+        str(config_path),
+        "--data-dir",
+        str(data_dir),
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8123",
+        "--log-level",
+        "INFO",
+        "--force",
+    )
+    retained_file.parent.mkdir(parents=True)
+    retained_file.write_text("accepted workspace data", encoding="utf-8")
+    _insert_task(database_path, task_root=task_root)
+
+    result = _run_packaged_cli(
+        "db",
+        "reset",
+        "--config",
+        str(config_path),
+        "--json",
+    )
+
+    assert json.loads(result.stdout)["deleted_task_root_count"] == 0
+    assert retained_file.read_text(encoding="utf-8") == "accepted workspace data"
+
+
 def test_db_reset_rejects_controller_task_root_outside_data_boundary_before_destruction(
     tmp_path: Path,
 ) -> None:
@@ -405,9 +442,6 @@ async def _insert_postgres_reset_task(task_root: Path) -> None:
                 """
                 INSERT INTO banksia.tasks (
                     task_id,
-                    task_key,
-                    title,
-                    summary,
                     workflow_key,
                     workflow_revision_no,
                     workflow_content_hash,
@@ -416,9 +450,6 @@ async def _insert_postgres_reset_task(task_root: Path) -> None:
                     updated_at
                 ) VALUES (
                     'task.postgres',
-                    'task-postgres',
-                    'PostgreSQL reset proof',
-                    'PostgreSQL reset proof.',
                     'autonomous-delivery',
                     1,
                     (
@@ -480,10 +511,6 @@ def _insert_task(database_path: Path, *, task_root: Path) -> None:
         assert workflow_content_hash is not None
         provided_values: dict[str, object] = {
             "task_id": "task.alpha",
-            "task_key": "task-alpha",
-            "title": "Task alpha",
-            "summary": "Reset cleanup proof.",
-            "instruction": None,
             "workflow_key": "autonomous-delivery",
             "workflow_revision_no": 1,
             "workflow_content_hash": workflow_content_hash[0],

@@ -3,7 +3,6 @@ from __future__ import annotations
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from banksia.persistence.models import (
-    FlowEdgeModel,
     FlowNodeModel,
     FlowRevisionModel,
     MemberBranchBasisModel,
@@ -14,7 +13,7 @@ from banksia.persistence.models import (
     TeamRevisionModel,
 )
 from banksia.runtime.dispatch.authority import NodeOperationAuthority
-from banksia.runtime.ids import flow_edge_id, flow_node_id, node_plan_revision_id
+from banksia.runtime.ids import flow_node_id, node_plan_revision_id
 from banksia.runtime.replan.context import ReplanCommitContext
 from banksia.runtime.replan.planning import PlannedMember, ReplanMutation, successor_preorder
 
@@ -157,7 +156,6 @@ def _stage_flow_successor(
             },
         )
     )
-    surviving_ids = {member.member_id for member in ordered}
     for index, member in enumerate(ordered):
         _stage_flow_member(
             session,
@@ -167,25 +165,6 @@ def _stage_flow_successor(
             successor_team_id=successor_team_id,
             successor_flow_id=successor_flow_id,
         )
-    for edge in context.edges:
-        if edge.provider_node_key in surviving_ids and edge.consumer_node_key in surviving_ids:
-            session.add(
-                FlowEdgeModel(
-                    flow_edge_id=flow_edge_id(
-                        successor_flow_id,
-                        edge.consumer_node_key,
-                        edge.kind,
-                        edge.slot,
-                    ),
-                    flow_revision_id=successor_flow_id,
-                    provider_node_key=edge.provider_node_key,
-                    consumer_node_key=edge.consumer_node_key,
-                    kind=edge.kind,
-                    slot=edge.slot,
-                    description=edge.description,
-                    order_index=edge.order_index,
-                )
-            )
 
 
 def _stage_flow_member(
@@ -224,10 +203,6 @@ def _stage_flow_member(
             description=member.description or "",
             node_instruction=member.instruction,
             child_node_keys_json=list(member.children),
-            consumes_json=source.consumes_json if source is not None else None,
-            produces_json=source.produces_json if source is not None else None,
-            criteria_json=source.criteria_json if source is not None else [],
-            child_defaults_json=source.child_defaults_json if source is not None else None,
             state=state,
             current_assignment_id=current_assignment_id,
             order_index=index,

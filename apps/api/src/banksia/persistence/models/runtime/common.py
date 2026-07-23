@@ -26,8 +26,6 @@ REPLAN_SUCCESSOR_STATE_VALUES = (
     "opened",
     "cancelled",
 )
-FLOW_EDGE_KIND_VALUES = ("artifact", "criteria")
-CHECKPOINT_KIND_VALUES = ("progress", "terminal")
 CHECKPOINT_OUTCOME_VALUES = ("green", "retry", "blocked")
 ATTEMPT_STATUS_VALUES = (
     "pending",
@@ -82,10 +80,8 @@ MANAGED_SANDBOX_MODE_VALUES = ("read_only", "workspace_write", "full_access")
 CAPABILITY_SOURCE_VALUES = ("default", "member_configuration", "controller")
 CAPABILITY_DECISION_VALUES = ("allow", "deny")
 BOUNDARY_OUTCOME_VALUES = ("yield", "green", "retry", "blocked")
-ASSIGNMENT_DECISION_KIND_VALUES = ("staged_child", "release_green", "release_blocked")
 WORK_PLAN_STEP_STATUS_VALUES = ("pending", "in_progress", "completed")
 WORKSPACE_BINDING_MODE_VALUES = ("controller_owned", "external")
-TRANSIENT_RETENTION_STATUS_VALUES = ("active", "expired", "removed")
 HUMAN_REQUEST_KIND_VALUES = ("direction", "approval", "input", "review")
 HUMAN_REQUEST_STATUS_VALUES = ("open", "resolved", "timed_out", "cancelled")
 HUMAN_REQUEST_RESOLUTION_KIND_VALUES = ("answered", "timed_out", "cancelled")
@@ -147,7 +143,6 @@ TASK_EVENT_TYPE_VALUES = (
     "task_resumed",
     "task_cancelled",
 )
-RUNTIME_REF_KIND_VALUES = ("artifact", "criteria", "transient", "checkpoint")
 
 
 def utcnow() -> datetime:
@@ -159,12 +154,10 @@ def sql_in(values: tuple[str, ...]) -> str:
 
 
 __all__ = [
-    "ASSIGNMENT_DECISION_KIND_VALUES",
     "ATTEMPT_STATUS_VALUES",
     "BOUNDARY_OUTCOME_VALUES",
     "CAPABILITY_DECISION_VALUES",
     "CAPABILITY_SOURCE_VALUES",
-    "CHECKPOINT_KIND_VALUES",
     "CHECKPOINT_OUTCOME_VALUES",
     "COMMAND_RUN_STATE_VALUES",
     "COMMAND_RUN_TERMINAL_SOURCE_VALUES",
@@ -173,7 +166,6 @@ __all__ = [
     "DISPATCH_OPENED_REASON_VALUES",
     "DISPATCH_STARTING_CLOSE_REASON_VALUES",
     "DISPATCH_STATUS_VALUES",
-    "FLOW_EDGE_KIND_VALUES",
     "FLOW_STATUS_VALUES",
     "FLOW_TERMINAL_OUTCOME_VALUES",
     "FLOW_WAITING_CAUSE_VALUES",
@@ -193,11 +185,9 @@ __all__ = [
     "REPLAN_MANIFEST_STATE_VALUES",
     "REPLAN_OPERATION_VALUES",
     "REPLAN_SUCCESSOR_STATE_VALUES",
-    "RUNTIME_REF_KIND_VALUES",
     "STRUCTURAL_REVISION_CAUSE_VALUES",
     "TASK_EVENT_SOURCE_VALUES",
     "TASK_EVENT_TYPE_VALUES",
-    "TRANSIENT_RETENTION_STATUS_VALUES",
     "WORKSPACE_BINDING_MODE_VALUES",
     "WORK_PLAN_STEP_STATUS_VALUES",
     "sql_in",

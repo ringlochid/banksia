@@ -10,10 +10,16 @@ import banksia.persistence.session_operations as session_operations
 import banksia.runtime.task_start as task_start_module
 import httpx
 import pytest
-import yaml
-from banksia.interfaces.mcp.operator.server import create_operator_mcp_server
+from banksia.config import CodexSettings, RuntimeSettings, Settings
+from banksia.interfaces.mcp.operator.server import (
+    OperatorEffectPublishers,
+    create_operator_mcp_server,
+)
 from banksia.main import create_app
 from banksia.persistence.session import get_db_session
+from banksia.providers import ProviderKind
+from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
+from banksia.runtime.post_commit import CapturedRuntimeEffectPublisher
 from sqlalchemy.ext.asyncio import AsyncSession
 from tests.helpers.workflow_runtime import initialized_workflow_database
 
@@ -91,20 +97,20 @@ async def test_http_task_start_commits_current_workflow_and_maps_unknown_to_404(
         async with _http_client(session_factory) as client:
             started = await client.post(
                 "/tasks/start",
-                json=_task_compose_payload("http-workflow-start"),
+                json=_task_start_payload(tmp_path),
             )
             missing = await client.post(
                 "/tasks/start",
-                json=_task_compose_payload(
-                    "http-missing-workflow",
+                json=_task_start_payload(
+                    tmp_path,
                     workflow_id="missing-workflow",
                 ),
             )
 
     assert started.status_code == 200, started.text
-    assert started.json()["task_id"].startswith("task_http-workflow-start_")
-    assert started.json()["flow_status"] == "running"
-    assert started.json()["workflow_manifest_ref"]["path"] == ("_runtime/workflow-manifest.md")
+    assert started.json()["task_id"].startswith("t_")
+    assert started.json()["status"] == "accepted"
+    assert started.json()["manifest"].endswith("/manifest.md")
     assert missing.status_code == 404, missing.text
     assert missing.json()["code"] == "missing_resource"
 
@@ -113,22 +119,25 @@ async def test_operator_task_start_uses_the_same_committing_service(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    task_compose_path = tmp_path / "operator-task-compose.yaml"
-    task_compose_path.write_text(
-        yaml.safe_dump(_task_compose_payload("operator-workflow-start")),
-        encoding="utf-8",
-    )
     async with initialized_workflow_database(tmp_path) as session_factory:
         monkeypatch.setattr(task_start_module, "get_session_factory", lambda: session_factory)
-        result = await create_operator_mcp_server().call_tool(
-            "start_task",
-            {"task_compose_path": str(task_compose_path)},
+        result = await create_operator_mcp_server(
+            effect_publishers=OperatorEffectPublishers(
+                dispatch_opening_dependencies=_opening_dependencies(tmp_path),
+            )
+        ).call_tool(
+            "task_start",
+            {
+                "workflow": "reviewed-delivery",
+                "prompt": "Complete the requested work.",
+                "workspace": str(tmp_path),
+            },
         )
 
     assert isinstance(result, tuple) and len(result) == 2
     payload = cast(dict[str, object], result[1])
-    assert str(payload["task_id"]).startswith("task_operator-workflow-start_")
-    assert payload["flow_status"] == "running"
+    assert str(payload["task_id"]).startswith("t_")
+    assert payload["status"] == "accepted"
 
 
 async def test_http_and_operator_workflow_schemas_hide_private_guardrails_and_hashes() -> None:
@@ -209,24 +218,22 @@ def _contains_schema_keyword(
     return False
 
 
-def _task_compose_payload(
-    task_key: str,
+def _task_start_payload(
+    workspace: Path,
     *,
     workflow_id: str = "reviewed-delivery",
 ) -> dict[str, object]:
     return {
-        "task": {
-            "key": task_key,
-            "title": "Workflow-only public start",
-            "summary": "Exercise the bounded pre-WP-03 Task start bridge.",
-        },
-        "workflow": {"key": workflow_id},
+        "workflow": workflow_id,
+        "prompt": "Exercise the exact Task start contract.",
+        "workspace": str(workspace),
     }
 
 
 @asynccontextmanager
 async def _http_client(session_factory: Any) -> AsyncIterator[httpx.AsyncClient]:
     app = create_app(should_enable_mcp_mounts=False)
+    app.state.dispatch_opening_dependencies = _opening_dependencies(Path("/"))
 
     async def session_dependency() -> AsyncIterator[AsyncSession]:
         async with session_factory() as session:
@@ -238,3 +245,15 @@ async def _http_client(session_factory: Any) -> AsyncIterator[httpx.AsyncClient]
         base_url="http://127.0.0.1:8123",
     ) as client:
         yield client
+
+
+def _opening_dependencies(workspace: Path) -> DispatchOpeningDependencies:
+    return DispatchOpeningDependencies.create(
+        settings=Settings(
+            controller_workspace=workspace,
+            runtime=RuntimeSettings(default_provider=ProviderKind.CODEX),
+            codex=CodexSettings(enabled=True),
+        ),
+        available_adapter_kinds={ProviderKind.CODEX},
+        post_commit_publisher=CapturedRuntimeEffectPublisher(),
+    )

@@ -6,12 +6,18 @@ from uuid import uuid4
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from banksia.persistence.models import CommandRunModel, FlowWaitModel, HumanRequestModel
+from banksia.persistence.models import (
+    CommandRunModel,
+    FlowWaitModel,
+    HumanRequestFileReferenceModel,
+    HumanRequestModel,
+)
 from banksia.runtime.clock import utc_now
 from banksia.runtime.contracts import (
     CommandExpectedOutput,
     CommandRunStartResponse,
     CommandRunState,
+    FileReference,
     HumanRequestOpenResponse,
     TaskEventSource,
     TaskEventType,
@@ -19,6 +25,7 @@ from banksia.runtime.contracts import (
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
 from banksia.runtime.dispatch.authority import NodeOperationAuthority
 from banksia.runtime.errors import RuntimeOperationError
+from banksia.runtime.file_references import validate_file_references
 from banksia.runtime.node_operations.contracts import (
     OpenHumanRequestRequest,
     StartCommandRunRequest,
@@ -26,6 +33,7 @@ from banksia.runtime.node_operations.contracts import (
 from banksia.runtime.node_operations.source_transitions import close_source_dispatch
 from banksia.runtime.task_events import append_task_event
 from banksia.runtime.task_root.logical_paths import normalize_logical_task_path
+from banksia.runtime.task_root.reads import read_task_root_paths
 
 
 async def open_human_request(
@@ -35,13 +43,8 @@ async def open_human_request(
 ) -> HumanRequestOpenResponse:
     request_id = f"human-request.{authority.task_id}.{uuid4().hex}"
     body = request.request
-    context_refs = [
-        {
-            "path": normalize_logical_task_path(context_ref.path),
-            "description": context_ref.description,
-        }
-        for context_ref in body.context_refs
-    ]
+    paths = await read_task_root_paths(session, authority.task_id)
+    files = validate_file_references(paths.workspace_path, body.files)
     now = utc_now()
     await close_source_dispatch(
         session,
@@ -62,8 +65,6 @@ async def open_human_request(
             request_kind=body.kind.value,
             request_summary=body.summary,
             request_items_json=[item.model_dump(mode="json") for item in body.items],
-            context_refs_json=context_refs or None,
-            suggested_human_instruction=body.suggested_human_instruction,
             capability_basis_json={"decision": "allow", "kind": body.kind.value},
             due_at=body.timeout.due_at,
             timeout_policy_json=({"kind": "deadline"} if body.timeout.due_at is not None else None),
@@ -75,6 +76,7 @@ async def open_human_request(
             status="open",
         )
     )
+    _stage_human_request_files(session, request_id=request_id, files=files)
     session.add(
         FlowWaitModel(
             flow_id=authority.flow_id,
@@ -146,6 +148,23 @@ async def start_command_run(
         run_id=run_id,
         task_id=authority.task_id,
         state=CommandRunState.PENDING_START,
+    )
+
+
+def _stage_human_request_files(
+    session: AsyncSession,
+    *,
+    request_id: str,
+    files: tuple[FileReference, ...],
+) -> None:
+    session.add_all(
+        HumanRequestFileReferenceModel(
+            request_id=request_id,
+            order_index=index,
+            path=file.path,
+            description=file.description,
+        )
+        for index, file in enumerate(files)
     )
 
 

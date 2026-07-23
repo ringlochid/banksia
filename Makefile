@@ -124,7 +124,7 @@ console-openapi-generate: $(PYTHON)
 	@schema_file=$$(mktemp); \
 	cleanup() { rm -f "$$schema_file"; }; \
 	trap cleanup EXIT INT TERM; \
-	PYTHONPATH=$(CURDIR)/apps/api/src $(PYTHON) scripts/console/export_openapi.py > "$$schema_file"; \
+	PYTHONPATH=$(CURDIR)/apps/api/src:$(CURDIR) $(PYTHON) scripts/console/export_openapi.py > "$$schema_file"; \
 	$(NPM) --prefix $(CONSOLE_DIR) run openapi:generate -- "$$schema_file" -o src/api/generated/openapi.ts
 
 console-openapi-check: $(PYTHON)
@@ -132,7 +132,7 @@ console-openapi-check: $(PYTHON)
 	types_file=$$(mktemp); \
 	cleanup() { rm -f "$$schema_file" "$$types_file"; }; \
 	trap cleanup EXIT INT TERM; \
-	PYTHONPATH=$(CURDIR)/apps/api/src $(PYTHON) scripts/console/export_openapi.py > "$$schema_file"; \
+	PYTHONPATH=$(CURDIR)/apps/api/src:$(CURDIR) $(PYTHON) scripts/console/export_openapi.py > "$$schema_file"; \
 	$(NPM) --prefix $(CONSOLE_DIR) run openapi:generate -- "$$schema_file" -o "$$types_file" >/dev/null; \
 	diff -u $(CONSOLE_DIR)/src/api/generated/openapi.ts "$$types_file"
 

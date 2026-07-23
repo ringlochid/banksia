@@ -27,12 +27,17 @@ from banksia.runtime.contracts.primitives import (
     HumanRequestResolutionKind,
     HumanRequestStatus,
 )
+from banksia.runtime.contracts.refs import FileReference
 from banksia.runtime.contracts.replan import ReplanSuccess
 from banksia.runtime.work_plan.contracts import WorkPlanRead
 
 PromptText = Annotated[
     str,
     StringConstraints(strip_whitespace=True, min_length=1, max_length=8_192),
+]
+PromptAssignmentText = Annotated[
+    str,
+    StringConstraints(min_length=1),
 ]
 PromptIdentifier = Annotated[
     str,
@@ -47,19 +52,14 @@ class PromptLogicalPathValidator:
         path = PurePosixPath(logical_path)
         if path.is_absolute() or ".." in path.parts:
             raise ValueError("prompt refs require a contained task-relative path")
-        if not path.parts or path.parts[0] not in {
-            "workspace",
-            "outputs",
-            "tmp",
-            "_runtime",
-        }:
-            raise ValueError("prompt refs require a declared logical task root")
+        if not path.parts:
+            raise ValueError("prompt refs require a workspace-relative path")
         return logical_path
 
 
 PromptLogicalPath = Annotated[
     str,
-    StringConstraints(strip_whitespace=True, min_length=1, max_length=2_048),
+    StringConstraints(min_length=1, max_length=4_096),
     AfterValidator(PromptLogicalPathValidator()),
 ]
 PromptDocumentText = Annotated[
@@ -78,8 +78,6 @@ PROMPT_DYNAMIC_INPUT_KEYS = (
 PARENT_ROOT_ACTIONS = frozenset(
     {
         "assign_child",
-        "release_blocked",
-        "release_green",
     }
 )
 
@@ -91,14 +89,6 @@ class PromptContract(BaseModel):
 class PromptFamily(StrEnum):
     WORKER = "worker"
     PARENT_ROOT = "parent_root"
-
-
-class PromptRefKind(StrEnum):
-    ARTIFACT = "artifact"
-    CRITERIA = "criteria"
-    CHECKPOINT = "checkpoint"
-    TRANSIENT = "transient"
-    WORKSPACE = "workspace"
 
 
 class PromptCommandOutcome(StrEnum):
@@ -120,40 +110,6 @@ class PromptInstructionGuidance(PromptContract):
     workflow: tuple[PromptText, ...] = ()
     member: tuple[PromptText, ...] = ()
     node: tuple[PromptText, ...] = ()
-
-
-class PromptLogicalRef(PromptContract):
-    kind: PromptRefKind
-    logical_path: PromptLogicalPath
-    purpose: PromptText
-    description: PromptText
-    slot: PromptIdentifier | None = None
-    version: int | None = Field(default=None, ge=1)
-
-    @model_validator(mode="after")
-    def validate_ref_metadata(self) -> PromptLogicalRef:
-        if self.kind == PromptRefKind.ARTIFACT:
-            if self.slot is None or self.version is None:
-                raise ValueError("artifact refs require slot and version")
-            return self
-        if self.version is not None:
-            raise ValueError("only artifact refs may carry a version")
-        return self
-
-
-class PromptCriterion(PromptContract):
-    slot: PromptIdentifier
-    description: PromptText
-    checks: tuple[PromptText, ...] = Field(min_length=1, max_length=32)
-    logical_path: PromptLogicalPath | None = None
-
-
-class PromptSlot(PromptContract):
-    slot: PromptIdentifier
-    kind: PromptRefKind
-    description: PromptText
-    logical_path: PromptLogicalPath | None = None
-    version: int | None = Field(default=None, ge=1)
 
 
 class PromptAssignmentBudget(PromptContract):
@@ -182,20 +138,17 @@ class PromptAssignment(PromptContract):
     member_id: PromptIdentifier
     member_title: PromptText | None = None
     node_kind: NodeKind
-    summary: PromptText
-    instruction: PromptText | None = None
-    criteria: tuple[PromptCriterion, ...] = ()
-    consume_slots: tuple[PromptSlot, ...] = ()
-    produce_slots: tuple[PromptSlot, ...] = ()
+    prompt: PromptAssignmentText
+    files: tuple[FileReference, ...] = ()
     budget: PromptAssignmentBudget | None = None
 
 
 class PromptCheckpointSummary(PromptContract):
     checkpoint_id: PromptIdentifier
-    logical_path: PromptLogicalPath
-    summary: PromptText
+    summary: str
+    details: str | None = None
+    files: tuple[FileReference, ...] = ()
     outcome: CheckpointOutcome
-    refs: tuple[PromptLogicalRef, ...] = ()
 
 
 class RootStartTrigger(PromptContract):
@@ -279,7 +232,7 @@ class CommandResultTrigger(PromptContract):
     source_dispatch_id: PromptIdentifier
     request: CommandRunStartRequest
     result: PromptCommandResult
-    refs: tuple[PromptLogicalRef, ...] = ()
+    files: tuple[FileReference, ...] = ()
 
 
 class WatchdogRecoveryTrigger(PromptContract):
@@ -369,8 +322,6 @@ class PromptContext(PromptContract):
     allowed_actions: tuple[PromptIdentifier, ...]
     workflow_neighborhood: tuple[PromptWorkflowNeighbor, ...] = ()
     readback_refs: RuntimeReadbackRefs
-    refs: tuple[PromptLogicalRef, ...] = ()
-    checkpoint_to_resume_from: PromptLogicalRef | None = None
     constraints: tuple[PromptText, ...] = ()
 
 
@@ -390,7 +341,6 @@ class PromptDispatch(PromptContract):
 
 class PromptNext(PromptContract):
     instruction: PromptText
-    inspect_refs: tuple[PromptLogicalRef, ...] = ()
 
 
 class PromptDynamicInput(PromptContract):
@@ -467,15 +417,11 @@ __all__ = [
     "PromptCommandResult",
     "PromptCommandTerminalSource",
     "PromptContext",
-    "PromptCriterion",
     "PromptDispatch",
     "PromptDynamicInput",
     "PromptFamily",
     "PromptInstructionGuidance",
-    "PromptLogicalRef",
     "PromptNext",
-    "PromptRefKind",
-    "PromptSlot",
     "PromptTrigger",
     "PromptWorkflowNeighbor",
     "RenderedDispatchRequest",

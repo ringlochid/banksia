@@ -129,6 +129,7 @@ class Settings(BaseSettings):
     log_level: str = DEFAULT_LOG_LEVEL
     config_path: Path = Field(default_factory=default_config_path)
     data_dir: Path = Field(default_factory=default_data_dir)
+    controller_workspace: Path | None = None
     codex: CodexSettings = Field(default_factory=CodexSettings)
     claude: ClaudeSettings = Field(default_factory=ClaudeSettings)
     openclaw: OpenClawSettings = Field(default_factory=OpenClawSettings)
@@ -216,6 +217,8 @@ def load_settings() -> Settings:
         settings.should_echo_database = database_echo_override
     settings.config_path = _coerce_path(settings.config_path)
     settings.data_dir = _coerce_path(settings.data_dir)
+    if settings.controller_workspace is not None:
+        settings.controller_workspace = _coerce_path(settings.controller_workspace)
     if "database_url" not in settings.model_fields_set:
         settings.database_url = default_database_url(settings.data_dir)
     return settings
@@ -320,6 +323,7 @@ def _load_toml_settings() -> dict[str, Any]:
         "api_host": ("server", "host"),
         "api_port": ("server", "port"),
         "log_level": ("logging", "level"),
+        "controller_workspace": ("paths", "workspace"),
     }
     for field_name, key_path in field_mapping.items():
         value = _nested_get(payload, *key_path)

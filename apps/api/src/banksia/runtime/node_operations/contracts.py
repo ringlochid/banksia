@@ -9,9 +9,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from banksia.runtime.contracts import (
     AddChildRequest,
     AssignChildPayload,
-    CheckpointWriteBody,
     CommandRunStartRequest,
-    EgressBoundary,
+    FileReference,
     HumanRequestOpenRequest,
     RemoveChildRequest,
     UpdateChildRequest,
@@ -27,7 +26,7 @@ class NodeOperationName(StrEnum):
     LIST_FILES = "list_files"
     READ_FILE = "read_file"
     SET_WORK_PLAN = "set_work_plan"
-    RECORD_CHECKPOINT = "record_checkpoint"
+    CHECKPOINT = "checkpoint"
     RETURN_BOUNDARY = "return_boundary"
     OPEN_HUMAN_REQUEST = "open_human_request"
     START_COMMAND_RUN = "start_command_run"
@@ -35,8 +34,6 @@ class NodeOperationName(StrEnum):
     ADD_CHILD = "add_child"
     UPDATE_CHILD = "update_child"
     REMOVE_CHILD = "remove_child"
-    RELEASE_GREEN = "release_green"
-    RELEASE_BLOCKED = "release_blocked"
 
 
 class NodeOperationMutationKind(StrEnum):
@@ -67,9 +64,8 @@ class AssignmentContextRead(BaseModel):
     assignment_id: RuntimeSchemaText
     node_key: RuntimeSchemaText
     node_kind: NodeKind
-    summary: RuntimeSchemaText
-    instruction: RuntimeSchemaText | None = None
-    criteria: tuple[dict[str, object], ...] = ()
+    prompt: str
+    files: tuple[FileReference, ...] = ()
 
 
 class AttemptContextRead(BaseModel):
@@ -134,16 +130,6 @@ class EffectiveCapabilitySetRead(BaseModel):
     command_run: Literal["allow", "deny"]
 
 
-class SlotContextRead(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    slot: RuntimeSchemaText
-    kind: Literal["artifact", "criteria", "checkpoint", "transient", "workspace"]
-    description: RuntimeSchemaText
-    path: RuntimeSchemaText | None = None
-    version: int | None = Field(default=None, ge=1)
-
-
 class GetCurrentContextResponse(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -157,10 +143,7 @@ class GetCurrentContextResponse(BaseModel):
     readback_refs: RuntimeReadbackRefs
     capabilities: EffectiveCapabilitySetRead
     allowed_actions: tuple[NodeOperationName, ...]
-    consume_slots: tuple[SlotContextRead, ...]
-    produce_slots: tuple[SlotContextRead, ...]
     continuation: dict[str, object] | None = None
-    checkpoint_to_resume_from: RuntimeSchemaText | None = None
 
 
 class ListFilesRequest(BaseModel):
@@ -205,16 +188,10 @@ class ReadFileResponse(BaseModel):
     next_start_line: int | None = Field(default=None, ge=1)
 
 
-class RecordCheckpointRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    checkpoint: CheckpointWriteBody
-
-
 class ReturnBoundaryRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    boundary: EgressBoundary
+    boundary: Literal["yield"]
 
 
 class OpenHumanRequestRequest(BaseModel):
@@ -237,10 +214,6 @@ class StructuralOperationRequest(BaseModel):
 
 class AssignChildRequest(StructuralOperationRequest):
     payload: AssignChildPayload
-
-
-class ReleaseRequest(StructuralOperationRequest):
-    pass
 
 
 @dataclass(frozen=True)
@@ -278,11 +251,8 @@ __all__ = [
     "OpenHumanRequestRequest",
     "ReadFileRequest",
     "ReadFileResponse",
-    "RecordCheckpointRequest",
-    "ReleaseRequest",
     "RemoveChildRequest",
     "ReturnBoundaryRequest",
-    "SlotContextRead",
     "StartCommandRunRequest",
     "StructuralOperationRequest",
     "UpdateChildRequest",

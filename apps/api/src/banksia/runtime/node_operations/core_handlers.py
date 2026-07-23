@@ -8,10 +8,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import raiseload
 
 from banksia.persistence.models import (
-    AcceptedBoundaryModel,
     DispatchPromptRefsModel,
     FlowNodeModel,
 )
+from banksia.runtime.assignment import read_assignment_file_references
 from banksia.runtime.contracts.member import NodeKind
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
 from banksia.runtime.contracts.prompt import RuntimeReadbackRefs
@@ -36,7 +36,6 @@ from banksia.runtime.node_operations.contracts import (
     NodeOperationName,
     ReadFileRequest,
     ReadFileResponse,
-    SlotContextRead,
     WorkflowNeighborRead,
 )
 from banksia.runtime.node_operations.state_legality import (
@@ -54,8 +53,6 @@ from banksia.runtime.work_plan import (
 )
 
 type CapabilityDecisionValue = Literal["allow", "deny"]
-type SlotKind = Literal["artifact", "criteria", "checkpoint", "transient", "workspace"]
-
 _CURRENT_TRIGGER_KIND_BY_OPENED_REASON = {
     "root": CurrentContextTriggerKind.ROOT_START,
     "boundary": CurrentContextTriggerKind.ACCEPTED_BOUNDARY,
@@ -101,7 +98,10 @@ async def _get_current_context(
     plan = await read_assignment_work_plan(session, assignment_id=authority.assignment_id)
     workflow_neighborhood = await _read_workflow_neighborhood(session, authority)
     readback_refs = await _read_runtime_readback_refs(session, authority)
-    checkpoint_to_resume_from = await _read_boundary_checkpoint_ref(session, authority)
+    assignment_files = await read_assignment_file_references(
+        session,
+        assignment_id=authority.assignment_id,
+    )
     capabilities = authority.capabilities
     state_legal_actions = await read_state_legal_node_operations(session, authority)
     allowed_actions = tuple(
@@ -117,9 +117,8 @@ async def _get_current_context(
             assignment_id=authority.assignment_id,
             node_key=authority.node_key,
             node_kind=authority.node_kind,
-            summary=authority.assignment.summary,
-            instruction=authority.assignment.instruction,
-            criteria=tuple(authority.assignment.criteria_json),
+            prompt=authority.assignment.prompt,
+            files=assignment_files,
         ),
         attempt=AttemptContextRead(
             attempt_id=authority.attempt_id,
@@ -149,9 +148,6 @@ async def _get_current_context(
             command_run=cast(CapabilityDecisionValue, capabilities.command_run),
         ),
         allowed_actions=allowed_actions,
-        consume_slots=_slot_reads(authority.assignment.consumes_json, default_kind="artifact"),
-        produce_slots=_slot_reads(authority.assignment.produces_json, default_kind="artifact"),
-        checkpoint_to_resume_from=checkpoint_to_resume_from,
     )
 
 
@@ -168,31 +164,6 @@ def _current_context_trigger(authority: NodeOperationAuthority) -> CurrentContex
         kind=kind,
         source_dispatch_id=authority.predecessor_dispatch_id,
     )
-
-
-async def _read_boundary_checkpoint_ref(
-    session: AsyncSession,
-    authority: NodeOperationAuthority,
-) -> str | None:
-    source_dispatch_id = authority.predecessor_dispatch_id
-    if source_dispatch_id is None:
-        return None
-    row = (
-        await session.execute(
-            select(
-                AcceptedBoundaryModel.attempt_id,
-                AcceptedBoundaryModel.checkpoint_id,
-            ).where(
-                AcceptedBoundaryModel.successor_dispatch_id == authority.dispatch_id,
-                AcceptedBoundaryModel.source_dispatch_id == source_dispatch_id,
-                AcceptedBoundaryModel.task_id == authority.task_id,
-                AcceptedBoundaryModel.flow_id == authority.flow_id,
-            )
-        )
-    ).one_or_none()
-    if row is None or row.checkpoint_id is None:
-        return None
-    return f"_runtime/attempts/{row.attempt_id}/latest-checkpoint.md"
 
 
 async def _read_workflow_neighborhood(
@@ -245,7 +216,7 @@ async def _read_runtime_readback_refs(
     return RuntimeReadbackRefs(
         instructions=prompt_refs.instructions_logical_path,
         input=prompt_refs.input_logical_path,
-        workflow_manifest="_runtime/workflow-manifest.md",
+        workflow_manifest="manifest.md",
     )
 
 
@@ -286,36 +257,6 @@ async def _read_file(
         has_more=has_more,
         next_start_line=next_line,
     )
-
-
-def _slot_reads(
-    values: list[dict[str, object]],
-    *,
-    default_kind: str,
-) -> tuple[SlotContextRead, ...]:
-    result: list[SlotContextRead] = []
-    for value in values:
-        slot = value.get("slot")
-        if not isinstance(slot, str) or not slot.strip():
-            continue
-        description = value.get("description")
-        kind = value.get("kind", default_kind)
-        if kind not in {"artifact", "criteria", "checkpoint", "transient", "workspace"}:
-            kind = default_kind
-        path = value.get("path")
-        version = value.get("version")
-        result.append(
-            SlotContextRead(
-                slot=slot,
-                kind=cast(SlotKind, kind),
-                description=(
-                    description if isinstance(description, str) and description.strip() else slot
-                ),
-                path=path if isinstance(path, str) and path.strip() else None,
-                version=version if isinstance(version, int) and version >= 1 else None,
-            )
-        )
-    return tuple(result)
 
 
 def _capability_allows(operation_name: NodeOperationName, capabilities: object) -> bool:

@@ -32,7 +32,6 @@ from banksia.runtime.errors import (
 from banksia.runtime.flow.cancellation import (
     cancel_execution_rows,
     cancel_external_wait,
-    read_expired_transient_cleanup_signals,
 )
 from banksia.runtime.flow.continuation import continue_paused_flow
 from banksia.runtime.flow.reads import read_runtime_flow
@@ -42,7 +41,6 @@ from banksia.runtime.post_commit import (
     HumanRequestTerminal,
     RuntimeEffectPublisher,
     RuntimeEffectSignal,
-    TransientCleanupRequested,
 )
 from banksia.runtime.task_events import append_task_event
 
@@ -207,15 +205,10 @@ async def cancel_flow(
             "summary": "Cancelled by operator.",
         },
     )
-    transient_cleanup_signals = await read_expired_transient_cleanup_signals(
-        session,
-        task_id=flow.task_id,
-    )
     await _commit_or_rollback(session)
     _publish_cleanup(runtime_effect_publisher, closed_dispatch_id)
     _publish_human_terminal(runtime_effect_publisher, human_signal)
     _publish_command_cancellation(runtime_effect_publisher, command_signal)
-    _publish_transient_cleanup(runtime_effect_publisher, transient_cleanup_signals)
     return await read_runtime_flow(session, task_id)
 
 
@@ -428,16 +421,6 @@ def _publish_human_terminal(
     if publisher is None or signal is None:
         return
     _publish_effect(publisher, signal)
-
-
-def _publish_transient_cleanup(
-    publisher: RuntimeEffectPublisher | None,
-    signals: tuple[TransientCleanupRequested, ...],
-) -> None:
-    if publisher is None:
-        return
-    for signal in signals:
-        _publish_effect(publisher, signal)
 
 
 def _publish_effect(publisher: RuntimeEffectPublisher, signal: RuntimeEffectSignal) -> None:

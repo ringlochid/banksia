@@ -227,6 +227,8 @@ def exact_node_operation_authority_exists(
                 AssignmentModel.member_id == authority.dispatch.member_id,
                 AssignmentModel.node_key == authority.node_key,
                 AssignmentModel.current_attempt_id == authority.attempt_id,
+                AssignmentModel.closed_at.is_(None),
+                AssignmentModel.superseded_at.is_(None),
             )
         ),
         exists(
@@ -328,6 +330,8 @@ async def _read_current_assignment_and_attempt(
         or assignment.flow_id != flow.flow_id
         or assignment.member_id != dispatch.member_id
         or assignment.current_attempt_id != attempt.attempt_id
+        or assignment.closed_at is not None
+        or assignment.superseded_at is not None
         or assignment.node_key != dispatch.node_key
         or attempt.assignment_id != assignment.assignment_id
         or attempt.task_id != scope.task_id

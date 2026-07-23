@@ -3,8 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from banksia.persistence import RuntimeBase
-from banksia.runtime import TaskComposeInput
-from banksia.runtime.contracts import RuntimeBootstrapInput
+from banksia.runtime.contracts import AssignmentBody, RuntimeBootstrapInput
 from banksia.runtime.launch.legacy_team_adapter import project_legacy_team_plan
 from banksia.runtime.team import plan_initial_task_team
 from banksia.workflows.canonical import canonical_workflow_hash
@@ -51,15 +50,9 @@ def build_launch_foundation_input(
         attempt_id="attempt.launch-foundation.root.1",
         assignment_key="task.launch-foundation.root.assignment.1",
         task_root=tmp_path / "task-root",
-        task_compose=TaskComposeInput.model_validate(
-            {
-                "task": {
-                    "key": "launch-foundation",
-                    "title": "Launch foundation",
-                    "summary": "Persist provider, Team, and budget truth.",
-                },
-                "workflow": {"key": workflow_revision.workflow_id},
-            }
+        workspace=tmp_path,
+        assignment=AssignmentBody(
+            prompt="Persist provider, Team, and budget truth.",
         ),
         workflow_revision=workflow_revision,
         initial_team=initial_team,

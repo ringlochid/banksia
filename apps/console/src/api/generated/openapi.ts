@@ -4,111 +4,6 @@
  */
 
 export interface paths {
-    "/authoring/definition-drafts": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Definition Drafts */
-        get: operations["get_definition_drafts_authoring_definition_drafts_get"];
-        put?: never;
-        /** Post Definition Draft */
-        post: operations["post_definition_draft_authoring_definition_drafts_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/authoring/definitions/{kind}/{key}/draft": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Definition Draft */
-        get: operations["get_definition_draft_authoring_definitions__kind___key__draft_get"];
-        /** Put Definition Draft */
-        put: operations["put_definition_draft_authoring_definitions__kind___key__draft_put"];
-        post?: never;
-        /** Delete Definition Draft Route */
-        delete: operations["delete_definition_draft_route_authoring_definitions__kind___key__draft_delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/authoring/definitions/{kind}/{key}/draft/publish": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Post Definition Draft Publish */
-        post: operations["post_definition_draft_publish_authoring_definitions__kind___key__draft_publish_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/authoring/definitions/{kind}/{key}/draft/replace-current": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Post Definition Draft Replace Current */
-        post: operations["post_definition_draft_replace_current_authoring_definitions__kind___key__draft_replace_current_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/authoring/definitions/{kind}/{key}/draft/validate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Post Definition Draft Validate */
-        post: operations["post_definition_draft_validate_authoring_definitions__kind___key__draft_validate_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/authoring/task-compose/preview": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Post Task Compose Preview */
-        post: operations["post_task_compose_preview_authoring_task_compose_preview_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/control/tasks/{task_id}": {
         parameters: {
             query?: never;
@@ -347,108 +242,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/definitions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Post Definition */
-        post: operations["post_definition_definitions_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/definitions/policies": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Policy Definitions */
-        get: operations["get_policy_definitions_definitions_policies_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/definitions/roles": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Role Definitions */
-        get: operations["get_role_definitions_definitions_roles_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/definitions/workflows": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Workflow Definitions */
-        get: operations["get_workflow_definitions_definitions_workflows_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/definitions/{kind}/{key}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Definition */
-        get: operations["get_definition_definitions__kind___key__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/definitions/{kind}/{key}/versions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Definition Versions */
-        get: operations["get_definition_versions_definitions__kind___key__versions_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/healthz": {
         parameters: {
             query?: never;
@@ -517,17 +310,182 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workflow-drafts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Workflow Draft */
+        post: operations["post_workflow_draft_workflow_drafts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workflow-drafts/{draft_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Workflow Draft */
+        get: operations["get_workflow_draft_workflow_drafts__draft_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Workflow Draft */
+        delete: operations["delete_workflow_draft_workflow_drafts__draft_id__delete"];
+        options?: never;
+        head?: never;
+        /** Patch Workflow Draft */
+        patch: operations["patch_workflow_draft_workflow_drafts__draft_id__patch"];
+        trace?: never;
+    };
+    "/workflow-drafts/{draft_id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Workflow Draft Publish */
+        post: operations["post_workflow_draft_publish_workflow_drafts__draft_id__publish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workflow-drafts/{draft_id}/undo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Workflow Draft Undo */
+        post: operations["post_workflow_draft_undo_workflow_drafts__draft_id__undo_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workflow-drafts/{draft_id}/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Workflow Draft Validate */
+        post: operations["post_workflow_draft_validate_workflow_drafts__draft_id__validate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workflows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Workflows */
+        get: operations["get_workflows_workflows_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workflows/{workflow_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Workflow */
+        get: operations["get_workflow_workflows__workflow_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workflows/{workflow_id}/revisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Workflow Revisions */
+        get: operations["get_workflow_revisions_workflows__workflow_id__revisions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workflows/{workflow_id}/revisions/{revision_no}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Workflow Revision */
+        get: operations["get_workflow_revision_workflows__workflow_id__revisions__revision_no__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AddMemberOperation */
+        AddMemberOperation: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "add_member";
+            member: components["schemas"]["NewMember"];
+            /** Parent Member Id */
+            parent_member_id: string;
+        };
         /** BoundaryAcceptedEventPayload */
         BoundaryAcceptedEventPayload: {
             assignment_decision_id?: components["schemas"]["TaskEventIdentifier"] | null;
             assignment_id: components["schemas"]["TaskEventIdentifier"];
             attempt_id: components["schemas"]["TaskEventIdentifier"];
             checkpoint_id?: components["schemas"]["TaskEventIdentifier"] | null;
-            checkpoint_ref?: components["schemas"]["TaskEventRef"] | null;
             outcome: components["schemas"]["EgressBoundary"];
             /**
              * Resulting Flow Status
@@ -553,30 +511,24 @@ export interface components {
             /** Successor Dispatch Id */
             successor_dispatch_id?: string | null;
         };
-        /** BudgetSpec */
-        BudgetSpec: {
-            /** Child Assignment Limit */
-            child_assignment_limit?: number | null;
-            /** Retry Limit */
-            retry_limit?: number | null;
-        };
-        /**
-         * CapabilityDecision
-         * @enum {string}
-         */
-        CapabilityDecision: "deny" | "allow";
         /**
          * CapabilitySource
          * @enum {string}
          */
-        CapabilitySource: "default" | "policy_definition" | "task_policy" | "controller";
+        CapabilitySource: "default" | "member_configuration" | "controller";
         /** CheckpointHistoryEntry */
         CheckpointHistoryEntry: {
             /** Attempt Id */
             attempt_id: string;
             /** Checkpoint Id */
             checkpoint_id: string;
-            checkpoint_kind: components["schemas"]["CheckpointKind"];
+            /** Details */
+            details?: string | null;
+            /**
+             * Files
+             * @default []
+             */
+            files: components["schemas"]["FileReference"][];
             outcome?: components["schemas"]["CheckpointOutcome"] | null;
             /**
              * Recorded At
@@ -586,11 +538,6 @@ export interface components {
             /** Summary */
             summary: string;
         };
-        /**
-         * CheckpointKind
-         * @enum {string}
-         */
-        CheckpointKind: "progress" | "terminal";
         /**
          * CheckpointOutcome
          * @enum {string}
@@ -602,20 +549,15 @@ export interface components {
             attempt_id: components["schemas"]["TaskEventIdentifier"];
             authored_by_dispatch_id: components["schemas"]["TaskEventIdentifier"];
             checkpoint_id: components["schemas"]["TaskEventIdentifier"];
-            checkpoint_kind: components["schemas"]["CheckpointKind"];
-            checkpoint_ref: components["schemas"]["TaskEventRef"];
+            /** Details */
+            details?: string | null;
+            /**
+             * Files
+             * @default []
+             */
+            files: components["schemas"]["FileReference"][];
             outcome?: components["schemas"]["CheckpointOutcome"] | null;
-            /**
-             * Produced Artifacts
-             * @default []
-             */
-            produced_artifacts: components["schemas"]["TaskEventArtifactRef"][];
             summary: components["schemas"]["TaskEventSummary"];
-            /**
-             * Transient Surfaces
-             * @default []
-             */
-            transient_surfaces: components["schemas"]["TaskEventTransientRef"][];
         };
         /** ChildAssignmentCommittedEventPayload */
         ChildAssignmentCommittedEventPayload: {
@@ -635,27 +577,39 @@ export interface components {
             parent_assignment_id: components["schemas"]["TaskEventIdentifier"];
             source_dispatch_id: components["schemas"]["TaskEventIdentifier"];
         };
-        /** ChildDefaults */
-        ChildDefaults: {
-            consumes?: components["schemas"]["ConsumeBuckets"] | null;
-            /** Criteria */
-            criteria?: string[] | null;
-        };
         /** ClaudeProviderSelection */
         ClaudeProviderSelection: {
+            /**
+             * Effort
+             * @enum {string}
+             */
+            effort?: "low" | "medium" | "high" | "xhigh" | "max";
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
             kind: "claude";
+            /** Model */
+            model?: string;
+            /** Sandbox */
+            sandbox?: components["schemas"]["ProviderSandbox"];
         };
         /** CodexProviderSelection */
         CodexProviderSelection: {
+            /**
+             * Effort
+             * @enum {string}
+             */
+            effort?: "none" | "minimal" | "low" | "medium" | "high" | "xhigh";
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
             kind: "codex";
+            /** Model */
+            model?: string;
+            /** Sandbox */
+            sandbox?: components["schemas"]["ProviderSandbox"];
         };
         /** CommandArgvSpec */
         CommandArgvSpec: {
@@ -981,304 +935,6 @@ export interface components {
             kind: "shell";
         };
         CommandSpec: components["schemas"]["CommandArgvSpec"] | components["schemas"]["CommandShellSpec"];
-        /** ConsumeBuckets */
-        ConsumeBuckets: {
-            /** Artifacts */
-            artifacts?: components["schemas"]["ConsumeSelector"][] | null;
-            /** Criteria */
-            criteria?: components["schemas"]["ConsumeSelector"][] | null;
-        };
-        /** ConsumeSelector */
-        ConsumeSelector: {
-            /**
-             * Required
-             * @default true
-             */
-            required: boolean;
-            /** Slot */
-            slot: string;
-        };
-        /** CriteriaDeclaration */
-        CriteriaDeclaration: {
-            /** Criteria */
-            criteria: string[];
-            /** Description */
-            description: string;
-            /** Slot */
-            slot: string;
-        };
-        "DefinitionContent-Input": components["schemas"]["RoleDefinitionInput"] | components["schemas"]["PolicyDefinitionInput-Input"] | components["schemas"]["WorkflowDefinitionInput-Input"];
-        "DefinitionContent-Output": components["schemas"]["RoleDefinitionInput"] | components["schemas"]["PolicyDefinitionInput-Output"] | components["schemas"]["WorkflowDefinitionInput-Output"];
-        /** DefinitionDraftBaselineRead */
-        DefinitionDraftBaselineRead: {
-            /** Content Hash */
-            content_hash?: string | null;
-            /** Revision No */
-            revision_no?: number | null;
-            /** Source Path */
-            source_path?: string | null;
-        };
-        /** DefinitionDraftCreateRequest */
-        DefinitionDraftCreateRequest: {
-            /** Body */
-            body?: string | null;
-            /**
-             * Body Format
-             * @default yaml
-             * @constant
-             */
-            body_format: "yaml";
-            /** Key */
-            key: string;
-            kind: components["schemas"]["DefinitionKind"];
-            mode: components["schemas"]["DefinitionDraftMode"];
-        };
-        /** DefinitionDraftDetail */
-        DefinitionDraftDetail: {
-            based_on: components["schemas"]["DefinitionDraftBaselineRead"];
-            /** Baseline Body */
-            baseline_body?: string | null;
-            /** Baseline Normalized Content */
-            baseline_normalized_content?: {
-                [key: string]: unknown;
-            } | null;
-            /** Body */
-            body: string;
-            /**
-             * Body Format
-             * @default yaml
-             * @constant
-             */
-            body_format: "yaml";
-            /** Content Hash */
-            content_hash: string;
-            /** Draft Path */
-            draft_path: string;
-            /**
-             * Is Saved
-             * @default true
-             */
-            is_saved: boolean;
-            /** Key */
-            key: string;
-            kind: components["schemas"]["DefinitionKind"];
-            mode: components["schemas"]["DefinitionDraftMode"];
-            /** Normalized Content */
-            normalized_content?: {
-                [key: string]: unknown;
-            } | null;
-            /** Normalized Path */
-            normalized_path: string;
-            status: components["schemas"]["DefinitionDraftStatus"];
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-        };
-        /** DefinitionDraftDetailResponse */
-        DefinitionDraftDetailResponse: {
-            draft: components["schemas"]["DefinitionDraftDetail"];
-        };
-        /** DefinitionDraftListResponse */
-        DefinitionDraftListResponse: {
-            /** Items */
-            items: components["schemas"]["DefinitionDraftSummary"][];
-            /** Next Cursor */
-            next_cursor?: string | null;
-        };
-        /**
-         * DefinitionDraftMode
-         * @enum {string}
-         */
-        DefinitionDraftMode: "create" | "update";
-        /** DefinitionDraftPublishResponse */
-        DefinitionDraftPublishResponse: {
-            /** Key */
-            key: string;
-            kind: components["schemas"]["DefinitionKind"];
-            published_revision: components["schemas"]["DefinitionDraftPublishedRevision"] | null;
-            /**
-             * Status
-             * @enum {string}
-             */
-            status: "published" | "invalid" | "stale" | "name_collision";
-            validation: components["schemas"]["DefinitionDraftValidationResponse"];
-        };
-        /** DefinitionDraftPublishedRevision */
-        DefinitionDraftPublishedRevision: {
-            /** Content Hash */
-            content_hash: string;
-            /** Key */
-            key: string;
-            kind: components["schemas"]["DefinitionKind"];
-            /** Revision No */
-            revision_no: number;
-        };
-        /**
-         * DefinitionDraftStatus
-         * @enum {string}
-         */
-        DefinitionDraftStatus: "clean" | "modified" | "new" | "stale" | "invalid";
-        /** DefinitionDraftSummary */
-        DefinitionDraftSummary: {
-            based_on: components["schemas"]["DefinitionDraftBaselineRead"];
-            /**
-             * Body Format
-             * @default yaml
-             * @constant
-             */
-            body_format: "yaml";
-            /** Content Hash */
-            content_hash: string;
-            /** Draft Path */
-            draft_path: string;
-            /** Key */
-            key: string;
-            kind: components["schemas"]["DefinitionKind"];
-            mode: components["schemas"]["DefinitionDraftMode"];
-            /** Normalized Path */
-            normalized_path: string;
-            status: components["schemas"]["DefinitionDraftStatus"];
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-        };
-        /** DefinitionDraftValidationIssue */
-        DefinitionDraftValidationIssue: {
-            /** Code */
-            code: string;
-            /**
-             * Kind
-             * @enum {string}
-             */
-            kind: "schema" | "cross_reference" | "stale" | "collision";
-            /** Message */
-            message: string;
-            /** Path */
-            path?: string | null;
-        };
-        /** DefinitionDraftValidationResponse */
-        DefinitionDraftValidationResponse: {
-            /** Errors */
-            errors: components["schemas"]["DefinitionDraftValidationIssue"][];
-            /** Key */
-            key: string;
-            kind: components["schemas"]["DefinitionKind"];
-            /**
-             * Status
-             * @enum {string}
-             */
-            status: "valid" | "invalid" | "stale" | "name_collision";
-            /** Warnings */
-            warnings: components["schemas"]["DefinitionDraftValidationIssue"][];
-        };
-        /** DefinitionDraftWriteRequest */
-        DefinitionDraftWriteRequest: {
-            /** Body */
-            body: string;
-            /**
-             * Body Format
-             * @default yaml
-             * @constant
-             */
-            body_format: "yaml";
-        };
-        /**
-         * DefinitionHistorySort
-         * @enum {string}
-         */
-        DefinitionHistorySort: "revision_no_desc" | "revision_no_asc" | "updated_at_desc" | "updated_at_asc";
-        /**
-         * DefinitionKind
-         * @enum {string}
-         */
-        DefinitionKind: "role" | "policy" | "workflow";
-        /**
-         * DefinitionListSort
-         * @enum {string}
-         */
-        DefinitionListSort: "updated_at_desc" | "updated_at_asc" | "key_asc" | "key_desc";
-        /** DefinitionRevisionDetailResponse */
-        DefinitionRevisionDetailResponse: {
-            content: components["schemas"]["DefinitionContent-Output"];
-            /** Key */
-            key: string;
-            /** Recorded By */
-            recorded_by?: string | null;
-            /** Revision No */
-            revision_no: number;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-        };
-        /** DefinitionRevisionHistoryEntry */
-        DefinitionRevisionHistoryEntry: {
-            /** Recorded By */
-            recorded_by?: string | null;
-            /** Revision No */
-            revision_no: number;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-        };
-        /** DefinitionRevisionHistoryResponse */
-        DefinitionRevisionHistoryResponse: {
-            /** Current Revision No */
-            current_revision_no: number;
-            /** Items */
-            items: components["schemas"]["DefinitionRevisionHistoryEntry"][];
-            /** Key */
-            key: string;
-            kind: components["schemas"]["DefinitionKind"];
-            /** Next Cursor */
-            next_cursor?: string | null;
-        };
-        /** DefinitionSummaryListResponse */
-        DefinitionSummaryListResponse: {
-            /** Items */
-            items: components["schemas"]["DefinitionSummaryRead"][];
-            kind: components["schemas"]["DefinitionKind"];
-            /** Next Cursor */
-            next_cursor?: string | null;
-        };
-        /** DefinitionSummaryRead */
-        DefinitionSummaryRead: {
-            /** Allowed Node Kinds */
-            allowed_node_kinds?: components["schemas"]["NodeKind"][] | null;
-            /** Applies To */
-            applies_to?: components["schemas"]["NodeKind"][] | null;
-            budget_spec?: components["schemas"]["BudgetSpec"] | null;
-            /** Current Revision No */
-            current_revision_no: number;
-            /** Description */
-            description?: string | null;
-            /** Key */
-            key: string;
-            /**
-             * Labels
-             * @default []
-             */
-            labels: string[];
-            /** Title */
-            title?: string | null;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-        };
-        /** DefinitionUploadRequest */
-        DefinitionUploadRequest: {
-            content: components["schemas"]["DefinitionContent-Input"];
-            kind: components["schemas"]["DefinitionKind"];
-        };
         /** DispatchHistoryEntry */
         DispatchHistoryEntry: {
             /** Adapter Started At */
@@ -1351,7 +1007,7 @@ export interface components {
             status: "starting";
         };
         /** @enum {string} */
-        DispatchOpenedReason: "root" | "boundary" | "child_return" | "human_result" | "command_result" | "watchdog_recovery" | "semantic_retry" | "operator_continue";
+        DispatchOpenedReason: "root" | "boundary" | "child_return" | "human_result" | "command_result" | "watchdog_recovery" | "semantic_retry" | "operator_continue" | "structural_replan";
         /** DispatchRuntimeRead */
         DispatchRuntimeRead: {
             /** Adapter Started At */
@@ -1417,33 +1073,22 @@ export interface components {
          * @enum {string}
          */
         EgressBoundary: "yield" | "green" | "retry" | "blocked";
-        /** @enum {string} */
-        FixedRuntimeFileKind: "manifest" | "assignment" | "checkpoint" | "artifact_index" | "transient_index";
         /**
-         * FlowStatus
-         * @enum {string}
+         * FileReference
+         * @description An ordered navigation value to one ordinary workspace file.
          */
-        FlowStatus: "pending" | "running" | "blocked" | "paused" | "succeeded" | "cancelled";
+        FileReference: {
+            /** Description */
+            description?: string | null;
+            /** Path */
+            path: string;
+        };
         /** HealthResponse */
         HealthResponse: {
             /** Service */
             service: string;
             /** Status */
             status: string;
-        };
-        /** HumanRequestCapabilityInput */
-        HumanRequestCapabilityInput: {
-            /** Allowed Kinds */
-            allowed_kinds?: components["schemas"]["HumanRequestKind"][];
-            /** @default deny */
-            mode: components["schemas"]["CapabilityDecision"];
-        };
-        /** HumanRequestContextRef */
-        HumanRequestContextRef: {
-            /** Description */
-            description: string;
-            /** Path */
-            path: string;
         };
         /** HumanRequestItem */
         HumanRequestItem: {
@@ -1604,72 +1249,85 @@ export interface components {
             due_at?: string | null;
         };
         JsonValue: unknown;
+        /** MemberCapabilities */
+        MemberCapabilities: {
+            /**
+             * Command Run
+             * @constant
+             */
+            command_run?: "allow";
+            /** Human Request */
+            human_request?: ("input" | "direction" | "approval" | "review")[];
+        };
+        /** MemberPatch */
+        MemberPatch: {
+            capabilities?: components["schemas"]["MemberCapabilities"] | null;
+            /** Description */
+            description?: string | null;
+            /** Instruction */
+            instruction?: string | null;
+            /** Provider */
+            provider?: (components["schemas"]["CodexProviderSelection"] | components["schemas"]["ClaudeProviderSelection"] | components["schemas"]["OpenClawProviderSelection"]) | null;
+            /** Title */
+            title?: string | null;
+        };
         /**
          * NetworkAccess
          * @enum {string}
          */
         NetworkAccess: "allow" | "deny";
-        /** NodeDefinitionInput */
-        "NodeDefinitionInput-Input": {
-            child_defaults?: components["schemas"]["ChildDefaults"] | null;
+        /** NewMember */
+        NewMember: {
+            capabilities?: components["schemas"]["MemberCapabilities"] | null;
             /** Children */
-            children?: components["schemas"]["NodeDefinitionInput-Input"][] | null;
-            consumes?: components["schemas"]["ConsumeBuckets"] | null;
-            /** Criteria */
-            criteria?: components["schemas"]["CriteriaDeclaration"][] | null;
+            children?: components["schemas"]["NewMember"][] | null;
             /** Description */
-            description: string;
+            description?: string | null;
             /** Instruction */
             instruction?: string | null;
-            /**
-             * Kind
-             * @enum {string}
-             */
-            kind: "parent" | "worker";
-            /** Node Key */
-            node_key: string;
-            /** Policy Id */
-            policy_id: string;
-            produces?: components["schemas"]["ProduceBuckets"] | null;
-            provider?: components["schemas"]["ProviderSelection"] | null;
-            /** Role Id */
-            role_id: string;
-            /** Title */
-            title?: string | null;
-        };
-        /** NodeDefinitionInput */
-        "NodeDefinitionInput-Output": {
-            child_defaults?: components["schemas"]["ChildDefaults"] | null;
-            /** Children */
-            children?: components["schemas"]["NodeDefinitionInput-Output"][] | null;
-            consumes?: components["schemas"]["ConsumeBuckets"] | null;
-            /** Criteria */
-            criteria?: components["schemas"]["CriteriaDeclaration"][] | null;
-            /** Description */
-            description: string;
-            /** Instruction */
-            instruction?: string | null;
-            /**
-             * Kind
-             * @enum {string}
-             */
-            kind: "parent" | "worker";
-            /** Node Key */
-            node_key: string;
-            /** Policy Id */
-            policy_id: string;
-            produces?: components["schemas"]["ProduceBuckets"] | null;
-            provider?: components["schemas"]["ProviderSelection"] | null;
-            /** Role Id */
-            role_id: string;
+            /** Provider */
+            provider?: (components["schemas"]["CodexProviderSelection"] | components["schemas"]["ClaudeProviderSelection"] | components["schemas"]["OpenClawProviderSelection"]) | null;
             /** Title */
             title?: string | null;
         };
         /**
          * NodeKind
+         * @description Residual runtime shape derived from Team membership, never authored authority.
          * @enum {string}
          */
         NodeKind: "root" | "parent" | "worker";
+        /** NormalizedMember */
+        NormalizedMember: {
+            /** Capabilities */
+            capabilities?: components["schemas"]["MemberCapabilities"];
+            /** Children */
+            children?: components["schemas"]["NormalizedMember"][];
+            /** Description */
+            description?: string | null;
+            /** Id */
+            id: string;
+            /** Instruction */
+            instruction?: string | null;
+            /** Provider */
+            provider?: components["schemas"]["CodexProviderSelection"] | components["schemas"]["ClaudeProviderSelection"] | components["schemas"]["OpenClawProviderSelection"];
+            /** Title */
+            title?: string | null;
+        };
+        /** NormalizedWorkflow */
+        NormalizedWorkflow: {
+            /** Description */
+            description: string;
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @constant
+             */
+            kind: "workflow";
+            lead: components["schemas"]["NormalizedMember"];
+            /** Note */
+            note?: string | null;
+        };
         /** OpenClawProviderSelection */
         OpenClawProviderSelection: {
             /**
@@ -1700,8 +1358,8 @@ export interface components {
          * OperationFailureCode
          * @enum {string}
          */
-        OperationFailureCode: "invalid_request_shape" | "local_admission_denied" | "authentication_failed" | "scope_mismatch" | "illegal_caller" | "illegal_target_relation" | "illegal_state" | "stale_dispatch" | "stale_flow_revision" | "stale_assignment" | "stale_checkpoint" | "name_collision" | "missing_resource" | "missing_required_publication" | "conflicting_continuation" | "cursor_reset_required" | "boundary_precondition_failed" | "capability_rejected" | "conflict" | "invalid_task_path" | "invalid_task_root" | "path_escape" | "not_a_directory" | "not_a_file" | "binary_file" | "file_read_limit_exceeded" | "directory_limit_exceeded" | "removed_surface" | "budget_exhausted" | "internal_error";
-        OperatorCurrentPaths: components["schemas"]["OperatorSupportSurfaceRef"][];
+        OperationFailureCode: "invalid_request_shape" | "local_admission_denied" | "authentication_failed" | "scope_mismatch" | "illegal_caller" | "illegal_target_relation" | "illegal_state" | "stale_dispatch" | "stale_flow_revision" | "stale_assignment" | "name_collision" | "missing_resource" | "conflicting_continuation" | "cursor_reset_required" | "boundary_precondition_failed" | "capability_rejected" | "conflict" | "invalid_task_path" | "invalid_task_root" | "path_escape" | "not_a_directory" | "not_a_file" | "binary_file" | "file_read_limit_exceeded" | "directory_limit_exceeded" | "budget_exhausted" | "internal_error";
+        OperatorCurrentPaths: components["schemas"]["FileReference"][];
         /** OperatorFlowSnapshotResponse */
         OperatorFlowSnapshotResponse: {
             /** @default [] */
@@ -1720,11 +1378,6 @@ export interface components {
             checkpoint_history: components["schemas"]["CheckpointHistoryEntry"][];
             /** @default [] */
             current_paths: components["schemas"]["OperatorCurrentPaths"];
-            /**
-             * Dependency Edges
-             * @default []
-             */
-            dependency_edges: components["schemas"]["TaskGraphDependencyEntry"][];
             /** Dispatch History */
             dispatch_history: components["schemas"]["DispatchHistoryEntry"][];
             /**
@@ -1743,22 +1396,6 @@ export interface components {
             /** Task Id */
             task_id: string;
         };
-        OperatorSupportSurfaceKind: components["schemas"]["FixedRuntimeFileKind"] | ("artifact" | "criteria" | "doc" | "wiki" | "transient");
-        /** OperatorSupportSurfaceRef */
-        OperatorSupportSurfaceRef: {
-            /** Description */
-            description: string;
-            kind: components["schemas"]["OperatorSupportSurfaceKind"];
-            /**
-             * Path
-             * Format: path
-             */
-            path: string;
-            /** Slot */
-            slot?: string | null;
-            /** Version */
-            version?: number | null;
-        };
         /** PendingHumanRequest */
         PendingHumanRequest: {
             /** Assignment Id */
@@ -1766,10 +1403,10 @@ export interface components {
             /** Attempt Id */
             attempt_id: string;
             /**
-             * Context Refs
+             * Files
              * @default []
              */
-            context_refs: components["schemas"]["HumanRequestContextRef"][];
+            files: components["schemas"]["FileReference"][];
             /** Flow Id */
             flow_id: string;
             /** Items */
@@ -1787,91 +1424,40 @@ export interface components {
             status: components["schemas"]["HumanRequestStatus"];
             /** Successor Dispatch Id */
             successor_dispatch_id?: string | null;
-            /** Suggested Human Instruction */
-            suggested_human_instruction?: string | null;
             /** Summary */
             summary: string;
             /** Task Id */
             task_id: string;
             timeout?: components["schemas"]["HumanRequestTimeout"];
         };
-        /** PolicyCapabilitiesInput */
-        "PolicyCapabilitiesInput-Input": {
-            /** @default deny */
-            command_run: components["schemas"]["CapabilityDecision"];
-            human_request?: components["schemas"]["HumanRequestCapabilityInput"];
-            /** @default allow */
-            network_access: components["schemas"]["NetworkAccess"];
-            /** @default full */
-            provider_native_access: components["schemas"]["ProviderNativeAccess"];
-        };
-        "PolicyCapabilitiesInput-Output": components["schemas"]["PolicyCapabilitiesOutput"];
-        /** PolicyCapabilitiesOutput */
-        PolicyCapabilitiesOutput: {
-            command_run: components["schemas"]["CapabilityDecision"];
-            human_request: components["schemas"]["HumanRequestCapabilityInput"];
-            network_access?: components["schemas"]["NetworkAccess"];
-            provider_native_access?: components["schemas"]["ProviderNativeAccess"];
-        };
-        /** PolicyDefinitionInput */
-        "PolicyDefinitionInput-Input": {
-            /** Applies To */
-            applies_to: components["schemas"]["NodeKind"][];
-            budget_spec?: components["schemas"]["BudgetSpec"] | null;
-            capabilities?: components["schemas"]["PolicyCapabilitiesInput-Input"];
-            /** Description */
-            description: string;
-            /** Id */
-            id: string;
-            /** Instruction */
-            instruction?: string | null;
-            /** Labels */
-            labels?: string[];
-            /** Title */
-            title?: string | null;
-        };
-        /** PolicyDefinitionInput */
-        "PolicyDefinitionInput-Output": {
-            /** Applies To */
-            applies_to: components["schemas"]["NodeKind"][];
-            budget_spec?: components["schemas"]["BudgetSpec"] | null;
-            capabilities?: components["schemas"]["PolicyCapabilitiesInput-Output"];
-            /** Description */
-            description: string;
-            /** Id */
-            id: string;
-            /** Instruction */
-            instruction?: string | null;
-            /** Labels */
-            labels?: string[];
-            /** Title */
-            title?: string | null;
-        };
-        /** ProduceBuckets */
-        ProduceBuckets: {
-            /** Artifacts */
-            artifacts?: components["schemas"]["ProduceSlot"][] | null;
-        };
-        /** ProduceSlot */
-        ProduceSlot: {
-            /** Description */
-            description: string;
-            /** File Hint */
-            file_hint?: string | null;
-            /** Slot */
-            slot: string;
-        };
         /**
          * ProviderKind
          * @enum {string}
          */
-        ProviderKind: "openclaw" | "codex" | "claude";
+        ProviderKind: "codex" | "claude" | "openclaw";
         /**
          * ProviderNativeAccess
+         * @description Residual adapter projection; ManagedSandboxMode is authored authority.
          * @enum {string}
          */
         ProviderNativeAccess: "full" | "restricted" | "denied";
-        ProviderSelection: components["schemas"]["CodexProviderSelection"] | components["schemas"]["ClaudeProviderSelection"] | components["schemas"]["OpenClawProviderSelection"];
+        /** ProviderSandbox */
+        ProviderSandbox: {
+            /** @constant */
+            mode: "read_only";
+            /** @constant */
+            network: "deny";
+        } | {
+            /** @constant */
+            mode: "workspace_write";
+            /** @enum {string} */
+            network: "allow" | "deny";
+        } | {
+            /** @constant */
+            mode: "full_access";
+            /** @constant */
+            network: "allow";
+        };
         /**
          * ProviderSelectionBasis
          * @enum {string}
@@ -1893,74 +1479,15 @@ export interface components {
         ProviderStartRetryKind: "initial" | "definite_failure" | "uncertain_acceptance";
         /** @enum {string} */
         ProviderStartState: "retry_scheduled" | "accepted";
-        /** RoleDefinitionInput */
-        RoleDefinitionInput: {
-            /** Allowed Node Kinds */
-            allowed_node_kinds: components["schemas"]["NodeKind"][];
-            /** Description */
-            description: string;
-            /** Id */
-            id: string;
-            /** Instruction */
-            instruction?: string | null;
-            /** Labels */
-            labels?: string[];
-            /** Title */
-            title?: string | null;
-        };
-        /** RootNodeDefinition */
-        "RootNodeDefinition-Input": {
-            child_defaults?: components["schemas"]["ChildDefaults"] | null;
-            /** Children */
-            children?: components["schemas"]["NodeDefinitionInput-Input"][] | null;
-            /** Criteria */
-            criteria?: components["schemas"]["CriteriaDeclaration"][] | null;
-            /** Description */
-            description: string;
-            /** Instruction */
-            instruction?: string | null;
+        /** RemoveMemberOperation */
+        RemoveMemberOperation: {
             /**
-             * Kind
-             * @constant
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
              */
-            kind: "root";
-            /** Node Key */
-            node_key: string;
-            /** Policy Id */
-            policy_id: string;
-            produces?: components["schemas"]["ProduceBuckets"] | null;
-            provider?: components["schemas"]["ProviderSelection"] | null;
-            /** Role Id */
-            role_id: string;
-            /** Title */
-            title?: string | null;
-        };
-        /** RootNodeDefinition */
-        "RootNodeDefinition-Output": {
-            child_defaults?: components["schemas"]["ChildDefaults"] | null;
-            /** Children */
-            children?: components["schemas"]["NodeDefinitionInput-Output"][] | null;
-            /** Criteria */
-            criteria?: components["schemas"]["CriteriaDeclaration"][] | null;
-            /** Description */
-            description: string;
-            /** Instruction */
-            instruction?: string | null;
-            /**
-             * Kind
-             * @constant
-             */
-            kind: "root";
-            /** Node Key */
-            node_key: string;
-            /** Policy Id */
-            policy_id: string;
-            produces?: components["schemas"]["ProduceBuckets"] | null;
-            provider?: components["schemas"]["ProviderSelection"] | null;
-            /** Role Id */
-            role_id: string;
-            /** Title */
-            title?: string | null;
+            kind: "remove_member";
+            /** Member Id */
+            member_id: string;
         };
         /** RuntimeFlowControlRequest */
         RuntimeFlowControlRequest: {
@@ -1994,6 +1521,7 @@ export interface components {
             /** Latest Dispatch Id */
             latest_dispatch_id?: string | null;
             pause_reason?: components["schemas"]["RuntimeFlowPauseReason"] | null;
+            result?: components["schemas"]["TaskResult"] | null;
             status: components["schemas"]["RuntimeLifecycleStatus"];
             /** Task Id */
             task_id: string;
@@ -2077,85 +1605,6 @@ export interface components {
             control_revision: number;
             summary: components["schemas"]["TaskEventSummary"];
         };
-        /** TaskComposeNodePreview */
-        TaskComposeNodePreview: {
-            network_access: components["schemas"]["EffectiveNetworkAccess"];
-            /** Node Key */
-            node_key: string;
-            provider_native_access: components["schemas"]["EffectiveProviderNativeAccess"];
-            provider_resolution: components["schemas"]["TaskComposePreviewProviderResolution"];
-        };
-        /** TaskComposePreviewIssue */
-        TaskComposePreviewIssue: {
-            /** Code */
-            code: string;
-            /**
-             * Kind
-             * @enum {string}
-             */
-            kind: "schema" | "cross_reference" | "provider" | "path";
-            /** Message */
-            message: string;
-            /** Path */
-            path?: string | null;
-        };
-        /** TaskComposePreviewProviderResolution */
-        TaskComposePreviewProviderResolution: {
-            requested_provider: components["schemas"]["ProviderKind"];
-            resolved_provider: components["schemas"]["ProviderKind"];
-            selection_basis: components["schemas"]["ProviderSelectionBasis"];
-        };
-        /** TaskComposePreviewResponse */
-        TaskComposePreviewResponse: {
-            /**
-             * Errors
-             * @default []
-             */
-            errors: components["schemas"]["TaskComposePreviewIssue"][];
-            /**
-             * Nodes
-             * @default []
-             */
-            nodes: components["schemas"]["TaskComposeNodePreview"][];
-            /**
-             * Status
-             * @enum {string}
-             */
-            status: "ready" | "invalid";
-            /**
-             * Warnings
-             * @default []
-             */
-            warnings: components["schemas"]["TaskComposePreviewIssue"][];
-        };
-        /** TaskComposeRootsInput */
-        TaskComposeRootsInput: {
-            workspace?: components["schemas"]["TaskRootBindingInput"] | null;
-        };
-        /** TaskComposeTaskInput */
-        TaskComposeTaskInput: {
-            /** Instruction */
-            instruction?: string | null;
-            /** Key */
-            key: string;
-            /** Summary */
-            summary: string;
-            /** Title */
-            title: string;
-        };
-        /** TaskComposeWorkflowInput */
-        TaskComposeWorkflowInput: {
-            /** Key */
-            key: string;
-        };
-        /** TaskEventArtifactRef */
-        TaskEventArtifactRef: {
-            path: components["schemas"]["TaskEventRef"];
-            publication_id: components["schemas"]["TaskEventIdentifier"];
-            slot: components["schemas"]["TaskEventIdentifier"];
-            /** Version */
-            version: number;
-        };
         TaskEventIdentifier: string;
         /** TaskEventListResponse */
         TaskEventListResponse: {
@@ -2179,34 +1628,10 @@ export interface components {
         TaskEventSource: "controller" | "control_api" | "operator_mcp" | "node";
         TaskEventStepText: string;
         TaskEventSummary: string;
-        /** TaskEventTransientRef */
-        TaskEventTransientRef: {
-            description: components["schemas"]["TaskEventSummary"];
-            localization_id: components["schemas"]["TaskEventIdentifier"];
-            path: components["schemas"]["TaskEventRef"];
-        };
         /** TaskEventWorkPlanStep */
         TaskEventWorkPlanStep: {
             status: components["schemas"]["WorkPlanStepStatusValue"];
             step: components["schemas"]["TaskEventStepText"];
-        };
-        /** TaskGraphDependencyEntry */
-        TaskGraphDependencyEntry: {
-            /** Consumer Node Key */
-            consumer_node_key: string;
-            /** Description */
-            description: string;
-            /**
-             * Kind
-             * @enum {string}
-             */
-            kind: "artifact" | "criteria";
-            /** Order Index */
-            order_index: number;
-            /** Provider Node Key */
-            provider_node_key: string;
-            /** Slot */
-            slot: string;
         };
         /** TaskGraphNodeEntry */
         TaskGraphNodeEntry: {
@@ -2215,18 +1640,16 @@ export interface components {
              * @default []
              */
             child_node_keys: string[];
-            /**
-             * Depended On By Node Keys
-             * @default []
-             */
-            depended_on_by_node_keys: string[];
-            /**
-             * Depends On Node Keys
-             * @default []
-             */
-            depends_on_node_keys: string[];
             /** Description */
             description: string;
+            /** Member Branch Basis Id */
+            member_branch_basis_id: string;
+            /** Member Configuration Id */
+            member_configuration_id: string;
+            /** Member Id */
+            member_id: string;
+            /** Member Title */
+            member_title?: string | null;
             /** Node Key */
             node_key: string;
             node_kind: components["schemas"]["NodeKind"];
@@ -2234,10 +1657,6 @@ export interface components {
             order_index: number;
             /** Parent Node Key */
             parent_node_key?: string | null;
-            /** Policy */
-            policy?: string | null;
-            /** Role */
-            role: string;
         };
         /** TaskPausedEventPayload */
         TaskPausedEventPayload: {
@@ -2251,6 +1670,31 @@ export interface components {
             pause_reason: "paused_by_operator" | "runtime_recovery_exhausted" | "runtime_transition_failed";
             summary: components["schemas"]["TaskEventSummary"];
         };
+        /**
+         * TaskResult
+         * @description Exact accepted terminal Checkpoint selected as the Task result.
+         */
+        TaskResult: {
+            /**
+             * Completed At
+             * Format: date-time
+             */
+            completed_at: string;
+            /** Details */
+            details?: string | null;
+            /**
+             * Files
+             * @default []
+             */
+            files: components["schemas"]["FileReference"][];
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "green" | "blocked";
+            /** Summary */
+            summary: string;
+        };
         /** TaskResumedEventPayload */
         TaskResumedEventPayload: {
             actor_ref?: components["schemas"]["TaskEventIdentifier"] | null;
@@ -2258,37 +1702,47 @@ export interface components {
             control_revision: number;
             summary: components["schemas"]["TaskEventSummary"];
         };
-        /** TaskRootBindingInput */
-        TaskRootBindingInput: {
-            /** Host Path */
-            host_path?: string | null;
-            /** @default ensure_task_default */
-            mode: components["schemas"]["TaskRootMode"];
-        };
-        /**
-         * TaskRootMode
-         * @enum {string}
-         */
-        TaskRootMode: "ensure_task_default" | "ensure_host_path" | "use_existing_host";
         /**
          * TaskStartRequest
-         * @description Public task-start contract over the authored task-compose body.
+         * @description The one transient request accepted by every Task-start transport.
          */
         TaskStartRequest: {
-            roots?: components["schemas"]["TaskComposeRootsInput"] | null;
-            task: components["schemas"]["TaskComposeTaskInput"];
-            workflow: components["schemas"]["TaskComposeWorkflowInput"];
+            /**
+             * Files
+             * @default []
+             */
+            files: components["schemas"]["FileReference"][];
+            /** Prompt */
+            prompt: string;
+            /** Workflow */
+            workflow: string;
+            /** Workspace */
+            workspace?: string | null;
         };
         /** TaskStartResponse */
         TaskStartResponse: {
-            /** Active Flow Revision Id */
-            active_flow_revision_id: string;
-            /** Compiled Plan Id */
-            compiled_plan_id: string;
-            flow_status: components["schemas"]["FlowStatus"];
+            /**
+             * Manifest
+             * Format: path
+             */
+            manifest: string;
+            /**
+             * Status
+             * @default accepted
+             * @constant
+             */
+            status: "accepted";
             /** Task Id */
             task_id: string;
-            workflow_manifest_ref: components["schemas"]["WorkflowManifestRef"];
+            /** Workflow */
+            workflow: string;
+            /** Workflow Revision */
+            workflow_revision: number;
+            /**
+             * Workspace
+             * Format: path
+             */
+            workspace: string;
         };
         /** TaskStartedEventPayload */
         TaskStartedEventPayload: {
@@ -2309,6 +1763,26 @@ export interface components {
             suggested_action?: string | null;
             /** Summary */
             summary: string;
+        };
+        /** UpdateMemberOperation */
+        UpdateMemberOperation: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "update_member";
+            /** Member Id */
+            member_id: string;
+            patch: components["schemas"]["MemberPatch"];
+        };
+        /** UpdateWorkflowOperation */
+        UpdateWorkflowOperation: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "update_workflow";
+            patch: components["schemas"]["WorkflowPatch"];
         };
         /** WorkPlanClearedEventPayload */
         WorkPlanClearedEventPayload: {
@@ -2368,21 +1842,46 @@ export interface components {
         };
         /** @enum {string} */
         WorkPlanStepStatusValue: "pending" | "in_progress" | "completed";
-        /** WorkflowDefinitionInput */
-        "WorkflowDefinitionInput-Input": {
-            /** Description */
-            description: string;
-            /** Id */
-            id: string;
-            root: components["schemas"]["RootNodeDefinition-Input"];
+        /** WorkflowDraftMutationResult */
+        WorkflowDraftMutationResult: {
+            draft: components["schemas"]["WorkflowDraftReadback"];
+            /** Undo Receipt */
+            undo_receipt: string;
         };
-        /** WorkflowDefinitionInput */
-        "WorkflowDefinitionInput-Output": {
-            /** Description */
-            description: string;
-            /** Id */
-            id: string;
-            root: components["schemas"]["RootNodeDefinition-Output"];
+        /** WorkflowDraftReadback */
+        WorkflowDraftReadback: {
+            /** Base Revision No */
+            base_revision_no?: number | null;
+            /** Draft Id */
+            draft_id: string;
+            /** Etag */
+            etag: string;
+            workflow: components["schemas"]["NormalizedWorkflow"];
+            /** Workflow Id */
+            workflow_id: string;
+        };
+        /** WorkflowDraftValidationResult */
+        WorkflowDraftValidationResult: {
+            draft: components["schemas"]["WorkflowDraftReadback"];
+            /** Is Valid */
+            is_valid: boolean;
+            /**
+             * Issues
+             * @default []
+             */
+            issues: components["schemas"]["WorkflowValidationIssue"][];
+        };
+        /** WorkflowGetResponse */
+        WorkflowGetResponse: {
+            active_draft?: components["schemas"]["WorkflowDraftReadback"] | null;
+            published?: components["schemas"]["WorkflowPublishedReadback"] | null;
+            /**
+             * Revisions
+             * @default []
+             */
+            revisions: components["schemas"]["WorkflowRevisionReadback"][];
+            /** Workflow Id */
+            workflow_id: string;
         };
         /** WorkflowManifestRef */
         WorkflowManifestRef: {
@@ -2393,6 +1892,85 @@ export interface components {
              * Format: path
              */
             path: string;
+        };
+        /** WorkflowPatch */
+        WorkflowPatch: {
+            /** Description */
+            description?: string | null;
+            /** Note */
+            note?: string | null;
+        };
+        /** WorkflowPreconditionRequiredDetail */
+        WorkflowPreconditionRequiredDetail: {
+            /** Code */
+            code: string;
+            /** Message */
+            message: string;
+        };
+        /** WorkflowPreconditionRequiredResponse */
+        WorkflowPreconditionRequiredResponse: {
+            detail: components["schemas"]["WorkflowPreconditionRequiredDetail"];
+        };
+        /**
+         * WorkflowProvenance
+         * @enum {string}
+         */
+        WorkflowProvenance: "starter_seed" | "user";
+        /** WorkflowPublishedReadback */
+        WorkflowPublishedReadback: {
+            /** Revision No */
+            revision_no: number;
+            workflow: components["schemas"]["NormalizedWorkflow"];
+            /** Workflow Id */
+            workflow_id: string;
+        };
+        /** WorkflowRevisionReadback */
+        WorkflowRevisionReadback: {
+            provenance: components["schemas"]["WorkflowProvenance"];
+            /** Revision No */
+            revision_no: number;
+            /** Workflow Id */
+            workflow_id: string;
+        };
+        /** WorkflowSearchItem */
+        WorkflowSearchItem: {
+            /** Description */
+            description: string;
+            /** Draft Etag */
+            draft_etag?: string | null;
+            /** Draft Id */
+            draft_id?: string | null;
+            provenance?: components["schemas"]["WorkflowProvenance"] | null;
+            /** Published Revision No */
+            published_revision_no?: number | null;
+            /** Workflow Id */
+            workflow_id: string;
+        };
+        /** WorkflowStaleDraftDetail */
+        WorkflowStaleDraftDetail: {
+            /** Code */
+            code: string;
+            current: components["schemas"]["WorkflowDraftReadback"];
+            /** Message */
+            message: string;
+        };
+        /** WorkflowStaleDraftResponse */
+        WorkflowStaleDraftResponse: {
+            detail: components["schemas"]["WorkflowStaleDraftDetail"];
+        };
+        /** WorkflowUndoRequest */
+        WorkflowUndoRequest: {
+            /** Receipt Id */
+            receipt_id: string;
+        };
+        /** WorkflowValidationIssue */
+        WorkflowValidationIssue: {
+            /** Message */
+            message: string;
+            /** Path */
+            path: string;
+            /** Source */
+            source: string;
         };
         /** _BoundaryAcceptedEvent */
         _BoundaryAcceptedEvent: {
@@ -2944,703 +2522,6 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    get_definition_drafts_authoring_definition_drafts_get: {
-        parameters: {
-            query?: {
-                cursor?: string | null;
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DefinitionDraftListResponse"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Unprocessable Content */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-        };
-    };
-    post_definition_draft_authoring_definition_drafts_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DefinitionDraftCreateRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DefinitionDraftDetailResponse"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Unprocessable Content */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-        };
-    };
-    get_definition_draft_authoring_definitions__kind___key__draft_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                kind: components["schemas"]["DefinitionKind"];
-                key: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DefinitionDraftDetailResponse"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Unprocessable Content */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-        };
-    };
-    put_definition_draft_authoring_definitions__kind___key__draft_put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                kind: components["schemas"]["DefinitionKind"];
-                key: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DefinitionDraftWriteRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DefinitionDraftDetailResponse"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Unprocessable Content */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-        };
-    };
-    delete_definition_draft_route_authoring_definitions__kind___key__draft_delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                kind: components["schemas"]["DefinitionKind"];
-                key: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Unprocessable Content */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-        };
-    };
-    post_definition_draft_publish_authoring_definitions__kind___key__draft_publish_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                kind: components["schemas"]["DefinitionKind"];
-                key: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DefinitionDraftPublishResponse"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Unprocessable Content */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-        };
-    };
-    post_definition_draft_replace_current_authoring_definitions__kind___key__draft_replace_current_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                kind: components["schemas"]["DefinitionKind"];
-                key: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DefinitionDraftDetailResponse"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Unprocessable Content */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-        };
-    };
-    post_definition_draft_validate_authoring_definitions__kind___key__draft_validate_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                kind: components["schemas"]["DefinitionKind"];
-                key: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DefinitionDraftValidationResponse"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Unprocessable Content */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-        };
-    };
-    post_task_compose_preview_authoring_task_compose_preview_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TaskStartRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TaskComposePreviewResponse"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Unprocessable Content */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-        };
-    };
     get_control_task_control_tasks__task_id__get: {
         parameters: {
             query?: never;
@@ -4760,485 +3641,6 @@ export interface operations {
             };
         };
     };
-    post_definition_definitions_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DefinitionUploadRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DefinitionRevisionDetailResponse"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Unprocessable Content */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-        };
-    };
-    get_policy_definitions_definitions_policies_get: {
-        parameters: {
-            query?: {
-                q?: string | null;
-                limit?: number;
-                cursor?: string | null;
-                sort?: components["schemas"]["DefinitionListSort"];
-                allowed_node_kind?: components["schemas"]["NodeKind"] | null;
-                applies_to?: components["schemas"]["NodeKind"] | null;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DefinitionSummaryListResponse"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Unprocessable Content */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-        };
-    };
-    get_role_definitions_definitions_roles_get: {
-        parameters: {
-            query?: {
-                q?: string | null;
-                limit?: number;
-                cursor?: string | null;
-                sort?: components["schemas"]["DefinitionListSort"];
-                allowed_node_kind?: components["schemas"]["NodeKind"] | null;
-                applies_to?: components["schemas"]["NodeKind"] | null;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DefinitionSummaryListResponse"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Unprocessable Content */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-        };
-    };
-    get_workflow_definitions_definitions_workflows_get: {
-        parameters: {
-            query?: {
-                q?: string | null;
-                limit?: number;
-                cursor?: string | null;
-                sort?: components["schemas"]["DefinitionListSort"];
-                allowed_node_kind?: components["schemas"]["NodeKind"] | null;
-                applies_to?: components["schemas"]["NodeKind"] | null;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DefinitionSummaryListResponse"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Unprocessable Content */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-        };
-    };
-    get_definition_definitions__kind___key__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                kind: components["schemas"]["DefinitionKind"];
-                key: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DefinitionRevisionDetailResponse"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Unprocessable Content */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-        };
-    };
-    get_definition_versions_definitions__kind___key__versions_get: {
-        parameters: {
-            query?: {
-                limit?: number;
-                cursor?: string | null;
-                sort?: components["schemas"]["DefinitionHistorySort"];
-            };
-            header?: never;
-            path: {
-                kind: components["schemas"]["DefinitionKind"];
-                key: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DefinitionRevisionHistoryResponse"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Unprocessable Content */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OperationFailure"];
-                };
-            };
-        };
-    };
     healthz_healthz_get: {
         parameters: {
             query?: never;
@@ -5379,6 +3781,931 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TaskStartResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+        };
+    };
+    post_workflow_draft_workflow_drafts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NormalizedWorkflow"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowDraftReadback"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+        };
+    };
+    get_workflow_draft_workflow_drafts__draft_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowDraftReadback"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+        };
+    };
+    delete_workflow_draft_workflow_drafts__draft_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+            };
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Precondition Failed */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowStaleDraftResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Precondition Required */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowPreconditionRequiredResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+        };
+    };
+    patch_workflow_draft_workflow_drafts__draft_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+            };
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateWorkflowOperation"] | components["schemas"]["AddMemberOperation"] | components["schemas"]["UpdateMemberOperation"] | components["schemas"]["RemoveMemberOperation"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowDraftMutationResult"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Precondition Failed */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowStaleDraftResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Precondition Required */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowPreconditionRequiredResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+        };
+    };
+    post_workflow_draft_publish_workflow_drafts__draft_id__publish_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+            };
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowPublishedReadback"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Precondition Failed */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowStaleDraftResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Precondition Required */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowPreconditionRequiredResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+        };
+    };
+    post_workflow_draft_undo_workflow_drafts__draft_id__undo_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+            };
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkflowUndoRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowDraftReadback"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Precondition Failed */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowStaleDraftResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Precondition Required */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowPreconditionRequiredResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+        };
+    };
+    post_workflow_draft_validate_workflow_drafts__draft_id__validate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowDraftValidationResult"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+        };
+    };
+    get_workflows_workflows_get: {
+        parameters: {
+            query?: {
+                q?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowSearchItem"][];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+        };
+    };
+    get_workflow_workflows__workflow_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workflow_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowGetResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+        };
+    };
+    get_workflow_revisions_workflows__workflow_id__revisions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workflow_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowRevisionReadback"][];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+        };
+    };
+    get_workflow_revision_workflows__workflow_id__revisions__revision_no__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workflow_id: string;
+                revision_no: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowPublishedReadback"];
                 };
             };
             /** @description Bad Request */

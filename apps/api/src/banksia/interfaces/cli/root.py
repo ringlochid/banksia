@@ -37,7 +37,7 @@ from banksia.interfaces.cli.commands.service import (
     cmd_service_uninstall,
 )
 from banksia.interfaces.cli.commands.status import cmd_status
-from banksia.interfaces.cli.commands.task_compose import cmd_task_compose_start
+from banksia.interfaces.cli.commands.task import cmd_task_start
 from banksia.interfaces.cli.commands.workflow import (
     cmd_workflow_export,
     cmd_workflow_import,
@@ -390,20 +390,23 @@ def workflow_export_command(
     )
 
 
-@cli.group("task-compose")
-def task_compose_group() -> None:
+@cli.group("task")
+def task_group() -> None:
     return None
 
 
-@task_compose_group.command("start")
+@task_group.command("start")
 @config_option
-@click.option("--file", "file_path", required=True)
-@click.option("--json", "is_json_output", is_flag=True, help="Emit JSON output only.")
-def task_compose_start_command(config: str, file_path: str, is_json_output: bool) -> int:
+@click.option(
+    "--json",
+    "json_sources",
+    multiple=True,
+    metavar="SOURCE",
+    help="Strict inline JSON, @file, or '-' for stdin.",
+)
+def task_start_command(config: str, json_sources: tuple[str, ...]) -> int:
     return invoke_handler_result(
-        cmd_task_compose_start(
-            build_argument_namespace(config=config, file=file_path, json=is_json_output)
-        )
+        cmd_task_start(build_argument_namespace(config=config, json_sources=json_sources))
     )
 
 

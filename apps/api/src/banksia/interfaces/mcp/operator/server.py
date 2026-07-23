@@ -23,7 +23,7 @@ from .workflow_tools import WORKFLOW_OPERATOR_TOOL_NAMES, register_workflow_tool
 
 OPERATOR_TOOL_NAMES: tuple[str, ...] = (
     *WORKFLOW_OPERATOR_TOOL_NAMES,
-    "start_task",
+    "task_start",
     "list_runtime_tasks",
     "get_runtime_task",
     "get_operator_snapshot",
@@ -75,7 +75,7 @@ _OPERATOR_MCP_INSTRUCTIONS = (
     "- draft edits and Undo use the fresh opaque ETag returned by the prior operation. "
     "Draft creation, editing, and validation never publish or start runtime work.\n\n"
     "Task start:\n"
-    "- start_task loads the bounded local Task Compose bridge and commits a real Task.\n"
+    "- task_start submits the strict structured Task request and commits a real Task.\n"
     "- its receipt confirms controller commit, not provider start or completion.\n\n"
     "Surface continuity:\n"
     "- runtime, operator, and chronology reads stay on this same local "
@@ -134,8 +134,7 @@ def create_operator_mcp_server(
     register_workflow_tools(server)
     register_task_start_tool(
         server,
-        runtime_effect_publisher=publishers.runtime_effect_publisher,
-        support_projection_publisher=publishers.support_projection_publisher,
+        dependencies=publishers.dispatch_opening_dependencies,
     )
     register_runtime_task_tools(server)
     register_operator_read_tools(server)

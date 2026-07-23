@@ -300,8 +300,6 @@ def _open_human_request(ids: RuntimeIds) -> dict[str, object]:
         "request_kind": "approval",
         "request_summary": "Approve the target transition.",
         "request_items_json": [{"id": "choice", "prompt": "Approve?"}],
-        "context_refs_json": None,
-        "suggested_human_instruction": None,
         "capability_basis_json": {"human_approval": "allow"},
         "due_at": None,
         "timeout_policy_json": None,

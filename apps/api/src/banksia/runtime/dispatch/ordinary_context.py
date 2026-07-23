@@ -24,11 +24,12 @@ from banksia.persistence.models import (
     WorkspaceBindingModel,
 )
 from banksia.persistence.models.runtime.common import COMMAND_RUN_TERMINAL_STATE_VALUES
-from banksia.runtime.assignment import read_assignment_prompt_criteria
+from banksia.runtime.assignment import read_assignment_file_references
 from banksia.runtime.capabilities import resolve_effective_capabilities_for_node
 from banksia.runtime.contracts.capabilities import EffectiveCapabilitySet
 from banksia.runtime.contracts.primitives import TaskRootPaths
 from banksia.runtime.contracts.provider_resolution import ProviderResolution
+from banksia.runtime.contracts.refs import FileReference
 from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
 from banksia.runtime.dispatch.prompt_snapshot import (
     OrdinaryPromptSnapshot,
@@ -116,10 +117,9 @@ async def read_ordinary_dispatch_snapshot(
         session,
         assignment_id=context.assignment.assignment_id,
     )
-    prompt_criteria = await read_assignment_prompt_criteria(
+    assignment_files = await read_assignment_file_references(
         session,
-        flow_revision_id=context.node.flow_revision_id,
-        criteria_refs=context.assignment.criteria_json,
+        assignment_id=context.assignment.assignment_id,
     )
     capabilities = await resolve_effective_capabilities_for_node(session, node=context.node)
     provider = await resolve_member_provider_route(
@@ -146,7 +146,7 @@ async def read_ordinary_dispatch_snapshot(
         capabilities=capabilities,
         work_plan=work_plan,
         children=children,
-        criteria_json=prompt_criteria,
+        assignment_files=assignment_files,
     )
     return OrdinaryDispatchSnapshot(
         basis=basis,
@@ -217,8 +217,6 @@ def ordinary_context_is_current(snapshot: OrdinaryDispatchSnapshot) -> ColumnEle
         & exists().where(
             TaskModel.task_id == prompt.task_id,
             TaskModel.task_root_path == snapshot.task_root_path,
-            TaskModel.title == prompt.task_title,
-            TaskModel.summary == prompt.task_summary,
             TaskModel.current_team_revision_id == prompt.team_revision_id,
         )
         & exists().where(
@@ -281,7 +279,7 @@ def build_ordinary_prompt_snapshot(
     capabilities: EffectiveCapabilitySet,
     work_plan: WorkPlanRead | None,
     children: tuple[FlowNodeModel, ...],
-    criteria_json: tuple[dict[str, object], ...],
+    assignment_files: tuple[FileReference, ...],
 ) -> OrdinaryPromptSnapshot:
     task = context.task
     flow = context.flow
@@ -292,9 +290,6 @@ def build_ordinary_prompt_snapshot(
     assert flow.active_flow_revision_id is not None
     return OrdinaryPromptSnapshot(
         task_id=task.task_id,
-        task_title=task.title,
-        task_summary=task.summary,
-        task_instruction=task.instruction,
         workflow_key=compiled_plan.workflow_key,
         workflow_revision_no=compiled_plan.workflow_revision_no,
         workflow_description=workflow_description,
@@ -313,11 +308,8 @@ def build_ordinary_prompt_snapshot(
         member_title=node.member_title,
         node_description=node.description,
         node_instruction=node.node_instruction,
-        assignment_summary=assignment.summary,
-        assignment_instruction=assignment.instruction,
-        criteria_json=criteria_json,
-        consumes_json=tuple(assignment.consumes_json),
-        produces_json=tuple(assignment.produces_json),
+        assignment_prompt=assignment.prompt,
+        assignment_files=assignment_files,
         child_assignment_limit=assignment.child_assignment_limit,
         child_assignments_remaining=assignment.child_assignments_remaining,
         retry_limit=assignment.retry_limit,

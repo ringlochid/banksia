@@ -7,7 +7,7 @@ from jsonschema import (  # type: ignore[import-untyped]
     Draft202012Validator,
     SchemaError,
 )
-from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator, model_validator
 
 from banksia.runtime.contracts.common import RuntimeSchemaText
 from banksia.runtime.contracts.primitives import (
@@ -17,6 +17,7 @@ from banksia.runtime.contracts.primitives import (
     HumanRequestStatus,
     TaskIdentifier,
 )
+from banksia.runtime.contracts.refs import FileReference, validate_file_reference_limit
 
 
 class HumanRequestOption(BaseModel):
@@ -25,13 +26,6 @@ class HumanRequestOption(BaseModel):
     id: RuntimeSchemaText
     title: RuntimeSchemaText
     description: RuntimeSchemaText | None = None
-
-
-class HumanRequestContextRef(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True, from_attributes=True)
-
-    path: RuntimeSchemaText
-    description: RuntimeSchemaText
 
 
 class HumanRequestItem(BaseModel):
@@ -81,9 +75,8 @@ class HumanRequestOpenRequest(BaseModel):
     kind: HumanRequestKind
     summary: RuntimeSchemaText
     items: tuple[HumanRequestItem, ...] = Field(min_length=1, max_length=32)
-    context_refs: tuple[HumanRequestContextRef, ...] = Field(default=(), max_length=32)
+    files: tuple[FileReference, ...] = ()
     timeout: HumanRequestTimeout = Field(default_factory=HumanRequestTimeout)
-    suggested_human_instruction: RuntimeSchemaText | None = None
 
     @model_validator(mode="after")
     def validate_item_ids(self) -> HumanRequestOpenRequest:
@@ -91,6 +84,14 @@ class HumanRequestOpenRequest(BaseModel):
         if len(item_ids) != len(set(item_ids)):
             raise ValueError("human request item ids must be unique")
         return self
+
+    @field_validator("files")
+    @classmethod
+    def validate_files(
+        cls,
+        files: tuple[FileReference, ...],
+    ) -> tuple[FileReference, ...]:
+        return validate_file_reference_limit(files, label="human request")
 
 
 class HumanRequestOpenResponse(BaseModel):
@@ -119,9 +120,8 @@ class PendingHumanRequest(BaseModel):
     kind: HumanRequestKind
     source_dispatch_id: RuntimeSchemaText
     items: tuple[HumanRequestItem, ...] = Field(min_length=1, max_length=32)
-    context_refs: tuple[HumanRequestContextRef, ...] = Field(default=(), max_length=32)
+    files: tuple[FileReference, ...] = ()
     timeout: HumanRequestTimeout = Field(default_factory=HumanRequestTimeout)
-    suggested_human_instruction: RuntimeSchemaText | None = None
     opened_at: datetime
     status: HumanRequestStatus
     successor_dispatch_id: RuntimeSchemaText | None = None
@@ -188,7 +188,6 @@ class HumanRequestListResponse(BaseModel):
 
 for _human_request_contract in (
     HumanRequestOption,
-    HumanRequestContextRef,
     HumanRequestItem,
     HumanRequestTimeout,
     HumanRequestOpenRequest,
@@ -204,7 +203,6 @@ for _human_request_contract in (
 
 
 __all__ = [
-    "HumanRequestContextRef",
     "HumanRequestItem",
     "HumanRequestListResponse",
     "HumanRequestOpenRequest",

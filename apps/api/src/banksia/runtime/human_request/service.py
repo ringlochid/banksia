@@ -23,6 +23,7 @@ from banksia.runtime.contracts.operation_failure import OperationFailureCode
 from banksia.runtime.errors import RuntimeOperationError, missing_resource_error
 from banksia.runtime.human_request.records import (
     human_request_read_from_model,
+    read_human_request_file_references,
     validate_answered_item_responses,
 )
 from banksia.runtime.post_commit import HumanRequestTerminal, RuntimeEffectPublisher
@@ -51,10 +52,14 @@ async def list_human_requests(
             )
         )
     )
-    return HumanRequestListResponse(
-        task_id=task_id,
-        items=tuple(human_request_read_from_model(row) for row in rows),
-    )
+    items = []
+    for row in rows:
+        files = await read_human_request_file_references(
+            session,
+            request_id=row.request_id,
+        )
+        items.append(human_request_read_from_model(row, files=files))
+    return HumanRequestListResponse(task_id=task_id, items=tuple(items))
 
 
 async def resolve_human_request(

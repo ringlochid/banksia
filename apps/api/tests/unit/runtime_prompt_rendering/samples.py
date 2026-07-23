@@ -36,31 +36,26 @@ from banksia.runtime.contracts.prompt import (
     PromptDynamicInput,
     PromptFamily,
     PromptInstructionGuidance,
-    PromptLogicalRef,
     PromptNext,
-    PromptRefKind,
     PromptTrigger,
     RootStartTrigger,
     RuntimeReadbackRefs,
     SemanticRetryTrigger,
     WatchdogRecoveryTrigger,
 )
+from banksia.runtime.contracts.refs import FileReference
 
 
 def sample_checkpoint() -> PromptCheckpointSummary:
     return PromptCheckpointSummary(
         checkpoint_id="checkpoint-1",
-        logical_path="_runtime/attempts/attempt-1/latest-checkpoint.md",
         summary="The bounded child assignment completed.",
+        details="The report contains the reviewed implementation findings.",
         outcome=CheckpointOutcome.GREEN,
-        refs=(
-            PromptLogicalRef(
-                kind=PromptRefKind.ARTIFACT,
-                logical_path="outputs/report/report.v01.md",
-                purpose="Inspect the accepted child result.",
+        files=(
+            FileReference(
+                path=".banksia/t_7m4k2d9x/artifacts/report.md",
                 description="The child report.",
-                slot="report",
-                version=1,
             ),
         ),
     )
@@ -77,8 +72,7 @@ def sample_dynamic_input(
             member_id="engineer",
             member_title="Engineer",
             node_kind=node_kind,
-            summary="Repair the bounded authentication defect.",
-            instruction="Change only the assigned behavior.",
+            prompt="Repair the bounded authentication defect.",
         ),
         trigger=trigger or RootStartTrigger(flow_id="flow-1"),
         plan=None,
@@ -86,16 +80,13 @@ def sample_dynamic_input(
             capabilities=EffectiveCapabilitySet(),
             allowed_actions=(
                 "get_current_context",
-                "release_green",
-            )
-            if node_kind != NodeKind.WORKER
-            else ("get_current_context", "return_boundary"),
+                "checkpoint",
+            ),
             readback_refs=RuntimeReadbackRefs(
                 instructions="_runtime/dispatch/dispatch-1/instructions.md",
                 input="_runtime/dispatch/dispatch-1/input.md",
-                workflow_manifest="_runtime/workflow-manifest.md",
+                workflow_manifest="manifest.md",
             ),
-            refs=(),
             constraints=("Do not edit unrelated files.",),
         ),
         dispatch=PromptDispatch(

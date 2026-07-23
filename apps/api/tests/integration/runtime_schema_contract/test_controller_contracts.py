@@ -93,11 +93,9 @@ def test_source_dispatch_preserves_terminal_checkpoint_supersession_history(
                     "assignment_id": ids.root_assignment_id,
                     "attempt_id": ids.root_attempt_id,
                     "authoring_dispatch_id": ids.root_dispatch_id,
-                    "checkpoint_kind": "terminal",
                     "outcome": "blocked",
                     "summary": "A superseding terminal checkpoint.",
-                    "evidence_json": {},
-                    "criteria_results_json": [],
+                    "details": "The later exact message remains in history.",
                     "recorded_at": NOW,
                 },
             )
@@ -108,8 +106,7 @@ def test_source_dispatch_preserves_terminal_checkpoint_supersession_history(
                 .where(
                     RuntimeBase.metadata.tables["attempt_checkpoints"].c.authoring_dispatch_id
                     == ids.root_dispatch_id,
-                    RuntimeBase.metadata.tables["attempt_checkpoints"].c.checkpoint_kind
-                    == "terminal",
+                    RuntimeBase.metadata.tables["attempt_checkpoints"].c.outcome.is_not(None),
                 )
             )
         assert terminal_count == 2
@@ -237,7 +234,7 @@ def test_attempt_latest_checkpoint_pointer_accepts_only_the_exact_attempt(
     _assert_rejected(invalid_path, mutate)
 
 
-def test_root_release_decision_can_select_exact_descendant_evidence(
+def test_checkpoint_file_references_are_ordered_owner_scoped_values(
     tmp_path: Path,
 ) -> None:
     engine = create_runtime_schema_engine(tmp_path)
@@ -245,174 +242,59 @@ def test_root_release_decision_can_select_exact_descendant_evidence(
         with engine.begin() as connection:
             seed_catalog(connection)
             ids = seed_runtime_scope(connection)
-            _insert_release_decision(connection, ids, decision_id="decision.release-blocked")
             connection.execute(
-                RuntimeBase.metadata.tables["assignment_decision_checkpoints"].insert(),
-                {
-                    "assignment_decision_checkpoint_id": "decision-checkpoint.child",
-                    "assignment_decision_id": "decision.release-blocked",
-                    "task_id": ids.task_id,
-                    "flow_id": ids.flow_id,
-                    "evidence_assignment_id": ids.child_assignment_id,
-                    "evidence_attempt_id": ids.child_attempt_id,
-                    "checkpoint_id": ids.child_checkpoint_id,
-                    "order_index": 0,
-                },
-            )
-            _insert_publication(
-                connection,
-                ids,
-                publication_id="publication.child.result.1",
-                version=1,
-                slot="result",
-                assignment_id=ids.child_assignment_id,
-                attempt_id=ids.child_attempt_id,
-                checkpoint_id=ids.child_checkpoint_id,
-            )
-            connection.execute(
-                RuntimeBase.metadata.tables["assignment_decision_artifacts"].insert(),
-                {
-                    "assignment_decision_artifact_id": "decision-artifact.child",
-                    "assignment_decision_id": "decision.release-blocked",
-                    "task_id": ids.task_id,
-                    "flow_id": ids.flow_id,
-                    "evidence_assignment_id": ids.child_assignment_id,
-                    "evidence_attempt_id": ids.child_attempt_id,
-                    "checkpoint_id": ids.child_checkpoint_id,
-                    "slot": "result",
-                    "version": 1,
-                    "artifact_publication_id": "publication.child.result.1",
-                    "order_index": 0,
-                },
+                RuntimeBase.metadata.tables["checkpoint_file_references"].insert(),
+                [
+                    {
+                        "checkpoint_id": ids.root_checkpoint_id,
+                        "order_index": 0,
+                        "path": "notes/approach.md",
+                        "description": "Working approach.",
+                    },
+                    {
+                        "checkpoint_id": ids.root_checkpoint_id,
+                        "order_index": 1,
+                        "path": "artifacts/report.md",
+                        "description": "Reviewable report.",
+                    },
+                ],
             )
         with engine.connect() as connection:
-            row = connection.execute(
-                select(RuntimeBase.metadata.tables["assignment_decision_checkpoints"])
-            ).one()
-        assert row.evidence_assignment_id == ids.child_assignment_id
-        assert row.evidence_attempt_id == ids.child_attempt_id
+            rows = connection.execute(
+                select(RuntimeBase.metadata.tables["checkpoint_file_references"]).order_by(
+                    RuntimeBase.metadata.tables["checkpoint_file_references"].c.order_index
+                )
+            ).all()
+        assert [(row.path, row.description) for row in rows] == [
+            ("notes/approach.md", "Working approach."),
+            ("artifacts/report.md", "Reviewable report."),
+        ]
     finally:
         engine.dispose()
 
 
-def test_release_decision_rejects_evidence_from_another_task_or_flow(
+def test_checkpoint_file_reference_rejects_duplicate_owner_path(
     tmp_path: Path,
 ) -> None:
     def mutate(connection: Connection, scopes: dict[str, RuntimeIds]) -> None:
-        owner = scopes["a"]
-        evidence = scopes["b"]
-        _insert_release_decision(connection, owner, decision_id="decision.cross-flow")
+        ids = scopes["a"]
+        references = RuntimeBase.metadata.tables["checkpoint_file_references"]
         connection.execute(
-            RuntimeBase.metadata.tables["assignment_decision_checkpoints"].insert(),
-            {
-                "assignment_decision_checkpoint_id": "decision-checkpoint.cross-flow",
-                "assignment_decision_id": "decision.cross-flow",
-                "task_id": owner.task_id,
-                "flow_id": owner.flow_id,
-                "evidence_assignment_id": evidence.child_assignment_id,
-                "evidence_attempt_id": evidence.child_attempt_id,
-                "checkpoint_id": evidence.child_checkpoint_id,
-                "order_index": 0,
-            },
-        )
-
-    _assert_rejected(tmp_path, mutate, suffixes=("a", "b"))
-
-
-def test_artifact_versions_supersede_only_the_same_assignment_slot(
-    tmp_path: Path,
-) -> None:
-    engine = create_runtime_schema_engine(tmp_path)
-    try:
-        with engine.begin() as connection:
-            seed_catalog(connection)
-            ids = seed_runtime_scope(connection)
-            _insert_publication(
-                connection,
-                ids,
-                publication_id="publication.root.output.1",
-                version=1,
-            )
-            _insert_publication(
-                connection,
-                ids,
-                publication_id="publication.root.output.2",
-                version=2,
-                supersedes_publication_id="publication.root.output.1",
-                supersedes_version=1,
-            )
-            connection.execute(
-                RuntimeBase.metadata.tables["artifact_current_pointers"].insert(),
+            references.insert(),
+            [
                 {
-                    "artifact_current_pointer_id": "current.root.output",
-                    "task_id": ids.task_id,
-                    "flow_id": ids.flow_id,
-                    "assignment_id": ids.root_assignment_id,
-                    "slot": "output",
-                    "current_publication_id": "publication.root.output.2",
-                    "current_version": 2,
-                    "attempt_id": ids.root_attempt_id,
                     "checkpoint_id": ids.root_checkpoint_id,
-                    "updated_at": NOW,
+                    "order_index": 0,
+                    "path": "artifacts/report.md",
+                    "description": None,
                 },
-            )
-        with engine.connect() as connection:
-            pointer = connection.execute(
-                select(RuntimeBase.metadata.tables["artifact_current_pointers"])
-            ).one()
-        assert pointer.current_publication_id == "publication.root.output.2"
-        assert pointer.current_version == 2
-    finally:
-        engine.dispose()
-
-
-def test_artifact_cannot_supersede_a_different_slot(tmp_path: Path) -> None:
-    def mutate(connection: Connection, scopes: dict[str, RuntimeIds]) -> None:
-        ids = scopes["a"]
-        _insert_publication(
-            connection,
-            ids,
-            publication_id="publication.output.1",
-            version=1,
-        )
-        _insert_publication(
-            connection,
-            ids,
-            publication_id="publication.other.2",
-            version=2,
-            slot="other",
-            supersedes_publication_id="publication.output.1",
-            supersedes_version=1,
-        )
-
-    _assert_rejected(tmp_path, mutate)
-
-
-def test_artifact_current_pointer_requires_the_exact_publication_version(
-    tmp_path: Path,
-) -> None:
-    def mutate(connection: Connection, scopes: dict[str, RuntimeIds]) -> None:
-        ids = scopes["a"]
-        _insert_publication(
-            connection,
-            ids,
-            publication_id="publication.output.1",
-            version=1,
-        )
-        connection.execute(
-            RuntimeBase.metadata.tables["artifact_current_pointers"].insert(),
-            {
-                "artifact_current_pointer_id": "current.invalid-version",
-                "task_id": ids.task_id,
-                "flow_id": ids.flow_id,
-                "assignment_id": ids.root_assignment_id,
-                "slot": "output",
-                "current_publication_id": "publication.output.1",
-                "current_version": 2,
-                "attempt_id": ids.root_attempt_id,
-                "checkpoint_id": ids.root_checkpoint_id,
-                "updated_at": NOW,
-            },
+                {
+                    "checkpoint_id": ids.root_checkpoint_id,
+                    "order_index": 1,
+                    "path": "artifacts/report.md",
+                    "description": "Duplicate path.",
+                },
+            ],
         )
 
     _assert_rejected(tmp_path, mutate)
@@ -461,31 +343,6 @@ def test_work_plan_rejects_more_than_one_in_progress_step(tmp_path: Path) -> Non
     _assert_rejected(tmp_path, mutate)
 
 
-def _insert_release_decision(
-    connection: Connection,
-    ids: RuntimeIds,
-    *,
-    decision_id: str,
-    source_flow_revision_id: str | None = None,
-) -> None:
-    connection.execute(
-        RuntimeBase.metadata.tables["assignment_decisions"].insert(),
-        {
-            "assignment_decision_id": decision_id,
-            "source_dispatch_id": ids.root_dispatch_id,
-            "task_id": ids.task_id,
-            "flow_id": ids.flow_id,
-            "assignment_id": ids.root_assignment_id,
-            "attempt_id": ids.root_attempt_id,
-            "source_flow_revision_id": source_flow_revision_id or ids.flow_revision_id,
-            "decision_kind": "release_blocked",
-            "staged_child_assignment_id": None,
-            "staged_child_attempt_id": None,
-            "recorded_at": NOW,
-        },
-    )
-
-
 def _set_child_authoring_dispatch(
     connection: Connection,
     ids: RuntimeIds,
@@ -515,38 +372,5 @@ def _insert_staged_child_decision(connection: Connection, ids: RuntimeIds) -> No
             "staged_child_assignment_id": ids.child_assignment_id,
             "staged_child_attempt_id": ids.child_attempt_id,
             "recorded_at": NOW,
-        },
-    )
-
-
-def _insert_publication(
-    connection: Connection,
-    ids: RuntimeIds,
-    *,
-    publication_id: str,
-    version: int,
-    slot: str = "output",
-    assignment_id: str | None = None,
-    attempt_id: str | None = None,
-    checkpoint_id: str | None = None,
-    supersedes_publication_id: str | None = None,
-    supersedes_version: int | None = None,
-) -> None:
-    connection.execute(
-        RuntimeBase.metadata.tables["artifact_publications"].insert(),
-        {
-            "artifact_publication_id": publication_id,
-            "task_id": ids.task_id,
-            "flow_id": ids.flow_id,
-            "assignment_id": assignment_id or ids.root_assignment_id,
-            "attempt_id": attempt_id or ids.root_attempt_id,
-            "checkpoint_id": checkpoint_id or ids.root_checkpoint_id,
-            "slot": slot,
-            "version": version,
-            "logical_path": f"outputs/artifacts/{slot}/{version}",
-            "description": "Target artifact.",
-            "supersedes_publication_id": supersedes_publication_id,
-            "supersedes_version": supersedes_version,
-            "published_at": NOW,
         },
     )

@@ -9,6 +9,8 @@ from sqlalchemy import (
     ForeignKey,
     ForeignKeyConstraint,
     Index,
+    Integer,
+    PrimaryKeyConstraint,
     String,
     Text,
     UniqueConstraint,
@@ -115,11 +117,6 @@ class HumanRequestModel(RuntimeBase):
     request_kind: Mapped[str] = mapped_column(String(64))
     request_summary: Mapped[str] = mapped_column(Text)
     request_items_json: Mapped[list[dict[str, object]]] = mapped_column(JSON(none_as_null=True))
-    context_refs_json: Mapped[list[dict[str, object]] | None] = mapped_column(
-        JSON(none_as_null=True),
-        nullable=True,
-    )
-    suggested_human_instruction: Mapped[str | None] = mapped_column(Text, nullable=True)
     capability_basis_json: Mapped[dict[str, object]] = mapped_column(JSON(none_as_null=True))
     due_at: Mapped[datetime | None] = mapped_column(UtcDateTime(), nullable=True)
     timeout_policy_json: Mapped[dict[str, object] | None] = mapped_column(
@@ -164,6 +161,36 @@ class HumanRequestModel(RuntimeBase):
         uselist=False,
         viewonly=True,
     )
+    file_references: Mapped[list[HumanRequestFileReferenceModel]] = relationship(
+        back_populates="human_request",
+        foreign_keys="HumanRequestFileReferenceModel.request_id",
+        lazy="raise",
+        order_by="HumanRequestFileReferenceModel.order_index",
+    )
 
 
-__all__ = ["HumanRequestModel"]
+class HumanRequestFileReferenceModel(RuntimeBase):
+    """One ordered loose-file reference owned by a Human Request."""
+
+    __tablename__ = "human_request_file_references"
+    __table_args__ = (
+        PrimaryKeyConstraint("request_id", "order_index"),
+        UniqueConstraint("request_id", "path"),
+        CheckConstraint(
+            "order_index >= 0",
+            name="ck_human_request_file_references_order",
+        ),
+    )
+
+    request_id: Mapped[str] = mapped_column(ForeignKey("human_requests.request_id"))
+    order_index: Mapped[int] = mapped_column(Integer)
+    path: Mapped[str] = mapped_column(Text)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    human_request: Mapped[HumanRequestModel] = relationship(
+        back_populates="file_references",
+        foreign_keys=[request_id],
+        lazy="raise",
+    )
+
+
+__all__ = ["HumanRequestFileReferenceModel", "HumanRequestModel"]

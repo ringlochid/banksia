@@ -95,10 +95,6 @@ def _seed_task(connection: Connection, *, ids: RuntimeIds) -> None:
         tables["tasks"].insert(),
         {
             "task_id": ids.task_id,
-            "task_key": f"task-key.{ids.suffix}",
-            "title": f"Target task {ids.suffix}",
-            "summary": "Target runtime schema fixture.",
-            "instruction": None,
             "workflow_key": "workflow.target",
             "workflow_revision_no": 1,
             "workflow_content_hash": WORKFLOW_CONTENT_HASH,
@@ -149,27 +145,10 @@ def _seed_compiled_plan(connection: Connection, *, ids: RuntimeIds) -> None:
                 "description": f"{node_key} node",
                 "node_instruction": None,
                 "child_node_keys_json": ["child"] if node_key == "root" else [],
-                "consumes_json": None,
-                "produces_json": None,
-                "criteria_json": [],
-                "child_defaults_json": None,
                 "provider_kind": "codex",
                 "order_index": order_index,
             },
         )
-    connection.execute(
-        tables["compiled_plan_edges"].insert(),
-        {
-            "compiled_plan_edge_id": (f"compiled-plan-edge.{ids.suffix}.root-child"),
-            "compiled_plan_id": ids.compiled_plan_id,
-            "provider_node_key": "root",
-            "consumer_node_key": "child",
-            "kind": "artifact",
-            "slot": "input",
-            "description": "Root output consumed by child.",
-            "order_index": 0,
-        },
-    )
 
 
 def _seed_workspace(connection: Connection, *, ids: RuntimeIds) -> None:
@@ -268,10 +247,6 @@ def _seed_flow_nodes(
                 "description": f"{node_key} flow node",
                 "node_instruction": None,
                 "child_node_keys_json": ["child"] if node_key == "root" else [],
-                "consumes_json": None,
-                "produces_json": None,
-                "criteria_json": [],
-                "child_defaults_json": None,
                 "state": "running",
                 "current_assignment_id": None,
                 "order_index": order_index,
@@ -293,19 +268,6 @@ def _seed_flow_nodes(
                 "provider_kind": "codex",
             },
         )
-    connection.execute(
-        tables["flow_edges"].insert(),
-        {
-            "flow_edge_id": f"flow-edge.{ids.suffix}.root-child",
-            "flow_revision_id": ids.flow_revision_id,
-            "provider_node_key": "root",
-            "consumer_node_key": "child",
-            "kind": "artifact",
-            "slot": "input",
-            "description": "Root output consumed by child.",
-            "order_index": 0,
-        },
-    )
 
 
 def _seed_dispatch_lineage(
@@ -528,11 +490,9 @@ def _seed_checkpoints(
                 "assignment_id": assignment_id,
                 "attempt_id": attempt_id,
                 "authoring_dispatch_id": dispatch_id,
-                "checkpoint_kind": "terminal",
                 "outcome": outcome,
                 "summary": f"{outcome} checkpoint",
-                "evidence_json": {},
-                "criteria_results_json": [],
+                "details": None,
                 "recorded_at": timestamp,
             },
         )

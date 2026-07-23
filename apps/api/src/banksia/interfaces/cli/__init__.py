@@ -22,7 +22,7 @@ from banksia.interfaces.cli.commands.service import (
     cmd_service_uninstall,
     render_service_unit,
 )
-from banksia.interfaces.cli.commands.task_compose import cmd_task_compose_start
+from banksia.interfaces.cli.commands.task import TaskStartCliError, cmd_task_start
 from banksia.interfaces.cli.commands.workflow import (
     cmd_workflow_export,
     cmd_workflow_import,
@@ -33,6 +33,7 @@ from .main import build_parser, main
 
 __all__ = [
     "DEFAULT_SERVICE_NAME",
+    "TaskStartCliError",
     "build_parser",
     "cmd_config_path",
     "cmd_config_show",
@@ -47,7 +48,7 @@ __all__ = [
     "cmd_service_status",
     "cmd_service_stop",
     "cmd_service_uninstall",
-    "cmd_task_compose_start",
+    "cmd_task_start",
     "cmd_workflow_export",
     "cmd_workflow_import",
     "command_env",

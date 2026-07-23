@@ -21,12 +21,14 @@ from banksia.persistence.models import (
     WorkflowRevisionModel,
     WorkspaceBindingModel,
 )
+from banksia.runtime.assignment import read_assignment_file_references
 from banksia.runtime.capabilities import resolve_effective_capabilities_for_node
 from banksia.runtime.contracts.capabilities import EffectiveCapabilitySet
 from banksia.runtime.contracts.member import NodeKind
 from banksia.runtime.contracts.primitives import TaskRootPaths
 from banksia.runtime.contracts.prompt import OperatorContinueTrigger, RootStartTrigger
 from banksia.runtime.contracts.provider_resolution import ProviderResolution
+from banksia.runtime.contracts.refs import FileReference
 from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
 from banksia.runtime.dispatch.prompt_snapshot import (
     RootPromptChildSnapshot,
@@ -102,19 +104,12 @@ async def read_root_opening_snapshot(
     if state is None:
         return None
     context = await _read_root_runtime_context(session, state.flow)
-    children = tuple(
-        await session.scalars(
-            select(FlowNodeModel)
-            .options(raiseload("*"))
-            .where(
-                FlowNodeModel.flow_id == state.flow.flow_id,
-                FlowNodeModel.flow_revision_id == state.flow.active_flow_revision_id,
-                FlowNodeModel.parent_node_key == context.node.node_key,
-            )
-            .order_by(FlowNodeModel.order_index)
-        )
-    )
+    children = await _read_direct_child_nodes(session, state.flow, context.node)
     work_plan = await read_assignment_work_plan(
+        session,
+        assignment_id=context.assignment.assignment_id,
+    )
+    assignment_files = await read_assignment_file_references(
         session,
         assignment_id=context.assignment.assignment_id,
     )
@@ -140,6 +135,7 @@ async def read_root_opening_snapshot(
         work_plan=work_plan,
         capabilities=capabilities,
         children=children,
+        assignment_files=assignment_files,
     )
     return RootOpeningSnapshot(
         source_committed_at=state.source.committed_at,
@@ -198,12 +194,8 @@ def root_context_is_current(snapshot: RootOpeningSnapshot) -> ColumnElement[bool
             AssignmentModel.assignment_id == prompt.assignment_id,
             AssignmentModel.task_id == prompt.task_id,
             AssignmentModel.flow_id == prompt.flow_id,
-            AssignmentModel.flow_revision_id == prompt.flow_revision_id,
             AssignmentModel.node_key == prompt.node_key,
-            AssignmentModel.team_revision_id == prompt.team_revision_id,
             AssignmentModel.member_id == prompt.member_id,
-            AssignmentModel.member_configuration_id == prompt.member_configuration_id,
-            AssignmentModel.member_branch_basis_id == prompt.member_branch_basis_id,
             AssignmentModel.current_attempt_id == prompt.attempt_id,
             AssignmentModel.work_plan_revision == snapshot.assignment_work_plan_revision,
             AssignmentModel.superseded_at.is_(None),
@@ -219,12 +211,30 @@ def root_context_is_current(snapshot: RootOpeningSnapshot) -> ColumnElement[bool
         & exists().where(
             TaskModel.task_id == prompt.task_id,
             TaskModel.task_root_path == snapshot.task_root_path,
-            TaskModel.title == prompt.task_title,
-            TaskModel.summary == prompt.task_summary,
+            TaskModel.current_team_revision_id == prompt.team_revision_id,
         )
         & exists().where(
             WorkspaceBindingModel.task_id == prompt.task_id,
             WorkspaceBindingModel.normalized_root_path == snapshot.workspace_root_path,
+        )
+    )
+
+
+async def _read_direct_child_nodes(
+    session: AsyncSession,
+    flow: FlowModel,
+    node: FlowNodeModel,
+) -> tuple[FlowNodeModel, ...]:
+    return tuple(
+        await session.scalars(
+            select(FlowNodeModel)
+            .options(raiseload("*"))
+            .where(
+                FlowNodeModel.flow_id == flow.flow_id,
+                FlowNodeModel.flow_revision_id == flow.active_flow_revision_id,
+                FlowNodeModel.parent_node_key == node.node_key,
+            )
+            .order_by(FlowNodeModel.order_index)
         )
     )
 
@@ -341,20 +351,17 @@ def _build_root_prompt_snapshot(
     work_plan: WorkPlanRead | None,
     capabilities: EffectiveCapabilitySet,
     children: tuple[FlowNodeModel, ...],
+    assignment_files: tuple[FileReference, ...],
 ) -> RootPromptSnapshot:
     workflow_description = context.workflow.content_json.get("description")
     if workflow_description is not None and not isinstance(workflow_description, str):
         raise ValueError("pinned workflow description must be text")
-    task = context.task
     node = context.node
     assignment = context.assignment
     attempt = context.attempt
     assert flow.active_flow_revision_id is not None
     return RootPromptSnapshot(
-        task_id=task.task_id,
-        task_title=task.title,
-        task_summary=task.summary,
-        task_instruction=task.instruction,
+        task_id=context.task.task_id,
         workflow_key=context.compiled_plan.workflow_key,
         workflow_revision_no=context.compiled_plan.workflow_revision_no,
         workflow_description=workflow_description,
@@ -373,11 +380,8 @@ def _build_root_prompt_snapshot(
         member_title=node.member_title,
         node_description=node.description,
         node_instruction=node.node_instruction,
-        assignment_summary=assignment.summary,
-        assignment_instruction=assignment.instruction,
-        criteria_json=tuple(node.criteria_json),
-        consumes_json=tuple(assignment.consumes_json),
-        produces_json=tuple(assignment.produces_json),
+        assignment_prompt=assignment.prompt,
+        assignment_files=assignment_files,
         child_assignment_limit=assignment.child_assignment_limit,
         child_assignments_remaining=assignment.child_assignments_remaining,
         retry_limit=assignment.retry_limit,
@@ -411,10 +415,9 @@ def _node_plan_matches_node(
 def _assignment_matches_node(assignment: AssignmentModel, node: FlowNodeModel) -> bool:
     return (
         assignment.task_id == node.task_id
-        and assignment.team_revision_id == node.team_revision_id
+        and assignment.flow_id == node.flow_id
         and assignment.member_id == node.member_id
-        and assignment.member_configuration_id == node.member_configuration_id
-        and assignment.member_branch_basis_id == node.member_branch_basis_id
+        and assignment.node_key == node.node_key
     )
 
 

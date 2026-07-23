@@ -14,7 +14,6 @@ from banksia.persistence.models import (
     FlowNodeModel,
     HumanRequestModel,
 )
-from banksia.runtime.checkpoint import read_exact_latest_checkpoint
 from banksia.runtime.contracts.member import NodeKind
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
 from banksia.runtime.dispatch.authority import NodeOperationAuthority
@@ -23,29 +22,12 @@ from banksia.runtime.node_operations.catalog import (
     list_node_operation_descriptors_for_kind,
 )
 from banksia.runtime.node_operations.contracts import NodeOperationName
-from banksia.runtime.node_operations.release import (
-    release_blocked_is_ready,
-    release_green_is_ready,
-)
-from banksia.runtime.node_operations.release.publications import (
-    require_checkpoint_publications,
-)
 
 _READ_OPERATIONS = frozenset(
     {
         NodeOperationName.GET_CURRENT_CONTEXT,
         NodeOperationName.LIST_FILES,
         NodeOperationName.READ_FILE,
-    }
-)
-_STRUCTURAL_OPERATIONS = frozenset(
-    {
-        NodeOperationName.ASSIGN_CHILD,
-        NodeOperationName.ADD_CHILD,
-        NodeOperationName.UPDATE_CHILD,
-        NodeOperationName.REMOVE_CHILD,
-        NodeOperationName.RELEASE_GREEN,
-        NodeOperationName.RELEASE_BLOCKED,
     }
 )
 _REPLAN_OPERATIONS = frozenset(
@@ -55,13 +37,9 @@ _REPLAN_OPERATIONS = frozenset(
         NodeOperationName.REMOVE_CHILD,
     }
 )
-_DECISION_SENSITIVE_OPERATIONS = _STRUCTURAL_OPERATIONS | {
-    NodeOperationName.RETURN_BOUNDARY,
-    NodeOperationName.OPEN_HUMAN_REQUEST,
-    NodeOperationName.START_COMMAND_RUN,
-}
-_CHECKPOINT_SENSITIVE_OPERATIONS = _STRUCTURAL_OPERATIONS | {
-    NodeOperationName.RECORD_CHECKPOINT,
+_STRUCTURAL_OPERATIONS = _REPLAN_OPERATIONS | {NodeOperationName.ASSIGN_CHILD}
+_TRANSITION_OPERATIONS = _STRUCTURAL_OPERATIONS | {
+    NodeOperationName.CHECKPOINT,
     NodeOperationName.RETURN_BOUNDARY,
     NodeOperationName.OPEN_HUMAN_REQUEST,
     NodeOperationName.START_COMMAND_RUN,
@@ -74,13 +52,13 @@ class NodeOperationStateToken:
     flow_revision_id: str
     assignment_decision_id: str | None
     checkpoint_count: int
-    terminal_checkpoint_id: str | None
+    latest_checkpoint_id: str | None
 
 
 def node_operation_requires_transition_claim(
     operation_name: NodeOperationName,
 ) -> bool:
-    return operation_name in _CHECKPOINT_SENSITIVE_OPERATIONS
+    return operation_name in _TRANSITION_OPERATIONS
 
 
 async def read_node_operation_state_token(
@@ -101,7 +79,7 @@ async def read_node_operation_state_token(
     if flow_state is None or flow_state.active_flow_revision_id is None:
         raise RuntimeOperationError(
             code=OperationFailureCode.CONFLICT,
-            summary="another transition changed current flow authority",
+            summary="another transition changed current Flow authority",
             is_retryable=False,
         )
     decision_id = await session.scalar(
@@ -119,18 +97,18 @@ async def read_node_operation_state_token(
     checkpoint_count = await session.scalar(
         select(func.count()).select_from(AttemptCheckpointModel).where(*checkpoint_scope)
     )
-    latest_checkpoint = await read_exact_latest_checkpoint(session, authority)
-    terminal_checkpoint_id = (
-        latest_checkpoint.checkpoint_id
-        if latest_checkpoint is not None and latest_checkpoint.checkpoint_kind == "terminal"
-        else None
+    latest_checkpoint_id = await session.scalar(
+        select(AttemptCheckpointModel.checkpoint_id).where(
+            *checkpoint_scope,
+            AttemptCheckpointModel.checkpoint_id == authority.attempt.latest_checkpoint_id,
+        )
     )
     return NodeOperationStateToken(
         flow_control_revision=int(flow_state.control_revision),
         flow_revision_id=str(flow_state.active_flow_revision_id),
         assignment_decision_id=decision_id,
         checkpoint_count=int(checkpoint_count or 0),
-        terminal_checkpoint_id=terminal_checkpoint_id,
+        latest_checkpoint_id=latest_checkpoint_id,
     )
 
 
@@ -165,116 +143,65 @@ async def _read_state_legal_node_operations(
     *,
     candidates: frozenset[NodeOperationName] | None = None,
 ) -> frozenset[NodeOperationName]:
-    role_operations = {
+    operations = {
         descriptor.name
         for descriptor in list_node_operation_descriptors_for_kind(authority.node_kind)
     }
     if candidates is not None:
-        role_operations.intersection_update(candidates)
-    if not role_operations:
+        operations.intersection_update(candidates)
+    if not operations:
         return frozenset()
     if await _dispatch_already_owns_source(session, authority):
-        return frozenset(role_operations & _READ_OPERATIONS)
+        return frozenset(operations & _READ_OPERATIONS)
 
-    if role_operations <= _READ_OPERATIONS | {NodeOperationName.SET_WORK_PLAN}:
-        return frozenset(role_operations)
-
-    decision = (
-        await session.scalar(
-            select(AssignmentDecisionModel).where(
-                AssignmentDecisionModel.source_dispatch_id == authority.dispatch_id
-            )
+    decision = await session.scalar(
+        select(AssignmentDecisionModel).where(
+            AssignmentDecisionModel.source_dispatch_id == authority.dispatch_id
         )
-        if role_operations & _DECISION_SENSITIVE_OPERATIONS
-        else None
     )
-    checkpoint = (
-        await _latest_dispatch_checkpoint(session, authority)
-        if role_operations & _CHECKPOINT_SENSITIVE_OPERATIONS
-        else None
-    )
-    terminal_checkpoint = checkpoint is not None and checkpoint.checkpoint_kind == "terminal"
-
-    legal = set(role_operations)
+    legal = set(operations)
     legal.discard(NodeOperationName.RETURN_BOUNDARY)
-    if terminal_checkpoint:
-        legal.discard(NodeOperationName.OPEN_HUMAN_REQUEST)
-        legal.discard(NodeOperationName.START_COMMAND_RUN)
-
     if decision is not None:
         legal.difference_update(_STRUCTURAL_OPERATIONS)
         legal.discard(NodeOperationName.OPEN_HUMAN_REQUEST)
         legal.discard(NodeOperationName.START_COMMAND_RUN)
-        if decision.decision_kind in {"release_green", "release_blocked"}:
-            legal.discard(NodeOperationName.RECORD_CHECKPOINT)
-    else:
-        await _narrow_uncommitted_structural_operations(
-            session,
-            authority,
-            legal=legal,
-            terminal_checkpoint=terminal_checkpoint,
-        )
+        if decision.decision_kind == "staged_child":
+            legal.add(NodeOperationName.RETURN_BOUNDARY)
+        return frozenset(legal)
 
-    if NodeOperationName.RETURN_BOUNDARY in role_operations and await _boundary_is_ready(
-        session, authority, checkpoint, decision
-    ):
-        legal.add(NodeOperationName.RETURN_BOUNDARY)
+    await _narrow_structural_operations(session, authority, legal=legal)
     return frozenset(legal)
 
 
-async def _narrow_uncommitted_structural_operations(
+async def _narrow_structural_operations(
     session: AsyncSession,
     authority: NodeOperationAuthority,
     *,
     legal: set[NodeOperationName],
-    terminal_checkpoint: bool,
 ) -> None:
-    structural_operations = legal & _STRUCTURAL_OPERATIONS
-    if not structural_operations:
+    if not legal & _STRUCTURAL_OPERATIONS or authority.node_kind == NodeKind.WORKER:
         return
-    if terminal_checkpoint:
-        legal.difference_update(_REPLAN_OPERATIONS)
-    if authority.node_kind == NodeKind.WORKER:
-        return
-    descendants: tuple[FlowNodeModel, ...] = ()
-    if structural_operations & {
-        NodeOperationName.ASSIGN_CHILD,
-        NodeOperationName.UPDATE_CHILD,
-        NodeOperationName.REMOVE_CHILD,
-    }:
-        descendants = tuple(
-            await session.scalars(
-                select(FlowNodeModel).where(
-                    FlowNodeModel.flow_id == authority.flow_id,
-                    FlowNodeModel.flow_revision_id == authority.flow_revision_id,
-                    FlowNodeModel.node_key != authority.node_key,
-                )
+    descendants = tuple(
+        await session.scalars(
+            select(FlowNodeModel).where(
+                FlowNodeModel.flow_id == authority.flow_id,
+                FlowNodeModel.flow_revision_id == authority.flow_revision_id,
+                FlowNodeModel.node_key != authority.node_key,
             )
         )
+    )
     direct_children = tuple(
         node for node in descendants if node.parent_node_key == authority.node_key
     )
     if not direct_children:
         legal.discard(NodeOperationName.UPDATE_CHILD)
         legal.discard(NodeOperationName.REMOVE_CHILD)
-    if NodeOperationName.ASSIGN_CHILD in structural_operations and not any(
+    if NodeOperationName.ASSIGN_CHILD in legal and not any(
         (child.current_assignment_id is None and child.state == "ready")
         or (child.current_assignment_id is not None and child.state in {"done", "failed"})
         for child in direct_children
     ):
         legal.discard(NodeOperationName.ASSIGN_CHILD)
-    if terminal_checkpoint:
-        legal.discard(NodeOperationName.ASSIGN_CHILD)
-    if (
-        NodeOperationName.RELEASE_GREEN in structural_operations
-        and not await release_green_is_ready(session, authority)
-    ):
-        legal.discard(NodeOperationName.RELEASE_GREEN)
-    if NodeOperationName.RELEASE_BLOCKED in structural_operations and (
-        authority.node_kind != NodeKind.ROOT
-        or not await release_blocked_is_ready(session, authority)
-    ):
-        legal.discard(NodeOperationName.RELEASE_BLOCKED)
 
 
 async def _dispatch_already_owns_source(
@@ -290,42 +217,6 @@ async def _dispatch_already_owns_source(
         if source_id is not None:
             return True
     return False
-
-
-async def _latest_dispatch_checkpoint(
-    session: AsyncSession,
-    authority: NodeOperationAuthority,
-) -> AttemptCheckpointModel | None:
-    return await read_exact_latest_checkpoint(session, authority)
-
-
-async def _boundary_is_ready(
-    session: AsyncSession,
-    authority: NodeOperationAuthority,
-    checkpoint: AttemptCheckpointModel | None,
-    decision: AssignmentDecisionModel | None,
-) -> bool:
-    if decision is not None and decision.decision_kind == "staged_child":
-        return True
-    if checkpoint is None or checkpoint.checkpoint_kind != "terminal":
-        return False
-    if checkpoint.outcome == "green":
-        try:
-            await require_checkpoint_publications(session, authority.assignment, checkpoint)
-        except RuntimeOperationError:
-            return False
-    if authority.node_kind == NodeKind.WORKER:
-        return checkpoint.outcome in {"green", "retry", "blocked"}
-    if authority.node_kind == NodeKind.PARENT:
-        return checkpoint.outcome == "blocked" or (
-            checkpoint.outcome == "green"
-            and decision is not None
-            and decision.decision_kind == "release_green"
-        )
-    return decision is not None and (
-        (checkpoint.outcome == "green" and decision.decision_kind == "release_green")
-        or (checkpoint.outcome == "blocked" and decision.decision_kind == "release_blocked")
-    )
 
 
 __all__ = [

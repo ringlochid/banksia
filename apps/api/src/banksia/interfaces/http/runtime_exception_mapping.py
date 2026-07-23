@@ -104,7 +104,6 @@ def _runtime_failure_status(code: OperationFailureCode) -> int:
         OperationFailureCode.STALE_DISPATCH,
         OperationFailureCode.STALE_FLOW_REVISION,
         OperationFailureCode.STALE_ASSIGNMENT,
-        OperationFailureCode.STALE_CHECKPOINT,
     }:
         return status.HTTP_409_CONFLICT
     if code == OperationFailureCode.INTERNAL_ERROR:

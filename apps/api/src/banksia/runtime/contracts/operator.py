@@ -1,49 +1,15 @@
 from datetime import datetime
-from typing import Annotated, Any, Literal
+from typing import Literal
 
-from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from banksia.runtime.contracts.common import RuntimeSchemaText
 from banksia.runtime.contracts.flow import EffectiveCapabilityReadback, RuntimeFlowRead
 from banksia.runtime.contracts.member import NodeKind
-from banksia.runtime.contracts.primitives import (
-    CheckpointKind,
-    CheckpointOutcome,
-    EgressBoundary,
-)
-from banksia.runtime.contracts.refs import (
-    ArtifactIndexRef,
-    ArtifactRef,
-    AssignmentFileRef,
-    CheckpointFileRef,
-    CriteriaRef,
-    DocRef,
-    OperatorSupportSurfaceRef,
-    TransientIndexRef,
-    TransientRef,
-    WikiRef,
-    WorkflowManifestRef,
-)
+from banksia.runtime.contracts.primitives import CheckpointOutcome, EgressBoundary
+from banksia.runtime.contracts.refs import FileReference
 
-type OperatorSupportSurfaceCarrier = (
-    OperatorSupportSurfaceRef
-    | WorkflowManifestRef
-    | AssignmentFileRef
-    | CheckpointFileRef
-    | ArtifactIndexRef
-    | TransientIndexRef
-    | ArtifactRef
-    | CriteriaRef
-    | DocRef
-    | WikiRef
-    | TransientRef
-)
-
-
-type OperatorCurrentPaths = Annotated[
-    tuple[OperatorSupportSurfaceRef, ...],
-    BeforeValidator(lambda current_paths: _normalize_current_paths(current_paths)),
-]
+type OperatorCurrentPaths = tuple[FileReference, ...]
 
 
 class TopActionableItem(BaseModel):
@@ -91,9 +57,10 @@ class CheckpointHistoryEntry(BaseModel):
 
     checkpoint_id: RuntimeSchemaText
     attempt_id: RuntimeSchemaText
-    checkpoint_kind: CheckpointKind
     outcome: CheckpointOutcome | None = None
     summary: RuntimeSchemaText
+    details: str | None = None
+    files: tuple[FileReference, ...] = ()
     recorded_at: datetime
 
 
@@ -121,19 +88,6 @@ class TaskGraphNodeEntry(BaseModel):
     description: RuntimeSchemaText
     order_index: int
     child_node_keys: tuple[RuntimeSchemaText, ...] = ()
-    depends_on_node_keys: tuple[RuntimeSchemaText, ...] = ()
-    depended_on_by_node_keys: tuple[RuntimeSchemaText, ...] = ()
-
-
-class TaskGraphDependencyEntry(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True, from_attributes=True)
-
-    provider_node_key: RuntimeSchemaText
-    consumer_node_key: RuntimeSchemaText
-    kind: Literal["artifact", "criteria"]
-    slot: RuntimeSchemaText
-    description: RuntimeSchemaText
-    order_index: int
 
 
 class OperatorFlowTraceResponse(BaseModel):
@@ -142,7 +96,6 @@ class OperatorFlowTraceResponse(BaseModel):
     task_id: RuntimeSchemaText
     scope: Literal["current", "whole"] = "current"
     graph_nodes: tuple[TaskGraphNodeEntry, ...] = ()
-    dependency_edges: tuple[TaskGraphDependencyEntry, ...] = ()
     dispatch_history: tuple[DispatchHistoryEntry, ...]
     checkpoint_history: tuple[CheckpointHistoryEntry, ...]
     boundary_history: tuple[BoundaryHistoryEntry, ...]
@@ -160,14 +113,6 @@ class OperatorFlowTraceQuery(BaseModel):
     sort: Literal["occurred_at_desc", "occurred_at_asc"] = "occurred_at_desc"
 
 
-def _normalize_current_paths(
-    current_paths: Any,
-) -> tuple[OperatorSupportSurfaceRef, ...]:
-    if current_paths in (None, ()):
-        return ()
-    return tuple(OperatorSupportSurfaceRef.model_validate(path) for path in current_paths)
-
-
 __all__ = [
     "BoundaryHistoryEntry",
     "CheckpointHistoryEntry",
@@ -175,7 +120,6 @@ __all__ = [
     "OperatorFlowSnapshotResponse",
     "OperatorFlowTraceQuery",
     "OperatorFlowTraceResponse",
-    "TaskGraphDependencyEntry",
     "TaskGraphNodeEntry",
     "TopActionableItem",
 ]

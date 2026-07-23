@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 from banksia.runtime.contracts.capabilities import EffectiveCapabilitySet
 from banksia.runtime.contracts.member import NodeKind
@@ -16,15 +15,11 @@ from banksia.runtime.contracts.prompt import (
     PromptAssignment,
     PromptAssignmentBudget,
     PromptContext,
-    PromptCriterion,
     PromptDispatch,
     PromptDynamicInput,
     PromptFamily,
     PromptInstructionGuidance,
-    PromptLogicalRef,
     PromptNext,
-    PromptRefKind,
-    PromptSlot,
     PromptWorkflowNeighbor,
     RootStartTrigger,
     RuntimeReadbackRefs,
@@ -33,6 +28,7 @@ from banksia.runtime.contracts.prompt import (
     WatchdogRecoveryTrigger,
     prompt_family_for_node_kind,
 )
+from banksia.runtime.contracts.refs import FileReference
 from banksia.runtime.work_plan import WorkPlanRead
 
 
@@ -46,9 +42,6 @@ class RootPromptChildSnapshot:
 @dataclass(frozen=True, slots=True)
 class RootPromptSnapshot:
     task_id: str
-    task_title: str
-    task_summary: str
-    task_instruction: str | None
     workflow_key: str
     workflow_revision_no: int
     workflow_description: str | None
@@ -67,11 +60,8 @@ class RootPromptSnapshot:
     member_title: str | None
     node_description: str
     node_instruction: str | None
-    assignment_summary: str
-    assignment_instruction: str | None
-    criteria_json: tuple[dict[str, object], ...]
-    consumes_json: tuple[dict[str, object], ...]
-    produces_json: tuple[dict[str, object], ...]
+    assignment_prompt: str
+    assignment_files: tuple[FileReference, ...]
     child_assignment_limit: int | None
     child_assignments_remaining: int | None
     retry_limit: int | None
@@ -116,14 +106,10 @@ def build_root_dispatch_request(
     *,
     trigger: RootPromptTrigger | None = None,
 ) -> DispatchRequestRenderInput:
-    criteria = _criteria(snapshot.criteria_json)
-    consume_slots, refs = _consume_slots(snapshot.consumes_json)
     allowed_actions = _root_start_actions(snapshot)
     exact_trigger = trigger or RootStartTrigger(flow_id=snapshot.flow_id)
     workflow_guidance = _texts(
         snapshot.workflow_description,
-        f"Task: {snapshot.task_title}. {snapshot.task_summary}",
-        snapshot.task_instruction,
     )
     return DispatchRequestRenderInput(
         family=PromptFamily.PARENT_ROOT,
@@ -138,11 +124,8 @@ def build_root_dispatch_request(
                 member_id=snapshot.member_id,
                 member_title=snapshot.member_title,
                 node_kind=NodeKind.ROOT,
-                summary=snapshot.assignment_summary,
-                instruction=snapshot.assignment_instruction,
-                criteria=criteria,
-                consume_slots=consume_slots,
-                produce_slots=_produce_slots(snapshot.produces_json),
+                prompt=snapshot.assignment_prompt,
+                files=snapshot.assignment_files,
                 budget=PromptAssignmentBudget(
                     child_assignment_limit=snapshot.child_assignment_limit,
                     child_assignments_remaining=snapshot.child_assignments_remaining,
@@ -165,10 +148,9 @@ def build_root_dispatch_request(
                     for child in snapshot.children
                 ),
                 readback_refs=_runtime_readback_refs(snapshot.dispatch_id),
-                refs=refs,
                 constraints=(
                     "Treat controller-owned MCP state as runtime truth.",
-                    "Stay within the current root assignment and surfaced logical refs.",
+                    "Stay within the current root assignment and referenced files.",
                 ),
             ),
             dispatch=PromptDispatch(
@@ -184,7 +166,6 @@ def build_root_dispatch_request(
             ),
             next=PromptNext(
                 instruction=_root_trigger_instruction(exact_trigger),
-                inspect_refs=refs,
             ),
         ),
     )
@@ -217,15 +198,11 @@ def _build_continuation_dispatch_request(
     source_constraint: str,
 ) -> DispatchRequestRenderInput:
     node_kind = NodeKind(snapshot.node_kind)
-    criteria = _criteria(snapshot.criteria_json)
-    consume_slots, refs = _consume_slots(snapshot.consumes_json)
     return DispatchRequestRenderInput(
         family=prompt_family_for_node_kind(node_kind),
         guidance=PromptInstructionGuidance(
             workflow=_texts(
                 snapshot.workflow_description,
-                f"Task: {snapshot.task_title}. {snapshot.task_summary}",
-                snapshot.task_instruction,
             ),
             member=_texts(snapshot.member_title),
             node=_texts(snapshot.node_description, snapshot.node_instruction),
@@ -236,11 +213,8 @@ def _build_continuation_dispatch_request(
                 member_id=snapshot.member_id,
                 member_title=snapshot.member_title,
                 node_kind=node_kind,
-                summary=snapshot.assignment_summary,
-                instruction=snapshot.assignment_instruction,
-                criteria=criteria,
-                consume_slots=consume_slots,
-                produce_slots=_produce_slots(snapshot.produces_json),
+                prompt=snapshot.assignment_prompt,
+                files=snapshot.assignment_files,
                 budget=PromptAssignmentBudget(
                     child_assignment_limit=snapshot.child_assignment_limit,
                     child_assignments_remaining=snapshot.child_assignments_remaining,
@@ -263,7 +237,6 @@ def _build_continuation_dispatch_request(
                     for child in snapshot.children
                 ),
                 readback_refs=_runtime_readback_refs(snapshot.dispatch_id),
-                refs=refs,
                 constraints=(
                     "Treat controller-owned MCP state as runtime truth.",
                     source_constraint,
@@ -284,27 +257,9 @@ def _build_continuation_dispatch_request(
             ),
             next=PromptNext(
                 instruction=next_instruction,
-                inspect_refs=refs,
             ),
         ),
     )
-
-
-def _criteria(rows: tuple[dict[str, object], ...]) -> tuple[PromptCriterion, ...]:
-    criteria: list[PromptCriterion] = []
-    for row in rows:
-        checks = row.get("criteria")
-        if not isinstance(checks, list) or not checks:
-            raise ValueError("root criteria require a nonempty criteria list")
-        criteria.append(
-            PromptCriterion(
-                slot=_required_text(row, "slot"),
-                description=_required_text(row, "description"),
-                checks=tuple(_required_list_text(checks)),
-                logical_path=_optional_text(row.get("path")),
-            )
-        )
-    return tuple(criteria)
 
 
 def _runtime_readback_refs(dispatch_id: str) -> RuntimeReadbackRefs:
@@ -312,68 +267,18 @@ def _runtime_readback_refs(dispatch_id: str) -> RuntimeReadbackRefs:
     return RuntimeReadbackRefs(
         instructions=f"{dispatch_root}/instructions.md",
         input=f"{dispatch_root}/input.md",
-        workflow_manifest="_runtime/workflow-manifest.md",
-    )
-
-
-def _consume_slots(
-    rows: tuple[dict[str, object], ...],
-) -> tuple[tuple[PromptSlot, ...], tuple[PromptLogicalRef, ...]]:
-    slots: list[PromptSlot] = []
-    refs: list[PromptLogicalRef] = []
-    for row in rows:
-        kind = _prompt_ref_kind(row.get("kind"))
-        path = _optional_text(row.get("path"))
-        description = _required_text(row, "description")
-        if kind is None or path is None:
-            continue
-        slot = _optional_text(row.get("slot"))
-        version = _optional_positive_int(row.get("version"))
-        if kind == PromptRefKind.ARTIFACT and (slot is None or version is None):
-            raise ValueError("artifact consume refs require slot and version")
-        slots.append(
-            PromptSlot(
-                slot=slot or path,
-                kind=kind,
-                description=description,
-                logical_path=path,
-                version=version if kind == PromptRefKind.ARTIFACT else None,
-            )
-        )
-        refs.append(
-            PromptLogicalRef(
-                kind=kind,
-                logical_path=path,
-                purpose="Inspect this input before acting on the assignment.",
-                description=description,
-                slot=slot,
-                version=version if kind == PromptRefKind.ARTIFACT else None,
-            )
-        )
-    return tuple(slots), tuple(refs)
-
-
-def _produce_slots(rows: tuple[dict[str, object], ...]) -> tuple[PromptSlot, ...]:
-    return tuple(
-        PromptSlot(
-            slot=_required_text(row, "slot"),
-            kind=PromptRefKind.ARTIFACT,
-            description=_required_text(row, "description"),
-        )
-        for row in rows
+        workflow_manifest="manifest.md",
     )
 
 
 def _root_start_actions(snapshot: RootPromptSnapshot) -> tuple[str, ...]:
     actions = {
-        "release_blocked",
-        "release_green",
+        "checkpoint",
         "get_current_context",
         "list_files",
         "read_file",
         "return_boundary",
         "set_work_plan",
-        "record_checkpoint",
     }
     if any(child.assignment_id is None for child in snapshot.children):
         actions.add("assign_child")
@@ -396,17 +301,14 @@ def _boundary_actions(
     node_kind: NodeKind,
 ) -> tuple[str, ...]:
     actions = {
+        "checkpoint",
         "get_current_context",
         "list_files",
         "read_file",
         "set_work_plan",
-        "record_checkpoint",
         "return_boundary",
     }
     if node_kind != NodeKind.WORKER:
-        actions.add("release_green")
-        if node_kind == NodeKind.ROOT:
-            actions.add("release_blocked")
         if any(child.assignment_id is None for child in snapshot.children):
             actions.add("assign_child")
     human = snapshot.capabilities.human_request
@@ -476,38 +378,8 @@ def _root_trigger_instruction(trigger: RootPromptTrigger) -> str:
     )
 
 
-def _prompt_ref_kind(value: object) -> PromptRefKind | None:
-    if value in {"artifact", "criteria", "transient"}:
-        return PromptRefKind(str(value))
-    if value in {"doc", "wiki"}:
-        return PromptRefKind.WORKSPACE
-    return None
-
-
 def _texts(*values: str | None) -> tuple[str, ...]:
     return tuple(value for value in values if value is not None and value.strip())
-
-
-def _required_text(row: dict[str, object], key: str) -> str:
-    value = _optional_text(row.get(key))
-    if value is None:
-        raise ValueError(f"root prompt row requires nonempty '{key}'")
-    return value
-
-
-def _required_list_text(values: list[Any]) -> tuple[str, ...]:
-    normalized = tuple(_optional_text(value) for value in values)
-    if any(value is None for value in normalized):
-        raise ValueError("root prompt list values must be nonempty strings")
-    return tuple(value for value in normalized if value is not None)
-
-
-def _optional_text(value: object) -> str | None:
-    return value.strip() if isinstance(value, str) and value.strip() else None
-
-
-def _optional_positive_int(value: object) -> int | None:
-    return value if isinstance(value, int) and not isinstance(value, bool) and value >= 1 else None
 
 
 __all__ = [

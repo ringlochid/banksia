@@ -11,13 +11,11 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
-    and_,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from banksia.persistence.base import RuntimeBase
 from banksia.persistence.models.runtime.common import (
-    FLOW_EDGE_KIND_VALUES,
     NODE_KIND_VALUES,
     NODE_STATE_VALUES,
     PROVIDER_VALUES,
@@ -121,16 +119,6 @@ class FlowNodeModel(RuntimeBase):
     description: Mapped[str] = mapped_column(Text)
     node_instruction: Mapped[str | None] = mapped_column(Text, nullable=True)
     child_node_keys_json: Mapped[list[str]] = mapped_column(JSON(none_as_null=True))
-    consumes_json: Mapped[dict[str, object] | None] = mapped_column(
-        JSON(none_as_null=True), nullable=True
-    )
-    produces_json: Mapped[dict[str, object] | None] = mapped_column(
-        JSON(none_as_null=True), nullable=True
-    )
-    criteria_json: Mapped[list[dict[str, object]]] = mapped_column(JSON(none_as_null=True))
-    child_defaults_json: Mapped[dict[str, object] | None] = mapped_column(
-        JSON(none_as_null=True), nullable=True
-    )
     state: Mapped[str] = mapped_column(String(64), default="ready")
     current_assignment_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     order_index: Mapped[int] = mapped_column(Integer)
@@ -166,16 +154,6 @@ class FlowNodeModel(RuntimeBase):
         lazy="raise",
         viewonly=True,
     )
-    assignments: Mapped[list[AssignmentModel]] = relationship(
-        "AssignmentModel",
-        back_populates="flow_node",
-        foreign_keys=(
-            "[AssignmentModel.flow_id, AssignmentModel.flow_revision_id, "
-            "AssignmentModel.flow_node_id]"
-        ),
-        lazy="raise",
-        viewonly=True,
-    )
     current_assignment: Mapped[AssignmentModel | None] = relationship(
         "AssignmentModel",
         primaryjoin=(
@@ -197,88 +175,6 @@ class FlowNodeModel(RuntimeBase):
         ),
         lazy="raise",
         uselist=False,
-    )
-    outgoing_edges: Mapped[list[FlowEdgeModel]] = relationship(
-        back_populates="provider_node",
-        primaryjoin=lambda: and_(
-            FlowNodeModel.flow_revision_id == FlowEdgeModel.flow_revision_id,
-            FlowNodeModel.node_key == FlowEdgeModel.provider_node_key,
-        ),
-        foreign_keys="[FlowEdgeModel.flow_revision_id, FlowEdgeModel.provider_node_key]",
-        lazy="raise",
-        order_by="FlowEdgeModel.order_index",
-        viewonly=True,
-    )
-    incoming_edges: Mapped[list[FlowEdgeModel]] = relationship(
-        back_populates="consumer_node",
-        primaryjoin=lambda: and_(
-            FlowNodeModel.flow_revision_id == FlowEdgeModel.flow_revision_id,
-            FlowNodeModel.node_key == FlowEdgeModel.consumer_node_key,
-        ),
-        foreign_keys="[FlowEdgeModel.flow_revision_id, FlowEdgeModel.consumer_node_key]",
-        lazy="raise",
-        order_by="FlowEdgeModel.order_index",
-        viewonly=True,
-    )
-
-
-class FlowEdgeModel(RuntimeBase):
-    __tablename__ = "flow_edges"
-    __table_args__ = (
-        UniqueConstraint("flow_revision_id", "consumer_node_key", "kind", "slot"),
-        CheckConstraint(
-            f"kind IN ({sql_in(FLOW_EDGE_KIND_VALUES)})",
-            name="ck_flow_edges_kind",
-        ),
-        ForeignKeyConstraint(
-            ["flow_revision_id", "provider_node_key"],
-            ["flow_nodes.flow_revision_id", "flow_nodes.node_key"],
-            name="fk_flow_edges_provider_node",
-            deferrable=True,
-            initially="DEFERRED",
-        ),
-        ForeignKeyConstraint(
-            ["flow_revision_id", "consumer_node_key"],
-            ["flow_nodes.flow_revision_id", "flow_nodes.node_key"],
-            name="fk_flow_edges_consumer_node",
-            deferrable=True,
-            initially="DEFERRED",
-        ),
-    )
-
-    flow_edge_id: Mapped[str] = mapped_column(String(255), primary_key=True)
-    flow_revision_id: Mapped[str] = mapped_column(ForeignKey("flow_revisions.flow_revision_id"))
-    provider_node_key: Mapped[str] = mapped_column(String(255))
-    consumer_node_key: Mapped[str] = mapped_column(String(255))
-    kind: Mapped[str] = mapped_column(String(64))
-    slot: Mapped[str] = mapped_column(String(255))
-    description: Mapped[str] = mapped_column(Text)
-    order_index: Mapped[int] = mapped_column(Integer)
-    flow_revision: Mapped[FlowRevisionModel] = relationship(
-        "FlowRevisionModel",
-        back_populates="edges",
-        foreign_keys=[flow_revision_id],
-        lazy="raise",
-    )
-    provider_node: Mapped[FlowNodeModel] = relationship(
-        back_populates="outgoing_edges",
-        primaryjoin=lambda: and_(
-            FlowEdgeModel.flow_revision_id == FlowNodeModel.flow_revision_id,
-            FlowEdgeModel.provider_node_key == FlowNodeModel.node_key,
-        ),
-        foreign_keys=[flow_revision_id, provider_node_key],
-        lazy="raise",
-        viewonly=True,
-    )
-    consumer_node: Mapped[FlowNodeModel] = relationship(
-        back_populates="incoming_edges",
-        primaryjoin=lambda: and_(
-            FlowEdgeModel.flow_revision_id == FlowNodeModel.flow_revision_id,
-            FlowEdgeModel.consumer_node_key == FlowNodeModel.node_key,
-        ),
-        foreign_keys=[flow_revision_id, consumer_node_key],
-        lazy="raise",
-        viewonly=True,
     )
 
 
@@ -359,4 +255,4 @@ class NodePlanRevisionModel(RuntimeBase):
     )
 
 
-__all__ = ["FlowEdgeModel", "FlowNodeModel", "NodePlanRevisionModel"]
+__all__ = ["FlowNodeModel", "NodePlanRevisionModel"]

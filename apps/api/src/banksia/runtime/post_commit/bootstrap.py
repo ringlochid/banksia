@@ -15,7 +15,6 @@ from banksia.persistence.models import (
     FlowStartSourceModel,
     HumanRequestModel,
     ReplanTransitionModel,
-    TransientLocalizationModel,
 )
 from banksia.persistence.models.runtime.common import COMMAND_RUN_TERMINAL_STATE_VALUES
 from banksia.runtime.contracts import CommandRunState
@@ -30,7 +29,6 @@ from banksia.runtime.post_commit.signals import (
     HumanRequestTerminal,
     ReplanCommitted,
     RuntimeEffectSignal,
-    TransientCleanupRequested,
     WatchdogDeadlineChanged,
 )
 from banksia.runtime.startup_audit import (
@@ -362,46 +360,6 @@ async def read_dispatch_start_page(
     )
 
 
-async def read_transient_cleanup_page(
-    session_factory: AsyncSessionContextFactory,
-    cursor: str | None,
-    page_size: int,
-) -> StartupAuditPage[RuntimeEffectSignal, str]:
-    """Read exact inactive transient bodies that still need removal."""
-
-    async with session_factory() as session:
-        statement = (
-            select(
-                TransientLocalizationModel.transient_localization_id,
-                TransientLocalizationModel.expires_at,
-            )
-            .where(TransientLocalizationModel.retention_status == "expired")
-            .order_by(TransientLocalizationModel.transient_localization_id)
-            .limit(page_size)
-        )
-        if cursor is not None:
-            statement = statement.where(
-                TransientLocalizationModel.transient_localization_id > cursor
-            )
-        rows = tuple((await session.execute(statement)).all())
-    signals: list[RuntimeEffectSignal] = []
-    for transient_localization_id, expires_at in rows:
-        if expires_at is None:
-            raise StartupAuditPaginationError(
-                f"expired transient {transient_localization_id!r} has no retention generation"
-            )
-        signals.append(
-            TransientCleanupRequested(
-                transient_localization_id=transient_localization_id,
-                expires_at=expires_at,
-            )
-        )
-    return StartupAuditPage(
-        tuple(signals),
-        rows[-1][0] if len(rows) == page_size else None,
-    )
-
-
 async def read_watchdog_deadline_page(
     session_factory: AsyncSessionContextFactory,
     cursor: str | None,
@@ -542,10 +500,6 @@ def _resource_runtime_families(
 ) -> tuple[RuntimeEffectFamily, ...]:
     return (
         (
-            "expired_transient_localization",
-            lambda cursor, size: read_transient_cleanup_page(session_factory, cursor, size),
-        ),
-        (
             "current_starting_dispatch",
             lambda cursor, size: read_dispatch_start_page(session_factory, cursor, size),
         ),
@@ -610,6 +564,5 @@ __all__ = [
     "read_human_continuation_page",
     "read_human_deadline_page",
     "read_replan_continuation_page",
-    "read_transient_cleanup_page",
     "read_watchdog_deadline_page",
 ]

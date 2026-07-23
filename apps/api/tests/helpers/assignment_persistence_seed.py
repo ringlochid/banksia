@@ -6,12 +6,7 @@ from typing import Protocol
 from banksia.persistence import RuntimeBase
 from sqlalchemy import Connection
 
-from tests.helpers.team_persistence_seed import (
-    TeamSeedIds,
-    member_branch_basis_id,
-    member_configuration_id,
-    team_revision_id,
-)
+from tests.helpers.team_persistence_seed import TeamSeedIds
 
 
 class AssignmentSeedIds(TeamSeedIds, Protocol):
@@ -69,7 +64,6 @@ def seed_assignments_and_attempts(
             attempt_id=attempt_id,
             timestamp=timestamp,
         )
-    _insert_root_criteria_reference(connection, ids=ids)
 
 
 def _insert_assignment_attempt(
@@ -89,21 +83,12 @@ def _insert_assignment_attempt(
         {
             "assignment_id": assignment_id,
             "task_id": ids.task_id,
-            "team_revision_id": team_revision_id(ids),
             "member_id": member_id,
-            "member_configuration_id": member_configuration_id(ids, member_id),
-            "member_branch_basis_id": member_branch_basis_id(ids, member_id),
             "flow_id": ids.flow_id,
-            "flow_revision_id": ids.flow_revision_id,
-            "flow_node_id": flow_node_id,
             "assignment_key": f"assignment-key.{ids.suffix}.{member_id}",
             "node_key": member_id,
             "parent_assignment_id": parent_assignment_id,
-            "summary": f"{member_id} assignment",
-            "instruction": None,
-            "criteria_json": [],
-            "consumes_json": [],
-            "produces_json": [],
+            "prompt": f"Complete the {member_id} assignment.",
             "current_attempt_id": None,
             "work_plan_revision": 0,
             "child_assignment_limit": 20,
@@ -112,6 +97,8 @@ def _insert_assignment_attempt(
             "retries_remaining": 1,
             "created_by_dispatch_id": None,
             "created_at": timestamp,
+            "terminal_outcome": None,
+            "closed_at": None,
             "superseded_at": None,
         },
     )
@@ -141,25 +128,6 @@ def _insert_assignment_attempt(
         .update()
         .where(tables["flow_nodes"].c.flow_node_id == flow_node_id)
         .values(current_assignment_id=assignment_id)
-    )
-
-
-def _insert_root_criteria_reference(
-    connection: Connection,
-    *,
-    ids: AssignmentSeedIds,
-) -> None:
-    connection.execute(
-        RuntimeBase.metadata.tables["assignment_criteria_refs"].insert(),
-        {
-            "assignment_criteria_ref_id": f"criteria-ref.{ids.suffix}.root.0",
-            "assignment_id": ids.root_assignment_id,
-            "slot": "criteria",
-            "logical_path": "_runtime/criteria/root.md",
-            "description": "Root criteria.",
-            "version": 1,
-            "order_index": 0,
-        },
     )
 
 

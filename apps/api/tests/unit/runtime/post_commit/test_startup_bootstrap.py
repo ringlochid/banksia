@@ -24,7 +24,6 @@ from banksia.runtime.post_commit.signals import (
     HumanRequestTerminal,
     ReplanCommitted,
     RuntimeEffectSignal,
-    TransientCleanupRequested,
     WatchdogDeadlineChanged,
 )
 from banksia.runtime.startup_audit import StartupAuditPage
@@ -63,7 +62,6 @@ async def test_runtime_startup_routes_only_registered_exact_sources(
         CommandRunPending("command.pending"),
         CommandRunPending("command.running"),
         CommandRunCancellationRequested("command.cancelling", 4),
-        TransientCleanupRequested("transient.expired", due_at),
         DispatchStartDue("dispatch.starting", 3, due_at),
         WatchdogDeadlineChanged("dispatch.open", 5, due_at),
     )
@@ -77,7 +75,6 @@ async def test_runtime_startup_routes_only_registered_exact_sources(
         "read_command_pending_page",
         "read_command_running_page",
         "read_command_cancellation_page",
-        "read_transient_cleanup_page",
         "read_dispatch_start_page",
         "read_watchdog_deadline_page",
     )
@@ -98,7 +95,6 @@ async def test_runtime_startup_routes_only_registered_exact_sources(
             HumanRequestOpened,
             CommandRunPending,
             CommandRunCancellationRequested,
-            TransientCleanupRequested,
             WatchdogDeadlineChanged,
         ),
         watchdog_inactivity_timeout_seconds=900,
@@ -111,8 +107,7 @@ async def test_runtime_startup_routes_only_registered_exact_sources(
         signals[6],
         signals[7],
         signals[8],
-        signals[9],
-        signals[11],
+        signals[10],
     )
     assert results["runnable_flow_start"].routed_count == 1
     assert results["runnable_flow_start"].deferred_count == 0
@@ -132,7 +127,6 @@ async def test_runtime_startup_routes_only_registered_exact_sources(
             "pending_command_run",
             "running_command_run",
             "cancellation_requested_command_run",
-            "expired_transient_localization",
             "current_open_watchdog",
         }
     )
@@ -170,7 +164,6 @@ async def test_runtime_startup_waits_for_router_capacity_without_waiting_for_han
         "read_command_pending_page",
         "read_command_running_page",
         "read_command_cancellation_page",
-        "read_transient_cleanup_page",
         "read_dispatch_start_page",
         "read_watchdog_deadline_page",
     ):

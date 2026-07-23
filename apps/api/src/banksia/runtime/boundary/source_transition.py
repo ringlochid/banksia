@@ -53,6 +53,12 @@ async def advance_accepted_boundary_state(
             transitioned_at=transitioned_at,
         )
         return
+    await _complete_source_assignment(
+        session,
+        authority,
+        outcome=outcome,
+        transitioned_at=transitioned_at,
+    )
     await _finish_source_node(
         session,
         authority,
@@ -90,7 +96,6 @@ async def _activate_staged_child(
             AssignmentModel.assignment_id == child_assignment_id,
             AssignmentModel.task_id == authority.task_id,
             AssignmentModel.flow_id == authority.flow_id,
-            AssignmentModel.flow_revision_id == authority.flow_revision_id,
             AssignmentModel.parent_assignment_id == authority.assignment_id,
             AssignmentModel.created_by_dispatch_id == authority.dispatch_id,
             AssignmentModel.current_attempt_id == child_attempt_id,
@@ -99,6 +104,17 @@ async def _activate_staged_child(
     )
     if child is None:
         raise _conflict("staged child no longer matches its accepted source decision")
+    child_node = await session.scalar(
+        select(FlowNodeModel).where(
+            FlowNodeModel.flow_id == authority.flow_id,
+            FlowNodeModel.flow_revision_id == authority.flow_revision_id,
+            FlowNodeModel.node_key == child.node_key,
+            FlowNodeModel.member_id == child.member_id,
+            FlowNodeModel.current_assignment_id == child.assignment_id,
+        )
+    )
+    if child_node is None:
+        raise _conflict("staged child is missing its current Flow node")
     await _change_node_state(
         session,
         flow_node_id=authority.flow_node.flow_node_id,
@@ -108,7 +124,7 @@ async def _activate_staged_child(
     )
     await _change_node_state(
         session,
-        flow_node_id=child.flow_node_id,
+        flow_node_id=child_node.flow_node_id,
         assignment_id=child.assignment_id,
         from_state="waiting",
         to_state="running",
@@ -170,12 +186,41 @@ async def _read_source_assignment(
             AssignmentModel.member_id == authority.flow_node.member_id,
             AssignmentModel.node_key == authority.node_key,
             AssignmentModel.current_attempt_id == authority.attempt_id,
+            AssignmentModel.closed_at.is_(None),
             AssignmentModel.superseded_at.is_(None),
         )
     )
     if source is None:
         raise _conflict("source assignment is no longer current")
     return source
+
+
+async def _complete_source_assignment(
+    session: AsyncSession,
+    authority: NodeOperationAuthority,
+    *,
+    outcome: str,
+    transitioned_at: datetime,
+) -> None:
+    completed = await session.scalar(
+        update(AssignmentModel)
+        .where(
+            AssignmentModel.assignment_id == authority.assignment_id,
+            AssignmentModel.task_id == authority.task_id,
+            AssignmentModel.flow_id == authority.flow_id,
+            AssignmentModel.member_id == authority.flow_node.member_id,
+            AssignmentModel.current_attempt_id == authority.attempt_id,
+            AssignmentModel.closed_at.is_(None),
+            AssignmentModel.superseded_at.is_(None),
+        )
+        .values(
+            terminal_outcome=outcome,
+            closed_at=transitioned_at,
+        )
+        .returning(AssignmentModel.assignment_id)
+    )
+    if completed is None:
+        raise _conflict("source assignment is no longer active")
 
 
 async def _start_semantic_retry(
@@ -210,6 +255,7 @@ async def _start_semantic_retry(
             AssignmentModel.flow_id == authority.flow_id,
             AssignmentModel.member_id == authority.flow_node.member_id,
             AssignmentModel.current_attempt_id == authority.attempt_id,
+            AssignmentModel.closed_at.is_(None),
             AssignmentModel.superseded_at.is_(None),
             (AssignmentModel.retries_remaining.is_(None)) | (AssignmentModel.retries_remaining > 0),
         )
@@ -256,6 +302,7 @@ async def _resume_parent(
             AssignmentModel.task_id == authority.task_id,
             AssignmentModel.flow_id == authority.flow_id,
             AssignmentModel.superseded_at.is_(None),
+            AssignmentModel.closed_at.is_(None),
         )
     )
     if parent is None or parent.current_attempt_id is None:

@@ -9,6 +9,7 @@ from banksia.runtime.contracts.capabilities import (
     EffectiveNetworkAccess,
     EffectiveProviderNativeAccess,
 )
+from banksia.runtime.contracts.checkpoint import TaskResult
 from banksia.runtime.contracts.common import RuntimeSchemaText
 from banksia.runtime.contracts.primitives import (
     CommandRunState,
@@ -146,6 +147,7 @@ class RuntimeFlowRead(BaseModel):
     workflow_key: RuntimeSchemaText | None = None
     status: RuntimeLifecycleStatus
     terminal_outcome: RuntimeFlowTerminalOutcome | None = None
+    result: TaskResult | None = None
     active_flow_revision_id: RuntimeSchemaText
     control_revision: int = Field(ge=0)
     workflow_manifest_ref: WorkflowManifestRef

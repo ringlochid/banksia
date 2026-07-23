@@ -29,6 +29,9 @@ from banksia.persistence.models.runtime.common import (
 )
 
 if TYPE_CHECKING:
+    from banksia.persistence.models.runtime.dispatch.support import (
+        AcceptedBoundaryModel,
+    )
     from banksia.persistence.models.runtime.flow.runtime import FlowModel
     from banksia.persistence.models.runtime.task_events import (
         TaskEventModel,
@@ -70,6 +73,16 @@ class TaskModel(RuntimeBase):
             deferrable=True,
             initially="DEFERRED",
         ),
+        ForeignKeyConstraint(
+            ["result_boundary_id", "task_id"],
+            [
+                "accepted_boundaries.accepted_boundary_id",
+                "accepted_boundaries.task_id",
+            ],
+            name="fk_tasks_result_boundary",
+            deferrable=True,
+            initially="DEFERRED",
+        ),
         CheckConstraint("workflow_revision_no >= 1", name="ck_tasks_workflow_revision_no"),
         CheckConstraint(
             "max_child_assignments_per_assignment >= 0",
@@ -80,19 +93,15 @@ class TaskModel(RuntimeBase):
             name="ck_tasks_max_retries_per_assignment",
         ),
         CheckConstraint("max_wave_members >= 1", name="ck_tasks_max_wave_members"),
-        Index("ix_tasks_title", "title"),
         Index("ix_tasks_workflow_key", "workflow_key"),
     )
 
     task_id: Mapped[str] = mapped_column(String(255), primary_key=True)
-    task_key: Mapped[str] = mapped_column(String(255), index=True)
-    title: Mapped[str] = mapped_column(String(255))
-    summary: Mapped[str] = mapped_column(Text)
-    instruction: Mapped[str | None] = mapped_column(Text, nullable=True)
     workflow_key: Mapped[str] = mapped_column(String(255))
     workflow_revision_no: Mapped[int] = mapped_column(Integer)
     workflow_content_hash: Mapped[str] = mapped_column(String(64))
     current_team_revision_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    result_boundary_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     max_child_assignments_per_assignment: Mapped[int] = mapped_column(
         Integer,
         default=20,
@@ -162,6 +171,13 @@ class TaskModel(RuntimeBase):
         lazy="raise",
         viewonly=True,
     )
+    result_boundary: Mapped[AcceptedBoundaryModel | None] = relationship(
+        "AcceptedBoundaryModel",
+        foreign_keys=[result_boundary_id, task_id],
+        lazy="raise",
+        uselist=False,
+        viewonly=True,
+    )
 
 
 class WorkspaceBindingModel(RuntimeBase):
@@ -226,12 +242,6 @@ class CompiledPlanModel(RuntimeBase):
         lazy="raise",
         order_by="CompiledPlanNodeModel.order_index",
     )
-    edges: Mapped[list[CompiledPlanEdgeModel]] = relationship(
-        back_populates="compiled_plan",
-        foreign_keys="CompiledPlanEdgeModel.compiled_plan_id",
-        lazy="raise",
-        order_by="CompiledPlanEdgeModel.order_index",
-    )
 
 
 class CompiledPlanNodeModel(RuntimeBase):
@@ -289,16 +299,6 @@ class CompiledPlanNodeModel(RuntimeBase):
     description: Mapped[str] = mapped_column(Text)
     node_instruction: Mapped[str | None] = mapped_column(Text, nullable=True)
     child_node_keys_json: Mapped[list[str]] = mapped_column(JSON(none_as_null=True))
-    consumes_json: Mapped[dict[str, object] | None] = mapped_column(
-        JSON(none_as_null=True), nullable=True
-    )
-    produces_json: Mapped[dict[str, object] | None] = mapped_column(
-        JSON(none_as_null=True), nullable=True
-    )
-    criteria_json: Mapped[list[dict[str, object]]] = mapped_column(JSON(none_as_null=True))
-    child_defaults_json: Mapped[dict[str, object] | None] = mapped_column(
-        JSON(none_as_null=True), nullable=True
-    )
     provider_kind: Mapped[str | None] = mapped_column(String(64), nullable=True)
     order_index: Mapped[int] = mapped_column(Integer)
     compiled_plan: Mapped[CompiledPlanModel] = relationship(
@@ -341,91 +341,9 @@ class CompiledPlanNodeModel(RuntimeBase):
         lazy="raise",
         viewonly=True,
     )
-    outgoing_edges: Mapped[list[CompiledPlanEdgeModel]] = relationship(
-        back_populates="provider_node",
-        primaryjoin=lambda: and_(
-            CompiledPlanNodeModel.compiled_plan_id == CompiledPlanEdgeModel.compiled_plan_id,
-            CompiledPlanNodeModel.node_key == CompiledPlanEdgeModel.provider_node_key,
-        ),
-        foreign_keys=(
-            "[CompiledPlanEdgeModel.compiled_plan_id, CompiledPlanEdgeModel.provider_node_key]"
-        ),
-        lazy="raise",
-        order_by="CompiledPlanEdgeModel.order_index",
-        viewonly=True,
-    )
-    incoming_edges: Mapped[list[CompiledPlanEdgeModel]] = relationship(
-        back_populates="consumer_node",
-        primaryjoin=lambda: and_(
-            CompiledPlanNodeModel.compiled_plan_id == CompiledPlanEdgeModel.compiled_plan_id,
-            CompiledPlanNodeModel.node_key == CompiledPlanEdgeModel.consumer_node_key,
-        ),
-        foreign_keys=(
-            "[CompiledPlanEdgeModel.compiled_plan_id, CompiledPlanEdgeModel.consumer_node_key]"
-        ),
-        lazy="raise",
-        order_by="CompiledPlanEdgeModel.order_index",
-        viewonly=True,
-    )
-
-
-class CompiledPlanEdgeModel(RuntimeBase):
-    __tablename__ = "compiled_plan_edges"
-    __table_args__ = (
-        UniqueConstraint("compiled_plan_id", "consumer_node_key", "kind", "slot"),
-        ForeignKeyConstraint(
-            ["compiled_plan_id", "provider_node_key"],
-            ["compiled_plan_nodes.compiled_plan_id", "compiled_plan_nodes.node_key"],
-            name="fk_compiled_plan_edges_provider_node",
-            deferrable=True,
-            initially="DEFERRED",
-        ),
-        ForeignKeyConstraint(
-            ["compiled_plan_id", "consumer_node_key"],
-            ["compiled_plan_nodes.compiled_plan_id", "compiled_plan_nodes.node_key"],
-            name="fk_compiled_plan_edges_consumer_node",
-            deferrable=True,
-            initially="DEFERRED",
-        ),
-    )
-
-    compiled_plan_edge_id: Mapped[str] = mapped_column(String(255), primary_key=True)
-    compiled_plan_id: Mapped[str] = mapped_column(ForeignKey("compiled_plans.compiled_plan_id"))
-    provider_node_key: Mapped[str] = mapped_column(String(255))
-    consumer_node_key: Mapped[str] = mapped_column(String(255))
-    kind: Mapped[str] = mapped_column(String(64))
-    slot: Mapped[str] = mapped_column(String(255))
-    description: Mapped[str] = mapped_column(Text)
-    order_index: Mapped[int] = mapped_column(Integer)
-    compiled_plan: Mapped[CompiledPlanModel] = relationship(
-        back_populates="edges",
-        foreign_keys=[compiled_plan_id],
-        lazy="raise",
-    )
-    provider_node: Mapped[CompiledPlanNodeModel] = relationship(
-        back_populates="outgoing_edges",
-        primaryjoin=lambda: and_(
-            CompiledPlanEdgeModel.compiled_plan_id == CompiledPlanNodeModel.compiled_plan_id,
-            CompiledPlanEdgeModel.provider_node_key == CompiledPlanNodeModel.node_key,
-        ),
-        foreign_keys=[compiled_plan_id, provider_node_key],
-        lazy="raise",
-        viewonly=True,
-    )
-    consumer_node: Mapped[CompiledPlanNodeModel] = relationship(
-        back_populates="incoming_edges",
-        primaryjoin=lambda: and_(
-            CompiledPlanEdgeModel.compiled_plan_id == CompiledPlanNodeModel.compiled_plan_id,
-            CompiledPlanEdgeModel.consumer_node_key == CompiledPlanNodeModel.node_key,
-        ),
-        foreign_keys=[compiled_plan_id, consumer_node_key],
-        lazy="raise",
-        viewonly=True,
-    )
 
 
 __all__ = [
-    "CompiledPlanEdgeModel",
     "CompiledPlanModel",
     "CompiledPlanNodeModel",
     "TaskModel",

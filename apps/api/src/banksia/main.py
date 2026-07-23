@@ -71,22 +71,21 @@ from banksia.runtime.post_commit import (
     ReplanCommitted,
     RuntimeEffectRouter,
     RuntimeEffectSignal,
-    TransientCleanupRequested,
     WatchdogDeadlineChanged,
     WatchdogDue,
 )
 from banksia.runtime.post_commit.bootstrap import audit_startup_runtime_effects
-from banksia.runtime.projection import SupportProjectionOwner, TransientProjection
+from banksia.runtime.projection import SupportProjectionOwner
 from banksia.runtime.providers.cleanup import create_provider_dispatch_cleanup_handler
 from banksia.runtime.providers.registry import ProviderAdapterRegistry
 from banksia.runtime.providers.starter import DispatchStarter
 from banksia.runtime.replan.continuation import create_replan_committed_handler
 from banksia.runtime.startup_audit import audit_startup_support_projections
-from banksia.runtime.task_root import cleanup_expired_transient
 from banksia.runtime.watchdog import (
     create_watchdog_deadline_changed_handler,
     create_watchdog_due_handler,
 )
+from banksia.runtime.workspace_admission import recover_task_workspace_admissions
 
 _RUNTIME_STARTUP_ROUTED_SIGNAL_TYPES = (
     FlowStartCommitted,
@@ -97,7 +96,6 @@ _RUNTIME_STARTUP_ROUTED_SIGNAL_TYPES = (
     CommandRunPending,
     CommandRunCancellationRequested,
     CommandRunTerminal,
-    TransientCleanupRequested,
     WatchdogDeadlineChanged,
     DispatchStartDue,
 )
@@ -309,6 +307,15 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     try:
         await ensure_database_schema()
         settings = get_settings()
+        async with _runtime_session_context() as recovery_session:
+            app.state.task_workspace_recovery = await recover_task_workspace_admissions(
+                recovery_session,
+                workspaces=(
+                    (settings.controller_workspace,)
+                    if settings.controller_workspace is not None
+                    else ()
+                ),
+            )
         app.state.dispatch_request_cleanup = await cleanup_aged_dispatch_request_directories(
             session_factory=_runtime_session_context,
             data_boundary=settings.data_dir,
@@ -370,13 +377,6 @@ def _register_runtime_effect_routes(
     binding_cleanup_handler = create_dispatch_binding_cleanup_handler(binding_registry)
     provider_cleanup_handler = create_provider_dispatch_cleanup_handler(provider_adapter_registry)
 
-    async def handle_transient_cleanup(
-        session: AsyncSession,
-        signal: TransientCleanupRequested,
-    ) -> None:
-        if await cleanup_expired_transient(session, signal):
-            support_projection_owner.publish(TransientProjection(signal.transient_localization_id))
-
     async def handle_human_terminal(
         session: AsyncSession,
         signal: HumanRequestTerminal,
@@ -417,7 +417,6 @@ def _register_runtime_effect_routes(
     router.register(CommandRunTerminal, handle_command_terminal)
     router.register(CommandProcessExited, command_process_owner.record_command_process_exit)
     router.register(DispatchCleanupRequested, handle_dispatch_cleanup)
-    router.register(TransientCleanupRequested, handle_transient_cleanup)
     router.register(DispatchStartDue, dispatch_starter.schedule_or_start_dispatch)
     router.register(
         WatchdogDeadlineChanged,

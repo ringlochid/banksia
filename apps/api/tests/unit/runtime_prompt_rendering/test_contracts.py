@@ -8,10 +8,9 @@ from banksia.runtime.contracts.prompt import (
     OperatorContinueTrigger,
     PromptDynamicInput,
     PromptFamily,
-    PromptLogicalRef,
-    PromptRefKind,
     PromptTrigger,
 )
+from banksia.runtime.contracts.refs import FileReference
 from pydantic import TypeAdapter, ValidationError
 
 from .samples import all_trigger_samples, sample_dynamic_input, sample_request
@@ -91,12 +90,10 @@ def test_request_rejects_family_node_mismatch() -> None:
     "logical_path",
     ("/etc/passwd", "../outside", "workspace/../outside", r"workspace\\outside"),
 )
-def test_logical_ref_rejects_paths_outside_the_task_root(logical_path: str) -> None:
+def test_file_reference_rejects_paths_outside_the_workspace(logical_path: str) -> None:
     with pytest.raises(ValidationError):
-        PromptLogicalRef(
-            kind=PromptRefKind.WORKSPACE,
-            logical_path=logical_path,
-            purpose="Inspect the file.",
+        FileReference(
+            path=logical_path,
             description="A task-root file.",
         )
 

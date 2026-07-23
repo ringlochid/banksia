@@ -29,7 +29,7 @@ _WORKER_CEILING = (
     NodeOperationName.LIST_FILES,
     NodeOperationName.READ_FILE,
     NodeOperationName.SET_WORK_PLAN,
-    NodeOperationName.RECORD_CHECKPOINT,
+    NodeOperationName.CHECKPOINT,
     NodeOperationName.RETURN_BOUNDARY,
     NodeOperationName.OPEN_HUMAN_REQUEST,
     NodeOperationName.START_COMMAND_RUN,
@@ -83,7 +83,7 @@ async def test_compatibility_projection_lists_static_strict_explicit_id_catalog(
         tools_result = await session.list_tools()
 
     assert set(tool_names(tools_result)) == set(NODE_TOOL_NAMES)
-    assert len(NODE_TOOL_NAMES) == len(NODE_OPERATION_CATALOG) == 14
+    assert len(NODE_TOOL_NAMES) == len(NODE_OPERATION_CATALOG) == 12
     assert set(tool_names(tools_result)).isdisjoint(_OPERATOR_ONLY_NAMES)
     for tool_name in NODE_TOOL_NAMES:
         schema = tool_input_schema(tools_result, tool_name)
@@ -174,6 +174,32 @@ async def test_replan_projections_hide_recursive_controller_guardrails() -> None
             children_fields = _collect_property_schemas(schema, "children")
             assert len(children_fields) == expected_children_fields[operation.value]
             assert all("maxItems" not in field for field in children_fields)
+
+
+async def test_work_message_file_limits_are_hidden_from_tool_schemas() -> None:
+    applications, registry = create_test_node_mcp_apps(RecordingNodeOperationExecutor())
+    operations = (
+        NodeOperationName.CHECKPOINT,
+        NodeOperationName.OPEN_HUMAN_REQUEST,
+    )
+    issued = issue_test_binding(
+        registry,
+        task_id="task.hidden-file-limit",
+        dispatch_id="dispatch.hidden-file-limit",
+        exposure_ceiling=operations,
+    )
+
+    async with node_mcp_client_session(
+        applications.managed,
+        headers=managed_headers(issued),
+    ) as managed_session:
+        tools = await managed_session.list_tools()
+
+    for operation in operations:
+        schema = tool_input_schema(tools, operation.value)
+        files_fields = _collect_property_schemas(schema, "files")
+        assert files_fields
+        assert all("maxItems" not in field for field in files_fields)
 
 
 async def test_both_projections_call_one_executor_with_the_same_semantic_arguments() -> None:

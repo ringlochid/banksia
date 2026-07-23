@@ -6,11 +6,10 @@ from banksia.runtime.contracts import (
     AddChildRequest,
     AssignChildSuccess,
     BoundaryRead,
-    CheckpointRead,
+    CheckpointRequest,
+    CheckpointResponse,
     CommandRunStartResponse,
     HumanRequestOpenResponse,
-    ReleaseBlockedSuccess,
-    ReleaseGreenSuccess,
     RemoveChildRequest,
     ReplanSuccess,
     UpdateChildRequest,
@@ -29,8 +28,6 @@ from banksia.runtime.node_operations.contracts import (
     OpenHumanRequestRequest,
     ReadFileRequest,
     ReadFileResponse,
-    RecordCheckpointRequest,
-    ReleaseRequest,
     ReturnBoundaryRequest,
     StartCommandRunRequest,
 )
@@ -38,7 +35,6 @@ from banksia.runtime.work_plan import SetWorkPlanRequest, SetWorkPlanResponse
 
 _ALL_NODE_KINDS = frozenset(NodeKind)
 _PARENT_ROOT_NODE_KINDS = frozenset((NodeKind.PARENT, NodeKind.ROOT))
-_ROOT_NODE_KIND = frozenset((NodeKind.ROOT,))
 _descriptor = partial(
     NodeOperationDescriptor,
     allowed_node_kinds=_ALL_NODE_KINDS,
@@ -80,24 +76,23 @@ NODE_OPERATION_CATALOG: tuple[NodeOperationDescriptor, ...] = (
         description="Replace or clear the advisory assignment-owned work plan.",
     ),
     _descriptor(
-        NodeOperationName.RECORD_CHECKPOINT,
-        RecordCheckpointRequest,
-        CheckpointRead,
-        title="Record checkpoint",
+        NodeOperationName.CHECKPOINT,
+        CheckpointRequest,
+        CheckpointResponse,
+        title="Checkpoint",
         description=(
-            "Record durable progress or a terminal checkpoint on the current attempt. "
-            "A terminal green checkpoint must publish every declared produce; a later "
-            "terminal checkpoint may correct it only before child work, a release "
-            "decision, or boundary closure."
+            "Record teammate-facing progress, or atomically finish the current Dispatch "
+            "with green, blocked, or retry. Stop immediately when must_stop is true."
         ),
     ),
     _descriptor(
         NodeOperationName.RETURN_BOUNDARY,
         ReturnBoundaryRequest,
         BoundaryRead,
-        title="Return boundary",
+        title="Yield to staged child",
         description=(
-            "Accept one semantic boundary and synchronously close the source dispatch. "
+            "Commit the migration-only staged-child yield and synchronously close the "
+            "source dispatch. "
             "After success, stop the current outer response immediately; make no further "
             "tool calls or prose."
         ),
@@ -170,29 +165,6 @@ NODE_OPERATION_CATALOG: tuple[NodeOperationDescriptor, ...] = (
         description=(
             "Remove one current descendant subtree without erasing history. Success closes "
             "this Dispatch; stop immediately."
-        ),
-    ),
-    _descriptor(
-        NodeOperationName.RELEASE_GREEN,
-        ReleaseRequest,
-        ReleaseGreenSuccess,
-        allowed_node_kinds=_PARENT_ROOT_NODE_KINDS,
-        title="Release green",
-        description=(
-            "Freeze evidence-backed green release readiness for the current parent/root "
-            "dispatch after its terminal green checkpoint; this does not close the "
-            "dispatch."
-        ),
-    ),
-    _descriptor(
-        NodeOperationName.RELEASE_BLOCKED,
-        ReleaseRequest,
-        ReleaseBlockedSuccess,
-        allowed_node_kinds=_ROOT_NODE_KIND,
-        title="Release blocked",
-        description=(
-            "Freeze root-only whole-flow blocked release readiness after the root's "
-            "terminal blocked checkpoint; this does not close the dispatch."
         ),
     ),
 )

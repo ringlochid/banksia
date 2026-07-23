@@ -4,12 +4,12 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
-    JSON,
     CheckConstraint,
     ForeignKey,
     ForeignKeyConstraint,
     Index,
     Integer,
+    PrimaryKeyConstraint,
     String,
     Text,
     UniqueConstraint,
@@ -21,31 +21,23 @@ from banksia.persistence.base import RuntimeBase
 from banksia.persistence.datetimes import UtcDateTime
 from banksia.persistence.models.runtime.common import (
     ATTEMPT_STATUS_VALUES,
-    CHECKPOINT_KIND_VALUES,
     CHECKPOINT_OUTCOME_VALUES,
     sql_in,
     utcnow,
 )
 
 if TYPE_CHECKING:
-    from banksia.persistence.models.runtime.assignment.artifacts import (
-        ArtifactPublicationModel,
-        CheckpointTransientModel,
-        TransientLocalizationModel,
-    )
     from banksia.persistence.models.runtime.assignment.work_plan import (
         AssignmentWorkPlanModel,
     )
     from banksia.persistence.models.runtime.dispatch.turns import DispatchTurnModel
-    from banksia.persistence.models.runtime.flow.graph import FlowNodeModel
-    from banksia.persistence.models.runtime.flow.runtime import FlowModel, FlowRevisionModel
+    from banksia.persistence.models.runtime.flow.runtime import FlowModel
     from banksia.persistence.models.runtime.task import TaskModel
 
 
 class AssignmentModel(RuntimeBase):
     __tablename__ = "assignments"
     __table_args__ = (
-        UniqueConstraint("assignment_id", "flow_node_id"),
         UniqueConstraint("assignment_id", "node_key"),
         UniqueConstraint("assignment_id", "parent_assignment_id"),
         UniqueConstraint(
@@ -62,46 +54,10 @@ class AssignmentModel(RuntimeBase):
             "member_id",
             name="uq_assignments_member_identity",
         ),
-        UniqueConstraint(
-            "task_id",
-            "flow_id",
-            "assignment_id",
-            "team_revision_id",
-            "member_id",
-            "member_configuration_id",
-            "member_branch_basis_id",
-            name="uq_assignments_exact_member_basis",
-        ),
-        ForeignKeyConstraint(
-            [
-                "task_id",
-                "team_revision_id",
-                "member_id",
-                "member_configuration_id",
-                "member_branch_basis_id",
-            ],
-            [
-                "team_revision_members.task_id",
-                "team_revision_members.team_revision_id",
-                "team_revision_members.member_id",
-                "team_revision_members.member_configuration_id",
-                "team_revision_members.member_branch_basis_id",
-            ],
-            name="fk_assignments_team_selection",
-            deferrable=True,
-            initially="DEFERRED",
-        ),
         ForeignKeyConstraint(
             ["task_id", "flow_id", "parent_assignment_id"],
             ["assignments.task_id", "assignments.flow_id", "assignments.assignment_id"],
             name="fk_assignments_parent_owner",
-            deferrable=True,
-            initially="DEFERRED",
-        ),
-        ForeignKeyConstraint(
-            ["flow_id", "flow_revision_id", "flow_node_id"],
-            ["flow_nodes.flow_id", "flow_nodes.flow_revision_id", "flow_nodes.flow_node_id"],
-            name="fk_assignments_flow_node_owner",
             deferrable=True,
             initially="DEFERRED",
         ),
@@ -135,26 +91,26 @@ class AssignmentModel(RuntimeBase):
             "retries_remaining <= retry_limit)",
             name="ck_assignments_retry_budget",
         ),
+        CheckConstraint(
+            "terminal_outcome IS NULL OR terminal_outcome IN ('green', 'blocked')",
+            name="ck_assignments_terminal_outcome",
+        ),
+        CheckConstraint(
+            "(terminal_outcome IS NULL AND closed_at IS NULL) OR "
+            "(terminal_outcome IS NOT NULL AND closed_at IS NOT NULL)",
+            name="ck_assignments_terminal_state",
+        ),
         Index("ix_assignments_task_node", "task_id", "node_key"),
     )
 
     assignment_id: Mapped[str] = mapped_column(String(255), primary_key=True)
     task_id: Mapped[str] = mapped_column(ForeignKey("tasks.task_id"), index=True)
-    team_revision_id: Mapped[str] = mapped_column(String(255))
     member_id: Mapped[str] = mapped_column(String(128))
-    member_configuration_id: Mapped[str] = mapped_column(String(255))
-    member_branch_basis_id: Mapped[str] = mapped_column(String(255))
     flow_id: Mapped[str] = mapped_column(ForeignKey("flows.flow_id"), index=True)
-    flow_revision_id: Mapped[str] = mapped_column(String(255))
-    flow_node_id: Mapped[str] = mapped_column(String(255), index=True)
     assignment_key: Mapped[str] = mapped_column(String(255), unique=True)
     node_key: Mapped[str] = mapped_column(String(255), index=True)
     parent_assignment_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    summary: Mapped[str] = mapped_column(Text)
-    instruction: Mapped[str | None] = mapped_column(Text, nullable=True)
-    criteria_json: Mapped[list[dict[str, object]]] = mapped_column(JSON(none_as_null=True))
-    consumes_json: Mapped[list[dict[str, object]]] = mapped_column(JSON(none_as_null=True))
-    produces_json: Mapped[list[dict[str, object]]] = mapped_column(JSON(none_as_null=True))
+    prompt: Mapped[str] = mapped_column(Text)
     current_attempt_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     work_plan_revision: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     child_assignment_limit: Mapped[int] = mapped_column(Integer, default=20, server_default="20")
@@ -170,47 +126,19 @@ class AssignmentModel(RuntimeBase):
         nullable=True,
     )
     created_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow)
+    terminal_outcome: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    closed_at: Mapped[datetime | None] = mapped_column(UtcDateTime(), nullable=True)
     superseded_at: Mapped[datetime | None] = mapped_column(UtcDateTime(), nullable=True)
     task: Mapped[TaskModel] = relationship(
         "TaskModel",
         foreign_keys=[task_id],
         lazy="raise",
     )
-    team_selection: Mapped[object] = relationship(
-        "TeamRevisionMemberModel",
-        foreign_keys=[
-            task_id,
-            team_revision_id,
-            member_id,
-            member_configuration_id,
-            member_branch_basis_id,
-        ],
-        lazy="raise",
-        viewonly=True,
-    )
     flow: Mapped[FlowModel] = relationship(
         "FlowModel",
         back_populates="assignments",
         foreign_keys=[flow_id],
         lazy="raise",
-    )
-    flow_revision: Mapped[FlowRevisionModel] = relationship(
-        "FlowRevisionModel",
-        back_populates="assignments",
-        primaryjoin=(
-            "and_(AssignmentModel.flow_id == FlowRevisionModel.flow_id, "
-            "AssignmentModel.flow_revision_id == FlowRevisionModel.flow_revision_id)"
-        ),
-        foreign_keys=[flow_id, flow_revision_id],
-        lazy="raise",
-        viewonly=True,
-    )
-    flow_node: Mapped[FlowNodeModel] = relationship(
-        "FlowNodeModel",
-        back_populates="assignments",
-        foreign_keys=[flow_id, flow_revision_id, flow_node_id],
-        lazy="raise",
-        viewonly=True,
     )
     parent: Mapped[AssignmentModel | None] = relationship(
         back_populates="children",
@@ -233,11 +161,11 @@ class AssignmentModel(RuntimeBase):
         order_by="AssignmentModel.created_at",
         viewonly=True,
     )
-    criteria_refs: Mapped[list[AssignmentCriteriaRefModel]] = relationship(
+    file_references: Mapped[list[AssignmentFileReferenceModel]] = relationship(
         back_populates="assignment",
-        foreign_keys="AssignmentCriteriaRefModel.assignment_id",
+        foreign_keys="AssignmentFileReferenceModel.assignment_id",
         lazy="raise",
-        order_by="AssignmentCriteriaRefModel.order_index",
+        order_by="AssignmentFileReferenceModel.order_index",
     )
     attempts: Mapped[list[AttemptModel]] = relationship(
         back_populates="assignment",
@@ -285,19 +213,20 @@ class AssignmentModel(RuntimeBase):
     )
 
 
-class AssignmentCriteriaRefModel(RuntimeBase):
-    __tablename__ = "assignment_criteria_refs"
-    __table_args__ = (UniqueConstraint("assignment_id", "order_index"),)
+class AssignmentFileReferenceModel(RuntimeBase):
+    __tablename__ = "assignment_file_references"
+    __table_args__ = (
+        PrimaryKeyConstraint("assignment_id", "order_index"),
+        UniqueConstraint("assignment_id", "path"),
+        CheckConstraint("order_index >= 0", name="ck_assignment_file_references_order"),
+    )
 
-    assignment_criteria_ref_id: Mapped[str] = mapped_column(String(255), primary_key=True)
-    assignment_id: Mapped[str] = mapped_column(ForeignKey("assignments.assignment_id"), index=True)
-    slot: Mapped[str] = mapped_column(String(255))
-    logical_path: Mapped[str] = mapped_column(Text)
-    description: Mapped[str] = mapped_column(Text)
-    version: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    assignment_id: Mapped[str] = mapped_column(ForeignKey("assignments.assignment_id"))
     order_index: Mapped[int] = mapped_column(Integer)
+    path: Mapped[str] = mapped_column(Text)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
     assignment: Mapped[AssignmentModel] = relationship(
-        back_populates="criteria_refs",
+        back_populates="file_references",
         foreign_keys=[assignment_id],
         lazy="raise",
     )
@@ -475,17 +404,8 @@ class AttemptCheckpointModel(RuntimeBase):
             "checkpoint_id",
         ),
         CheckConstraint(
-            f"checkpoint_kind IN ({sql_in(CHECKPOINT_KIND_VALUES)})",
-            name="ck_attempt_checkpoints_kind",
-        ),
-        CheckConstraint(
             f"outcome IS NULL OR outcome IN ({sql_in(CHECKPOINT_OUTCOME_VALUES)})",
             name="ck_attempt_checkpoints_outcome",
-        ),
-        CheckConstraint(
-            "(checkpoint_kind = 'progress' AND outcome IS NULL) OR "
-            "(checkpoint_kind = 'terminal' AND outcome IS NOT NULL)",
-            name="ck_attempt_checkpoints_kind_outcome",
         ),
         ForeignKeyConstraint(
             ["task_id", "flow_id", "assignment_id", "attempt_id"],
@@ -519,11 +439,9 @@ class AttemptCheckpointModel(RuntimeBase):
     assignment_id: Mapped[str] = mapped_column(String(255), index=True)
     attempt_id: Mapped[str] = mapped_column(String(255), index=True)
     authoring_dispatch_id: Mapped[str] = mapped_column(String(255), index=True)
-    checkpoint_kind: Mapped[str] = mapped_column(String(64))
     outcome: Mapped[str | None] = mapped_column(String(64), nullable=True)
     summary: Mapped[str] = mapped_column(Text)
-    evidence_json: Mapped[dict[str, object]] = mapped_column(JSON(none_as_null=True))
-    criteria_results_json: Mapped[list[dict[str, object]]] = mapped_column(JSON(none_as_null=True))
+    details: Mapped[str | None] = mapped_column(Text, nullable=True)
     recorded_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow)
     task: Mapped[TaskModel] = relationship(
         "TaskModel",
@@ -560,45 +478,37 @@ class AttemptCheckpointModel(RuntimeBase):
         lazy="raise",
         viewonly=True,
     )
-    artifact_publications: Mapped[list[ArtifactPublicationModel]] = relationship(
-        "ArtifactPublicationModel",
+    file_references: Mapped[list[CheckpointFileReferenceModel]] = relationship(
         back_populates="checkpoint",
-        foreign_keys=(
-            "[ArtifactPublicationModel.task_id, ArtifactPublicationModel.flow_id, "
-            "ArtifactPublicationModel.assignment_id, ArtifactPublicationModel.attempt_id, "
-            "ArtifactPublicationModel.checkpoint_id]"
-        ),
+        foreign_keys="CheckpointFileReferenceModel.checkpoint_id",
         lazy="raise",
-        order_by="ArtifactPublicationModel.published_at",
-        viewonly=True,
+        order_by="CheckpointFileReferenceModel.order_index",
     )
-    transient_localizations: Mapped[list[TransientLocalizationModel]] = relationship(
-        "TransientLocalizationModel",
-        back_populates="checkpoint",
-        foreign_keys=(
-            "[TransientLocalizationModel.task_id, TransientLocalizationModel.assignment_id, "
-            "TransientLocalizationModel.attempt_id, "
-            "TransientLocalizationModel.checkpoint_id]"
-        ),
-        lazy="raise",
-        viewonly=True,
+
+
+class CheckpointFileReferenceModel(RuntimeBase):
+    __tablename__ = "checkpoint_file_references"
+    __table_args__ = (
+        PrimaryKeyConstraint("checkpoint_id", "order_index"),
+        UniqueConstraint("checkpoint_id", "path"),
+        CheckConstraint("order_index >= 0", name="ck_checkpoint_file_references_order"),
     )
-    checkpoint_transients: Mapped[list[CheckpointTransientModel]] = relationship(
-        "CheckpointTransientModel",
-        back_populates="checkpoint",
-        foreign_keys=(
-            "[CheckpointTransientModel.task_id, CheckpointTransientModel.assignment_id, "
-            "CheckpointTransientModel.attempt_id, CheckpointTransientModel.checkpoint_id]"
-        ),
+
+    checkpoint_id: Mapped[str] = mapped_column(ForeignKey("attempt_checkpoints.checkpoint_id"))
+    order_index: Mapped[int] = mapped_column(Integer)
+    path: Mapped[str] = mapped_column(Text)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    checkpoint: Mapped[AttemptCheckpointModel] = relationship(
+        back_populates="file_references",
+        foreign_keys=[checkpoint_id],
         lazy="raise",
-        order_by="CheckpointTransientModel.order_index",
-        viewonly=True,
     )
 
 
 __all__ = [
-    "AssignmentCriteriaRefModel",
+    "AssignmentFileReferenceModel",
     "AssignmentModel",
     "AttemptCheckpointModel",
     "AttemptModel",
+    "CheckpointFileReferenceModel",
 ]

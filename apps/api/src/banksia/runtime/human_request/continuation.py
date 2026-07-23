@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import raiseload
 
 from banksia.persistence.models import FlowModel, HumanRequestModel
+from banksia.runtime.contracts import FileReference
 from banksia.runtime.contracts.prompt import (
     HumanResultTrigger,
 )
@@ -26,6 +27,7 @@ from banksia.runtime.dispatch.preparation import (
 from banksia.runtime.human_request.records import (
     human_request_resolution_from_model,
     pending_human_request_from_model,
+    read_human_request_file_references,
 )
 from banksia.runtime.post_commit import HumanRequestTerminal
 
@@ -83,7 +85,15 @@ async def read_human_request_continuation_basis(
     )
     if source is None:
         return None
-    return human_request_continuation_basis(source, opened_reason="human_result")
+    files = await read_human_request_file_references(
+        session,
+        request_id=source.request_id,
+    )
+    return human_request_continuation_basis(
+        source,
+        opened_reason="human_result",
+        files=files,
+    )
 
 
 async def claim_human_request_continuation(
@@ -171,6 +181,7 @@ def human_request_continuation_basis(
     source: HumanRequestModel,
     *,
     opened_reason: str,
+    files: tuple[FileReference, ...] = (),
 ) -> OrdinaryContinuationBasis:
     return OrdinaryContinuationBasis(
         task_id=source.task_id,
@@ -180,18 +191,22 @@ def human_request_continuation_basis(
         source_dispatch_id=source.source_dispatch_id,
         source_dispatch_closed_reason="human_request_wait",
         opened_reason=opened_reason,
-        trigger=build_human_result_trigger(source),
+        trigger=build_human_result_trigger(source, files=files),
     )
 
 
-def build_human_result_trigger(source: HumanRequestModel) -> HumanResultTrigger:
+def build_human_result_trigger(
+    source: HumanRequestModel,
+    *,
+    files: tuple[FileReference, ...] = (),
+) -> HumanResultTrigger:
     """Build one complete typed request and terminal resolution."""
 
     resolution = human_request_resolution_from_model(source)
     if resolution is None:
         raise ValueError("terminal human request is missing resolution truth")
     return HumanResultTrigger(
-        request=pending_human_request_from_model(source),
+        request=pending_human_request_from_model(source, files=files),
         resolution=resolution,
     )
 

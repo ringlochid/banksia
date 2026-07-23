@@ -15,6 +15,7 @@ from banksia.persistence.models import (
     FlowNodeModel,
     NodePlanRevisionModel,
 )
+from banksia.runtime.checkpoint.reads import read_checkpoint_file_references
 from banksia.runtime.contracts.primitives import CheckpointOutcome, EgressBoundary
 from banksia.runtime.contracts.prompt import (
     AcceptedBoundaryTrigger,
@@ -211,12 +212,16 @@ async def _read_boundary_checkpoint(
     )
     if checkpoint is None or checkpoint.outcome is None:
         raise ValueError("accepted boundary checkpoint no longer matches its source")
+    files = await read_checkpoint_file_references(
+        session,
+        checkpoint_id=checkpoint.checkpoint_id,
+    )
     return PromptCheckpointSummary(
         checkpoint_id=checkpoint.checkpoint_id,
-        logical_path=f"_runtime/attempts/{checkpoint.attempt_id}/latest-checkpoint.md",
         summary=checkpoint.summary,
+        details=checkpoint.details,
+        files=files,
         outcome=CheckpointOutcome(checkpoint.outcome),
-        refs=(),
     )
 
 

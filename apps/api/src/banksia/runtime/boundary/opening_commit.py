@@ -238,8 +238,6 @@ def _boundary_target_is_current(
         & exists().where(
             TaskModel.task_id == prompt.task_id,
             TaskModel.task_root_path == snapshot.task_root_path,
-            TaskModel.title == prompt.task_title,
-            TaskModel.summary == prompt.task_summary,
             TaskModel.current_team_revision_id == prompt.team_revision_id,
         )
         & exists().where(

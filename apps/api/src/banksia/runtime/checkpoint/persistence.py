@@ -1,111 +1,347 @@
 from __future__ import annotations
 
-import sqlite3
 from datetime import datetime
 from uuid import uuid4
 
-from sqlalchemy import exists, insert, literal, select, update
+from sqlalchemy import exists, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import InstrumentedAttribute
-from sqlalchemy.sql.elements import ColumnElement
 
 from banksia.persistence.models import (
-    ArtifactCurrentPointerModel,
-    ArtifactPublicationModel,
+    AcceptedBoundaryModel,
+    AssignmentDecisionModel,
     AttemptCheckpointModel,
     AttemptModel,
-    CheckpointTransientModel,
-    TransientLocalizationModel,
+    CheckpointFileReferenceModel,
+    DispatchTurnModel,
+    FlowModel,
+    FlowNodeModel,
+    TaskModel,
+    TeamRevisionMemberModel,
 )
+from banksia.runtime.boundary.source_transition import advance_accepted_boundary_state
 from banksia.runtime.clock import utc_now
-from banksia.runtime.contracts import TaskEventSource, TaskEventType
+from banksia.runtime.contracts import (
+    CheckpointRequest,
+    CheckpointResponse,
+    FileReference,
+    TaskEventSource,
+    TaskEventType,
+)
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
 from banksia.runtime.dispatch.authority import (
     NodeOperationAuthority,
     exact_node_operation_authority_exists,
 )
 from banksia.runtime.errors import RuntimeOperationError
+from banksia.runtime.file_references import validate_file_references
+from banksia.runtime.node_operations.source_transitions import close_source_dispatch
 from banksia.runtime.task_events import append_task_event
+from banksia.runtime.task_root.reads import read_task_root_paths
 
-from .models import ArtifactBodyPreparation, CheckpointPreparation
 
-
-async def commit_checkpoint_preparation(
+async def commit_checkpoint(
     session: AsyncSession,
     authority: NodeOperationAuthority,
-    preparation: CheckpointPreparation,
-) -> None:
-    _validate_preparation(authority, preparation)
+    request: CheckpointRequest,
+) -> CheckpointResponse:
+    """Commit one progress or terminal Checkpoint against exact Dispatch authority."""
+
+    paths = await read_task_root_paths(session, authority.task_id)
+    files = validate_file_references(paths.workspace_path, request.files)
+    outcome = request.outcome.value if request.outcome is not None else None
+    if outcome is not None:
+        await _require_no_staged_child(session, authority)
+    if outcome == "green":
+        await _require_current_direct_child_participation(session, authority)
+
     now = utc_now()
-    evidence = _checkpoint_evidence(preparation)
-    try:
-        await _persist_checkpoint_rows(
+    checkpoint_id = f"checkpoint.{authority.task_id}.{uuid4().hex}"
+    checkpoint = AttemptCheckpointModel(
+        checkpoint_id=checkpoint_id,
+        task_id=authority.task_id,
+        flow_id=authority.flow_id,
+        assignment_id=authority.assignment_id,
+        attempt_id=authority.attempt_id,
+        authoring_dispatch_id=authority.dispatch_id,
+        outcome=outcome,
+        summary=request.summary,
+        details=request.details,
+        recorded_at=now,
+    )
+    session.add(checkpoint)
+    _stage_file_references(
+        session,
+        checkpoint_id=checkpoint_id,
+        files=files,
+    )
+    await _advance_latest_checkpoint(
+        session,
+        authority,
+        checkpoint_id=checkpoint_id,
+        observed_checkpoint_id=authority.attempt.latest_checkpoint_id,
+    )
+    await _append_checkpoint_event(
+        session,
+        authority,
+        checkpoint_id=checkpoint_id,
+        request=request,
+        files=files,
+        occurred_at=now,
+    )
+
+    terminal = outcome is not None
+    if terminal:
+        assert outcome is not None
+        await _commit_terminal_boundary(
             session,
             authority,
-            preparation,
-            evidence=evidence,
-            now=now,
+            checkpoint_id=checkpoint_id,
+            outcome=outcome,
+            transitioned_at=now,
         )
-        await _append_checkpoint_recorded_event(session, authority, preparation, occurred_at=now)
+    try:
         await session.commit()
     except IntegrityError as exc:
         await session.rollback()
-        if not _is_expected_checkpoint_conflict(exc):
-            raise
-        raise _checkpoint_conflict(
-            "another checkpoint won the final controller transaction"
-        ) from exc
-    except RuntimeOperationError:
-        await session.rollback()
-        raise
+        raise _checkpoint_conflict("another operation won the exact Checkpoint transition") from exc
+    return CheckpointResponse(
+        checkpoint=request,
+        recorded_at=now,
+        terminal=terminal,
+        must_stop=terminal,
+    )
 
 
-def _checkpoint_evidence(preparation: CheckpointPreparation) -> dict[str, object]:
-    handoff = preparation.body.handoff
-    return {
-        "next_step": handoff.next_step,
-        "blockers": list(handoff.blockers),
-        "risks": list(handoff.risks),
-    }
-
-
-async def _persist_checkpoint_rows(
+def _stage_file_references(
     session: AsyncSession,
-    authority: NodeOperationAuthority,
-    preparation: CheckpointPreparation,
     *,
-    evidence: dict[str, object],
-    now: datetime,
+    checkpoint_id: str,
+    files: tuple[FileReference, ...],
 ) -> None:
-    await _insert_checkpoint(session, authority, preparation, evidence=evidence, now=now)
-    for artifact in preparation.artifacts:
-        await _insert_artifact_publication(
-            session,
-            authority,
-            preparation,
-            artifact,
-            now=now,
+    session.add_all(
+        CheckpointFileReferenceModel(
+            checkpoint_id=checkpoint_id,
+            order_index=index,
+            path=file.path,
+            description=file.description,
         )
-        await _advance_artifact_pointer(
-            session,
-            authority,
-            preparation,
-            artifact,
-            now=now,
-        )
-    await _insert_transient_localizations(session, authority, preparation, now=now)
-    await _advance_attempt_latest_checkpoint(session, authority, preparation)
+        for index, file in enumerate(files)
+    )
 
 
-async def _append_checkpoint_recorded_event(
+async def _advance_latest_checkpoint(
     session: AsyncSession,
     authority: NodeOperationAuthority,
-    preparation: CheckpointPreparation,
     *,
+    checkpoint_id: str,
+    observed_checkpoint_id: str | None,
+) -> None:
+    latest_matches = (
+        AttemptModel.latest_checkpoint_id.is_(None)
+        if observed_checkpoint_id is None
+        else AttemptModel.latest_checkpoint_id == observed_checkpoint_id
+    )
+    changed = await session.scalar(
+        update(AttemptModel)
+        .where(
+            AttemptModel.task_id == authority.task_id,
+            AttemptModel.flow_id == authority.flow_id,
+            AttemptModel.assignment_id == authority.assignment_id,
+            AttemptModel.attempt_id == authority.attempt_id,
+            AttemptModel.status.in_(("pending", "running")),
+            latest_matches,
+            exact_node_operation_authority_exists(authority),
+        )
+        .values(latest_checkpoint_id=checkpoint_id)
+        .returning(AttemptModel.attempt_id)
+    )
+    if changed is None:
+        raise _checkpoint_conflict("another Checkpoint changed the Attempt latest pointer")
+
+
+async def _require_no_staged_child(
+    session: AsyncSession,
+    authority: NodeOperationAuthority,
+) -> None:
+    staged = await session.scalar(
+        select(AssignmentDecisionModel.assignment_decision_id).where(
+            AssignmentDecisionModel.source_dispatch_id == authority.dispatch_id,
+            AssignmentDecisionModel.decision_kind == "staged_child",
+        )
+    )
+    if staged is not None:
+        raise RuntimeOperationError(
+            code=OperationFailureCode.BOUNDARY_PRECONDITION_FAILED,
+            summary="a terminal Checkpoint cannot replace a staged child handoff",
+            is_retryable=False,
+        )
+
+
+async def _require_current_direct_child_participation(
+    session: AsyncSession,
+    authority: NodeOperationAuthority,
+) -> None:
+    children = tuple(
+        await session.scalars(
+            select(TeamRevisionMemberModel)
+            .where(
+                TeamRevisionMemberModel.task_id == authority.task_id,
+                TeamRevisionMemberModel.team_revision_id == authority.dispatch.team_revision_id,
+                TeamRevisionMemberModel.parent_member_id == authority.dispatch.member_id,
+            )
+            .order_by(TeamRevisionMemberModel.sibling_order)
+        )
+    )
+    missing: list[str] = []
+    for child in children:
+        current_assignment_id = await session.scalar(
+            select(FlowNodeModel.current_assignment_id).where(
+                FlowNodeModel.task_id == authority.task_id,
+                FlowNodeModel.flow_id == authority.flow_id,
+                FlowNodeModel.flow_revision_id == authority.flow_revision_id,
+                FlowNodeModel.team_revision_id == authority.dispatch.team_revision_id,
+                FlowNodeModel.member_id == child.member_id,
+                FlowNodeModel.member_configuration_id == child.member_configuration_id,
+                FlowNodeModel.member_branch_basis_id == child.member_branch_basis_id,
+            )
+        )
+        if current_assignment_id is None:
+            missing.append(child.member_id)
+            continue
+        participated = await session.scalar(
+            select(
+                exists().where(
+                    AcceptedBoundaryModel.task_id == authority.task_id,
+                    AcceptedBoundaryModel.flow_id == authority.flow_id,
+                    AcceptedBoundaryModel.assignment_id == current_assignment_id,
+                    AcceptedBoundaryModel.outcome == "green",
+                    DispatchTurnModel.dispatch_id == AcceptedBoundaryModel.source_dispatch_id,
+                    DispatchTurnModel.team_revision_id == authority.dispatch.team_revision_id,
+                    DispatchTurnModel.member_id == child.member_id,
+                    DispatchTurnModel.member_configuration_id == child.member_configuration_id,
+                    DispatchTurnModel.member_branch_basis_id == child.member_branch_basis_id,
+                )
+            )
+        )
+        if not participated:
+            missing.append(child.member_id)
+    if missing:
+        raise RuntimeOperationError(
+            code=OperationFailureCode.BOUNDARY_PRECONDITION_FAILED,
+            summary=(
+                "green requires an accepted green Checkpoint from every current "
+                f"direct child; missing: {', '.join(missing)}"
+            ),
+            is_retryable=False,
+        )
+
+
+async def _commit_terminal_boundary(
+    session: AsyncSession,
+    authority: NodeOperationAuthority,
+    *,
+    checkpoint_id: str,
+    outcome: str,
+    transitioned_at: datetime,
+) -> None:
+    await close_source_dispatch(
+        session,
+        authority,
+        now=transitioned_at,
+        closed_reason="boundary",
+        waiting_cause="none",
+        waiting_source_id=None,
+    )
+    await advance_accepted_boundary_state(
+        session,
+        authority,
+        outcome=outcome,
+        decision=None,
+        transitioned_at=transitioned_at,
+    )
+    boundary_id = f"accepted-boundary.{authority.dispatch_id}"
+    session.add(
+        AcceptedBoundaryModel(
+            accepted_boundary_id=boundary_id,
+            source_dispatch_id=authority.dispatch_id,
+            task_id=authority.task_id,
+            flow_id=authority.flow_id,
+            assignment_id=authority.assignment_id,
+            attempt_id=authority.attempt_id,
+            outcome=outcome,
+            checkpoint_id=checkpoint_id,
+            assignment_decision_id=None,
+            committed_at=transitioned_at,
+        )
+    )
+    if outcome in {"green", "blocked"} and authority.assignment.parent_assignment_id is None:
+        await _select_task_result(
+            session,
+            authority,
+            boundary_id=boundary_id,
+            transitioned_at=transitioned_at,
+        )
+    resulting_flow_status = await session.scalar(
+        select(FlowModel.status).where(FlowModel.flow_id == authority.flow_id)
+    )
+    if resulting_flow_status is None:
+        raise _checkpoint_conflict("terminal Checkpoint lost its Flow")
+    await append_task_event(
+        session,
+        task_id=authority.task_id,
+        event_type=TaskEventType.BOUNDARY_ACCEPTED,
+        event_source=TaskEventSource.NODE,
+        occurred_at=transitioned_at,
+        flow_revision_id=authority.flow_revision_id,
+        dispatch_id=authority.dispatch_id,
+        attempt_id=authority.attempt_id,
+        node_key=authority.node_key,
+        payload={
+            "source_dispatch_id": authority.dispatch_id,
+            "assignment_id": authority.assignment_id,
+            "attempt_id": authority.attempt_id,
+            "outcome": outcome,
+            "checkpoint_id": checkpoint_id,
+            "assignment_decision_id": None,
+            "resulting_flow_status": resulting_flow_status,
+        },
+    )
+
+
+async def _select_task_result(
+    session: AsyncSession,
+    authority: NodeOperationAuthority,
+    *,
+    boundary_id: str,
+    transitioned_at: datetime,
+) -> None:
+    selected = await session.scalar(
+        update(TaskModel)
+        .where(
+            TaskModel.task_id == authority.task_id,
+            TaskModel.current_team_revision_id == authority.dispatch.team_revision_id,
+            TaskModel.result_boundary_id.is_(None),
+        )
+        .values(
+            result_boundary_id=boundary_id,
+            updated_at=transitioned_at,
+        )
+        .returning(TaskModel.task_id)
+    )
+    if selected is None:
+        raise _checkpoint_conflict("Task Result was already selected")
+
+
+async def _append_checkpoint_event(
+    session: AsyncSession,
+    authority: NodeOperationAuthority,
+    *,
+    checkpoint_id: str,
+    request: CheckpointRequest,
+    files: tuple[FileReference, ...],
     occurred_at: datetime,
 ) -> None:
-    body = preparation.body
     await append_task_event(
         session,
         task_id=authority.task_id,
@@ -117,286 +353,16 @@ async def _append_checkpoint_recorded_event(
         attempt_id=authority.attempt_id,
         node_key=authority.node_key,
         payload={
-            "checkpoint_id": preparation.checkpoint_id,
+            "checkpoint_id": checkpoint_id,
             "assignment_id": authority.assignment_id,
             "attempt_id": authority.attempt_id,
-            "checkpoint_kind": body.checkpoint_kind.value,
-            "outcome": body.outcome.value if body.outcome is not None else None,
-            "summary": body.handoff.summary,
-            "checkpoint_ref": f"_runtime/attempts/{authority.attempt_id}/latest-checkpoint.md",
-            "produced_artifacts": [
-                {
-                    "publication_id": artifact.artifact_publication_id,
-                    "slot": artifact.slot,
-                    "path": artifact.final_logical_path,
-                    "version": artifact.version,
-                }
-                for artifact in preparation.artifacts
-            ],
-            "transient_surfaces": [
-                {
-                    "localization_id": transient.transient_localization_id,
-                    "path": transient.final_logical_path,
-                    "description": transient.description,
-                }
-                for transient in preparation.transients
-            ],
+            "outcome": request.outcome.value if request.outcome is not None else None,
+            "summary": request.summary,
+            "details": request.details,
+            "files": [file.model_dump(mode="json") for file in files],
             "authored_by_dispatch_id": authority.dispatch_id,
         },
     )
-
-
-async def _insert_checkpoint(
-    session: AsyncSession,
-    authority: NodeOperationAuthority,
-    preparation: CheckpointPreparation,
-    *,
-    evidence: dict[str, object],
-    now: datetime,
-) -> None:
-    table = AttemptCheckpointModel.__table__
-    inserted_id = await session.scalar(
-        insert(AttemptCheckpointModel)
-        .from_select(
-            (
-                "checkpoint_id",
-                "task_id",
-                "flow_id",
-                "assignment_id",
-                "attempt_id",
-                "authoring_dispatch_id",
-                "checkpoint_kind",
-                "outcome",
-                "summary",
-                "evidence_json",
-                "criteria_results_json",
-                "recorded_at",
-            ),
-            select(
-                literal(preparation.checkpoint_id),
-                literal(authority.task_id),
-                literal(authority.flow_id),
-                literal(authority.assignment_id),
-                literal(authority.attempt_id),
-                literal(authority.dispatch_id),
-                literal(preparation.body.checkpoint_kind.value),
-                literal(
-                    preparation.body.outcome.value if preparation.body.outcome else None,
-                    type_=table.c.outcome.type,
-                ),
-                literal(preparation.body.handoff.summary),
-                literal(evidence, type_=table.c.evidence_json.type),
-                literal([], type_=table.c.criteria_results_json.type),
-                literal(now, type_=table.c.recorded_at.type),
-            ).where(
-                exact_node_operation_authority_exists(authority),
-                exists(
-                    select(AttemptModel.attempt_id).where(
-                        AttemptModel.task_id == authority.task_id,
-                        AttemptModel.flow_id == authority.flow_id,
-                        AttemptModel.assignment_id == authority.assignment_id,
-                        AttemptModel.attempt_id == authority.attempt_id,
-                        _nullable_equal(
-                            AttemptModel.latest_checkpoint_id,
-                            preparation.observed_latest_checkpoint_id,
-                        ),
-                    )
-                ),
-            ),
-        )
-        .returning(table.c.checkpoint_id)
-    )
-    if inserted_id is None:
-        raise _checkpoint_conflict("another transition changed checkpoint authority")
-
-
-async def _insert_artifact_publication(
-    session: AsyncSession,
-    authority: NodeOperationAuthority,
-    preparation: CheckpointPreparation,
-    artifact: ArtifactBodyPreparation,
-    *,
-    now: datetime,
-) -> None:
-    await session.execute(
-        insert(ArtifactPublicationModel).values(
-            artifact_publication_id=artifact.artifact_publication_id,
-            task_id=authority.task_id,
-            flow_id=authority.flow_id,
-            assignment_id=authority.assignment_id,
-            attempt_id=authority.attempt_id,
-            checkpoint_id=preparation.checkpoint_id,
-            slot=artifact.slot,
-            version=artifact.version,
-            logical_path=artifact.final_logical_path,
-            description=artifact.description,
-            supersedes_publication_id=artifact.observed_publication_id,
-            supersedes_version=artifact.observed_version,
-            published_at=now,
-        )
-    )
-
-
-async def _insert_transient_localizations(
-    session: AsyncSession,
-    authority: NodeOperationAuthority,
-    preparation: CheckpointPreparation,
-    *,
-    now: datetime,
-) -> None:
-    for transient in preparation.transients:
-        await session.execute(
-            insert(TransientLocalizationModel).values(
-                transient_localization_id=transient.transient_localization_id,
-                task_id=authority.task_id,
-                flow_id=authority.flow_id,
-                assignment_id=authority.assignment_id,
-                attempt_id=authority.attempt_id,
-                checkpoint_id=preparation.checkpoint_id,
-                source_logical_path=transient.source_logical_path,
-                localized_logical_path=transient.final_logical_path,
-                description=transient.description,
-                retention_status="active",
-                localized_at=now,
-                expires_at=None,
-                removed_at=None,
-            )
-        )
-        await session.execute(
-            insert(CheckpointTransientModel).values(
-                checkpoint_transient_id=f"checkpoint-transient.{uuid4().hex}",
-                task_id=authority.task_id,
-                assignment_id=authority.assignment_id,
-                attempt_id=authority.attempt_id,
-                checkpoint_id=preparation.checkpoint_id,
-                transient_localization_id=transient.transient_localization_id,
-                order_index=transient.order_index,
-            )
-        )
-
-
-async def _advance_attempt_latest_checkpoint(
-    session: AsyncSession,
-    authority: NodeOperationAuthority,
-    preparation: CheckpointPreparation,
-) -> None:
-    updated_attempt = await session.scalar(
-        update(AttemptModel)
-        .where(
-            AttemptModel.task_id == authority.task_id,
-            AttemptModel.flow_id == authority.flow_id,
-            AttemptModel.assignment_id == authority.assignment_id,
-            AttemptModel.attempt_id == authority.attempt_id,
-            AttemptModel.status.in_(("pending", "running")),
-            _nullable_equal(
-                AttemptModel.latest_checkpoint_id,
-                preparation.observed_latest_checkpoint_id,
-            ),
-            exact_node_operation_authority_exists(authority),
-        )
-        .values(latest_checkpoint_id=preparation.checkpoint_id)
-        .returning(AttemptModel.attempt_id)
-    )
-    if updated_attempt is None:
-        raise _checkpoint_conflict("another checkpoint changed the attempt latest pointer")
-
-
-async def _advance_artifact_pointer(
-    session: AsyncSession,
-    authority: NodeOperationAuthority,
-    preparation: CheckpointPreparation,
-    artifact: ArtifactBodyPreparation,
-    *,
-    now: datetime,
-) -> None:
-    if artifact.observed_pointer_id is None:
-        table = ArtifactCurrentPointerModel.__table__
-        pointer_id = f"artifact-current-pointer.{uuid4().hex}"
-        advanced = await session.scalar(
-            insert(ArtifactCurrentPointerModel)
-            .from_select(
-                tuple(column.name for column in table.c),
-                select(
-                    literal(pointer_id),
-                    literal(authority.task_id),
-                    literal(authority.flow_id),
-                    literal(authority.assignment_id),
-                    literal(artifact.slot),
-                    literal(artifact.artifact_publication_id),
-                    literal(artifact.version),
-                    literal(authority.attempt_id),
-                    literal(preparation.checkpoint_id),
-                    literal(now, type_=table.c.updated_at.type),
-                ).where(
-                    exact_node_operation_authority_exists(authority),
-                    ~exists(
-                        select(ArtifactCurrentPointerModel.artifact_current_pointer_id).where(
-                            ArtifactCurrentPointerModel.task_id == authority.task_id,
-                            ArtifactCurrentPointerModel.assignment_id == authority.assignment_id,
-                            ArtifactCurrentPointerModel.slot == artifact.slot,
-                        )
-                    ),
-                ),
-            )
-            .returning(table.c.artifact_current_pointer_id)
-        )
-    else:
-        advanced = await session.scalar(
-            update(ArtifactCurrentPointerModel)
-            .where(
-                ArtifactCurrentPointerModel.artifact_current_pointer_id
-                == artifact.observed_pointer_id,
-                ArtifactCurrentPointerModel.task_id == authority.task_id,
-                ArtifactCurrentPointerModel.flow_id == authority.flow_id,
-                ArtifactCurrentPointerModel.assignment_id == authority.assignment_id,
-                ArtifactCurrentPointerModel.slot == artifact.slot,
-                ArtifactCurrentPointerModel.current_publication_id
-                == artifact.observed_publication_id,
-                ArtifactCurrentPointerModel.current_version == artifact.observed_version,
-                ArtifactCurrentPointerModel.attempt_id == artifact.observed_attempt_id,
-                ArtifactCurrentPointerModel.checkpoint_id == artifact.observed_checkpoint_id,
-                exact_node_operation_authority_exists(authority),
-            )
-            .values(
-                current_publication_id=artifact.artifact_publication_id,
-                current_version=artifact.version,
-                attempt_id=authority.attempt_id,
-                checkpoint_id=preparation.checkpoint_id,
-                updated_at=now,
-            )
-            .returning(ArtifactCurrentPointerModel.artifact_current_pointer_id)
-        )
-    if advanced is None:
-        raise _checkpoint_conflict(f"artifact slot '{artifact.slot}' changed before commit")
-
-
-def _validate_preparation(
-    authority: NodeOperationAuthority,
-    preparation: CheckpointPreparation,
-) -> None:
-    if (
-        preparation.task_id,
-        preparation.flow_id,
-        preparation.assignment_id,
-        preparation.attempt_id,
-        preparation.dispatch_id,
-    ) != (
-        authority.task_id,
-        authority.flow_id,
-        authority.assignment_id,
-        authority.attempt_id,
-        authority.dispatch_id,
-    ):
-        raise _checkpoint_conflict("prepared checkpoint no longer matches exact dispatch authority")
-
-
-def _nullable_equal(
-    column: InstrumentedAttribute[str | None],
-    value: str | None,
-) -> ColumnElement[bool]:
-    if value is None:
-        return column.is_(None)
-    return column == value
 
 
 def _checkpoint_conflict(summary: str) -> RuntimeOperationError:
@@ -407,18 +373,4 @@ def _checkpoint_conflict(summary: str) -> RuntimeOperationError:
     )
 
 
-def _is_expected_checkpoint_conflict(exc: IntegrityError) -> bool:
-    original = exc.orig
-    diagnostics = getattr(original, "diag", None)
-    constraint_name = getattr(diagnostics, "constraint_name", None)
-    if constraint_name in {
-        "artifact_current_pointers_task_id_assignment_id_slot_key",
-        "artifact_publications_task_id_assignment_id_slot_version_key",
-    }:
-        return True
-    return isinstance(original, sqlite3.IntegrityError) and (
-        getattr(original, "sqlite_errorcode", None) == sqlite3.SQLITE_CONSTRAINT_UNIQUE
-    )
-
-
-__all__ = ["commit_checkpoint_preparation"]
+__all__ = ["commit_checkpoint"]

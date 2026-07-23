@@ -12,22 +12,20 @@ from banksia.persistence.models import (
     AttemptCheckpointModel,
     DispatchCapabilitySetModel,
     DispatchTurnModel,
-    FlowEdgeModel,
     FlowModel,
     FlowNodeModel,
 )
+from banksia.runtime.checkpoint import read_checkpoint_file_references
 from banksia.runtime.contracts import (
     BoundaryHistoryEntry,
     CheckpointHistoryEntry,
-    CheckpointKind,
     CheckpointOutcome,
     DispatchHistoryEntry,
     EgressBoundary,
+    FileReference,
     OperatorFlowSnapshotResponse,
     OperatorFlowTraceResponse,
-    OperatorSupportSurfaceRef,
     RuntimeFlowRead,
-    TaskGraphDependencyEntry,
     TaskGraphNodeEntry,
     TopActionableItem,
 )
@@ -43,7 +41,7 @@ async def operator_snapshot(
 ) -> OperatorFlowSnapshotResponse:
     flow = await read_runtime_flow(session, task_id)
     latest_event = await latest_task_event(session, task_id=task_id)
-    current_paths = (OperatorSupportSurfaceRef.model_validate(flow.workflow_manifest_ref),)
+    current_paths = (_manifest_file_reference(flow),)
     return OperatorFlowSnapshotResponse(
         flow=flow,
         top_actionable_items=_actionable_items(flow, current_paths),
@@ -70,7 +68,7 @@ async def operator_trace(
     )
     assert flow_row is not None and flow_row.active_flow_revision_id is not None
 
-    graph_nodes, dependency_edges = await _read_graph(
+    graph_nodes = await _read_graph(
         session,
         flow_id=flow_row.flow_id,
         flow_revision_id=flow_row.active_flow_revision_id,
@@ -95,12 +93,11 @@ async def operator_trace(
         task_id=task_id,
         attempt_id=flow.active_attempt_id if scope == "current" else None,
     )
-    current_paths = (OperatorSupportSurfaceRef.model_validate(flow.workflow_manifest_ref),)
+    current_paths = (_manifest_file_reference(flow),)
     return OperatorFlowTraceResponse(
         task_id=task_id,
         scope=cast(Literal["current", "whole"], scope),
         graph_nodes=graph_nodes,
-        dependency_edges=dependency_edges,
         dispatch_history=tuple(_dispatch_history(row) for row in page),
         checkpoint_history=checkpoint_history,
         boundary_history=boundary_history,
@@ -111,7 +108,7 @@ async def operator_trace(
 
 def _actionable_items(
     flow: RuntimeFlowRead,
-    current_paths: tuple[OperatorSupportSurfaceRef, ...],
+    current_paths: tuple[FileReference, ...],
 ) -> tuple[TopActionableItem, ...]:
     if flow.current_human_request is not None:
         return (
@@ -170,7 +167,7 @@ async def _read_graph(
     *,
     flow_id: str,
     flow_revision_id: str,
-) -> tuple[tuple[TaskGraphNodeEntry, ...], tuple[TaskGraphDependencyEntry, ...]]:
+) -> tuple[TaskGraphNodeEntry, ...]:
     nodes = tuple(
         await session.scalars(
             select(FlowNodeModel)
@@ -182,38 +179,20 @@ async def _read_graph(
             .order_by(FlowNodeModel.order_index)
         )
     )
-    edges = tuple(
-        await session.scalars(
-            select(FlowEdgeModel)
-            .options(raiseload("*"))
-            .where(FlowEdgeModel.flow_revision_id == flow_revision_id)
-            .order_by(FlowEdgeModel.order_index)
+    return tuple(
+        TaskGraphNodeEntry(
+            node_key=node.node_key,
+            parent_node_key=node.parent_node_key,
+            node_kind=NodeKind(node.structural_kind),
+            member_id=node.member_id,
+            member_configuration_id=node.member_configuration_id,
+            member_branch_basis_id=node.member_branch_basis_id,
+            member_title=node.member_title,
+            description=node.description,
+            order_index=node.order_index,
+            child_node_keys=tuple(node.child_node_keys_json),
         )
-    )
-    depends_on: dict[str, list[str]] = {node.node_key: [] for node in nodes}
-    depended_on_by: dict[str, list[str]] = {node.node_key: [] for node in nodes}
-    for edge in edges:
-        depends_on[edge.consumer_node_key].append(edge.provider_node_key)
-        depended_on_by[edge.provider_node_key].append(edge.consumer_node_key)
-    return (
-        tuple(
-            TaskGraphNodeEntry(
-                node_key=node.node_key,
-                parent_node_key=node.parent_node_key,
-                node_kind=NodeKind(node.structural_kind),
-                member_id=node.member_id,
-                member_configuration_id=node.member_configuration_id,
-                member_branch_basis_id=node.member_branch_basis_id,
-                member_title=node.member_title,
-                description=node.description,
-                order_index=node.order_index,
-                child_node_keys=tuple(node.child_node_keys_json),
-                depends_on_node_keys=tuple(depends_on[node.node_key]),
-                depended_on_by_node_keys=tuple(depended_on_by[node.node_key]),
-            )
-            for node in nodes
-        ),
-        tuple(TaskGraphDependencyEntry.model_validate(edge) for edge in edges),
+        for node in nodes
     )
 
 
@@ -298,17 +277,31 @@ async def _read_checkpoints(
     )
     if attempt_id is not None:
         statement = statement.where(AttemptCheckpointModel.attempt_id == attempt_id)
-    rows = await session.scalars(statement.order_by(AttemptCheckpointModel.recorded_at))
-    return tuple(
-        CheckpointHistoryEntry(
+    rows = tuple(await session.scalars(statement.order_by(AttemptCheckpointModel.recorded_at)))
+    history = []
+    for row in rows:
+        files = await read_checkpoint_file_references(
+            session,
             checkpoint_id=row.checkpoint_id,
-            attempt_id=row.attempt_id,
-            checkpoint_kind=CheckpointKind(row.checkpoint_kind),
-            outcome=CheckpointOutcome(row.outcome) if row.outcome is not None else None,
-            summary=row.summary,
-            recorded_at=_as_utc(row.recorded_at),
         )
-        for row in rows
+        history.append(
+            CheckpointHistoryEntry(
+                checkpoint_id=row.checkpoint_id,
+                attempt_id=row.attempt_id,
+                outcome=CheckpointOutcome(row.outcome) if row.outcome is not None else None,
+                summary=row.summary,
+                details=row.details,
+                files=files,
+                recorded_at=_as_utc(row.recorded_at),
+            )
+        )
+    return tuple(history)
+
+
+def _manifest_file_reference(flow: RuntimeFlowRead) -> FileReference:
+    return FileReference(
+        path=str(flow.workflow_manifest_ref.path),
+        description=flow.workflow_manifest_ref.description,
     )
 
 

@@ -36,7 +36,7 @@ async def test_current_context_exposes_request_readbacks_and_live_children(
     assert payload["readback_refs"] == {
         "instructions": f"{dispatch_root}/instructions.md",
         "input": f"{dispatch_root}/input.md",
-        "workflow_manifest": "_runtime/workflow-manifest.md",
+        "workflow_manifest": "manifest.md",
     }
     assert payload["workflow_neighborhood"] == [
         {
@@ -76,7 +76,6 @@ async def test_current_context_normalizes_root_start_trigger(tmp_path: Path) -> 
         "kind": "root_start",
         "source_dispatch_id": None,
     }
-    assert payload["checkpoint_to_resume_from"] is None
 
 
 async def test_current_context_normalizes_accepted_boundary_trigger(tmp_path: Path) -> None:
@@ -107,7 +106,6 @@ async def test_current_context_normalizes_accepted_boundary_trigger(tmp_path: Pa
         "kind": "accepted_boundary",
         "source_dispatch_id": ids.root_dispatch_id,
     }
-    assert payload["checkpoint_to_resume_from"] is None
 
 
 async def test_current_context_reads_exact_boundary_successor_checkpoint(
@@ -150,9 +148,6 @@ async def test_current_context_reads_exact_boundary_successor_checkpoint(
         "kind": "child_return",
         "source_dispatch_id": ids.child_dispatch_id,
     }
-    assert payload["checkpoint_to_resume_from"] == (
-        f"_runtime/attempts/{ids.child_attempt_id}/latest-checkpoint.md"
-    )
 
 
 async def _make_dispatch_current(

@@ -152,7 +152,7 @@ def test_schema_verifier_preserves_material_boolean_grouping() -> None:
             "tasks",
             lambda ddl: ddl.replace(
                 "PRIMARY KEY (task_id)",
-                "PRIMARY KEY (task_key)",
+                "PRIMARY KEY (workflow_key)",
             ),
             "tasks changed primary key",
         ),

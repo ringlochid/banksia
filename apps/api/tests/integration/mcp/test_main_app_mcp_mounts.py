@@ -77,6 +77,13 @@ def _install_lifespan_mocks(
         startup_calls.append("cleanup")
         return {}
 
+    async def recover_task_workspaces(
+        *_args: object,
+        **_kwargs: object,
+    ) -> tuple[object, ...]:
+        startup_calls.append("workspace_recovery")
+        return ()
+
     async def audit_runtime(**kwargs: object) -> dict[str, object]:
         del kwargs
         assert isinstance(app.state.runtime_effect_router, RuntimeEffectRouter)
@@ -96,6 +103,11 @@ def _install_lifespan_mocks(
         startup_calls.append("dispose")
 
     monkeypatch.setattr(main_module, "ensure_database_schema", ensure_schema)
+    monkeypatch.setattr(
+        main_module,
+        "recover_task_workspace_admissions",
+        recover_task_workspaces,
+    )
     monkeypatch.setattr(
         main_module,
         "cleanup_aged_dispatch_request_directories",
@@ -132,7 +144,13 @@ async def test_main_app_mounts_one_managed_and_one_compatibility_node_mcp_app(
     )
 
     async with app.router.lifespan_context(app):
-        assert startup_calls == ["schema", "cleanup", "runtime_audit", "projection_audit"]
+        assert startup_calls == [
+            "schema",
+            "workspace_recovery",
+            "cleanup",
+            "runtime_audit",
+            "projection_audit",
+        ]
         assert app.state.runtime_startup_audit == {}
         assert app.state.support_projection_startup_audit == {}
         async with httpx.AsyncClient(
@@ -157,6 +175,7 @@ async def test_main_app_mounts_one_managed_and_one_compatibility_node_mcp_app(
 
     assert startup_calls == [
         "schema",
+        "workspace_recovery",
         "cleanup",
         "runtime_audit",
         "projection_audit",

@@ -4,7 +4,6 @@ from dataclasses import dataclass
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from banksia.config import get_settings
 from banksia.runtime import (
     RuntimeBootstrapInput,
     RuntimeBootstrapResult,
@@ -24,7 +23,6 @@ from banksia.runtime.launch.persistence.runtime import persist_bootstrap_runtime
 from banksia.runtime.projection.signals import SupportProjectionSignal
 from banksia.runtime.task_events import append_task_event
 from banksia.runtime.team import plan_initial_task_team
-from banksia.workflows.catalog import read_current_published_workflow
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,13 +39,9 @@ async def launch_task_runtime(
 ) -> StagedRuntimeLaunch:
     """Stage task, flow, assignment, attempt, and durable root-source truth."""
 
-    workflow_revision = await read_current_published_workflow(
-        session,
-        workflow_id=launch_input.task_compose.workflow.key,
-    )
+    workflow_revision = launch_input.workflow_revision
     initial_team = plan_initial_task_team(workflow_revision, launch_input.task_id)
     legacy_plan = project_legacy_team_plan(workflow_revision, initial_team)
-    runtime_settings = get_settings().runtime
     root_node_key = initial_team.root_member_id
     bootstrap_input = RuntimeBootstrapInput(
         task_id=launch_input.task_id,
@@ -55,15 +49,14 @@ async def launch_task_runtime(
         attempt_id=attempt_id_for_task(launch_input.task_id, root_node_key, 1),
         assignment_key=assignment_key_for_task(launch_input.task_id, root_node_key, 1),
         task_root=launch_input.task_root,
-        task_compose=launch_input.task_compose,
+        workspace=launch_input.workspace,
+        assignment=launch_input.assignment,
         workflow_revision=workflow_revision,
         initial_team=initial_team,
         compiled_plan=legacy_plan,
-        max_child_assignments_per_assignment=(
-            runtime_settings.max_child_assignments_per_assignment
-        ),
-        max_retries_per_assignment=runtime_settings.max_retries_per_assignment,
-        max_wave_members=runtime_settings.max_wave_members,
+        max_child_assignments_per_assignment=(launch_input.max_child_assignments_per_assignment),
+        max_retries_per_assignment=launch_input.max_retries_per_assignment,
+        max_wave_members=launch_input.max_wave_members,
     )
     bootstrap = await persist_bootstrap_runtime_from_precomputed(
         session,
@@ -84,7 +77,7 @@ async def launch_task_runtime(
             "compiled_plan_id": compiled_plan_id_for_task(launch_input.task_id),
             "workflow_key": workflow_revision.workflow_id,
             "workflow_revision_no": workflow_revision.revision_no,
-            "manifest_ref": "_runtime/workflow-manifest.md",
+            "manifest_ref": f".banksia/{launch_input.task_id}/manifest.md",
         },
     )
     return StagedRuntimeLaunch(

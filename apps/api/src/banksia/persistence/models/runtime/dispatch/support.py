@@ -7,7 +7,6 @@ from sqlalchemy import (
     CheckConstraint,
     ForeignKey,
     ForeignKeyConstraint,
-    Integer,
     String,
     UniqueConstraint,
 )
@@ -16,16 +15,12 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from banksia.persistence.base import RuntimeBase
 from banksia.persistence.datetimes import UtcDateTime
 from banksia.persistence.models.runtime.common import (
-    ASSIGNMENT_DECISION_KIND_VALUES,
     BOUNDARY_OUTCOME_VALUES,
     sql_in,
     utcnow,
 )
 
 if TYPE_CHECKING:
-    from banksia.persistence.models.runtime.assignment.artifacts import (
-        ArtifactPublicationModel,
-    )
     from banksia.persistence.models.runtime.assignment.execution import (
         AssignmentModel,
         AttemptCheckpointModel,
@@ -36,6 +31,8 @@ if TYPE_CHECKING:
 
 
 class AssignmentDecisionModel(RuntimeBase):
+    """Temporary staged-child decision retained with the yield bridge until WP-08."""
+
     __tablename__ = "assignment_decisions"
     __table_args__ = (
         UniqueConstraint("source_dispatch_id"),
@@ -46,17 +43,13 @@ class AssignmentDecisionModel(RuntimeBase):
             "assignment_id",
             "attempt_id",
         ),
-        UniqueConstraint("assignment_decision_id", "task_id", "flow_id"),
         CheckConstraint(
-            f"decision_kind IN ({sql_in(ASSIGNMENT_DECISION_KIND_VALUES)})",
+            "decision_kind = 'staged_child'",
             name="ck_assignment_decisions_kind",
         ),
         CheckConstraint(
-            "(decision_kind = 'staged_child' AND staged_child_assignment_id IS NOT NULL AND "
-            "staged_child_attempt_id IS NOT NULL) OR "
-            "(decision_kind IN ('release_green', 'release_blocked') AND "
-            "staged_child_assignment_id IS NULL AND staged_child_attempt_id IS NULL)",
-            name="ck_assignment_decisions_kind_ownership",
+            "staged_child_assignment_id IS NOT NULL AND staged_child_attempt_id IS NOT NULL",
+            name="ck_assignment_decisions_staged_child",
         ),
         ForeignKeyConstraint(
             ["source_dispatch_id", "task_id", "flow_id", "assignment_id", "attempt_id"],
@@ -117,9 +110,13 @@ class AssignmentDecisionModel(RuntimeBase):
     assignment_id: Mapped[str] = mapped_column(ForeignKey("assignments.assignment_id"))
     attempt_id: Mapped[str] = mapped_column(ForeignKey("attempts.attempt_id"))
     source_flow_revision_id: Mapped[str] = mapped_column(String(255))
-    decision_kind: Mapped[str] = mapped_column(String(64))
-    staged_child_assignment_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    staged_child_attempt_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    decision_kind: Mapped[str] = mapped_column(
+        String(64),
+        default="staged_child",
+        server_default="staged_child",
+    )
+    staged_child_assignment_id: Mapped[str] = mapped_column(String(255))
+    staged_child_attempt_id: Mapped[str] = mapped_column(String(255))
     recorded_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow)
     source_dispatch: Mapped[DispatchTurnModel] = relationship(
         "DispatchTurnModel",
@@ -134,52 +131,37 @@ class AssignmentDecisionModel(RuntimeBase):
         lazy="raise",
         viewonly=True,
     )
-    staged_child_assignment: Mapped[AssignmentModel | None] = relationship(
+    staged_child_assignment: Mapped[AssignmentModel] = relationship(
         "AssignmentModel",
         foreign_keys=[task_id, flow_id, staged_child_assignment_id],
         lazy="raise",
         viewonly=True,
     )
-    staged_child_attempt: Mapped[AttemptModel | None] = relationship(
+    staged_child_attempt: Mapped[AttemptModel] = relationship(
         "AttemptModel",
         foreign_keys=[task_id, flow_id, staged_child_assignment_id, staged_child_attempt_id],
         lazy="raise",
         viewonly=True,
     )
-    checkpoint_evidence: Mapped[list[AssignmentDecisionCheckpointModel]] = relationship(
-        back_populates="assignment_decision",
-        foreign_keys=(
-            "[AssignmentDecisionCheckpointModel.assignment_decision_id, "
-            "AssignmentDecisionCheckpointModel.task_id, "
-            "AssignmentDecisionCheckpointModel.flow_id]"
-        ),
-        lazy="raise",
-        order_by="AssignmentDecisionCheckpointModel.order_index",
-        viewonly=True,
-    )
-    artifact_evidence: Mapped[list[AssignmentDecisionArtifactModel]] = relationship(
-        back_populates="assignment_decision",
-        foreign_keys=(
-            "[AssignmentDecisionArtifactModel.assignment_decision_id, "
-            "AssignmentDecisionArtifactModel.task_id, AssignmentDecisionArtifactModel.flow_id]"
-        ),
-        lazy="raise",
-        order_by="AssignmentDecisionArtifactModel.order_index",
-        viewonly=True,
-    )
 
 
 class AcceptedBoundaryModel(RuntimeBase):
+    """Internal exact terminal/yield boundary selected by committed controller truth."""
+
     __tablename__ = "accepted_boundaries"
     __table_args__ = (
         UniqueConstraint("source_dispatch_id"),
+        UniqueConstraint("accepted_boundary_id", "task_id"),
         CheckConstraint(
             f"outcome IN ({sql_in(BOUNDARY_OUTCOME_VALUES)})",
             name="ck_accepted_boundaries_outcome",
         ),
         CheckConstraint(
-            "outcome = 'yield' OR checkpoint_id IS NOT NULL",
-            name="ck_accepted_boundaries_terminal_checkpoint",
+            "(outcome = 'yield' AND checkpoint_id IS NULL AND "
+            "assignment_decision_id IS NOT NULL) OR "
+            "(outcome IN ('green', 'blocked', 'retry') AND "
+            "checkpoint_id IS NOT NULL AND assignment_decision_id IS NULL)",
+            name="ck_accepted_boundaries_source_shape",
         ),
         ForeignKeyConstraint(
             ["source_dispatch_id", "task_id", "flow_id", "assignment_id", "attempt_id"],
@@ -278,164 +260,4 @@ class AcceptedBoundaryModel(RuntimeBase):
     )
 
 
-class AssignmentDecisionCheckpointModel(RuntimeBase):
-    __tablename__ = "assignment_decision_checkpoints"
-    __table_args__ = (
-        UniqueConstraint("assignment_decision_id", "checkpoint_id"),
-        UniqueConstraint("assignment_decision_id", "order_index"),
-        CheckConstraint(
-            "order_index >= 0",
-            name="ck_assignment_decision_checkpoints_order_index",
-        ),
-        ForeignKeyConstraint(
-            ["assignment_decision_id", "task_id", "flow_id"],
-            [
-                "assignment_decisions.assignment_decision_id",
-                "assignment_decisions.task_id",
-                "assignment_decisions.flow_id",
-            ],
-            name="fk_assignment_decision_checkpoints_decision_owner",
-            deferrable=True,
-            initially="DEFERRED",
-        ),
-        ForeignKeyConstraint(
-            [
-                "task_id",
-                "flow_id",
-                "evidence_assignment_id",
-                "evidence_attempt_id",
-                "checkpoint_id",
-            ],
-            [
-                "attempt_checkpoints.task_id",
-                "attempt_checkpoints.flow_id",
-                "attempt_checkpoints.assignment_id",
-                "attempt_checkpoints.attempt_id",
-                "attempt_checkpoints.checkpoint_id",
-            ],
-            name="fk_assignment_decision_checkpoints_checkpoint_owner",
-            deferrable=True,
-            initially="DEFERRED",
-        ),
-    )
-
-    assignment_decision_checkpoint_id: Mapped[str] = mapped_column(
-        String(255),
-        primary_key=True,
-    )
-    assignment_decision_id: Mapped[str] = mapped_column(String(255), index=True)
-    task_id: Mapped[str] = mapped_column(ForeignKey("tasks.task_id"))
-    flow_id: Mapped[str] = mapped_column(ForeignKey("flows.flow_id"))
-    evidence_assignment_id: Mapped[str] = mapped_column(ForeignKey("assignments.assignment_id"))
-    evidence_attempt_id: Mapped[str] = mapped_column(ForeignKey("attempts.attempt_id"))
-    checkpoint_id: Mapped[str] = mapped_column(ForeignKey("attempt_checkpoints.checkpoint_id"))
-    order_index: Mapped[int] = mapped_column(Integer)
-    assignment_decision: Mapped[AssignmentDecisionModel] = relationship(
-        back_populates="checkpoint_evidence",
-        foreign_keys=[assignment_decision_id, task_id, flow_id],
-        lazy="raise",
-        viewonly=True,
-    )
-    checkpoint: Mapped[AttemptCheckpointModel] = relationship(
-        "AttemptCheckpointModel",
-        foreign_keys=[
-            task_id,
-            flow_id,
-            evidence_assignment_id,
-            evidence_attempt_id,
-            checkpoint_id,
-        ],
-        lazy="raise",
-        viewonly=True,
-    )
-
-
-class AssignmentDecisionArtifactModel(RuntimeBase):
-    __tablename__ = "assignment_decision_artifacts"
-    __table_args__ = (
-        UniqueConstraint("assignment_decision_id", "artifact_publication_id"),
-        UniqueConstraint("assignment_decision_id", "order_index"),
-        CheckConstraint(
-            "order_index >= 0",
-            name="ck_assignment_decision_artifacts_order_index",
-        ),
-        ForeignKeyConstraint(
-            ["assignment_decision_id", "task_id", "flow_id"],
-            [
-                "assignment_decisions.assignment_decision_id",
-                "assignment_decisions.task_id",
-                "assignment_decisions.flow_id",
-            ],
-            name="fk_assignment_decision_artifacts_decision_owner",
-            deferrable=True,
-            initially="DEFERRED",
-        ),
-        ForeignKeyConstraint(
-            [
-                "artifact_publication_id",
-                "task_id",
-                "flow_id",
-                "evidence_assignment_id",
-                "evidence_attempt_id",
-                "checkpoint_id",
-                "slot",
-                "version",
-            ],
-            [
-                "artifact_publications.artifact_publication_id",
-                "artifact_publications.task_id",
-                "artifact_publications.flow_id",
-                "artifact_publications.assignment_id",
-                "artifact_publications.attempt_id",
-                "artifact_publications.checkpoint_id",
-                "artifact_publications.slot",
-                "artifact_publications.version",
-            ],
-            name="fk_assignment_decision_artifacts_publication_owner",
-            deferrable=True,
-            initially="DEFERRED",
-        ),
-    )
-
-    assignment_decision_artifact_id: Mapped[str] = mapped_column(String(255), primary_key=True)
-    assignment_decision_id: Mapped[str] = mapped_column(String(255), index=True)
-    task_id: Mapped[str] = mapped_column(ForeignKey("tasks.task_id"))
-    flow_id: Mapped[str] = mapped_column(ForeignKey("flows.flow_id"))
-    evidence_assignment_id: Mapped[str] = mapped_column(ForeignKey("assignments.assignment_id"))
-    evidence_attempt_id: Mapped[str] = mapped_column(ForeignKey("attempts.attempt_id"))
-    checkpoint_id: Mapped[str] = mapped_column(ForeignKey("attempt_checkpoints.checkpoint_id"))
-    slot: Mapped[str] = mapped_column(String(255))
-    version: Mapped[int] = mapped_column(Integer)
-    artifact_publication_id: Mapped[str] = mapped_column(
-        ForeignKey("artifact_publications.artifact_publication_id")
-    )
-    order_index: Mapped[int] = mapped_column(Integer)
-    assignment_decision: Mapped[AssignmentDecisionModel] = relationship(
-        back_populates="artifact_evidence",
-        foreign_keys=[assignment_decision_id, task_id, flow_id],
-        lazy="raise",
-        viewonly=True,
-    )
-    artifact_publication: Mapped[ArtifactPublicationModel] = relationship(
-        "ArtifactPublicationModel",
-        foreign_keys=[
-            artifact_publication_id,
-            task_id,
-            flow_id,
-            evidence_assignment_id,
-            evidence_attempt_id,
-            checkpoint_id,
-            slot,
-            version,
-        ],
-        lazy="raise",
-        viewonly=True,
-    )
-
-
-__all__ = [
-    "AcceptedBoundaryModel",
-    "AssignmentDecisionArtifactModel",
-    "AssignmentDecisionCheckpointModel",
-    "AssignmentDecisionModel",
-]
+__all__ = ["AcceptedBoundaryModel", "AssignmentDecisionModel"]

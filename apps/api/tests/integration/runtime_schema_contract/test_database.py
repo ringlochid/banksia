@@ -37,9 +37,12 @@ def test_exact_source_and_owner_backstops_are_present() -> None:
     )
     assert {
         "fk_assignments_authoring_dispatch_owner",
-        "fk_assignments_flow_node_owner",
         "fk_assignments_parent_owner",
     } <= _constraint_names("assignments", ForeignKeyConstraint)
+    assert "fk_assignments_flow_node_owner" not in _constraint_names(
+        "assignments",
+        ForeignKeyConstraint,
+    )
     assert {"fk_attempts_latest_checkpoint_owner"} <= _constraint_names(
         "attempts", ForeignKeyConstraint
     )
@@ -62,6 +65,10 @@ def test_exact_source_and_owner_backstops_are_present() -> None:
         "fk_accepted_boundaries_decision_owner",
         "fk_accepted_boundaries_successor_owner",
     } <= _constraint_names("accepted_boundaries", ForeignKeyConstraint)
+    assert {"fk_tasks_result_boundary"} <= _constraint_names(
+        "tasks",
+        ForeignKeyConstraint,
+    )
     assert {
         "fk_human_requests_source_owner",
         "fk_human_requests_successor_owner",
@@ -78,16 +85,10 @@ def test_exact_source_and_owner_backstops_are_present() -> None:
         "fk_assignment_decisions_source_owner",
         "fk_assignment_decisions_flow_revision_owner",
         "fk_assignment_decisions_child_authoring_source",
+        "fk_assignment_decisions_child_assignment_owner",
+        "fk_assignment_decisions_child_attempt_owner",
     } <= assignment_decision_foreign_keys
     assert "fk_assignment_decisions_source_revision_owner" not in (assignment_decision_foreign_keys)
-    assert {
-        "fk_assignment_decision_checkpoints_checkpoint_owner",
-        "fk_assignment_decision_checkpoints_decision_owner",
-    } <= _constraint_names("assignment_decision_checkpoints", ForeignKeyConstraint)
-    assert {
-        "fk_assignment_decision_artifacts_publication_owner",
-        "fk_assignment_decision_artifacts_decision_owner",
-    } <= _constraint_names("assignment_decision_artifacts", ForeignKeyConstraint)
 
 
 def test_task_event_chronology_constraints_are_present() -> None:
@@ -123,7 +124,20 @@ def test_target_currentness_and_pair_constraints_are_present() -> None:
     assert {
         "ck_assignments_child_budget",
         "ck_assignments_retry_budget",
+        "ck_assignments_terminal_outcome",
+        "ck_assignments_terminal_state",
     } <= _constraint_names("assignments", CheckConstraint)
+    assert {"ck_accepted_boundaries_source_shape"} <= _constraint_names(
+        "accepted_boundaries",
+        CheckConstraint,
+    )
+    assert {
+        "team_revision_id",
+        "member_configuration_id",
+        "member_branch_basis_id",
+        "flow_revision_id",
+        "flow_node_id",
+    }.isdisjoint(RuntimeBase.metadata.tables["assignments"].c.keys())
     assert {
         "ck_command_runs_abandoned_diagnostic",
         "ck_command_runs_launch_deadline",
@@ -198,8 +212,6 @@ def test_target_sources_store_complete_canonical_fields() -> None:
         "request_kind",
         "request_summary",
         "request_items_json",
-        "context_refs_json",
-        "suggested_human_instruction",
         "capability_basis_json",
         "due_at",
         "timeout_policy_json",
@@ -214,6 +226,12 @@ def test_target_sources_store_complete_canonical_fields() -> None:
         "successor_dispatch_id",
         "opened_at",
         "resolved_at",
+    }
+    assert set(RuntimeBase.metadata.tables["human_request_file_references"].columns.keys()) == {
+        "request_id",
+        "order_index",
+        "path",
+        "description",
     }
     assert set(RuntimeBase.metadata.tables["command_runs"].columns.keys()) >= {
         "run_id",
@@ -260,30 +278,6 @@ def test_external_workspace_binding_is_not_a_cross_task_lease(tmp_path: Path) ->
                 select(func.count())
                 .select_from(bindings)
                 .where(bindings.c.normalized_root_path == "/tmp/shared-workspace")
-            )
-        assert count == 2
-        assert first.task_id != second.task_id
-    finally:
-        engine.dispose()
-
-
-def test_repeated_task_compose_keys_create_independent_task_runs(tmp_path: Path) -> None:
-    engine = create_runtime_schema_engine(tmp_path)
-    try:
-        with engine.begin() as connection:
-            seed_catalog(connection)
-            first = seed_runtime_scope(connection, suffix="first-key-run")
-            second = seed_runtime_scope(connection, suffix="second-key-run")
-            tasks = RuntimeBase.metadata.tables["tasks"]
-            connection.execute(
-                tasks.update()
-                .where(tasks.c.task_id == second.task_id)
-                .values(task_key="task-key.first-key-run")
-            )
-            count = connection.scalar(
-                select(func.count())
-                .select_from(tasks)
-                .where(tasks.c.task_key == "task-key.first-key-run")
             )
         assert count == 2
         assert first.task_id != second.task_id

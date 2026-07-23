@@ -13,33 +13,6 @@ class _LegacyModel(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
 
-class LegacyConsumeSelector(_LegacyModel):
-    slot: str
-    is_required: bool = True
-
-
-class LegacyConsumeBuckets(_LegacyModel):
-    artifacts: tuple[LegacyConsumeSelector, ...] = ()
-    criteria: tuple[LegacyConsumeSelector, ...] = ()
-
-
-class LegacyProduceSlot(_LegacyModel):
-    slot: str
-    description: str
-    file_hint: str | None = None
-
-
-class LegacyProduceBuckets(_LegacyModel):
-    artifacts: tuple[LegacyProduceSlot, ...] = ()
-
-
-class LegacyCriteriaDeclaration(_LegacyModel):
-    owner_node_key: str
-    slot: str
-    description: str
-    criteria: tuple[str, ...]
-
-
 class LegacyTeamNode(_LegacyModel):
     node_key: str
     parent_node_key: str | None = None
@@ -52,19 +25,6 @@ class LegacyTeamNode(_LegacyModel):
     title: str | None = None
     description: str
     node_instruction: str | None = None
-    consumes: LegacyConsumeBuckets | None = None
-    produces: LegacyProduceBuckets | None = None
-    criteria: tuple[LegacyCriteriaDeclaration, ...] = ()
-    child_defaults: None = None
-    order_index: int = Field(ge=0)
-
-
-class LegacyDependencyEdge(_LegacyModel):
-    consumer_node_key: str
-    provider_node_key: str
-    kind: str
-    slot: str
-    description: str
     order_index: int = Field(ge=0)
 
 
@@ -74,7 +34,6 @@ class LegacyTeamPlan(_LegacyModel):
     compiler_version: str
     team_revision_id: str
     nodes: tuple[LegacyTeamNode, ...]
-    dependency_edges: tuple[LegacyDependencyEdge, ...] = ()
 
 
 def project_legacy_team_plan(
@@ -132,12 +91,6 @@ def _legacy_kind(*, is_root: bool, has_children: bool) -> NodeKind:
 
 __all__ = [
     "LEGACY_TEAM_ADAPTER_DELETE_AFTER",
-    "LegacyConsumeBuckets",
-    "LegacyConsumeSelector",
-    "LegacyCriteriaDeclaration",
-    "LegacyDependencyEdge",
-    "LegacyProduceBuckets",
-    "LegacyProduceSlot",
     "LegacyTeamNode",
     "LegacyTeamPlan",
     "project_legacy_team_plan",

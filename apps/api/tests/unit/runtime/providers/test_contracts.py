@@ -32,7 +32,7 @@ def test_managed_connection_redacts_credential_and_requires_loopback() -> None:
     connection = ManagedNodeMcpConnection(
         url="http://127.0.0.1:8123/_internal/node/mcp",
         bearer_token=SecretStr("dispatch-secret"),
-        enabled_tools=("record_checkpoint",),
+        enabled_tools=("checkpoint",),
     )
 
     assert "dispatch-secret" not in repr(connection)
@@ -41,7 +41,7 @@ def test_managed_connection_redacts_credential_and_requires_loopback() -> None:
         ManagedNodeMcpConnection(
             url="https://example.com/_internal/node/mcp",
             bearer_token=SecretStr("dispatch-secret"),
-            enabled_tools=("record_checkpoint",),
+            enabled_tools=("checkpoint",),
         )
 
 

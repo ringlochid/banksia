@@ -10,11 +10,13 @@ from sqlalchemy.orm import raiseload
 
 from banksia.config import get_settings
 from banksia.persistence.models import (
+    AssignmentModel,
     DispatchCapabilitySetModel,
     DispatchTurnModel,
     FlowModel,
     TaskModel,
 )
+from banksia.runtime.checkpoint import read_task_result
 from banksia.runtime.contracts import (
     DispatchRuntimeRead,
     EffectiveCapabilityReadback,
@@ -96,13 +98,17 @@ async def read_runtime_flow(session: AsyncSession, task_id: str) -> RuntimeFlowR
         if target is not None
         else None
     )
+    root_prompt = await _read_root_assignment_prompt(session, flow)
+    task_title, task_summary = _task_prompt_excerpts(root_prompt)
+    result = await read_task_result(session, task_id=task.task_id)
     return RuntimeFlowRead(
         task_id=task.task_id,
-        task_title=task.title,
-        task_summary=task.summary,
+        task_title=task_title,
+        task_summary=task_summary,
         workflow_key=task.workflow_key,
         status=RuntimeLifecycleStatus(flow.status),
         terminal_outcome=normalized_terminal_outcome(flow.terminal_outcome),
+        result=result,
         active_flow_revision_id=flow.active_flow_revision_id,
         control_revision=flow.control_revision,
         workflow_manifest_ref=workflow_manifest_ref(),
@@ -219,7 +225,7 @@ async def list_runtime_flow_summaries(
     rows = list((await session.execute(statement.limit(limit + 1))).all())
     page = rows[:limit]
     summaries: list[RuntimeFlowSummary] = []
-    for task, flow, dispatch in page:
+    for task, flow, dispatch, root_assignment in page:
         if flow.active_flow_revision_id is None:
             raise illegal_state_error(f"task '{task.task_id}' has no active flow revision")
         if dispatch is not None:
@@ -231,11 +237,12 @@ async def list_runtime_flow_summaries(
             current_node_key = target.node_key if target is not None else None
             active_assignment_id = target.assignment_id if target is not None else None
             active_attempt_id = target.attempt_id if target is not None else None
+        task_title, task_summary = _task_prompt_excerpts(root_assignment.prompt)
         summaries.append(
             RuntimeFlowSummary(
                 task_id=task.task_id,
-                task_title=task.title,
-                task_summary=task.summary,
+                task_title=task_title,
+                task_summary=task_summary,
                 workflow_key=task.workflow_key,
                 status=RuntimeLifecycleStatus(flow.status),
                 terminal_outcome=normalized_terminal_outcome(flow.terminal_outcome),
@@ -258,10 +265,17 @@ def runtime_flow_summary_statement(
     q: str | None,
     status: str,
     sort: str,
-) -> Select[tuple[TaskModel, FlowModel, DispatchTurnModel]]:
+) -> Select[tuple[TaskModel, FlowModel, DispatchTurnModel, AssignmentModel]]:
     statement = (
-        select(TaskModel, FlowModel, DispatchTurnModel)
+        select(TaskModel, FlowModel, DispatchTurnModel, AssignmentModel)
         .join(FlowModel, FlowModel.task_id == TaskModel.task_id)
+        .join(
+            AssignmentModel,
+            (AssignmentModel.task_id == TaskModel.task_id)
+            & (AssignmentModel.flow_id == FlowModel.flow_id)
+            & AssignmentModel.parent_assignment_id.is_(None)
+            & AssignmentModel.superseded_at.is_(None),
+        )
         .outerjoin(
             DispatchTurnModel,
             and_(
@@ -277,8 +291,7 @@ def runtime_flow_summary_statement(
         statement = statement.where(
             or_(
                 func.lower(TaskModel.task_id).like(pattern),
-                func.lower(TaskModel.title).like(pattern),
-                func.lower(TaskModel.summary).like(pattern),
+                func.lower(AssignmentModel.prompt).like(pattern),
                 func.lower(func.coalesce(TaskModel.workflow_key, "")).like(pattern),
             )
         )
@@ -286,9 +299,9 @@ def runtime_flow_summary_statement(
     if sort == "updated_at_asc":
         return statement.order_by(FlowModel.updated_at.asc(), TaskModel.task_id.asc())
     if sort == "task_title_asc":
-        return statement.order_by(TaskModel.title.asc(), TaskModel.task_id.asc())
+        return statement.order_by(AssignmentModel.prompt.asc(), TaskModel.task_id.asc())
     if sort == "task_title_desc":
-        return statement.order_by(TaskModel.title.desc(), TaskModel.task_id.desc())
+        return statement.order_by(AssignmentModel.prompt.desc(), TaskModel.task_id.desc())
     return statement.order_by(FlowModel.updated_at.desc(), TaskModel.task_id.desc())
 
 
@@ -345,7 +358,7 @@ def normalized_terminal_outcome(
 
 def workflow_manifest_ref() -> WorkflowManifestRef:
     return WorkflowManifestRef(
-        path=Path("_runtime/workflow-manifest.md"),
+        path=Path("manifest.md"),
         description=WORKFLOW_MANIFEST_REF_DESCRIPTION,
     )
 
@@ -377,10 +390,34 @@ def coerce_datetime_to_utc(value: datetime) -> datetime:
     return value.astimezone(UTC)
 
 
+async def _read_root_assignment_prompt(
+    session: AsyncSession,
+    flow: FlowModel,
+) -> str:
+    prompt = await session.scalar(
+        select(AssignmentModel.prompt).where(
+            AssignmentModel.task_id == flow.task_id,
+            AssignmentModel.flow_id == flow.flow_id,
+            AssignmentModel.parent_assignment_id.is_(None),
+            AssignmentModel.superseded_at.is_(None),
+        )
+    )
+    if prompt is None:
+        raise illegal_state_error(f"task '{flow.task_id}' has no current root Assignment")
+    return prompt
+
+
+def _task_prompt_excerpts(prompt: str) -> tuple[str, str]:
+    compact = " ".join(prompt.split())
+    if not compact:
+        raise illegal_state_error("root Assignment prompt is blank")
+    return compact[:80], compact[:240]
+
+
 def _filter_runtime_flow_status(
-    statement: Select[tuple[TaskModel, FlowModel, DispatchTurnModel]],
+    statement: Select[tuple[TaskModel, FlowModel, DispatchTurnModel, AssignmentModel]],
     status: str,
-) -> Select[tuple[TaskModel, FlowModel, DispatchTurnModel]]:
+) -> Select[tuple[TaskModel, FlowModel, DispatchTurnModel, AssignmentModel]]:
     if status == "any":
         return statement
     if status == "pending":

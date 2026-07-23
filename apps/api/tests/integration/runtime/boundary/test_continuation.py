@@ -214,11 +214,11 @@ async def test_terminal_worker_boundary_opens_its_exact_routed_target(
         _,
     ):
         await _make_child_current(session_factory, ids, retry=(outcome == "retry"))
-        checkpoint_id = await _record_checkpoint(executor, ids, outcome=outcome)
-        await executor.execute(
-            scope=_current_scope(ids),
-            operation_name="return_boundary",
-            arguments={"boundary": outcome},
+        checkpoint_id = await _commit_terminal_checkpoint(
+            executor,
+            session_factory,
+            ids,
+            outcome=outcome,
         )
 
         async with session_factory() as session:
@@ -280,16 +280,11 @@ async def test_root_terminal_boundary_has_no_successor_dispatch(tmp_path: Path) 
             child_attempt.closed_at = utc_now()
             child_attempt.latest_checkpoint_id = ids.child_checkpoint_id
             await session.commit()
-        await _record_checkpoint(executor, ids, outcome="blocked")
-        await executor.execute(
-            scope=_current_scope(ids),
-            operation_name="release_blocked",
-            arguments={"expected_structural_revision_id": ids.flow_revision_id},
-        )
-        await executor.execute(
-            scope=_current_scope(ids),
-            operation_name="return_boundary",
-            arguments={"boundary": "blocked"},
+        await _commit_terminal_checkpoint(
+            executor,
+            session_factory,
+            ids,
+            outcome="blocked",
         )
 
         async with session_factory() as session:
@@ -418,27 +413,33 @@ async def _make_child_current(
         await session.commit()
 
 
-async def _record_checkpoint(
+async def _commit_terminal_checkpoint(
     executor: NodeOperationExecutor,
+    session_factory: SessionFactory,
     ids: RuntimeIds,
     *,
     outcome: str,
 ) -> str:
-    result = await executor.execute(
+    await executor.execute(
         scope=_current_scope(ids),
-        operation_name="record_checkpoint",
+        operation_name="checkpoint",
         arguments={
-            "checkpoint": {
-                "checkpoint_kind": "terminal",
-                "outcome": outcome,
-                "handoff": {
-                    "summary": f"The worker returned {outcome}.",
-                    "next_step": "Open the exact routed continuation.",
-                },
-            }
+            "outcome": outcome,
+            "summary": f"The worker returned {outcome}.",
+            "details": "Open the exact routed continuation.",
         },
     )
-    return str(result.model_dump()["checkpoint_id"])
+    async with session_factory() as session:
+        checkpoint_id = cast(
+            str | None,
+            await session.scalar(
+                select(AcceptedBoundaryModel.checkpoint_id).where(
+                    AcceptedBoundaryModel.source_dispatch_id == ids.current_dispatch_id
+                )
+            ),
+        )
+    assert checkpoint_id is not None
+    return checkpoint_id
 
 
 __all__ = []

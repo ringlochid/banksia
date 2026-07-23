@@ -57,16 +57,6 @@
               }
             ]
           },
-          "checkpoint_ref": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/TaskEventRef"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
           "outcome": {
             "$ref": "#/components/schemas/EgressBoundary"
           },
@@ -169,8 +159,24 @@
             "title": "Checkpoint Id",
             "type": "string"
           },
-          "checkpoint_kind": {
-            "$ref": "#/components/schemas/CheckpointKind"
+          "details": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Details"
+          },
+          "files": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/FileReference"
+            },
+            "title": "Files",
+            "type": "array"
           },
           "outcome": {
             "anyOf": [
@@ -196,20 +202,11 @@
         "required": [
           "checkpoint_id",
           "attempt_id",
-          "checkpoint_kind",
           "summary",
           "recorded_at"
         ],
         "title": "CheckpointHistoryEntry",
         "type": "object"
-      },
-      "CheckpointKind": {
-        "enum": [
-          "progress",
-          "terminal"
-        ],
-        "title": "CheckpointKind",
-        "type": "string"
       },
       "CheckpointOutcome": {
         "enum": [
@@ -235,11 +232,25 @@
           "checkpoint_id": {
             "$ref": "#/components/schemas/TaskEventIdentifier"
           },
-          "checkpoint_kind": {
-            "$ref": "#/components/schemas/CheckpointKind"
+          "details": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Details"
           },
-          "checkpoint_ref": {
-            "$ref": "#/components/schemas/TaskEventRef"
+          "files": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/FileReference"
+            },
+            "maxItems": 32,
+            "title": "Files",
+            "type": "array"
           },
           "outcome": {
             "anyOf": [
@@ -251,35 +262,15 @@
               }
             ]
           },
-          "produced_artifacts": {
-            "default": [],
-            "items": {
-              "$ref": "#/components/schemas/TaskEventArtifactRef"
-            },
-            "maxItems": 32,
-            "title": "Produced Artifacts",
-            "type": "array"
-          },
           "summary": {
             "$ref": "#/components/schemas/TaskEventSummary"
-          },
-          "transient_surfaces": {
-            "default": [],
-            "items": {
-              "$ref": "#/components/schemas/TaskEventTransientRef"
-            },
-            "maxItems": 32,
-            "title": "Transient Surfaces",
-            "type": "array"
           }
         },
         "required": [
           "checkpoint_id",
           "assignment_id",
           "attempt_id",
-          "checkpoint_kind",
           "summary",
-          "checkpoint_ref",
           "authored_by_dispatch_id"
         ],
         "title": "CheckpointRecordedEventPayload",
@@ -1965,27 +1956,31 @@
         "title": "EgressBoundary",
         "type": "string"
       },
-      "FixedRuntimeFileKind": {
-        "enum": [
-          "manifest",
-          "assignment",
-          "checkpoint",
-          "artifact_index",
-          "transient_index"
+      "FileReference": {
+        "additionalProperties": false,
+        "description": "An ordered navigation value to one ordinary workspace file.",
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
         ],
-        "type": "string"
-      },
-      "FlowStatus": {
-        "enum": [
-          "pending",
-          "running",
-          "blocked",
-          "paused",
-          "succeeded",
-          "cancelled"
-        ],
-        "title": "FlowStatus",
-        "type": "string"
+        "title": "FileReference",
+        "type": "object"
       },
       "HealthResponse": {
         "additionalProperties": false,
@@ -2004,27 +1999,6 @@
           "service"
         ],
         "title": "HealthResponse",
-        "type": "object"
-      },
-      "HumanRequestContextRef": {
-        "additionalProperties": false,
-        "properties": {
-          "description": {
-            "minLength": 1,
-            "title": "Description",
-            "type": "string"
-          },
-          "path": {
-            "minLength": 1,
-            "title": "Path",
-            "type": "string"
-          }
-        },
-        "required": [
-          "path",
-          "description"
-        ],
-        "title": "HumanRequestContextRef",
         "type": "object"
       },
       "HumanRequestItem": {
@@ -2948,10 +2922,8 @@
           "stale_dispatch",
           "stale_flow_revision",
           "stale_assignment",
-          "stale_checkpoint",
           "name_collision",
           "missing_resource",
-          "missing_required_publication",
           "conflicting_continuation",
           "cursor_reset_required",
           "boundary_precondition_failed",
@@ -2965,7 +2937,6 @@
           "binary_file",
           "file_read_limit_exceeded",
           "directory_limit_exceeded",
-          "removed_surface",
           "budget_exhausted",
           "internal_error"
         ],
@@ -2974,7 +2945,7 @@
       },
       "OperatorCurrentPaths": {
         "items": {
-          "$ref": "#/components/schemas/OperatorSupportSurfaceRef"
+          "$ref": "#/components/schemas/FileReference"
         },
         "type": "array"
       },
@@ -3036,14 +3007,6 @@
             "$ref": "#/components/schemas/OperatorCurrentPaths",
             "default": []
           },
-          "dependency_edges": {
-            "default": [],
-            "items": {
-              "$ref": "#/components/schemas/TaskGraphDependencyEntry"
-            },
-            "title": "Dependency Edges",
-            "type": "array"
-          },
           "dispatch_history": {
             "items": {
               "$ref": "#/components/schemas/DispatchHistoryEntry"
@@ -3095,72 +3058,6 @@
         "title": "OperatorFlowTraceResponse",
         "type": "object"
       },
-      "OperatorSupportSurfaceKind": {
-        "anyOf": [
-          {
-            "$ref": "#/components/schemas/FixedRuntimeFileKind"
-          },
-          {
-            "enum": [
-              "artifact",
-              "criteria",
-              "doc",
-              "wiki",
-              "transient"
-            ],
-            "type": "string"
-          }
-        ]
-      },
-      "OperatorSupportSurfaceRef": {
-        "additionalProperties": false,
-        "properties": {
-          "description": {
-            "minLength": 1,
-            "title": "Description",
-            "type": "string"
-          },
-          "kind": {
-            "$ref": "#/components/schemas/OperatorSupportSurfaceKind"
-          },
-          "path": {
-            "format": "path",
-            "title": "Path",
-            "type": "string"
-          },
-          "slot": {
-            "anyOf": [
-              {
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Slot"
-          },
-          "version": {
-            "anyOf": [
-              {
-                "minimum": 1.0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Version"
-          }
-        },
-        "required": [
-          "kind",
-          "path",
-          "description"
-        ],
-        "title": "OperatorSupportSurfaceRef",
-        "type": "object"
-      },
       "PendingHumanRequest": {
         "additionalProperties": false,
         "properties": {
@@ -3174,13 +3071,12 @@
             "title": "Attempt Id",
             "type": "string"
           },
-          "context_refs": {
+          "files": {
             "default": [],
             "items": {
-              "$ref": "#/components/schemas/HumanRequestContextRef"
+              "$ref": "#/components/schemas/FileReference"
             },
-            "maxItems": 32,
-            "title": "Context Refs",
+            "title": "Files",
             "type": "array"
           },
           "flow_id": {
@@ -3229,18 +3125,6 @@
               }
             ],
             "title": "Successor Dispatch Id"
-          },
-          "suggested_human_instruction": {
-            "anyOf": [
-              {
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Suggested Human Instruction"
           },
           "summary": {
             "minLength": 1,
@@ -3607,6 +3491,16 @@
               }
             ]
           },
+          "result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "status": {
             "$ref": "#/components/schemas/RuntimeLifecycleStatus"
           },
@@ -3918,104 +3812,6 @@
         "title": "TaskCancelledEventPayload",
         "type": "object"
       },
-      "TaskComposeRootsInput": {
-        "additionalProperties": false,
-        "properties": {
-          "workspace": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/TaskRootBindingInput"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "title": "TaskComposeRootsInput",
-        "type": "object"
-      },
-      "TaskComposeTaskInput": {
-        "additionalProperties": false,
-        "properties": {
-          "instruction": {
-            "anyOf": [
-              {
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Instruction"
-          },
-          "key": {
-            "minLength": 1,
-            "title": "Key",
-            "type": "string"
-          },
-          "summary": {
-            "minLength": 1,
-            "title": "Summary",
-            "type": "string"
-          },
-          "title": {
-            "minLength": 1,
-            "title": "Title",
-            "type": "string"
-          }
-        },
-        "required": [
-          "key",
-          "title",
-          "summary"
-        ],
-        "title": "TaskComposeTaskInput",
-        "type": "object"
-      },
-      "TaskComposeWorkflowInput": {
-        "additionalProperties": false,
-        "properties": {
-          "key": {
-            "minLength": 1,
-            "title": "Key",
-            "type": "string"
-          }
-        },
-        "required": [
-          "key"
-        ],
-        "title": "TaskComposeWorkflowInput",
-        "type": "object"
-      },
-      "TaskEventArtifactRef": {
-        "additionalProperties": false,
-        "properties": {
-          "path": {
-            "$ref": "#/components/schemas/TaskEventRef"
-          },
-          "publication_id": {
-            "$ref": "#/components/schemas/TaskEventIdentifier"
-          },
-          "slot": {
-            "$ref": "#/components/schemas/TaskEventIdentifier"
-          },
-          "version": {
-            "minimum": 1.0,
-            "title": "Version",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "publication_id",
-          "slot",
-          "path",
-          "version"
-        ],
-        "title": "TaskEventArtifactRef",
-        "type": "object"
-      },
       "TaskEventIdentifier": {
         "maxLength": 255,
         "minLength": 1,
@@ -4094,27 +3890,6 @@
         "minLength": 1,
         "type": "string"
       },
-      "TaskEventTransientRef": {
-        "additionalProperties": false,
-        "properties": {
-          "description": {
-            "$ref": "#/components/schemas/TaskEventSummary"
-          },
-          "localization_id": {
-            "$ref": "#/components/schemas/TaskEventIdentifier"
-          },
-          "path": {
-            "$ref": "#/components/schemas/TaskEventRef"
-          }
-        },
-        "required": [
-          "localization_id",
-          "path",
-          "description"
-        ],
-        "title": "TaskEventTransientRef",
-        "type": "object"
-      },
       "TaskEventWorkPlanStep": {
         "additionalProperties": false,
         "properties": {
@@ -4132,53 +3907,6 @@
         "title": "TaskEventWorkPlanStep",
         "type": "object"
       },
-      "TaskGraphDependencyEntry": {
-        "additionalProperties": false,
-        "properties": {
-          "consumer_node_key": {
-            "minLength": 1,
-            "title": "Consumer Node Key",
-            "type": "string"
-          },
-          "description": {
-            "minLength": 1,
-            "title": "Description",
-            "type": "string"
-          },
-          "kind": {
-            "enum": [
-              "artifact",
-              "criteria"
-            ],
-            "title": "Kind",
-            "type": "string"
-          },
-          "order_index": {
-            "title": "Order Index",
-            "type": "integer"
-          },
-          "provider_node_key": {
-            "minLength": 1,
-            "title": "Provider Node Key",
-            "type": "string"
-          },
-          "slot": {
-            "minLength": 1,
-            "title": "Slot",
-            "type": "string"
-          }
-        },
-        "required": [
-          "provider_node_key",
-          "consumer_node_key",
-          "kind",
-          "slot",
-          "description",
-          "order_index"
-        ],
-        "title": "TaskGraphDependencyEntry",
-        "type": "object"
-      },
       "TaskGraphNodeEntry": {
         "additionalProperties": false,
         "properties": {
@@ -4189,24 +3917,6 @@
               "type": "string"
             },
             "title": "Child Node Keys",
-            "type": "array"
-          },
-          "depended_on_by_node_keys": {
-            "default": [],
-            "items": {
-              "minLength": 1,
-              "type": "string"
-            },
-            "title": "Depended On By Node Keys",
-            "type": "array"
-          },
-          "depends_on_node_keys": {
-            "default": [],
-            "items": {
-              "minLength": 1,
-              "type": "string"
-            },
-            "title": "Depends On Node Keys",
             "type": "array"
           },
           "description": {
@@ -4317,6 +4027,55 @@
         "title": "TaskPausedEventPayload",
         "type": "object"
       },
+      "TaskResult": {
+        "additionalProperties": false,
+        "description": "Exact accepted terminal Checkpoint selected as the Task result.",
+        "properties": {
+          "completed_at": {
+            "format": "date-time",
+            "title": "Completed At",
+            "type": "string"
+          },
+          "details": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Details"
+          },
+          "files": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/FileReference"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "outcome": {
+            "enum": [
+              "green",
+              "blocked"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "outcome",
+          "summary",
+          "completed_at"
+        ],
+        "title": "TaskResult",
+        "type": "object"
+      },
       "TaskResumedEventPayload": {
         "additionalProperties": false,
         "properties": {
@@ -4346,10 +4105,30 @@
         "title": "TaskResumedEventPayload",
         "type": "object"
       },
-      "TaskRootBindingInput": {
+      "TaskStartRequest": {
         "additionalProperties": false,
+        "description": "The one transient request accepted by every Task-start transport.",
         "properties": {
-          "host_path": {
+          "files": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/FileReference"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "workflow": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+            "title": "Workflow",
+            "type": "string"
+          },
+          "workspace": {
             "anyOf": [
               {
                 "format": "path",
@@ -4359,49 +4138,12 @@
                 "type": "null"
               }
             ],
-            "title": "Host Path"
-          },
-          "mode": {
-            "$ref": "#/components/schemas/TaskRootMode",
-            "default": "ensure_task_default"
-          }
-        },
-        "title": "TaskRootBindingInput",
-        "type": "object"
-      },
-      "TaskRootMode": {
-        "enum": [
-          "ensure_task_default",
-          "ensure_host_path",
-          "use_existing_host"
-        ],
-        "title": "TaskRootMode",
-        "type": "string"
-      },
-      "TaskStartRequest": {
-        "additionalProperties": false,
-        "description": "Temporary public start contract over the existing launch body.",
-        "properties": {
-          "roots": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/TaskComposeRootsInput"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "task": {
-            "$ref": "#/components/schemas/TaskComposeTaskInput"
-          },
-          "workflow": {
-            "$ref": "#/components/schemas/TaskComposeWorkflowInput"
+            "title": "Workspace"
           }
         },
         "required": [
-          "task",
-          "workflow"
+          "workflow",
+          "prompt"
         ],
         "title": "TaskStartRequest",
         "type": "object"
@@ -4409,34 +4151,45 @@
       "TaskStartResponse": {
         "additionalProperties": false,
         "properties": {
-          "active_flow_revision_id": {
-            "minLength": 1,
-            "title": "Active Flow Revision Id",
+          "manifest": {
+            "format": "path",
+            "title": "Manifest",
             "type": "string"
           },
-          "compiled_plan_id": {
-            "minLength": 1,
-            "title": "Compiled Plan Id",
+          "status": {
+            "const": "accepted",
+            "default": "accepted",
+            "title": "Status",
             "type": "string"
-          },
-          "flow_status": {
-            "$ref": "#/components/schemas/FlowStatus"
           },
           "task_id": {
-            "minLength": 1,
             "title": "Task Id",
             "type": "string"
           },
-          "workflow_manifest_ref": {
-            "$ref": "#/components/schemas/WorkflowManifestRef"
+          "workflow": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+            "title": "Workflow",
+            "type": "string"
+          },
+          "workflow_revision": {
+            "minimum": 1.0,
+            "title": "Workflow Revision",
+            "type": "integer"
+          },
+          "workspace": {
+            "format": "path",
+            "title": "Workspace",
+            "type": "string"
           }
         },
         "required": [
           "task_id",
-          "compiled_plan_id",
-          "active_flow_revision_id",
-          "flow_status",
-          "workflow_manifest_ref"
+          "workflow",
+          "workflow_revision",
+          "workspace",
+          "manifest"
         ],
         "title": "TaskStartResponse",
         "type": "object"

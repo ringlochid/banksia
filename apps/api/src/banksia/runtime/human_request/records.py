@@ -9,10 +9,15 @@ from jsonschema import (  # type: ignore[import-untyped]
 )
 from jsonschema import ValidationError as JsonSchemaValidationError
 from pydantic import JsonValue, TypeAdapter
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from banksia.persistence.models import HumanRequestModel
+from banksia.persistence.models import (
+    HumanRequestFileReferenceModel,
+    HumanRequestModel,
+)
 from banksia.runtime.contracts import (
-    HumanRequestContextRef,
+    FileReference,
     HumanRequestItem,
     HumanRequestKind,
     HumanRequestRead,
@@ -28,9 +33,13 @@ from banksia.runtime.errors import illegal_state_error, invalid_request_shape_er
 _JSON_OBJECT_ADAPTER = TypeAdapter(dict[str, JsonValue])
 
 
-def human_request_read_from_model(row: HumanRequestModel) -> HumanRequestRead:
+def human_request_read_from_model(
+    row: HumanRequestModel,
+    *,
+    files: tuple[FileReference, ...] = (),
+) -> HumanRequestRead:
     return HumanRequestRead(
-        request=pending_human_request_from_model(row),
+        request=pending_human_request_from_model(row, files=files),
         resolution=human_request_resolution_from_model(row),
     )
 
@@ -53,12 +62,15 @@ def validate_answered_item_responses(
         _validate_answered_item_response(request_items_by_id[item_id], response)
 
 
-def pending_human_request_from_model(row: HumanRequestModel) -> PendingHumanRequest:
+def pending_human_request_from_model(
+    row: HumanRequestModel,
+    *,
+    files: tuple[FileReference, ...] = (),
+) -> PendingHumanRequest:
     default_behavior = None
     if row.default_behavior_json is not None:
         value = row.default_behavior_json.get("value")
         default_behavior = value if isinstance(value, str) else None
-    context_refs = row.context_refs_json or []
     return PendingHumanRequest(
         request_id=row.request_id,
         task_id=row.task_id,
@@ -69,18 +81,30 @@ def pending_human_request_from_model(row: HumanRequestModel) -> PendingHumanRequ
         kind=HumanRequestKind(row.request_kind),
         source_dispatch_id=row.source_dispatch_id,
         items=tuple(HumanRequestItem.model_validate(item) for item in row.request_items_json),
-        context_refs=tuple(
-            HumanRequestContextRef.model_validate(context_ref) for context_ref in context_refs
-        ),
+        files=files,
         timeout=HumanRequestTimeout(
             due_at=(_coerce_datetime_to_utc(row.due_at) if row.due_at is not None else None),
             default_behavior=default_behavior,
         ),
-        suggested_human_instruction=row.suggested_human_instruction,
         opened_at=_coerce_datetime_to_utc(row.opened_at),
         status=HumanRequestStatus(row.status),
         successor_dispatch_id=row.successor_dispatch_id,
     )
+
+
+async def read_human_request_file_references(
+    session: AsyncSession,
+    *,
+    request_id: str,
+) -> tuple[FileReference, ...]:
+    rows = tuple(
+        await session.scalars(
+            select(HumanRequestFileReferenceModel)
+            .where(HumanRequestFileReferenceModel.request_id == request_id)
+            .order_by(HumanRequestFileReferenceModel.order_index)
+        )
+    )
+    return tuple(FileReference(path=row.path, description=row.description) for row in rows)
 
 
 def human_request_resolution_from_model(
@@ -162,5 +186,6 @@ __all__ = [
     "human_request_read_from_model",
     "human_request_resolution_from_model",
     "pending_human_request_from_model",
+    "read_human_request_file_references",
     "validate_answered_item_responses",
 ]

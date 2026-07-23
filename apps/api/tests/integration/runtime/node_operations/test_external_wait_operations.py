@@ -10,6 +10,7 @@ from banksia.persistence.models import (
     DispatchTurnModel,
     FlowModel,
     FlowWaitModel,
+    HumanRequestFileReferenceModel,
     HumanRequestModel,
     TaskEventModel,
 )
@@ -142,6 +143,8 @@ async def test_human_request_open_persists_typed_source_and_exact_wait(
         ids,
         signals,
     ):
+        workspace = tmp_path / "task-human" / "workspace"
+        (workspace / "brief.md").write_text("Decision brief.", encoding="utf-8")
         result = await executor.execute(
             scope=NodeOperationScope(
                 task_id=ids.task_id,
@@ -162,25 +165,31 @@ async def test_human_request_open_persists_typed_source_and_exact_wait(
                             ],
                         }
                     ],
-                    "context_refs": [
+                    "files": [
                         {
-                            "path": "workspace/brief.md",
+                            "path": "brief.md",
                             "description": "Decision brief.",
                         }
                     ],
-                    "suggested_human_instruction": "Select one option.",
                 }
             },
         )
         request_id = result.model_dump()["request_id"]
         async with session_factory() as session:
             source = await session.get(HumanRequestModel, request_id)
+            file_references = tuple(
+                await session.scalars(
+                    select(HumanRequestFileReferenceModel)
+                    .where(HumanRequestFileReferenceModel.request_id == request_id)
+                    .order_by(HumanRequestFileReferenceModel.order_index)
+                )
+            )
             dispatch = await session.get(DispatchTurnModel, ids.current_dispatch_id)
             flow = await session.get(FlowModel, ids.flow_id)
         assert source is not None
         assert source.request_items_json[0]["id"] == "direction"
-        assert source.context_refs_json == [
-            {"path": "workspace/brief.md", "description": "Decision brief."}
+        assert [(row.path, row.description) for row in file_references] == [
+            ("brief.md", "Decision brief.")
         ]
         assert dispatch is not None and dispatch.status == "closed"
         assert dispatch.closed_reason == "human_request_wait"
@@ -511,7 +520,7 @@ async def test_invalid_command_cwd_creates_no_source_or_wait(tmp_path: Path) -> 
         ),
     ),
 )
-async def test_terminal_checkpoint_rejects_external_wait_after_admission(
+async def test_terminal_checkpoint_revokes_external_wait_authority(
     tmp_path: Path,
     operation_name: str,
     arguments: dict[str, object],
@@ -528,16 +537,11 @@ async def test_terminal_checkpoint_rejects_external_wait_after_admission(
         )
         await executor.execute(
             scope=scope,
-            operation_name="record_checkpoint",
+            operation_name="checkpoint",
             arguments={
-                "checkpoint": {
-                    "checkpoint_kind": "terminal",
-                    "outcome": "blocked",
-                    "handoff": {
-                        "summary": "The current assignment is blocked.",
-                        "next_step": "Return the matching boundary.",
-                    },
-                }
+                "summary": "The current assignment is blocked.",
+                "details": "The terminal Checkpoint owns the exact boundary.",
+                "outcome": "blocked",
             },
         )
 
@@ -557,10 +561,10 @@ async def test_terminal_checkpoint_rejects_external_wait_after_admission(
             )
             dispatch = await session.get(DispatchTurnModel, ids.current_dispatch_id)
 
-        assert error.value.code == OperationFailureCode.ILLEGAL_STATE
+        assert error.value.code == OperationFailureCode.STALE_DISPATCH
         assert error.value.is_retryable is False
         assert human_request is None
         assert command_run is None
-        assert dispatch is not None and dispatch.status == "open"
-        assert dispatch.node_activity_revision == 2
-        assert [signal.activity_revision for signal in signals] == [1, 2]
+        assert dispatch is not None and dispatch.status == "closed"
+        assert dispatch.node_activity_revision == 1
+        assert [signal.activity_revision for signal in signals] == [1]

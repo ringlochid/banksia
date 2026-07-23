@@ -4,13 +4,8 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
-from banksia.runtime.contracts.primitives import (
-    RuntimeText,
-    TaskComposeInput,
-    TaskIdentifier,
-    TaskRootPaths,
-)
-from banksia.runtime.contracts.projection import AssignmentProjection
+from banksia.runtime.contracts.assignment import AssignmentBody
+from banksia.runtime.contracts.primitives import RuntimeText, TaskIdentifier, TaskRootPaths
 from banksia.runtime.launch.legacy_team_adapter import LegacyTeamPlan
 from banksia.runtime.team import InitialTaskTeam
 from banksia.workflows.contracts import PublishedWorkflowRevision
@@ -24,7 +19,8 @@ class RuntimeBootstrapInput(BaseModel):
     attempt_id: RuntimeText
     assignment_key: RuntimeText
     task_root: Path
-    task_compose: TaskComposeInput
+    workspace: Path
+    assignment: AssignmentBody
     workflow_revision: PublishedWorkflowRevision
     initial_team: InitialTaskTeam
     compiled_plan: LegacyTeamPlan
@@ -34,12 +30,6 @@ class RuntimeBootstrapInput(BaseModel):
 
     @model_validator(mode="after")
     def validate_workflow_alignment(self) -> RuntimeBootstrapInput:
-        if self.task_compose.workflow.key != self.compiled_plan.workflow_key:
-            raise ValueError(
-                "task compose workflow key "
-                f"'{self.task_compose.workflow.key}' does not match compiled plan "
-                f"workflow key '{self.compiled_plan.workflow_key}'"
-            )
         if self.workflow_revision.workflow_id != self.compiled_plan.workflow_key:
             raise ValueError(
                 "published Workflow id "
@@ -57,7 +47,7 @@ class RuntimeBootstrapResult(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     paths: TaskRootPaths
-    assignment: AssignmentProjection
+    assignment: AssignmentBody
 
 
 class RuntimeLaunchInput(BaseModel):
@@ -65,8 +55,13 @@ class RuntimeLaunchInput(BaseModel):
 
     task_id: TaskIdentifier
     task_root: Path
-    task_compose: TaskComposeInput
+    workspace: Path
+    workflow_revision: PublishedWorkflowRevision
+    assignment: AssignmentBody
     compiler_version: RuntimeText = "runtime-launch"
+    max_child_assignments_per_assignment: int = 20
+    max_retries_per_assignment: int = 1
+    max_wave_members: int = 8
 
 
 __all__ = [

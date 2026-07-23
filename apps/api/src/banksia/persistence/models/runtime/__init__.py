@@ -1,20 +1,15 @@
 from banksia.persistence.models.runtime.assignment import (
-    ArtifactCurrentPointerModel,
-    ArtifactPublicationModel,
-    AssignmentCriteriaRefModel,
+    AssignmentFileReferenceModel,
     AssignmentModel,
     AssignmentWorkPlanModel,
     AssignmentWorkPlanStepModel,
     AttemptCheckpointModel,
     AttemptModel,
-    CheckpointTransientModel,
-    TransientLocalizationModel,
+    CheckpointFileReferenceModel,
 )
 from banksia.persistence.models.runtime.command_runs import CommandRunModel
 from banksia.persistence.models.runtime.dispatch import (
     AcceptedBoundaryModel,
-    AssignmentDecisionArtifactModel,
-    AssignmentDecisionCheckpointModel,
     AssignmentDecisionModel,
     DispatchCapabilitySetModel,
     DispatchPromptRefsModel,
@@ -23,16 +18,17 @@ from banksia.persistence.models.runtime.dispatch import (
     NodeInvocationModel,
 )
 from banksia.persistence.models.runtime.flow import (
-    FlowEdgeModel,
     FlowModel,
     FlowNodeModel,
     FlowRevisionModel,
     NodePlanRevisionModel,
 )
-from banksia.persistence.models.runtime.human_requests import HumanRequestModel
+from banksia.persistence.models.runtime.human_requests import (
+    HumanRequestFileReferenceModel,
+    HumanRequestModel,
+)
 from banksia.persistence.models.runtime.replan import ReplanTransitionModel
 from banksia.persistence.models.runtime.task import (
-    CompiledPlanEdgeModel,
     CompiledPlanModel,
     CompiledPlanNodeModel,
     TaskModel,
@@ -53,31 +49,26 @@ from banksia.persistence.models.runtime.waiting import FlowWaitModel
 
 __all__ = [
     "AcceptedBoundaryModel",
-    "ArtifactCurrentPointerModel",
-    "ArtifactPublicationModel",
-    "AssignmentCriteriaRefModel",
-    "AssignmentDecisionArtifactModel",
-    "AssignmentDecisionCheckpointModel",
     "AssignmentDecisionModel",
+    "AssignmentFileReferenceModel",
     "AssignmentModel",
     "AssignmentWorkPlanModel",
     "AssignmentWorkPlanStepModel",
     "AttemptCheckpointModel",
     "AttemptModel",
-    "CheckpointTransientModel",
+    "CheckpointFileReferenceModel",
     "CommandRunModel",
-    "CompiledPlanEdgeModel",
     "CompiledPlanModel",
     "CompiledPlanNodeModel",
     "DispatchCapabilitySetModel",
     "DispatchPromptRefsModel",
     "DispatchTurnModel",
-    "FlowEdgeModel",
     "FlowModel",
     "FlowNodeModel",
     "FlowRevisionModel",
     "FlowStartSourceModel",
     "FlowWaitModel",
+    "HumanRequestFileReferenceModel",
     "HumanRequestModel",
     "MemberBranchBasisModel",
     "MemberConfigurationModel",
@@ -90,6 +81,5 @@ __all__ = [
     "TaskModel",
     "TeamRevisionMemberModel",
     "TeamRevisionModel",
-    "TransientLocalizationModel",
     "WorkspaceBindingModel",
 ]

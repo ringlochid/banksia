@@ -5,7 +5,7 @@ from pathlib import Path
 
 import banksia.runtime.work_plan.operations as work_plan_operations
 import pytest
-from banksia.runtime.contracts import CheckpointHandoffRead
+from banksia.runtime.contracts import CheckpointRequest
 from banksia.runtime.node_operations import NodeOperationScope
 from banksia.runtime.work_plan import SetWorkPlanRequest
 from pydantic import ValidationError
@@ -43,45 +43,36 @@ def test_work_plan_contract_enforces_exact_bounded_meaningful_text() -> None:
             SetWorkPlanRequest.model_validate(payload)
 
 
-def test_checkpoint_handoff_enforces_exact_bounded_meaningful_text() -> None:
-    handoff = CheckpointHandoffRead.model_validate(
+def test_checkpoint_enforces_exact_bounded_meaningful_text() -> None:
+    checkpoint = CheckpointRequest.model_validate(
         {
             "summary": "s" * 2_048,
-            "next_step": "n" * 1_024,
-            "blockers": ["b" * 1_024] * 16,
-            "risks": ["r"],
+            "details": "Complete teammate-facing details.",
+            "files": [
+                {
+                    "path": ".banksia/t_example/artifacts/report.md",
+                    "description": "Reviewable report.",
+                }
+            ],
+            "outcome": "green",
         }
     )
 
-    assert len(handoff.summary) == 2_048
-    assert len(handoff.next_step) == 1_024
-    assert len(handoff.blockers) == 16
-    schema = CheckpointHandoffRead.model_json_schema()["properties"]
-    assert schema["summary"]["minLength"] == 1
-    assert schema["summary"]["maxLength"] == 2_048
-    assert schema["next_step"]["minLength"] == 1
-    assert schema["next_step"]["maxLength"] == 1_024
-    assert schema["blockers"]["maxItems"] == 16
-    assert schema["blockers"]["items"]["minLength"] == 1
-    assert schema["blockers"]["items"]["maxLength"] == 1_024
-    assert schema["risks"]["maxItems"] == 16
-    assert schema["risks"]["items"]["minLength"] == 1
-    assert schema["risks"]["items"]["maxLength"] == 1_024
+    assert len(checkpoint.summary) == 2_048
+    assert checkpoint.details == "Complete teammate-facing details."
+    assert checkpoint.files[0].description == "Reviewable report."
+    assert checkpoint.outcome == "green"
 
-    valid_base = {"summary": "Summary.", "next_step": "Continue."}
-    invalid_handoffs = (
-        {**valid_base, "summary": "s" * 2_049},
-        {**valid_base, "next_step": "n" * 1_025},
-        {**valid_base, "blockers": ["b"] * 17},
-        {**valid_base, "risks": ["r" * 1_025]},
-        {**valid_base, "summary": "   "},
-        {**valid_base, "next_step": "T.B.D."},
-        {**valid_base, "blockers": ["…"]},
-        {**valid_base, "risks": ["[TODO]"]},
+    invalid_checkpoints = (
+        {"summary": "s" * 2_049},
+        {"summary": "   "},
+        {"summary": "Summary.", "details": "x" * 65_537},
+        {"summary": "Summary.", "outcome": "unknown"},
+        {"summary": "Summary.", "files": [{"path": "../escape"}]},
     )
-    for payload in invalid_handoffs:
+    for payload in invalid_checkpoints:
         with pytest.raises(ValidationError):
-            CheckpointHandoffRead.model_validate(payload)
+            CheckpointRequest.model_validate(payload)
 
 
 async def test_work_plan_commit_time_advances_only_for_changed_snapshot(

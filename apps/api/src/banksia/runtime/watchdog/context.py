@@ -20,7 +20,7 @@ from banksia.persistence.models import (
     TaskModel,
     WorkspaceBindingModel,
 )
-from banksia.runtime.assignment import read_assignment_prompt_criteria
+from banksia.runtime.assignment import read_assignment_file_references
 from banksia.runtime.capabilities import resolve_effective_capabilities_for_node
 from banksia.runtime.contracts.prompt import WatchdogRecoveryTrigger
 from banksia.runtime.dispatch.ordinary_context import (
@@ -178,10 +178,9 @@ async def _build_watchdog_replacement_dispatch(
         session,
         assignment_id=context.assignment.assignment_id,
     )
-    prompt_criteria = await read_assignment_prompt_criteria(
+    assignment_files = await read_assignment_file_references(
         session,
-        flow_revision_id=context.node.flow_revision_id,
-        criteria_refs=context.assignment.criteria_json,
+        assignment_id=context.assignment.assignment_id,
     )
     capabilities = await resolve_effective_capabilities_for_node(session, node=context.node)
     provider = await resolve_member_provider_route(
@@ -221,7 +220,7 @@ async def _build_watchdog_replacement_dispatch(
         capabilities=capabilities,
         work_plan=work_plan,
         children=children,
-        criteria_json=prompt_criteria,
+        assignment_files=assignment_files,
     )
     dispatch = OrdinaryDispatchSnapshot(
         basis=basis,

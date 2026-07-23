@@ -1,22 +1,15 @@
 from __future__ import annotations
 
-from typing import Any
-
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from banksia.persistence.models import AssignmentModel, AttemptModel
 from banksia.runtime.assignment import (
     AssignmentBudgetSnapshot,
     snapshot_assignment_budget,
+    stage_assignment_file_references,
 )
-from banksia.runtime.contracts import (
-    EvidenceRef,
-    NodeRuntimeFileRef,
-    RuntimeBootstrapInput,
-    RuntimeBootstrapResult,
-)
-from banksia.runtime.ids import assignment_id, flow_node_id
-from banksia.runtime.launch.bootstrap.criteria import stage_assignment_criteria_refs
+from banksia.runtime.contracts import RuntimeBootstrapInput, RuntimeBootstrapResult
+from banksia.runtime.ids import assignment_id
 
 
 async def stage_launch_attempt_rows(
@@ -35,7 +28,11 @@ async def stage_launch_attempt_rows(
     )
     session.add(assignment_row)
     await session.flush()
-    stage_assignment_criteria_refs(session, assignment_row)
+    stage_assignment_file_references(
+        session,
+        assignment_id=assignment_row.assignment_id,
+        files=result.assignment.files,
+    )
 
     session.add(
         AttemptModel(
@@ -43,7 +40,7 @@ async def stage_launch_attempt_rows(
             assignment_id=assignment_row.assignment_id,
             task_id=bootstrap_input.task_id,
             flow_id=flow_id,
-            node_key=result.assignment.node_key,
+            node_key=bootstrap_input.initial_team.root_member_id,
             retry_of_attempt_id=None,
             latest_checkpoint_id=None,
             status="running",
@@ -62,41 +59,25 @@ def _build_assignment_row(
         (
             item
             for item in bootstrap_input.compiled_plan.nodes
-            if item.node_key == result.assignment.node_key
+            if item.node_key == bootstrap_input.initial_team.root_member_id
         ),
         None,
     )
     if node is None:
-        raise ValueError(
-            f"legacy Team plan is missing assignment Member {result.assignment.node_key!r}"
-        )
+        raise ValueError("legacy Team plan is missing its root assignment Member")
     budget = _resolve_assignment_budget(
         bootstrap_input=bootstrap_input,
-        node_key=result.assignment.node_key,
+        node_key=bootstrap_input.initial_team.root_member_id,
     )
     return AssignmentModel(
-        assignment_id=assignment_id(result.assignment.assignment_key),
+        assignment_id=assignment_id(bootstrap_input.assignment_key),
         task_id=bootstrap_input.task_id,
-        team_revision_id=bootstrap_input.initial_team.team_revision_id,
         member_id=node.member_id,
-        member_configuration_id=node.member_configuration_id,
-        member_branch_basis_id=node.member_branch_basis_id,
         flow_id=flow_id,
-        flow_revision_id=bootstrap_input.active_flow_revision_id,
-        flow_node_id=flow_node_id(
-            bootstrap_input.active_flow_revision_id,
-            result.assignment.node_key,
-        ),
-        assignment_key=result.assignment.assignment_key,
-        node_key=result.assignment.node_key,
+        assignment_key=bootstrap_input.assignment_key,
+        node_key=bootstrap_input.initial_team.root_member_id,
         parent_assignment_id=None,
-        summary=result.assignment.summary,
-        instruction=result.assignment.instruction,
-        criteria_json=[ref.model_dump(mode="json") for ref in result.assignment.criteria],
-        consumes_json=[_ref_json(ref) for ref in result.assignment.consumes],
-        produces_json=[
-            requirement.model_dump(mode="json") for requirement in result.assignment.produces
-        ],
+        prompt=result.assignment.prompt,
         current_attempt_id=bootstrap_input.attempt_id,
         work_plan_revision=0,
         child_assignment_limit=budget.child_assignment_limit,
@@ -122,10 +103,6 @@ def _resolve_assignment_budget(
         child_assignment_limit=bootstrap_input.max_child_assignments_per_assignment,
         retry_limit=bootstrap_input.max_retries_per_assignment,
     )
-
-
-def _ref_json(ref: EvidenceRef | NodeRuntimeFileRef) -> dict[str, Any]:
-    return ref.model_dump(mode="json")
 
 
 __all__ = ["stage_launch_attempt_rows"]

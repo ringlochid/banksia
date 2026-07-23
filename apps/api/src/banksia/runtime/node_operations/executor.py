@@ -8,11 +8,6 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from banksia.persistence.session import get_session_factory
-from banksia.runtime.checkpoint import (
-    CheckpointPreparation,
-    plan_checkpoint_preparation,
-    publish_checkpoint_bodies,
-)
 from banksia.runtime.clock import utc_now
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
 from banksia.runtime.dispatch.authority import (
@@ -36,7 +31,6 @@ from banksia.runtime.node_operations.contracts import (
     NodeOperationName,
     NodeOperationScope,
     OpenHumanRequestRequest,
-    RecordCheckpointRequest,
 )
 from banksia.runtime.node_operations.core_handlers import execute_core_node_operation
 from banksia.runtime.node_operations.follow_on import (
@@ -104,7 +98,6 @@ class NodeOperationExecutor:
         descriptor, request = _resolve_node_operation_request(operation_name, arguments)
         occurred_at = utc_now()
         session_factory = get_session_factory()
-        checkpoint_preparation: CheckpointPreparation | None = None
         try:
             async with session_factory() as admission_session:
                 replay = await read_committed_replan_replay(
@@ -119,13 +112,6 @@ class NodeOperationExecutor:
                     return replay
                 authority = await read_node_operation_authority(admission_session, scope)
                 _authorize(descriptor, authority, request)
-                if descriptor.name == NodeOperationName.RECORD_CHECKPOINT:
-                    assert isinstance(request, RecordCheckpointRequest)
-                    checkpoint_preparation = await plan_checkpoint_preparation(
-                        admission_session,
-                        authority,
-                        request.checkpoint,
-                    )
                 activity = await refresh_node_activity(
                     admission_session,
                     authority,
@@ -148,15 +134,11 @@ class NodeOperationExecutor:
                 occurred_at=activity.occurred_at,
             )
         )
-        if checkpoint_preparation is not None:
-            checkpoint_preparation = await publish_checkpoint_bodies(checkpoint_preparation)
-
         try:
             result, follow_on = await self._commit_node_operation(
                 scope=scope,
                 descriptor=descriptor,
                 request=request,
-                checkpoint_preparation=checkpoint_preparation,
             )
         except RuntimeOperationError as exc:
             normalized = _normalize_replan_conflict(descriptor, exc)
@@ -172,7 +154,6 @@ class NodeOperationExecutor:
         scope: NodeOperationScope,
         descriptor: NodeOperationDescriptor,
         request: BaseModel,
-        checkpoint_preparation: CheckpointPreparation | None,
     ) -> tuple[BaseModel, CommittedNodeOperationFollowOn]:
         session_factory = get_session_factory()
         async with session_factory() as operation_session:
@@ -182,7 +163,6 @@ class NodeOperationExecutor:
                     scope=scope,
                     descriptor=descriptor,
                     request=request,
-                    checkpoint_preparation=checkpoint_preparation,
                 )
             except IntegrityError as exc:
                 await operation_session.rollback()
@@ -195,7 +175,6 @@ class NodeOperationExecutor:
         scope: NodeOperationScope,
         descriptor: NodeOperationDescriptor,
         request: BaseModel,
-        checkpoint_preparation: CheckpointPreparation | None,
     ) -> tuple[BaseModel, CommittedNodeOperationFollowOn]:
         authority = await read_node_operation_authority(session, scope)
         _authorize(descriptor, authority, request)
@@ -223,7 +202,6 @@ class NodeOperationExecutor:
                 authority,
                 descriptor.name,
                 request,
-                checkpoint_preparation=checkpoint_preparation,
             )
         handler_follow_on = CommittedNodeOperationFollowOn()
         if isinstance(result, CommittedNodeOperationResult):
@@ -236,7 +214,6 @@ class NodeOperationExecutor:
             authority=authority,
             request=request,
             response=result,
-            checkpoint_preparation=checkpoint_preparation,
         )
         return result, handler_follow_on.combined_with(derived_follow_on)
 

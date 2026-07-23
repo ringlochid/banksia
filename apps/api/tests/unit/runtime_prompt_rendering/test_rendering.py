@@ -31,7 +31,7 @@ def test_dynamic_render_discloses_bounded_readback_refs() -> None:
 
     assert '"instructions": "_runtime/dispatch/dispatch-1/instructions.md"' in rendered
     assert '"input": "_runtime/dispatch/dispatch-1/input.md"' in rendered
-    assert '"workflow_manifest": "_runtime/workflow-manifest.md"' in rendered
+    assert '"workflow_manifest": "manifest.md"' in rendered
 
 
 def test_render_is_byte_deterministic() -> None:

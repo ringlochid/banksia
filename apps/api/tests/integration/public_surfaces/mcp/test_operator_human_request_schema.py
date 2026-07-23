@@ -55,12 +55,17 @@ async def test_operator_inventory_teaches_current_truth_and_chronology_without_s
     assert tuple(name for name in tools_by_name if name.startswith("workflow_")) == (
         WORKFLOW_OPERATOR_TOOL_NAMES
     )
-    assert "start_task" in tools_by_name
-    start_task = tools_by_name["start_task"]
-    assert tuple(start_task.inputSchema["properties"]) == ("task_compose_path",)
-    assert start_task.inputSchema["additionalProperties"] is False
-    assert start_task.annotations is not None
-    assert start_task.annotations.readOnlyHint is False
+    assert "task_start" in tools_by_name
+    task_start = tools_by_name["task_start"]
+    assert tuple(task_start.inputSchema["properties"]) == (
+        "workflow",
+        "prompt",
+        "workspace",
+        "files",
+    )
+    assert task_start.inputSchema["additionalProperties"] is False
+    assert task_start.annotations is not None
+    assert task_start.annotations.readOnlyHint is False
     assert "get_task_events" in tools_by_name
     assert "chronology" in (tools_by_name["get_task_events"].description or "").casefold()
     assert (

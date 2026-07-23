@@ -33,7 +33,6 @@ if TYPE_CHECKING:
     from banksia.persistence.models.runtime.dispatch.states import FlowStartSourceModel
     from banksia.persistence.models.runtime.dispatch.turns import DispatchTurnModel
     from banksia.persistence.models.runtime.flow.graph import (
-        FlowEdgeModel,
         FlowNodeModel,
         NodePlanRevisionModel,
     )
@@ -312,13 +311,6 @@ class FlowRevisionModel(RuntimeBase):
         lazy="raise",
         order_by="FlowNodeModel.order_index",
     )
-    edges: Mapped[list[FlowEdgeModel]] = relationship(
-        "FlowEdgeModel",
-        back_populates="flow_revision",
-        foreign_keys="FlowEdgeModel.flow_revision_id",
-        lazy="raise",
-        order_by="FlowEdgeModel.order_index",
-    )
     node_plan_revisions: Mapped[list[NodePlanRevisionModel]] = relationship(
         "NodePlanRevisionModel",
         back_populates="flow_revision",
@@ -327,17 +319,6 @@ class FlowRevisionModel(RuntimeBase):
             "FlowRevisionModel.flow_revision_id == NodePlanRevisionModel.flow_revision_id)"
         ),
         foreign_keys="[NodePlanRevisionModel.flow_id, NodePlanRevisionModel.flow_revision_id]",
-        lazy="raise",
-        viewonly=True,
-    )
-    assignments: Mapped[list[AssignmentModel]] = relationship(
-        "AssignmentModel",
-        back_populates="flow_revision",
-        primaryjoin=(
-            "and_(FlowRevisionModel.flow_id == AssignmentModel.flow_id, "
-            "FlowRevisionModel.flow_revision_id == AssignmentModel.flow_revision_id)"
-        ),
-        foreign_keys="[AssignmentModel.flow_id, AssignmentModel.flow_revision_id]",
         lazy="raise",
         viewonly=True,
     )

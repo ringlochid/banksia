@@ -127,22 +127,14 @@ def _assert_command_trigger(
     assert result_payload["started_at"] == result_payload["ended_at"]
     assert result_payload["stdout_log_ref"] == "tmp/transfers/localized/python-version.log"
     assert result_payload["terminal_event_source"] == "process_owner"
-    assert trigger["refs"] == [
+    assert trigger["files"] == [
         {
-            "kind": "transient",
-            "logical_path": "tmp/transfers/localized/python-version.log",
-            "purpose": "Read the bounded command log when the summary is insufficient.",
-            "description": "Command standard-output log.",
-            "slot": None,
-            "version": None,
+            "path": "tmp/transfers/localized/python-version.log",
+            "description": "Full command standard-output log.",
         },
         {
-            "kind": "workspace",
-            "logical_path": "outputs/python-version.txt",
-            "purpose": "Inspect this expected command output before continuing.",
+            "path": "outputs/python-version.txt",
             "description": "Captured Python version.",
-            "slot": None,
-            "version": None,
         },
     ]
 

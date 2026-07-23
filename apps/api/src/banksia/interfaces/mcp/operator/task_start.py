@@ -1,28 +1,26 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from mcp.server.fastmcp import FastMCP
 
 from banksia.interfaces.mcp.mcp_operation_failures import ContractFastMCP
 from banksia.interfaces.mcp.tool_teaching import (
-    LOCAL_FILE_PATH_NOTE,
     RUNTIME_STATE_WARNING,
     mutating_tool_teaching,
 )
-from banksia.platform.file_entrypoints import task_start_request_from_path
-from banksia.runtime.contracts import TaskStartResponse
-from banksia.runtime.node_operations.follow_on import SupportProjectionPublisher
-from banksia.runtime.post_commit import RuntimeEffectPublisher
+from banksia.runtime.contracts import FileReference, TaskStartRequest, TaskStartResponse
+from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
 from banksia.runtime.task_start import start_task as start_task_service
 
-START_TASK_TEACHING = mutating_tool_teaching(
-    name="start_task",
-    summary="Load one Task Compose file and commit a real Workflow-backed Task.",
+TASK_START_TEACHING = mutating_tool_teaching(
+    name="task_start",
+    summary="Validate and commit one real Workflow-backed Task.",
     details=(
-        LOCAL_FILE_PATH_NOTE,
         RUNTIME_STATE_WARNING,
-        "This is the bounded pre-WP-03 compatibility entry point, not a preview.",
-        "The response means Task bootstrap and its Flow-start source committed.",
-        "Root Dispatch opening and provider start happen asynchronously after that commit.",
+        "Submit the same strict workflow, prompt, optional workspace, and files object "
+        "used by HTTP and Console Task start.",
+        "The accepted receipt confirms controller commit, not provider start or completion.",
     ),
 )
 
@@ -30,25 +28,36 @@ START_TASK_TEACHING = mutating_tool_teaching(
 def register_task_start_tool(
     server: FastMCP,
     *,
-    runtime_effect_publisher: RuntimeEffectPublisher | None = None,
-    support_projection_publisher: SupportProjectionPublisher | None = None,
+    dependencies: DispatchOpeningDependencies | None = None,
 ) -> None:
     @server.tool(
-        name="start_task",
-        title=START_TASK_TEACHING.title,
-        description=START_TASK_TEACHING.description,
-        annotations=START_TASK_TEACHING.annotations,
+        name="task_start",
+        title=TASK_START_TEACHING.title,
+        description=TASK_START_TEACHING.description,
+        annotations=TASK_START_TEACHING.annotations,
     )
-    async def start_task(task_compose_path: str) -> TaskStartResponse:
-        request = task_start_request_from_path(task_compose_path)
+    async def task_start(
+        workflow: str,
+        prompt: str,
+        workspace: str | None = None,
+        files: list[FileReference] | None = None,
+    ) -> TaskStartResponse:
+        if dependencies is None:
+            raise RuntimeError("Task-start dependencies are unavailable")
+        request = TaskStartRequest(
+            workflow=workflow,
+            prompt=prompt,
+            workspace=Path(workspace) if workspace is not None else None,
+            files=tuple(files or ()),
+        )
         return await start_task_service(
             request,
-            runtime_effect_publisher=runtime_effect_publisher,
-            support_projection_publisher=support_projection_publisher,
+            dependencies=dependencies,
+            default_workspace=dependencies.settings.controller_workspace,
         )
 
     if isinstance(server, ContractFastMCP):
-        server.require_strict_tool_inputs(("start_task",))
+        server.require_strict_tool_inputs(("task_start",))
 
 
-__all__ = ["START_TASK_TEACHING", "register_task_start_tool"]
+__all__ = ["TASK_START_TEACHING", "register_task_start_tool"]

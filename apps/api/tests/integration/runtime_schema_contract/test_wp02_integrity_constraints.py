@@ -193,10 +193,6 @@ async def test_postgresql_initial_team_materialization_has_one_cas_winner() -> N
             session.add(
                 TaskModel(
                     task_id="task.postgres-team-race",
-                    task_key="postgres-team-race",
-                    title="PostgreSQL Team race",
-                    summary="Prove one materialization winner.",
-                    instruction=None,
                     workflow_key=published.workflow_id,
                     workflow_revision_no=published.revision_no,
                     workflow_content_hash=published.content_hash,

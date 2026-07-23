@@ -231,10 +231,6 @@ def _stage_task(
     session.add(
         TaskModel(
             task_id=task_id,
-            task_key=task_id,
-            title="Materialized task",
-            summary="Prove exact Team persistence.",
-            instruction=None,
             workflow_key=published.workflow_id,
             workflow_revision_no=published.revision_no,
             workflow_content_hash=published.content_hash,

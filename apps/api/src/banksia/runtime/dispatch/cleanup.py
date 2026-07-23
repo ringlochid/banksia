@@ -13,11 +13,9 @@ from sqlalchemy import exists, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from banksia.persistence.models import (
-    ArtifactPublicationModel,
     DispatchPromptRefsModel,
     DispatchTurnModel,
     TaskModel,
-    TransientLocalizationModel,
 )
 from banksia.runtime.node_mcp import DispatchMcpBindingRegistry
 from banksia.runtime.post_commit.signals import DispatchCleanupRequested
@@ -349,26 +347,6 @@ async def _read_candidate_reference_state(
                                 autoescape=True,
                             ),
                             DispatchPromptRefsModel.input_logical_path.startswith(
-                                logical_prefix,
-                                autoescape=True,
-                            ),
-                        ),
-                    ),
-                    exists().where(
-                        ArtifactPublicationModel.task_id == source.task_id,
-                        ArtifactPublicationModel.logical_path.startswith(
-                            logical_prefix,
-                            autoescape=True,
-                        ),
-                    ),
-                    exists().where(
-                        TransientLocalizationModel.task_id == source.task_id,
-                        or_(
-                            TransientLocalizationModel.source_logical_path.startswith(
-                                logical_prefix,
-                                autoescape=True,
-                            ),
-                            TransientLocalizationModel.localized_logical_path.startswith(
                                 logical_prefix,
                                 autoescape=True,
                             ),

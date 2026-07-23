@@ -4,17 +4,10 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
+from pydantic import BaseModel, ConfigDict, StringConstraints
 
 RuntimeText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 TaskIdentifier = RuntimeText
-SlotIdentifier = RuntimeText
-
-
-class TaskRootMode(StrEnum):
-    ENSURE_TASK_DEFAULT = "ensure_task_default"
-    ENSURE_HOST_PATH = "ensure_host_path"
-    USE_EXISTING_HOST = "use_existing_host"
 
 
 class FlowStatus(StrEnum):
@@ -24,27 +17,6 @@ class FlowStatus(StrEnum):
     PAUSED = "paused"
     SUCCEEDED = "succeeded"
     CANCELLED = "cancelled"
-
-
-class EvidenceKind(StrEnum):
-    ARTIFACT = "artifact"
-    CRITERIA = "criteria"
-    DOC = "doc"
-    WIKI = "wiki"
-    TRANSIENT = "transient"
-
-
-class NodeRuntimeFileKind(StrEnum):
-    MANIFEST = "manifest"
-    ASSIGNMENT = "assignment"
-    CHECKPOINT = "checkpoint"
-    ARTIFACT_INDEX = "artifact_index"
-    TRANSIENT_INDEX = "transient_index"
-
-
-class CheckpointKind(StrEnum):
-    PROGRESS = "progress"
-    TERMINAL = "terminal"
 
 
 class EgressBoundary(StrEnum):
@@ -146,50 +118,6 @@ class TaskEventType(StrEnum):
     TASK_CANCELLED = "task_cancelled"
 
 
-class TaskComposeTaskInput(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    key: RuntimeText
-    title: RuntimeText
-    summary: RuntimeText
-    instruction: RuntimeText | None = None
-
-
-class TaskComposeWorkflowInput(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    key: RuntimeText
-
-
-class TaskRootBindingInput(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    mode: TaskRootMode = TaskRootMode.ENSURE_TASK_DEFAULT
-    host_path: Path | None = None
-
-    @model_validator(mode="after")
-    def validate_host_path(self) -> TaskRootBindingInput:
-        if self.mode == TaskRootMode.ENSURE_TASK_DEFAULT and self.host_path is not None:
-            raise ValueError("host_path is invalid with ensure_task_default")
-        if self.mode != TaskRootMode.ENSURE_TASK_DEFAULT and self.host_path is None:
-            raise ValueError(f"host_path is required with {self.mode.value}")
-        return self
-
-
-class TaskComposeRootsInput(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    workspace: TaskRootBindingInput | None = None
-
-
-class TaskComposeInput(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    task: TaskComposeTaskInput
-    workflow: TaskComposeWorkflowInput
-    roots: TaskComposeRootsInput | None = None
-
-
 class TaskRootPaths(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -198,81 +126,23 @@ class TaskRootPaths(BaseModel):
     outputs_path: Path
     artifacts_path: Path
     tmp_path: Path
-    transfers_path: Path
-    localized_path: Path
     runtime_path: Path
-    criteria_path: Path
-    attempts_path: Path
     dispatch_path: Path
 
 
-class NodeRuntimeFileRef(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    kind: NodeRuntimeFileKind
-    path: Path
-    description: RuntimeText
-
-
-class EvidenceRef(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    kind: EvidenceKind
-    slot: SlotIdentifier | None = None
-    version: int | None = Field(default=None, ge=1)
-    path: Path
-    description: RuntimeText
-
-    @model_validator(mode="after")
-    def validate_shape(self) -> EvidenceRef:
-        if self.kind == EvidenceKind.ARTIFACT:
-            if self.slot is None or self.version is None:
-                raise ValueError("artifact refs require slot and version")
-            return self
-        if self.kind == EvidenceKind.CRITERIA:
-            if self.slot is None:
-                raise ValueError("criteria refs require slot")
-            if self.version is not None:
-                raise ValueError("criteria refs must not set version")
-            return self
-        if self.version is not None:
-            raise ValueError("only artifact refs may set version")
-        if self.kind == EvidenceKind.TRANSIENT and self.slot is not None:
-            raise ValueError("transient refs must not set slot")
-        return self
-
-
-type RuntimeContextRef = NodeRuntimeFileRef | EvidenceRef
-type AssignmentConsumeRef = NodeRuntimeFileRef | EvidenceRef
-
-
 __all__ = [
-    "AssignmentConsumeRef",
     "CapabilityDecision",
-    "CheckpointKind",
     "CheckpointOutcome",
     "CommandRunState",
     "CommandRunTerminalSource",
     "EgressBoundary",
-    "EvidenceKind",
-    "EvidenceRef",
     "FlowStatus",
     "HumanRequestKind",
     "HumanRequestResolutionKind",
     "HumanRequestStatus",
-    "NodeRuntimeFileKind",
-    "NodeRuntimeFileRef",
-    "RuntimeContextRef",
     "RuntimeText",
-    "SlotIdentifier",
-    "TaskComposeInput",
-    "TaskComposeRootsInput",
-    "TaskComposeTaskInput",
-    "TaskComposeWorkflowInput",
     "TaskEventSource",
     "TaskEventType",
     "TaskIdentifier",
-    "TaskRootBindingInput",
-    "TaskRootMode",
     "TaskRootPaths",
 ]

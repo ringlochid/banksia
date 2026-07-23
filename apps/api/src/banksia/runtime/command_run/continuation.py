@@ -16,9 +16,8 @@ from banksia.runtime.contracts.prompt import (
     PromptCommandOutcome,
     PromptCommandResult,
     PromptCommandTerminalSource,
-    PromptLogicalRef,
-    PromptRefKind,
 )
+from banksia.runtime.contracts.refs import FileReference
 from banksia.runtime.dispatch.ordinary_context import (
     OrdinaryContinuationBasis,
     OrdinaryDispatchSnapshot,
@@ -192,7 +191,7 @@ def command_run_continuation_basis(
                 terminal_event_source=PromptCommandTerminalSource(source.terminal_event_source),
                 terminal_actor_ref=source.terminal_actor_ref,
             ),
-            refs=_command_result_refs(source),
+            files=_command_result_files(source),
         ),
     )
 
@@ -293,38 +292,34 @@ def _command_result_predicates(
     )
 
 
-def _command_result_refs(source: CommandRunModel) -> tuple[PromptLogicalRef, ...]:
-    refs: list[PromptLogicalRef] = []
-    _append_log_ref(refs, source.stdout_logical_path, "Command standard-output log.")
-    _append_log_ref(refs, source.stderr_logical_path, "Command standard-error log.")
+def _command_result_files(source: CommandRunModel) -> tuple[FileReference, ...]:
+    files: list[FileReference] = []
+    _append_log_file(files, source.stdout_logical_path, "Full command standard-output log.")
+    _append_log_file(files, source.stderr_logical_path, "Full command standard-error log.")
     for row in source.expected_outputs_json or ():
         path = row.get("path")
         description = row.get("description")
         if not isinstance(path, str) or not isinstance(description, str):
             raise ValueError("command expected outputs require text path and description")
-        refs.append(
-            PromptLogicalRef(
-                kind=PromptRefKind.WORKSPACE,
-                logical_path=path,
-                purpose="Inspect this expected command output before continuing.",
+        files.append(
+            FileReference(
+                path=path,
                 description=description,
             )
         )
-    return tuple(refs)
+    return tuple(files)
 
 
-def _append_log_ref(
-    refs: list[PromptLogicalRef],
-    logical_path: str | None,
+def _append_log_file(
+    files: list[FileReference],
+    path: str | None,
     description: str,
 ) -> None:
-    if logical_path is None:
+    if path is None:
         return
-    refs.append(
-        PromptLogicalRef(
-            kind=PromptRefKind.TRANSIENT,
-            logical_path=logical_path,
-            purpose="Read the bounded command log when the summary is insufficient.",
+    files.append(
+        FileReference(
+            path=path,
             description=description,
         )
     )

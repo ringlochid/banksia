@@ -7,8 +7,8 @@ from typing import cast
 import banksia.runtime.node_operations.executor as executor_module
 import pytest
 from banksia.persistence.models import (
+    AssignmentFileReferenceModel,
     AssignmentModel,
-    AttemptCheckpointModel,
     AttemptModel,
     DispatchTurnModel,
     FlowNodeModel,
@@ -22,7 +22,11 @@ from banksia.runtime.dispatch.authority import (
     refresh_node_activity,
 )
 from banksia.runtime.errors import RuntimeOperationError
-from banksia.runtime.node_operations import NodeActivitySignal, NodeOperationScope
+from banksia.runtime.node_operations import (
+    NodeActivitySignal,
+    NodeOperationExecutor,
+    NodeOperationScope,
+)
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from tests.helpers.executor_harness import (
@@ -192,35 +196,24 @@ async def test_transaction_b_rechecks_state_changed_after_activity_commit(
         signals,
     ):
 
-        async def publish_and_record_terminal_checkpoint(signal: NodeActivitySignal) -> None:
+        async def publish_and_commit_terminal_checkpoint(signal: NodeActivitySignal) -> None:
             signals.append(signal)
-            checkpoint_id = "checkpoint.state-race.terminal"
-            async with session_factory() as session:
-                attempt = await session.get(AttemptModel, ids.root_attempt_id)
-                assert attempt is not None
-                session.add(
-                    AttemptCheckpointModel(
-                        checkpoint_id=checkpoint_id,
-                        task_id=ids.task_id,
-                        flow_id=ids.flow_id,
-                        assignment_id=ids.root_assignment_id,
-                        attempt_id=ids.root_attempt_id,
-                        authoring_dispatch_id=ids.current_dispatch_id,
-                        checkpoint_kind="terminal",
-                        outcome="blocked",
-                        summary="A concurrent controller transition made waits illegal.",
-                        evidence_json={},
-                        criteria_results_json=[],
-                        recorded_at=utc_now(),
-                    )
-                )
-                attempt.latest_checkpoint_id = checkpoint_id
-                await session.commit()
+            await NodeOperationExecutor().execute(
+                scope=NodeOperationScope(
+                    task_id=ids.task_id,
+                    dispatch_id=ids.current_dispatch_id,
+                ),
+                operation_name="checkpoint",
+                arguments={
+                    "outcome": "blocked",
+                    "summary": "A concurrent controller transition made waits illegal.",
+                },
+            )
 
         monkeypatch.setattr(
             executor,
             "_publish_activity_signal",
-            publish_and_record_terminal_checkpoint,
+            publish_and_commit_terminal_checkpoint,
         )
 
         with pytest.raises(RuntimeOperationError) as error:
@@ -252,13 +245,13 @@ async def test_transaction_b_rechecks_state_changed_after_activity_commit(
             dispatch = await session.get(DispatchTurnModel, ids.current_dispatch_id)
             attempt = await session.get(AttemptModel, ids.root_attempt_id)
 
-        assert error.value.code == OperationFailureCode.ILLEGAL_STATE
+        assert error.value.code == OperationFailureCode.STALE_DISPATCH
         assert error.value.is_retryable is False
         assert request is None
-        assert dispatch is not None and dispatch.status == "open"
-        assert dispatch.node_activity_revision == 1
+        assert dispatch is not None and dispatch.status == "closed"
+        assert dispatch.node_activity_revision == 2
         assert attempt is not None
-        assert attempt.latest_checkpoint_id == "checkpoint.state-race.terminal"
+        assert attempt.latest_checkpoint_id is not None
         assert [signal.activity_revision for signal in signals] == [1]
 
 
@@ -329,12 +322,14 @@ async def test_transaction_b_rejects_rotated_managed_generation_after_activity_c
 async def test_assign_child_stages_one_direct_child_with_task_admitted_budget(
     tmp_path: Path,
 ) -> None:
+    workspace_file = tmp_path / "task-assign" / "workspace" / "brief.md"
     async with seeded_executor(tmp_path, suffix="assign") as (
         executor,
         session_factory,
         ids,
         _signals,
     ):
+        workspace_file.write_text("bounded input", encoding="utf-8")
         async with session_factory() as session:
             task = await session.get(TaskModel, ids.task_id)
             parent = await session.get(AssignmentModel, ids.root_assignment_id)
@@ -360,7 +355,15 @@ async def test_assign_child_stages_one_direct_child_with_task_admitted_budget(
                 "expected_structural_revision_id": ids.flow_revision_id,
                 "payload": {
                     "child_node_key": "child",
-                    "assignment_intent": {"summary": "Do bounded child work."},
+                    "assignment": {
+                        "prompt": "Do  bounded child work.\r\nPreserve spacing.\r",
+                        "files": [
+                            {
+                                "path": "./brief.md",
+                                "description": "Read this bounded input.",
+                            }
+                        ],
+                    },
                 },
             },
         )
@@ -378,6 +381,17 @@ async def test_assign_child_stages_one_direct_child_with_task_admitted_budget(
                 AttemptModel,
                 result.model_dump()["target_attempt_id"],
             )
+            assert staged_assignment is not None
+            file_rows = tuple(
+                await session.scalars(
+                    select(AssignmentFileReferenceModel)
+                    .where(
+                        AssignmentFileReferenceModel.assignment_id
+                        == staged_assignment.assignment_id
+                    )
+                    .order_by(AssignmentFileReferenceModel.order_index)
+                )
+            )
         assert task is not None
         assert task.max_child_assignments_per_assignment == 7
         assert task.max_retries_per_assignment == 4
@@ -387,9 +401,13 @@ async def test_assign_child_stages_one_direct_child_with_task_admitted_budget(
         assert parent.retry_limit == 4
         assert parent.retries_remaining == 4
         assert dispatch is not None and dispatch.status == "open"
-        assert child is not None and staged_assignment is not None
+        assert child is not None
         assert child.current_assignment_id == staged_assignment.assignment_id
         assert staged_assignment.parent_assignment_id == ids.root_assignment_id
+        assert staged_assignment.prompt == ("Do  bounded child work.\nPreserve spacing.\n")
+        assert [(row.path, row.description) for row in file_rows] == [
+            ("brief.md", "Read this bounded input."),
+        ]
         assert staged_assignment.child_assignment_limit == 7
         assert staged_assignment.child_assignments_remaining == 7
         assert staged_assignment.retry_limit == 4

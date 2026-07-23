@@ -5,7 +5,6 @@ import os
 import stat
 from collections.abc import Iterator
 from contextlib import contextmanager
-from dataclasses import dataclass
 from itertools import islice
 from pathlib import Path
 from typing import Literal
@@ -22,14 +21,6 @@ DEFAULT_DIRECTORY_ENTRY_LIMIT = 1_000
 DEFAULT_FILE_READ_BYTE_LIMIT = 1_048_576
 type LogicalDirectoryEntryKind = Literal["file", "directory", "symlink", "other"]
 type LogicalDirectoryEntry = tuple[str, str, LogicalDirectoryEntryKind, int | None]
-
-
-@dataclass(frozen=True, slots=True)
-class PublishedLogicalFile:
-    source_logical_path: str
-    destination_logical_path: str
-    size_bytes: int
-    source_mtime_ns: int
 
 
 def list_logical_directory(
@@ -145,154 +136,6 @@ def read_logical_regular_file_bytes(
     if len(payload) > byte_limit:
         raise _file_read_limit_error()
     return payload
-
-
-def publish_logical_regular_file(
-    paths: object,
-    source_logical_path: str,
-    destination_logical_path: str,
-) -> PublishedLogicalFile:
-    """Copy one stable regular file to a new immutable controller-owned path."""
-    from banksia.runtime.contracts import TaskRootPaths
-
-    if not isinstance(paths, TaskRootPaths):
-        raise TypeError("paths must be TaskRootPaths")
-    source = resolve_logical_task_path(paths, source_logical_path)
-    assert source is not None
-    destination = resolve_logical_task_path(paths, destination_logical_path)
-    assert destination is not None
-    destination_parts = tuple(destination.logical_path.split("/"))
-    if destination_parts[0] not in {"outputs", "tmp"}:
-        raise _file_error(
-            OperationFailureCode.INVALID_TASK_PATH,
-            "published bodies must use outputs or tmp",
-        )
-    _require_publication_descriptor_access()
-
-    with _opened_resolved_target(source, require_directory=False) as source_fd:
-        initial = os.fstat(source_fd)
-        if not stat.S_ISREG(initial.st_mode):
-            raise _file_error(OperationFailureCode.NOT_A_FILE, "task path is not a regular file")
-        with _opened_or_created_task_directory(
-            paths.task_root,
-            destination_parts[:-1],
-        ) as parent_fd:
-            return _copy_and_publish(
-                source_fd=source_fd,
-                source_logical_path=source.logical_path,
-                destination_logical_path=destination.logical_path,
-                destination_name=destination_parts[-1],
-                destination_parent_fd=parent_fd,
-                initial=initial,
-            )
-
-
-def _copy_and_publish(
-    *,
-    source_fd: int,
-    source_logical_path: str,
-    destination_logical_path: str,
-    destination_name: str,
-    destination_parent_fd: int,
-    initial: os.stat_result,
-) -> PublishedLogicalFile:
-    stage_name = f".stage-{destination_name}-{os.urandom(8).hex()}"
-    stage_fd = -1
-    linked = False
-    try:
-        stage_fd = os.open(
-            stage_name,
-            os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_CLOEXEC", 0),
-            0o600,
-            dir_fd=destination_parent_fd,
-        )
-        copied = 0
-        while True:
-            chunk = os.read(source_fd, 1024 * 1024)
-            if not chunk:
-                break
-            copied += len(chunk)
-            _write_all(stage_fd, chunk)
-        final = os.fstat(source_fd)
-        if (
-            copied != initial.st_size
-            or final.st_size != initial.st_size
-            or final.st_mtime_ns != initial.st_mtime_ns
-        ):
-            raise RuntimeOperationError(
-                code=OperationFailureCode.CONFLICT,
-                summary="checkpoint source changed while its body was copied",
-                is_retryable=False,
-            )
-        os.fsync(stage_fd)
-        os.close(stage_fd)
-        stage_fd = -1
-        os.link(
-            stage_name,
-            destination_name,
-            src_dir_fd=destination_parent_fd,
-            dst_dir_fd=destination_parent_fd,
-            follow_symlinks=False,
-        )
-        linked = True
-        os.unlink(stage_name, dir_fd=destination_parent_fd)
-        os.fsync(destination_parent_fd)
-    except FileExistsError as exc:
-        raise RuntimeOperationError(
-            code=OperationFailureCode.CONFLICT,
-            summary="immutable checkpoint body path already exists",
-            is_retryable=False,
-        ) from exc
-    finally:
-        if stage_fd >= 0:
-            os.close(stage_fd)
-        if not linked:
-            try:
-                os.unlink(stage_name, dir_fd=destination_parent_fd)
-            except FileNotFoundError:
-                pass
-    return PublishedLogicalFile(
-        source_logical_path=source_logical_path,
-        destination_logical_path=destination_logical_path,
-        size_bytes=initial.st_size,
-        source_mtime_ns=initial.st_mtime_ns,
-    )
-
-
-def _write_all(file_descriptor: int, payload: bytes) -> None:
-    view = memoryview(payload)
-    while view:
-        written = os.write(file_descriptor, view)
-        view = view[written:]
-
-
-@contextmanager
-def _opened_or_created_task_directory(
-    task_root: Path,
-    components: tuple[str, ...],
-) -> Iterator[int]:
-    current_fd = _open_absolute_directory(task_root)
-    try:
-        for component in components:
-            try:
-                next_fd = _open_path_component(
-                    component,
-                    flags=_directory_open_flags(),
-                    parent_fd=current_fd,
-                )
-            except FileNotFoundError:
-                os.mkdir(component, mode=0o700, dir_fd=current_fd)
-                os.fsync(current_fd)
-                next_fd = _open_path_component(
-                    component,
-                    flags=_directory_open_flags(),
-                    parent_fd=current_fd,
-                )
-            os.close(current_fd)
-            current_fd = next_fd
-        yield current_fd
-    finally:
-        os.close(current_fd)
 
 
 def _read_bounded_bytes(file_fd: int, *, byte_limit: int) -> bytes:
@@ -461,21 +304,6 @@ def _require_descriptor_access(*, needs_scandir: bool) -> None:
     )
 
 
-def _require_publication_descriptor_access() -> None:
-    if (
-        _descriptor_walk_available()
-        and os.mkdir in os.supports_dir_fd
-        and os.link in os.supports_dir_fd
-        and os.unlink in os.supports_dir_fd
-        and os.link in os.supports_follow_symlinks
-    ):
-        return
-    raise _file_error(
-        OperationFailureCode.INVALID_TASK_ROOT,
-        "safe descriptor-relative task file publication is unavailable on this platform",
-    )
-
-
 def _descriptor_walk_available() -> bool:
     return (
         os.name == "posix"
@@ -540,8 +368,6 @@ __all__ = [
     "DEFAULT_FILE_READ_BYTE_LIMIT",
     "LogicalDirectoryEntry",
     "LogicalDirectoryEntryKind",
-    "PublishedLogicalFile",
     "list_logical_directory",
-    "publish_logical_regular_file",
     "read_logical_text_file",
 ]

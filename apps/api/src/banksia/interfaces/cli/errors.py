@@ -74,6 +74,16 @@ def failure_from_click_exception(exc: click.ClickException, argv: tuple[str, ...
 
 
 def unexpected_failure(exc: BaseException) -> CliFailure:
+    from banksia.interfaces.cli.commands.task import TaskStartCliError
+
+    if isinstance(exc, TaskStartCliError):
+        return CliFailure(
+            kind=exc.kind,
+            title="Task start failed",
+            message=str(exc),
+            exit_code=1,
+            hint=exc.hint,
+        )
     if isinstance(exc, ManagedServiceCommandError):
         return _managed_service_failure(exc)
     if isinstance(exc, ValidationError):

@@ -121,7 +121,7 @@ def _request(*, working_directory: Path | None = None) -> DispatchStartRequest:
         managed_node_mcp=ManagedNodeMcpConnection(
             url="http://127.0.0.1:8123/_internal/node/mcp",
             bearer_token=SecretStr("binding-secret"),
-            enabled_tools=("record_checkpoint", "return_boundary"),
+            enabled_tools=("checkpoint", "return_boundary"),
         ),
     )
 
@@ -168,7 +168,7 @@ async def test_claude_start_uses_disposable_scoped_client_and_returns_before_out
         sandbox = cast(dict[str, object], client.options.sandbox)
         assert sandbox["failIfUnavailable"] is True
         assert sandbox["allowUnsandboxedCommands"] is False
-        assert "mcp__banksia_node__record_checkpoint" in client.options.allowed_tools
+        assert "mcp__banksia_node__checkpoint" in client.options.allowed_tools
         mcp_servers = cast(dict[str, object], client.options.mcp_servers)
         mcp_config = cast(dict[str, object], mcp_servers["banksia_node"])
         assert mcp_config.get("headers") == {"Authorization": "Bearer binding-secret"}

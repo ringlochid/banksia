@@ -7,7 +7,6 @@ from banksia.persistence.models import (
     AcceptedBoundaryModel,
     AssignmentDecisionModel,
     AssignmentModel,
-    AttemptCheckpointModel,
     AttemptModel,
     DispatchTurnModel,
     FlowModel,
@@ -96,12 +95,6 @@ async def test_worker_retry_creates_one_attempt_and_consumes_budget_atomically(
         await _make_child_current(session_factory, ids, retries_remaining=2)
         await _record_terminal_checkpoint(executor, ids, outcome="retry")
 
-        await executor.execute(
-            scope=_current_scope(ids),
-            operation_name="return_boundary",
-            arguments={"boundary": "retry"},
-        )
-
         async with session_factory() as session:
             assignment = await session.get(AssignmentModel, ids.child_assignment_id)
             source_attempt = await session.get(AttemptModel, ids.child_attempt_id)
@@ -131,12 +124,6 @@ async def test_child_terminal_boundary_routes_exact_parent_before_success(
         await _make_child_current(session_factory, ids)
         await _record_terminal_checkpoint(executor, ids, outcome="green")
 
-        await executor.execute(
-            scope=_current_scope(ids),
-            operation_name="return_boundary",
-            arguments={"boundary": "green"},
-        )
-
         async with session_factory() as session:
             root_node = await session.get(FlowNodeModel, ids.root_node_id)
             child_node = await session.get(FlowNodeModel, ids.child_node_id)
@@ -151,71 +138,6 @@ async def test_child_terminal_boundary_routes_exact_parent_before_success(
         assert flow.current_dispatch_id is None
 
 
-async def test_worker_green_boundary_hides_legacy_checkpoint_without_outputs(
-    tmp_path: Path,
-) -> None:
-    async with seeded_executor(tmp_path, suffix="boundary-child-missing-output") as (
-        executor,
-        session_factory,
-        ids,
-        _,
-    ):
-        await _make_child_current(session_factory, ids)
-        checkpoint_id = "checkpoint.boundary-child-missing-output.legacy-green"
-        async with session_factory() as session:
-            assignment = await session.get(AssignmentModel, ids.child_assignment_id)
-            attempt = await session.get(AttemptModel, ids.child_attempt_id)
-            assert assignment is not None and attempt is not None
-            assignment.produces_json = [
-                {"slot": "report", "description": "Required report."},
-            ]
-            session.add(
-                AttemptCheckpointModel(
-                    checkpoint_id=checkpoint_id,
-                    task_id=ids.task_id,
-                    flow_id=ids.flow_id,
-                    assignment_id=ids.child_assignment_id,
-                    attempt_id=ids.child_attempt_id,
-                    authoring_dispatch_id=ids.current_dispatch_id,
-                    checkpoint_kind="terminal",
-                    outcome="green",
-                    summary="Legacy incomplete green checkpoint.",
-                    evidence_json={},
-                    criteria_results_json=[],
-                )
-            )
-            attempt.latest_checkpoint_id = checkpoint_id
-            await session.commit()
-
-        context = await executor.execute(
-            scope=_current_scope(ids),
-            operation_name="get_current_context",
-            arguments={},
-        )
-        assert "return_boundary" not in context.model_dump(mode="json")["allowed_actions"]
-
-        with pytest.raises(RuntimeOperationError) as missing:
-            await executor.execute(
-                scope=_current_scope(ids),
-                operation_name="return_boundary",
-                arguments={"boundary": "green"},
-            )
-
-        async with session_factory() as session:
-            dispatch = await session.get(DispatchTurnModel, ids.current_dispatch_id)
-            attempt = await session.get(AttemptModel, ids.child_attempt_id)
-            accepted = await session.scalar(
-                select(AcceptedBoundaryModel).where(
-                    AcceptedBoundaryModel.source_dispatch_id == ids.current_dispatch_id
-                )
-            )
-
-        assert missing.value.code == OperationFailureCode.ILLEGAL_STATE
-        assert dispatch is not None and dispatch.status == "open"
-        assert attempt is not None and attempt.status == "running"
-        assert accepted is None
-
-
 async def test_exhausted_retry_rolls_back_dispatch_and_semantic_state(
     tmp_path: Path,
 ) -> None:
@@ -226,14 +148,8 @@ async def test_exhausted_retry_rolls_back_dispatch_and_semantic_state(
         _,
     ):
         await _make_child_current(session_factory, ids, retries_remaining=0)
-        await _record_terminal_checkpoint(executor, ids, outcome="retry")
-
         with pytest.raises(RuntimeOperationError) as error:
-            await executor.execute(
-                scope=_current_scope(ids),
-                operation_name="return_boundary",
-                arguments={"boundary": "retry"},
-            )
+            await _record_terminal_checkpoint(executor, ids, outcome="retry")
 
         async with session_factory() as session:
             dispatch = await session.get(DispatchTurnModel, ids.current_dispatch_id)
@@ -261,16 +177,11 @@ async def _record_terminal_checkpoint(
 ) -> None:
     await executor.execute(
         scope=_current_scope(ids),
-        operation_name="record_checkpoint",
+        operation_name="checkpoint",
         arguments={
-            "checkpoint": {
-                "checkpoint_kind": "terminal",
-                "outcome": outcome,
-                "handoff": {
-                    "summary": f"The child returned {outcome}.",
-                    "next_step": "Apply the exact boundary transition.",
-                },
-            }
+            "outcome": outcome,
+            "summary": f"The child returned {outcome}.",
+            "details": "Apply the exact boundary transition.",
         },
     )
 
@@ -292,10 +203,10 @@ async def _make_child_current(
         assert child_assignment is not None
         dispatch.assignment_id = ids.child_assignment_id
         dispatch.flow_node_id = child_node.flow_node_id
-        dispatch.team_revision_id = child_assignment.team_revision_id
+        dispatch.team_revision_id = child_node.team_revision_id
         dispatch.member_id = child_assignment.member_id
-        dispatch.member_configuration_id = child_assignment.member_configuration_id
-        dispatch.member_branch_basis_id = child_assignment.member_branch_basis_id
+        dispatch.member_configuration_id = child_node.member_configuration_id
+        dispatch.member_branch_basis_id = child_node.member_branch_basis_id
         dispatch.attempt_id = ids.child_attempt_id
         dispatch.node_key = "child"
         root_node.state = "waiting"

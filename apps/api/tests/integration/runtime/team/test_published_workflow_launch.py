@@ -3,8 +3,10 @@ from __future__ import annotations
 from pathlib import Path
 
 from banksia.persistence.models import AssignmentModel, FlowNodeModel, TaskModel
-from banksia.runtime import RuntimeLaunchInput, TaskComposeInput
+from banksia.runtime import RuntimeLaunchInput
+from banksia.runtime.contracts import AssignmentBody
 from banksia.runtime.launch.service import launch_task_runtime
+from banksia.workflows.catalog import read_current_published_workflow
 from sqlalchemy import select
 from tests.helpers.workflow_runtime import initialized_workflow_database
 
@@ -14,20 +16,19 @@ async def test_runtime_launch_consumes_one_real_published_workflow_revision(
 ) -> None:
     async with initialized_workflow_database(tmp_path) as session_factory:
         async with session_factory() as session:
+            workflow_revision = await read_current_published_workflow(
+                session,
+                workflow_id="reviewed-delivery",
+            )
             staged = await launch_task_runtime(
                 session,
                 RuntimeLaunchInput(
                     task_id="task.published-launch",
                     task_root=tmp_path / "task.published-launch",
-                    task_compose=TaskComposeInput.model_validate(
-                        {
-                            "task": {
-                                "key": "published-launch",
-                                "title": "Published Workflow launch",
-                                "summary": "Launch exact reviewed-delivery truth.",
-                            },
-                            "workflow": {"key": "reviewed-delivery"},
-                        }
+                    workspace=tmp_path,
+                    workflow_revision=workflow_revision,
+                    assignment=AssignmentBody(
+                        prompt="Launch exact reviewed-delivery truth.",
                     ),
                 ),
             )
@@ -58,7 +59,6 @@ async def test_runtime_launch_consumes_one_real_published_workflow_revision(
     assert task.max_wave_members == 8
     assert assignment is not None
     assert assignment.member_id == "lead"
-    assert assignment.team_revision_id == task.current_team_revision_id
     assert assignment.child_assignment_limit == 20
     assert assignment.retry_limit == 1
     assert tuple(node.member_id for node in nodes) == (
@@ -67,4 +67,4 @@ async def test_runtime_launch_consumes_one_real_published_workflow_revision(
         "independent-review",
     )
     assert all(node.team_revision_id == task.current_team_revision_id for node in nodes)
-    assert staged.bootstrap.assignment.node_key == "lead"
+    assert staged.bootstrap.assignment.prompt == "Launch exact reviewed-delivery truth."

@@ -21,7 +21,6 @@ from banksia.runtime.post_commit.signals import (
     HumanRequestOpened,
     HumanRequestTerminal,
     ReplanCommitted,
-    TransientCleanupRequested,
     WatchdogDeadlineChanged,
     WatchdogDue,
 )
@@ -43,7 +42,6 @@ def test_runtime_effect_signals_are_frozen_and_complete() -> None:
         CommandRunTerminal("command.alpha"),
         CommandProcessExited("command.alpha", 3),
         DispatchCleanupRequested("dispatch.alpha"),
-        TransientCleanupRequested("transient.alpha", DUE_AT),
         WatchdogDeadlineChanged("dispatch.alpha", 4, DUE_AT),
         WatchdogDue("dispatch.alpha", 4, DUE_AT),
         DispatchStartDue("dispatch.alpha", 5, DUE_AT),

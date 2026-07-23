@@ -79,12 +79,10 @@ def _checkpoint_payload(ids: RuntimeIds, actor_ref: str) -> dict[str, object]:
         "checkpoint_id": f"checkpoint.event.{actor_ref}",
         "assignment_id": ids.root_assignment_id,
         "attempt_id": ids.root_attempt_id,
-        "checkpoint_kind": "progress",
         "outcome": None,
         "summary": f"Checkpoint recorded by {actor_ref}.",
-        "checkpoint_ref": (f"_runtime/attempts/{ids.root_attempt_id}/latest-checkpoint.md"),
-        "produced_artifacts": [],
-        "transient_surfaces": [],
+        "details": None,
+        "files": [],
         "authored_by_dispatch_id": ids.current_dispatch_id,
     }
 

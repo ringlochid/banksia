@@ -55,6 +55,11 @@ async def test_lifespan_keeps_publishers_alive_until_runtime_owners_stop(
         events.append("request_cleanup")
         return {}
 
+    async def recover_task_workspaces(*args: object, **kwargs: object) -> tuple[object, ...]:
+        del args, kwargs
+        events.append("task_workspace_recovery")
+        return ()
+
     async def audit_runtime(**kwargs: object) -> dict[str, object]:
         publish = cast(
             Callable[[RuntimeEffectSignal], Awaitable[bool]],
@@ -78,6 +83,11 @@ async def test_lifespan_keeps_publishers_alive_until_runtime_owners_stop(
     monkeypatch.setattr(main_module, "ensure_database_schema", ensure_schema)
     monkeypatch.setattr(
         main_module,
+        "recover_task_workspace_admissions",
+        recover_task_workspaces,
+    )
+    monkeypatch.setattr(
+        main_module,
         "cleanup_aged_dispatch_request_directories",
         cleanup_requests,
     )
@@ -94,6 +104,7 @@ async def test_lifespan_keeps_publishers_alive_until_runtime_owners_stop(
 
     assert events == [
         "schema",
+        "task_workspace_recovery",
         "request_cleanup",
         "enter:command",
         "enter:projection",

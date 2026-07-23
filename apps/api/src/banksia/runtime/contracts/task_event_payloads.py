@@ -13,7 +13,6 @@ from pydantic import (
 
 from banksia.providers import ProviderKind
 from banksia.runtime.contracts.primitives import (
-    CheckpointKind,
     CheckpointOutcome,
     CommandRunState,
     EgressBoundary,
@@ -23,6 +22,7 @@ from banksia.runtime.contracts.primitives import (
     HumanRequestStatus,
 )
 from banksia.runtime.contracts.provider_resolution import ProviderSelectionBasis
+from banksia.runtime.contracts.refs import FileReference
 
 type TaskEventIdentifier = Annotated[
     str,
@@ -136,38 +136,15 @@ class WorkPlanClearedEventPayload(_TaskEventPayload):
     updated_at: datetime
 
 
-class TaskEventArtifactRef(_TaskEventPayload):
-    publication_id: TaskEventIdentifier
-    slot: TaskEventIdentifier
-    path: TaskEventRef
-    version: int = Field(ge=1)
-
-
-class TaskEventTransientRef(_TaskEventPayload):
-    localization_id: TaskEventIdentifier
-    path: TaskEventRef
-    description: TaskEventSummary
-
-
 class CheckpointRecordedEventPayload(_TaskEventPayload):
     checkpoint_id: TaskEventIdentifier
     assignment_id: TaskEventIdentifier
     attempt_id: TaskEventIdentifier
-    checkpoint_kind: CheckpointKind
     outcome: CheckpointOutcome | None = None
     summary: TaskEventSummary
-    checkpoint_ref: TaskEventRef
-    produced_artifacts: tuple[TaskEventArtifactRef, ...] = Field(default=(), max_length=32)
-    transient_surfaces: tuple[TaskEventTransientRef, ...] = Field(default=(), max_length=32)
+    details: str | None = None
+    files: tuple[FileReference, ...] = Field(default=(), max_length=32)
     authored_by_dispatch_id: TaskEventIdentifier
-
-    @model_validator(mode="after")
-    def validate_checkpoint_kind(self) -> CheckpointRecordedEventPayload:
-        if self.checkpoint_kind == CheckpointKind.PROGRESS and self.outcome is not None:
-            raise ValueError("progress checkpoint events cannot declare an outcome")
-        if self.checkpoint_kind == CheckpointKind.TERMINAL and self.outcome is None:
-            raise ValueError("terminal checkpoint events require an outcome")
-        return self
 
 
 class BoundaryAcceptedEventPayload(_TaskEventPayload):
@@ -176,7 +153,6 @@ class BoundaryAcceptedEventPayload(_TaskEventPayload):
     attempt_id: TaskEventIdentifier
     outcome: EgressBoundary
     checkpoint_id: TaskEventIdentifier | None = None
-    checkpoint_ref: TaskEventRef | None = None
     assignment_decision_id: TaskEventIdentifier | None = None
     resulting_flow_status: Literal["running", "completed"]
 
@@ -360,11 +336,9 @@ __all__ = [
     "HumanRequestTerminalEventPayload",
     "StructuralRevisionAdoptedEventPayload",
     "TaskCancelledEventPayload",
-    "TaskEventArtifactRef",
     "TaskEventIdentifier",
     "TaskEventPayload",
     "TaskEventRef",
-    "TaskEventTransientRef",
     "TaskPausedEventPayload",
     "TaskResumedEventPayload",
     "TaskStartedEventPayload",

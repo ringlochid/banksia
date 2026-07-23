@@ -5,8 +5,8 @@ from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict
 
-from banksia.runtime.checkpoint import CheckpointPreparation
 from banksia.runtime.contracts import (
+    CheckpointResponse,
     CommandRunStartResponse,
     HumanRequestOpenResponse,
 )
@@ -20,12 +20,7 @@ from banksia.runtime.post_commit.signals import (
     HumanRequestOpened,
     RuntimeEffectSignal,
 )
-from banksia.runtime.projection.signals import (
-    ArtifactProjection,
-    LatestCheckpointProjection,
-    SupportProjectionSignal,
-    TransientProjection,
-)
+from banksia.runtime.projection.signals import SupportProjectionSignal
 
 
 class SupportProjectionPublisher(Protocol):
@@ -69,7 +64,6 @@ def committed_node_operation_follow_on(
     authority: NodeOperationAuthority,
     request: BaseModel,
     response: BaseModel,
-    checkpoint_preparation: CheckpointPreparation | None,
 ) -> CommittedNodeOperationFollowOn:
     """Build exact post-commit hints without rereading broad task state."""
 
@@ -87,29 +81,12 @@ def committed_node_operation_follow_on(
         return CommittedNodeOperationFollowOn(
             runtime_signals=(CommandRunPending(response.run_id),),
         )
-    if operation_name == NodeOperationName.RECORD_CHECKPOINT:
-        assert checkpoint_preparation is not None
-        return CommittedNodeOperationFollowOn(
-            projection_signals=(
-                LatestCheckpointProjection(
-                    attempt_id=checkpoint_preparation.attempt_id,
-                    checkpoint_id=checkpoint_preparation.checkpoint_id,
-                ),
-                *(
-                    ArtifactProjection(
-                        artifact_publication_id=artifact.artifact_publication_id,
-                        version=artifact.version,
-                    )
-                    for artifact in checkpoint_preparation.artifacts
-                ),
-                *(
-                    TransientProjection(
-                        transient_localization_id=transient.transient_localization_id,
-                    )
-                    for transient in checkpoint_preparation.transients
-                ),
-            ),
-        )
+    if operation_name == NodeOperationName.CHECKPOINT:
+        assert isinstance(response, CheckpointResponse)
+        if response.terminal:
+            return CommittedNodeOperationFollowOn(
+                runtime_signals=(BoundaryAccepted(authority.dispatch_id),),
+            )
     return CommittedNodeOperationFollowOn()
 
 

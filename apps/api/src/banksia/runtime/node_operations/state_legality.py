@@ -188,16 +188,16 @@ async def _narrow_structural_operations(
             )
         )
     )
-    direct_children = tuple(
+    direct_team_nodes = tuple(
         node for node in descendants if node.parent_node_key == authority.node_key
     )
-    if not direct_children:
+    if not direct_team_nodes:
         legal.discard(NodeOperationName.UPDATE_CHILD)
         legal.discard(NodeOperationName.REMOVE_CHILD)
     if NodeOperationName.ASSIGN_CHILD in legal and not any(
         (child.current_assignment_id is None and child.state == "ready")
         or (child.current_assignment_id is not None and child.state in {"done", "failed"})
-        for child in direct_children
+        for child in direct_team_nodes
     ):
         legal.discard(NodeOperationName.ASSIGN_CHILD)
 

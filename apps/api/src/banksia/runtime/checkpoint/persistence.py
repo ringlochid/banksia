@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import uuid4
 
-from sqlalchemy import exists, select, update
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,9 +13,7 @@ from banksia.persistence.models import (
     AttemptCheckpointModel,
     AttemptModel,
     CheckpointFileReferenceModel,
-    DispatchTurnModel,
     FlowModel,
-    FlowNodeModel,
     TaskModel,
     TeamRevisionMemberModel,
 )
@@ -38,6 +36,7 @@ from banksia.runtime.file_references import validate_file_references
 from banksia.runtime.node_operations.source_transitions import close_source_dispatch
 from banksia.runtime.task_events import append_task_event
 from banksia.runtime.task_root.reads import read_task_root_paths
+from banksia.runtime.team.participation import read_accepted_green_participation
 
 
 async def commit_checkpoint(
@@ -195,34 +194,12 @@ async def _require_current_direct_child_participation(
     )
     missing: list[str] = []
     for child in children:
-        current_assignment_id = await session.scalar(
-            select(FlowNodeModel.current_assignment_id).where(
-                FlowNodeModel.task_id == authority.task_id,
-                FlowNodeModel.flow_id == authority.flow_id,
-                FlowNodeModel.flow_revision_id == authority.flow_revision_id,
-                FlowNodeModel.team_revision_id == authority.dispatch.team_revision_id,
-                FlowNodeModel.member_id == child.member_id,
-                FlowNodeModel.member_configuration_id == child.member_configuration_id,
-                FlowNodeModel.member_branch_basis_id == child.member_branch_basis_id,
-            )
-        )
-        if current_assignment_id is None:
-            missing.append(child.member_id)
-            continue
-        participated = await session.scalar(
-            select(
-                exists().where(
-                    AcceptedBoundaryModel.task_id == authority.task_id,
-                    AcceptedBoundaryModel.flow_id == authority.flow_id,
-                    AcceptedBoundaryModel.assignment_id == current_assignment_id,
-                    AcceptedBoundaryModel.outcome == "green",
-                    DispatchTurnModel.dispatch_id == AcceptedBoundaryModel.source_dispatch_id,
-                    DispatchTurnModel.team_revision_id == authority.dispatch.team_revision_id,
-                    DispatchTurnModel.member_id == child.member_id,
-                    DispatchTurnModel.member_configuration_id == child.member_configuration_id,
-                    DispatchTurnModel.member_branch_basis_id == child.member_branch_basis_id,
-                )
-            )
+        participated = await read_accepted_green_participation(
+            session,
+            task_id=authority.task_id,
+            member_id=child.member_id,
+            member_configuration_id=child.member_configuration_id,
+            member_branch_basis_id=child.member_branch_basis_id,
         )
         if not participated:
             missing.append(child.member_id)

@@ -8,20 +8,22 @@ from banksia.runtime.contracts.prompt import (
     ChildReturnTrigger,
     DispatchRequestRenderInput,
     PromptAssignment,
-    PromptAvailability,
-    PromptBehavior,
     PromptCheckpointSummary,
     PromptContinuation,
-    PromptCurrentMember,
-    PromptDirectMember,
     PromptDispatch,
     PromptDynamicInput,
-    PromptEffectiveCapabilities,
-    PromptParticipation,
-    PromptProvider,
-    PromptSandbox,
     PromptTask,
     PromptWorkspace,
+)
+from banksia.runtime.contracts.team_read import (
+    CurrentMemberRead,
+    DirectTeamMemberRead,
+    EffectiveCapabilitiesRead,
+    MemberAvailability,
+    MemberBehavior,
+    MemberParticipation,
+    ResolvedProviderRead,
+    ResolvedSandboxRead,
 )
 from banksia.runtime.work_plan import WorkPlanStepRead, WorkPlanStepStatus, WorkPlanView
 
@@ -32,25 +34,25 @@ def sample_dynamic_input(
     task_lead: bool = False,
     continuation: bool = False,
     assignment_prompt: str = "Inspect and fix the exact issue.",
-    provider_name: str = "codex",
+    provider_kind: str = "codex",
     human_request: tuple[str, ...] = (),
     command_run: str = "deny",
 ) -> PromptDynamicInput:
-    capabilities = PromptEffectiveCapabilities(
+    capabilities = EffectiveCapabilitiesRead(
         human_request=human_request,
         command_run=command_run,
     )
     direct_team = (
         (
-            PromptDirectMember(
+            DirectTeamMemberRead(
                 id="reviewer",
                 title="Independent reviewer",
                 description="Review the bounded result.",
                 instruction="Challenge consequential claims.",
-                provider=PromptProvider(name="claude"),
-                capabilities=PromptEffectiveCapabilities(),
-                participation=PromptParticipation.REQUIRED,
-                availability=PromptAvailability.AVAILABLE,
+                provider=ResolvedProviderRead(kind="claude"),
+                capabilities=EffectiveCapabilitiesRead(),
+                participation=MemberParticipation.REQUIRED,
+                availability=MemberAvailability.AVAILABLE,
             ),
         )
         if manager
@@ -70,18 +72,18 @@ def sample_dynamic_input(
             attempt_id="att_123",
             assignment_id="asn_123",
         ),
-        current_member=PromptCurrentMember(
+        current_member=CurrentMemberRead(
             id="lead" if task_lead else "implementation",
             title="Delivery lead" if task_lead else "Implementation",
             description="Own the current result.",
             instruction="Preserve public compatibility.",
             position="task_lead" if task_lead else None,
-            behavior=PromptBehavior.MANAGER if manager else PromptBehavior.CONTRIBUTOR,
-            provider=PromptProvider(
-                name=provider_name,
+            behavior=MemberBehavior.MANAGER if manager else MemberBehavior.CONTRIBUTOR,
+            provider=ResolvedProviderRead(
+                kind=provider_kind,
                 model="gpt-5.6",
                 effort="high",
-                sandbox=PromptSandbox(mode="workspace_write", network="deny"),
+                sandbox=ResolvedSandboxRead(mode="workspace_write", network="deny"),
             ),
             effective_capabilities=capabilities,
         ),

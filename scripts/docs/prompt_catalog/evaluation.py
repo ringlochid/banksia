@@ -19,22 +19,24 @@ from banksia.runtime.contracts.prompt import (
     ChildReturnTrigger,
     DispatchRequestRenderInput,
     PromptAssignment,
-    PromptAvailability,
-    PromptBehavior,
     PromptCheckpointSummary,
     PromptContinuation,
-    PromptCurrentMember,
-    PromptDirectMember,
     PromptDispatch,
     PromptDynamicInput,
-    PromptEffectiveCapabilities,
-    PromptParticipation,
-    PromptProvider,
-    PromptSandbox,
     PromptTask,
     PromptWorkspace,
 )
 from banksia.runtime.contracts.refs import FileReference
+from banksia.runtime.contracts.team_read import (
+    CurrentMemberRead,
+    DirectTeamMemberRead,
+    EffectiveCapabilitiesRead,
+    MemberAvailability,
+    MemberBehavior,
+    MemberParticipation,
+    ResolvedProviderRead,
+    ResolvedSandboxRead,
+)
 from banksia.runtime.prompt import render_dispatch_request
 from pydantic import BaseModel, ConfigDict
 
@@ -76,7 +78,7 @@ class EvaluationScenario:
     accepted_decisions: frozenset[str]
     expected_stop: bool
     child_return: ChildReturnTrigger | None = None
-    participation: PromptParticipation = PromptParticipation.REQUIRED
+    participation: MemberParticipation = MemberParticipation.REQUIRED
     available_actions: tuple[str, ...] = (
         "get_current_context",
         "set_work_plan",
@@ -128,7 +130,7 @@ def evaluation_scenarios() -> tuple[EvaluationScenario, ...]:
                 file_path=".banksia/t_prompt_eval/artifacts/timeout-review.md",
                 file_description="Child-authored compatibility review to inspect.",
             ),
-            participation=PromptParticipation.SATISFIED,
+            participation=MemberParticipation.SATISFIED,
             accepted_decisions=frozenset({"inspect_evidence_before_accepting"}),
             expected_stop=False,
         ),
@@ -151,7 +153,7 @@ def evaluation_scenarios() -> tuple[EvaluationScenario, ...]:
                 file_path=".banksia/t_prompt_eval/artifacts/second-review.md",
                 file_description="Second independent compatibility review.",
             ),
-            participation=PromptParticipation.SATISFIED,
+            participation=MemberParticipation.SATISFIED,
             accepted_decisions=frozenset(
                 {
                     "inspect_evidence_before_accepting",
@@ -223,15 +225,15 @@ def render_scenario_request(
     workspace: Path,
 ) -> DispatchRequestRenderInput:
     assignment_id = f"asn_eval_{scenario.id.replace('-', '_')}"
-    direct_member = PromptDirectMember(
+    direct_member = DirectTeamMemberRead(
         id="reviewer",
         title="Independent reviewer",
         description="Provide a bounded compatibility contribution.",
         instruction="Challenge consequential compatibility claims.",
-        provider=PromptProvider(name=provider, model=model),
-        capabilities=PromptEffectiveCapabilities(),
+        provider=ResolvedProviderRead(kind=provider, model=model),
+        capabilities=EffectiveCapabilitiesRead(),
         participation=scenario.participation,
-        availability=PromptAvailability.AVAILABLE,
+        availability=MemberAvailability.AVAILABLE,
     )
     return DispatchRequestRenderInput(
         dynamic_input=PromptDynamicInput(
@@ -241,20 +243,20 @@ def render_scenario_request(
                 attempt_id=f"att_eval_{scenario.id.replace('-', '_')}",
                 assignment_id=assignment_id,
             ),
-            current_member=PromptCurrentMember(
+            current_member=CurrentMemberRead(
                 id="compatibility-lead",
                 title="Compatibility lead",
                 description="Own the integrated compatibility judgment.",
                 instruction=None,
                 position=None,
-                behavior=PromptBehavior.MANAGER,
-                provider=PromptProvider(
-                    name=provider,
+                behavior=MemberBehavior.MANAGER,
+                provider=ResolvedProviderRead(
+                    kind=provider,
                     model=model,
                     effort=effort,
-                    sandbox=PromptSandbox(mode="read_only", network="deny"),
+                    sandbox=ResolvedSandboxRead(mode="read_only", network="deny"),
                 ),
-                effective_capabilities=PromptEffectiveCapabilities(),
+                effective_capabilities=EffectiveCapabilitiesRead(),
             ),
             assignment=PromptAssignment(
                 id=assignment_id,

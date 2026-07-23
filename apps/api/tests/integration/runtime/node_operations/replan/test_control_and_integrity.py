@@ -4,7 +4,6 @@ from contextlib import AbstractAsyncContextManager
 from pathlib import Path
 from typing import cast
 
-import pytest
 from banksia.config import CodexSettings, RuntimeSettings, Settings
 from banksia.persistence.models import DispatchTurnModel, FlowModel, ReplanTransitionModel
 from banksia.providers import ProviderKind
@@ -18,8 +17,7 @@ from banksia.runtime.node_operations import NodeOperationScope
 from banksia.runtime.post_commit import CapturedRuntimeEffectPublisher
 from banksia.runtime.post_commit.bootstrap import read_replan_continuation_page
 from banksia.runtime.replan.continuation import continue_committed_replan
-from sqlalchemy import func, select, update
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from tests.helpers.executor_harness import seeded_executor
 
@@ -136,127 +134,6 @@ async def test_cancel_after_replan_settles_and_hides_the_transition_from_startup
     assert current_transition.successor_state == "cancelled"
     assert current_transition.successor_dispatch_id is None
     assert page.sources == ()
-
-
-async def test_replan_source_dispatch_rejects_revision_snapshot_mismatch(
-    tmp_path: Path,
-) -> None:
-    async with seeded_executor(tmp_path, suffix="recursive-source-snapshot-fk") as (
-        executor,
-        session_factory,
-        ids,
-        _signals,
-    ):
-        await executor.execute(
-            scope=NodeOperationScope(
-                task_id=ids.task_id,
-                dispatch_id=ids.current_dispatch_id,
-            ),
-            operation_name="add_child",
-            arguments={"child": {"title": "Reviewer"}},
-        )
-        async with session_factory() as session:
-            transition = await session.scalar(select(ReplanTransitionModel))
-            assert transition is not None
-            with pytest.raises(IntegrityError):
-                await session.execute(
-                    update(ReplanTransitionModel)
-                    .where(
-                        ReplanTransitionModel.replan_transition_id
-                        == transition.replan_transition_id
-                    )
-                    .values(
-                        source_flow_revision_id=transition.successor_flow_revision_id,
-                        source_team_revision_id=transition.successor_team_revision_id,
-                    )
-                )
-                await session.commit()
-            await session.rollback()
-
-
-async def test_replan_successor_dispatch_rejects_revision_snapshot_mismatch(
-    tmp_path: Path,
-) -> None:
-    async with seeded_executor(tmp_path, suffix="recursive-successor-snapshot-fk") as (
-        executor,
-        session_factory,
-        ids,
-        _signals,
-    ):
-        await executor.execute(
-            scope=NodeOperationScope(
-                task_id=ids.task_id,
-                dispatch_id=ids.current_dispatch_id,
-            ),
-            operation_name="add_child",
-            arguments={"child": {"title": "Reviewer"}},
-        )
-        async with session_factory() as session:
-            transition = await session.scalar(select(ReplanTransitionModel))
-            assert transition is not None
-            opened = await continue_committed_replan(
-                cast(AsyncSession, session),
-                transition_id=transition.replan_transition_id,
-                dependencies=_opening_dependencies(),
-            )
-            assert opened.outcome == "opened"
-            with pytest.raises(IntegrityError):
-                await session.execute(
-                    update(ReplanTransitionModel)
-                    .where(
-                        ReplanTransitionModel.replan_transition_id
-                        == transition.replan_transition_id
-                    )
-                    .values(
-                        successor_flow_revision_id=transition.source_flow_revision_id,
-                        successor_team_revision_id=transition.source_team_revision_id,
-                    )
-                )
-                await session.commit()
-            await session.rollback()
-
-
-async def test_replan_successor_dispatch_rejects_wrong_predecessor(
-    tmp_path: Path,
-) -> None:
-    async with seeded_executor(tmp_path, suffix="recursive-successor-lineage-fk") as (
-        executor,
-        session_factory,
-        ids,
-        _signals,
-    ):
-        await executor.execute(
-            scope=NodeOperationScope(
-                task_id=ids.task_id,
-                dispatch_id=ids.current_dispatch_id,
-            ),
-            operation_name="add_child",
-            arguments={"child": {"title": "Reviewer"}},
-        )
-        async with session_factory() as session:
-            transition = await session.scalar(select(ReplanTransitionModel))
-            assert transition is not None
-            opened = await continue_committed_replan(
-                cast(AsyncSession, session),
-                transition_id=transition.replan_transition_id,
-                dependencies=_opening_dependencies(),
-            )
-            assert opened.outcome == "opened"
-            with pytest.raises(IntegrityError):
-                await session.execute(
-                    update(ReplanTransitionModel)
-                    .where(
-                        ReplanTransitionModel.replan_transition_id
-                        == transition.replan_transition_id
-                    )
-                    .values(
-                        successor_dispatch_id=transition.source_dispatch_id,
-                        successor_flow_revision_id=transition.source_flow_revision_id,
-                        successor_team_revision_id=transition.source_team_revision_id,
-                    )
-                )
-                await session.commit()
-            await session.rollback()
 
 
 def _opening_dependencies() -> DispatchOpeningDependencies:

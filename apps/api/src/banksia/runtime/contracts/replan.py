@@ -4,6 +4,11 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from banksia.runtime.contracts.team_read import (
+    DirectTeamMemberRead,
+    EffectiveCapabilitiesRead,
+    MemberBehavior,
+)
 from banksia.workflows.contracts import (
     Identifier,
     MemberCapabilities,
@@ -118,23 +123,27 @@ class RemoveChildRequest(_ReplanModel):
     id: Identifier
 
 
-class ReplanMemberRead(_ReplanModel):
-    id: Identifier
-    title: str | None = None
-    description: str | None = None
-    instruction: str | None = None
-    provider: ProviderSelection | None = None
-    capabilities: MemberCapabilities | None = None
-    child_ids: tuple[Identifier, ...] = ()
-
-
 class ReplanSuccess(_ReplanModel):
     operation: ReplanOperation
     created_ids: tuple[Identifier, ...] = ()
     updated_ids: tuple[Identifier, ...] = ()
     removed_ids: tuple[Identifier, ...] = ()
-    direct_children: tuple[ReplanMemberRead, ...]
+    direct_team: tuple[DirectTeamMemberRead, ...]
+    behavior: MemberBehavior
+    effective_capabilities: EffectiveCapabilitiesRead
+    available_actions: tuple[Identifier, ...]
     must_stop: Literal[True] = True
+
+    @model_validator(mode="after")
+    def validate_fresh_member_view(self) -> ReplanSuccess:
+        expected_behavior = (
+            MemberBehavior.MANAGER if self.direct_team else MemberBehavior.CONTRIBUTOR
+        )
+        if self.behavior is not expected_behavior:
+            raise ValueError("replan behavior must match the direct-team shape")
+        if tuple(dict.fromkeys(self.available_actions)) != self.available_actions:
+            raise ValueError("replan available actions must be unique")
+        return self
 
 
 def _validate_new_tree(root: ReplanNewMember) -> None:
@@ -201,7 +210,6 @@ __all__ = [
     "RemoveChildRequest",
     "ReplanExistingMemberPatch",
     "ReplanMemberPatch",
-    "ReplanMemberRead",
     "ReplanNewMember",
     "ReplanOperation",
     "ReplanSuccess",

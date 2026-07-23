@@ -30,6 +30,7 @@ from banksia.runtime.dispatch.authority import (
     NodeOperationAuthority,
     exact_node_operation_authority_exists,
 )
+from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
 from banksia.runtime.errors import RuntimeOperationError, budget_exhausted_error
 from banksia.runtime.file_references import validate_file_references
 from banksia.runtime.node_operations.contracts import (
@@ -51,13 +52,27 @@ async def execute_structural_node_operation(
     authority: NodeOperationAuthority,
     operation_name: NodeOperationName,
     request: BaseModel,
+    *,
+    dispatch_opening_dependencies: DispatchOpeningDependencies | None,
 ) -> BaseModel:
     if operation_name in {
         NodeOperationName.ADD_CHILD,
         NodeOperationName.UPDATE_CHILD,
         NodeOperationName.REMOVE_CHILD,
     }:
-        return await commit_replan(session, authority, operation_name, request)
+        if dispatch_opening_dependencies is None:
+            raise RuntimeOperationError(
+                code=OperationFailureCode.INTERNAL_ERROR,
+                summary="replan provider resolution is not configured",
+                is_retryable=False,
+            )
+        return await commit_replan(
+            session,
+            authority,
+            operation_name,
+            request,
+            dependencies=dispatch_opening_dependencies,
+        )
     if operation_name == NodeOperationName.ASSIGN_CHILD:
         assert isinstance(request, AssignChildRequest)
         return await _assign_child(session, authority, request)

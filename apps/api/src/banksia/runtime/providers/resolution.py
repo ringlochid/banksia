@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Collection
+from collections.abc import Collection, Mapping
 from enum import StrEnum
 from urllib.parse import urlsplit
 
@@ -140,6 +140,16 @@ def provider_selection_from_kind(
             return OpenClawProviderSelection(kind="openclaw")
 
 
+def provider_selection_from_mapping(
+    provider: Mapping[str, object] | None,
+) -> ProviderSelection | None:
+    """Validate one persisted or candidate authored provider selection."""
+
+    if provider is None:
+        return None
+    return _PROVIDER_SELECTION_ADAPTER.validate_python(provider)
+
+
 async def read_member_provider_selection(
     session: AsyncSession,
     *,
@@ -154,9 +164,7 @@ async def read_member_provider_selection(
             MemberConfigurationModel.member_configuration_id == member_configuration_id,
         )
     )
-    if requested is None:
-        return None
-    return _PROVIDER_SELECTION_ADAPTER.validate_python(requested)
+    return provider_selection_from_mapping(requested)
 
 
 def validate_provider_execution_configuration(
@@ -505,6 +513,7 @@ __all__ = [
     "ProviderResolutionErrorCode",
     "narrow_provider_capabilities",
     "provider_selection_from_kind",
+    "provider_selection_from_mapping",
     "read_member_provider_selection",
     "resolve_member_provider_route",
     "resolve_provider_route",

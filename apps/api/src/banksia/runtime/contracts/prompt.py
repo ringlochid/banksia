@@ -21,10 +21,14 @@ from banksia.runtime.contracts.human_requests import (
 from banksia.runtime.contracts.primitives import (
     CheckpointOutcome,
     EgressBoundary,
-    HumanRequestKind,
 )
 from banksia.runtime.contracts.refs import FileReference
 from banksia.runtime.contracts.replan import ReplanSuccess
+from banksia.runtime.contracts.team_read import (
+    CurrentMemberRead,
+    DirectTeamMemberRead,
+    MemberBehavior,
+)
 from banksia.runtime.contracts.text import normalize_exact_text
 from banksia.runtime.work_plan.contracts import WorkPlanView
 
@@ -58,21 +62,6 @@ class PromptContract(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
 
-class PromptBehavior(StrEnum):
-    MANAGER = "manager"
-    CONTRIBUTOR = "contributor"
-
-
-class PromptParticipation(StrEnum):
-    REQUIRED = "required"
-    SATISFIED = "satisfied"
-
-
-class PromptAvailability(StrEnum):
-    AVAILABLE = "available"
-    BUSY = "busy"
-
-
 class PromptCommandOutcome(StrEnum):
     SUCCEEDED = "succeeded"
     FAILED = "failed"
@@ -99,35 +88,6 @@ class PromptDispatch(PromptContract):
     assignment_id: PromptIdentifier
 
 
-class PromptSandbox(PromptContract):
-    mode: PromptIdentifier
-    network: PromptIdentifier
-
-
-class PromptProvider(PromptContract):
-    name: PromptIdentifier
-    model: PromptIdentifier | None = None
-    effort: PromptIdentifier | None = None
-    gateway_profile: PromptIdentifier | None = None
-    sandbox: PromptSandbox | None = None
-
-
-class PromptEffectiveCapabilities(PromptContract):
-    human_request: tuple[HumanRequestKind, ...] = ()
-    command_run: Literal["allow", "deny"] = "deny"
-
-
-class PromptCurrentMember(PromptContract):
-    id: PromptIdentifier
-    title: str | None = None
-    description: str | None = None
-    instruction: str | None = None
-    position: Literal["task_lead"] | None = None
-    behavior: PromptBehavior
-    provider: PromptProvider
-    effective_capabilities: PromptEffectiveCapabilities
-
-
 class PromptAssignment(PromptContract):
     id: PromptIdentifier
     prompt: str
@@ -149,17 +109,6 @@ class PromptCheckpointSummary(PromptContract):
     details: str | None = None
     files: tuple[FileReference, ...] = ()
     outcome: CheckpointOutcome
-
-
-class PromptDirectMember(PromptContract):
-    id: PromptIdentifier
-    title: str | None = None
-    description: str | None = None
-    instruction: str | None = None
-    provider: PromptProvider | None = None
-    capabilities: PromptEffectiveCapabilities
-    participation: PromptParticipation
-    availability: PromptAvailability
 
 
 class PromptWorkspace(PromptContract):
@@ -387,10 +336,10 @@ class PromptContinuation(PromptContract):
 class PromptDynamicInput(PromptContract):
     task: PromptTask
     dispatch: PromptDispatch
-    current_member: PromptCurrentMember
+    current_member: CurrentMemberRead
     assignment: PromptAssignment
     continuation: PromptContinuation | None = None
-    direct_team: tuple[PromptDirectMember, ...] = ()
+    direct_team: tuple[DirectTeamMemberRead, ...] = ()
     work_plan: WorkPlanView | None = None
     available_actions: tuple[PromptIdentifier, ...]
     workspace: PromptWorkspace
@@ -400,7 +349,7 @@ class PromptDynamicInput(PromptContract):
         if self.assignment.id != self.dispatch.assignment_id:
             raise ValueError("assignment and dispatch IDs must match")
         expected_behavior = (
-            PromptBehavior.MANAGER if self.direct_team else PromptBehavior.CONTRIBUTOR
+            MemberBehavior.MANAGER if self.direct_team else MemberBehavior.CONTRIBUTOR
         )
         if self.current_member.behavior != expected_behavior:
             raise ValueError("current Member behavior must match the direct-team shape")
@@ -449,21 +398,13 @@ __all__ = [
     "OperatorContinueSource",
     "OperatorContinueTrigger",
     "PromptAssignment",
-    "PromptAvailability",
-    "PromptBehavior",
     "PromptCheckpointSummary",
     "PromptCommandOutcome",
     "PromptCommandResult",
     "PromptCommandTerminalSource",
     "PromptContinuation",
-    "PromptCurrentMember",
-    "PromptDirectMember",
     "PromptDispatch",
     "PromptDynamicInput",
-    "PromptEffectiveCapabilities",
-    "PromptParticipation",
-    "PromptProvider",
-    "PromptSandbox",
     "PromptTask",
     "PromptTrigger",
     "PromptWorkspace",

@@ -24,6 +24,7 @@ from banksia.runtime.contracts import (
 )
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
 from banksia.runtime.dispatch.authority import NodeOperationAuthority
+from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
 from banksia.runtime.errors import RuntimeOperationError
 from banksia.runtime.node_operations.contracts import (
     NodeOperationName,
@@ -45,6 +46,8 @@ async def execute_controller_node_operation(
     authority: NodeOperationAuthority,
     operation_name: NodeOperationName,
     request: BaseModel,
+    *,
+    dispatch_opening_dependencies: DispatchOpeningDependencies | None = None,
 ) -> BaseModel:
     if operation_name == NodeOperationName.CHECKPOINT:
         assert isinstance(request, CheckpointRequest)
@@ -68,6 +71,7 @@ async def execute_controller_node_operation(
         authority,
         operation_name,
         request,
+        dispatch_opening_dependencies=dispatch_opening_dependencies,
     )
 
 

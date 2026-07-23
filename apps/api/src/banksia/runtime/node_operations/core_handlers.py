@@ -17,17 +17,13 @@ from banksia.runtime.clock import utc_now
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
 from banksia.runtime.contracts.prompt import (
     PromptAssignment,
-    PromptBehavior,
-    PromptCurrentMember,
     PromptDispatch,
     PromptTask,
 )
+from banksia.runtime.contracts.team_read import CurrentMemberRead, MemberBehavior
 from banksia.runtime.dispatch.authority import NodeOperationAuthority
 from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
 from banksia.runtime.dispatch.prompt_snapshot import (
-    capability_projection,
-    persisted_provider_projection,
-    read_prompt_direct_team,
     workspace_projection,
 )
 from banksia.runtime.errors import RuntimeOperationError
@@ -44,6 +40,11 @@ from banksia.runtime.node_operations.state_legality import (
 )
 from banksia.runtime.prompt import parse_prompt_continuation
 from banksia.runtime.task_root import read_task_root_paths
+from banksia.runtime.team.reads import (
+    effective_capabilities_read,
+    persisted_provider_read,
+    read_direct_team_members,
+)
 from banksia.runtime.work_plan import (
     SetWorkPlanRequest,
     read_assignment_work_plan,
@@ -88,8 +89,8 @@ async def _get_current_context(
     dependencies: DispatchOpeningDependencies,
 ) -> GetCurrentContextResponse:
     plan = await read_assignment_work_plan(session, assignment_id=authority.assignment_id)
-    children = await _read_direct_children(session, authority)
-    direct_team = await read_prompt_direct_team(
+    children = await _read_direct_team_nodes(session, authority)
+    direct_team = await read_direct_team_members(
         session,
         children=children,
         dependencies=dependencies,
@@ -114,7 +115,7 @@ async def _get_current_context(
     except ValueError as exc:
         raise _invalid_committed_request(str(exc)) from exc
     paths = await read_task_root_paths(session, authority.task_id)
-    capabilities = capability_projection(authority.capabilities)
+    capabilities = effective_capabilities_read(authority.capabilities)
     return GetCurrentContextResponse(
         task=PromptTask(id=authority.task_id, workflow_id=workflow_id),
         dispatch=PromptDispatch(
@@ -122,14 +123,14 @@ async def _get_current_context(
             attempt_id=authority.attempt_id,
             assignment_id=authority.assignment_id,
         ),
-        current_member=PromptCurrentMember(
+        current_member=CurrentMemberRead(
             id=authority.dispatch.member_id,
             title=authority.flow_node.member_title,
-            description=authority.flow_node.description,
+            description=authority.flow_node.description or None,
             instruction=authority.flow_node.node_instruction,
             position=("task_lead" if authority.flow_node.parent_node_key is None else None),
-            behavior=(PromptBehavior.MANAGER if direct_team else PromptBehavior.CONTRIBUTOR),
-            provider=persisted_provider_projection(
+            behavior=(MemberBehavior.MANAGER if direct_team else MemberBehavior.CONTRIBUTOR),
+            provider=persisted_provider_read(
                 authority.dispatch,
                 authority.capabilities,
             ),
@@ -152,7 +153,7 @@ async def _get_current_context(
     )
 
 
-async def _read_direct_children(
+async def _read_direct_team_nodes(
     session: AsyncSession,
     authority: NodeOperationAuthority,
 ) -> tuple[FlowNodeModel, ...]:

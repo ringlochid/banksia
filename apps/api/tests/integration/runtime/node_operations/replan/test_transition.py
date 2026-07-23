@@ -9,7 +9,7 @@ from typing import cast
 import banksia.runtime.replan.continuation as replan_continuation
 import banksia.runtime.replan.persistence as replan_persistence
 import pytest
-from banksia.config import CodexSettings, RuntimeSettings, Settings
+from banksia.config import ClaudeSettings, CodexSettings, RuntimeSettings, Settings
 from banksia.persistence.models import (
     AttemptCheckpointModel,
     DispatchRequestModel,
@@ -23,6 +23,7 @@ from banksia.persistence.models import (
     TeamRevisionModel,
 )
 from banksia.providers import ProviderKind
+from banksia.runtime.contracts import ReplanSuccess
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
 from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
 from banksia.runtime.errors import RuntimeOperationError
@@ -30,9 +31,10 @@ from banksia.runtime.flow.service import (
     cancel_runtime_flow,
     pause_runtime_flow,
 )
-from banksia.runtime.node_operations import NodeActivitySignal, NodeOperationScope
+from banksia.runtime.node_operations import NodeOperationScope
 from banksia.runtime.post_commit import CapturedRuntimeEffectPublisher, ReplanCommitted
 from banksia.runtime.post_commit.bootstrap import read_replan_continuation_page
+from banksia.runtime.prompt import parse_prompt_continuation
 from banksia.runtime.replan.continuation import continue_committed_replan
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -54,13 +56,15 @@ async def test_manifest_barrier_opens_one_same_attempt_successor(
         suffix="recursive-continuation",
         runtime_effect_publisher=effects,
     ) as (executor, session_factory, ids, _signals):
-        await executor.execute(
-            scope=NodeOperationScope(
-                task_id=ids.task_id,
-                dispatch_id=ids.current_dispatch_id,
-            ),
-            operation_name="add_child",
-            arguments={"child": {"title": "Reviewer"}},
+        committed = ReplanSuccess.model_validate(
+            await executor.execute(
+                scope=NodeOperationScope(
+                    task_id=ids.task_id,
+                    dispatch_id=ids.current_dispatch_id,
+                ),
+                operation_name="add_child",
+                arguments={"child": {"title": "Reviewer"}},
+            )
         )
         replan_signal = effects.signals[0]
         assert isinstance(replan_signal, ReplanCommitted)
@@ -118,8 +122,15 @@ async def test_manifest_barrier_opens_one_same_attempt_successor(
         assert dispatch_request is not None
         task_root = seeded_task_root(tmp_path, "recursive-continuation")
         input_text = dispatch_request.input
-        assert '"kind": "structural_replan"' in input_text
-        assert '"operation": "add_child"' in input_text
+        continuation = parse_prompt_continuation(input_text)
+        assert continuation is not None
+        assert continuation.trigger.kind == "structural_replan"
+        assert continuation.trigger.source.source_dispatch_id == ids.current_dispatch_id
+        assert continuation.trigger.result.replan == committed
+        assert transition.committed_result_json == committed.model_dump(
+            mode="json",
+            exclude_none=True,
+        )
         manifest = (task_root / "manifest.md").read_text(encoding="utf-8")
         assert "# Banksia team" in manifest
         assert "Reviewer" in manifest
@@ -192,64 +203,6 @@ async def test_manifest_failure_is_repairable_and_startup_discoverable(
         assert transition is not None and transition.successor_state == "opened"
 
 
-async def test_concurrent_replans_have_one_winner_and_no_leaked_successors(
-    tmp_path: Path,
-) -> None:
-    async with seeded_executor(tmp_path, suffix="recursive-race") as (
-        executor,
-        session_factory,
-        ids,
-        _signals,
-    ):
-        scope = NodeOperationScope(
-            task_id=ids.task_id,
-            dispatch_id=ids.current_dispatch_id,
-        )
-        async with synchronized_transition_claims():
-            results = await asyncio.wait_for(
-                asyncio.gather(
-                    executor.execute(
-                        scope=scope,
-                        operation_name="add_child",
-                        arguments={"child": {"title": "Reviewer"}},
-                    ),
-                    executor.execute(
-                        scope=scope,
-                        operation_name="add_child",
-                        arguments={"child": {"title": "Verifier"}},
-                    ),
-                    return_exceptions=True,
-                ),
-                timeout=5,
-            )
-
-        error = _one_runtime_error(results)
-        assert error.code == OperationFailureCode.CONFLICT
-        assert error.is_retryable is True
-        assert error.suggested_next_step is not None
-        assert "Reread" in error.suggested_next_step
-        async with session_factory() as session:
-            team_revisions = await session.scalar(
-                select(func.count()).select_from(TeamRevisionModel)
-            )
-            flow_revisions = await session.scalar(
-                select(func.count()).select_from(FlowRevisionModel)
-            )
-            members = await session.scalar(select(func.count()).select_from(MemberModel))
-            transitions = await session.scalar(
-                select(func.count()).select_from(ReplanTransitionModel)
-            )
-            task = await session.get(TaskModel, ids.task_id)
-            flow = await session.get(FlowModel, ids.flow_id)
-
-        assert team_revisions == 2
-        assert flow_revisions == 2
-        assert members == 3
-        assert transitions == 1
-        assert task is not None and task.current_team_revision_id != team_revision_id(ids)
-        assert flow is not None and flow.active_flow_revision_id != ids.flow_revision_id
-
-
 async def test_duplicate_replan_delivery_returns_exact_committed_readback(
     tmp_path: Path,
 ) -> None:
@@ -265,15 +218,19 @@ async def test_duplicate_replan_delivery_returns_exact_committed_readback(
             provider_start_revision=0,
         )
         arguments = {"child": {"title": "Reviewer"}}
-        committed = await executor.execute(
-            scope=scope,
-            operation_name="add_child",
-            arguments=arguments,
+        committed = ReplanSuccess.model_validate(
+            await executor.execute(
+                scope=scope,
+                operation_name="add_child",
+                arguments=arguments,
+            )
         )
-        replayed = await executor.execute(
-            scope=scope,
-            operation_name="add_child",
-            arguments=arguments,
+        replayed = ReplanSuccess.model_validate(
+            await executor.execute(
+                scope=scope,
+                operation_name="add_child",
+                arguments=arguments,
+            )
         )
         with pytest.raises(RuntimeOperationError):
             await executor.execute(
@@ -305,10 +262,16 @@ async def test_duplicate_replan_delivery_returns_exact_committed_readback(
             transition_count = await session.scalar(
                 select(func.count()).select_from(ReplanTransitionModel)
             )
+            transition = await session.scalar(select(ReplanTransitionModel))
             member_count = await session.scalar(select(func.count()).select_from(MemberModel))
             source = await session.get(DispatchTurnModel, ids.current_dispatch_id)
 
         assert replayed == committed
+        assert transition is not None
+        assert transition.committed_result_json == committed.model_dump(
+            mode="json",
+            exclude_none=True,
+        )
         assert transition_count == 1
         assert member_count == 3
         assert source is not None and source.node_activity_revision == 1
@@ -368,6 +331,57 @@ async def test_failure_after_dual_head_claim_rolls_back_every_replan_write(
         assert transitions == 0
 
 
+async def test_replan_rejects_unavailable_candidate_provider_before_head_claim(
+    tmp_path: Path,
+) -> None:
+    settings = Settings(
+        runtime=RuntimeSettings(default_provider=ProviderKind.CODEX),
+        codex=CodexSettings(enabled=True),
+        claude=ClaudeSettings(enabled=True),
+    )
+    async with seeded_executor(
+        tmp_path,
+        suffix="recursive-provider-rejection",
+        provider_settings=settings,
+        available_adapter_kinds=(ProviderKind.CODEX,),
+    ) as (executor, session_factory, ids, _signals):
+        with pytest.raises(RuntimeOperationError) as rejected:
+            await executor.execute(
+                scope=NodeOperationScope(
+                    task_id=ids.task_id,
+                    dispatch_id=ids.current_dispatch_id,
+                ),
+                operation_name="add_child",
+                arguments={
+                    "child": {
+                        "title": "Review branch",
+                        "children": [
+                            {
+                                "title": "Unavailable nested reviewer",
+                                "provider": {"kind": "claude"},
+                            }
+                        ],
+                    }
+                },
+            )
+
+        async with session_factory() as session:
+            task = await session.get(TaskModel, ids.task_id)
+            flow = await session.get(FlowModel, ids.flow_id)
+            source = await session.get(DispatchTurnModel, ids.current_dispatch_id)
+            transitions = await session.scalar(
+                select(func.count()).select_from(ReplanTransitionModel)
+            )
+
+    assert rejected.value.code == OperationFailureCode.ILLEGAL_STATE
+    assert rejected.value.status_code_override == 422
+    assert "adapter 'claude' is unavailable" in rejected.value.summary
+    assert task is not None and task.current_team_revision_id == team_revision_id(ids)
+    assert flow is not None and flow.active_flow_revision_id == ids.flow_revision_id
+    assert source is not None and source.status == "open"
+    assert transitions == 0
+
+
 async def test_replan_and_terminal_checkpoint_have_one_stable_winner(
     tmp_path: Path,
 ) -> None:
@@ -423,67 +437,6 @@ async def test_replan_and_terminal_checkpoint_have_one_stable_winner(
         else:
             assert source.status == "closed"
             assert source.closed_reason == "boundary"
-
-
-@pytest.mark.parametrize("control_operation", ("pause", "cancel"))
-async def test_flow_control_winner_prevents_replan_successor_rows(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    control_operation: str,
-) -> None:
-    async with seeded_executor(tmp_path, suffix=f"recursive-{control_operation}-race") as (
-        executor,
-        session_factory,
-        ids,
-        _signals,
-    ):
-
-        async def apply_control_after_admission(_signal: NodeActivitySignal) -> None:
-            async with session_factory() as session:
-                flow = await session.get(FlowModel, ids.flow_id)
-                assert flow is not None
-                control = (
-                    pause_runtime_flow if control_operation == "pause" else cancel_runtime_flow
-                )
-                await control(
-                    cast(AsyncSession, session),
-                    ids.task_id,
-                    expected_active_flow_revision_id=ids.flow_revision_id,
-                    expected_control_revision=flow.control_revision,
-                )
-
-        monkeypatch.setattr(
-            executor,
-            "_publish_activity_signal",
-            apply_control_after_admission,
-        )
-        with pytest.raises(RuntimeOperationError):
-            await executor.execute(
-                scope=NodeOperationScope(
-                    task_id=ids.task_id,
-                    dispatch_id=ids.current_dispatch_id,
-                ),
-                operation_name="add_child",
-                arguments={"child": {"title": "Reviewer"}},
-            )
-
-        async with session_factory() as session:
-            transition_count = await session.scalar(
-                select(func.count()).select_from(ReplanTransitionModel)
-            )
-            team_revision_count = await session.scalar(
-                select(func.count()).select_from(TeamRevisionModel)
-            )
-            flow_revision_count = await session.scalar(
-                select(func.count()).select_from(FlowRevisionModel)
-            )
-            flow = await session.get(FlowModel, ids.flow_id)
-
-        assert transition_count == 0
-        assert team_revision_count == 1
-        assert flow_revision_count == 1
-        assert flow is not None
-        assert flow.status == ("paused" if control_operation == "pause" else "cancelled")
 
 
 @pytest.mark.parametrize("control_operation", ("pause", "cancel"))

@@ -3,7 +3,20 @@ from __future__ import annotations
 from xml.etree import ElementTree
 
 import pytest
-from banksia.runtime.contracts.prompt import PromptAssignment, RenderedDispatchRequest
+from banksia.runtime.contracts import ReplanSuccess
+from banksia.runtime.contracts.prompt import (
+    PromptAssignment,
+    PromptContinuation,
+    RenderedDispatchRequest,
+    StructuralReplanResult,
+    StructuralReplanSource,
+    StructuralReplanTrigger,
+)
+from banksia.runtime.contracts.team_read import (
+    EffectiveCapabilitiesRead,
+    MemberBehavior,
+    ResolvedProviderRead,
+)
 from banksia.runtime.prompt import (
     parse_prompt_continuation,
     render_dispatch_request,
@@ -35,6 +48,10 @@ def test_initial_dispatch_is_deterministic_complete_xml_without_fake_trigger() -
     ]
     assert root.find("continuation") is None
     assert root.findtext("assignment/prompt") == "Inspect and fix the exact issue."
+    assert root.findtext("current_member/provider/kind") == "codex"
+    assert root.find("current_member/provider/name") is None
+    with pytest.raises(ValidationError):
+        ResolvedProviderRead.model_validate({"name": "codex"})
     assert root.findtext("assignment/files/file/path") == (
         ".banksia/t_7m4k2d9x/artifacts/review.md"
     )
@@ -73,7 +90,7 @@ def test_instruction_composition_is_conditional_ordered_and_provider_neutral() -
             continuation=True,
             human_request=("direction",),
             command_run="allow",
-            provider_name="codex",
+            provider_kind="codex",
         )
     )
     claude = render_dispatch_request(
@@ -83,7 +100,7 @@ def test_instruction_composition_is_conditional_ordered_and_provider_neutral() -
             continuation=True,
             human_request=("direction",),
             command_run="allow",
-            provider_name="claude",
+            provider_kind="claude",
         )
     )
     root = ElementTree.fromstring(codex.instructions_text)
@@ -115,6 +132,42 @@ def test_nested_continuation_round_trips_from_committed_input() -> None:
     assert continuation.trigger.kind == "child_return"
     assert continuation.trigger.result.assignment.prompt == ("Review the exact implementation.")
     assert continuation.trigger.result.checkpoint.files[0].description == ("Independent review.")
+
+
+def test_structural_replan_continuation_round_trips_fixed_id_collections() -> None:
+    continuation = PromptContinuation(
+        trigger=StructuralReplanTrigger(
+            source=StructuralReplanSource(
+                source_dispatch_id="dsp_source",
+                operation="add_child",
+            ),
+            result=StructuralReplanResult(
+                replan=ReplanSuccess(
+                    operation="add_child",
+                    created_ids=("member_branch", "member_nested"),
+                    updated_ids=(),
+                    removed_ids=(),
+                    direct_team=(),
+                    behavior=MemberBehavior.CONTRIBUTOR,
+                    effective_capabilities=EffectiveCapabilitiesRead(),
+                    available_actions=("get_current_context", "add_child"),
+                )
+            ),
+        )
+    )
+    dynamic_input = sample_dynamic_input().model_copy(update={"continuation": continuation})
+
+    rendered = render_dynamic_input(dynamic_input)
+    parsed = parse_prompt_continuation(rendered)
+    root = ElementTree.fromstring(rendered)
+
+    assert parsed == continuation
+    assert [element.text for element in root.findall(".//created_ids/id")] == [
+        "member_branch",
+        "member_nested",
+    ]
+    assert root.find(".//updated_ids") is not None
+    assert root.find(".//removed_ids") is not None
 
 
 def test_xml_illegal_assignment_text_rejects_instead_of_being_replaced() -> None:

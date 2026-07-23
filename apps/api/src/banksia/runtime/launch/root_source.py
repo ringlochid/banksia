@@ -30,21 +30,21 @@ from banksia.runtime.contracts.prompt import (
     OperatorContinueResult,
     OperatorContinueSource,
     OperatorContinueTrigger,
-    PromptDirectMember,
 )
 from banksia.runtime.contracts.provider_resolution import ProviderResolution
 from banksia.runtime.contracts.refs import FileReference
+from banksia.runtime.contracts.team_read import DirectTeamMemberRead
 from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
 from banksia.runtime.dispatch.prompt_snapshot import (
     RootPromptSnapshot,
     RootPromptTrigger,
-    read_prompt_direct_team,
 )
 from banksia.runtime.providers import (
     narrow_provider_capabilities,
     resolve_member_provider_route,
 )
 from banksia.runtime.task_root import read_task_root_paths
+from banksia.runtime.team.reads import read_direct_team_members
 from banksia.runtime.work_plan import WorkPlanRead, read_assignment_work_plan
 
 type RootSourceFlowStatus = Literal["running", "paused"]
@@ -132,7 +132,7 @@ async def read_root_opening_snapshot(
         capabilities=capabilities,
     )
     paths = await read_task_root_paths(session, context.task.task_id)
-    direct_team = await read_prompt_direct_team(
+    direct_team = await read_direct_team_members(
         session,
         children=children,
         dependencies=dependencies,
@@ -363,7 +363,7 @@ def _build_root_prompt_snapshot(
     work_plan: WorkPlanRead | None,
     capabilities: EffectiveCapabilitySet,
     provider: ProviderResolution,
-    direct_team: tuple[PromptDirectMember, ...],
+    direct_team: tuple[DirectTeamMemberRead, ...],
     paths: TaskRootPaths,
     assignment_files: tuple[FileReference, ...],
 ) -> RootPromptSnapshot:

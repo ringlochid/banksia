@@ -20,12 +20,11 @@ from banksia.runtime.contracts.member import NodeKind
 from banksia.runtime.contracts.prompt import (
     PromptAssignment,
     PromptContinuation,
-    PromptCurrentMember,
-    PromptDirectMember,
     PromptDispatch,
     PromptTask,
     PromptWorkspace,
 )
+from banksia.runtime.contracts.team_read import CurrentMemberRead, DirectTeamMemberRead
 from banksia.runtime.work_plan import WorkPlanView
 
 
@@ -75,10 +74,10 @@ class GetCurrentContextResponse(BaseModel):
 
     task: PromptTask
     dispatch: PromptDispatch
-    current_member: PromptCurrentMember
+    current_member: CurrentMemberRead
     assignment: PromptAssignment
     continuation: PromptContinuation | None = None
-    direct_team: tuple[PromptDirectMember, ...] = ()
+    direct_team: tuple[DirectTeamMemberRead, ...] = ()
     work_plan: WorkPlanView | None = None
     available_actions: tuple[NodeOperationName, ...]
     workspace: PromptWorkspace

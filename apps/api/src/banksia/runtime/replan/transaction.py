@@ -12,6 +12,7 @@ from banksia.runtime.contracts import (
     UpdateChildRequest,
 )
 from banksia.runtime.dispatch.authority import NodeOperationAuthority
+from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
 from banksia.runtime.node_operations.contracts import NodeOperationName
 from banksia.runtime.node_operations.follow_on import (
     CommittedNodeOperationFollowOn,
@@ -33,6 +34,8 @@ async def commit_replan(
     authority: NodeOperationAuthority,
     operation_name: NodeOperationName,
     request: BaseModel,
+    *,
+    dependencies: DispatchOpeningDependencies,
 ) -> CommittedNodeOperationResult:
     """Commit one recursive subtree mutation and schedule its durable continuation."""
 
@@ -45,6 +48,7 @@ async def commit_replan(
         authority,
         cast(ReplanOperation, operation_name.value),
         _replan_request(request),
+        dependencies=dependencies,
     )
     return CommittedNodeOperationResult(
         response=commit.result,

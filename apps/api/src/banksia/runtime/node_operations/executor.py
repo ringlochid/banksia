@@ -220,6 +220,7 @@ class NodeOperationExecutor:
                 authority,
                 descriptor.name,
                 request,
+                dispatch_opening_dependencies=self._dispatch_opening_dependencies,
             )
         handler_follow_on = CommittedNodeOperationFollowOn()
         if isinstance(result, CommittedNodeOperationResult):

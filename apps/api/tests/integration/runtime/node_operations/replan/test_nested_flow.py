@@ -74,7 +74,9 @@ async def test_nested_replan_update_preserves_unlisted_children_and_appends_new_
             reviewer_id=reviewer_id,
             verifier_id=verifier_id,
         )
+        replayed_add = await _add_review_branch(executor, ids)
 
+        assert replayed_add == added
         assert updated.updated_ids == (reviewer_id,)
         assert updated.created_ids == (appended_id,)
         assert state.branch_children == (reviewer_id, verifier_id, appended_id)
@@ -101,6 +103,7 @@ async def _add_review_branch(
         scope=NodeOperationScope(
             task_id=ids.task_id,
             dispatch_id=ids.current_dispatch_id,
+            provider_start_revision=0,
         ),
         operation_name="add_child",
         arguments={

@@ -588,7 +588,7 @@ Render one deterministic `<banksia_dispatch_request>` document. It contains comp
       <instruction format="markdown">Preserve compatibility...</instruction>
       <provider>...nonsecret resolved execution facts...</provider>
       <capabilities>...effective child grants...</capabilities>
-      <participation>green_current_basis</participation>
+      <participation>satisfied</participation>
     </member>
   </direct_team>
   <work_plan>...optional complete current plan...</work_plan>
@@ -714,10 +714,10 @@ The target imports a consistent pattern from current primary sources:
 - [Claude prompting guidance](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices) recommends consistent descriptive XML tags for mixed instructions, context, and input.
 - [Google Antigravity Artifacts](https://antigravity.google/docs/artifacts) and [subagents](https://antigravity.google/docs/subagents) treat deliverables as reviewable collaboration surfaces at meaningful milestones and child agents as fresh, specialized contexts. Banksia adapts the collaboration value as loose files under `artifacts/` without creating an Artifact product object, requesting private reasoning, or adopting peer-to-peer agent messaging.
 - [CrewAI Tasks](https://docs.crewai.com/en/concepts/tasks) keeps a task's optional output file as a plain file path while representing the task result separately. Banksia generalizes the path idea to an ordered `files` field without adopting CrewAI's task schema or treating the path as runtime truth.
-- [Antigravity Rules and Workflows](https://antigravity.google/docs/rules-workflows) uses *Workflow* for a predefined sequence. Banksia deliberately uses the word for a reusable team definition and therefore states that difference wherever the term is introduced.
+- [Antigravity Rules and Workflows](https://antigravity.google/docs/rules-workflows) uses _Workflow_ for a predefined sequence. Banksia deliberately uses the word for a reusable team definition and therefore states that difference wherever the term is introduced.
 - [Gemini CLI system-prompt guidance](https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/system-prompt.md) separates stable non-negotiable operating mechanics from project-specific strategy, while its [prompt compositor](https://github.com/google-gemini/gemini-cli/blob/main/packages/core/src/prompts/promptProvider.ts) conditionally renders only relevant sections.
 - [Microsoft Agent Framework workflows](https://learn.microsoft.com/en-us/agent-framework/workflows/) and [agent orchestration patterns](https://learn.microsoft.com/en-us/azure/architecture/ai-ml/guide/ai-agent-design-patterns) provide the standard sequential, concurrent fan-out/fan-in, handoff, and manager-led terminology used as comparison labels in Banksia docs.
-- [LangGraph persistence](https://docs.langchain.com/oss/python/langgraph/persistence) uses *checkpoint* for a saved graph-state snapshot. Banksia therefore defines Checkpoint immediately as a teammate-facing work report.
+- [LangGraph persistence](https://docs.langchain.com/oss/python/langgraph/persistence) uses _checkpoint_ for a saved graph-state snapshot. Banksia therefore defines Checkpoint immediately as a teammate-facing work report.
 - [A2A key concepts](https://a2a-protocol.org/latest/topics/key-concepts/) distinguishes communication messages from tangible outputs. Banksia keeps Checkpoint prose distinct from referenced loose files while using no controller-owned Artifact domain resource; lowercase “artifact file” remains descriptive workspace language only.
 - OMC Team at pinned commit [`67dddfc`](https://github.com/Yeachan-Heo/oh-my-claudecode/blob/67dddfc05ff29900d8251dcec0ed9dee3c947ffa/skills/team/SKILL.md) and OMX Autopilot/Research at pinned commit [`435d4a9`](https://github.com/Yeachan-Heo/oh-my-codex/blob/435d4a9cc982ffaf83fabbfbb8711ae6c178ffca/skills/autopilot/SKILL.md) contribute useful lead-owned delegation, compact handoffs, independent verification, bounded repair, and durable working-note ideas without becoming Banksia's runtime pipeline.
 

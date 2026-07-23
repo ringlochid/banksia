@@ -75,11 +75,11 @@ async def test_current_context_uses_dispatch_vocabulary_and_fresh_legal_actions(
     assert payload["continuation"] is None
     assert payload["current_member"]["behavior"] == "manager"
     assert payload["current_member"]["position"] == "task_lead"
-    assert payload["current_member"]["provider"]["name"] == "codex"
+    assert payload["current_member"]["provider"]["kind"] == "codex"
     assert payload["direct_team"][0]["id"] == "child"
     assert payload["direct_team"][0]["participation"] == "required"
     assert payload["direct_team"][0]["provider"] == {
-        "name": "claude",
+        "kind": "claude",
         "model": "claude-context-model",
         "effort": "high",
         "gateway_profile": None,

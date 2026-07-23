@@ -28,20 +28,20 @@ from banksia.runtime.assignment import read_assignment_file_references
 from banksia.runtime.capabilities import resolve_effective_capabilities_for_node
 from banksia.runtime.contracts.capabilities import EffectiveCapabilitySet
 from banksia.runtime.contracts.primitives import TaskRootPaths
-from banksia.runtime.contracts.prompt import PromptDirectMember
 from banksia.runtime.contracts.provider_resolution import ProviderResolution
 from banksia.runtime.contracts.refs import FileReference
+from banksia.runtime.contracts.team_read import DirectTeamMemberRead
 from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
 from banksia.runtime.dispatch.prompt_snapshot import (
     OrdinaryPromptSnapshot,
     OrdinaryPromptTrigger,
-    read_prompt_direct_team,
 )
 from banksia.runtime.providers import (
     narrow_provider_capabilities,
     resolve_member_provider_route,
 )
 from banksia.runtime.task_root import read_task_root_paths
+from banksia.runtime.team.reads import read_direct_team_members
 from banksia.runtime.work_plan import WorkPlanRead, read_assignment_work_plan
 
 type OrdinaryExpectedFlowStatus = Literal["running", "paused"]
@@ -139,7 +139,7 @@ async def read_ordinary_dispatch_snapshot(
     workflow_note = workflow.content_json.get("note")
     if workflow_note is not None and not isinstance(workflow_note, str):
         raise ValueError("ordinary continuation workflow note must be text")
-    direct_team = await read_prompt_direct_team(
+    direct_team = await read_direct_team_members(
         session,
         children=children,
         dependencies=dependencies,
@@ -287,7 +287,7 @@ def build_ordinary_prompt_snapshot(
     capabilities: EffectiveCapabilitySet,
     work_plan: WorkPlanRead | None,
     provider: ProviderResolution,
-    direct_team: tuple[PromptDirectMember, ...],
+    direct_team: tuple[DirectTeamMemberRead, ...],
     paths: TaskRootPaths,
     assignment_files: tuple[FileReference, ...],
 ) -> OrdinaryPromptSnapshot:

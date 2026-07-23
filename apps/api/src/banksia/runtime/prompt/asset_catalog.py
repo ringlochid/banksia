@@ -5,7 +5,8 @@ from functools import cache
 from importlib.resources import files
 from pathlib import PurePosixPath
 
-from banksia.runtime.contracts.prompt import PromptBehavior, PromptDynamicInput
+from banksia.runtime.contracts.prompt import PromptDynamicInput
+from banksia.runtime.contracts.team_read import MemberBehavior
 
 ASSET_PACKAGE = "banksia.runtime.prompt.assets"
 
@@ -44,14 +45,14 @@ def instruction_asset_path(asset: InstructionAsset) -> PurePosixPath:
 def instruction_assets_for_request(
     dynamic_input: PromptDynamicInput,
 ) -> tuple[InstructionAsset, ...]:
-    selected = list(_BASE_ASSETS)
+    selected: list[InstructionAsset] = list(_BASE_ASSETS)
     member = dynamic_input.current_member
     actions = frozenset(dynamic_input.available_actions)
     if member.position == "task_lead":
         selected.append(InstructionAsset.TASK_LEAD)
     selected.append(
         InstructionAsset.MANAGER_PRE_WAVE
-        if member.behavior is PromptBehavior.MANAGER
+        if member.behavior is MemberBehavior.MANAGER
         else InstructionAsset.CONTRIBUTOR
     )
     if "open_human_request" in actions and member.effective_capabilities.human_request:

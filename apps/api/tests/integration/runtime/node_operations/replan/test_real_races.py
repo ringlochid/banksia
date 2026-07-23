@@ -13,6 +13,7 @@ from uuid import uuid4
 
 import banksia.runtime.node_operations.executor as executor_module
 import pytest
+from banksia.config import CodexSettings, RuntimeSettings, Settings
 from banksia.interfaces.mcp.mcp_operation_failures import runtime_operation_failure
 from banksia.persistence.models import (
     FlowModel,
@@ -25,12 +26,15 @@ from banksia.persistence.session import (
     create_runtime_schema_tables,
     install_sqlite_transaction_control,
 )
+from banksia.providers import ProviderKind
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
 from banksia.runtime.dispatch.authority import NodeOperationAuthority
+from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
 from banksia.runtime.errors import RuntimeOperationError
 from banksia.runtime.flow.service import cancel_runtime_flow, pause_runtime_flow
 from banksia.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
 from banksia.runtime.node_operations.activity import NodeActivitySignal
+from banksia.runtime.post_commit import CapturedRuntimeEffectPublisher
 from sqlalchemy import event, func, select
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy.ext.asyncio import (
@@ -282,7 +286,16 @@ async def _async_runtime_harness(
             return_value=session_factory,
         ):
             yield AsyncRuntimeHarness(
-                executor=NodeOperationExecutor(),
+                executor=NodeOperationExecutor(
+                    dispatch_opening_dependencies=DispatchOpeningDependencies.create(
+                        settings=Settings(
+                            runtime=RuntimeSettings(default_provider=ProviderKind.CODEX),
+                            codex=CodexSettings(enabled=True),
+                        ),
+                        available_adapter_kinds=(ProviderKind.CODEX,),
+                        post_commit_publisher=CapturedRuntimeEffectPublisher(),
+                    )
+                ),
                 session_factory=session_factory,
                 ids=ids,
             )

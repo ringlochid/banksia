@@ -36,13 +36,13 @@ from banksia.runtime.dispatch.ordinary_context import (
     read_pinned_workflow_revision,
 )
 from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
-from banksia.runtime.dispatch.prompt_snapshot import read_prompt_direct_team
 from banksia.runtime.post_commit import WatchdogDue
 from banksia.runtime.providers import (
     narrow_provider_capabilities,
     resolve_member_provider_route,
 )
 from banksia.runtime.task_root import read_task_root_paths
+from banksia.runtime.team.reads import read_direct_team_members
 from banksia.runtime.watchdog.deadline import calculate_watchdog_due_at
 from banksia.runtime.work_plan import read_assignment_work_plan
 
@@ -204,7 +204,7 @@ async def _build_watchdog_replacement_dispatch(
     workflow_note = workflow.content_json.get("note")
     if workflow_note is not None and not isinstance(workflow_note, str):
         raise ValueError("watchdog continuation workflow note must be text")
-    direct_team = await read_prompt_direct_team(
+    direct_team = await read_direct_team_members(
         session,
         children=children,
         dependencies=dependencies,

@@ -18,13 +18,17 @@ from banksia.runtime.prompt.instructions import render_request_instructions
 _COLLECTION_ITEM_TAGS = {
     "argv": "arg",
     "available_actions": "action",
+    "created_ids": "id",
     "direct_team": "member",
     "files": "file",
     "human_request": "kind",
     "items": "item",
     "options": "option",
+    "removed_ids": "id",
     "steps": "step",
+    "updated_ids": "id",
 }
+_BOOLEAN_FIELDS = frozenset(("must_stop", "output_complete"))
 _JSON_FIELDS = frozenset(("item_responses", "response_schema"))
 
 
@@ -145,6 +149,10 @@ def _element_value(element: ElementTree.Element) -> object:
         return [_element_value(child) for child in element]
     children = list(element)
     if not children:
+        if element.tag in _BOOLEAN_FIELDS:
+            if element.text not in {"true", "false"}:
+                raise ValueError(f"encoded Boolean field '{element.tag}' is invalid")
+            return element.text == "true"
         return element.text or ""
     return {child.tag: _element_value(child) for child in children}
 

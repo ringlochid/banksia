@@ -39,6 +39,11 @@ def build_settings_payload(settings: Any, config_path: Path) -> dict[str, Any]:
         "config_path": str(config_path),
         "paths": {
             "data_dir": str(settings.data_dir),
+            "workspace": (
+                str(settings.controller_workspace)
+                if settings.controller_workspace is not None
+                else None
+            ),
         },
         "database": {
             "url": redact_database_url(settings.database_url),

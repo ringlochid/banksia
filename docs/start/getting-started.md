@@ -18,11 +18,11 @@ You can use `uv tool install banksia-ai` instead. Install `banksia-ai[postgres]`
 banksia init
 ```
 
-On a terminal, `init` shows the recommended local paths, database, and loopback API address before it writes. It creates the local configuration, prepares the controller database, and installs the packaged definitions. It binds the server to `127.0.0.1:18125` by default.
+On a terminal, `init` asks for the default workspace, suggesting the directory where you invoked it, then shows the recommended local paths, database, and loopback API address before it writes. It creates the local configuration, prepares the controller database, and installs the packaged definitions. It binds the server to `127.0.0.1:18125` by default.
 
 Rerunning `init` keeps and verifies an existing config by default. Replacing config requires an explicit selection and confirmation. It never resets a mismatched database; use `banksia db reset` only when destructive replacement is intended.
 
-Use `--data-dir`, `--database-url`, `--host`, or `--port` when the defaults do not fit your machine. Keep the server on loopback for the supported local lane.
+Use `--workspace`, `--data-dir`, `--database-url`, `--host`, or `--port` when the defaults do not fit your machine. `--workspace` must name an existing directory. Keep the server on loopback for the supported local lane.
 
 ## Configure a provider
 

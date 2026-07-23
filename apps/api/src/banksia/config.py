@@ -27,11 +27,15 @@ from banksia.platform.environment import Environment
 from banksia.providers import ManagedSandboxMode, NetworkAccess, ProviderKind
 
 CONFIG_ENV_VAR = "BANKSIA_CONFIG"
+CONTROLLER_WORKSPACE_ENV_VAR = "BANKSIA_CONTROLLER_WORKSPACE"
 DEFAULT_LOG_LEVEL = "WARNING"
 DEFAULT_API_PORT = 18125
 ConfigText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 ProviderConfigText = Annotated[str, StringConstraints(strip_whitespace=True)]
 _POSTGRES_SCHEMA_PATTERN = re.compile(r"[a-z_][a-z0-9_$]{0,62}\Z")
+_CONTROLLER_WORKSPACE_REQUIREMENT = (
+    "controller workspace must be a non-blank absolute path to an existing directory"
+)
 
 
 class CodexSettings(BaseModel):
@@ -157,6 +161,13 @@ class Settings(BaseSettings):
     def validate_console_origins(cls, values: list[str]) -> list[str]:
         return list(dict.fromkeys(normalize_loopback_origin(value) for value in values))
 
+    @field_validator("controller_workspace", mode="before")
+    @classmethod
+    def validate_controller_workspace(cls, value: Any) -> Path | None:
+        if value is None:
+            return None
+        return normalize_controller_workspace(value)
+
     @property
     def debug(self) -> bool:
         return self.is_debug_enabled
@@ -217,8 +228,6 @@ def load_settings() -> Settings:
         settings.should_echo_database = database_echo_override
     settings.config_path = _coerce_path(settings.config_path)
     settings.data_dir = _coerce_path(settings.data_dir)
-    if settings.controller_workspace is not None:
-        settings.controller_workspace = _coerce_path(settings.controller_workspace)
     if "database_url" not in settings.model_fields_set:
         settings.database_url = default_database_url(settings.data_dir)
     return settings
@@ -276,6 +285,26 @@ def normalize_loopback_host(value: str) -> str:
     if not parsed_host.is_loopback:
         raise ValueError("api_host must be loopback-only")
     return parsed_host.compressed
+
+
+def normalize_controller_workspace(
+    value: str | os.PathLike[str] | Path,
+) -> Path:
+    """Return one existing absolute controller workspace directory."""
+
+    try:
+        raw_workspace = os.fspath(value)
+        if not isinstance(raw_workspace, str) or not raw_workspace.strip():
+            raise ValueError(_CONTROLLER_WORKSPACE_REQUIREMENT)
+        expanded_workspace = Path(raw_workspace).expanduser()
+        if not expanded_workspace.is_absolute():
+            raise ValueError(_CONTROLLER_WORKSPACE_REQUIREMENT)
+        workspace = expanded_workspace.resolve()
+    except (OSError, RuntimeError, TypeError, ValueError) as exc:
+        raise ValueError(f"{_CONTROLLER_WORKSPACE_REQUIREMENT}: {value!s}") from exc
+    if not workspace.is_dir():
+        raise ValueError(f"{_CONTROLLER_WORKSPACE_REQUIREMENT}: {workspace}")
+    return workspace
 
 
 def _coerce_path(value: str | os.PathLike[str] | Path) -> Path:
@@ -339,6 +368,7 @@ def _load_toml_settings() -> dict[str, Any]:
 
 __all__ = [
     "CONFIG_ENV_VAR",
+    "CONTROLLER_WORKSPACE_ENV_VAR",
     "DEFAULT_API_PORT",
     "DEFAULT_LOG_LEVEL",
     "ClaudeSettings",
@@ -352,6 +382,7 @@ __all__ = [
     "format_loopback_authority",
     "get_settings",
     "load_settings",
+    "normalize_controller_workspace",
     "normalize_loopback_host",
     "normalize_loopback_origin",
 ]

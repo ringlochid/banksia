@@ -6,7 +6,10 @@ from pathlib import Path
 
 import pytest
 from banksia.interfaces.cli import root as cli_root
-from banksia.interfaces.cli.bootstrap.config import settings_to_config_text
+from banksia.interfaces.cli.bootstrap.config import (
+    build_initial_config_sections,
+    config_sections_to_text,
+)
 from banksia.interfaces.cli.commands import guided_setup
 from banksia.interfaces.cli.main import build_parser
 from banksia.interfaces.cli.providers.contracts import (
@@ -63,6 +66,9 @@ def test_guided_init_confirms_recommended_local_settings(
 ) -> None:
     config_path = tmp_path / "config.toml"
     data_dir = tmp_path / "data"
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    monkeypatch.chdir(workspace)
     monkeypatch.setattr(cli_root, "should_run_guided_flow", lambda **_kwargs: True)
 
     result = CliRunner().invoke(
@@ -74,13 +80,15 @@ def test_guided_init_confirms_recommended_local_settings(
             "--data-dir",
             str(data_dir),
         ],
-        input="y\n",
+        input="\ny\n",
     )
 
     assert result.exit_code == 0, result.output
     payload = tomllib.loads(config_path.read_text(encoding="utf-8"))
     assert payload["paths"]["data_dir"] == str(data_dir)
+    assert payload["paths"]["workspace"] == str(workspace)
     assert data_dir.joinpath("banksia.persistence").is_file()
+    assert "Default workspace" in result.output
     assert "Use these recommended local settings?" in result.output
     assert "Next: banksia setup" in result.output
 
@@ -92,12 +100,14 @@ def test_guided_init_rerun_keeps_config_and_verifies_database(
     config_path = tmp_path / "config.toml"
     data_dir = tmp_path / "data"
     config_path.write_text(
-        settings_to_config_text(
-            data_dir=data_dir,
-            database_url=f"sqlite+aiosqlite:///{data_dir / 'banksia.persistence'}",
-            host="127.0.0.1",
-            port=18125,
-            log_level="WARNING",
+        config_sections_to_text(
+            build_initial_config_sections(
+                data_dir=data_dir,
+                database_url=f"sqlite+aiosqlite:///{data_dir / 'banksia.persistence'}",
+                host="127.0.0.1",
+                port=18125,
+                log_level="WARNING",
+            )
         )
         + '\n[codex]\nenabled = true\n\n[runtime]\ndefault_provider = "codex"\n',
         encoding="utf-8",
@@ -133,7 +143,7 @@ def test_guided_init_replacement_requires_final_confirmation(
     result = CliRunner().invoke(
         build_parser(),
         ["init", "--config", str(config_path)],
-        input="replace\ny\nn\n",
+        input="replace\n\ny\nn\n",
     )
 
     assert result.exit_code == 0, result.output

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 import click
@@ -85,6 +86,18 @@ def cli(ctx: click.Context, is_debug: bool) -> int | None:
 @config_option
 @click.option("--data-dir")
 @click.option("--database-url")
+@click.option(
+    "--workspace",
+    type=click.Path(
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        readable=True,
+        resolve_path=True,
+        path_type=Path,
+    ),
+    help="Existing default workspace for HTTP, Console, and Operator Task start.",
+)
 @click.option("--host", default="127.0.0.1", show_default=True)
 @click.option("--port", default=DEFAULT_API_PORT, type=int, show_default=True)
 @click.option("--log-level", default=DEFAULT_LOG_LEVEL, show_default=True)

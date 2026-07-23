@@ -12,7 +12,11 @@ banksia status --json
 
 Pass `--config /path/to/config.toml` to select another install. `BANKSIA_CONFIG` selects the same file for processes that cannot pass the flag.
 
-The important settings are the server bind, data directory, database URL, and runtime defaults. The default server is `127.0.0.1:18125`; the default database is local SQLite.
+The important settings are the server bind, data directory, default workspace, database URL, and runtime defaults. The default server is `127.0.0.1:18125`; the default database is local SQLite.
+
+`paths.workspace` is the default workspace used when Console, HTTP, or Operator starts a Task without an explicit workspace. A hand-authored TOML value or `BANKSIA_CONTROLLER_WORKSPACE` value must be a nonblank absolute path to an existing directory. Guided `banksia init` suggests the directory where you invoked it. For automation, pass an existing directory with `banksia init --workspace /absolute/path --non-interactive`; the CLI also resolves a relative `--workspace` from the invocation directory before storing it. A fresh noninteractive init without `--workspace` leaves the default unconfigured; an omitted-workspace HTTP start then returns 422 instead of guessing the server process directory.
+
+`banksia init --force` preserves an existing valid `paths.workspace` unless you pass a replacement `--workspace`. `BANKSIA_CONTROLLER_WORKSPACE` overrides the TOML value for the current process. Both `banksia config show --json` and passive `banksia status --json` show the effective value, or `null` when no default is configured.
 
 ## Configure providers
 

@@ -6,6 +6,7 @@ from types import ModuleType
 
 import pytest
 from banksia import paths
+from banksia.config import CONTROLLER_WORKSPACE_ENV_VAR
 from pydantic import ValidationError
 from pytest import MonkeyPatch
 
@@ -44,10 +45,15 @@ def test_get_settings_reads_default_platform_config(
     data_home = tmp_path / "data-home"
     state_home = tmp_path / "state-home"
     cache_home = tmp_path / "cache-home"
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
     config_path = config_home / "banksia" / "config.toml"
     config_path.parent.mkdir(parents=True, exist_ok=True)
     config_path.write_text(
-        """
+        f"""
+[paths]
+workspace = "{workspace}"
+
 [database]
 url = "sqlite+aiosqlite:////tmp/from-config.db"
 echo = true
@@ -98,6 +104,7 @@ watchdog_same_attempt_replacement_limit = 3
     assert not hasattr(settings, "api_key")
     assert settings.config_path == config_path
     assert settings.data_dir == data_home / "banksia"
+    assert settings.controller_workspace == workspace.resolve()
     assert settings.codex.enabled is True
     assert settings.codex.model == "gpt-5"
     assert settings.codex.effort == "high"
@@ -145,8 +152,15 @@ def test_env_overrides_config_file(
     tmp_path: Path,
 ) -> None:
     config_path = tmp_path / "banksia-config.toml"
+    config_workspace = tmp_path / "config-workspace"
+    environment_workspace = tmp_path / "environment-workspace"
+    config_workspace.mkdir()
+    environment_workspace.mkdir()
     config_path.write_text(
-        """
+        f"""
+[paths]
+workspace = "{config_workspace}"
+
 [database]
 url = "sqlite+aiosqlite:////tmp/from-config.db"
 postgres_schema = "config_schema"
@@ -167,6 +181,7 @@ watchdog_inactivity_timeout_seconds = 1200
     )
 
     monkeypatch.setenv("BANKSIA_CONFIG", str(config_path))
+    monkeypatch.setenv(CONTROLLER_WORKSPACE_ENV_VAR, str(environment_workspace))
     monkeypatch.setenv("BANKSIA_DATABASE_URL", "sqlite+aiosqlite:////tmp/from-env.db")
     monkeypatch.setenv("BANKSIA_POSTGRES_SCHEMA", "environment_schema")
     monkeypatch.setenv("BANKSIA_DATABASE_ECHO", "true")
@@ -194,12 +209,44 @@ watchdog_inactivity_timeout_seconds = 1200
     assert settings.api_host == "::1"
     assert settings.api_port == 9001
     assert settings.config_path == config_path
+    assert settings.controller_workspace == environment_workspace.resolve()
     assert settings.openclaw.gateway_url == "wss://gateway.example.test"
     assert settings.openclaw.gateway_profile == "environment-profile"
     assert settings.runtime.dispatch_launch_retry_initial_backoff_seconds == 0.3
     assert settings.runtime.dispatch_launch_retry_max_backoff_seconds == 4.5
     assert settings.runtime.watchdog_inactivity_timeout_seconds == 99
     assert settings.runtime.watchdog_same_attempt_replacement_limit == 4
+
+
+def test_controller_workspace_validator_rejects_invalid_paths(
+    tmp_path: Path,
+) -> None:
+    missing_path = tmp_path / "missing"
+    file_path = tmp_path / "file"
+    file_path.write_text("not a directory", encoding="utf-8")
+    invalid_workspaces = (
+        "",
+        ".",
+        "relative/workspace",
+        "~banksia-user-that-does-not-exist/workspace",
+        missing_path,
+        file_path,
+    )
+    config_module = _reload_config_module()
+
+    for raw_workspace in invalid_workspaces:
+        with pytest.raises(
+            ValueError,
+            match="absolute path to an existing directory",
+        ):
+            config_module.normalize_controller_workspace(raw_workspace)
+        with pytest.raises(
+            ValidationError,
+            match="absolute path to an existing directory",
+        ):
+            config_module.Settings.model_validate(
+                {"controller_workspace": raw_workspace},
+            )
 
 
 def test_get_settings_does_not_require_a_global_operator_key(

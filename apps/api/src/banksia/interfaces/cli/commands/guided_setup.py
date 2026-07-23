@@ -214,8 +214,21 @@ def _prompt_local_init_settings(args: argparse.Namespace) -> _LocalInitSelection
     prepared = _clone_namespace(args)
     data_dir = coerce_path(prepared.data_dir or default_data_dir())
     database_url = prepared.database_url or default_database_url(data_dir)
+    workspace = click.prompt(
+        "Default workspace",
+        default=str(coerce_path(prepared.workspace or Path.cwd())),
+        type=click.Path(
+            exists=True,
+            file_okay=False,
+            dir_okay=True,
+            readable=True,
+            resolve_path=True,
+            path_type=Path,
+        ),
+    )
     prepared.data_dir = str(data_dir)
     prepared.database_url = database_url
+    prepared.workspace = str(workspace)
     _emit_local_init_summary(prepared)
     if click.confirm("Use these recommended local settings?", default=True):
         return _LocalInitSelection(args=prepared, is_recommended_accepted=True)
@@ -259,6 +272,7 @@ def _emit_local_init_summary(args: argparse.Namespace) -> None:
         (
             ("Config", str(coerce_path(args.config))),
             ("Data", str(coerce_path(args.data_dir or default_data_dir()))),
+            ("Default workspace", str(coerce_path(args.workspace))),
             ("Database", redact_database_url(database_url)),
             ("API", f"http://{format_loopback_authority(args.host, args.port)}"),
         ),

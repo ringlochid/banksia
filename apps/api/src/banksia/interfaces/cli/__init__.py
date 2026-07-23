@@ -5,7 +5,6 @@ from banksia.interfaces.cli.commands.bootstrap import (
     cmd_db_upgrade,
     cmd_init,
     cmd_serve,
-    settings_to_config_text,
 )
 from banksia.interfaces.cli.commands.config_view import (
     cmd_config_path,
@@ -55,5 +54,4 @@ __all__ = [
     "main",
     "print_json",
     "render_service_unit",
-    "settings_to_config_text",
 ]

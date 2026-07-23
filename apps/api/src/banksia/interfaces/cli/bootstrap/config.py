@@ -21,17 +21,21 @@ class ConfigMutationTimeoutError(TimeoutError):
     """Raised when another local configuration mutation owns the file lock."""
 
 
-def settings_to_config_text(
+def build_initial_config_sections(
     *,
     data_dir: Path,
     database_url: str,
     host: str,
     port: int,
     log_level: str,
-) -> str:
-    payload: ConfigSections = {
+    workspace: Path | None = None,
+) -> ConfigSections:
+    """Build one fresh local-controller configuration candidate."""
+
+    return {
         "paths": {
             "data_dir": data_dir,
+            "workspace": workspace,
         },
         "database": {
             "url": database_url,
@@ -51,7 +55,6 @@ def settings_to_config_text(
             "level": log_level,
         },
     }
-    return config_sections_to_text(payload)
 
 
 def update_config_sections(
@@ -247,10 +250,10 @@ __all__ = [
     "ConfigMutationTimeoutError",
     "ConfigSections",
     "acquire_config_mutation_lock",
+    "build_initial_config_sections",
     "config_sections_to_text",
     "persist_config_mutation",
     "read_config_sections",
-    "settings_to_config_text",
     "toml_value",
     "update_config_sections",
     "write_config_text_atomically",

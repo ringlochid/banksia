@@ -6,7 +6,10 @@ import sqlite3
 from pathlib import Path
 
 from banksia.config import DEFAULT_API_PORT, DEFAULT_LOG_LEVEL
-from banksia.interfaces.cli.bootstrap.config import settings_to_config_text
+from banksia.interfaces.cli.bootstrap.config import (
+    build_initial_config_sections,
+    config_sections_to_text,
+)
 from banksia.interfaces.cli.providers.contracts import (
     ProviderCheckOutcome,
     ProviderCheckSnapshot,
@@ -46,12 +49,14 @@ def write_local_cli_config(tmp_path: Path) -> Path:
     config_path = tmp_path / "config.toml"
     data_dir = tmp_path / "data"
     config_path.write_text(
-        settings_to_config_text(
-            data_dir=data_dir,
-            database_url=f"sqlite+aiosqlite:///{data_dir / 'banksia.persistence'}",
-            host="127.0.0.1",
-            port=18125,
-            log_level="WARNING",
+        config_sections_to_text(
+            build_initial_config_sections(
+                data_dir=data_dir,
+                database_url=f"sqlite+aiosqlite:///{data_dir / 'banksia.persistence'}",
+                host="127.0.0.1",
+                port=18125,
+                log_level="WARNING",
+            )
         ),
         encoding="utf-8",
     )

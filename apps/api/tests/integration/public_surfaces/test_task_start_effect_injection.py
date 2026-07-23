@@ -1,14 +1,16 @@
 from __future__ import annotations
 
+import argparse
 from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import cast
 
+import banksia.interfaces.cli as cli
 import banksia.interfaces.http.routers.tasks as tasks_router_module
 import banksia.interfaces.mcp.operator.task_start as operator_task_start_module
 import httpx
 import pytest
-from banksia.config import CodexSettings, RuntimeSettings, Settings
+from banksia.config import CodexSettings, RuntimeSettings, Settings, get_settings
 from banksia.interfaces.mcp.operator.server import (
     OperatorEffectPublishers,
     create_operator_mcp_server,
@@ -67,6 +69,58 @@ async def test_http_task_start_injects_dispatch_dependencies_and_default_workspa
     assert captured["default_workspace"] == tmp_path
     request = cast(TaskStartRequest, captured["request"])
     assert request.workspace is None
+
+
+async def test_http_task_start_uses_workspace_written_by_init(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config_path = tmp_path / "config.toml"
+    data_dir = tmp_path / "data"
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    captured: dict[str, object] = {}
+
+    async def capture_start(
+        request: TaskStartRequest,
+        *,
+        session: AsyncSession,
+        dependencies: DispatchOpeningDependencies,
+        default_workspace: Path | None,
+    ) -> TaskStartResponse:
+        captured["default_workspace"] = default_workspace
+        return _response("t_01234567", workspace)
+
+    await cli.cmd_init(
+        argparse.Namespace(
+            config=str(config_path),
+            data_dir=str(data_dir),
+            database_url=None,
+            workspace=str(workspace),
+            host="127.0.0.1",
+            port=18125,
+            log_level="WARNING",
+            force=True,
+            skip_db_upgrade=True,
+            json=False,
+        )
+    )
+    monkeypatch.setattr(tasks_router_module, "start_task_service", capture_start)
+    with cli.command_env(config_path=config_path):
+        get_settings.cache_clear()
+        app = create_app(should_enable_mcp_mounts=False)
+        app.dependency_overrides[get_db_session] = _fake_session
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app, client=("127.0.0.1", 43125)),
+            base_url="http://127.0.0.1:18125",
+        ) as client:
+            response = await client.post(
+                "/tasks/start",
+                json={"workflow": "reviewed-delivery", "prompt": "Do the work."},
+            )
+
+    assert response.status_code == 200, response.text
+    assert captured["default_workspace"] == workspace.resolve()
 
 
 async def test_http_task_start_without_request_or_configured_workspace_returns_422() -> None:

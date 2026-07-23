@@ -33,6 +33,11 @@ def cmd_status(args: argparse.Namespace) -> int:
             "path": str(config_path),
             "exists": config_path.is_file(),
             "data_dir": str(settings.data_dir),
+            "workspace": (
+                str(settings.controller_workspace)
+                if settings.controller_workspace is not None
+                else None
+            ),
         },
         "database": {
             "configured_url": redact_database_url(settings.database_url),
@@ -53,6 +58,14 @@ def cmd_status(args: argparse.Namespace) -> int:
                     f"{config_path} ({'present' if config_path.is_file() else 'missing'})",
                 ),
                 ("Data", str(settings.data_dir)),
+                (
+                    "Default workspace",
+                    (
+                        str(settings.controller_workspace)
+                        if settings.controller_workspace is not None
+                        else "Not configured"
+                    ),
+                ),
                 ("Default provider", default_provider or "Not configured"),
                 ("Database", "Not inspected by passive status"),
                 ("Service", "Run banksia service status"),

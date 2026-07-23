@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import cast
 
 from banksia.config import CodexSettings, RuntimeSettings, Settings
 from banksia.persistence.models import (
     CommandRunModel,
-    DispatchPromptRefsModel,
+    DispatchRequestModel,
     DispatchTurnModel,
     FlowModel,
     FlowWaitModel,
@@ -24,12 +23,12 @@ from banksia.runtime.post_commit import (
     CommandRunTerminal,
     DispatchStartDue,
 )
+from banksia.runtime.prompt import parse_prompt_continuation
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from tests.helpers.executor_harness import (
     SessionFactory,
     seeded_executor,
-    seeded_task_root,
 )
 from tests.helpers.lineage_seed import RuntimeIds
 
@@ -67,7 +66,7 @@ async def test_terminal_command_source_opens_one_same_attempt_successor(
             )
             flow = await session.get(FlowModel, ids.flow_id)
             successor = await session.get(DispatchTurnModel, first.dispatch_id)
-            refs = await session.get(DispatchPromptRefsModel, first.dispatch_id)
+            dispatch_request = await session.get(DispatchRequestModel, first.dispatch_id)
             dispatch_count = await session.scalar(
                 select(func.count()).select_from(DispatchTurnModel)
             )
@@ -86,10 +85,8 @@ async def test_terminal_command_source_opens_one_same_attempt_successor(
     assert successor.assignment_id == ids.root_assignment_id
     assert successor.attempt_id == ids.root_attempt_id
     assert dispatch_count == 4
-    assert refs is not None
-    trigger = _read_trigger(
-        seeded_task_root(tmp_path, "command-continuation") / refs.input_logical_path
-    )
+    assert dispatch_request is not None
+    trigger = _read_trigger(dispatch_request.input)
     _assert_command_trigger(
         trigger,
         run_id=run_id,
@@ -109,32 +106,29 @@ def _assert_command_trigger(
     source_dispatch_id: str,
     output_path: str,
 ) -> None:
+    source_payload = cast(dict[str, object], trigger["source"])
     result_payload = cast(dict[str, object], trigger["result"])
+    terminal_payload = cast(dict[str, object], result_payload["terminal"])
     assert trigger["kind"] == "command_result"
-    assert trigger["run_id"] == run_id
-    assert trigger["source_dispatch_id"] == source_dispatch_id
-    assert trigger["request"] == {
+    assert source_payload["command_id"] == run_id
+    assert source_payload["source_dispatch_id"] == source_dispatch_id
+    assert result_payload["request"] == {
         "command": {"kind": "argv", "argv": ["python", "-V"]},
         "cwd": None,
         "timeout_seconds": None,
         "summary": "Read the Python version.",
     }
-    assert result_payload["state"] == "succeeded"
-    assert result_payload["exit_code"] == 0
-    assert result_payload["summary"] == "Python reported its version successfully."
-    assert result_payload["started_at"] == result_payload["ended_at"]
-    assert result_payload["output_path"] == output_path
-    assert result_payload["output_observed_bytes"] == 21
-    assert result_payload["output_written_bytes"] == 21
-    assert result_payload["output_complete"] is True
-    assert result_payload["output_encoding"] == "raw_bytes"
-    assert result_payload["terminal_event_source"] == "process_owner"
-    assert trigger["files"] == [
-        {
-            "path": output_path,
-            "description": "Current combined command output.",
-        },
-    ]
+    assert terminal_payload["state"] == "succeeded"
+    assert terminal_payload["exit_code"] == 0
+    assert terminal_payload["summary"] == "Python reported its version successfully."
+    assert terminal_payload["started_at"] == terminal_payload["ended_at"]
+    assert terminal_payload["output_path"] == output_path
+    assert terminal_payload["output_observed_bytes"] == 21
+    assert terminal_payload["output_written_bytes"] == 21
+    assert terminal_payload["output_complete"] is True
+    assert terminal_payload["output_encoding"] == "raw_bytes"
+    assert terminal_payload["terminal_event_source"] == "process_owner"
+    assert "files" not in result_payload
 
 
 async def test_nonterminal_command_signal_is_a_harmless_noop(tmp_path: Path) -> None:
@@ -208,7 +202,7 @@ async def _open_command_run(executor: NodeOperationExecutor, ids: RuntimeIds) ->
             }
         },
     )
-    return cast(str, opened.model_dump()["run_id"])
+    return cast(str, opened.model_dump()["command_id"])
 
 
 async def _terminalize_command_run(
@@ -256,14 +250,10 @@ def _opening_dependencies(
     )
 
 
-def _read_trigger(path: Path) -> dict[str, object]:
-    input_text = path.read_text(encoding="utf-8")
-    payload = input_text.split("# Trigger\n\n```json\n", maxsplit=1)[1].split("\n```", maxsplit=1)[
-        0
-    ]
-    value = json.loads(payload)
-    assert isinstance(value, dict)
-    return value
+def _read_trigger(input_text: str) -> dict[str, object]:
+    continuation = parse_prompt_continuation(input_text)
+    assert continuation is not None
+    return continuation.trigger.model_dump(mode="json")
 
 
 __all__ = []

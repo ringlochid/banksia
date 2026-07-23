@@ -6,11 +6,12 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Literal, cast
 
+import banksia.runtime.watchdog.recovery as watchdog_recovery_module
 import pytest
 from banksia.config import CodexSettings, RuntimeSettings, Settings
 from banksia.persistence.models import (
     CommandRunModel,
-    DispatchPromptRefsModel,
+    DispatchRequestModel,
     DispatchTurnModel,
     FlowModel,
     HumanRequestModel,
@@ -20,10 +21,6 @@ from banksia.providers import ProviderKind
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
 from banksia.runtime.dispatch.authority import read_node_operation_authority
 from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
-from banksia.runtime.dispatch.request_pair import (
-    DispatchRequestPairRefs,
-    publish_dispatch_request_pair,
-)
 from banksia.runtime.errors import RuntimeOperationError
 from banksia.runtime.node_operations.contracts import (
     NodeOperationScope,
@@ -49,7 +46,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from tests.helpers.executor_harness import (
     SessionFactory,
     seeded_executor,
-    seeded_task_root,
 )
 from tests.helpers.lineage_seed import RuntimeIds
 
@@ -93,7 +89,7 @@ async def test_watchdog_replaces_one_stale_dispatch_and_duplicate_signal_loses(
             predecessor = await session.get(DispatchTurnModel, ids.current_dispatch_id)
             successor = await session.get(DispatchTurnModel, first.dispatch_id)
             flow = await session.get(FlowModel, ids.flow_id)
-            refs = await session.get(DispatchPromptRefsModel, first.dispatch_id)
+            dispatch_request = await session.get(DispatchRequestModel, first.dispatch_id)
             dispatch_count = await session.scalar(
                 select(func.count()).select_from(DispatchTurnModel)
             )
@@ -114,10 +110,8 @@ async def test_watchdog_replaces_one_stale_dispatch_and_duplicate_signal_loses(
     assert successor.attempt_id == ids.root_attempt_id
     assert flow is not None and flow.current_dispatch_id == first.dispatch_id
     assert dispatch_count == 4
-    assert refs is not None
-    input_text = (
-        seeded_task_root(tmp_path, "watchdog-replace") / refs.input_logical_path
-    ).read_text(encoding="utf-8")
+    assert dispatch_request is not None
+    input_text = dispatch_request.input
     assert '"kind": "watchdog_recovery"' in input_text
     assert '"recovery_count": 1' in input_text
     assert event is not None
@@ -128,8 +122,9 @@ async def test_watchdog_replaces_one_stale_dispatch_and_duplicate_signal_loses(
     assert publisher.signals[0].dispatch_id == first.dispatch_id
 
 
-async def test_new_activity_during_materialization_makes_due_signal_stale(
+async def test_new_activity_during_preparation_makes_due_signal_stale(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     suffix = "watchdog-activity-race"
     database_path = tmp_path / f"{suffix}.sqlite"
@@ -143,33 +138,29 @@ async def test_new_activity_during_materialization_makes_due_signal_stale(
     ):
         signal = await _stale_signal(session_factory, ids, activity_revision=1)
 
-        def publish_then_refresh_activity(
-            *,
-            paths: object,
-            dispatch_id: str,
-            instructions_bytes: bytes,
-            input_bytes: bytes,
-        ) -> DispatchRequestPairRefs:
-            refs = publish_dispatch_request_pair(
-                paths=paths,  # type: ignore[arg-type]
-                dispatch_id=dispatch_id,
-                instructions_bytes=instructions_bytes,
-                input_bytes=input_bytes,
-            )
+        real_prepare = watchdog_recovery_module.prepare_dispatch_request
+
+        def prepare_then_refresh_activity(**kwargs: object) -> object:
+            prepared = real_prepare(**kwargs)  # type: ignore[arg-type]
             with sqlite3.connect(database_path) as connection:
                 connection.execute(
                     "UPDATE dispatch_turns SET node_activity_revision = 2 WHERE dispatch_id = ?",
                     (ids.current_dispatch_id,),
                 )
                 connection.commit()
-            return refs
+            return prepared
+
+        monkeypatch.setattr(
+            watchdog_recovery_module,
+            "prepare_dispatch_request",
+            prepare_then_refresh_activity,
+        )
 
         dependencies = DispatchOpeningDependencies.create(
             settings=_provider_settings(),
             available_adapter_kinds={ProviderKind.CODEX},
             post_commit_publisher=publisher,
             clock=clock,
-            request_pair_publisher=publish_then_refresh_activity,
         )
         async with session_factory() as session:
             result = await recover_stale_dispatch(
@@ -474,14 +465,25 @@ def _add_terminal_source(
                 source_dispatch_id=ids.current_dispatch_id,
                 request_kind="input",
                 request_summary="Already answered.",
-                request_items_json=[{"id": "answer", "prompt": "Answer?"}],
+                request_items_json=[
+                    {
+                        "id": "answer",
+                        "prompt": "Answer?",
+                        "response_schema": {"type": "string"},
+                    }
+                ],
                 capability_basis_json={"decision": "allow", "kind": "input"},
                 due_at=None,
                 timeout_policy_json=None,
                 default_behavior_json=None,
                 status="resolved",
                 resolution_kind="answered",
-                item_responses_json={"answer": "yes"},
+                item_responses_json={
+                    "answer": {
+                        "kind": "value",
+                        "value": "yes",
+                    }
+                },
                 resolution_policy_basis_json=None,
                 resolution_summary="Answered.",
                 resolved_by_actor_ref="operator.test",
@@ -535,7 +537,10 @@ async def _open_wait(
                         {
                             "id": "answer",
                             "prompt": "Answer?",
-                            "options": [{"id": "yes", "title": "Yes"}],
+                            "options": [
+                                {"id": "yes", "title": "Yes"},
+                                {"id": "no", "title": "No"},
+                            ],
                         }
                     ],
                 }

@@ -37,6 +37,7 @@ from banksia.runtime.capabilities import resolve_effective_capabilities_for_node
 from banksia.runtime.contracts.capabilities import EffectiveCapabilitySet
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
 from banksia.runtime.contracts.primitives import TaskRootPaths
+from banksia.runtime.contracts.prompt import PromptDirectMember
 from banksia.runtime.contracts.provider_resolution import ProviderResolution
 from banksia.runtime.contracts.refs import FileReference
 from banksia.runtime.dispatch.opening import TaskResumeEventBasis
@@ -48,8 +49,8 @@ from banksia.runtime.dispatch.preparation import (
 )
 from banksia.runtime.dispatch.prompt_snapshot import (
     BoundaryPromptSnapshot,
-    RootPromptChildSnapshot,
     build_boundary_dispatch_request,
+    read_prompt_direct_team,
 )
 from banksia.runtime.errors import RuntimeOperationError
 from banksia.runtime.post_commit import BoundaryAccepted
@@ -230,7 +231,6 @@ async def _prepare_boundary_successor(
     await session.rollback()
     prepared = prepare_dispatch_request(
         dependencies=dependencies,
-        paths=snapshot.paths,
         dispatch_id=dispatch_id,
         due_at=due_at,
         provider=snapshot.provider,
@@ -366,19 +366,26 @@ async def _read_target_snapshot(
         capabilities=capabilities,
     )
     paths = await read_task_root_paths(session, context.task.task_id)
-    description = workflow.content_json.get("description")
-    if description is not None and not isinstance(description, str):
-        raise ValueError("pinned workflow description must be text")
+    note = workflow.content_json.get("note")
+    if note is not None and not isinstance(note, str):
+        raise ValueError("pinned workflow note must be text")
+    direct_team = await read_prompt_direct_team(
+        session,
+        children=children,
+        dependencies=dependencies,
+    )
     prompt = _build_boundary_prompt(
         context,
         boundary=boundary,
         flow=flow,
         target=target,
         dispatch_id=dispatch_id,
-        workflow_description=description,
+        workflow_note=note,
         capabilities=capabilities,
         work_plan=work_plan,
-        children=children,
+        provider=provider,
+        direct_team=direct_team,
+        paths=paths,
         assignment_files=assignment_files,
     )
     return _BoundaryOpeningSnapshot(
@@ -499,10 +506,12 @@ def _build_boundary_prompt(
     flow: FlowModel,
     target: BoundaryTarget,
     dispatch_id: str,
-    workflow_description: str | None,
+    workflow_note: str | None,
     capabilities: EffectiveCapabilitySet,
     work_plan: WorkPlanRead | None,
-    children: tuple[FlowNodeModel, ...],
+    provider: ProviderResolution,
+    direct_team: tuple[PromptDirectMember, ...],
+    paths: TaskRootPaths,
     assignment_files: tuple[FileReference, ...],
 ) -> BoundaryPromptSnapshot:
     task = context.task
@@ -514,8 +523,6 @@ def _build_boundary_prompt(
     return BoundaryPromptSnapshot(
         task_id=task.task_id,
         workflow_key=compiled_plan.workflow_key,
-        workflow_revision_no=compiled_plan.workflow_revision_no,
-        workflow_description=workflow_description,
         flow_id=flow.flow_id,
         flow_revision_id=flow.active_flow_revision_id,
         dispatch_id=dispatch_id,
@@ -529,24 +536,16 @@ def _build_boundary_prompt(
         member_configuration_id=node.member_configuration_id,
         member_branch_basis_id=node.member_branch_basis_id,
         member_title=node.member_title,
-        node_description=node.description,
-        node_instruction=node.node_instruction,
+        member_description=node.description,
+        member_instruction=node.node_instruction,
+        workflow_note=workflow_note,
         assignment_prompt=assignment.prompt,
         assignment_files=assignment_files,
-        child_assignment_limit=assignment.child_assignment_limit,
-        child_assignments_remaining=assignment.child_assignments_remaining,
-        retry_limit=assignment.retry_limit,
-        retries_remaining=assignment.retries_remaining,
         work_plan=work_plan,
         capabilities=capabilities,
-        children=tuple(
-            RootPromptChildSnapshot(
-                node_key=child.node_key,
-                node_kind=child.structural_kind,
-                assignment_id=child.current_assignment_id,
-            )
-            for child in children
-        ),
+        provider=provider,
+        direct_team=direct_team,
+        paths=paths,
         node_kind=node.structural_kind,
         parent_assignment_id=assignment.parent_assignment_id,
         predecessor_dispatch_id=boundary.source_dispatch_id,

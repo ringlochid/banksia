@@ -23,6 +23,7 @@ from banksia.runtime.contracts import (
     CommandRunState,
     FileReference,
     HumanRequestOpenResponse,
+    HumanRequestTimeout,
     TaskEventSource,
     TaskEventType,
 )
@@ -51,6 +52,7 @@ async def open_human_request(
     body = request.request
     paths = await read_task_root_paths(session, authority.task_id)
     files = validate_file_references(paths.workspace_path, body.files)
+    timeout = body.timeout or HumanRequestTimeout()
     now = utc_now()
     await close_source_dispatch(
         session,
@@ -72,11 +74,11 @@ async def open_human_request(
             request_summary=body.summary,
             request_items_json=[item.model_dump(mode="json") for item in body.items],
             capability_basis_json={"decision": "allow", "kind": body.kind.value},
-            due_at=body.timeout.due_at,
-            timeout_policy_json=({"kind": "deadline"} if body.timeout.due_at is not None else None),
+            due_at=timeout.due_at,
+            timeout_policy_json=({"kind": "deadline"} if timeout.due_at is not None else None),
             default_behavior_json=(
-                {"value": body.timeout.default_behavior}
-                if body.timeout.default_behavior is not None
+                {"value": timeout.default_behavior}
+                if timeout.default_behavior is not None
                 else None
             ),
             status="open",
@@ -107,12 +109,12 @@ async def open_human_request(
             "kind": body.kind.value,
             "summary": body.summary,
             "source_dispatch_id": authority.dispatch_id,
-            "due_at": body.timeout.due_at,
+            "due_at": timeout.due_at,
             "opened_at": now,
         },
     )
     await session.commit()
-    return HumanRequestOpenResponse(request_id=request_id, task_id=authority.task_id)
+    return HumanRequestOpenResponse(request_id=request_id)
 
 
 async def start_command_run(
@@ -160,9 +162,8 @@ async def start_command_run(
     )
     await session.commit()
     return CommandRunStartResponse(
-        run_id=run_id,
-        task_id=authority.task_id,
-        state=CommandRunState.PENDING_START,
+        command_id=run_id,
+        status=CommandRunState.PENDING_START,
         output_path=output_path,
     )
 

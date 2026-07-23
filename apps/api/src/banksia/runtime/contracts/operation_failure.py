@@ -28,12 +28,6 @@ class OperationFailureCode(StrEnum):
     CONFLICT = "conflict"
     INVALID_TASK_PATH = "invalid_task_path"
     INVALID_TASK_ROOT = "invalid_task_root"
-    PATH_ESCAPE = "path_escape"
-    NOT_A_DIRECTORY = "not_a_directory"
-    NOT_A_FILE = "not_a_file"
-    BINARY_FILE = "binary_file"
-    FILE_READ_LIMIT_EXCEEDED = "file_read_limit_exceeded"
-    DIRECTORY_LIMIT_EXCEEDED = "directory_limit_exceeded"
     BUDGET_EXHAUSTED = "budget_exhausted"
     INTERNAL_ERROR = "internal_error"
 

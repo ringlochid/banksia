@@ -411,7 +411,10 @@ async def _open_human_request(executor: NodeOperationExecutor, ids: RuntimeIds) 
                     {
                         "id": "direction",
                         "prompt": "Which direction?",
-                        "options": [{"id": "a", "title": "A"}],
+                        "options": [
+                            {"id": "a", "title": "A"},
+                            {"id": "b", "title": "B"},
+                        ],
                     }
                 ],
             }
@@ -431,7 +434,7 @@ async def _open_command_run(executor: NodeOperationExecutor, ids: RuntimeIds) ->
             }
         },
     )
-    return cast(str, result.model_dump()["run_id"])
+    return cast(str, result.model_dump()["command_id"])
 
 
 def _opening_dependencies(

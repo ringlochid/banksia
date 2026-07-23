@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-import banksia.runtime.work_plan.operations as work_plan_operations
 import pytest
 from banksia.runtime.contracts import CheckpointRequest
 from banksia.runtime.node_operations import NodeOperationScope
@@ -75,15 +73,9 @@ def test_checkpoint_enforces_exact_bounded_meaningful_text() -> None:
             CheckpointRequest.model_validate(payload)
 
 
-async def test_work_plan_commit_time_advances_only_for_changed_snapshot(
+async def test_work_plan_replace_and_noop_return_only_model_visible_plan(
     tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    first_commit = datetime(2026, 1, 2, 3, 4, tzinfo=UTC)
-    second_commit = first_commit + timedelta(minutes=1)
-    commit_times = iter((first_commit, second_commit))
-    monkeypatch.setattr(work_plan_operations, "utc_now", lambda: next(commit_times))
-
     async with seeded_executor(tmp_path, suffix="plan-commit-time") as (
         executor,
         _session_factory,
@@ -116,14 +108,22 @@ async def test_work_plan_commit_time_advances_only_for_changed_snapshot(
             },
         )
 
-    first_plan = first.model_dump()["plan"]
-    repeated_plan = repeated.model_dump()["plan"]
-    replaced_plan = replaced.model_dump()["plan"]
+    first_plan = first.model_dump(mode="json")["plan"]
+    repeated_plan = repeated.model_dump(mode="json")["plan"]
+    replaced_plan = replaced.model_dump(mode="json")["plan"]
     assert first_plan is not None and repeated_plan is not None and replaced_plan is not None
     assert first.model_dump()["changed"] is True
     assert repeated.model_dump()["changed"] is False
     assert replaced.model_dump()["changed"] is True
-    assert first_plan["revision"] == repeated_plan["revision"] == 1
-    assert replaced_plan["revision"] == 2
-    assert first_plan["updated_at"] == repeated_plan["updated_at"] == first_commit
-    assert replaced_plan["updated_at"] == second_commit
+    assert first_plan == repeated_plan
+    assert first_plan == {
+        "explanation": "Bound the implementation.",
+        "steps": [{"step": "Inspect controller truth", "status": "in_progress"}],
+    }
+    assert replaced_plan == {
+        "explanation": "Record the result.",
+        "steps": [{"step": "Record controller truth", "status": "completed"}],
+    }
+    assert "revision" not in replaced_plan
+    assert "authored_by_dispatch_id" not in replaced_plan
+    assert "updated_at" not in replaced_plan

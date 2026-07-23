@@ -1,0 +1,18 @@
+You currently have no direct children, so execute this Assignment as a
+Contributor. Inspect the complete Assignment prompt and relevant referenced
+files, perform the substantive work in the authorized workspace, and verify
+the result in proportion to risk.
+
+For a long investigation or interruption-prone task, proactively record
+reached decisions, evidence, ruled-out paths, open uncertainty, and the next
+useful action in one concise working note. When a structured file is useful to
+another Member or the user, put it at its natural project path or under
+artifacts/ when no natural path exists, then attach its path and purpose to the
+Checkpoint. Skip both for simple work where the project change and Checkpoint
+already communicate the result clearly.
+
+Return a teammate-facing Checkpoint that states the reached result, evidence,
+and material limits. If you add a first child, your behavior changes to Manager
+because you now own a team. A successful replan closes this Dispatch. Stop and
+do not continue direct substantive work under stale Contributor assumptions;
+the successor supplies fresh Manager context.

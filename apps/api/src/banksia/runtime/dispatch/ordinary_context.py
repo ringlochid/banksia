@@ -28,13 +28,14 @@ from banksia.runtime.assignment import read_assignment_file_references
 from banksia.runtime.capabilities import resolve_effective_capabilities_for_node
 from banksia.runtime.contracts.capabilities import EffectiveCapabilitySet
 from banksia.runtime.contracts.primitives import TaskRootPaths
+from banksia.runtime.contracts.prompt import PromptDirectMember
 from banksia.runtime.contracts.provider_resolution import ProviderResolution
 from banksia.runtime.contracts.refs import FileReference
 from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
 from banksia.runtime.dispatch.prompt_snapshot import (
     OrdinaryPromptSnapshot,
     OrdinaryPromptTrigger,
-    RootPromptChildSnapshot,
+    read_prompt_direct_team,
 )
 from banksia.runtime.providers import (
     narrow_provider_capabilities,
@@ -135,17 +136,24 @@ async def read_ordinary_dispatch_snapshot(
         capabilities=capabilities,
     )
     paths = await read_task_root_paths(session, context.task.task_id)
-    workflow_description = workflow.content_json.get("description")
-    if workflow_description is not None and not isinstance(workflow_description, str):
-        raise ValueError("ordinary continuation workflow description must be text")
+    workflow_note = workflow.content_json.get("note")
+    if workflow_note is not None and not isinstance(workflow_note, str):
+        raise ValueError("ordinary continuation workflow note must be text")
+    direct_team = await read_prompt_direct_team(
+        session,
+        children=children,
+        dependencies=dependencies,
+    )
     prompt = build_ordinary_prompt_snapshot(
         context,
         basis=basis,
         dispatch_id=dispatch_id,
-        workflow_description=workflow_description,
+        workflow_note=workflow_note,
         capabilities=capabilities,
         work_plan=work_plan,
-        children=children,
+        provider=provider,
+        direct_team=direct_team,
+        paths=paths,
         assignment_files=assignment_files,
     )
     return OrdinaryDispatchSnapshot(
@@ -275,10 +283,12 @@ def build_ordinary_prompt_snapshot(
     *,
     basis: OrdinaryContinuationBasis,
     dispatch_id: str,
-    workflow_description: str | None,
+    workflow_note: str | None,
     capabilities: EffectiveCapabilitySet,
     work_plan: WorkPlanRead | None,
-    children: tuple[FlowNodeModel, ...],
+    provider: ProviderResolution,
+    direct_team: tuple[PromptDirectMember, ...],
+    paths: TaskRootPaths,
     assignment_files: tuple[FileReference, ...],
 ) -> OrdinaryPromptSnapshot:
     task = context.task
@@ -291,8 +301,6 @@ def build_ordinary_prompt_snapshot(
     return OrdinaryPromptSnapshot(
         task_id=task.task_id,
         workflow_key=compiled_plan.workflow_key,
-        workflow_revision_no=compiled_plan.workflow_revision_no,
-        workflow_description=workflow_description,
         flow_id=flow.flow_id,
         flow_revision_id=flow.active_flow_revision_id,
         dispatch_id=dispatch_id,
@@ -306,24 +314,16 @@ def build_ordinary_prompt_snapshot(
         member_configuration_id=node.member_configuration_id,
         member_branch_basis_id=node.member_branch_basis_id,
         member_title=node.member_title,
-        node_description=node.description,
-        node_instruction=node.node_instruction,
+        member_description=node.description,
+        member_instruction=node.node_instruction,
+        workflow_note=workflow_note,
         assignment_prompt=assignment.prompt,
         assignment_files=assignment_files,
-        child_assignment_limit=assignment.child_assignment_limit,
-        child_assignments_remaining=assignment.child_assignments_remaining,
-        retry_limit=assignment.retry_limit,
-        retries_remaining=assignment.retries_remaining,
         work_plan=work_plan,
         capabilities=capabilities,
-        children=tuple(
-            RootPromptChildSnapshot(
-                node_key=child.node_key,
-                node_kind=child.structural_kind,
-                assignment_id=child.current_assignment_id,
-            )
-            for child in children
-        ),
+        provider=provider,
+        direct_team=direct_team,
+        paths=paths,
         node_kind=node.structural_kind,
         parent_assignment_id=assignment.parent_assignment_id,
         predecessor_dispatch_id=basis.source_dispatch_id,

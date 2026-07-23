@@ -1703,12 +1703,6 @@
           "dispatch_id": {
             "$ref": "#/components/schemas/TaskEventIdentifier"
           },
-          "input_ref": {
-            "$ref": "#/components/schemas/TaskEventRef"
-          },
-          "instructions_ref": {
-            "$ref": "#/components/schemas/TaskEventRef"
-          },
           "node_key": {
             "$ref": "#/components/schemas/TaskEventIdentifier"
           },
@@ -1749,9 +1743,7 @@
           "opened_reason",
           "requested_provider",
           "resolved_provider",
-          "selection_basis",
-          "instructions_ref",
-          "input_ref"
+          "selection_basis"
         ],
         "title": "DispatchOpenedEventPayload",
         "type": "object"
@@ -2058,6 +2050,16 @@
       "HumanRequestItem": {
         "additionalProperties": false,
         "properties": {
+          "allow_other": {
+            "default": false,
+            "title": "Allow Other",
+            "type": "boolean"
+          },
+          "allow_skip": {
+            "default": false,
+            "title": "Allow Skip",
+            "type": "boolean"
+          },
           "id": {
             "minLength": 1,
             "title": "Id",
@@ -2069,6 +2071,8 @@
                 "items": {
                   "$ref": "#/components/schemas/HumanRequestOption"
                 },
+                "maxItems": 3,
+                "minItems": 2,
                 "type": "array"
               },
               {
@@ -2078,14 +2082,15 @@
             "title": "Options"
           },
           "prompt": {
-            "minLength": 1,
             "title": "Prompt",
             "type": "string"
           },
           "response_schema": {
             "anyOf": [
               {
-                "additionalProperties": true,
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
                 "type": "object"
               },
               {
@@ -2101,6 +2106,31 @@
         ],
         "title": "HumanRequestItem",
         "type": "object"
+      },
+      "HumanRequestItemAnswer": {
+        "discriminator": {
+          "mapping": {
+            "option": "#/components/schemas/HumanRequestOptionAnswer",
+            "other": "#/components/schemas/HumanRequestOtherAnswer",
+            "skipped": "#/components/schemas/HumanRequestSkippedAnswer",
+            "value": "#/components/schemas/HumanRequestValueAnswer"
+          },
+          "propertyName": "kind"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/HumanRequestValueAnswer"
+          },
+          {
+            "$ref": "#/components/schemas/HumanRequestOptionAnswer"
+          },
+          {
+            "$ref": "#/components/schemas/HumanRequestOtherAnswer"
+          },
+          {
+            "$ref": "#/components/schemas/HumanRequestSkippedAnswer"
+          }
+        ]
       },
       "HumanRequestKind": {
         "enum": [
@@ -2184,7 +2214,6 @@
           "description": {
             "anyOf": [
               {
-                "minLength": 1,
                 "type": "string"
               },
               {
@@ -2199,7 +2228,6 @@
             "type": "string"
           },
           "title": {
-            "minLength": 1,
             "title": "Title",
             "type": "string"
           }
@@ -2209,6 +2237,47 @@
           "title"
         ],
         "title": "HumanRequestOption",
+        "type": "object"
+      },
+      "HumanRequestOptionAnswer": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "option",
+            "title": "Kind",
+            "type": "string"
+          },
+          "option_id": {
+            "minLength": 1,
+            "title": "Option Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "option_id"
+        ],
+        "title": "HumanRequestOptionAnswer",
+        "type": "object"
+      },
+      "HumanRequestOtherAnswer": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "other",
+            "title": "Kind",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "text"
+        ],
+        "title": "HumanRequestOtherAnswer",
         "type": "object"
       },
       "HumanRequestRead": {
@@ -2241,7 +2310,7 @@
             "anyOf": [
               {
                 "additionalProperties": {
-                  "$ref": "#/components/schemas/JsonValue"
+                  "$ref": "#/components/schemas/HumanRequestItemAnswer"
                 },
                 "type": "object"
               },
@@ -2250,20 +2319,6 @@
               }
             ],
             "title": "Item Responses"
-          },
-          "policy_basis": {
-            "anyOf": [
-              {
-                "additionalProperties": {
-                  "$ref": "#/components/schemas/JsonValue"
-                },
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Policy Basis"
           },
           "request_id": {
             "minLength": 1,
@@ -2339,9 +2394,9 @@
         "properties": {
           "item_responses": {
             "additionalProperties": {
-              "$ref": "#/components/schemas/JsonValue"
+              "$ref": "#/components/schemas/HumanRequestItemAnswer"
             },
-            "maxProperties": 32,
+            "maxProperties": 3,
             "minProperties": 1,
             "propertyNames": {
               "minLength": 1
@@ -2373,6 +2428,21 @@
           "resolution"
         ],
         "title": "HumanRequestResolveResponse",
+        "type": "object"
+      },
+      "HumanRequestSkippedAnswer": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "skipped",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "HumanRequestSkippedAnswer",
         "type": "object"
       },
       "HumanRequestStatus": {
@@ -2520,7 +2590,6 @@
           "default_behavior": {
             "anyOf": [
               {
-                "minLength": 1,
                 "type": "string"
               },
               {
@@ -2543,6 +2612,25 @@
           }
         },
         "title": "HumanRequestTimeout",
+        "type": "object"
+      },
+      "HumanRequestValueAnswer": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "value",
+            "title": "Kind",
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/components/schemas/JsonValue"
+          }
+        },
+        "required": [
+          "kind",
+          "value"
+        ],
+        "title": "HumanRequestValueAnswer",
         "type": "object"
       },
       "JsonValue": {},
@@ -2985,12 +3073,6 @@
           "conflict",
           "invalid_task_path",
           "invalid_task_root",
-          "path_escape",
-          "not_a_directory",
-          "not_a_file",
-          "binary_file",
-          "file_read_limit_exceeded",
-          "directory_limit_exceeded",
           "budget_exhausted",
           "internal_error"
         ],
@@ -3142,7 +3224,7 @@
             "items": {
               "$ref": "#/components/schemas/HumanRequestItem"
             },
-            "maxItems": 32,
+            "maxItems": 3,
             "minItems": 1,
             "title": "Items",
             "type": "array"
@@ -3181,7 +3263,6 @@
             "title": "Successor Dispatch Id"
           },
           "summary": {
-            "minLength": 1,
             "title": "Summary",
             "type": "string"
           },

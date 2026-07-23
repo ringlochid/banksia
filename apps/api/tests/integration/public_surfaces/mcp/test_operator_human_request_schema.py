@@ -21,30 +21,49 @@ async def test_operator_human_resolution_schema_uses_typed_response_map() -> Non
     assert item_responses_schema["type"] == "object"
     assert "additionalProperties" in item_responses_schema
     assert "items" not in item_responses_schema
+    answer_schema = cast(dict[str, object], schema["$defs"])["HumanRequestItemAnswer"]
+    assert cast(dict[str, object], answer_schema)["discriminator"] == {
+        "mapping": {
+            "option": "#/$defs/HumanRequestOptionAnswer",
+            "other": "#/$defs/HumanRequestOtherAnswer",
+            "skipped": "#/$defs/HumanRequestSkippedAnswer",
+            "value": "#/$defs/HumanRequestValueAnswer",
+        },
+        "propertyName": "kind",
+    }
 
     validator = Draft202012Validator(schema)
     validator.validate(
         {
             "task_id": "task.operator-schema",
             "request_id": "human-request.operator-schema.01",
-            "item_responses": {"review_choice": "approve"},
+            "item_responses": {
+                "review_choice": {
+                    "kind": "option",
+                    "option_id": "approve",
+                }
+            },
         }
     )
-    legacy_response_errors = tuple(
-        validator.iter_errors(
-            {
-                "task_id": "task.operator-schema",
-                "request_id": "human-request.operator-schema.01",
-                "item_responses": [
-                    {
-                        "item_id": "review_choice",
-                        "selected_option": "approve",
-                    }
-                ],
-            }
-        )
+    removed_response_shapes = (
+        {
+            "task_id": "task.operator-schema",
+            "request_id": "human-request.operator-schema.01",
+            "item_responses": {"review_choice": "approve"},
+        },
+        {
+            "task_id": "task.operator-schema",
+            "request_id": "human-request.operator-schema.01",
+            "item_responses": [
+                {
+                    "item_id": "review_choice",
+                    "selected_option": "approve",
+                }
+            ],
+        },
     )
-    assert legacy_response_errors
+    for payload in removed_response_shapes:
+        assert tuple(validator.iter_errors(payload))
 
 
 async def test_operator_inventory_teaches_current_truth_and_chronology_without_stale_refs() -> None:

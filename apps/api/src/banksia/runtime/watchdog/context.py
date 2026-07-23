@@ -22,7 +22,11 @@ from banksia.persistence.models import (
 )
 from banksia.runtime.assignment import read_assignment_file_references
 from banksia.runtime.capabilities import resolve_effective_capabilities_for_node
-from banksia.runtime.contracts.prompt import WatchdogRecoveryTrigger
+from banksia.runtime.contracts.prompt import (
+    WatchdogRecoveryResult,
+    WatchdogRecoverySource,
+    WatchdogRecoveryTrigger,
+)
 from banksia.runtime.dispatch.ordinary_context import (
     OrdinaryContinuationBasis,
     OrdinaryDispatchSnapshot,
@@ -32,6 +36,7 @@ from banksia.runtime.dispatch.ordinary_context import (
     read_pinned_workflow_revision,
 )
 from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
+from banksia.runtime.dispatch.prompt_snapshot import read_prompt_direct_team
 from banksia.runtime.post_commit import WatchdogDue
 from banksia.runtime.providers import (
     narrow_provider_capabilities,
@@ -196,9 +201,14 @@ async def _build_watchdog_replacement_dispatch(
         capabilities=capabilities,
     )
     paths = await read_task_root_paths(session, context.task.task_id)
-    workflow_description = workflow.content_json.get("description")
-    if workflow_description is not None and not isinstance(workflow_description, str):
-        raise ValueError("watchdog continuation workflow description must be text")
+    workflow_note = workflow.content_json.get("note")
+    if workflow_note is not None and not isinstance(workflow_note, str):
+        raise ValueError("watchdog continuation workflow note must be text")
+    direct_team = await read_prompt_direct_team(
+        session,
+        children=children,
+        dependencies=dependencies,
+    )
     basis = OrdinaryContinuationBasis(
         task_id=source.task_id,
         flow_id=source.flow_id,
@@ -208,18 +218,20 @@ async def _build_watchdog_replacement_dispatch(
         source_dispatch_closed_reason="watchdog_superseded",
         opened_reason="watchdog_recovery",
         trigger=WatchdogRecoveryTrigger(
-            source_dispatch_id=source.dispatch_id,
-            recovery_count=replacement_count + 1,
+            source=WatchdogRecoverySource(source_dispatch_id=source.dispatch_id),
+            result=WatchdogRecoveryResult(recovery_count=replacement_count + 1),
         ),
     )
     prompt = build_ordinary_prompt_snapshot(
         context,
         basis=basis,
         dispatch_id=candidate_dispatch_id,
-        workflow_description=workflow_description,
+        workflow_note=workflow_note,
         capabilities=capabilities,
         work_plan=work_plan,
-        children=children,
+        provider=provider,
+        direct_team=direct_team,
+        paths=paths,
         assignment_files=assignment_files,
     )
     dispatch = OrdinaryDispatchSnapshot(

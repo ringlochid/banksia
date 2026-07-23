@@ -121,7 +121,6 @@ async def recover_stale_dispatch(
         await session.rollback()
         prepared = prepare_dispatch_request(
             dependencies=dependencies,
-            paths=snapshot.dispatch.paths,
             dispatch_id=candidate_dispatch_id,
             due_at=dependencies.clock(),
             provider=snapshot.dispatch.provider,

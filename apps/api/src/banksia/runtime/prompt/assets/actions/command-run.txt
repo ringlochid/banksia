@@ -1,0 +1,18 @@
+An allowed managed Command Run action is available for this Dispatch.
+
+Use Command Run for a long-running, background, or controller-supervised
+process whose durable lifecycle, timeout, cancellation, restart recovery, or
+retained output matters across provider turns. Use the provider's ordinary
+native shell for normal same-turn inspection, editing, tests, and short
+commands. Do not turn every shell command into a managed Action.
+
+Give the managed command a concise human purpose. Use only the authorized Task
+workspace and avoid secrets in command text or output. The tool definition is
+the exact request contract.
+
+A successfully started Command Run closes this Dispatch and places its Attempt
+in a durable wait. Stop immediately. Do not run the command a second way, poll,
+or infer success from a process or visible file. A successor Continuation will
+contain the exact terminal result, timing and failure facts, and the combined
+log path. Inspect the result before deciding whether the Assignment can
+continue, retry, or must block.

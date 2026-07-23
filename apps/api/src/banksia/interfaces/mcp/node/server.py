@@ -96,7 +96,22 @@ class _NodeMcpProjection:
 
     async def list_tools(self) -> list[types.Tool]:
         descriptors = await self._listed_descriptors()
-        return [self._tool_from_descriptor(descriptor) for descriptor in descriptors]
+        human_request_kinds: tuple[str, ...] | None = None
+        if self._kind is NodeMcpProjectionKind.MANAGED:
+            binding = current_managed_binding()
+            scope = NodeOperationScope(
+                task_id=binding.task_id,
+                dispatch_id=binding.dispatch_id,
+                provider_start_revision=binding.provider_start_revision,
+            )
+            human_request_kinds = await self._operation_executor.allowed_human_request_kinds(scope)
+        return [
+            self._tool_from_descriptor(
+                descriptor,
+                human_request_kinds=human_request_kinds,
+            )
+            for descriptor in descriptors
+        ]
 
     async def call_tool(
         self,
@@ -176,10 +191,18 @@ class _NodeMcpProjection:
             raise _managed_authentication_error()
         return scope, semantic_arguments
 
-    def _tool_from_descriptor(self, descriptor: NodeOperationDescriptor) -> types.Tool:
+    def _tool_from_descriptor(
+        self,
+        descriptor: NodeOperationDescriptor,
+        *,
+        human_request_kinds: tuple[str, ...] | None = None,
+    ) -> types.Tool:
         is_read_only = descriptor.mutation_kind is NodeOperationMutationKind.READ
         input_schema = (
-            managed_input_schema(descriptor)
+            managed_input_schema(
+                descriptor,
+                human_request_kinds=human_request_kinds,
+            )
             if self._kind is NodeMcpProjectionKind.MANAGED
             else compatibility_input_schema(descriptor)
         )

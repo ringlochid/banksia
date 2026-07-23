@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import cast
+from xml.etree import ElementTree
 
 import pytest
 from banksia.config import CodexSettings, RuntimeSettings, Settings
@@ -10,7 +11,7 @@ from banksia.persistence.models import (
     AssignmentDecisionModel,
     AssignmentModel,
     AttemptModel,
-    DispatchPromptRefsModel,
+    DispatchRequestModel,
     DispatchTurnModel,
     FlowModel,
     FlowNodeModel,
@@ -34,7 +35,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from tests.helpers.executor_harness import (
     SessionFactory,
     seeded_executor,
-    seeded_task_root,
 )
 from tests.helpers.lineage_seed import RuntimeIds
 
@@ -87,8 +87,8 @@ async def test_exact_yield_source_opens_one_child_dispatch_and_duplicate_loses(
                 if first.dispatch_id is not None
                 else None
             )
-            refs = (
-                await session.get(DispatchPromptRefsModel, first.dispatch_id)
+            dispatch_request = (
+                await session.get(DispatchRequestModel, first.dispatch_id)
                 if first.dispatch_id is not None
                 else None
             )
@@ -107,12 +107,18 @@ async def test_exact_yield_source_opens_one_child_dispatch_and_duplicate_loses(
     assert successor.opened_reason == "boundary"
     assert successor.predecessor_dispatch_id == ids.current_dispatch_id
     assert successor.assignment_id == ids.child_assignment_id
-    assert refs is not None
-    input_text = _read_input(tmp_path, "boundary-continuation", refs)
-    assert '"kind": "accepted_boundary"' in input_text
-    assert f'"source_dispatch_id": "{ids.current_dispatch_id}"' in input_text
-    assert '"node_kind": "worker"' in input_text
-    assert '"assign_child"' not in input_text
+    assert dispatch_request is not None
+    input_text = dispatch_request.input
+    request_root = ElementTree.fromstring(input_text)
+    assert request_root.findtext("continuation/trigger/kind") == "accepted_boundary"
+    assert (
+        request_root.findtext("continuation/trigger/source/source_dispatch_id")
+        == ids.current_dispatch_id
+    )
+    assert request_root.findtext("current_member/behavior") == "contributor"
+    assert "assign_child" not in {
+        action.text for action in request_root.findall("available_actions/action")
+    }
     assert len(start_publisher.signals) == 1
     start_signal = start_publisher.signals[0]
     assert isinstance(start_signal, DispatchStartDue)
@@ -234,8 +240,8 @@ async def test_terminal_worker_boundary_opens_its_exact_routed_target(
                 if result.dispatch_id is not None
                 else None
             )
-            refs = (
-                await session.get(DispatchPromptRefsModel, result.dispatch_id)
+            dispatch_request = (
+                await session.get(DispatchRequestModel, result.dispatch_id)
                 if result.dispatch_id is not None
                 else None
             )
@@ -259,10 +265,17 @@ async def test_terminal_worker_boundary_opens_its_exact_routed_target(
         assert pre_open.active_attempt_id == ids.root_attempt_id
         assert successor.assignment_id == ids.root_assignment_id
         assert successor.attempt_id == ids.root_attempt_id
-    assert refs is not None
-    request_root = seeded_task_root(tmp_path, f"boundary-{outcome}-continuation")
-    input_text = (request_root / refs.input_logical_path).read_text(encoding="utf-8")
-    assert f'"kind": "{trigger_kind}"' in input_text
+    assert dispatch_request is not None
+    input_text = dispatch_request.input
+    request_root = ElementTree.fromstring(input_text)
+    assert request_root.findtext("continuation/trigger/kind") == trigger_kind
+    instructions_root = ElementTree.fromstring(dispatch_request.instructions)
+    if outcome == "green":
+        assert request_root.findtext("current_member/position") == "task_lead"
+        assert instructions_root.find("task_lead") is not None
+    else:
+        assert request_root.find("current_member/position") is None
+        assert instructions_root.find("task_lead") is None
     assert input_text.count(checkpoint_id) == 1
 
 
@@ -334,16 +347,6 @@ def _disabled_opening_dependencies() -> DispatchOpeningDependencies:
         ),
         available_adapter_kinds={ProviderKind.CODEX},
         post_commit_publisher=CapturedRuntimeEffectPublisher(),
-    )
-
-
-def _read_input(
-    tmp_path: Path,
-    suffix: str,
-    refs: DispatchPromptRefsModel,
-) -> str:
-    return (seeded_task_root(tmp_path, suffix) / refs.input_logical_path).read_text(
-        encoding="utf-8"
     )
 
 

@@ -7,6 +7,7 @@ from typing import Self, cast
 import banksia.main as main_module
 import pytest
 from banksia.main import create_app
+from banksia.runtime.clock import utc_now
 from banksia.runtime.post_commit import DispatchStartDue, RuntimeEffectSignal
 
 
@@ -50,11 +51,6 @@ async def test_lifespan_keeps_publishers_alive_until_runtime_owners_stop(
     async def ensure_schema() -> None:
         events.append("schema")
 
-    async def cleanup_requests(**kwargs: object) -> dict[str, int]:
-        del kwargs
-        events.append("request_cleanup")
-        return {}
-
     async def recover_task_workspaces(*args: object, **kwargs: object) -> tuple[object, ...]:
         del args, kwargs
         events.append("task_workspace_recovery")
@@ -65,7 +61,7 @@ async def test_lifespan_keeps_publishers_alive_until_runtime_owners_stop(
             Callable[[RuntimeEffectSignal], Awaitable[bool]],
             kwargs["publish"],
         )
-        assert await publish(DispatchStartDue("dispatch.startup", 1, main_module.utc_now()))
+        assert await publish(DispatchStartDue("dispatch.startup", 1, utc_now()))
         routed_signal_types = kwargs["routed_signal_types"]
         assert isinstance(routed_signal_types, tuple)
         assert DispatchStartDue in routed_signal_types
@@ -86,11 +82,6 @@ async def test_lifespan_keeps_publishers_alive_until_runtime_owners_stop(
         "recover_task_workspace_admissions",
         recover_task_workspaces,
     )
-    monkeypatch.setattr(
-        main_module,
-        "cleanup_aged_dispatch_request_directories",
-        cleanup_requests,
-    )
     monkeypatch.setattr(main_module, "audit_startup_runtime_effects", audit_runtime)
     monkeypatch.setattr(
         main_module,
@@ -105,7 +96,6 @@ async def test_lifespan_keeps_publishers_alive_until_runtime_owners_stop(
     assert events == [
         "schema",
         "task_workspace_recovery",
-        "request_cleanup",
         "enter:command",
         "enter:projection",
         "enter:router",

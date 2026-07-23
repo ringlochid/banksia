@@ -10,7 +10,12 @@ from sqlalchemy.orm import raiseload
 
 from banksia.persistence.models import ReplanTransitionModel
 from banksia.runtime.clock import utc_now
-from banksia.runtime.contracts import ReplanSuccess, StructuralReplanTrigger
+from banksia.runtime.contracts import ReplanSuccess
+from banksia.runtime.contracts.prompt import (
+    StructuralReplanResult,
+    StructuralReplanSource,
+    StructuralReplanTrigger,
+)
 from banksia.runtime.dispatch.opening import TaskResumeEventBasis
 from banksia.runtime.dispatch.ordinary_context import OrdinaryContinuationBasis
 from banksia.runtime.dispatch.ordinary_continuation import (
@@ -196,9 +201,11 @@ async def _read_replan_source(
         source_dispatch_closed_reason="structural_replan",
         opened_reason="structural_replan",
         trigger=StructuralReplanTrigger(
-            source_dispatch_id=transition.source_dispatch_id,
-            operation=result.operation,
-            result=result,
+            source=StructuralReplanSource(
+                source_dispatch_id=transition.source_dispatch_id,
+                operation=result.operation,
+            ),
+            result=StructuralReplanResult(replan=result),
         ),
         continuation_source_id=transition.replan_transition_id,
     )

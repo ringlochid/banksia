@@ -11,16 +11,9 @@ def resolve_task_root_paths(
     workspace: Path,
 ) -> TaskRootPaths:
     task_root_path = coerce_path(task_root)
-    runtime_path = task_root_path / "_runtime"
-    notes_path = task_root_path / "notes"
     return TaskRootPaths(
         task_root=task_root_path,
         workspace_path=coerce_path(workspace),
-        outputs_path=task_root_path,
-        artifacts_path=task_root_path / "artifacts",
-        tmp_path=notes_path,
-        runtime_path=runtime_path,
-        dispatch_path=runtime_path / "dispatch",
     )
 
 

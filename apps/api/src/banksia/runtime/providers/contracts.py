@@ -11,6 +11,7 @@ from pydantic import (
     ConfigDict,
     Field,
     SecretStr,
+    StrictStr,
     field_validator,
     model_validator,
 )
@@ -91,8 +92,8 @@ class DispatchStartRequest(BaseModel):
     dispatch_id: str
     provider_start_revision: int = Field(ge=0)
     working_directory: Path
-    instructions: bytes
-    input: bytes
+    instructions: StrictStr
+    input: StrictStr
     provider_route: ProviderRoute
     provider_native_access: ProviderNativeAccess
     network_access: NetworkAccess

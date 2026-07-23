@@ -15,12 +15,20 @@ from banksia.persistence.models import (
     FlowNodeModel,
     NodePlanRevisionModel,
 )
+from banksia.runtime.assignment import read_assignment_file_references
 from banksia.runtime.checkpoint.reads import read_checkpoint_file_references
 from banksia.runtime.contracts.primitives import CheckpointOutcome, EgressBoundary
 from banksia.runtime.contracts.prompt import (
+    AcceptedBoundaryResult,
+    AcceptedBoundarySource,
     AcceptedBoundaryTrigger,
+    ChildReturnResult,
+    ChildReturnSource,
     ChildReturnTrigger,
+    PromptAssignment,
     PromptCheckpointSummary,
+    SemanticRetryResult,
+    SemanticRetrySource,
     SemanticRetryTrigger,
 )
 from banksia.runtime.dispatch.prompt_snapshot import BoundaryPromptTrigger
@@ -108,9 +116,11 @@ async def _resolve_yield_target(
         attempt_id=decision.staged_child_attempt_id,
         opened_reason="boundary",
         trigger=AcceptedBoundaryTrigger(
-            accepted_boundary_id=boundary.accepted_boundary_id,
-            source_dispatch_id=boundary.source_dispatch_id,
-            outcome=EgressBoundary.YIELD,
+            source=AcceptedBoundarySource(
+                accepted_boundary_id=boundary.accepted_boundary_id,
+                source_dispatch_id=boundary.source_dispatch_id,
+            ),
+            result=AcceptedBoundaryResult(outcome=EgressBoundary.YIELD),
         ),
     )
 
@@ -140,10 +150,12 @@ async def _resolve_retry_target(
         attempt_id=retry_attempt_id,
         opened_reason="semantic_retry",
         trigger=SemanticRetryTrigger(
-            accepted_boundary_id=boundary.accepted_boundary_id,
-            source_dispatch_id=boundary.source_dispatch_id,
-            previous_attempt_id=boundary.attempt_id,
-            checkpoint=checkpoint,
+            source=SemanticRetrySource(
+                accepted_boundary_id=boundary.accepted_boundary_id,
+                source_dispatch_id=boundary.source_dispatch_id,
+                previous_attempt_id=boundary.attempt_id,
+            ),
+            result=SemanticRetryResult(checkpoint=checkpoint),
         ),
     )
 
@@ -176,17 +188,30 @@ async def _resolve_child_return_target(
         child_outcome = EgressBoundary.BLOCKED
     else:
         raise ValueError("child return boundary has an unsupported outcome")
+    child_files = await read_assignment_file_references(
+        session,
+        assignment_id=source_assignment.assignment_id,
+    )
     return BoundaryTarget(
         assignment_id=parent.assignment_id,
         attempt_id=parent.current_attempt_id,
         opened_reason="child_return",
         trigger=ChildReturnTrigger(
-            child_assignment_id=boundary.assignment_id,
-            child_attempt_id=boundary.attempt_id,
-            source_dispatch_id=boundary.source_dispatch_id,
-            accepted_boundary_id=boundary.accepted_boundary_id,
-            outcome=child_outcome,
-            checkpoint=checkpoint,
+            source=ChildReturnSource(
+                child_assignment_id=boundary.assignment_id,
+                child_attempt_id=boundary.attempt_id,
+                source_dispatch_id=boundary.source_dispatch_id,
+                accepted_boundary_id=boundary.accepted_boundary_id,
+            ),
+            result=ChildReturnResult(
+                assignment=PromptAssignment(
+                    id=source_assignment.assignment_id,
+                    prompt=source_assignment.prompt,
+                    files=child_files,
+                ),
+                outcome=child_outcome,
+                checkpoint=checkpoint,
+            ),
         ),
     )
 
@@ -217,7 +242,7 @@ async def _read_boundary_checkpoint(
         checkpoint_id=checkpoint.checkpoint_id,
     )
     return PromptCheckpointSummary(
-        checkpoint_id=checkpoint.checkpoint_id,
+        id=checkpoint.checkpoint_id,
         summary=checkpoint.summary,
         details=checkpoint.details,
         files=files,

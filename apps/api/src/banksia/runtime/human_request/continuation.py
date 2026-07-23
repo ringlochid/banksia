@@ -8,8 +8,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import raiseload
 
 from banksia.persistence.models import FlowModel, HumanRequestModel
-from banksia.runtime.contracts import FileReference
+from banksia.runtime.contracts import (
+    FileReference,
+    HumanRequestOpenRequest,
+    serialize_human_request_item_answers,
+)
 from banksia.runtime.contracts.prompt import (
+    HumanResult,
+    HumanResultSource,
     HumanResultTrigger,
 )
 from banksia.runtime.dispatch.ordinary_context import (
@@ -106,29 +112,29 @@ async def claim_human_request_continuation(
     trigger = snapshot.basis.trigger
     if not isinstance(trigger, HumanResultTrigger):
         return False
-    request = trigger.request
-    resolution = trigger.resolution
+    request = trigger.result.request
+    resolution = trigger.result.resolution
     request_id = await session.scalar(
         update(HumanRequestModel)
         .where(
-            HumanRequestModel.request_id == request.request_id,
+            HumanRequestModel.request_id == trigger.source.request_id,
             HumanRequestModel.task_id == snapshot.prompt.task_id,
             HumanRequestModel.flow_id == snapshot.prompt.flow_id,
             HumanRequestModel.assignment_id == snapshot.prompt.assignment_id,
             HumanRequestModel.attempt_id == snapshot.prompt.attempt_id,
-            HumanRequestModel.source_dispatch_id == request.source_dispatch_id,
+            HumanRequestModel.source_dispatch_id == trigger.source.source_dispatch_id,
             HumanRequestModel.status.in_(_TERMINAL_HUMAN_REQUEST_STATUSES),
-            HumanRequestModel.status == request.status.value,
             HumanRequestModel.request_kind == request.kind.value,
             HumanRequestModel.request_summary == request.summary,
             HumanRequestModel.request_items_json
             == [item.model_dump(mode="json") for item in request.items],
             HumanRequestModel.resolution_kind == resolution.resolution_kind.value,
-            HumanRequestModel.item_responses_json == resolution.item_responses,
-            HumanRequestModel.resolution_policy_basis_json == resolution.policy_basis,
+            HumanRequestModel.item_responses_json
+            == serialize_human_request_item_answers(resolution.item_responses),
             HumanRequestModel.resolution_summary == resolution.summary,
             HumanRequestModel.resolved_by_actor_ref == resolution.resolved_by_actor_ref,
             HumanRequestModel.resolved_by_surface == resolution.resolved_by_surface.value,
+            HumanRequestModel.resolved_at == resolution.resolved_at,
             HumanRequestModel.successor_dispatch_id.is_(None),
         )
         .values(successor_dispatch_id=prepared.dispatch_id)
@@ -205,9 +211,27 @@ def build_human_result_trigger(
     resolution = human_request_resolution_from_model(source)
     if resolution is None:
         raise ValueError("terminal human request is missing resolution truth")
+    pending = pending_human_request_from_model(source, files=files)
     return HumanResultTrigger(
-        request=pending_human_request_from_model(source, files=files),
-        resolution=resolution,
+        source=HumanResultSource(
+            request_id=pending.request_id,
+            source_dispatch_id=pending.source_dispatch_id,
+        ),
+        result=HumanResult(
+            request=HumanRequestOpenRequest(
+                kind=pending.kind,
+                summary=pending.summary,
+                items=pending.items,
+                files=pending.files,
+                timeout=(
+                    pending.timeout
+                    if pending.timeout.due_at is not None
+                    or pending.timeout.default_behavior is not None
+                    else None
+                ),
+            ),
+            resolution=resolution,
+        ),
     )
 
 

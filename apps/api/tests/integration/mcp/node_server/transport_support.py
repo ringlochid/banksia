@@ -40,9 +40,11 @@ class RecordingNodeOperationExecutor:
         *,
         listed_names_by_dispatch: Mapping[str, Sequence[NodeOperationName]] | None = None,
         results_by_name: Mapping[NodeOperationName, BaseModel] | None = None,
+        human_request_kinds: Sequence[str] = ("input", "direction", "approval", "review"),
     ) -> None:
         self._listed_names_by_dispatch = dict(listed_names_by_dispatch or {})
         self._results_by_name = dict(results_by_name or {})
+        self._human_request_kinds = tuple(human_request_kinds)
         self.listed_scopes: list[NodeOperationScope] = []
         self.calls: list[RecordedNodeOperationCall] = []
 
@@ -56,6 +58,12 @@ class RecordingNodeOperationExecutor:
             tuple(descriptor.name for descriptor in NODE_OPERATION_CATALOG),
         )
         return tuple(get_node_operation_descriptor(name) for name in names)
+
+    async def allowed_human_request_kinds(
+        self,
+        scope: NodeOperationScope,
+    ) -> tuple[str, ...]:
+        return self._human_request_kinds
 
     async def execute(
         self,

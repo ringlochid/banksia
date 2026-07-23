@@ -135,7 +135,10 @@ async def test_http_and_operator_mcp_resolve_the_same_human_source(
                         {
                             "id": "direction",
                             "prompt": "Which answer?",
-                            "options": [{"id": "a", "title": "A"}],
+                            "options": [
+                                {"id": "a", "title": "A"},
+                                {"id": "b", "title": "B"},
+                            ],
                         }
                     ],
                 }
@@ -184,7 +187,7 @@ async def test_http_and_operator_mcp_request_the_same_command_cancellation(
                 }
             },
         )
-        run_id = str(opened.model_dump()["run_id"])
+        run_id = str(opened.model_dump()["command_id"])
         result = await _call_command_cancel(
             surface,
             session_factory,
@@ -238,7 +241,14 @@ async def _call_human_resolve(
         async with _http_client(session_factory, publisher=publisher) as client:
             response = await client.post(
                 f"/control/tasks/{task_id}/human-requests/{request_id}/resolve",
-                json={"item_responses": {"direction": "a"}},
+                json={
+                    "item_responses": {
+                        "direction": {
+                            "kind": "option",
+                            "option_id": "a",
+                        }
+                    }
+                },
             )
         assert response.status_code == 200
         return HumanRequestResolveResponse.model_validate(response.json())
@@ -250,7 +260,12 @@ async def _call_human_resolve(
         {
             "task_id": task_id,
             "request_id": request_id,
-            "item_responses": {"direction": "a"},
+            "item_responses": {
+                "direction": {
+                    "kind": "option",
+                    "option_id": "a",
+                }
+            },
         },
     )
     return HumanRequestResolveResponse.model_validate(_mcp_payload(result))

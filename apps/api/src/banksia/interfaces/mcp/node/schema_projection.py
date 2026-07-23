@@ -20,6 +20,7 @@ _SCOPE_PROPERTIES: dict[str, dict[str, object]] = {
         "description": "Full controller dispatch ID.",
     },
 }
+_ALL_HUMAN_REQUEST_KINDS = ("input", "direction", "approval", "review")
 
 
 def compatibility_input_schema(descriptor: NodeOperationDescriptor) -> dict[str, Any]:
@@ -44,8 +45,33 @@ def compatibility_input_schema(descriptor: NodeOperationDescriptor) -> dict[str,
     return compatibility_schema
 
 
-def managed_input_schema(descriptor: NodeOperationDescriptor) -> dict[str, Any]:
-    return _strict_object_schema(descriptor.request_model.model_json_schema())
+def managed_input_schema(
+    descriptor: NodeOperationDescriptor,
+    *,
+    human_request_kinds: tuple[str, ...] | None = None,
+) -> dict[str, Any]:
+    schema = _strict_object_schema(descriptor.request_model.model_json_schema())
+    if (
+        descriptor.name.value == "open_human_request"
+        and human_request_kinds is not None
+        and human_request_kinds != _ALL_HUMAN_REQUEST_KINDS
+    ):
+        definitions = schema.get("$defs")
+        if not isinstance(definitions, dict):
+            raise ValueError("Human Request schema is missing definitions")
+        request_schema = definitions.get("HumanRequestOpenRequest")
+        if not isinstance(request_schema, dict):
+            raise ValueError("Human Request schema is missing its request definition")
+        properties = request_schema.get("properties")
+        if not isinstance(properties, dict):
+            raise ValueError("Human Request schema is missing request properties")
+        kind_schema = properties.get("kind")
+        if not isinstance(kind_schema, dict):
+            raise ValueError("Human Request schema is missing its kind property")
+        kind_schema.pop("$ref", None)
+        kind_schema["type"] = "string"
+        kind_schema["enum"] = list(human_request_kinds)
+    return schema
 
 
 def operation_output_schema(descriptor: NodeOperationDescriptor) -> dict[str, Any]:

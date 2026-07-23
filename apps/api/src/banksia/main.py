@@ -33,15 +33,11 @@ from banksia.persistence.session import (
     get_session_factory,
 )
 from banksia.runtime.boundary import create_boundary_accepted_handler
-from banksia.runtime.clock import utc_now
 from banksia.runtime.command_run import (
     CommandProcessOwner,
     create_command_run_terminal_handler,
 )
-from banksia.runtime.dispatch.cleanup import (
-    cleanup_aged_dispatch_request_directories,
-    create_dispatch_binding_cleanup_handler,
-)
+from banksia.runtime.dispatch.cleanup import create_dispatch_binding_cleanup_handler
 from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
 from banksia.runtime.human_request import (
     create_human_request_due_handler,
@@ -201,6 +197,7 @@ def _build_application_runtime(settings: Settings) -> _ApplicationRuntime:
         ),
         runtime_effect_publisher=runtime_effect_router,
         support_projection_publisher=support_projection_owner,
+        dispatch_opening_dependencies=dispatch_opening_dependencies,
     )
     dispatch_starter = DispatchStarter(
         adapters=provider_adapter_registry,
@@ -316,11 +313,6 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
                     else ()
                 ),
             )
-        app.state.dispatch_request_cleanup = await cleanup_aged_dispatch_request_directories(
-            session_factory=_runtime_session_context,
-            data_boundary=settings.data_dir,
-            now=utc_now(),
-        )
         runtime_effect_router: RuntimeEffectRouter = app.state.runtime_effect_router
         deadline_scheduler: DeadlineScheduler = app.state.deadline_scheduler
         command_process_owner: CommandProcessOwner = app.state.command_process_owner

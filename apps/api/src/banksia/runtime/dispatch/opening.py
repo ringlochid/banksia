@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from banksia.persistence.models import (
     DispatchCapabilitySetModel,
-    DispatchPromptRefsModel,
+    DispatchRequestModel,
     DispatchTurnModel,
 )
 from banksia.runtime.contracts import TaskEventSource, TaskEventType
@@ -155,8 +155,6 @@ async def _append_dispatch_opened_event(
             "requested_provider": prepared.provider.requested_provider.value,
             "resolved_provider": prepared.provider.resolved_provider.value,
             "selection_basis": prepared.provider.selection_basis.value,
-            "instructions_ref": prepared.refs.instructions_logical_path,
-            "input_ref": prepared.refs.input_logical_path,
         },
     )
 
@@ -192,11 +190,10 @@ def _add_dispatch_support_records(
     prepared: PreparedDispatchRequest,
 ) -> None:
     session.add(
-        DispatchPromptRefsModel(
+        DispatchRequestModel(
             dispatch_id=prepared.dispatch_id,
-            instructions_logical_path=prepared.refs.instructions_logical_path,
-            input_logical_path=prepared.refs.input_logical_path,
-            dynamic_input_version=1,
+            instructions=prepared.instructions,
+            input=prepared.input,
             created_at=prepared.due_at,
         )
     )

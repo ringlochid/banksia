@@ -40,8 +40,8 @@ def build_start_request(
         dispatch_id="dispatch-1",
         provider_start_revision=provider_start_revision,
         working_directory=working_directory,
-        instructions=b"Exact system instructions",
-        input=b"Exact dispatch input",
+        instructions="Exact system instructions",
+        input="Exact dispatch input",
         provider_route=OpenClawProviderRoute(
             kind=ProviderKind.OPENCLAW,
             gateway_profile="experimental",

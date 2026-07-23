@@ -67,15 +67,6 @@ class OpenClawGatewayAdapter:
                 kind=ProviderStartFailureKind.DEFINITE_FAILURE,
                 code=ProviderStartErrorCode.CONFIGURATION,
             )
-        try:
-            instructions = request.instructions.decode("utf-8")
-            input_text = request.input.decode("utf-8")
-        except UnicodeDecodeError:
-            raise ProviderStartError(
-                kind=ProviderStartFailureKind.DEFINITE_FAILURE,
-                code=ProviderStartErrorCode.CONFIGURATION,
-            ) from None
-
         session_key = f"banksia-{uuid4().hex}"
         idempotency_key = (
             f"banksia:{request.dispatch_id}:provider-start:{request.provider_start_revision}"
@@ -89,8 +80,8 @@ class OpenClawGatewayAdapter:
                 method="agent",
                 params={
                     "sessionKey": session_key,
-                    "message": input_text,
-                    "extraSystemPrompt": instructions,
+                    "message": request.input,
+                    "extraSystemPrompt": request.instructions,
                     "idempotencyKey": idempotency_key,
                 },
                 working_directory=request.working_directory,

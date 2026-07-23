@@ -12,7 +12,7 @@ import pytest
 from banksia.config import CodexSettings, RuntimeSettings, Settings
 from banksia.persistence.models import (
     AttemptCheckpointModel,
-    DispatchPromptRefsModel,
+    DispatchRequestModel,
     DispatchTurnModel,
     FlowModel,
     FlowNodeModel,
@@ -92,7 +92,7 @@ async def test_manifest_barrier_opens_one_same_attempt_successor(
             )
             flow = await session.get(FlowModel, ids.flow_id)
             successor = await session.get(DispatchTurnModel, first.dispatch_id)
-            refs = await session.get(DispatchPromptRefsModel, first.dispatch_id)
+            dispatch_request = await session.get(DispatchRequestModel, first.dispatch_id)
             successor_node = await session.scalar(
                 select(FlowNodeModel)
                 .options(selectinload(FlowNodeModel.current_assignment))
@@ -115,9 +115,9 @@ async def test_manifest_barrier_opens_one_same_attempt_successor(
         assert successor_node.flow_node_id != ids.root_node_id
         assert successor_node.current_assignment is not None
         assert successor_node.current_assignment.assignment_id == ids.root_assignment_id
-        assert refs is not None
+        assert dispatch_request is not None
         task_root = seeded_task_root(tmp_path, "recursive-continuation")
-        input_text = (task_root / refs.input_logical_path).read_text(encoding="utf-8")
+        input_text = dispatch_request.input
         assert '"kind": "structural_replan"' in input_text
         assert '"operation": "add_child"' in input_text
         manifest = (task_root / "manifest.md").read_text(encoding="utf-8")

@@ -17,7 +17,7 @@ from banksia.workflows.catalog import read_current_published_workflow
 from tests.helpers.workflow_runtime import initialized_workflow_database
 
 
-async def test_task_workspace_has_private_controller_owned_layout(tmp_path: Path) -> None:
+async def test_task_workspace_has_private_target_layout(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     workspace.mkdir()
     task_id = "t_01234567"
@@ -41,8 +41,6 @@ async def test_task_workspace_has_private_controller_owned_layout(tmp_path: Path
         admission.task_root / "notes",
         admission.task_root / "artifacts",
         admission.task_root / "command-runs",
-        admission.task_root / "_runtime",
-        admission.task_root / "_runtime" / "dispatch",
     }
     for directory in expected_directories:
         assert directory.is_dir()
@@ -56,6 +54,7 @@ async def test_task_workspace_has_private_controller_owned_layout(tmp_path: Path
     accept_task_workspace(admission)
 
     assert not admission.marker.exists()
+    assert not (admission.task_root / "_runtime").exists()
 
 
 @pytest.mark.parametrize("kind", ("symlink", "file"))

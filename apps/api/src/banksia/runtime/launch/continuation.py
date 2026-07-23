@@ -208,7 +208,6 @@ async def _prepare_root_dispatch(
         await session.rollback()
     prepared = prepare_dispatch_request(
         dependencies=dependencies,
-        paths=snapshot.paths,
         dispatch_id=dispatch_id,
         due_at=due_at,
         provider=snapshot.provider,

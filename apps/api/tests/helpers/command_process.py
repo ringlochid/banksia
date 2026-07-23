@@ -140,7 +140,7 @@ async def open_argv_command(
             }
         },
     )
-    run_id = cast(str, response.model_dump()["run_id"])
+    run_id = cast(str, response.model_dump()["command_id"])
     assert re.fullmatch(r"c_[0-9a-hjkmnp-tv-z]{8}", run_id)
     return run_id
 

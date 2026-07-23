@@ -30,7 +30,6 @@ from banksia.runtime.workspace.storage import (
     ensure_directory,
     is_real_directory,
     open_banksia_root,
-    open_child_directory,
     open_task_root,
     read_small_text,
     remove_task_tree,
@@ -174,10 +173,8 @@ def stage_task_workspace(
                 _marker_body(task_id),
             )
             marker_written = True
-            for name in ("notes", "artifacts", "command-runs", "_runtime"):
+            for name in ("notes", "artifacts", "command-runs"):
                 ensure_directory(task_descriptor, name)
-            with open_child_directory(task_descriptor, "_runtime") as runtime_descriptor:
-                ensure_directory(runtime_descriptor, "dispatch")
             write_new_text(
                 task_descriptor,
                 "manifest.md",

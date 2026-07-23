@@ -1031,8 +1031,6 @@ export interface components {
             assignment_id: components["schemas"]["TaskEventIdentifier"];
             attempt_id: components["schemas"]["TaskEventIdentifier"];
             dispatch_id: components["schemas"]["TaskEventIdentifier"];
-            input_ref: components["schemas"]["TaskEventRef"];
-            instructions_ref: components["schemas"]["TaskEventRef"];
             node_key: components["schemas"]["TaskEventIdentifier"];
             opened_reason: components["schemas"]["DispatchOpenedReason"];
             predecessor_dispatch_id?: components["schemas"]["TaskEventIdentifier"] | null;
@@ -1132,6 +1130,16 @@ export interface components {
         };
         /** HumanRequestItem */
         HumanRequestItem: {
+            /**
+             * Allow Other
+             * @default false
+             */
+            allow_other: boolean;
+            /**
+             * Allow Skip
+             * @default false
+             */
+            allow_skip: boolean;
             /** Id */
             id: string;
             /** Options */
@@ -1140,9 +1148,10 @@ export interface components {
             prompt: string;
             /** Response Schema */
             response_schema?: {
-                [key: string]: unknown;
+                [key: string]: components["schemas"]["JsonValue"];
             } | null;
         };
+        HumanRequestItemAnswer: components["schemas"]["HumanRequestValueAnswer"] | components["schemas"]["HumanRequestOptionAnswer"] | components["schemas"]["HumanRequestOtherAnswer"] | components["schemas"]["HumanRequestSkippedAnswer"];
         /**
          * HumanRequestKind
          * @enum {string}
@@ -1178,6 +1187,26 @@ export interface components {
             /** Title */
             title: string;
         };
+        /** HumanRequestOptionAnswer */
+        HumanRequestOptionAnswer: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "option";
+            /** Option Id */
+            option_id: string;
+        };
+        /** HumanRequestOtherAnswer */
+        HumanRequestOtherAnswer: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "other";
+            /** Text */
+            text: string;
+        };
         /** HumanRequestRead */
         HumanRequestRead: {
             request: components["schemas"]["PendingHumanRequest"];
@@ -1187,11 +1216,7 @@ export interface components {
         HumanRequestResolution: {
             /** Item Responses */
             item_responses?: {
-                [key: string]: components["schemas"]["JsonValue"];
-            } | null;
-            /** Policy Basis */
-            policy_basis?: {
-                [key: string]: components["schemas"]["JsonValue"];
+                [key: string]: components["schemas"]["HumanRequestItemAnswer"];
             } | null;
             /** Request Id */
             request_id: string;
@@ -1223,7 +1248,7 @@ export interface components {
         HumanRequestResolveRequest: {
             /** Item Responses */
             item_responses: {
-                [key: string]: components["schemas"]["JsonValue"];
+                [key: string]: components["schemas"]["HumanRequestItemAnswer"];
             };
         };
         /** HumanRequestResolveResponse */
@@ -1231,6 +1256,14 @@ export interface components {
             resolution: components["schemas"]["HumanRequestResolution"];
             /** Task Id */
             task_id: string;
+        };
+        /** HumanRequestSkippedAnswer */
+        HumanRequestSkippedAnswer: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "skipped";
         };
         /**
          * HumanRequestStatus
@@ -1287,6 +1320,15 @@ export interface components {
             default_behavior?: string | null;
             /** Due At */
             due_at?: string | null;
+        };
+        /** HumanRequestValueAnswer */
+        HumanRequestValueAnswer: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "value";
+            value: components["schemas"]["JsonValue"];
         };
         JsonValue: unknown;
         /** MemberCapabilities */
@@ -1398,7 +1440,7 @@ export interface components {
          * OperationFailureCode
          * @enum {string}
          */
-        OperationFailureCode: "invalid_request_shape" | "local_admission_denied" | "authentication_failed" | "scope_mismatch" | "illegal_caller" | "illegal_target_relation" | "illegal_state" | "stale_dispatch" | "stale_flow_revision" | "stale_assignment" | "name_collision" | "missing_resource" | "conflicting_continuation" | "cursor_reset_required" | "boundary_precondition_failed" | "capability_rejected" | "conflict" | "invalid_task_path" | "invalid_task_root" | "path_escape" | "not_a_directory" | "not_a_file" | "binary_file" | "file_read_limit_exceeded" | "directory_limit_exceeded" | "budget_exhausted" | "internal_error";
+        OperationFailureCode: "invalid_request_shape" | "local_admission_denied" | "authentication_failed" | "scope_mismatch" | "illegal_caller" | "illegal_target_relation" | "illegal_state" | "stale_dispatch" | "stale_flow_revision" | "stale_assignment" | "name_collision" | "missing_resource" | "conflicting_continuation" | "cursor_reset_required" | "boundary_precondition_failed" | "capability_rejected" | "conflict" | "invalid_task_path" | "invalid_task_root" | "budget_exhausted" | "internal_error";
         OperatorCurrentPaths: components["schemas"]["FileReference"][];
         /** OperatorFlowSnapshotResponse */
         OperatorFlowSnapshotResponse: {

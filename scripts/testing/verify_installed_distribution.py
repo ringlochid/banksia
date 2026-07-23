@@ -23,8 +23,8 @@ REQUIRED_PACKAGE_MEMBERS = (
     "banksia/main.py",
     "banksia/workflows/resources/starter_workflows/reviewed-delivery.yaml",
     "banksia/platform/managed_services/resources/systemd/banksia.service",
-    "banksia/runtime/prompt/assets/instructions/shared/authority.md",
-    "banksia/runtime/prompt/assets/instructions/families/worker.md",
+    "banksia/runtime/prompt/assets/shared/core.txt",
+    "banksia/runtime/prompt/assets/behaviors/contributor.txt",
     "banksia/interfaces/web_console/assets/index.html",
     "banksia/interfaces/web_console/assets/site.webmanifest",
 )

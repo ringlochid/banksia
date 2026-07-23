@@ -52,8 +52,8 @@ def test_dispatch_start_request_requires_provider_projection() -> None:
             dispatch_id="dispatch-1",
             provider_start_revision=0,
             working_directory=Path("/tmp/workspace"),
-            instructions=b"instructions",
-            input=b"input",
+            instructions="instructions",
+            input="input",
             provider_route=CodexProviderRoute(kind=ProviderKind.CODEX),
             provider_native_access=ProviderNativeAccess.FULL,
             network_access=NetworkAccess.ALLOW,
@@ -68,8 +68,8 @@ def test_dispatch_start_request_requires_provider_projection() -> None:
         dispatch_id="dispatch-1",
         provider_start_revision=0,
         working_directory=Path("/tmp/workspace"),
-        instructions=b"instructions",
-        input=b"input",
+        instructions="instructions",
+        input="input",
         provider_route=OpenClawProviderRoute(
             kind=ProviderKind.OPENCLAW,
             gateway_profile="default",
@@ -80,6 +80,10 @@ def test_dispatch_start_request_requires_provider_projection() -> None:
     )
 
     assert request.compatibility_node_mcp is not None
+    invalid_lanes = request.model_dump()
+    invalid_lanes["instructions"] = b"implicit decoding is forbidden"
+    with pytest.raises(ValidationError, match="valid string"):
+        DispatchStartRequest.model_validate(invalid_lanes)
 
 
 class _RegistryAdapter:

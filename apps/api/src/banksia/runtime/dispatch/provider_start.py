@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from banksia.persistence.models import (
     DispatchCapabilitySetModel,
-    DispatchPromptRefsModel,
+    DispatchRequestModel,
     DispatchTurnModel,
     FlowModel,
 )
@@ -38,8 +38,8 @@ class ProviderStartCandidate:
     gateway_profile: str | None
     provider_start_attempt_count: int
     persisted_due_at: datetime
-    instructions_logical_path: str | None
-    input_logical_path: str | None
+    instructions: str | None
+    input: str | None
     provider_native_access: str | None
     network_access: str | None
     sandbox_mode: str | None
@@ -234,10 +234,8 @@ async def read_provider_start_candidate(
                         "provider_start_attempt_count"
                     ),
                     DispatchTurnModel.next_provider_start_at.label("persisted_due_at"),
-                    DispatchPromptRefsModel.instructions_logical_path.label(
-                        "instructions_logical_path"
-                    ),
-                    DispatchPromptRefsModel.input_logical_path.label("input_logical_path"),
+                    DispatchRequestModel.instructions.label("instructions"),
+                    DispatchRequestModel.input.label("input"),
                     DispatchCapabilitySetModel.provider_native_access.label(
                         "provider_native_access"
                     ),
@@ -251,8 +249,8 @@ async def read_provider_start_candidate(
                 )
                 .join(FlowModel, FlowModel.flow_id == DispatchTurnModel.flow_id)
                 .outerjoin(
-                    DispatchPromptRefsModel,
-                    DispatchPromptRefsModel.dispatch_id == DispatchTurnModel.dispatch_id,
+                    DispatchRequestModel,
+                    DispatchRequestModel.dispatch_id == DispatchTurnModel.dispatch_id,
                 )
                 .outerjoin(
                     DispatchCapabilitySetModel,
@@ -434,8 +432,8 @@ def _build_provider_start_candidate(row: RowMapping) -> ProviderStartCandidate:
         gateway_profile=row["gateway_profile"],
         provider_start_attempt_count=row["provider_start_attempt_count"],
         persisted_due_at=row["persisted_due_at"],
-        instructions_logical_path=row["instructions_logical_path"],
-        input_logical_path=row["input_logical_path"],
+        instructions=row["instructions"],
+        input=row["input"],
         provider_native_access=row["provider_native_access"],
         network_access=row["network_access"],
         sandbox_mode=row["sandbox_mode"],

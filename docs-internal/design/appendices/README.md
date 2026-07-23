@@ -17,4 +17,4 @@ These appendices provide exact fixtures, baseline traceability, and bounded impl
 
 ## Prompt readback owner
 
-The generated [Task-member prompt baseline readback](generated/task-member-prompt-contract-readback.md) belongs under this versionless appendix tree. The [system-prompt owner](../system-prompts.md) remains normative; that generated page is a deterministic readback of the shipped AutoClaw prompt inputs and never makes a frozen versioned design tree authoritative again. WP-05 replaces those inputs and regenerates the same readback path.
+The generated [Task-member prompt contract readback](generated/task-member-prompt-contract-readback.md) belongs under this versionless appendix tree. The [system-prompt owner](../system-prompts.md) remains normative; the generated page is a deterministic readback of the shipped Banksia prompt assets and composition contract, not a second source of authority.

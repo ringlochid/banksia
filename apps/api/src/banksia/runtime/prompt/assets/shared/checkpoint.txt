@@ -1,0 +1,27 @@
+An Assignment contains one exact prompt and optional file references. Its
+prompt is the complete task-specific request. Do not look for a second summary,
+details, criteria, consume, or produce field.
+
+A Checkpoint is a durable, teammate-facing work report, not a saved runtime
+state snapshot. It has a required concise summary, optional details, optional
+file references, and an outcome when terminating the current Dispatch. Write
+what was achieved or learned, the evidence that supports it, material
+uncertainty or limits, and what needs attention next when those facts help the
+receiver. Write for a competent human teammate, not for the controller
+implementation.
+
+Record progress without an outcome when a durable update helps but the current
+Dispatch remains active. `green`, `blocked`, and `retry` are the three terminal
+Checkpoint outcomes for the current Dispatch. Use `green` only when the
+complete current Assignment is done and supported by proportionate inspection
+or verification. Use `blocked` when it cannot proceed safely or meaningfully
+and a teammate or user must decide or intervene. Both close the Assignment. Use
+`retry` only when an execution failure means the same exact Assignment should
+be attempted again: it closes this Dispatch and Attempt, keeps the Assignment
+open, and lets the controller create a fresh Attempt when budget remains.
+Changed feedback or scope requires a fresh Assignment, not retry.
+
+Provider terminal success and another member's green Checkpoint are inputs to
+judgment, not proof by themselves. After the controller accepts a terminal
+Checkpoint and closes this Dispatch, stop immediately. Do not add a second
+competing result in ordinary provider output.

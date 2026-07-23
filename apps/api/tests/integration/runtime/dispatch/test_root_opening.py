@@ -3,12 +3,13 @@ from __future__ import annotations
 from contextlib import AbstractAsyncContextManager
 from pathlib import Path
 from typing import Any, cast
+from xml.etree import ElementTree
 
 import pytest
 from banksia.config import CodexSettings, RuntimeSettings, Settings
 from banksia.persistence.models import (
     DispatchCapabilitySetModel,
-    DispatchPromptRefsModel,
+    DispatchRequestModel,
     DispatchTurnModel,
     FlowModel,
     FlowStartSourceModel,
@@ -45,7 +46,7 @@ from tests.helpers.sqlite_runtime import (
         (NetworkAccess.DENY, "restricted", "controller"),
     ),
 )
-async def test_root_start_materializes_then_commits_one_starting_dispatch(
+async def test_root_start_persists_then_commits_one_starting_dispatch(
     tmp_path: Path,
     network_access: NetworkAccess | None,
     expected_native_access: str,
@@ -95,7 +96,7 @@ async def test_root_start_materializes_then_commits_one_starting_dispatch(
             assert duplicate.outcome == "skipped"
             assert await session.scalar(select(func.count()).select_from(DispatchTurnModel)) == 1
             dispatch = await session.scalar(select(DispatchTurnModel))
-            refs = await session.scalar(select(DispatchPromptRefsModel))
+            dispatch_request = await session.scalar(select(DispatchRequestModel))
             capabilities = await session.scalar(select(DispatchCapabilitySetModel))
             source = await session.scalar(select(FlowStartSourceModel))
             flow = await session.scalar(select(FlowModel))
@@ -106,7 +107,7 @@ async def test_root_start_materializes_then_commits_one_starting_dispatch(
 
     _assert_root_opening_result(
         dispatch=dispatch,
-        refs=refs,
+        dispatch_request=dispatch_request,
         capabilities=capabilities,
         source=source,
         flow=flow,
@@ -167,7 +168,7 @@ async def test_root_start_route_failure_pauses_without_consuming_source(
 def _assert_root_opening_result(
     *,
     dispatch: DispatchTurnModel | None,
-    refs: DispatchPromptRefsModel | None,
+    dispatch_request: DispatchRequestModel | None,
     capabilities: DispatchCapabilitySetModel | None,
     source: FlowStartSourceModel | None,
     flow: FlowModel | None,
@@ -187,7 +188,9 @@ def _assert_root_opening_result(
     assert dispatch.effort_source == "provider_configuration"
     assert dispatch.gateway_profile_source is None
     assert dispatch.provider_start_retry_kind == "initial"
-    assert refs is not None and refs.dynamic_input_version == 1
+    assert dispatch_request is not None
+    assert dispatch_request.instructions.endswith("\n")
+    assert "\r" not in dispatch_request.instructions
     assert capabilities is not None
     assert capabilities.provider_kind == "codex"
     assert capabilities.provider_native_access == expected_native_access
@@ -221,9 +224,14 @@ def _assert_root_opening_result(
         expected_native_access
     )
     assert trace.graph_nodes
-    request_text = (tmp_path / "task-root" / refs.input_logical_path).read_text(encoding="utf-8")
-    assert '"kind": "root_start"' in request_text
-    assert f'"dispatch_id": "{dispatch.dispatch_id}"' in request_text
+    request_text = dispatch_request.input
+    assert "\r" not in request_text
+    request_root = ElementTree.fromstring(request_text)
+    assert request_root.tag == "banksia_dispatch_request"
+    assert request_root.find("continuation") is None
+    assert request_root.findtext("dispatch/id") == dispatch.dispatch_id
+    assert request_root.findtext("assignment/prompt")
+    assert not (tmp_path / "task-root" / "_runtime" / "dispatch").exists()
     assert publisher.signals == ()
 
 

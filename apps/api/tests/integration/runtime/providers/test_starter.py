@@ -127,7 +127,7 @@ async def test_accepted_start_opens_once_retains_binding_and_publishes_watchdog(
     tmp_path: Path,
 ) -> None:
     with starting_dispatch_database(tmp_path, suffix="starter-accepted") as database:
-        _write_request_pair(database, tmp_path)
+        _prepare_workspace(database, tmp_path)
         adapter = _RecordingAdapter()
         starter, registry, scheduler, publisher = _starter(
             database,
@@ -141,8 +141,7 @@ async def test_accepted_start_opens_once_retains_binding_and_publishes_watchdog(
         request = adapter.requests[0]
         assert dispatch.status == "open"
         assert dispatch.provider_start_attempt_count == 4
-        assert request.instructions == b"controller instructions\n"
-        assert request.input == b"dispatch input\n"
+        assert (request.instructions, request.input) == _dispatch_request_text(database)
         assert request.working_directory == (tmp_path / f"workspace-{database.ids.suffix}")
         assert request.managed_node_mcp is not None
         assert request.managed_node_mcp.enabled_tools == ("get_current_context",)
@@ -174,7 +173,7 @@ async def test_provider_failure_rotates_binding_and_retries_same_dispatch(
         tmp_path,
         suffix=f"starter-{failure_kind.value}",
     ) as database:
-        _write_request_pair(database, tmp_path)
+        _prepare_workspace(database, tmp_path)
         adapter = _RecordingAdapter(
             failure=ProviderStartError(
                 kind=failure_kind,
@@ -207,17 +206,34 @@ async def test_provider_failure_rotates_binding_and_retries_same_dispatch(
         assert request.managed_node_mcp is not None
         credential = request.managed_node_mcp.bearer_token.get_secret_value()
         assert registry.authenticate(credential) is None
+        retry_signal = scheduler.registered[0]
+        adapter.failure = None
+        retry_starter, _registry, _retry_scheduler, _retry_publisher = _starter(
+            database,
+            adapter,
+            now=retry_signal.due_at,
+        )
+        await _handle(database, retry_starter, retry_signal)
+
+        assert [request.dispatch_id for request in adapter.requests] == [
+            database.ids.current_dispatch_id,
+            database.ids.current_dispatch_id,
+        ]
+        assert {(request.instructions, request.input) for request in adapter.requests} == {
+            _dispatch_request_text(database)
+        }
+        assert not (
+            tmp_path / f"task-root-{database.ids.suffix}" / "_runtime" / "dispatch"
+        ).exists()
 
 
-async def test_invalid_request_ref_pauses_without_provider_io(tmp_path: Path) -> None:
-    with starting_dispatch_database(tmp_path, suffix="starter-invalid-ref") as database:
-        _write_request_pair(database, tmp_path)
+async def test_missing_dispatch_request_pauses_without_provider_io(tmp_path: Path) -> None:
+    with starting_dispatch_database(tmp_path, suffix="starter-missing-request") as database:
+        _prepare_workspace(database, tmp_path)
         with database.engine.begin() as connection:
-            refs = RuntimeBase.metadata.tables["dispatch_prompt_refs"]
+            requests = RuntimeBase.metadata.tables["dispatch_requests"]
             connection.execute(
-                refs.update()
-                .where(refs.c.dispatch_id == database.ids.current_dispatch_id)
-                .values(input_logical_path="_runtime/dispatch/another/input.md")
+                requests.delete().where(requests.c.dispatch_id == database.ids.current_dispatch_id)
             )
         adapter = _RecordingAdapter()
         starter, _registry, _scheduler, publisher = _starter(
@@ -243,7 +259,7 @@ async def test_missing_capability_snapshot_pauses_without_provider_io(
     tmp_path: Path,
 ) -> None:
     with starting_dispatch_database(tmp_path, suffix="starter-illegal-configuration") as database:
-        _write_request_pair(database, tmp_path)
+        _prepare_workspace(database, tmp_path)
         capabilities = RuntimeBase.metadata.tables["dispatch_capability_sets"]
         with database.engine.begin() as connection:
             connection.execute(
@@ -276,7 +292,7 @@ async def test_missing_committed_provider_adapter_pauses_before_binding_or_io(
     tmp_path: Path,
 ) -> None:
     with starting_dispatch_database(tmp_path, suffix="starter-missing-adapter") as database:
-        _write_request_pair(database, tmp_path)
+        _prepare_workspace(database, tmp_path)
         starter, registry, scheduler, publisher = _starter(
             database,
             None,
@@ -300,7 +316,7 @@ async def test_early_node_close_is_acceptance_loser_with_stop_and_no_retry(
     tmp_path: Path,
 ) -> None:
     with starting_dispatch_database(tmp_path, suffix="starter-early-close") as database:
-        _write_request_pair(database, tmp_path)
+        _prepare_workspace(database, tmp_path)
 
         def close_before_acceptance() -> None:
             dispatches = RuntimeBase.metadata.tables["dispatch_turns"]
@@ -348,7 +364,7 @@ async def test_initial_watchdog_recovery_stops_predecessor_before_start_once(
     tmp_path: Path,
 ) -> None:
     with starting_dispatch_database(tmp_path, suffix="starter-watchdog") as database:
-        _write_request_pair(database, tmp_path)
+        _prepare_workspace(database, tmp_path)
         dispatches = RuntimeBase.metadata.tables["dispatch_turns"]
         with database.engine.begin() as connection:
             connection.execute(
@@ -456,7 +472,7 @@ async def test_ambiguous_acceptance_commit_rereads_truth_before_cleanup(
     tmp_path: Path,
 ) -> None:
     with starting_dispatch_database(tmp_path, suffix="starter-ambiguous-commit") as database:
-        _write_request_pair(database, tmp_path)
+        _prepare_workspace(database, tmp_path)
         adapter = _RecordingAdapter()
         starter, registry, scheduler, publisher = _starter(
             database,
@@ -534,14 +550,10 @@ def _signal(database: StartingDispatchDatabase) -> DispatchStartDue:
     )
 
 
-def _write_request_pair(database: StartingDispatchDatabase, tmp_path: Path) -> None:
+def _prepare_workspace(database: StartingDispatchDatabase, tmp_path: Path) -> None:
     task_root = tmp_path / f"task-root-{database.ids.suffix}"
     workspace = tmp_path / f"workspace-{database.ids.suffix}"
     workspace.mkdir(parents=True)
-    request_root = task_root / "_runtime" / "dispatch" / database.ids.current_dispatch_id
-    request_root.mkdir(parents=True)
-    (request_root / "instructions.md").write_bytes(b"controller instructions\n")
-    (request_root / "input.md").write_bytes(b"dispatch input\n")
     with database.engine.begin() as connection:
         tasks = RuntimeBase.metadata.tables["tasks"]
         bindings = RuntimeBase.metadata.tables["workspace_bindings"]
@@ -568,6 +580,17 @@ def _dispatch_row(database: StartingDispatchDatabase) -> _DispatchRow:
                 )
             ).one(),
         )
+
+
+def _dispatch_request_text(database: StartingDispatchDatabase) -> tuple[str, str]:
+    requests = RuntimeBase.metadata.tables["dispatch_requests"]
+    with database.engine.connect() as connection:
+        row = connection.execute(
+            select(requests.c.instructions, requests.c.input).where(
+                requests.c.dispatch_id == database.ids.current_dispatch_id
+            )
+        ).one()
+    return str(row.instructions), str(row.input)
 
 
 def _flow_row(database: StartingDispatchDatabase) -> _FlowRow:

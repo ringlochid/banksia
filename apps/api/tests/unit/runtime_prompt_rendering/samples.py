@@ -1,211 +1,158 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
-
-from banksia.runtime.contracts.capabilities import EffectiveCapabilitySet
-from banksia.runtime.contracts.command_runs import CommandRunStartRequest
-from banksia.runtime.contracts.human_requests import (
-    HumanRequestItem,
-    HumanRequestResolution,
-    HumanRequestTimeout,
-    PendingHumanRequest,
-)
-from banksia.runtime.contracts.member import NodeKind
-from banksia.runtime.contracts.primitives import (
-    CheckpointOutcome,
-    EgressBoundary,
-    HumanRequestKind,
-    HumanRequestResolutionKind,
-    HumanRequestResolutionSurface,
-    HumanRequestStatus,
-)
+from banksia.runtime.contracts import FileReference
+from banksia.runtime.contracts.primitives import CheckpointOutcome, EgressBoundary
 from banksia.runtime.contracts.prompt import (
-    AcceptedBoundaryTrigger,
+    ChildReturnResult,
+    ChildReturnSource,
     ChildReturnTrigger,
-    CommandResultTrigger,
     DispatchRequestRenderInput,
-    HumanResultTrigger,
-    OperatorContinueTrigger,
     PromptAssignment,
+    PromptAvailability,
+    PromptBehavior,
     PromptCheckpointSummary,
-    PromptCommandOutcome,
-    PromptCommandResult,
-    PromptCommandTerminalSource,
-    PromptContext,
+    PromptContinuation,
+    PromptCurrentMember,
+    PromptDirectMember,
     PromptDispatch,
     PromptDynamicInput,
-    PromptFamily,
-    PromptInstructionGuidance,
-    PromptNext,
-    PromptTrigger,
-    RootStartTrigger,
-    RuntimeReadbackRefs,
-    SemanticRetryTrigger,
-    WatchdogRecoveryTrigger,
+    PromptEffectiveCapabilities,
+    PromptParticipation,
+    PromptProvider,
+    PromptSandbox,
+    PromptTask,
+    PromptWorkspace,
 )
-from banksia.runtime.contracts.refs import FileReference
-
-
-def sample_checkpoint() -> PromptCheckpointSummary:
-    return PromptCheckpointSummary(
-        checkpoint_id="checkpoint-1",
-        summary="The bounded child assignment completed.",
-        details="The report contains the reviewed implementation findings.",
-        outcome=CheckpointOutcome.GREEN,
-        files=(
-            FileReference(
-                path=".banksia/t_7m4k2d9x/artifacts/report.md",
-                description="The child report.",
-            ),
-        ),
-    )
+from banksia.runtime.work_plan import WorkPlanStepRead, WorkPlanStepStatus, WorkPlanView
 
 
 def sample_dynamic_input(
     *,
-    node_kind: NodeKind = NodeKind.WORKER,
-    trigger: PromptTrigger | None = None,
+    manager: bool = False,
+    task_lead: bool = False,
+    continuation: bool = False,
+    assignment_prompt: str = "Inspect and fix the exact issue.",
+    provider_name: str = "codex",
+    human_request: tuple[str, ...] = (),
+    command_run: str = "deny",
 ) -> PromptDynamicInput:
+    capabilities = PromptEffectiveCapabilities(
+        human_request=human_request,
+        command_run=command_run,
+    )
+    direct_team = (
+        (
+            PromptDirectMember(
+                id="reviewer",
+                title="Independent reviewer",
+                description="Review the bounded result.",
+                instruction="Challenge consequential claims.",
+                provider=PromptProvider(name="claude"),
+                capabilities=PromptEffectiveCapabilities(),
+                participation=PromptParticipation.REQUIRED,
+                availability=PromptAvailability.AVAILABLE,
+            ),
+        )
+        if manager
+        else ()
+    )
+    actions = ["get_current_context", "set_work_plan", "checkpoint", "add_child"]
+    if manager:
+        actions.extend(("update_child", "remove_child", "assign_child"))
+    if human_request:
+        actions.append("open_human_request")
+    if command_run == "allow":
+        actions.append("start_command_run")
     return PromptDynamicInput(
-        assignment=PromptAssignment(
-            assignment_id="assignment-1",
-            member_id="engineer",
-            member_title="Engineer",
-            node_kind=node_kind,
-            prompt="Repair the bounded authentication defect.",
-        ),
-        trigger=trigger or RootStartTrigger(flow_id="flow-1"),
-        plan=None,
-        context=PromptContext(
-            capabilities=EffectiveCapabilitySet(),
-            allowed_actions=(
-                "get_current_context",
-                "checkpoint",
-            ),
-            readback_refs=RuntimeReadbackRefs(
-                instructions="_runtime/dispatch/dispatch-1/instructions.md",
-                input="_runtime/dispatch/dispatch-1/input.md",
-                workflow_manifest="manifest.md",
-            ),
-            constraints=("Do not edit unrelated files.",),
-        ),
+        task=PromptTask(id="t_7m4k2d9x", workflow_id="reviewed-delivery"),
         dispatch=PromptDispatch(
-            task_id="task-1",
-            flow_id="flow-1",
-            flow_revision_id="flow-revision-1",
-            dispatch_id="dispatch-1",
-            assignment_id="assignment-1",
-            attempt_id="attempt-1",
-            node_key="repair-auth",
-            node_kind=node_kind,
+            id="dsp_123",
+            attempt_id="att_123",
+            assignment_id="asn_123",
         ),
-        next=PromptNext(instruction="Read current context, then complete the assignment."),
+        current_member=PromptCurrentMember(
+            id="lead" if task_lead else "implementation",
+            title="Delivery lead" if task_lead else "Implementation",
+            description="Own the current result.",
+            instruction="Preserve public compatibility.",
+            position="task_lead" if task_lead else None,
+            behavior=PromptBehavior.MANAGER if manager else PromptBehavior.CONTRIBUTOR,
+            provider=PromptProvider(
+                name=provider_name,
+                model="gpt-5.6",
+                effort="high",
+                sandbox=PromptSandbox(mode="workspace_write", network="deny"),
+            ),
+            effective_capabilities=capabilities,
+        ),
+        assignment=PromptAssignment(
+            id="asn_123",
+            prompt=assignment_prompt,
+            files=(
+                FileReference(
+                    path=".banksia/t_7m4k2d9x/artifacts/review.md",
+                    description="Inspect this review before deciding.",
+                ),
+            ),
+        ),
+        continuation=(PromptContinuation(trigger=sample_child_return()) if continuation else None),
+        direct_team=direct_team,
+        work_plan=WorkPlanView(
+            explanation="Keep the review independent.",
+            steps=(
+                WorkPlanStepRead(
+                    step="Inspect the bounded change.",
+                    status=WorkPlanStepStatus.IN_PROGRESS,
+                ),
+            ),
+        ),
+        available_actions=tuple(actions),
+        workspace=PromptWorkspace(
+            root="/work/acme",
+            task_directory=".banksia/t_7m4k2d9x",
+            manifest=".banksia/t_7m4k2d9x/manifest.md",
+            workflow_note=".banksia/t_7m4k2d9x/workflow-note.md",
+            notes=".banksia/t_7m4k2d9x/notes",
+            artifacts=".banksia/t_7m4k2d9x/artifacts",
+            command_runs=".banksia/t_7m4k2d9x/command-runs",
+        ),
     )
 
 
-def sample_request(
-    *,
-    node_kind: NodeKind = NodeKind.WORKER,
-    trigger: PromptTrigger | None = None,
-) -> DispatchRequestRenderInput:
-    family = PromptFamily.WORKER if node_kind == NodeKind.WORKER else PromptFamily.PARENT_ROOT
-    return DispatchRequestRenderInput(
-        family=family,
-        guidance=PromptInstructionGuidance(
-            workflow=("Follow the accepted workflow revision.",),
-            member=("Stay inside the assigned Member boundary.",),
-            node=("Use the node-local boundary tools.",),
+def sample_child_return() -> ChildReturnTrigger:
+    return ChildReturnTrigger(
+        source=ChildReturnSource(
+            accepted_boundary_id="bnd_123",
+            source_dispatch_id="dsp_child",
+            child_assignment_id="asn_child",
+            child_attempt_id="att_child",
         ),
-        dynamic_input=sample_dynamic_input(node_kind=node_kind, trigger=trigger),
-    )
-
-
-def all_trigger_samples() -> tuple[PromptTrigger, ...]:
-    checkpoint = sample_checkpoint()
-    retry_checkpoint = checkpoint.model_copy(update={"outcome": CheckpointOutcome.RETRY})
-    return (
-        RootStartTrigger(flow_id="flow-1"),
-        AcceptedBoundaryTrigger(
-            accepted_boundary_id="boundary-1",
-            source_dispatch_id="dispatch-0",
-            outcome=EgressBoundary.YIELD,
-        ),
-        ChildReturnTrigger(
-            child_assignment_id="child-assignment-1",
-            child_attempt_id="child-attempt-1",
-            source_dispatch_id="child-dispatch-1",
-            accepted_boundary_id="boundary-1",
+        result=ChildReturnResult(
+            assignment=PromptAssignment(
+                id="asn_child",
+                prompt="Review the exact implementation.",
+                files=(FileReference(path="src/change.py", description="Changed source."),),
+            ),
             outcome=EgressBoundary.GREEN,
-            checkpoint=checkpoint,
-        ),
-        HumanResultTrigger(
-            request=PendingHumanRequest(
-                request_id="human-request-1",
-                task_id="task-1",
-                flow_id="flow-1",
-                assignment_id="assignment-1",
-                attempt_id="attempt-1",
-                summary="Approve the bounded action.",
-                kind=HumanRequestKind.APPROVAL,
-                source_dispatch_id="dispatch-0",
-                items=(
-                    HumanRequestItem(
-                        id="decision",
-                        prompt="Should the bounded action proceed?",
-                        response_schema={"type": "string"},
+            checkpoint=PromptCheckpointSummary(
+                id="cp_123",
+                summary="The bounded review is complete.",
+                details="One residual risk remains documented.",
+                files=(
+                    FileReference(
+                        path=".banksia/t_7m4k2d9x/artifacts/review.md",
+                        description="Independent review.",
                     ),
                 ),
-                timeout=HumanRequestTimeout(),
-                opened_at=datetime(2026, 7, 18, 1, tzinfo=UTC),
-                status=HumanRequestStatus.RESOLVED,
+                outcome=CheckpointOutcome.GREEN,
             ),
-            resolution=HumanRequestResolution(
-                request_id="human-request-1",
-                task_id="task-1",
-                resolution_kind=HumanRequestResolutionKind.ANSWERED,
-                item_responses={"decision": "approved"},
-                summary="The operator approved the bounded action.",
-                resolved_at=datetime(2026, 7, 18, 2, tzinfo=UTC),
-                resolved_by_surface=HumanRequestResolutionSurface.CONTROLLER,
-            ),
-        ),
-        _sample_command_result_trigger(),
-        WatchdogRecoveryTrigger(source_dispatch_id="dispatch-0", recovery_count=1),
-        SemanticRetryTrigger(
-            accepted_boundary_id="boundary-1",
-            source_dispatch_id="dispatch-0",
-            previous_attempt_id="attempt-0",
-            checkpoint=retry_checkpoint,
-        ),
-        OperatorContinueTrigger(
-            source_dispatch_id="dispatch-0",
-            control_revision=2,
-            pause_reason="The task was paused for operator review.",
         ),
     )
 
 
-def _sample_command_result_trigger() -> CommandResultTrigger:
-    return CommandResultTrigger(
-        run_id="c_01234567",
-        source_dispatch_id="dispatch-0",
-        request=CommandRunStartRequest.model_validate(
-            {
-                "command": {"kind": "argv", "argv": ["python", "-V"]},
-                "summary": "Read the Python version.",
-            }
-        ),
-        result=PromptCommandResult(
-            state=PromptCommandOutcome.SUCCEEDED,
-            exit_code=0,
-            summary="The command completed successfully.",
-            started_at=datetime(2026, 7, 18, 1, tzinfo=UTC),
-            ended_at=datetime(2026, 7, 18, 2, tzinfo=UTC),
-            output_path=".banksia/t_01234567/command-runs/c_01234567/output.log",
-            output_observed_bytes=15,
-            output_written_bytes=15,
-            output_complete=True,
-            output_encoding="raw_bytes",
-            terminal_event_source=PromptCommandTerminalSource.PROCESS_OWNER,
-        ),
+def sample_request(**dynamic_overrides: object) -> DispatchRequestRenderInput:
+    return DispatchRequestRenderInput(
+        dynamic_input=sample_dynamic_input(**dynamic_overrides),
+        member_instruction="Preserve the public API.",
+        workflow_note="Treat public API changes as an explicit non-goal.",
     )

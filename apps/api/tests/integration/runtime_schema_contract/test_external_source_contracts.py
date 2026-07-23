@@ -50,7 +50,12 @@ def test_human_request_open_and_answer_shapes_are_database_validated(
                 .values(
                     status="resolved",
                     resolution_kind="answered",
-                    item_responses_json={"choice": "approve"},
+                    item_responses_json={
+                        "choice": {
+                            "kind": "option",
+                            "option_id": "approve",
+                        }
+                    },
                     resolution_summary="Approved by the local operator.",
                     resolved_by_actor_ref="operator.local",
                     resolved_by_surface="control_ui",
@@ -105,7 +110,12 @@ def test_human_request_successor_must_continue_its_exact_source_dispatch(
             source_dispatch_id=ids.root_dispatch_id,
             status="resolved",
             resolution_kind="answered",
-            item_responses_json={"choice": "approve"},
+            item_responses_json={
+                "choice": {
+                    "kind": "option",
+                    "option_id": "approve",
+                }
+            },
             resolution_summary="Answered.",
             resolved_by_surface="control_api",
             successor_dispatch_id=ids.current_dispatch_id,
@@ -297,7 +307,16 @@ def _open_human_request(ids: RuntimeIds) -> dict[str, object]:
         "source_dispatch_id": ids.current_dispatch_id,
         "request_kind": "approval",
         "request_summary": "Approve the target transition.",
-        "request_items_json": [{"id": "choice", "prompt": "Approve?"}],
+        "request_items_json": [
+            {
+                "id": "choice",
+                "prompt": "Approve?",
+                "options": [
+                    {"id": "approve", "title": "Approve"},
+                    {"id": "reject", "title": "Reject"},
+                ],
+            }
+        ],
         "capability_basis_json": {"human_approval": "allow"},
         "due_at": None,
         "timeout_policy_json": None,

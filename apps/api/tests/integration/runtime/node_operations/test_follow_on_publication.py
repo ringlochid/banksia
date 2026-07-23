@@ -59,7 +59,10 @@ async def test_human_request_publishes_only_exact_open_signal_after_commit(
                         {
                             "id": "direction",
                             "prompt": "Which direction?",
-                            "options": [{"id": "a", "title": "A"}],
+                            "options": [
+                                {"id": "a", "title": "A"},
+                                {"id": "b", "title": "B"},
+                            ],
                         }
                     ],
                     "timeout": {"due_at": due_at},
@@ -96,7 +99,7 @@ async def test_command_run_commit_survives_runtime_publication_exception(
                 }
             },
         )
-        run_id = response.model_dump()["run_id"]
+        run_id = response.model_dump()["command_id"]
         async with session_factory() as session:
             source = await session.get(CommandRunModel, run_id)
 

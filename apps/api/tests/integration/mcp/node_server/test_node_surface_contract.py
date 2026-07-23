@@ -200,6 +200,30 @@ async def test_work_message_file_limits_are_hidden_from_tool_schemas() -> None:
         assert all("maxItems" not in field for field in files_fields)
 
 
+async def test_managed_human_request_schema_exposes_only_allowed_kinds() -> None:
+    executor = RecordingNodeOperationExecutor(human_request_kinds=("input", "review"))
+    applications, registry = create_test_node_mcp_apps(executor)
+    issued = issue_test_binding(
+        registry,
+        task_id="task.human-kinds",
+        dispatch_id="dispatch.human-kinds",
+        exposure_ceiling=(NodeOperationName.OPEN_HUMAN_REQUEST,),
+    )
+
+    async with node_mcp_client_session(
+        applications.managed,
+        headers=managed_headers(issued),
+    ) as managed_session:
+        tools = await managed_session.list_tools()
+
+    schema = tool_input_schema(tools, NodeOperationName.OPEN_HUMAN_REQUEST)
+    request_schema = schema["$defs"]["HumanRequestOpenRequest"]
+    assert request_schema["properties"]["kind"] == {
+        "enum": ["input", "review"],
+        "type": "string",
+    }
+
+
 async def test_both_projections_call_one_executor_with_the_same_semantic_arguments() -> None:
     response = SetWorkPlanResponse(changed=False, plan=None)
     executor = RecordingNodeOperationExecutor(

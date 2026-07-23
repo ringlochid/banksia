@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Literal
 
 from mcp.server.fastmcp import FastMCP
-from pydantic import JsonValue
 
 from banksia.persistence.session import get_session_factory
 from banksia.persistence.session_operations import read_session_operation
@@ -18,6 +17,7 @@ from banksia.runtime.contracts import (
     CommandRunListResponse,
     CommandRunLogReadResponse,
     CommandRunRecord,
+    HumanRequestItemAnswer,
     HumanRequestListResponse,
     HumanRequestResolutionSurface,
     HumanRequestResolveRequest,
@@ -121,7 +121,7 @@ CONTINUE_TASK_TEACHING = mutating_tool_teaching(
         "Pause-resume only.",
         "Not the ordinary path for yielded child handoff, parent wake, or retry advancement.",
         FRESH_REVISION_NOTE,
-        "The response means the legal successor dispatch and its request refs committed.",
+        "The response means the legal successor Dispatch and exact request committed.",
         "Provider start is asynchronous; this tool does not wait for provider output, stop, or "
         "completion.",
     ),
@@ -383,7 +383,7 @@ def register_human_request_tools(
     async def resolve_human_request_tool(
         task_id: str,
         request_id: str,
-        item_responses: dict[str, JsonValue],
+        item_responses: dict[str, HumanRequestItemAnswer],
     ) -> HumanRequestResolveResponse:
         request = HumanRequestResolveRequest(item_responses=item_responses)
         async with get_session_factory()() as session:

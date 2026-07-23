@@ -1,10 +1,20 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
+from sqlalchemy import exists, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from banksia.persistence.models import (
+    AcceptedBoundaryModel,
+    DispatchCapabilitySetModel,
+    DispatchTurnModel,
+    FlowNodeModel,
+)
+from banksia.runtime.capabilities import resolve_effective_capabilities_for_node
 from banksia.runtime.contracts.capabilities import EffectiveCapabilitySet
-from banksia.runtime.contracts.member import NodeKind
-from banksia.runtime.contracts.primitives import CapabilityDecision
+from banksia.runtime.contracts.primitives import CapabilityDecision, TaskRootPaths
 from banksia.runtime.contracts.prompt import (
     AcceptedBoundaryTrigger,
     ChildReturnTrigger,
@@ -13,38 +23,52 @@ from banksia.runtime.contracts.prompt import (
     HumanResultTrigger,
     OperatorContinueTrigger,
     PromptAssignment,
-    PromptAssignmentBudget,
-    PromptContext,
+    PromptAvailability,
+    PromptBehavior,
+    PromptContinuation,
+    PromptCurrentMember,
+    PromptDirectMember,
     PromptDispatch,
     PromptDynamicInput,
-    PromptFamily,
-    PromptInstructionGuidance,
-    PromptNext,
-    PromptWorkflowNeighbor,
-    RootStartTrigger,
-    RuntimeReadbackRefs,
+    PromptEffectiveCapabilities,
+    PromptParticipation,
+    PromptProvider,
+    PromptSandbox,
+    PromptTask,
+    PromptWorkspace,
     SemanticRetryTrigger,
     StructuralReplanTrigger,
     WatchdogRecoveryTrigger,
-    prompt_family_for_node_kind,
+)
+from banksia.runtime.contracts.provider_resolution import (
+    ClaudeProviderRoute,
+    CodexProviderRoute,
+    OpenClawProviderRoute,
+    ProviderResolution,
 )
 from banksia.runtime.contracts.refs import FileReference
-from banksia.runtime.work_plan import WorkPlanRead
+from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
+from banksia.runtime.providers import (
+    narrow_provider_capabilities,
+    resolve_member_provider_route,
+)
+from banksia.runtime.work_plan import WorkPlanRead, work_plan_view
 
-
-@dataclass(frozen=True, slots=True)
-class RootPromptChildSnapshot:
-    node_key: str
-    node_kind: str
-    assignment_id: str | None
+type BoundaryPromptTrigger = AcceptedBoundaryTrigger | ChildReturnTrigger | SemanticRetryTrigger
+type OrdinaryPromptTrigger = (
+    HumanResultTrigger
+    | CommandResultTrigger
+    | WatchdogRecoveryTrigger
+    | OperatorContinueTrigger
+    | StructuralReplanTrigger
+)
+type RootPromptTrigger = OperatorContinueTrigger
 
 
 @dataclass(frozen=True, slots=True)
 class RootPromptSnapshot:
     task_id: str
     workflow_key: str
-    workflow_revision_no: int
-    workflow_description: str | None
     flow_id: str
     flow_revision_id: str
     dispatch_id: str
@@ -58,28 +82,16 @@ class RootPromptSnapshot:
     member_configuration_id: str
     member_branch_basis_id: str
     member_title: str | None
-    node_description: str
-    node_instruction: str | None
+    member_description: str | None
+    member_instruction: str | None
+    workflow_note: str | None
     assignment_prompt: str
     assignment_files: tuple[FileReference, ...]
-    child_assignment_limit: int | None
-    child_assignments_remaining: int | None
-    retry_limit: int | None
-    retries_remaining: int | None
     work_plan: WorkPlanRead | None
     capabilities: EffectiveCapabilitySet
-    children: tuple[RootPromptChildSnapshot, ...]
-
-
-type BoundaryPromptTrigger = AcceptedBoundaryTrigger | ChildReturnTrigger | SemanticRetryTrigger
-type OrdinaryPromptTrigger = (
-    HumanResultTrigger
-    | CommandResultTrigger
-    | WatchdogRecoveryTrigger
-    | OperatorContinueTrigger
-    | StructuralReplanTrigger
-)
-type RootPromptTrigger = RootStartTrigger | OperatorContinueTrigger
+    provider: ProviderResolution
+    direct_team: tuple[PromptDirectMember, ...]
+    paths: TaskRootPaths
 
 
 @dataclass(frozen=True, slots=True)
@@ -106,276 +118,274 @@ def build_root_dispatch_request(
     *,
     trigger: RootPromptTrigger | None = None,
 ) -> DispatchRequestRenderInput:
-    allowed_actions = _root_start_actions(snapshot)
-    exact_trigger = trigger or RootStartTrigger(flow_id=snapshot.flow_id)
-    workflow_guidance = _texts(
-        snapshot.workflow_description,
-    )
-    return DispatchRequestRenderInput(
-        family=PromptFamily.PARENT_ROOT,
-        guidance=PromptInstructionGuidance(
-            workflow=workflow_guidance,
-            member=_texts(snapshot.member_title),
-            node=_texts(snapshot.node_description, snapshot.node_instruction),
-        ),
-        dynamic_input=PromptDynamicInput(
-            assignment=PromptAssignment(
-                assignment_id=snapshot.assignment_id,
-                member_id=snapshot.member_id,
-                member_title=snapshot.member_title,
-                node_kind=NodeKind.ROOT,
-                prompt=snapshot.assignment_prompt,
-                files=snapshot.assignment_files,
-                budget=PromptAssignmentBudget(
-                    child_assignment_limit=snapshot.child_assignment_limit,
-                    child_assignments_remaining=snapshot.child_assignments_remaining,
-                    retry_limit=snapshot.retry_limit,
-                    retries_remaining=snapshot.retries_remaining,
-                ),
-            ),
-            trigger=exact_trigger,
-            plan=snapshot.work_plan,
-            context=PromptContext(
-                capabilities=snapshot.capabilities,
-                allowed_actions=allowed_actions,
-                workflow_neighborhood=tuple(
-                    PromptWorkflowNeighbor(
-                        node_key=child.node_key,
-                        node_kind=NodeKind(child.node_kind),
-                        relationship="direct child",
-                        assignment_id=child.assignment_id,
-                    )
-                    for child in snapshot.children
-                ),
-                readback_refs=_runtime_readback_refs(snapshot.dispatch_id),
-                constraints=(
-                    "Treat controller-owned MCP state as runtime truth.",
-                    "Stay within the current root assignment and referenced files.",
-                ),
-            ),
-            dispatch=PromptDispatch(
-                task_id=snapshot.task_id,
-                flow_id=snapshot.flow_id,
-                flow_revision_id=snapshot.flow_revision_id,
-                dispatch_id=snapshot.dispatch_id,
-                assignment_id=snapshot.assignment_id,
-                attempt_id=snapshot.attempt_id,
-                node_key=snapshot.node_key,
-                node_kind=NodeKind.ROOT,
-                retry_of_attempt_id=snapshot.retry_of_attempt_id,
-            ),
-            next=PromptNext(
-                instruction=_root_trigger_instruction(exact_trigger),
-            ),
-        ),
-    )
+    return _build_dispatch_request(snapshot, trigger=trigger, is_task_lead=True)
 
 
 def build_boundary_dispatch_request(
     snapshot: BoundaryPromptSnapshot,
 ) -> DispatchRequestRenderInput:
-    return _build_continuation_dispatch_request(
+    return _build_dispatch_request(
         snapshot,
-        next_instruction=_boundary_trigger_instruction(snapshot.trigger),
-        source_constraint="Act only on the exact accepted-boundary continuation shown here.",
+        trigger=snapshot.trigger,
+        is_task_lead=snapshot.node_kind == "root",
     )
 
 
 def build_ordinary_dispatch_request(
     snapshot: OrdinaryPromptSnapshot,
 ) -> DispatchRequestRenderInput:
-    return _build_continuation_dispatch_request(
+    return _build_dispatch_request(
         snapshot,
-        next_instruction=_ordinary_trigger_instruction(snapshot.trigger),
-        source_constraint="Act only on the exact continuation source shown here.",
+        trigger=snapshot.trigger,
+        is_task_lead=snapshot.node_kind == "root",
     )
 
 
-def _build_continuation_dispatch_request(
-    snapshot: ContinuationPromptSnapshot,
+def _build_dispatch_request(
+    snapshot: RootPromptSnapshot,
     *,
-    next_instruction: str,
-    source_constraint: str,
+    trigger: BoundaryPromptTrigger | OrdinaryPromptTrigger | RootPromptTrigger | None,
+    is_task_lead: bool,
 ) -> DispatchRequestRenderInput:
-    node_kind = NodeKind(snapshot.node_kind)
+    capabilities = capability_projection(snapshot.capabilities)
+    available_actions = _available_actions(
+        direct_team=snapshot.direct_team,
+        capabilities=capabilities,
+    )
     return DispatchRequestRenderInput(
-        family=prompt_family_for_node_kind(node_kind),
-        guidance=PromptInstructionGuidance(
-            workflow=_texts(
-                snapshot.workflow_description,
-            ),
-            member=_texts(snapshot.member_title),
-            node=_texts(snapshot.node_description, snapshot.node_instruction),
-        ),
         dynamic_input=PromptDynamicInput(
-            assignment=PromptAssignment(
+            task=PromptTask(id=snapshot.task_id, workflow_id=snapshot.workflow_key),
+            dispatch=PromptDispatch(
+                id=snapshot.dispatch_id,
+                attempt_id=snapshot.attempt_id,
                 assignment_id=snapshot.assignment_id,
-                member_id=snapshot.member_id,
-                member_title=snapshot.member_title,
-                node_kind=node_kind,
+            ),
+            current_member=PromptCurrentMember(
+                id=snapshot.member_id,
+                title=snapshot.member_title,
+                description=snapshot.member_description,
+                instruction=snapshot.member_instruction,
+                position="task_lead" if is_task_lead else None,
+                behavior=(
+                    PromptBehavior.MANAGER if snapshot.direct_team else PromptBehavior.CONTRIBUTOR
+                ),
+                provider=provider_projection(snapshot.provider),
+                effective_capabilities=capabilities,
+            ),
+            assignment=PromptAssignment(
+                id=snapshot.assignment_id,
                 prompt=snapshot.assignment_prompt,
                 files=snapshot.assignment_files,
-                budget=PromptAssignmentBudget(
-                    child_assignment_limit=snapshot.child_assignment_limit,
-                    child_assignments_remaining=snapshot.child_assignments_remaining,
-                    retry_limit=snapshot.retry_limit,
-                    retries_remaining=snapshot.retries_remaining,
-                ),
             ),
-            trigger=snapshot.trigger,
-            plan=snapshot.work_plan,
-            context=PromptContext(
-                capabilities=snapshot.capabilities,
-                allowed_actions=_boundary_actions(snapshot, node_kind=node_kind),
-                workflow_neighborhood=tuple(
-                    PromptWorkflowNeighbor(
-                        node_key=child.node_key,
-                        node_kind=NodeKind(child.node_kind),
-                        relationship="direct child",
-                        assignment_id=child.assignment_id,
-                    )
-                    for child in snapshot.children
-                ),
-                readback_refs=_runtime_readback_refs(snapshot.dispatch_id),
-                constraints=(
-                    "Treat controller-owned MCP state as runtime truth.",
-                    source_constraint,
-                ),
-            ),
-            dispatch=PromptDispatch(
-                task_id=snapshot.task_id,
-                flow_id=snapshot.flow_id,
-                flow_revision_id=snapshot.flow_revision_id,
-                dispatch_id=snapshot.dispatch_id,
-                assignment_id=snapshot.assignment_id,
-                attempt_id=snapshot.attempt_id,
-                node_key=snapshot.node_key,
-                node_kind=node_kind,
-                parent_assignment_id=snapshot.parent_assignment_id,
-                retry_of_attempt_id=snapshot.retry_of_attempt_id,
-                predecessor_dispatch_id=snapshot.predecessor_dispatch_id,
-            ),
-            next=PromptNext(
-                instruction=next_instruction,
+            continuation=PromptContinuation(trigger=trigger) if trigger is not None else None,
+            direct_team=snapshot.direct_team,
+            work_plan=work_plan_view(snapshot.work_plan),
+            available_actions=available_actions,
+            workspace=workspace_projection(
+                snapshot.paths,
+                has_workflow_note=bool(snapshot.workflow_note and snapshot.workflow_note.strip()),
             ),
         ),
+        member_instruction=snapshot.member_instruction,
+        workflow_note=snapshot.workflow_note,
     )
 
 
-def _runtime_readback_refs(dispatch_id: str) -> RuntimeReadbackRefs:
-    dispatch_root = f"_runtime/dispatch/{dispatch_id}"
-    return RuntimeReadbackRefs(
-        instructions=f"{dispatch_root}/instructions.md",
-        input=f"{dispatch_root}/input.md",
-        workflow_manifest="manifest.md",
-    )
-
-
-def _root_start_actions(snapshot: RootPromptSnapshot) -> tuple[str, ...]:
-    actions = {
-        "checkpoint",
-        "get_current_context",
-        "return_boundary",
-        "set_work_plan",
-    }
-    if any(child.assignment_id is None for child in snapshot.children):
-        actions.add("assign_child")
-    human = snapshot.capabilities.human_request
-    if CapabilityDecision.ALLOW in {
-        human.direction,
-        human.approval,
-        human.input,
-        human.review,
-    }:
-        actions.add("open_human_request")
-    if snapshot.capabilities.command_run == CapabilityDecision.ALLOW:
-        actions.add("start_command_run")
-    return tuple(sorted(actions))
-
-
-def _boundary_actions(
-    snapshot: ContinuationPromptSnapshot,
+async def read_prompt_direct_team(
+    session: AsyncSession,
     *,
-    node_kind: NodeKind,
+    children: tuple[FlowNodeModel, ...],
+    dependencies: DispatchOpeningDependencies,
+) -> tuple[PromptDirectMember, ...]:
+    direct_team: list[PromptDirectMember] = []
+    for child in children:
+        capabilities = await resolve_effective_capabilities_for_node(session, node=child)
+        provider = await resolve_member_provider_route(
+            session,
+            task_id=child.task_id,
+            member_configuration_id=child.member_configuration_id,
+            settings=dependencies.settings,
+            available_adapter_kinds=dependencies.available_adapter_kinds,
+        )
+        capabilities = narrow_provider_capabilities(
+            route=provider.route,
+            sandbox=provider.sandbox,
+            capabilities=capabilities,
+        )
+        direct_team.append(
+            PromptDirectMember(
+                id=child.member_id,
+                title=child.member_title,
+                description=child.description,
+                instruction=child.node_instruction,
+                provider=provider_projection(provider),
+                capabilities=capability_projection(capabilities),
+                participation=(
+                    PromptParticipation.SATISFIED
+                    if await _has_current_green_participation(session, child)
+                    else PromptParticipation.REQUIRED
+                ),
+                availability=(
+                    PromptAvailability.AVAILABLE
+                    if child.state in {"ready", "done", "failed"}
+                    else PromptAvailability.BUSY
+                ),
+            )
+        )
+    return tuple(direct_team)
+
+
+def capability_projection(
+    capabilities: EffectiveCapabilitySet | object,
+) -> PromptEffectiveCapabilities:
+    allowed_human = tuple(
+        kind
+        for kind, field_name in (
+            ("input", "input"),
+            ("direction", "direction"),
+            ("approval", "approval"),
+            ("review", "review"),
+        )
+        if _capability_value(
+            getattr(
+                getattr(capabilities, "human_request", None),
+                field_name,
+                getattr(capabilities, f"human_{field_name}", "deny"),
+            )
+        )
+        == "allow"
+    )
+    return PromptEffectiveCapabilities(
+        human_request=allowed_human,
+        command_run=_capability_value(getattr(capabilities, "command_run", "deny")),
+    )
+
+
+def provider_projection(provider: ProviderResolution) -> PromptProvider:
+    route = provider.route
+    sandbox = (
+        PromptSandbox(
+            mode=provider.sandbox.effective_mode.value,
+            network=provider.sandbox.effective_network.value,
+        )
+        if provider.sandbox is not None
+        else None
+    )
+    if isinstance(route, CodexProviderRoute | ClaudeProviderRoute):
+        return PromptProvider(
+            name=route.kind.value,
+            model=route.model_override,
+            effort=route.effort_override,
+            sandbox=sandbox,
+        )
+    assert isinstance(route, OpenClawProviderRoute)
+    return PromptProvider(
+        name=route.kind.value,
+        gateway_profile=route.gateway_profile,
+    )
+
+
+def persisted_provider_projection(
+    dispatch: DispatchTurnModel,
+    capabilities: DispatchCapabilitySetModel,
+) -> PromptProvider:
+    sandbox = None
+    if (
+        capabilities.effective_sandbox_mode is not None
+        and capabilities.effective_sandbox_network is not None
+    ):
+        sandbox = PromptSandbox(
+            mode=capabilities.effective_sandbox_mode,
+            network=capabilities.effective_sandbox_network,
+        )
+    return PromptProvider(
+        name=dispatch.resolved_provider,
+        model=dispatch.model_override,
+        effort=dispatch.effort_override,
+        gateway_profile=dispatch.gateway_profile,
+        sandbox=sandbox,
+    )
+
+
+def workspace_projection(
+    paths: TaskRootPaths,
+    *,
+    has_workflow_note: bool,
+) -> PromptWorkspace:
+    task_directory = _relative_workspace_path(paths.task_root, paths.workspace_path)
+    return PromptWorkspace(
+        root=str(paths.workspace_path),
+        task_directory=task_directory,
+        manifest=f"{task_directory}/manifest.md",
+        workflow_note=(f"{task_directory}/workflow-note.md" if has_workflow_note else None),
+        notes=f"{task_directory}/notes",
+        artifacts=f"{task_directory}/artifacts",
+        command_runs=f"{task_directory}/command-runs",
+    )
+
+
+def _available_actions(
+    *,
+    direct_team: tuple[PromptDirectMember, ...],
+    capabilities: PromptEffectiveCapabilities,
 ) -> tuple[str, ...]:
-    actions = {
-        "checkpoint",
+    actions = [
         "get_current_context",
         "set_work_plan",
-        "return_boundary",
-    }
-    if node_kind != NodeKind.WORKER:
-        if any(child.assignment_id is None for child in snapshot.children):
-            actions.add("assign_child")
-    human = snapshot.capabilities.human_request
-    if CapabilityDecision.ALLOW in {
-        human.direction,
-        human.approval,
-        human.input,
-        human.review,
-    }:
-        actions.add("open_human_request")
-    if snapshot.capabilities.command_run == CapabilityDecision.ALLOW:
-        actions.add("start_command_run")
-    return tuple(sorted(actions))
+        "checkpoint",
+        "add_child",
+    ]
+    if direct_team:
+        actions.extend(("update_child", "remove_child"))
+        if any(member.availability is PromptAvailability.AVAILABLE for member in direct_team):
+            actions.append("assign_child")
+    if capabilities.human_request:
+        actions.append("open_human_request")
+    if capabilities.command_run == "allow":
+        actions.append("start_command_run")
+    return tuple(actions)
 
 
-def _boundary_trigger_instruction(trigger: BoundaryPromptTrigger) -> str:
-    if isinstance(trigger, AcceptedBoundaryTrigger):
-        return "Begin the exact child assignment activated by the accepted yield boundary."
-    if isinstance(trigger, SemanticRetryTrigger):
-        return (
-            "Read the retry checkpoint identified by the trigger, then continue the "
-            "assignment as the new semantic attempt."
+async def _has_current_green_participation(
+    session: AsyncSession,
+    child: FlowNodeModel,
+) -> bool:
+    if child.current_assignment_id is None:
+        return False
+    return bool(
+        await session.scalar(
+            select(
+                exists().where(
+                    AcceptedBoundaryModel.task_id == child.task_id,
+                    AcceptedBoundaryModel.flow_id == child.flow_id,
+                    AcceptedBoundaryModel.assignment_id == child.current_assignment_id,
+                    AcceptedBoundaryModel.outcome == "green",
+                    DispatchTurnModel.dispatch_id == AcceptedBoundaryModel.source_dispatch_id,
+                    DispatchTurnModel.team_revision_id == child.team_revision_id,
+                    DispatchTurnModel.member_id == child.member_id,
+                    DispatchTurnModel.member_configuration_id == child.member_configuration_id,
+                    DispatchTurnModel.member_branch_basis_id == child.member_branch_basis_id,
+                )
+            )
         )
-    return (
-        "Read the child checkpoint identified by the trigger, then review and integrate "
-        "that exact child return."
     )
 
 
-def _ordinary_trigger_instruction(trigger: OrdinaryPromptTrigger) -> str:
-    if isinstance(trigger, HumanResultTrigger):
-        return (
-            "Read the exact human-request result in the trigger, then continue the same "
-            "assignment and attempt."
-        )
-    if isinstance(trigger, CommandResultTrigger):
-        return (
-            "Read the exact command result and its logical refs, then continue the same "
-            "assignment and attempt."
-        )
-    if isinstance(trigger, WatchdogRecoveryTrigger):
-        return (
-            "Resume the same assignment and attempt from controller-owned context after "
-            "the exact predecessor dispatch became inactive."
-        )
-    if isinstance(trigger, StructuralReplanTrigger):
-        return (
-            "Reread the regenerated workflow manifest and continue the same assignment "
-            "and attempt from the accepted Team replan. Do not repeat the completed "
-            "replan request."
-        )
-    return (
-        "Reread the current controller context, honor the recorded pause reason, and "
-        "continue from the exact operator-selected source."
-    )
+def _capability_value(value: object) -> str:
+    if isinstance(value, CapabilityDecision):
+        return value.value
+    effective = getattr(value, "effective", value)
+    if isinstance(effective, CapabilityDecision):
+        return effective.value
+    text = str(effective)
+    return "allow" if text == "allow" else "deny"
 
 
-def _root_trigger_instruction(trigger: RootPromptTrigger) -> str:
-    if isinstance(trigger, RootStartTrigger):
-        return (
-            "Read the current controller context, maintain an explicit work plan "
-            "when useful, and execute the root assignment."
-        )
-    return (
-        "Reread the current controller context, honor the recorded pause reason, and "
-        "begin the root assignment from the exact retained flow-start source."
-    )
-
-
-def _texts(*values: str | None) -> tuple[str, ...]:
-    return tuple(value for value in values if value is not None and value.strip())
+def _relative_workspace_path(path: Path, workspace: Path) -> str:
+    try:
+        return path.relative_to(workspace).as_posix()
+    except ValueError as exc:
+        raise ValueError("Task directory must be contained by its workspace") from exc
 
 
 __all__ = [
@@ -384,10 +394,14 @@ __all__ = [
     "ContinuationPromptSnapshot",
     "OrdinaryPromptSnapshot",
     "OrdinaryPromptTrigger",
-    "RootPromptChildSnapshot",
     "RootPromptSnapshot",
     "RootPromptTrigger",
     "build_boundary_dispatch_request",
     "build_ordinary_dispatch_request",
     "build_root_dispatch_request",
+    "capability_projection",
+    "persisted_provider_projection",
+    "provider_projection",
+    "read_prompt_direct_team",
+    "workspace_projection",
 ]

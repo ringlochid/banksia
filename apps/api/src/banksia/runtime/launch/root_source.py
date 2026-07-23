@@ -26,14 +26,19 @@ from banksia.runtime.capabilities import resolve_effective_capabilities_for_node
 from banksia.runtime.contracts.capabilities import EffectiveCapabilitySet
 from banksia.runtime.contracts.member import NodeKind
 from banksia.runtime.contracts.primitives import TaskRootPaths
-from banksia.runtime.contracts.prompt import OperatorContinueTrigger, RootStartTrigger
+from banksia.runtime.contracts.prompt import (
+    OperatorContinueResult,
+    OperatorContinueSource,
+    OperatorContinueTrigger,
+    PromptDirectMember,
+)
 from banksia.runtime.contracts.provider_resolution import ProviderResolution
 from banksia.runtime.contracts.refs import FileReference
 from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
 from banksia.runtime.dispatch.prompt_snapshot import (
-    RootPromptChildSnapshot,
     RootPromptSnapshot,
     RootPromptTrigger,
+    read_prompt_direct_team,
 )
 from banksia.runtime.providers import (
     narrow_provider_capabilities,
@@ -61,7 +66,7 @@ class RootOpeningSnapshot:
     expected_flow_status: RootSourceFlowStatus
     expected_pause_reason: str | None
     opened_reason: Literal["root", "operator_continue"]
-    trigger: RootPromptTrigger
+    trigger: RootPromptTrigger | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -127,6 +132,11 @@ async def read_root_opening_snapshot(
         capabilities=capabilities,
     )
     paths = await read_task_root_paths(session, context.task.task_id)
+    direct_team = await read_prompt_direct_team(
+        session,
+        children=children,
+        dependencies=dependencies,
+    )
     trigger, opened_reason = _root_trigger(state.flow, expected_flow_status)
     prompt = _build_root_prompt_snapshot(
         state.flow,
@@ -134,7 +144,9 @@ async def read_root_opening_snapshot(
         dispatch_id=dispatch_id,
         work_plan=work_plan,
         capabilities=capabilities,
-        children=children,
+        provider=provider,
+        direct_team=direct_team,
+        paths=paths,
         assignment_files=assignment_files,
     )
     return RootOpeningSnapshot(
@@ -350,12 +362,14 @@ def _build_root_prompt_snapshot(
     dispatch_id: str,
     work_plan: WorkPlanRead | None,
     capabilities: EffectiveCapabilitySet,
-    children: tuple[FlowNodeModel, ...],
+    provider: ProviderResolution,
+    direct_team: tuple[PromptDirectMember, ...],
+    paths: TaskRootPaths,
     assignment_files: tuple[FileReference, ...],
 ) -> RootPromptSnapshot:
-    workflow_description = context.workflow.content_json.get("description")
-    if workflow_description is not None and not isinstance(workflow_description, str):
-        raise ValueError("pinned workflow description must be text")
+    workflow_note = context.workflow.content_json.get("note")
+    if workflow_note is not None and not isinstance(workflow_note, str):
+        raise ValueError("pinned workflow note must be text")
     node = context.node
     assignment = context.assignment
     attempt = context.attempt
@@ -363,8 +377,6 @@ def _build_root_prompt_snapshot(
     return RootPromptSnapshot(
         task_id=context.task.task_id,
         workflow_key=context.compiled_plan.workflow_key,
-        workflow_revision_no=context.compiled_plan.workflow_revision_no,
-        workflow_description=workflow_description,
         flow_id=flow.flow_id,
         flow_revision_id=flow.active_flow_revision_id,
         dispatch_id=dispatch_id,
@@ -378,24 +390,16 @@ def _build_root_prompt_snapshot(
         member_configuration_id=node.member_configuration_id,
         member_branch_basis_id=node.member_branch_basis_id,
         member_title=node.member_title,
-        node_description=node.description,
-        node_instruction=node.node_instruction,
+        member_description=node.description,
+        member_instruction=node.node_instruction,
+        workflow_note=workflow_note,
         assignment_prompt=assignment.prompt,
         assignment_files=assignment_files,
-        child_assignment_limit=assignment.child_assignment_limit,
-        child_assignments_remaining=assignment.child_assignments_remaining,
-        retry_limit=assignment.retry_limit,
-        retries_remaining=assignment.retries_remaining,
         work_plan=work_plan,
         capabilities=capabilities,
-        children=tuple(
-            RootPromptChildSnapshot(
-                node_key=child.node_key,
-                node_kind=child.structural_kind,
-                assignment_id=child.current_assignment_id,
-            )
-            for child in children
-        ),
+        provider=provider,
+        direct_team=direct_team,
+        paths=paths,
     )
 
 
@@ -424,16 +428,18 @@ def _assignment_matches_node(assignment: AssignmentModel, node: FlowNodeModel) -
 def _root_trigger(
     flow: FlowModel,
     expected_flow_status: RootSourceFlowStatus,
-) -> tuple[RootPromptTrigger, Literal["root", "operator_continue"]]:
+) -> tuple[RootPromptTrigger | None, Literal["root", "operator_continue"]]:
     if expected_flow_status == "running":
-        return RootStartTrigger(flow_id=flow.flow_id), "root"
+        return None, "root"
     if flow.pause_reason is None:
         raise ValueError("paused flow start is missing its pause reason")
     return (
         OperatorContinueTrigger(
-            source_flow_id=flow.flow_id,
-            control_revision=flow.control_revision,
-            pause_reason=flow.pause_reason,
+            source=OperatorContinueSource(source_task_id=flow.task_id),
+            result=OperatorContinueResult(
+                control_revision=flow.control_revision,
+                pause_reason=flow.pause_reason,
+            ),
         ),
         "operator_continue",
     )

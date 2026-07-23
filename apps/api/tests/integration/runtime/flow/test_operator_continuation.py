@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import cast
+from xml.etree import ElementTree
 
 import pytest
 from banksia.config import CodexSettings, RuntimeSettings, Settings
 from banksia.persistence.models import (
-    DispatchPromptRefsModel,
+    DispatchRequestModel,
     DispatchTurnModel,
     FlowModel,
     FlowStartSourceModel,
@@ -33,7 +34,6 @@ from sqlalchemy.orm import sessionmaker
 from tests.helpers.executor_harness import (
     SessionFactory,
     seeded_executor,
-    seeded_task_root,
 )
 from tests.helpers.launch_foundation import (
     build_launch_foundation_input,
@@ -81,7 +81,7 @@ async def test_continue_resumes_one_closed_lineage_tail_and_rejects_duplicate(
                 )
             flow = await session.get(FlowModel, ids.flow_id)
             successor = await session.get(DispatchTurnModel, result.dispatch_id)
-            refs = await session.get(DispatchPromptRefsModel, result.dispatch_id)
+            dispatch_request = await session.get(DispatchRequestModel, result.dispatch_id)
             dispatch_count = await session.scalar(
                 select(func.count()).select_from(DispatchTurnModel)
             )
@@ -93,11 +93,12 @@ async def test_continue_resumes_one_closed_lineage_tail_and_rejects_duplicate(
     assert flow.pause_reason is None
     assert successor is not None and successor.opened_reason == "operator_continue"
     assert successor.predecessor_dispatch_id == ids.current_dispatch_id
-    assert refs is not None
-    input_text = (
-        seeded_task_root(tmp_path, "operator-continue") / refs.input_logical_path
-    ).read_text(encoding="utf-8")
-    assert '"kind": "operator_continue"' in input_text
+    assert dispatch_request is not None
+    input_text = dispatch_request.input
+    request_root = ElementTree.fromstring(input_text)
+    assert request_root.findtext("continuation/trigger/kind") == "operator_continue"
+    assert request_root.findtext("current_member/position") == "task_lead"
+    assert ElementTree.fromstring(dispatch_request.instructions).find("task_lead") is not None
     assert duplicate_error.value.code == OperationFailureCode.CONFLICT
     assert dispatch_count == 4
 
@@ -118,7 +119,16 @@ async def test_continue_consumes_terminal_human_source_retained_while_paused(
                 cast(AsyncSession, session),
                 task_id=ids.task_id,
                 request_id=request_id,
-                request=HumanRequestResolveRequest(item_responses={"direction": "a"}),
+                request=HumanRequestResolveRequest.model_validate(
+                    {
+                        "item_responses": {
+                            "direction": {
+                                "kind": "option",
+                                "option_id": "a",
+                            }
+                        }
+                    }
+                ),
             )
         async with session_factory() as session:
             paused_flow = await session.get(FlowModel, ids.flow_id)
@@ -133,19 +143,18 @@ async def test_continue_consumes_terminal_human_source_retained_while_paused(
             )
             source = await session.get(HumanRequestModel, request_id)
             successor = await session.get(DispatchTurnModel, result.dispatch_id)
-            refs = await session.get(DispatchPromptRefsModel, result.dispatch_id)
+            dispatch_request = await session.get(DispatchRequestModel, result.dispatch_id)
 
     assert result.outcome == "opened"
     assert source is not None and source.successor_dispatch_id == result.dispatch_id
     assert successor is not None and successor.opened_reason == "operator_continue"
     assert successor.assignment_id == ids.root_assignment_id
     assert successor.attempt_id == ids.root_attempt_id
-    assert refs is not None
-    input_text = (seeded_task_root(tmp_path, "operator-human") / refs.input_logical_path).read_text(
-        encoding="utf-8"
-    )
-    assert '"kind": "human_result"' in input_text
-    assert f'"request_id": "{request_id}"' in input_text
+    assert dispatch_request is not None
+    input_text = dispatch_request.input
+    request_root = ElementTree.fromstring(input_text)
+    assert request_root.findtext("continuation/trigger/kind") == "human_result"
+    assert request_root.findtext("continuation/trigger/source/request_id") == request_id
 
 
 async def test_continue_preparation_failure_preserves_existing_pause(tmp_path: Path) -> None:
@@ -221,7 +230,7 @@ async def test_pre_root_continue_consumes_flow_start_without_synthetic_predecess
             )
             source = await session.scalar(select(FlowStartSourceModel))
             successor = await session.get(DispatchTurnModel, result.dispatch_id)
-            refs = await session.get(DispatchPromptRefsModel, result.dispatch_id)
+            dispatch_request = await session.get(DispatchRequestModel, result.dispatch_id)
             resumed_flow = await session.scalar(
                 select(FlowModel)
                 .where(FlowModel.flow_id == flow.flow_id)
@@ -240,8 +249,8 @@ async def test_pre_root_continue_consumes_flow_start_without_synthetic_predecess
     assert resumed_flow.status == "running"
     assert resumed_flow.current_dispatch_id == result.dispatch_id
     assert resumed_flow.control_revision == expected_control_revision + 1
-    assert refs is not None
-    input_text = (bootstrap_input.task_root / refs.input_logical_path).read_text(encoding="utf-8")
+    assert dispatch_request is not None
+    input_text = dispatch_request.input
     assert '"kind": "operator_continue"' in input_text
     assert f'"source_flow_id": "{flow.flow_id}"' in input_text
     assert len(publisher.signals) == 1

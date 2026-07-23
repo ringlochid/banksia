@@ -28,7 +28,7 @@ def validate() -> int:
     if errors:
         print_errors(errors)
         return 1
-    print("Task-member prompt baseline validation passed.")
+    print("Task-member prompt contract validation passed.")
     return 0
 
 

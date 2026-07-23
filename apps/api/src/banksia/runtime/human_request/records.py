@@ -8,7 +8,6 @@ from jsonschema import (  # type: ignore[import-untyped]
     SchemaError,
 )
 from jsonschema import ValidationError as JsonSchemaValidationError
-from pydantic import JsonValue, TypeAdapter
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,18 +18,22 @@ from banksia.persistence.models import (
 from banksia.runtime.contracts import (
     FileReference,
     HumanRequestItem,
+    HumanRequestItemAnswer,
     HumanRequestKind,
+    HumanRequestOptionAnswer,
+    HumanRequestOtherAnswer,
     HumanRequestRead,
     HumanRequestResolution,
     HumanRequestResolutionKind,
     HumanRequestResolutionSurface,
+    HumanRequestResolveRequest,
+    HumanRequestSkippedAnswer,
     HumanRequestStatus,
     HumanRequestTimeout,
+    HumanRequestValueAnswer,
     PendingHumanRequest,
 )
 from banksia.runtime.errors import illegal_state_error, invalid_request_shape_error
-
-_JSON_OBJECT_ADAPTER = TypeAdapter(dict[str, JsonValue])
 
 
 def human_request_read_from_model(
@@ -46,7 +49,7 @@ def human_request_read_from_model(
 
 def validate_answered_item_responses(
     source: HumanRequestModel,
-    item_responses: Mapping[str, object],
+    item_responses: Mapping[str, HumanRequestItemAnswer],
 ) -> None:
     request_items = tuple(
         HumanRequestItem.model_validate(item) for item in source.request_items_json
@@ -125,8 +128,7 @@ def human_request_resolution_from_model(
         request_id=row.request_id,
         task_id=row.task_id,
         resolution_kind=HumanRequestResolutionKind(row.resolution_kind),
-        item_responses=_validated_json_object(row.item_responses_json),
-        policy_basis=_validated_json_object(row.resolution_policy_basis_json),
+        item_responses=_validated_item_responses(row.item_responses_json),
         summary=row.resolution_summary,
         resolved_at=_coerce_datetime_to_utc(row.resolved_at),
         resolved_by_actor_ref=row.resolved_by_actor_ref,
@@ -134,30 +136,50 @@ def human_request_resolution_from_model(
     )
 
 
-def _validated_json_object(
+def _validated_item_responses(
     value: dict[str, object] | None,
-) -> dict[str, JsonValue] | None:
+) -> dict[str, HumanRequestItemAnswer] | None:
     if value is None:
         return None
-    return _JSON_OBJECT_ADAPTER.validate_python(value, strict=True)
+    return HumanRequestResolveRequest.model_validate(
+        {"item_responses": value},
+        strict=True,
+    ).item_responses
 
 
 def _validate_answered_item_response(
     request_item: HumanRequestItem,
-    item_response: object,
+    item_response: HumanRequestItemAnswer,
 ) -> None:
-    if request_item.options is not None:
-        if not isinstance(item_response, str):
+    if isinstance(item_response, HumanRequestSkippedAnswer):
+        if not request_item.allow_skip:
             raise invalid_request_shape_error(
-                f"human request item '{request_item.id}' requires one option id"
+                f"human request item '{request_item.id}' does not allow Skip"
+            )
+        return
+
+    if request_item.options is not None:
+        if isinstance(item_response, HumanRequestOtherAnswer):
+            if not request_item.allow_other:
+                raise invalid_request_shape_error(
+                    f"human request item '{request_item.id}' does not allow Other"
+                )
+            return
+        if not isinstance(item_response, HumanRequestOptionAnswer):
+            raise invalid_request_shape_error(
+                f"human request item '{request_item.id}' requires one tagged option answer"
             )
         option_ids = {option.id for option in request_item.options}
-        if item_response not in option_ids:
+        if item_response.option_id not in option_ids:
             raise invalid_request_shape_error(
                 f"unknown option for human request item '{request_item.id}'"
             )
         return
 
+    if not isinstance(item_response, HumanRequestValueAnswer):
+        raise invalid_request_shape_error(
+            f"human request item '{request_item.id}' requires one tagged value answer"
+        )
     response_schema = request_item.response_schema
     if response_schema is None:
         raise illegal_state_error(
@@ -165,7 +187,7 @@ def _validate_answered_item_response(
         )
     try:
         Draft202012Validator.check_schema(response_schema)
-        Draft202012Validator(response_schema).validate(item_response)
+        Draft202012Validator(response_schema).validate(item_response.value)
     except SchemaError as exc:
         raise illegal_state_error(
             f"response_schema is invalid for human request item '{request_item.id}'"

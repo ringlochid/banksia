@@ -1,16 +1,20 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Callable, Collection
 from contextlib import asynccontextmanager
 from pathlib import Path
 from unittest.mock import patch
 
 import banksia.runtime.node_operations.executor as executor_module
+from banksia.config import CodexSettings, RuntimeSettings, Settings
 from banksia.persistence import RuntimeBase
+from banksia.providers import ProviderKind
 from banksia.runtime.dispatch.authority import NodeOperationAuthority
+from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
 from banksia.runtime.node_operations import NodeActivitySignal, NodeOperationExecutor
 from banksia.runtime.node_operations.follow_on import SupportProjectionPublisher
+from banksia.runtime.post_commit import CapturedRuntimeEffectPublisher
 from banksia.runtime.post_commit.publisher import RuntimeEffectPublisher
 from sqlalchemy import Engine
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -61,6 +65,8 @@ async def seeded_executor(
     suffix: str,
     runtime_effect_publisher: RuntimeEffectPublisher | None = None,
     support_projection_publisher: SupportProjectionPublisher | None = None,
+    provider_settings: Settings | None = None,
+    available_adapter_kinds: Collection[ProviderKind] = (ProviderKind.CODEX,),
 ) -> AsyncIterator[
     tuple[
         NodeOperationExecutor,
@@ -76,7 +82,6 @@ async def seeded_executor(
         task_root / "notes",
         task_root / "artifacts",
         task_root / "command-runs",
-        task_root / "_runtime" / "dispatch",
     ):
         path.mkdir(parents=True, exist_ok=True)
     try:
@@ -120,6 +125,11 @@ async def seeded_executor(
                     publish_activity_signal=publish,
                     runtime_effect_publisher=runtime_effect_publisher,
                     support_projection_publisher=support_projection_publisher,
+                    dispatch_opening_dependencies=DispatchOpeningDependencies.create(
+                        settings=provider_settings or _default_provider_settings(),
+                        available_adapter_kinds=available_adapter_kinds,
+                        post_commit_publisher=CapturedRuntimeEffectPublisher(),
+                    ),
                 ),
                 session_factory,
                 ids,
@@ -135,6 +145,13 @@ def seeded_task_workspace(tmp_path: Path, suffix: str) -> Path:
 
 def seeded_task_root(tmp_path: Path, suffix: str) -> Path:
     return seeded_task_workspace(tmp_path, suffix) / ".banksia" / f"task.{suffix}"
+
+
+def _default_provider_settings() -> Settings:
+    return Settings(
+        runtime=RuntimeSettings(default_provider=ProviderKind.CODEX),
+        codex=CodexSettings(enabled=True),
+    )
 
 
 __all__ = [

@@ -34,6 +34,39 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from tests.helpers.executor_harness import seeded_executor
 from tests.helpers.lineage_seed import RuntimeIds
 
+_DIRECTION_A_ANSWER = {
+    "direction": {
+        "kind": "option",
+        "option_id": "a",
+    }
+}
+
+
+def _human_request_payload(
+    *,
+    summary: str = "Choose one direction.",
+    prompt: str = "Which direction?",
+    option_title: str = "A",
+    option_description: str | None = None,
+) -> dict[str, object]:
+    first_option: dict[str, object] = {"id": "a", "title": option_title}
+    if option_description is not None:
+        first_option["description"] = option_description
+    return {
+        "kind": "direction",
+        "summary": summary,
+        "items": [
+            {
+                "id": "direction",
+                "prompt": prompt,
+                "options": [
+                    first_option,
+                    {"id": "b", "title": "B"},
+                ],
+            }
+        ],
+    }
+
 
 class _CommittedHumanTerminalPublisher:
     def __init__(
@@ -132,6 +165,55 @@ def test_external_wait_contracts_reject_legacy_request_fields() -> None:
         HumanRequestResolveRequest.model_validate(
             {"item_responses": [{"item_id": "legacy", "freeform_answer": "x"}]}
         )
+    with pytest.raises(ValidationError):
+        HumanRequestResolveRequest.model_validate({"item_responses": {"direction": "a"}})
+
+
+def test_human_request_contract_enforces_exact_text_and_structured_value_bounds() -> None:
+    accepted = HumanRequestOpenRequest.model_validate(
+        _human_request_payload(
+            summary=f"  {'s' * 2_045}\r\n",
+            prompt=f"  {'p' * 4_093}\r\n",
+            option_title=f"  {'a' * 251}  ",
+            option_description=f"  {'d' * 1_020}  ",
+        )
+    )
+    assert accepted.summary.startswith("  ") and accepted.summary.endswith("\n")
+    assert accepted.items[0].prompt.startswith("  ") and accepted.items[0].prompt.endswith("\n")
+    assert accepted.items[0].options is not None
+    assert accepted.items[0].options[0].title.startswith("  ")
+    assert accepted.items[0].options[0].description is not None
+    assert accepted.items[0].options[0].description.endswith("  ")
+
+    oversized_cases = (
+        _human_request_payload(summary="s" * 2_049),
+        _human_request_payload(prompt="p" * 4_097),
+        _human_request_payload(option_title="a" * 256),
+        _human_request_payload(option_description="d" * 1_025),
+    )
+    for payload in oversized_cases:
+        with pytest.raises(ValidationError, match="controller text limit"):
+            HumanRequestOpenRequest.model_validate(payload)
+
+    deeply_nested: object = "answer"
+    for _ in range(16):
+        deeply_nested = [deeply_nested]
+    submitted_response_cases = (
+        {"direction": {"kind": "value", "value": "x" * (64 * 1_024)}},
+        {"direction": {"kind": "value", "value": deeply_nested}},
+        {
+            "direction": {
+                "kind": "value",
+                "value": [[] for _ in range(1_024)],
+            }
+        },
+    )
+    for item_responses in submitted_response_cases:
+        with pytest.raises(
+            ValidationError,
+            match=r"controller (byte|depth|collection) limit",
+        ):
+            HumanRequestResolveRequest.model_validate({"item_responses": item_responses})
 
 
 async def test_human_request_open_persists_typed_source_and_exact_wait(
@@ -223,7 +305,10 @@ async def test_human_request_rejects_invalid_file_without_opening_wait(
                             {
                                 "id": "direction",
                                 "prompt": "Which direction?",
-                                "options": [{"id": "a", "title": "A"}],
+                                "options": [
+                                    {"id": "a", "title": "A"},
+                                    {"id": "b", "title": "B"},
+                                ],
                             }
                         ],
                         "files": [{"path": "missing.md"}],
@@ -261,11 +346,13 @@ async def test_human_request_answer_persists_typed_map_and_clears_exact_wait(
                 task_id=ids.task_id,
                 request_id=request_id,
                 request=HumanRequestResolveRequest.model_validate(
-                    {"item_responses": {"direction": "a"}}
+                    {"item_responses": _DIRECTION_A_ANSWER}
                 ),
                 actor_ref="operator.test",
             )
-        assert response.resolution.item_responses == {"direction": "a"}
+        assert response.resolution.model_dump(mode="json")["item_responses"] == (
+            _DIRECTION_A_ANSWER
+        )
 
         async with session_factory() as session:
             source = await session.get(HumanRequestModel, request_id)
@@ -277,11 +364,110 @@ async def test_human_request_answer_persists_typed_map_and_clears_exact_wait(
                     TaskEventModel.event_type == "human_request_resolved",
                 )
             )
-        assert source is not None and source.item_responses_json == {"direction": "a"}
+        assert source is not None and source.item_responses_json == _DIRECTION_A_ANSWER
         assert flow is not None and flow.waiting_cause == "none"
         assert flow.waiting_source_id is None
         assert wait is None
         assert event is not None and event.dispatch_id == ids.current_dispatch_id
+
+
+async def test_human_request_answer_tags_are_checked_against_original_items(
+    tmp_path: Path,
+) -> None:
+    async with seeded_executor(tmp_path, suffix="human-answer-tags") as (
+        executor,
+        session_factory,
+        ids,
+        _signals,
+    ):
+        opened = await executor.execute(
+            scope=NodeOperationScope(
+                task_id=ids.task_id,
+                dispatch_id=ids.current_dispatch_id,
+            ),
+            operation_name="open_human_request",
+            arguments={
+                "request": {
+                    "kind": "direction",
+                    "summary": "Choose the bounded responses.",
+                    "items": [
+                        {
+                            "id": "direction",
+                            "prompt": "Which direction?",
+                            "options": [
+                                {"id": "a", "title": "A"},
+                                {"id": "b", "title": "B"},
+                            ],
+                        },
+                        {
+                            "id": "detail",
+                            "prompt": "Choose or explain another detail.",
+                            "options": [
+                                {"id": "brief", "title": "Brief"},
+                                {"id": "full", "title": "Full"},
+                            ],
+                            "allow_other": True,
+                        },
+                        {
+                            "id": "optional",
+                            "prompt": "Optionally provide context.",
+                            "response_schema": {"type": "string"},
+                            "allow_skip": True,
+                        },
+                    ],
+                }
+            },
+        )
+        request_id = cast(str, opened.model_dump()["request_id"])
+        rejected_answers = (
+            {
+                "direction": {"kind": "option", "option_id": "unknown"},
+                "detail": {"kind": "other", "text": "Use the product wording."},
+                "optional": {"kind": "skipped"},
+            },
+            {
+                "direction": {"kind": "other", "text": "Not allowed here."},
+                "detail": {"kind": "other", "text": "Use the product wording."},
+                "optional": {"kind": "skipped"},
+            },
+            {
+                "direction": {"kind": "option", "option_id": "a"},
+                "detail": {"kind": "other", "text": "Use the product wording."},
+                "optional": {"kind": "value", "value": 42},
+            },
+        )
+        for item_responses in rejected_answers:
+            async with session_factory() as session:
+                with pytest.raises(RuntimeOperationError):
+                    await resolve_human_request(
+                        cast(AsyncSession, session),
+                        task_id=ids.task_id,
+                        request_id=request_id,
+                        request=HumanRequestResolveRequest.model_validate(
+                            {"item_responses": item_responses}
+                        ),
+                    )
+
+        accepted_answers = {
+            "direction": {"kind": "option", "option_id": "a"},
+            "detail": {"kind": "other", "text": "  Use the product wording.  "},
+            "optional": {"kind": "skipped"},
+        }
+        async with session_factory() as session:
+            response = await resolve_human_request(
+                cast(AsyncSession, session),
+                task_id=ids.task_id,
+                request_id=request_id,
+                request=HumanRequestResolveRequest.model_validate(
+                    {"item_responses": accepted_answers}
+                ),
+            )
+
+        async with session_factory() as session:
+            source = await session.get(HumanRequestModel, request_id)
+
+    assert response.resolution.model_dump(mode="json")["item_responses"] == accepted_answers
+    assert source is not None and source.item_responses_json == accepted_answers
 
 
 @pytest.mark.parametrize(
@@ -314,7 +500,7 @@ async def test_human_request_answer_is_independent_from_terminal_publication(
                 task_id=ids.task_id,
                 request_id=request_id,
                 request=HumanRequestResolveRequest.model_validate(
-                    {"item_responses": {"direction": "a"}}
+                    {"item_responses": _DIRECTION_A_ANSWER}
                 ),
                 runtime_effect_publisher=publisher,
             )
@@ -322,7 +508,7 @@ async def test_human_request_answer_is_independent_from_terminal_publication(
         async with session_factory() as session:
             source = await session.get(HumanRequestModel, request_id)
 
-    assert response.resolution.item_responses == {"direction": "a"}
+    assert response.resolution.model_dump(mode="json")["item_responses"] == (_DIRECTION_A_ANSWER)
     assert source is not None and source.status == "resolved"
     assert publisher.signals == [HumanRequestTerminal(request_id)]
 
@@ -351,7 +537,7 @@ async def test_human_request_answer_uses_exact_wait_when_pointer_is_stale_none(
                 task_id=ids.task_id,
                 request_id=request_id,
                 request=HumanRequestResolveRequest.model_validate(
-                    {"item_responses": {"direction": "a"}}
+                    {"item_responses": _DIRECTION_A_ANSWER}
                 ),
             )
 
@@ -391,7 +577,7 @@ async def test_human_request_answer_preserves_competing_wait_pointer(
                 task_id=ids.task_id,
                 request_id=request_id,
                 request=HumanRequestResolveRequest.model_validate(
-                    {"item_responses": {"direction": "a"}}
+                    {"item_responses": _DIRECTION_A_ANSWER}
                 ),
             )
 
@@ -430,7 +616,7 @@ async def test_human_request_answer_rolls_back_when_exact_wait_is_missing(
                     task_id=ids.task_id,
                     request_id=request_id,
                     request=HumanRequestResolveRequest.model_validate(
-                        {"item_responses": {"direction": "a"}}
+                        {"item_responses": _DIRECTION_A_ANSWER}
                     ),
                     runtime_effect_publisher=publisher,
                 )
@@ -464,7 +650,10 @@ async def test_human_request_answer_rolls_back_when_exact_wait_is_missing(
                         {
                             "id": "direction",
                             "prompt": "Which direction?",
-                            "options": [{"id": "a", "title": "A"}],
+                            "options": [
+                                {"id": "a", "title": "A"},
+                                {"id": "b", "title": "B"},
+                            ],
                         }
                     ],
                 }

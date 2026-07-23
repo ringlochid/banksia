@@ -206,8 +206,6 @@ class DispatchStarter:
         except (
             RuntimeOperationError,
             ValidationError,
-            UnicodeDecodeError,
-            OSError,
             ValueError,
         ) as exc:
             await session.rollback()

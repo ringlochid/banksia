@@ -231,7 +231,10 @@ async def test_transaction_b_rechecks_state_changed_after_activity_commit(
                             {
                                 "id": "direction",
                                 "prompt": "Which direction?",
-                                "options": [{"id": "a", "title": "A"}],
+                                "options": [
+                                    {"id": "a", "title": "A"},
+                                    {"id": "b", "title": "B"},
+                                ],
                             }
                         ],
                     }
@@ -296,7 +299,10 @@ async def test_transaction_b_rejects_rotated_managed_generation_after_activity_c
                             {
                                 "id": "direction",
                                 "prompt": "Which direction?",
-                                "options": [{"id": "a", "title": "A"}],
+                                "options": [
+                                    {"id": "a", "title": "A"},
+                                    {"id": "b", "title": "B"},
+                                ],
                             }
                         ],
                     }

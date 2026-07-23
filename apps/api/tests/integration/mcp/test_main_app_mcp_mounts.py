@@ -72,11 +72,6 @@ def _install_lifespan_mocks(
     async def ensure_schema() -> None:
         startup_calls.append("schema")
 
-    async def cleanup_dispatch_requests(**kwargs: object) -> dict[str, int]:
-        del kwargs
-        startup_calls.append("cleanup")
-        return {}
-
     async def recover_task_workspaces(
         *_args: object,
         **_kwargs: object,
@@ -107,11 +102,6 @@ def _install_lifespan_mocks(
         main_module,
         "recover_task_workspace_admissions",
         recover_task_workspaces,
-    )
-    monkeypatch.setattr(
-        main_module,
-        "cleanup_aged_dispatch_request_directories",
-        cleanup_dispatch_requests,
     )
     monkeypatch.setattr(main_module, "audit_startup_runtime_effects", audit_runtime)
     monkeypatch.setattr(main_module, "audit_startup_support_projections", audit_projections)
@@ -147,7 +137,6 @@ async def test_main_app_mounts_one_managed_and_one_compatibility_node_mcp_app(
         assert startup_calls == [
             "schema",
             "workspace_recovery",
-            "cleanup",
             "runtime_audit",
             "projection_audit",
         ]
@@ -176,7 +165,6 @@ async def test_main_app_mounts_one_managed_and_one_compatibility_node_mcp_app(
     assert startup_calls == [
         "schema",
         "workspace_recovery",
-        "cleanup",
         "runtime_audit",
         "projection_audit",
         "dispose",

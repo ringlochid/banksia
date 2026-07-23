@@ -107,11 +107,26 @@ class WorkPlanRead(BaseModel):
     updated_at: datetime
 
 
+class WorkPlanView(BaseModel):
+    """Model-visible Work Plan without controller bookkeeping."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    explanation: _WorkPlanExplanationText | None = None
+    steps: tuple[WorkPlanStepRead, ...] = Field(min_length=1, max_length=9)
+
+
 class SetWorkPlanResponse(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     changed: bool
-    plan: WorkPlanRead | None
+    plan: WorkPlanView | None
+
+
+def work_plan_view(plan: WorkPlanRead | None) -> WorkPlanView | None:
+    if plan is None:
+        return None
+    return WorkPlanView(explanation=plan.explanation, steps=plan.steps)
 
 
 def _text_fingerprint(value: str) -> str:
@@ -125,4 +140,6 @@ __all__ = [
     "WorkPlanRead",
     "WorkPlanStepRead",
     "WorkPlanStepStatus",
+    "WorkPlanView",
+    "work_plan_view",
 ]

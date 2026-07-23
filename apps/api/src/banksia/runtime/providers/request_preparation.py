@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import PurePosixPath
 
 from pydantic import SecretStr
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,10 +27,7 @@ from banksia.runtime.providers.contracts import (
     ManagedNodeMcpConnection,
 )
 from banksia.runtime.providers.resolution import validate_provider_execution_configuration
-from banksia.runtime.task_root import (
-    read_logical_regular_file_bytes,
-    read_task_root_paths,
-)
+from banksia.runtime.task_root import read_task_root_paths
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,7 +37,7 @@ class PreparedProviderStart:
 
 
 class ProviderStartRequestBuilder:
-    """Build one exact provider request from committed refs and capabilities."""
+    """Build one exact provider request from committed text and capabilities."""
 
     def __init__(
         self,
@@ -62,15 +58,16 @@ class ProviderStartRequestBuilder:
         signal: DispatchStartDue,
         candidate: ProviderStartCandidate,
     ) -> PreparedProviderStart:
-        route, native_access, network_access, sandbox_mode = _validate_candidate(candidate)
+        (
+            route,
+            native_access,
+            network_access,
+            sandbox_mode,
+            instructions,
+            input_text,
+        ) = _validate_candidate(candidate)
         paths = await read_task_root_paths(session, candidate.task_id)
         await session.rollback()
-        instructions, input_bytes = _read_request_pair(
-            paths,
-            dispatch_id=signal.dispatch_id,
-            instructions_logical_path=candidate.instructions_logical_path,
-            input_logical_path=candidate.input_logical_path,
-        )
 
         binding: DispatchMcpBinding | None = None
         try:
@@ -85,7 +82,7 @@ class ProviderStartRequestBuilder:
                 provider_start_revision=signal.provider_start_revision,
                 working_directory=paths.workspace_path,
                 instructions=instructions,
-                input=input_bytes,
+                input=input_text,
                 provider_route=route,
                 provider_native_access=native_access,
                 network_access=network_access,
@@ -143,10 +140,12 @@ def _validate_candidate(
     ProviderNativeAccess,
     NetworkAccess,
     ManagedSandboxMode | None,
+    str,
+    str,
 ]:
     if (
-        candidate.instructions_logical_path is None
-        or candidate.input_logical_path is None
+        candidate.instructions is None
+        or candidate.input is None
         or candidate.provider_native_access is None
         or candidate.network_access is None
     ):
@@ -163,28 +162,14 @@ def _validate_candidate(
         network_access=network_access,
         sandbox_mode=sandbox_mode,
     )
-    return route, native_access, network_access, sandbox_mode
-
-
-def _read_request_pair(
-    paths: object,
-    *,
-    dispatch_id: str,
-    instructions_logical_path: str | None,
-    input_logical_path: str | None,
-) -> tuple[bytes, bytes]:
-    if instructions_logical_path is None or input_logical_path is None:
-        raise ValueError("current starting dispatch is missing request refs")
-    _require_exact_request_refs(
-        dispatch_id,
-        instructions_logical_path=instructions_logical_path,
-        input_logical_path=input_logical_path,
+    return (
+        route,
+        native_access,
+        network_access,
+        sandbox_mode,
+        candidate.instructions,
+        candidate.input,
     )
-    instructions = read_logical_regular_file_bytes(paths, instructions_logical_path)
-    input_bytes = read_logical_regular_file_bytes(paths, input_logical_path)
-    instructions.decode("utf-8")
-    input_bytes.decode("utf-8")
-    return instructions, input_bytes
 
 
 def _provider_route(candidate: ProviderStartCandidate) -> ProviderRoute:
@@ -208,20 +193,6 @@ def _provider_route(candidate: ProviderStartCandidate) -> ProviderRoute:
                 kind=ProviderKind.OPENCLAW,
                 gateway_profile=candidate.gateway_profile or "",
             )
-
-
-def _require_exact_request_refs(
-    dispatch_id: str,
-    *,
-    instructions_logical_path: str,
-    input_logical_path: str,
-) -> None:
-    expected_root = PurePosixPath("_runtime", "dispatch", dispatch_id)
-    if (
-        PurePosixPath(instructions_logical_path) != expected_root / "instructions.md"
-        or PurePosixPath(input_logical_path) != expected_root / "input.md"
-    ):
-        raise ValueError("dispatch request refs do not identify the exact dispatch pair")
 
 
 __all__ = ["PreparedProviderStart", "ProviderStartRequestBuilder"]

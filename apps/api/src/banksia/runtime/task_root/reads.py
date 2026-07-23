@@ -41,16 +41,9 @@ def _task_root_paths(
     workspace_binding: WorkspaceBindingModel,
 ) -> TaskRootPaths:
     task_root = Path(task.task_root_path)
-    runtime_path = task_root / "_runtime"
-    notes_path = task_root / "notes"
     return TaskRootPaths(
         task_root=task_root,
         workspace_path=Path(workspace_binding.normalized_root_path),
-        outputs_path=task_root,
-        artifacts_path=task_root / "artifacts",
-        tmp_path=notes_path,
-        runtime_path=runtime_path,
-        dispatch_path=runtime_path / "dispatch",
     )
 
 

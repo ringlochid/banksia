@@ -122,7 +122,10 @@ async def _wait_for_human_and_continue(
                     {
                         "id": "direction",
                         "prompt": "Continue?",
-                        "options": [{"id": "yes", "title": "Yes"}],
+                        "options": [
+                            {"id": "yes", "title": "Yes"},
+                            {"id": "no", "title": "No"},
+                        ],
                     }
                 ],
             }
@@ -139,7 +142,16 @@ async def _wait_for_human_and_continue(
             cast(AsyncSession, session),
             task_id=ids.task_id,
             request_id=request_id,
-            request=HumanRequestResolveRequest(item_responses={"direction": "yes"}),
+            request=HumanRequestResolveRequest.model_validate(
+                {
+                    "item_responses": {
+                        "direction": {
+                            "kind": "option",
+                            "option_id": "yes",
+                        }
+                    }
+                }
+            ),
         )
     async with session_factory() as session:
         continued = await open_human_request_successor(

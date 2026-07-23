@@ -2,13 +2,11 @@ from __future__ import annotations
 
 import pytest
 from banksia.runtime.contracts.member import NodeKind
-from banksia.runtime.errors import RuntimeOperationError
 from banksia.runtime.node_operations import (
     NODE_OPERATION_CATALOG,
     get_node_operation_descriptor,
     list_node_operation_descriptors_for_kind,
 )
-from banksia.runtime.task_root.logical_paths import normalize_logical_task_path
 from banksia.runtime.work_plan import SetWorkPlanRequest
 
 EXPECTED_OPERATION_NAMES = (
@@ -77,12 +75,3 @@ def test_work_plan_contract_rejects_duplicate_and_multiple_active_steps() -> Non
                 ]
             }
         )
-
-
-@pytest.mark.parametrize(
-    "value",
-    ("", "/tmp/x", "../x", "workspace/../x", "C:/x", "\\\\server\\x", "workspace\\x"),
-)
-def test_logical_path_rejects_nonportable_or_traversing_values(value: str) -> None:
-    with pytest.raises(RuntimeOperationError):
-        normalize_logical_task_path(value)

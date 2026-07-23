@@ -26,7 +26,13 @@ from banksia.runtime.command_run.continuation import (
 )
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
 from banksia.runtime.contracts.primitives import TaskEventSource
-from banksia.runtime.contracts.prompt import OperatorContinueTrigger
+from banksia.runtime.contracts.prompt import (
+    OperatorContinueResult,
+    OperatorContinueTrigger,
+)
+from banksia.runtime.contracts.prompt import (
+    OperatorContinueSource as PromptOperatorContinueSource,
+)
 from banksia.runtime.dispatch.opening import TaskResumeEventBasis
 from banksia.runtime.dispatch.ordinary_context import (
     OrdinaryContinuationBasis,
@@ -242,9 +248,13 @@ async def read_operator_continue_source(
             source_dispatch_closed_reason=source_dispatch.closed_reason,
             opened_reason="operator_continue",
             trigger=OperatorContinueTrigger(
-                source_dispatch_id=source_dispatch.dispatch_id,
-                control_revision=flow.control_revision,
-                pause_reason=flow.pause_reason,
+                source=PromptOperatorContinueSource(
+                    source_dispatch_id=source_dispatch.dispatch_id,
+                ),
+                result=OperatorContinueResult(
+                    control_revision=flow.control_revision,
+                    pause_reason=flow.pause_reason,
+                ),
             ),
         ),
         claim=claim_operator_continue_tail,
@@ -314,7 +324,6 @@ async def _continue_ordinary_source(
     await session.rollback()
     prepared = prepare_dispatch_request(
         dependencies=dependencies,
-        paths=snapshot.paths,
         dispatch_id=dispatch_id,
         due_at=due_at,
         provider=snapshot.provider,

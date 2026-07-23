@@ -122,10 +122,10 @@ class CommandRunStartRequest(BaseModel):
 class CommandRunStartResponse(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, from_attributes=True)
 
-    run_id: RuntimeSchemaText
-    task_id: TaskIdentifier
-    state: Literal[CommandRunState.PENDING_START, CommandRunState.RUNNING]
+    command_id: RuntimeSchemaText
+    status: Literal[CommandRunState.PENDING_START]
     output_path: RuntimeSchemaText
+    must_stop: Literal[True] = True
 
 
 class CommandRunTerminalResult(BaseModel):

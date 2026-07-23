@@ -4,21 +4,21 @@ import sqlite3
 from pathlib import Path
 from typing import cast
 
+import banksia.runtime.dispatch.ordinary_continuation as ordinary_continuation_module
 import pytest
 from banksia.config import CodexSettings, RuntimeSettings, Settings
 from banksia.persistence.models import (
     CommandRunModel,
-    DispatchPromptRefsModel,
+    DispatchRequestModel,
     DispatchTurnModel,
     FlowModel,
     HumanRequestModel,
 )
 from banksia.providers import ProviderKind
 from banksia.runtime.clock import utc_now
-from banksia.runtime.contracts import HumanRequestResolveRequest, TaskRootPaths
+from banksia.runtime.contracts import HumanRequestResolveRequest
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
 from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
-from banksia.runtime.dispatch.request_pair import DispatchRequestPairRefs
 from banksia.runtime.errors import RuntimeOperationError
 from banksia.runtime.flow.service import runtime_flow_read
 from banksia.runtime.human_request.continuation import open_human_request_successor
@@ -31,14 +31,21 @@ from banksia.runtime.post_commit import (
     RuntimeEffectPublisher,
     RuntimeEffectSignal,
 )
+from banksia.runtime.prompt import parse_prompt_continuation
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from tests.helpers.executor_harness import (
     SessionFactory,
     seeded_executor,
-    seeded_task_root,
 )
 from tests.helpers.lineage_seed import RuntimeIds
+
+_DIRECTION_A_ANSWER = {
+    "direction": {
+        "kind": "option",
+        "option_id": "a",
+    }
+}
 
 
 class _RaisingPublisher:
@@ -79,7 +86,7 @@ async def test_terminal_human_source_opens_one_same_attempt_successor(
             )
             flow = await session.get(FlowModel, ids.flow_id)
             successor = await session.get(DispatchTurnModel, first.dispatch_id)
-            refs = await session.get(DispatchPromptRefsModel, first.dispatch_id)
+            dispatch_request = await session.get(DispatchRequestModel, first.dispatch_id)
             dispatch_count = await session.scalar(
                 select(func.count()).select_from(DispatchTurnModel)
             )
@@ -98,15 +105,18 @@ async def test_terminal_human_source_opens_one_same_attempt_successor(
     assert successor.assignment_id == ids.root_assignment_id
     assert successor.attempt_id == ids.root_attempt_id
     assert dispatch_count == 4
-    assert refs is not None
-    input_text = (
-        seeded_task_root(tmp_path, "human-continuation") / refs.input_logical_path
-    ).read_text(encoding="utf-8")
-    assert '"kind": "human_result"' in input_text
-    assert f'"request_id": "{request_id}"' in input_text
-    assert '"prompt": "Which direction?"' in input_text
-    assert '"resolution_kind": "answered"' in input_text
-    assert '"direction": "a"' in input_text
+    assert dispatch_request is not None
+    continuation = parse_prompt_continuation(dispatch_request.input)
+    assert continuation is not None
+    trigger = continuation.trigger
+    assert trigger.kind == "human_result"
+    assert trigger.source.request_id == request_id
+    assert trigger.result.request.items[0].prompt == "Which direction?"
+    assert trigger.result.resolution.resolution_kind.value == "answered"
+    assert trigger.result.resolution.model_dump(mode="json")["item_responses"] == (
+        _DIRECTION_A_ANSWER
+    )
+    assert "policy_basis" not in trigger.result.resolution.model_dump(mode="json")
     assert len(publisher.signals) == 1
     signal = publisher.signals[0]
     assert isinstance(signal, DispatchStartDue)
@@ -140,6 +150,7 @@ async def test_human_successor_commit_survives_start_publication_failure(
 
 async def test_human_preparation_failure_pauses_without_consuming_source(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     async with seeded_executor(tmp_path, suffix="human-preparation-failure") as (
         executor,
@@ -149,21 +160,19 @@ async def test_human_preparation_failure_pauses_without_consuming_source(
     ):
         request_id = await _open_and_resolve_human_request(executor, session_factory, ids)
 
-        def fail_request_pair(
-            *,
-            paths: TaskRootPaths,
-            dispatch_id: str,
-            instructions_bytes: bytes,
-            input_bytes: bytes,
-        ) -> DispatchRequestPairRefs:
-            del paths, dispatch_id, instructions_bytes, input_bytes
-            raise OSError("request publication failed")
+        def fail_preparation(**_kwargs: object) -> None:
+            raise ValueError("request preparation failed")
+
+        monkeypatch.setattr(
+            ordinary_continuation_module,
+            "prepare_dispatch_request",
+            fail_preparation,
+        )
 
         dependencies = DispatchOpeningDependencies.create(
             settings=_provider_settings(),
             available_adapter_kinds={ProviderKind.CODEX},
             post_commit_publisher=CapturedRuntimeEffectPublisher(),
-            request_pair_publisher=fail_request_pair,
         )
         async with session_factory() as session:
             result = await open_human_request_successor(
@@ -188,10 +197,11 @@ async def test_human_preparation_failure_pauses_without_consuming_source(
     assert dispatch_count == 3
 
 
-async def test_human_source_change_during_materialization_loses_cleanly(
+async def test_human_source_change_during_preparation_loses_cleanly(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    suffix = "human-materialization-race"
+    suffix = "human-preparation-race"
     database_path = tmp_path / f"{suffix}.sqlite"
     async with seeded_executor(tmp_path, suffix=suffix) as (
         executor,
@@ -201,21 +211,10 @@ async def test_human_source_change_during_materialization_loses_cleanly(
     ):
         request_id = await _open_and_resolve_human_request(executor, session_factory, ids)
 
-        def publish_then_pause(
-            *,
-            paths: TaskRootPaths,
-            dispatch_id: str,
-            instructions_bytes: bytes,
-            input_bytes: bytes,
-        ) -> DispatchRequestPairRefs:
-            from banksia.runtime.dispatch.request_pair import publish_dispatch_request_pair
+        real_prepare = ordinary_continuation_module.prepare_dispatch_request
 
-            refs = publish_dispatch_request_pair(
-                paths=paths,
-                dispatch_id=dispatch_id,
-                instructions_bytes=instructions_bytes,
-                input_bytes=input_bytes,
-            )
+        def prepare_then_pause(**kwargs: object) -> object:
+            prepared = real_prepare(**kwargs)  # type: ignore[arg-type]
             with sqlite3.connect(database_path) as connection:
                 connection.execute(
                     "UPDATE flows SET status = 'paused', pause_reason = 'operator_test', "
@@ -224,13 +223,18 @@ async def test_human_source_change_during_materialization_loses_cleanly(
                     (ids.flow_id,),
                 )
                 connection.commit()
-            return refs
+            return prepared
+
+        monkeypatch.setattr(
+            ordinary_continuation_module,
+            "prepare_dispatch_request",
+            prepare_then_pause,
+        )
 
         dependencies = DispatchOpeningDependencies.create(
             settings=_provider_settings(),
             available_adapter_kinds={ProviderKind.CODEX},
             post_commit_publisher=CapturedRuntimeEffectPublisher(),
-            request_pair_publisher=publish_then_pause,
         )
         async with session_factory() as session:
             result = await open_human_request_successor(
@@ -315,7 +319,9 @@ async def _open_and_resolve_human_request(
             cast(AsyncSession, session),
             task_id=ids.task_id,
             request_id=request_id,
-            request=HumanRequestResolveRequest(item_responses={"direction": "a"}),
+            request=HumanRequestResolveRequest.model_validate(
+                {"item_responses": _DIRECTION_A_ANSWER}
+            ),
         )
     return request_id
 

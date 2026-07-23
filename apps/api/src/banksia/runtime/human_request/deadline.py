@@ -97,7 +97,6 @@ async def expire_human_request(
         request_id=source.request_id,
         task_id=source.task_id,
         resolution_kind=HumanRequestResolutionKind.TIMED_OUT,
-        policy_basis=_timeout_policy_basis(source),
         summary=_TIMEOUT_SUMMARY,
         resolved_at=resolved_at,
         resolved_by_actor_ref=None,
@@ -108,6 +107,7 @@ async def expire_human_request(
         source=source,
         resolution=resolution,
         expected_due_at=source.due_at,
+        resolution_policy_basis=_timeout_policy_basis(source),
         runtime_effect_publisher=runtime_effect_publisher,
     )
 

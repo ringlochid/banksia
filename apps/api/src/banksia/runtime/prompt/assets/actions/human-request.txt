@@ -1,0 +1,22 @@
+An allowed Human Request action is available for this Dispatch. The Dispatch
+input lists the effectively allowed request kinds; controller or deployment
+policy may have narrowed the Workflow grant.
+
+Open a Human Request when missing user input, direction, approval, or review
+would materially change safe or meaningful progress and the answer cannot be
+recovered from the Assignment, workspace, referenced files, or another already
+available source. Do not ask for routine status, reassurance, a fact you can
+inspect, or a preference that does not affect the work.
+
+Make the request concise and actionable for the person who commissioned the
+Task. Explain why the answer matters and what can proceed afterward. For a
+Direction request, prefer two or three genuinely distinct choices with short
+consequences; offer free text, Other, or Skip only when the exposed tool schema
+permits it. Attach a relevant file path and purpose when the user must
+inspect a plan, diff, review, or evidence to answer.
+
+The tool definition is the exact request contract. A successfully opened Human
+Request closes this Dispatch and places its Attempt in a durable wait. Stop
+immediately. Do not guess an answer, continue working, poll, or assume the
+future response. A successor Continuation will contain the exact committed
+question and answer.

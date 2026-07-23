@@ -2,83 +2,55 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
-from pathlib import PurePosixPath
 from typing import Annotated, Literal
 
 from pydantic import (
-    AfterValidator,
     BaseModel,
     ConfigDict,
     Field,
     StringConstraints,
+    field_validator,
     model_validator,
 )
 
-from banksia.runtime.contracts.capabilities import EffectiveCapabilitySet
 from banksia.runtime.contracts.command_runs import CommandRunStartRequest
 from banksia.runtime.contracts.human_requests import (
+    HumanRequestOpenRequest,
     HumanRequestResolution,
-    PendingHumanRequest,
 )
-from banksia.runtime.contracts.member import NodeKind
 from banksia.runtime.contracts.primitives import (
     CheckpointOutcome,
     EgressBoundary,
-    HumanRequestResolutionKind,
-    HumanRequestStatus,
+    HumanRequestKind,
 )
 from banksia.runtime.contracts.refs import FileReference
 from banksia.runtime.contracts.replan import ReplanSuccess
-from banksia.runtime.work_plan.contracts import WorkPlanRead
+from banksia.runtime.contracts.text import normalize_exact_text
+from banksia.runtime.work_plan.contracts import WorkPlanView
 
-PromptText = Annotated[
-    str,
-    StringConstraints(strip_whitespace=True, min_length=1, max_length=8_192),
-]
-PromptAssignmentText = Annotated[
-    str,
-    StringConstraints(min_length=1),
-]
 PromptIdentifier = Annotated[
     str,
     StringConstraints(strip_whitespace=True, min_length=1, max_length=255),
 ]
-
-
-class PromptLogicalPathValidator:
-    def __call__(self, logical_path: str) -> str:
-        if "\x00" in logical_path or "\\" in logical_path:
-            raise ValueError("prompt refs require a task-relative POSIX logical path")
-        path = PurePosixPath(logical_path)
-        if path.is_absolute() or ".." in path.parts:
-            raise ValueError("prompt refs require a contained task-relative path")
-        if not path.parts:
-            raise ValueError("prompt refs require a workspace-relative path")
-        return logical_path
-
-
-PromptLogicalPath = Annotated[
+PromptShortText = Annotated[
     str,
-    StringConstraints(min_length=1, max_length=4_096),
-    AfterValidator(PromptLogicalPathValidator()),
+    StringConstraints(strip_whitespace=True, min_length=1, max_length=8_192),
 ]
 PromptDocumentText = Annotated[
     str,
-    StringConstraints(strip_whitespace=True, min_length=1, max_length=131_072),
+    StringConstraints(min_length=1),
 ]
 
 PROMPT_DYNAMIC_INPUT_KEYS = (
-    "assignment",
-    "trigger",
-    "plan",
-    "context",
+    "task",
     "dispatch",
-    "next",
-)
-PARENT_ROOT_ACTIONS = frozenset(
-    {
-        "assign_child",
-    }
+    "current_member",
+    "assignment",
+    "continuation",
+    "direct_team",
+    "work_plan",
+    "available_actions",
+    "workspace",
 )
 
 
@@ -86,9 +58,19 @@ class PromptContract(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
 
-class PromptFamily(StrEnum):
-    WORKER = "worker"
-    PARENT_ROOT = "parent_root"
+class PromptBehavior(StrEnum):
+    MANAGER = "manager"
+    CONTRIBUTOR = "contributor"
+
+
+class PromptParticipation(StrEnum):
+    REQUIRED = "required"
+    SATISFIED = "satisfied"
+
+
+class PromptAvailability(StrEnum):
+    AVAILABLE = "available"
+    BUSY = "busy"
 
 
 class PromptCommandOutcome(StrEnum):
@@ -106,109 +88,159 @@ class PromptCommandTerminalSource(StrEnum):
     PROCESS_OWNER = "process_owner"
 
 
-class PromptInstructionGuidance(PromptContract):
-    workflow: tuple[PromptText, ...] = ()
-    member: tuple[PromptText, ...] = ()
-    node: tuple[PromptText, ...] = ()
+class PromptTask(PromptContract):
+    id: PromptIdentifier
+    workflow_id: PromptIdentifier
 
 
-class PromptAssignmentBudget(PromptContract):
-    child_assignment_limit: int | None = Field(default=None, ge=0)
-    child_assignments_remaining: int | None = Field(default=None, ge=0)
-    retry_limit: int | None = Field(default=None, ge=0)
-    retries_remaining: int | None = Field(default=None, ge=0)
+class PromptDispatch(PromptContract):
+    id: PromptIdentifier
+    attempt_id: PromptIdentifier
+    assignment_id: PromptIdentifier
 
-    @model_validator(mode="after")
-    def validate_remaining_budget(self) -> PromptAssignmentBudget:
-        _validate_remaining_limit(
-            name="child assignments",
-            remaining=self.child_assignments_remaining,
-            limit=self.child_assignment_limit,
-        )
-        _validate_remaining_limit(
-            name="retries",
-            remaining=self.retries_remaining,
-            limit=self.retry_limit,
-        )
-        return self
+
+class PromptSandbox(PromptContract):
+    mode: PromptIdentifier
+    network: PromptIdentifier
+
+
+class PromptProvider(PromptContract):
+    name: PromptIdentifier
+    model: PromptIdentifier | None = None
+    effort: PromptIdentifier | None = None
+    gateway_profile: PromptIdentifier | None = None
+    sandbox: PromptSandbox | None = None
+
+
+class PromptEffectiveCapabilities(PromptContract):
+    human_request: tuple[HumanRequestKind, ...] = ()
+    command_run: Literal["allow", "deny"] = "deny"
+
+
+class PromptCurrentMember(PromptContract):
+    id: PromptIdentifier
+    title: str | None = None
+    description: str | None = None
+    instruction: str | None = None
+    position: Literal["task_lead"] | None = None
+    behavior: PromptBehavior
+    provider: PromptProvider
+    effective_capabilities: PromptEffectiveCapabilities
 
 
 class PromptAssignment(PromptContract):
-    assignment_id: PromptIdentifier
-    member_id: PromptIdentifier
-    member_title: PromptText | None = None
-    node_kind: NodeKind
-    prompt: PromptAssignmentText
+    id: PromptIdentifier
+    prompt: str
     files: tuple[FileReference, ...] = ()
-    budget: PromptAssignmentBudget | None = None
+
+    @field_validator("prompt", mode="before")
+    @classmethod
+    def normalize_prompt(cls, value: object) -> str:
+        return normalize_exact_text(
+            value,
+            label="Assignment prompt",
+            is_nonblank_required=True,
+        )
 
 
 class PromptCheckpointSummary(PromptContract):
-    checkpoint_id: PromptIdentifier
+    id: PromptIdentifier
     summary: str
     details: str | None = None
     files: tuple[FileReference, ...] = ()
     outcome: CheckpointOutcome
 
 
-class RootStartTrigger(PromptContract):
-    kind: Literal["root_start"] = "root_start"
-    flow_id: PromptIdentifier
+class PromptDirectMember(PromptContract):
+    id: PromptIdentifier
+    title: str | None = None
+    description: str | None = None
+    instruction: str | None = None
+    provider: PromptProvider | None = None
+    capabilities: PromptEffectiveCapabilities
+    participation: PromptParticipation
+    availability: PromptAvailability
+
+
+class PromptWorkspace(PromptContract):
+    root: str
+    task_directory: str
+    manifest: str
+    workflow_note: str | None = None
+    notes: str
+    artifacts: str
+    command_runs: str
+
+
+class AcceptedBoundarySource(PromptContract):
+    accepted_boundary_id: PromptIdentifier
+    source_dispatch_id: PromptIdentifier
+
+
+class AcceptedBoundaryResult(PromptContract):
+    outcome: Literal[EgressBoundary.YIELD]
 
 
 class AcceptedBoundaryTrigger(PromptContract):
     kind: Literal["accepted_boundary"] = "accepted_boundary"
+    source: AcceptedBoundarySource
+    result: AcceptedBoundaryResult
+
+
+class ChildReturnSource(PromptContract):
     accepted_boundary_id: PromptIdentifier
     source_dispatch_id: PromptIdentifier
-    outcome: Literal[EgressBoundary.YIELD]
-
-
-class ChildReturnTrigger(PromptContract):
-    kind: Literal["child_return"] = "child_return"
     child_assignment_id: PromptIdentifier
     child_attempt_id: PromptIdentifier
-    source_dispatch_id: PromptIdentifier
-    accepted_boundary_id: PromptIdentifier
+
+
+class ChildReturnResult(PromptContract):
+    assignment: PromptAssignment
     outcome: Literal[EgressBoundary.GREEN, EgressBoundary.BLOCKED]
     checkpoint: PromptCheckpointSummary
 
     @model_validator(mode="after")
-    def validate_checkpoint_outcome(self) -> ChildReturnTrigger:
+    def validate_checkpoint_outcome(self) -> ChildReturnResult:
         if self.checkpoint.outcome.value != self.outcome.value:
             raise ValueError("child-return checkpoint outcome must match the accepted outcome")
         return self
 
 
+class ChildReturnTrigger(PromptContract):
+    kind: Literal["child_return"] = "child_return"
+    source: ChildReturnSource
+    result: ChildReturnResult
+
+
+class HumanResultSource(PromptContract):
+    request_id: PromptIdentifier
+    source_dispatch_id: PromptIdentifier
+
+
+class HumanResult(PromptContract):
+    request: HumanRequestOpenRequest
+    resolution: HumanRequestResolution
+
+
 class HumanResultTrigger(PromptContract):
     kind: Literal["human_result"] = "human_result"
-    request: PendingHumanRequest
-    resolution: HumanRequestResolution
+    source: HumanResultSource
+    result: HumanResult
 
     @model_validator(mode="after")
     def validate_request_resolution_identity(self) -> HumanResultTrigger:
-        if self.request.request_id != self.resolution.request_id:
+        if self.source.request_id != self.result.resolution.request_id:
             raise ValueError("human-result request and resolution IDs must match")
-        if self.request.task_id != self.resolution.task_id:
-            raise ValueError("human-result request and resolution tasks must match")
-        if self.request.status == HumanRequestStatus.OPEN:
-            raise ValueError("human-result trigger requires a terminal request")
-        expected_status = {
-            HumanRequestResolutionKind.ANSWERED: HumanRequestStatus.RESOLVED,
-            HumanRequestResolutionKind.TIMED_OUT: HumanRequestStatus.TIMED_OUT,
-            HumanRequestResolutionKind.CANCELLED: HumanRequestStatus.CANCELLED,
-        }[self.resolution.resolution_kind]
-        if self.request.status != expected_status:
-            raise ValueError("human-result request status and resolution kind must match")
         return self
 
 
 class PromptCommandResult(PromptContract):
     state: PromptCommandOutcome
     exit_code: int | None = None
-    summary: PromptText
+    summary: PromptShortText
     started_at: datetime | None = None
     ended_at: datetime
-    output_path: PromptLogicalPath
+    output_path: str
     output_observed_bytes: int = Field(ge=0)
     output_written_bytes: int = Field(ge=0)
     output_complete: bool
@@ -218,7 +250,7 @@ class PromptCommandResult(PromptContract):
     terminal_actor_ref: PromptIdentifier | None = None
 
     @model_validator(mode="after")
-    def validate_timing(self) -> PromptCommandResult:
+    def validate_result(self) -> PromptCommandResult:
         if self.started_at is not None and self.ended_at < self.started_at:
             raise ValueError("command result cannot end before it starts")
         if (
@@ -233,61 +265,99 @@ class PromptCommandResult(PromptContract):
         return self
 
 
+class CommandResultSource(PromptContract):
+    command_id: PromptIdentifier
+    source_dispatch_id: PromptIdentifier
+
+
+class CommandResult(PromptContract):
+    request: CommandRunStartRequest
+    terminal: PromptCommandResult
+
+
 class CommandResultTrigger(PromptContract):
     kind: Literal["command_result"] = "command_result"
-    run_id: PromptIdentifier
+    source: CommandResultSource
+    result: CommandResult
+
+
+class WatchdogRecoverySource(PromptContract):
     source_dispatch_id: PromptIdentifier
-    request: CommandRunStartRequest
-    result: PromptCommandResult
-    files: tuple[FileReference, ...] = ()
+
+
+class WatchdogRecoveryResult(PromptContract):
+    recovery_count: int = Field(ge=1)
 
 
 class WatchdogRecoveryTrigger(PromptContract):
     kind: Literal["watchdog_recovery"] = "watchdog_recovery"
-    source_dispatch_id: PromptIdentifier
-    recovery_count: int = Field(ge=1)
+    source: WatchdogRecoverySource
+    result: WatchdogRecoveryResult
 
 
-class SemanticRetryTrigger(PromptContract):
-    kind: Literal["semantic_retry"] = "semantic_retry"
+class SemanticRetrySource(PromptContract):
     accepted_boundary_id: PromptIdentifier
     source_dispatch_id: PromptIdentifier
     previous_attempt_id: PromptIdentifier
+
+
+class SemanticRetryResult(PromptContract):
     checkpoint: PromptCheckpointSummary
 
     @model_validator(mode="after")
-    def validate_retry_checkpoint(self) -> SemanticRetryTrigger:
+    def validate_retry_checkpoint(self) -> SemanticRetryResult:
         if self.checkpoint.outcome != CheckpointOutcome.RETRY:
             raise ValueError("semantic-retry trigger requires a retry checkpoint")
         return self
 
 
-class OperatorContinueTrigger(PromptContract):
-    kind: Literal["operator_continue"] = "operator_continue"
+class SemanticRetryTrigger(PromptContract):
+    kind: Literal["semantic_retry"] = "semantic_retry"
+    source: SemanticRetrySource
+    result: SemanticRetryResult
+
+
+class OperatorContinueSource(PromptContract):
     source_dispatch_id: PromptIdentifier | None = None
-    source_flow_id: PromptIdentifier | None = None
-    control_revision: int = Field(ge=0)
-    pause_reason: PromptText
+    source_task_id: PromptIdentifier | None = None
 
     @model_validator(mode="after")
-    def validate_exact_source(self) -> OperatorContinueTrigger:
-        if (self.source_dispatch_id is None) == (self.source_flow_id is None):
+    def validate_exact_source(self) -> OperatorContinueSource:
+        if (self.source_dispatch_id is None) == (self.source_task_id is None):
             raise ValueError(
-                "operator-continue trigger requires exactly one dispatch or flow-start source"
+                "operator-continue trigger requires exactly one dispatch or Task source"
             )
         return self
 
 
-class StructuralReplanTrigger(PromptContract):
-    kind: Literal["structural_replan"] = "structural_replan"
+class OperatorContinueResult(PromptContract):
+    control_revision: int = Field(ge=0)
+    pause_reason: PromptShortText
+
+
+class OperatorContinueTrigger(PromptContract):
+    kind: Literal["operator_continue"] = "operator_continue"
+    source: OperatorContinueSource
+    result: OperatorContinueResult
+
+
+class StructuralReplanSource(PromptContract):
     source_dispatch_id: PromptIdentifier
     operation: Literal["add_child", "update_child", "remove_child"]
-    result: ReplanSuccess
+
+
+class StructuralReplanResult(PromptContract):
+    replan: ReplanSuccess
+
+
+class StructuralReplanTrigger(PromptContract):
+    kind: Literal["structural_replan"] = "structural_replan"
+    source: StructuralReplanSource
+    result: StructuralReplanResult
 
 
 type PromptTrigger = Annotated[
-    RootStartTrigger
-    | AcceptedBoundaryTrigger
+    AcceptedBoundaryTrigger
     | ChildReturnTrigger
     | HumanResultTrigger
     | CommandResultTrigger
@@ -299,7 +369,6 @@ type PromptTrigger = Annotated[
 ]
 
 PROMPT_TRIGGER_KINDS = (
-    "root_start",
     "accepted_boundary",
     "child_return",
     "human_result",
@@ -311,131 +380,101 @@ PROMPT_TRIGGER_KINDS = (
 )
 
 
-class PromptWorkflowNeighbor(PromptContract):
-    node_key: PromptIdentifier
-    node_kind: NodeKind
-    relationship: PromptText
-    assignment_id: PromptIdentifier | None = None
-
-
-class RuntimeReadbackRefs(PromptContract):
-    instructions: PromptLogicalPath
-    input: PromptLogicalPath
-    workflow_manifest: PromptLogicalPath
-
-
-class PromptContext(PromptContract):
-    capabilities: EffectiveCapabilitySet
-    allowed_actions: tuple[PromptIdentifier, ...]
-    workflow_neighborhood: tuple[PromptWorkflowNeighbor, ...] = ()
-    readback_refs: RuntimeReadbackRefs
-    constraints: tuple[PromptText, ...] = ()
-
-
-class PromptDispatch(PromptContract):
-    task_id: PromptIdentifier
-    flow_id: PromptIdentifier
-    flow_revision_id: PromptIdentifier
-    dispatch_id: PromptIdentifier
-    assignment_id: PromptIdentifier
-    attempt_id: PromptIdentifier
-    node_key: PromptIdentifier
-    node_kind: NodeKind
-    parent_assignment_id: PromptIdentifier | None = None
-    retry_of_attempt_id: PromptIdentifier | None = None
-    predecessor_dispatch_id: PromptIdentifier | None = None
-
-
-class PromptNext(PromptContract):
-    instruction: PromptText
+class PromptContinuation(PromptContract):
+    trigger: PromptTrigger
 
 
 class PromptDynamicInput(PromptContract):
-    assignment: PromptAssignment
-    trigger: PromptTrigger
-    plan: WorkPlanRead | None
-    context: PromptContext
+    task: PromptTask
     dispatch: PromptDispatch
-    next: PromptNext
+    current_member: PromptCurrentMember
+    assignment: PromptAssignment
+    continuation: PromptContinuation | None = None
+    direct_team: tuple[PromptDirectMember, ...] = ()
+    work_plan: WorkPlanView | None = None
+    available_actions: tuple[PromptIdentifier, ...]
+    workspace: PromptWorkspace
 
     @model_validator(mode="after")
-    def validate_identity_and_role_ceiling(self) -> PromptDynamicInput:
-        if self.assignment.assignment_id != self.dispatch.assignment_id:
+    def validate_identity_and_behavior(self) -> PromptDynamicInput:
+        if self.assignment.id != self.dispatch.assignment_id:
             raise ValueError("assignment and dispatch IDs must match")
-        if self.assignment.node_kind != self.dispatch.node_kind:
-            raise ValueError("assignment and dispatch node kinds must match")
-        if self.plan is not None and self.plan.assignment_id != self.assignment.assignment_id:
-            raise ValueError("work plan must belong to the current assignment")
-        if self.dispatch.node_kind == NodeKind.WORKER:
-            illegal_actions = PARENT_ROOT_ACTIONS.intersection(self.context.allowed_actions)
-            if illegal_actions:
-                names = ", ".join(sorted(illegal_actions))
-                raise ValueError(f"worker prompt exposes parent/root actions: {names}")
+        expected_behavior = (
+            PromptBehavior.MANAGER if self.direct_team else PromptBehavior.CONTRIBUTOR
+        )
+        if self.current_member.behavior != expected_behavior:
+            raise ValueError("current Member behavior must match the direct-team shape")
+        if tuple(dict.fromkeys(self.available_actions)) != self.available_actions:
+            raise ValueError("available actions must be unique")
         return self
 
 
 class DispatchRequestRenderInput(PromptContract):
-    family: PromptFamily
-    guidance: PromptInstructionGuidance
     dynamic_input: PromptDynamicInput
-
-    @model_validator(mode="after")
-    def validate_family(self) -> DispatchRequestRenderInput:
-        expected = prompt_family_for_node_kind(self.dynamic_input.dispatch.node_kind)
-        if self.family != expected:
-            raise ValueError(
-                f"prompt family '{self.family.value}' is invalid for "
-                f"node kind '{self.dynamic_input.dispatch.node_kind.value}'"
-            )
-        return self
+    member_instruction: str | None = None
+    workflow_note: str | None = None
 
 
 class RenderedDispatchRequest(PromptContract):
     instructions_text: PromptDocumentText
     input_text: PromptDocumentText
 
-
-def prompt_family_for_node_kind(node_kind: NodeKind) -> PromptFamily:
-    if node_kind == NodeKind.WORKER:
-        return PromptFamily.WORKER
-    return PromptFamily.PARENT_ROOT
-
-
-def _validate_remaining_limit(*, name: str, remaining: int | None, limit: int | None) -> None:
-    if limit is None and remaining is not None:
-        raise ValueError(f"{name} remaining requires a limit")
-    if limit is not None and remaining is not None and remaining > limit:
-        raise ValueError(f"{name} remaining cannot exceed its limit")
+    @field_validator("instructions_text", "input_text", mode="before")
+    @classmethod
+    def normalize_request_text(cls, value: object) -> str:
+        return normalize_exact_text(
+            value,
+            label="rendered dispatch request",
+            is_nonblank_required=True,
+        )
 
 
 __all__ = [
     "PROMPT_DYNAMIC_INPUT_KEYS",
     "PROMPT_TRIGGER_KINDS",
+    "AcceptedBoundaryResult",
+    "AcceptedBoundarySource",
     "AcceptedBoundaryTrigger",
+    "ChildReturnResult",
+    "ChildReturnSource",
     "ChildReturnTrigger",
+    "CommandResult",
+    "CommandResultSource",
     "CommandResultTrigger",
     "DispatchRequestRenderInput",
+    "HumanResult",
+    "HumanResultSource",
     "HumanResultTrigger",
+    "OperatorContinueResult",
+    "OperatorContinueSource",
     "OperatorContinueTrigger",
     "PromptAssignment",
-    "PromptAssignmentBudget",
+    "PromptAvailability",
+    "PromptBehavior",
     "PromptCheckpointSummary",
     "PromptCommandOutcome",
     "PromptCommandResult",
     "PromptCommandTerminalSource",
-    "PromptContext",
+    "PromptContinuation",
+    "PromptCurrentMember",
+    "PromptDirectMember",
     "PromptDispatch",
     "PromptDynamicInput",
-    "PromptFamily",
-    "PromptInstructionGuidance",
-    "PromptNext",
+    "PromptEffectiveCapabilities",
+    "PromptParticipation",
+    "PromptProvider",
+    "PromptSandbox",
+    "PromptTask",
     "PromptTrigger",
-    "PromptWorkflowNeighbor",
+    "PromptWorkspace",
     "RenderedDispatchRequest",
-    "RootStartTrigger",
-    "RuntimeReadbackRefs",
+    "SemanticRetryResult",
+    "SemanticRetrySource",
     "SemanticRetryTrigger",
+    "StructuralReplanResult",
+    "StructuralReplanSource",
     "StructuralReplanTrigger",
+    "WatchdogRecoveryResult",
+    "WatchdogRecoverySource",
     "WatchdogRecoveryTrigger",
-    "prompt_family_for_node_kind",
 ]

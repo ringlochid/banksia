@@ -123,11 +123,6 @@ class TaskRootPaths(BaseModel):
 
     task_root: Path
     workspace_path: Path
-    outputs_path: Path
-    artifacts_path: Path
-    tmp_path: Path
-    runtime_path: Path
-    dispatch_path: Path
 
 
 __all__ = [

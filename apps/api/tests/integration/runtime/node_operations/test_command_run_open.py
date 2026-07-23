@@ -34,7 +34,14 @@ async def test_command_run_start_persists_discriminated_request_without_launchin
                 }
             },
         )
-        run_id = result.model_dump()["run_id"]
+        response = result.model_dump(mode="json")
+        run_id = response["command_id"]
+        assert response == {
+            "command_id": run_id,
+            "status": "pending_start",
+            "output_path": response["output_path"],
+            "must_stop": True,
+        }
         async with session_factory() as session:
             source = await session.get(CommandRunModel, run_id)
             dispatch = await session.get(DispatchTurnModel, ids.current_dispatch_id)

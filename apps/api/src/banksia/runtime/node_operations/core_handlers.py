@@ -1,59 +1,55 @@
 from __future__ import annotations
 
-from typing import Literal, cast
-
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import raiseload
 
 from banksia.persistence.models import (
-    DispatchPromptRefsModel,
+    CompiledPlanModel,
+    DispatchRequestModel,
+    FlowModel,
     FlowNodeModel,
+    WorkflowRevisionModel,
 )
 from banksia.runtime.assignment import read_assignment_file_references
-from banksia.runtime.contracts.member import NodeKind
+from banksia.runtime.clock import utc_now
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
-from banksia.runtime.contracts.prompt import RuntimeReadbackRefs
+from banksia.runtime.contracts.prompt import (
+    PromptAssignment,
+    PromptBehavior,
+    PromptCurrentMember,
+    PromptDispatch,
+    PromptTask,
+)
 from banksia.runtime.dispatch.authority import NodeOperationAuthority
+from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
+from banksia.runtime.dispatch.prompt_snapshot import (
+    capability_projection,
+    persisted_provider_projection,
+    read_prompt_direct_team,
+    workspace_projection,
+)
 from banksia.runtime.errors import RuntimeOperationError
 from banksia.runtime.node_operations.catalog import (
     list_node_operation_descriptors_for_kind,
 )
 from banksia.runtime.node_operations.contracts import (
-    AssignmentContextRead,
-    AttemptContextRead,
-    CurrentContextTriggerKind,
-    CurrentContextTriggerRead,
-    EffectiveCapabilitySetRead,
-    EffectiveValueRead,
     EmptyNodeOperationRequest,
     GetCurrentContextResponse,
-    HumanRequestCapabilityRead,
     NodeOperationName,
-    WorkflowNeighborRead,
 )
 from banksia.runtime.node_operations.state_legality import (
     read_state_legal_node_operations,
 )
+from banksia.runtime.prompt import parse_prompt_continuation
+from banksia.runtime.task_root import read_task_root_paths
 from banksia.runtime.work_plan import (
     SetWorkPlanRequest,
     read_assignment_work_plan,
     set_assignment_work_plan,
+    work_plan_view,
 )
-
-type CapabilityDecisionValue = Literal["allow", "deny"]
-_CURRENT_TRIGGER_KIND_BY_OPENED_REASON = {
-    "root": CurrentContextTriggerKind.ROOT_START,
-    "boundary": CurrentContextTriggerKind.ACCEPTED_BOUNDARY,
-    "child_return": CurrentContextTriggerKind.CHILD_RETURN,
-    "human_result": CurrentContextTriggerKind.HUMAN_RESULT,
-    "command_result": CurrentContextTriggerKind.COMMAND_RESULT,
-    "watchdog_recovery": CurrentContextTriggerKind.WATCHDOG_RECOVERY,
-    "semantic_retry": CurrentContextTriggerKind.SEMANTIC_RETRY,
-    "structural_replan": CurrentContextTriggerKind.STRUCTURAL_REPLAN,
-    "operator_continue": CurrentContextTriggerKind.OPERATOR_CONTINUE,
-}
 
 
 async def execute_core_node_operation(
@@ -61,10 +57,20 @@ async def execute_core_node_operation(
     authority: NodeOperationAuthority,
     operation_name: NodeOperationName,
     request: BaseModel,
+    *,
+    dispatch_opening_dependencies: DispatchOpeningDependencies | None,
 ) -> BaseModel | None:
     if operation_name == NodeOperationName.GET_CURRENT_CONTEXT:
         assert isinstance(request, EmptyNodeOperationRequest)
-        return await _get_current_context(session, authority)
+        if dispatch_opening_dependencies is None:
+            raise _invalid_committed_request(
+                "current-context provider resolution is not configured"
+            )
+        return await _get_current_context(
+            session,
+            authority,
+            dependencies=dispatch_opening_dependencies,
+        )
     if operation_name == NodeOperationName.SET_WORK_PLAN:
         assert isinstance(request, SetWorkPlanRequest)
         return await set_assignment_work_plan(
@@ -78,83 +84,79 @@ async def execute_core_node_operation(
 async def _get_current_context(
     session: AsyncSession,
     authority: NodeOperationAuthority,
+    *,
+    dependencies: DispatchOpeningDependencies,
 ) -> GetCurrentContextResponse:
     plan = await read_assignment_work_plan(session, assignment_id=authority.assignment_id)
-    workflow_neighborhood = await _read_workflow_neighborhood(session, authority)
-    readback_refs = await _read_runtime_readback_refs(session, authority)
+    children = await _read_direct_children(session, authority)
+    direct_team = await read_prompt_direct_team(
+        session,
+        children=children,
+        dependencies=dependencies,
+    )
     assignment_files = await read_assignment_file_references(
         session,
         assignment_id=authority.assignment_id,
     )
-    capabilities = authority.capabilities
     state_legal_actions = await read_state_legal_node_operations(session, authority)
-    allowed_actions = tuple(
+    available_actions = tuple(
         descriptor.name
         for descriptor in list_node_operation_descriptors_for_kind(authority.node_kind)
         if descriptor.name in state_legal_actions
-        and _capability_allows(descriptor.name, capabilities)
+        and _capability_allows(descriptor.name, authority.capabilities)
     )
+    workflow_id, workflow_note = await _read_workflow_context(session, authority)
+    request = await session.get(DispatchRequestModel, authority.dispatch_id)
+    if request is None:
+        raise _invalid_committed_request("current Dispatch request is missing")
+    try:
+        continuation = parse_prompt_continuation(request.input)
+    except ValueError as exc:
+        raise _invalid_committed_request(str(exc)) from exc
+    paths = await read_task_root_paths(session, authority.task_id)
+    capabilities = capability_projection(authority.capabilities)
     return GetCurrentContextResponse(
-        task_id=authority.task_id,
-        dispatch_id=authority.dispatch_id,
-        assignment=AssignmentContextRead(
+        task=PromptTask(id=authority.task_id, workflow_id=workflow_id),
+        dispatch=PromptDispatch(
+            id=authority.dispatch_id,
+            attempt_id=authority.attempt_id,
             assignment_id=authority.assignment_id,
-            node_key=authority.node_key,
-            node_kind=authority.node_kind,
+        ),
+        current_member=PromptCurrentMember(
+            id=authority.dispatch.member_id,
+            title=authority.flow_node.member_title,
+            description=authority.flow_node.description,
+            instruction=authority.flow_node.node_instruction,
+            position=("task_lead" if authority.flow_node.parent_node_key is None else None),
+            behavior=(PromptBehavior.MANAGER if direct_team else PromptBehavior.CONTRIBUTOR),
+            provider=persisted_provider_projection(
+                authority.dispatch,
+                authority.capabilities,
+            ),
+            effective_capabilities=capabilities,
+        ),
+        assignment=PromptAssignment(
+            id=authority.assignment_id,
             prompt=authority.assignment.prompt,
             files=assignment_files,
         ),
-        attempt=AttemptContextRead(
-            attempt_id=authority.attempt_id,
-            assignment_id=authority.assignment_id,
-            retry_of_attempt_id=authority.attempt.retry_of_attempt_id,
+        continuation=continuation,
+        direct_team=direct_team,
+        work_plan=work_plan_view(plan),
+        available_actions=available_actions,
+        workspace=workspace_projection(
+            paths,
+            has_workflow_note=bool(workflow_note and workflow_note.strip()),
         ),
-        trigger=_current_context_trigger(authority),
-        plan=plan,
-        workflow_neighborhood=workflow_neighborhood,
-        readback_refs=readback_refs,
-        capabilities=EffectiveCapabilitySetRead(
-            dispatch_id=authority.dispatch_id,
-            provider_native_access=EffectiveValueRead(
-                effective=capabilities.provider_native_access,
-                source=capabilities.provider_native_access_source,
-            ),
-            network_access=EffectiveValueRead(
-                effective=capabilities.network_access,
-                source=capabilities.network_access_source,
-            ),
-            human_request=HumanRequestCapabilityRead(
-                direction=cast(CapabilityDecisionValue, capabilities.human_direction),
-                approval=cast(CapabilityDecisionValue, capabilities.human_approval),
-                input=cast(CapabilityDecisionValue, capabilities.human_input),
-                review=cast(CapabilityDecisionValue, capabilities.human_review),
-            ),
-            command_run=cast(CapabilityDecisionValue, capabilities.command_run),
-        ),
-        allowed_actions=allowed_actions,
+        observed_at=utc_now(),
     )
 
 
-def _current_context_trigger(authority: NodeOperationAuthority) -> CurrentContextTriggerRead:
-    try:
-        kind = _CURRENT_TRIGGER_KIND_BY_OPENED_REASON[authority.opened_reason]
-    except KeyError as exc:
-        raise RuntimeOperationError(
-            code=OperationFailureCode.INTERNAL_ERROR,
-            summary="current dispatch has an unsupported trigger kind",
-            is_retryable=False,
-        ) from exc
-    return CurrentContextTriggerRead(
-        kind=kind,
-        source_dispatch_id=authority.predecessor_dispatch_id,
-    )
-
-
-async def _read_workflow_neighborhood(
+async def _read_direct_children(
     session: AsyncSession,
     authority: NodeOperationAuthority,
-) -> tuple[WorkflowNeighborRead, ...]:
-    children = tuple(
+) -> tuple[FlowNodeModel, ...]:
+    return tuple(
         await session.scalars(
             select(FlowNodeModel)
             .options(raiseload("*"))
@@ -166,42 +168,39 @@ async def _read_workflow_neighborhood(
             .order_by(FlowNodeModel.order_index)
         )
     )
-    return tuple(
-        WorkflowNeighborRead(
-            node_key=child.node_key,
-            node_kind=NodeKind(child.structural_kind),
-            relationship="direct child",
-            assignment_id=child.current_assignment_id,
-        )
-        for child in children
-    )
 
 
-async def _read_runtime_readback_refs(
+async def _read_workflow_context(
     session: AsyncSession,
     authority: NodeOperationAuthority,
-) -> RuntimeReadbackRefs:
-    prompt_refs = await session.get(
-        DispatchPromptRefsModel,
-        authority.dispatch_id,
-        populate_existing=True,
-    )
-    expected_root = f"_runtime/dispatch/{authority.dispatch_id}"
-    if (
-        prompt_refs is None
-        or prompt_refs.instructions_logical_path != f"{expected_root}/instructions.md"
-        or prompt_refs.input_logical_path != f"{expected_root}/input.md"
-    ):
+) -> tuple[str, str | None]:
+    row = (
+        await session.execute(
+            select(CompiledPlanModel, WorkflowRevisionModel)
+            .options(raiseload("*"))
+            .join(
+                FlowModel,
+                FlowModel.compiled_plan_id == CompiledPlanModel.compiled_plan_id,
+            )
+            .join(
+                WorkflowRevisionModel,
+                (WorkflowRevisionModel.workflow_key == CompiledPlanModel.workflow_key)
+                & (WorkflowRevisionModel.revision_no == CompiledPlanModel.workflow_revision_no),
+            )
+            .where(FlowModel.flow_id == authority.flow_id)
+        )
+    ).one_or_none()
+    if row is None:
         raise RuntimeOperationError(
             code=OperationFailureCode.INTERNAL_ERROR,
-            summary="current dispatch is missing its exact request readback refs",
+            summary="current Dispatch is missing its pinned Workflow",
             is_retryable=False,
         )
-    return RuntimeReadbackRefs(
-        instructions=prompt_refs.instructions_logical_path,
-        input=prompt_refs.input_logical_path,
-        workflow_manifest="manifest.md",
-    )
+    compiled_plan, workflow = row
+    note = workflow.content_json.get("note")
+    if note is not None and not isinstance(note, str):
+        raise _invalid_committed_request("pinned Workflow note is not text")
+    return compiled_plan.workflow_key, note
 
 
 def _capability_allows(operation_name: NodeOperationName, capabilities: object) -> bool:
@@ -210,9 +209,22 @@ def _capability_allows(operation_name: NodeOperationName, capabilities: object) 
     if operation_name == NodeOperationName.OPEN_HUMAN_REQUEST:
         return any(
             getattr(capabilities, field_name, "deny") == "allow"
-            for field_name in ("human_direction", "human_approval", "human_input", "human_review")
+            for field_name in (
+                "human_direction",
+                "human_approval",
+                "human_input",
+                "human_review",
+            )
         )
     return True
+
+
+def _invalid_committed_request(summary: str) -> RuntimeOperationError:
+    return RuntimeOperationError(
+        code=OperationFailureCode.INTERNAL_ERROR,
+        summary=summary,
+        is_retryable=False,
+    )
 
 
 __all__ = ["execute_core_node_operation"]

@@ -23,6 +23,7 @@ from banksia.runtime.work_plan.contracts import (
     SetWorkPlanResponse,
     WorkPlanRead,
     WorkPlanStepRead,
+    work_plan_view,
 )
 
 
@@ -36,7 +37,7 @@ async def set_assignment_work_plan(
     current = await read_assignment_work_plan(session, assignment_id=assignment_id)
     if _matches_request(current, request):
         await session.commit()
-        return SetWorkPlanResponse(changed=False, plan=current)
+        return SetWorkPlanResponse(changed=False, plan=work_plan_view(current))
 
     next_revision = await _advance_work_plan_revision(session, authority)
     committed_at = utc_now()
@@ -60,7 +61,7 @@ async def set_assignment_work_plan(
 
     plan = await read_assignment_work_plan(session, assignment_id=assignment_id)
     assert plan is not None
-    return SetWorkPlanResponse(changed=True, plan=plan)
+    return SetWorkPlanResponse(changed=True, plan=work_plan_view(plan))
 
 
 async def read_assignment_work_plan(

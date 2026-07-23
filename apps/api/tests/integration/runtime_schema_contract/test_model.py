@@ -25,7 +25,7 @@ TARGET_TABLES = {
     "compiled_plan_nodes",
     "compiled_plans",
     "dispatch_capability_sets",
-    "dispatch_prompt_refs",
+    "dispatch_requests",
     "dispatch_turns",
     "flow_nodes",
     "flow_revisions",

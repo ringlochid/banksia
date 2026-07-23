@@ -12,12 +12,13 @@ from banksia.persistence.models import CommandRunModel, FlowModel
 from banksia.persistence.models.runtime.common import COMMAND_RUN_TERMINAL_STATE_VALUES
 from banksia.runtime.contracts.command_runs import CommandRunStartRequest
 from banksia.runtime.contracts.prompt import (
+    CommandResult,
+    CommandResultSource,
     CommandResultTrigger,
     PromptCommandOutcome,
     PromptCommandResult,
     PromptCommandTerminalSource,
 )
-from banksia.runtime.contracts.refs import FileReference
 from banksia.runtime.dispatch.ordinary_context import (
     OrdinaryContinuationBasis,
     OrdinaryDispatchSnapshot,
@@ -100,14 +101,15 @@ async def claim_command_run_continuation(
     run_id = await session.scalar(
         update(CommandRunModel)
         .where(
-            CommandRunModel.run_id == trigger.run_id,
+            CommandRunModel.run_id == trigger.source.command_id,
             CommandRunModel.task_id == snapshot.prompt.task_id,
             CommandRunModel.flow_id == snapshot.prompt.flow_id,
             CommandRunModel.assignment_id == snapshot.prompt.assignment_id,
             CommandRunModel.attempt_id == snapshot.prompt.attempt_id,
             CommandRunModel.source_dispatch_id == snapshot.basis.source_dispatch_id,
-            *_command_request_predicates(trigger.request),
-            *_command_result_predicates(trigger.result),
+            CommandRunModel.source_dispatch_id == trigger.source.source_dispatch_id,
+            *_command_request_predicates(trigger.result.request),
+            *_command_result_predicates(trigger.result.terminal),
             CommandRunModel.successor_dispatch_id.is_(None),
         )
         .values(successor_dispatch_id=prepared.dispatch_id)
@@ -176,25 +178,28 @@ def command_run_continuation_basis(
         source_dispatch_closed_reason="command_run_wait",
         opened_reason=opened_reason,
         trigger=CommandResultTrigger(
-            run_id=source.run_id,
-            source_dispatch_id=source.source_dispatch_id,
-            request=_command_request(source),
-            result=PromptCommandResult(
-                state=PromptCommandOutcome(source.state),
-                exit_code=source.terminal_exit_code,
-                summary=source.terminal_summary,
-                started_at=source.started_at,
-                ended_at=source.ended_at,
-                output_path=source.output_path,
-                output_observed_bytes=source.output_observed_bytes,
-                output_written_bytes=source.output_written_bytes,
-                output_complete=source.output_complete,
-                output_encoding="raw_bytes",
-                failure_code=source.terminal_failure_code,
-                terminal_event_source=PromptCommandTerminalSource(source.terminal_event_source),
-                terminal_actor_ref=source.terminal_actor_ref,
+            source=CommandResultSource(
+                command_id=source.run_id,
+                source_dispatch_id=source.source_dispatch_id,
             ),
-            files=_command_result_files(source),
+            result=CommandResult(
+                request=_command_request(source),
+                terminal=PromptCommandResult(
+                    state=PromptCommandOutcome(source.state),
+                    exit_code=source.terminal_exit_code,
+                    summary=source.terminal_summary,
+                    started_at=source.started_at,
+                    ended_at=source.ended_at,
+                    output_path=source.output_path,
+                    output_observed_bytes=source.output_observed_bytes,
+                    output_written_bytes=source.output_written_bytes,
+                    output_complete=source.output_complete,
+                    output_encoding="raw_bytes",
+                    failure_code=source.terminal_failure_code,
+                    terminal_event_source=PromptCommandTerminalSource(source.terminal_event_source),
+                    terminal_actor_ref=source.terminal_actor_ref,
+                ),
+            ),
         ),
     )
 
@@ -270,15 +275,6 @@ def _command_result_predicates(
             CommandRunModel.terminal_actor_ref.is_(None)
             if result.terminal_actor_ref is None
             else CommandRunModel.terminal_actor_ref == result.terminal_actor_ref
-        ),
-    )
-
-
-def _command_result_files(source: CommandRunModel) -> tuple[FileReference, ...]:
-    return (
-        FileReference(
-            path=source.output_path,
-            description="Current combined command output.",
         ),
     )
 

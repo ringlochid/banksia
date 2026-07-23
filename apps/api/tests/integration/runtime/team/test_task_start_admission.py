@@ -11,7 +11,7 @@ import pytest
 from banksia.config import CodexSettings, RuntimeSettings, Settings
 from banksia.persistence.models import (
     AssignmentModel,
-    DispatchPromptRefsModel,
+    DispatchRequestModel,
     DispatchTurnModel,
     TaskModel,
 )
@@ -51,20 +51,19 @@ async def test_task_start_request_bridge_preserves_long_prompt_and_file_values(
             assignment = await session.scalar(
                 select(AssignmentModel).where(AssignmentModel.task_id == response.task_id)
             )
-            prompt_refs = await session.scalar(
-                select(DispatchPromptRefsModel)
+            dispatch_request = await session.scalar(
+                select(DispatchRequestModel)
                 .join(
                     DispatchTurnModel,
-                    DispatchTurnModel.dispatch_id == DispatchPromptRefsModel.dispatch_id,
+                    DispatchTurnModel.dispatch_id == DispatchRequestModel.dispatch_id,
                 )
                 .where(DispatchTurnModel.task_id == response.task_id)
             )
 
     assert assignment is not None and assignment.prompt == request.prompt
-    assert prompt_refs is not None
-    input_path = workspace / ".banksia" / response.task_id / prompt_refs.input_logical_path
+    assert dispatch_request is not None
     rendered_assignment = _read_rendered_section(
-        input_path.read_text(encoding="utf-8"),
+        dispatch_request.input,
         "Assignment",
     )
     assert rendered_assignment["prompt"] == request.prompt

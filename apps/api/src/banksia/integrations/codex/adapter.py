@@ -59,8 +59,6 @@ class CodexAdapter:
 
     async def start(self, request: DispatchStartRequest) -> ProviderStartAccepted:
         route, connection = _validate_codex_request(request)
-        instructions = _decode_request_lane(request.instructions)
-        dispatch_input = _decode_request_lane(request.input)
         effort = _resolve_effort(route.effort_override)
         assert request.sandbox_mode is not None
         sandbox = _resolve_sandbox(request.sandbox_mode)
@@ -73,13 +71,13 @@ class CodexAdapter:
                 approval_mode=ApprovalMode.deny_all,
                 config=thread_config,
                 cwd=str(request.working_directory),
-                developer_instructions=instructions,
+                developer_instructions=request.instructions,
                 ephemeral=True,
                 model=route.model_override,
                 sandbox=sandbox,
             )
             try:
-                turn = await thread.turn(dispatch_input, effort=effort)
+                turn = await thread.turn(request.input, effort=effort)
             except (TransportClosedError, TimeoutError, OSError) as exc:
                 raise ProviderStartError(
                     kind=ProviderStartFailureKind.UNCERTAIN_ACCEPTANCE,
@@ -268,16 +266,6 @@ def _validate_codex_request(
             code=ProviderStartErrorCode.CONFIGURATION,
         )
     return request.provider_route, request.managed_node_mcp
-
-
-def _decode_request_lane(content: bytes) -> str:
-    try:
-        return content.decode("utf-8")
-    except UnicodeDecodeError as exc:
-        raise ProviderStartError(
-            kind=ProviderStartFailureKind.DEFINITE_FAILURE,
-            code=ProviderStartErrorCode.CONFIGURATION,
-        ) from exc
 
 
 def _resolve_effort(value: str | None) -> ReasoningEffort | None:

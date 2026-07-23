@@ -413,9 +413,9 @@ class DispatchTurnModel(RuntimeBase):
         lazy="raise",
         viewonly=True,
     )
-    prompt_refs: Mapped[DispatchPromptRefsModel | None] = relationship(
+    request: Mapped[DispatchRequestModel | None] = relationship(
         back_populates="dispatch",
-        foreign_keys="DispatchPromptRefsModel.dispatch_id",
+        foreign_keys="DispatchRequestModel.dispatch_id",
         lazy="raise",
         uselist=False,
     )
@@ -525,24 +525,17 @@ class DispatchTurnModel(RuntimeBase):
     )
 
 
-class DispatchPromptRefsModel(RuntimeBase):
-    __tablename__ = "dispatch_prompt_refs"
-    __table_args__ = (
-        CheckConstraint(
-            "dynamic_input_version >= 1",
-            name="ck_dispatch_prompt_refs_dynamic_input_version",
-        ),
-    )
+class DispatchRequestModel(RuntimeBase):
+    __tablename__ = "dispatch_requests"
 
     dispatch_id: Mapped[str] = mapped_column(
         ForeignKey("dispatch_turns.dispatch_id"), primary_key=True
     )
-    instructions_logical_path: Mapped[str] = mapped_column(Text)
-    input_logical_path: Mapped[str] = mapped_column(Text)
-    dynamic_input_version: Mapped[int] = mapped_column(Integer)
+    instructions: Mapped[str] = mapped_column(Text)
+    input: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow)
     dispatch: Mapped[DispatchTurnModel] = relationship(
-        back_populates="prompt_refs",
+        back_populates="request",
         foreign_keys=[dispatch_id],
         lazy="raise",
     )
@@ -584,7 +577,7 @@ class NodeInvocationModel(RuntimeBase):
 
 
 __all__ = [
-    "DispatchPromptRefsModel",
+    "DispatchRequestModel",
     "DispatchTurnModel",
     "NodeInvocationModel",
 ]

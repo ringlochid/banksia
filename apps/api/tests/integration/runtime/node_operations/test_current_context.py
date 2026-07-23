@@ -2,136 +2,53 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from banksia.config import ClaudeSettings, CodexSettings, RuntimeSettings, Settings
 from banksia.persistence.models import (
-    AcceptedBoundaryModel,
-    DispatchTurnModel,
-    FlowModel,
+    DispatchRequestModel,
+    FlowNodeModel,
+    MemberConfigurationModel,
 )
-from banksia.runtime.clock import utc_now
+from banksia.providers import ProviderKind
 from banksia.runtime.node_operations import NodeOperationScope
-from sqlalchemy import update
-from tests.helpers.executor_harness import SessionFactory, seeded_executor
+from banksia.runtime.prompt import render_dynamic_input
+from tests.helpers.executor_harness import seeded_executor
+from tests.helpers.team_persistence_seed import member_configuration_id
+from tests.unit.runtime_prompt_rendering.samples import sample_dynamic_input
 
 
-async def test_current_context_exposes_request_readbacks_and_live_children(
+async def test_current_context_uses_dispatch_vocabulary_and_fresh_legal_actions(
     tmp_path: Path,
 ) -> None:
-    async with seeded_executor(tmp_path, suffix="current-context") as (
-        executor,
-        _session_factory,
-        ids,
-        _signals,
-    ):
-        context = await executor.execute(
-            scope=NodeOperationScope(
-                task_id=ids.task_id,
-                dispatch_id=ids.current_dispatch_id,
-            ),
-            operation_name="get_current_context",
-            arguments={},
-        )
-
-    payload = context.model_dump(mode="json")
-    dispatch_root = f"_runtime/dispatch/{ids.current_dispatch_id}"
-    assert payload["readback_refs"] == {
-        "instructions": f"{dispatch_root}/instructions.md",
-        "input": f"{dispatch_root}/input.md",
-        "workflow_manifest": "manifest.md",
-    }
-    assert payload["workflow_neighborhood"] == [
-        {
-            "node_key": "child",
-            "node_kind": "worker",
-            "relationship": "direct child",
-            "assignment_id": ids.child_assignment_id,
-        }
-    ]
-
-
-async def test_current_context_normalizes_root_start_trigger(tmp_path: Path) -> None:
-    async with seeded_executor(tmp_path, suffix="current-context-root") as (
-        executor,
-        session_factory,
-        ids,
-        _signals,
-    ):
-        await _make_dispatch_current(
-            session_factory,
-            current_dispatch_id=ids.current_dispatch_id,
-            target_dispatch_id=ids.root_dispatch_id,
-            flow_id=ids.flow_id,
-        )
-
-        context = await executor.execute(
-            scope=NodeOperationScope(
-                task_id=ids.task_id,
-                dispatch_id=ids.root_dispatch_id,
-            ),
-            operation_name="get_current_context",
-            arguments={},
-        )
-
-    payload = context.model_dump(mode="json")
-    assert payload["trigger"] == {
-        "kind": "root_start",
-        "source_dispatch_id": None,
-    }
-
-
-async def test_current_context_normalizes_accepted_boundary_trigger(tmp_path: Path) -> None:
-    async with seeded_executor(tmp_path, suffix="current-context-boundary") as (
-        executor,
-        session_factory,
-        ids,
-        _signals,
-    ):
-        await _make_dispatch_current(
-            session_factory,
-            current_dispatch_id=ids.current_dispatch_id,
-            target_dispatch_id=ids.child_dispatch_id,
-            flow_id=ids.flow_id,
-        )
-
-        context = await executor.execute(
-            scope=NodeOperationScope(
-                task_id=ids.task_id,
-                dispatch_id=ids.child_dispatch_id,
-            ),
-            operation_name="get_current_context",
-            arguments={},
-        )
-
-    payload = context.model_dump(mode="json")
-    assert payload["trigger"] == {
-        "kind": "accepted_boundary",
-        "source_dispatch_id": ids.root_dispatch_id,
-    }
-
-
-async def test_current_context_reads_exact_boundary_successor_checkpoint(
-    tmp_path: Path,
-) -> None:
-    async with seeded_executor(tmp_path, suffix="current-context-checkpoint") as (
+    provider_settings = Settings(
+        runtime=RuntimeSettings(default_provider=ProviderKind.CLAUDE),
+        codex=CodexSettings(enabled=True),
+        claude=ClaudeSettings(
+            enabled=True,
+            model="claude-context-model",
+            effort="high",
+        ),
+    )
+    async with seeded_executor(
+        tmp_path,
+        suffix="current-context",
+        provider_settings=provider_settings,
+        available_adapter_kinds=(ProviderKind.CODEX, ProviderKind.CLAUDE),
+    ) as (
         executor,
         session_factory,
         ids,
         _signals,
     ):
         async with session_factory() as session:
-            session.add(
-                AcceptedBoundaryModel(
-                    accepted_boundary_id="accepted-boundary.current-context-checkpoint",
-                    source_dispatch_id=ids.child_dispatch_id,
-                    task_id=ids.task_id,
-                    flow_id=ids.flow_id,
-                    assignment_id=ids.child_assignment_id,
-                    attempt_id=ids.child_attempt_id,
-                    outcome="blocked",
-                    checkpoint_id=ids.child_checkpoint_id,
-                    assignment_decision_id=None,
-                    successor_dispatch_id=ids.current_dispatch_id,
-                )
+            child = await session.get(FlowNodeModel, ids.child_node_id)
+            child_configuration = await session.get(
+                MemberConfigurationModel,
+                member_configuration_id(ids, "child"),
             )
+            assert child is not None
+            assert child_configuration is not None
+            child.provider_kind = None
+            child_configuration.requested_provider_json = None
             await session.commit()
 
         context = await executor.execute(
@@ -144,34 +61,82 @@ async def test_current_context_reads_exact_boundary_successor_checkpoint(
         )
 
     payload = context.model_dump(mode="json")
-    assert payload["trigger"] == {
-        "kind": "child_return",
-        "source_dispatch_id": ids.child_dispatch_id,
+    assert payload["task"] == {
+        "id": ids.task_id,
+        "workflow_id": "workflow.target",
     }
+    assert payload["dispatch"] == {
+        "id": ids.current_dispatch_id,
+        "attempt_id": ids.root_attempt_id,
+        "assignment_id": ids.root_assignment_id,
+    }
+    assert payload["assignment"]["id"] == ids.root_assignment_id
+    assert payload["assignment"]["prompt"]
+    assert payload["continuation"] is None
+    assert payload["current_member"]["behavior"] == "manager"
+    assert payload["current_member"]["position"] == "task_lead"
+    assert payload["current_member"]["provider"]["name"] == "codex"
+    assert payload["direct_team"][0]["id"] == "child"
+    assert payload["direct_team"][0]["participation"] == "required"
+    assert payload["direct_team"][0]["provider"] == {
+        "name": "claude",
+        "model": "claude-context-model",
+        "effort": "high",
+        "gateway_profile": None,
+        "sandbox": {
+            "mode": "full_access",
+            "network": "allow",
+        },
+    }
+    assert payload["available_actions"] == [
+        "get_current_context",
+        "set_work_plan",
+        "checkpoint",
+        "open_human_request",
+        "start_command_run",
+        "add_child",
+        "update_child",
+        "remove_child",
+    ]
+    assert payload["workspace"]["task_directory"].startswith(".banksia/")
+    assert payload["workspace"]["manifest"].endswith("/manifest.md")
+    assert payload["observed_at"].endswith("Z")
+    assert "trigger" not in payload
+    assert "readback_refs" not in payload
+    assert "network_access" not in payload
 
 
-async def _make_dispatch_current(
-    session_factory: SessionFactory,
-    *,
-    current_dispatch_id: str,
-    target_dispatch_id: str,
-    flow_id: str,
+async def test_current_context_returns_exact_committed_nested_continuation(
+    tmp_path: Path,
 ) -> None:
-    now = utc_now()
-    async with session_factory() as session:
-        await session.execute(
-            update(DispatchTurnModel)
-            .where(DispatchTurnModel.dispatch_id == current_dispatch_id)
-            .values(status="closed", closed_at=now, closed_reason="cancelled")
+    committed_input = render_dynamic_input(sample_dynamic_input(manager=True, continuation=True))
+    async with seeded_executor(tmp_path, suffix="current-context-continuation") as (
+        executor,
+        session_factory,
+        ids,
+        _signals,
+    ):
+        async with session_factory() as session:
+            request = await session.get(DispatchRequestModel, ids.current_dispatch_id)
+            assert request is not None
+            request.input = committed_input
+            await session.commit()
+
+        context = await executor.execute(
+            scope=NodeOperationScope(
+                task_id=ids.task_id,
+                dispatch_id=ids.current_dispatch_id,
+            ),
+            operation_name="get_current_context",
+            arguments={},
         )
-        await session.execute(
-            update(DispatchTurnModel)
-            .where(DispatchTurnModel.dispatch_id == target_dispatch_id)
-            .values(status="open", closed_at=None, closed_reason=None)
-        )
-        await session.execute(
-            update(FlowModel)
-            .where(FlowModel.flow_id == flow_id)
-            .values(current_dispatch_id=target_dispatch_id)
-        )
-        await session.commit()
+
+    continuation = context.model_dump(mode="json")["continuation"]
+    assert continuation["trigger"]["kind"] == "child_return"
+    assert continuation["trigger"]["result"]["assignment"]["prompt"] == (
+        "Review the exact implementation."
+    )
+    assert continuation["trigger"]["result"]["checkpoint"]["files"][0] == {
+        "path": ".banksia/t_7m4k2d9x/artifacts/review.md",
+        "description": "Independent review.",
+    }

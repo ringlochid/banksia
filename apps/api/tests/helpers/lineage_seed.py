@@ -393,22 +393,21 @@ def _insert_dispatch_fixture(
             "closed_reason": row.closed_reason,
         },
     )
-    _insert_dispatch_prompt_refs(connection, row.dispatch_id, timestamp)
+    _insert_dispatch_request(connection, row.dispatch_id, timestamp)
     _insert_dispatch_capability_set(connection, row.dispatch_id, timestamp)
 
 
-def _insert_dispatch_prompt_refs(
+def _insert_dispatch_request(
     connection: Connection,
     dispatch_id: str,
     timestamp: datetime,
 ) -> None:
     connection.execute(
-        RuntimeBase.metadata.tables["dispatch_prompt_refs"].insert(),
+        RuntimeBase.metadata.tables["dispatch_requests"].insert(),
         {
             "dispatch_id": dispatch_id,
-            "instructions_logical_path": (f"_runtime/dispatch/{dispatch_id}/instructions.md"),
-            "input_logical_path": f"_runtime/dispatch/{dispatch_id}/input.md",
-            "dynamic_input_version": 1,
+            "instructions": "controller instructions\n",
+            "input": "<banksia_dispatch_request><direct_team /></banksia_dispatch_request>\n",
             "created_at": timestamp,
         },
     )

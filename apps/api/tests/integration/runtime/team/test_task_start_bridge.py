@@ -13,7 +13,7 @@ from banksia.persistence.models import (
     AssignmentFileReferenceModel,
     AssignmentModel,
     AttemptModel,
-    DispatchPromptRefsModel,
+    DispatchRequestModel,
     DispatchTurnModel,
     FlowModel,
     FlowRevisionModel,
@@ -65,7 +65,7 @@ class _StartedTaskState:
     file_rows: tuple[AssignmentFileReferenceModel, ...]
     attempt: AttemptModel | None
     dispatch: DispatchTurnModel | None
-    prompt_refs: DispatchPromptRefsModel | None
+    dispatch_request: DispatchRequestModel | None
     flow: FlowModel | None
     source: FlowStartSourceModel | None
     counts: tuple[int, ...]
@@ -421,8 +421,8 @@ async def _read_started_task_state(
     dispatch = await session.scalar(
         select(DispatchTurnModel).where(DispatchTurnModel.task_id == task_id)
     )
-    prompt_refs = (
-        await session.get(DispatchPromptRefsModel, dispatch.dispatch_id)
+    dispatch_request = (
+        await session.get(DispatchRequestModel, dispatch.dispatch_id)
         if dispatch is not None
         else None
     )
@@ -445,7 +445,7 @@ async def _read_started_task_state(
         file_rows=file_rows,
         attempt=attempt,
         dispatch=dispatch,
-        prompt_refs=prompt_refs,
+        dispatch_request=dispatch_request,
         flow=flow,
         source=source,
         counts=counts,
@@ -478,7 +478,8 @@ def _assert_started_task_state(
     assert started.flow.current_dispatch_id == started.dispatch.dispatch_id
     assert started.source is not None
     assert started.source.successor_dispatch_id == started.dispatch.dispatch_id
-    assert started.prompt_refs is not None
+    assert started.dispatch_request is not None
+    assert started.dispatch_request.input
     assert started.counts == (1, 1, 1, 1, 1, 1, 2)
     assert len(publisher.signals) == 1
     assert isinstance(publisher.signals[0], DispatchStartDue)

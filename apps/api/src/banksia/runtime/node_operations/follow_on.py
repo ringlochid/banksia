@@ -79,7 +79,7 @@ def committed_node_operation_follow_on(
     if operation_name == NodeOperationName.START_COMMAND_RUN:
         assert isinstance(response, CommandRunStartResponse)
         return CommittedNodeOperationFollowOn(
-            runtime_signals=(CommandRunPending(response.run_id),),
+            runtime_signals=(CommandRunPending(response.command_id),),
         )
     if operation_name == NodeOperationName.CHECKPOINT:
         assert isinstance(response, CheckpointResponse)

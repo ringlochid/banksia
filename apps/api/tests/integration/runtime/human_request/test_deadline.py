@@ -35,6 +35,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from tests.helpers.executor_harness import seeded_executor
 from tests.helpers.lineage_seed import RuntimeIds
 
+_DIRECTION_A_ANSWER = {
+    "direction": {
+        "kind": "option",
+        "option_id": "a",
+    }
+}
+
 
 @dataclass
 class RecordedTimer:
@@ -201,7 +208,9 @@ async def test_answer_and_timeout_have_one_exact_terminal_winner(
                     cast(AsyncSession, session),
                     task_id=ids.task_id,
                     request_id=request_id,
-                    request=HumanRequestResolveRequest(item_responses={"direction": "a"}),
+                    request=HumanRequestResolveRequest.model_validate(
+                        {"item_responses": _DIRECTION_A_ANSWER}
+                    ),
                     runtime_effect_publisher=publisher,
                 )
             async with session_factory() as session:
@@ -227,7 +236,9 @@ async def test_answer_and_timeout_have_one_exact_terminal_winner(
                         cast(AsyncSession, session),
                         task_id=ids.task_id,
                         request_id=request_id,
-                        request=HumanRequestResolveRequest(item_responses={"direction": "a"}),
+                        request=HumanRequestResolveRequest.model_validate(
+                            {"item_responses": _DIRECTION_A_ANSWER}
+                        ),
                         runtime_effect_publisher=publisher,
                     )
 

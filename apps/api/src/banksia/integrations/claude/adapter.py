@@ -116,9 +116,12 @@ class ClaudeAdapter:
 
     async def start(self, request: DispatchStartRequest) -> ProviderStartAccepted:
         route, connection = _validate_claude_request(request)
-        instructions = _decode_request_lane(request.instructions)
-        dispatch_input = _decode_request_lane(request.input)
-        options = _build_claude_options(request, route, connection, instructions)
+        options = _build_claude_options(
+            request,
+            route,
+            connection,
+            request.instructions,
+        )
 
         await self._reserve_start(request.dispatch_id)
         client = self._client_factory(options)
@@ -133,7 +136,7 @@ class ClaudeAdapter:
             ) from exc
 
         try:
-            await client.query(dispatch_input)
+            await client.query(request.input)
         except Exception as exc:
             await _disconnect_client(client)
             await self._release_start_reservation(request.dispatch_id)
@@ -285,16 +288,6 @@ def _validate_claude_request(
         )
     _validate_claude_access(request)
     return request.provider_route, request.managed_node_mcp
-
-
-def _decode_request_lane(content: bytes) -> str:
-    try:
-        return content.decode("utf-8")
-    except UnicodeDecodeError as exc:
-        raise ProviderStartError(
-            kind=ProviderStartFailureKind.DEFINITE_FAILURE,
-            code=ProviderStartErrorCode.CONFIGURATION,
-        ) from exc
 
 
 def _build_claude_options(

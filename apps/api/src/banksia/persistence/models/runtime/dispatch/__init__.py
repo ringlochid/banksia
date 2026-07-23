@@ -7,7 +7,7 @@ from banksia.persistence.models.runtime.dispatch.support import (
     AssignmentDecisionModel,
 )
 from banksia.persistence.models.runtime.dispatch.turns import (
-    DispatchPromptRefsModel,
+    DispatchRequestModel,
     DispatchTurnModel,
     NodeInvocationModel,
 )
@@ -16,7 +16,7 @@ __all__ = [
     "AcceptedBoundaryModel",
     "AssignmentDecisionModel",
     "DispatchCapabilitySetModel",
-    "DispatchPromptRefsModel",
+    "DispatchRequestModel",
     "DispatchTurnModel",
     "FlowStartSourceModel",
     "NodeInvocationModel",

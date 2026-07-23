@@ -414,7 +414,10 @@ def _human_request_arguments() -> dict[str, object]:
                 {
                     "id": "direction",
                     "prompt": "Which direction?",
-                    "options": [{"id": "a", "title": "A"}],
+                    "options": [
+                        {"id": "a", "title": "A"},
+                        {"id": "b", "title": "B"},
+                    ],
                 }
             ],
         }

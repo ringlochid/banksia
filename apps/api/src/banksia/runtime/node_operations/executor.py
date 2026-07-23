@@ -16,6 +16,7 @@ from banksia.runtime.dispatch.authority import (
     read_node_operation_authority,
     refresh_node_activity,
 )
+from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
 from banksia.runtime.errors import RuntimeOperationError
 from banksia.runtime.node_operations.activity import (
     NodeActivitySignal,
@@ -70,10 +71,12 @@ class NodeOperationExecutor:
         publish_activity_signal: NodeActivitySignalPublisher | None = None,
         runtime_effect_publisher: RuntimeEffectPublisher | None = None,
         support_projection_publisher: SupportProjectionPublisher | None = None,
+        dispatch_opening_dependencies: DispatchOpeningDependencies | None = None,
     ) -> None:
         self._publish_activity_signal = publish_activity_signal
         self._runtime_effect_publisher = runtime_effect_publisher
         self._support_projection_publisher = support_projection_publisher
+        self._dispatch_opening_dependencies = dispatch_opening_dependencies
 
     async def list_operations(
         self,
@@ -86,6 +89,20 @@ class NodeOperationExecutor:
                 descriptor
                 for descriptor in list_node_operation_descriptors_for_kind(authority.node_kind)
                 if _capability_allows(descriptor, authority, None)
+            )
+
+    async def allowed_human_request_kinds(
+        self,
+        scope: NodeOperationScope,
+    ) -> tuple[str, ...]:
+        session_factory = get_session_factory()
+        async with session_factory() as session:
+            authority = await read_node_operation_authority(session, scope)
+            capabilities = authority.capabilities
+            return tuple(
+                kind
+                for kind in ("input", "direction", "approval", "review")
+                if getattr(capabilities, f"human_{kind}", "deny") == "allow"
             )
 
     async def execute(
@@ -191,6 +208,7 @@ class NodeOperationExecutor:
             authority,
             descriptor.name,
             request,
+            dispatch_opening_dependencies=self._dispatch_opening_dependencies,
         )
         if result is None:
             from banksia.runtime.node_operations.domain_handlers import (

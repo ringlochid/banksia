@@ -23,6 +23,7 @@ from banksia.runtime.node_operations.contracts import (
     NodeOperationDescriptor,
     NodeOperationMutationKind,
     NodeOperationName,
+    NodeOperationTransferKind,
     OpenHumanRequestRequest,
     ReturnBoundaryRequest,
     StartCommandRunRequest,
@@ -64,6 +65,7 @@ NODE_OPERATION_CATALOG: tuple[NodeOperationDescriptor, ...] = (
             "Record teammate-facing progress, or atomically finish the current Dispatch "
             "with green, blocked, or retry. Stop immediately when must_stop is true."
         ),
+        transfer_kind=NodeOperationTransferKind.TERMINAL_VARIANT,
     ),
     _descriptor(
         NodeOperationName.RETURN_BOUNDARY,
@@ -76,6 +78,7 @@ NODE_OPERATION_CATALOG: tuple[NodeOperationDescriptor, ...] = (
             "After success, stop the current outer response immediately; make no further "
             "tool calls or prose."
         ),
+        transfer_kind=NodeOperationTransferKind.ALWAYS_TRANSFERS,
     ),
     _descriptor(
         NodeOperationName.OPEN_HUMAN_REQUEST,
@@ -88,6 +91,7 @@ NODE_OPERATION_CATALOG: tuple[NodeOperationDescriptor, ...] = (
             "workflow boundary or task-continue action. After success, stop the current "
             "outer response immediately; make no further tool calls or prose."
         ),
+        transfer_kind=NodeOperationTransferKind.ALWAYS_TRANSFERS,
     ),
     _descriptor(
         NodeOperationName.START_COMMAND_RUN,
@@ -100,6 +104,7 @@ NODE_OPERATION_CATALOG: tuple[NodeOperationDescriptor, ...] = (
             "Process launch happens after commit. After success, stop the current outer "
             "response immediately; make no further tool calls or prose."
         ),
+        transfer_kind=NodeOperationTransferKind.ALWAYS_TRANSFERS,
     ),
     _descriptor(
         NodeOperationName.ASSIGN_CHILD,
@@ -124,6 +129,7 @@ NODE_OPERATION_CATALOG: tuple[NodeOperationDescriptor, ...] = (
             "Success closes this Dispatch; stop immediately and wait for the fresh "
             "same-Attempt continuation."
         ),
+        transfer_kind=NodeOperationTransferKind.ALWAYS_TRANSFERS,
     ),
     _descriptor(
         NodeOperationName.UPDATE_CHILD,
@@ -135,6 +141,7 @@ NODE_OPERATION_CATALOG: tuple[NodeOperationDescriptor, ...] = (
             "Update one current descendant and recursively upsert its direct descendants "
             "without changing IDs or order. Success closes this Dispatch; stop immediately."
         ),
+        transfer_kind=NodeOperationTransferKind.ALWAYS_TRANSFERS,
     ),
     _descriptor(
         NodeOperationName.REMOVE_CHILD,
@@ -146,6 +153,7 @@ NODE_OPERATION_CATALOG: tuple[NodeOperationDescriptor, ...] = (
             "Remove one current descendant subtree without erasing history. Success closes "
             "this Dispatch; stop immediately."
         ),
+        transfer_kind=NodeOperationTransferKind.ALWAYS_TRANSFERS,
     ),
 )
 

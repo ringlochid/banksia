@@ -83,8 +83,6 @@ class DispatchOpenedEventPayload(_TaskEventPayload):
     requested_provider: ProviderKind
     resolved_provider: ProviderKind
     selection_basis: ProviderSelectionBasis
-    instructions_ref: TaskEventRef
-    input_ref: TaskEventRef
 
 
 class DispatchStartUpdatedEventPayload(_TaskEventPayload):

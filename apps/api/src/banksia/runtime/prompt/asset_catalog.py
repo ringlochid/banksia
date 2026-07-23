@@ -5,35 +5,29 @@ from functools import cache
 from importlib.resources import files
 from pathlib import PurePosixPath
 
-from banksia.runtime.contracts.prompt import PromptFamily
+from banksia.runtime.contracts.prompt import PromptBehavior, PromptDynamicInput
 
 ASSET_PACKAGE = "banksia.runtime.prompt.assets"
 
 
 class InstructionAsset(StrEnum):
-    AUTHORITY = "shared/authority"
-    CONTEXT_ACCESS = "shared/context-access"
-    CONTROL_TRANSFER = "shared/control-transfer"
-    WORKER = "families/worker"
-    PARENT_ROOT = "families/parent-root"
+    CORE = "shared/core"
+    WORKSPACE_AND_FILES = "shared/workspace-and-files"
+    CHECKPOINT = "shared/checkpoint"
+    TASK_LEAD = "positions/task-lead"
+    MANAGER_PRE_WAVE = "behaviors/manager-pre-wave"
+    CONTRIBUTOR = "behaviors/contributor"
+    HUMAN_REQUEST = "actions/human-request"
+    COMMAND_RUN = "actions/command-run"
+    CONTINUATION = "situations/continuation"
 
 
-INSTRUCTION_ASSETS = (
-    InstructionAsset.AUTHORITY,
-    InstructionAsset.CONTEXT_ACCESS,
-    InstructionAsset.CONTROL_TRANSFER,
-    InstructionAsset.WORKER,
-    InstructionAsset.PARENT_ROOT,
+INSTRUCTION_ASSETS = tuple(InstructionAsset)
+_BASE_ASSETS = (
+    InstructionAsset.CORE,
+    InstructionAsset.WORKSPACE_AND_FILES,
+    InstructionAsset.CHECKPOINT,
 )
-SHARED_INSTRUCTION_ASSETS = (
-    InstructionAsset.AUTHORITY,
-    InstructionAsset.CONTEXT_ACCESS,
-    InstructionAsset.CONTROL_TRANSFER,
-)
-FAMILY_INSTRUCTION_ASSET = {
-    PromptFamily.WORKER: InstructionAsset.WORKER,
-    PromptFamily.PARENT_ROOT: InstructionAsset.PARENT_ROOT,
-}
 
 
 @cache
@@ -44,17 +38,35 @@ def load_instruction_asset(asset: InstructionAsset) -> str:
 
 
 def instruction_asset_path(asset: InstructionAsset) -> PurePosixPath:
-    return PurePosixPath("instructions", *asset.value.split("/")).with_suffix(".md")
+    return PurePosixPath(*asset.value.split("/")).with_suffix(".txt")
 
 
-def instruction_assets_for_family(family: PromptFamily) -> tuple[InstructionAsset, ...]:
-    return (*SHARED_INSTRUCTION_ASSETS, FAMILY_INSTRUCTION_ASSET[family])
+def instruction_assets_for_request(
+    dynamic_input: PromptDynamicInput,
+) -> tuple[InstructionAsset, ...]:
+    selected = list(_BASE_ASSETS)
+    member = dynamic_input.current_member
+    actions = frozenset(dynamic_input.available_actions)
+    if member.position == "task_lead":
+        selected.append(InstructionAsset.TASK_LEAD)
+    selected.append(
+        InstructionAsset.MANAGER_PRE_WAVE
+        if member.behavior is PromptBehavior.MANAGER
+        else InstructionAsset.CONTRIBUTOR
+    )
+    if "open_human_request" in actions and member.effective_capabilities.human_request:
+        selected.append(InstructionAsset.HUMAN_REQUEST)
+    if "start_command_run" in actions and member.effective_capabilities.command_run == "allow":
+        selected.append(InstructionAsset.COMMAND_RUN)
+    if dynamic_input.continuation is not None:
+        selected.append(InstructionAsset.CONTINUATION)
+    return tuple(selected)
 
 
 __all__ = [
     "INSTRUCTION_ASSETS",
     "InstructionAsset",
     "instruction_asset_path",
-    "instruction_assets_for_family",
+    "instruction_assets_for_request",
     "load_instruction_asset",
 ]

@@ -4,6 +4,7 @@ import logging
 from datetime import datetime
 from typing import cast
 
+from pydantic import JsonValue
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,6 +19,7 @@ from banksia.runtime.contracts import (
     HumanRequestResolveResponse,
     HumanRequestStatus,
     TaskEventType,
+    serialize_human_request_item_answers,
 )
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
 from banksia.runtime.errors import RuntimeOperationError, missing_resource_error
@@ -32,7 +34,6 @@ from banksia.runtime.task_events import append_task_event
 logger = logging.getLogger(__name__)
 
 _RESOLUTION_SUMMARY = "Human answered the controller-owned request."
-_RESOLUTION_POLICY_BASIS = "task_authorized_human_request_resolution"
 _CONFLICT_NEXT_STEP = "Reread the current human-request source before retrying the resolution."
 
 
@@ -90,7 +91,6 @@ async def resolve_human_request(
         task_id=source.task_id,
         resolution_kind=HumanRequestResolutionKind.ANSWERED,
         item_responses=item_responses,
-        policy_basis={"policy_basis": _RESOLUTION_POLICY_BASIS},
         summary=_RESOLUTION_SUMMARY,
         resolved_by_actor_ref=actor_ref,
         resolved_by_surface=resolved_by_surface,
@@ -114,6 +114,7 @@ async def persist_human_request_resolution(
     source: HumanRequestModel,
     resolution: HumanRequestResolution,
     expected_due_at: datetime | None = None,
+    resolution_policy_basis: dict[str, JsonValue] | None = None,
     runtime_effect_publisher: RuntimeEffectPublisher | None = None,
 ) -> bool:
     """Commit one exact answer, timeout, or cancellation winner."""
@@ -139,8 +140,8 @@ async def persist_human_request_resolution(
         .values(
             status=terminal_status.value,
             resolution_kind=resolution.resolution_kind.value,
-            item_responses_json=resolution.item_responses,
-            resolution_policy_basis_json=resolution.policy_basis,
+            item_responses_json=serialize_human_request_item_answers(resolution.item_responses),
+            resolution_policy_basis_json=resolution_policy_basis,
             resolution_summary=resolution.summary,
             resolved_by_actor_ref=resolution.resolved_by_actor_ref,
             resolved_by_surface=resolution.resolved_by_surface.value,

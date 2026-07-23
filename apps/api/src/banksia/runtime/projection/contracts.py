@@ -31,10 +31,11 @@ class WorkflowManifestNode(ProjectionModel):
     parent_node_key: str | None
     child_node_keys: tuple[str, ...]
     node_kind: str
-    role_key: str
-    role_revision_no: int = Field(ge=1)
-    policy_key: str
-    policy_revision_no: int = Field(ge=1)
+    team_revision_id: str
+    member_id: str
+    member_configuration_id: str
+    member_branch_basis_id: str
+    member_title: str | None
     description: str
     node_instruction: str | None
     consumes: dict[str, object] | None
@@ -51,7 +52,7 @@ class WorkflowManifestEdge(ProjectionModel):
 
 
 class WorkflowManifestReadback(ProjectionModel):
-    manifest_version: int = 2
+    manifest_version: int = 3
     flow_id: str
     active_flow_revision_id: str
     workflow_key: str | None

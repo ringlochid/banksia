@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import tomllib
+from importlib.resources import files
 from pathlib import Path
 
 import banksia.interfaces.cli as cli
 import pytest
 from banksia.config import DEFAULT_LOG_LEVEL
-from banksia.definitions.seeds import get_packaged_seed_definitions_root
 from banksia.persistence.session import dispose_db_engine
+from banksia.workflows.bootstrap import STARTER_WORKFLOW_FILENAMES
 
 from .cli_test_support import assert_seeded_registry_is_bootstrapped, build_cli_init_args
 
@@ -63,9 +64,9 @@ async def test_init_keeps_sql_echo_quiet_when_legacy_debug_env_is_set(
     assert "sqlalchemy.engine.Engine" not in capsys.readouterr().out
 
 
-def test_packaged_seed_definitions_are_available() -> None:
-    definitions_root = get_packaged_seed_definitions_root()
+def test_packaged_starter_workflows_are_available() -> None:
+    root = files("banksia.workflows.resources.starter_workflows")
 
-    assert definitions_root.joinpath("roles").joinpath("planning_lead.yaml").is_file()
-    assert definitions_root.joinpath("policies").joinpath("standard_worker.yaml").is_file()
-    assert definitions_root.joinpath("workflows").joinpath("reviewed_change_release.yaml").is_file()
+    assert tuple(sorted(path.name for path in root.iterdir() if path.name.endswith(".yaml"))) == (
+        STARTER_WORKFLOW_FILENAMES
+    )

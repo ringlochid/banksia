@@ -7,8 +7,8 @@ from collections.abc import Awaitable, Callable
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from banksia.definitions.contracts.workflow import ProviderKind
 from banksia.persistence.models import DispatchTurnModel
+from banksia.providers import ProviderKind
 from banksia.runtime.post_commit import DispatchCleanupRequested
 from banksia.runtime.providers.contracts import DEFAULT_PROVIDER_STOP_TIMEOUT_SECONDS
 from banksia.runtime.providers.registry import ProviderAdapterRegistry
@@ -20,6 +20,7 @@ _PROVIDER_STOP_REASONS = frozenset(
         "paused",
         "cancelled",
         "control_failed",
+        "structural_replan",
         "task_terminal",
     }
 )

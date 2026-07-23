@@ -10,6 +10,7 @@ from typing import cast
 import pytest
 from banksia.config import CodexSettings, Settings
 from banksia.persistence.models import DispatchPromptRefsModel, DispatchTurnModel, TaskModel
+from banksia.providers import ProviderKind
 from banksia.runtime.contracts import TaskRootPaths
 from banksia.runtime.dispatch.cleanup import (
     DISPATCH_REQUEST_CLEANUP_MINIMUM_AGE,
@@ -24,10 +25,11 @@ from sqlalchemy import select
 from sqlalchemy.engine import Engine
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
+from tests.helpers.catalog_seed import WORKFLOW_CONTENT_HASH, seed_catalog
 from tests.helpers.launch_foundation import (
-    build_launch_foundation_definitions,
     build_launch_foundation_input,
-    seed_launch_foundation_catalog,
+    build_launch_foundation_workflow_revision,
+    seed_launch_foundation_workflow,
 )
 from tests.helpers.sqlite_runtime import (
     SyncSessionAdapter,
@@ -46,7 +48,12 @@ async def test_cleanup_removes_only_aged_unreferenced_publisher_directories(
     task_root = data_boundary / "tasks" / "task-cleanup"
     engine = create_runtime_schema_engine(tmp_path, name="request-cleanup.sqlite")
     session_context = _session_context(engine)
-    await _insert_task(session_context, task_id="task-cleanup", task_root=task_root)
+    await _insert_task(
+        engine,
+        session_context,
+        task_id="task-cleanup",
+        task_root=task_root,
+    )
     paths = _task_root_paths(task_root)
 
     aged_candidate = _publish_pair(paths, "dispatch.aged")
@@ -92,25 +99,21 @@ async def test_cleanup_removes_only_aged_unreferenced_publisher_directories(
 
 async def test_cleanup_preserves_a_committed_dispatch_request_pair(tmp_path: Path) -> None:
     engine = create_runtime_schema_engine(tmp_path, name="request-cleanup-reference.sqlite")
-    role, policy, workflow = build_launch_foundation_definitions()
-    assert workflow.root.provider is not None
+    workflow_revision = build_launch_foundation_workflow_revision()
+    assert workflow_revision.workflow.lead.provider is not None
     bootstrap_input = build_launch_foundation_input(
         tmp_path,
-        role=role,
-        policy=policy,
-        workflow=workflow,
+        workflow_revision=workflow_revision,
     )
     with engine.begin() as connection:
-        seed_launch_foundation_catalog(
+        seed_launch_foundation_workflow(
             connection,
-            role=role,
-            policy=policy,
-            workflow=workflow,
+            workflow_revision=workflow_revision,
         )
     session_context = _session_context(engine)
     dependencies = DispatchOpeningDependencies.create(
         settings=Settings(codex=CodexSettings(enabled=True)),
-        available_adapter_kinds={workflow.root.provider.kind},
+        available_adapter_kinds={ProviderKind(workflow_revision.workflow.lead.provider.kind)},
         post_commit_publisher=CapturedRuntimeEffectPublisher(should_accept=False),
     )
 
@@ -155,7 +158,12 @@ async def test_cleanup_rejects_symlinked_or_unexpected_request_entries(tmp_path:
     task_root = data_boundary / "tasks" / "task-unsafe"
     engine = create_runtime_schema_engine(tmp_path, name="request-cleanup-unsafe.sqlite")
     session_context = _session_context(engine)
-    await _insert_task(session_context, task_id="task-unsafe", task_root=task_root)
+    await _insert_task(
+        engine,
+        session_context,
+        task_id="task-unsafe",
+        task_root=task_root,
+    )
     paths = _task_root_paths(task_root)
     paths.dispatch_path.mkdir(parents=True)
 
@@ -190,6 +198,7 @@ async def test_cleanup_rejects_a_task_root_outside_the_data_boundary(tmp_path: P
     engine = create_runtime_schema_engine(tmp_path, name="request-cleanup-escape.sqlite")
     session_context = _session_context(engine)
     await _insert_task(
+        engine,
         session_context,
         task_id="task-escape",
         task_root=escaped_task_root,
@@ -240,11 +249,14 @@ def _session_context(engine: Engine) -> SessionContextFactory:
 
 
 async def _insert_task(
+    engine: Engine,
     session_context: SessionContextFactory,
     *,
     task_id: str,
     task_root: Path,
 ) -> None:
+    with engine.begin() as connection:
+        seed_catalog(connection)
     async with session_context() as session:
         session.add(
             TaskModel(
@@ -253,7 +265,9 @@ async def _insert_task(
                 title="Cleanup test",
                 summary="Prove reference-safe request cleanup.",
                 instruction=None,
-                workflow_key=None,
+                workflow_key="workflow.target",
+                workflow_revision_no=1,
+                workflow_content_hash=WORKFLOW_CONTENT_HASH,
                 task_root_path=str(task_root),
             )
         )

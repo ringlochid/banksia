@@ -6,16 +6,14 @@ from typing import cast
 
 import pytest
 from banksia.config import CodexSettings, RuntimeSettings, Settings
-from banksia.definitions.contracts.registry import PolicyDefinitionInput
-from banksia.definitions.contracts.workflow import NodeKind, ProviderKind
 from banksia.persistence.models import (
     CommandRunModel,
     DispatchPromptRefsModel,
     DispatchTurnModel,
     FlowModel,
     HumanRequestModel,
-    PolicyRevisionModel,
 )
+from banksia.providers import ProviderKind
 from banksia.runtime.clock import utc_now
 from banksia.runtime.contracts import HumanRequestResolveRequest, TaskRootPaths
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
@@ -58,7 +56,6 @@ async def test_terminal_human_source_opens_one_same_attempt_successor(
         _,
     ):
         request_id = await _open_and_resolve_human_request(executor, session_factory, ids)
-        await _enable_target_policy(session_factory)
         publisher = CapturedRuntimeEffectPublisher()
         dependencies = _opening_dependencies(publisher=publisher)
 
@@ -126,7 +123,6 @@ async def test_human_successor_commit_survives_start_publication_failure(
         _,
     ):
         request_id = await _open_and_resolve_human_request(executor, session_factory, ids)
-        await _enable_target_policy(session_factory)
         async with session_factory() as session:
             result = await open_human_request_successor(
                 cast(AsyncSession, session),
@@ -151,7 +147,6 @@ async def test_human_preparation_failure_pauses_without_consuming_source(
         _,
     ):
         request_id = await _open_and_resolve_human_request(executor, session_factory, ids)
-        await _enable_target_policy(session_factory)
 
         def fail_request_pair(
             *,
@@ -204,7 +199,6 @@ async def test_human_source_change_during_materialization_loses_cleanly(
         _,
     ):
         request_id = await _open_and_resolve_human_request(executor, session_factory, ids)
-        await _enable_target_policy(session_factory)
 
         def publish_then_pause(
             *,
@@ -322,18 +316,6 @@ async def _open_and_resolve_human_request(
             request=HumanRequestResolveRequest(item_responses={"direction": "a"}),
         )
     return request_id
-
-
-async def _enable_target_policy(session_factory: SessionFactory) -> None:
-    async with session_factory() as session:
-        policy = await session.get(PolicyRevisionModel, "policy-revision.target.1")
-        assert policy is not None
-        policy.content_json = PolicyDefinitionInput(
-            id="policy.target",
-            description="Allow exact-source continuation in the integration fixture.",
-            applies_to=[NodeKind.ROOT, NodeKind.WORKER],
-        ).model_dump(mode="json")
-        await session.commit()
 
 
 def _provider_settings() -> Settings:

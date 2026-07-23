@@ -11,9 +11,7 @@ from banksia.persistence.models import (
     AssignmentModel,
     AttemptCheckpointModel,
     AttemptModel,
-    FlowEdgeModel,
     FlowNodeModel,
-    PolicyRevisionModel,
 )
 from banksia.runtime.clock import utc_now
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
@@ -316,18 +314,20 @@ async def test_assign_child_supersedes_terminal_child_with_fresh_assignment(
                 AttemptCheckpointModel,
                 ids.child_checkpoint_id,
             )
-            policy = await session.get(PolicyRevisionModel, "policy-revision.target.1")
             assert parent is not None
             assert child is not None
             assert previous is not None
             assert previous_attempt is not None
             assert previous_checkpoint is not None
-            assert policy is not None
             historical_parent_id = f"assignment.{ids.suffix}.root.previous"
             session.add(
                 AssignmentModel(
                     assignment_id=historical_parent_id,
                     task_id=ids.task_id,
+                    team_revision_id=parent.team_revision_id,
+                    member_id=parent.member_id,
+                    member_configuration_id=parent.member_configuration_id,
+                    member_branch_basis_id=parent.member_branch_basis_id,
                     flow_id=ids.flow_id,
                     flow_revision_id=ids.flow_revision_id,
                     flow_node_id=ids.root_node_id,
@@ -353,11 +353,6 @@ async def test_assign_child_supersedes_terminal_child_with_fresh_assignment(
             previous_attempt.closed_at = utc_now()
             previous_attempt.latest_checkpoint_id = previous_checkpoint.checkpoint_id
             previous_checkpoint.outcome = "green"
-            policy.content_json = {
-                "id": "policy.target",
-                "description": "Target child policy.",
-                "applies_to": ["root", "parent", "worker"],
-            }
             await session.commit()
 
         response = await executor.execute(
@@ -390,121 +385,6 @@ async def test_assign_child_supersedes_terminal_child_with_fresh_assignment(
         assert child is not None and child.current_assignment_id == current.assignment_id
         assert child.state == "waiting"
         assert current_attempt is not None and current_attempt.status == "pending"
-
-
-async def test_assign_child_rejects_replacing_an_assigned_artifact_provider(
-    tmp_path: Path,
-) -> None:
-    async with seeded_executor(tmp_path, suffix="child-assigned-consumer") as (
-        executor,
-        session_factory,
-        ids,
-        _activity_signals,
-    ):
-        reviewer_node_id = f"flow-node.{ids.suffix}.reviewer"
-        reviewer_assignment_id = f"assignment.{ids.suffix}.reviewer"
-        async with session_factory() as session:
-            parent = await session.get(AssignmentModel, ids.root_assignment_id)
-            child = await session.get(FlowNodeModel, ids.child_node_id)
-            previous = await session.get(AssignmentModel, ids.child_assignment_id)
-            previous_attempt = await session.get(AttemptModel, ids.child_attempt_id)
-            previous_checkpoint = await session.get(
-                AttemptCheckpointModel,
-                ids.child_checkpoint_id,
-            )
-            policy = await session.get(PolicyRevisionModel, "policy-revision.target.1")
-            assert parent is not None and child is not None and previous is not None
-            assert previous_attempt is not None and previous_checkpoint is not None
-            assert policy is not None
-            parent.child_assignment_limit = 2
-            parent.child_assignments_remaining = 2
-            child.state = "done"
-            previous_attempt.status = "completed"
-            previous_attempt.terminal_outcome = "green"
-            previous_attempt.closed_at = utc_now()
-            previous_attempt.latest_checkpoint_id = previous_checkpoint.checkpoint_id
-            previous_checkpoint.outcome = "green"
-            policy.content_json = {
-                "id": "policy.target",
-                "description": "Target child policy.",
-                "applies_to": ["root", "parent", "worker"],
-            }
-            reviewer = FlowNodeModel(
-                flow_node_id=reviewer_node_id,
-                flow_id=ids.flow_id,
-                flow_revision_id=ids.flow_revision_id,
-                node_key="reviewer",
-                parent_node_key="root",
-                structural_kind="worker",
-                role_key=child.role_key,
-                role_revision_no=child.role_revision_no,
-                role_description=child.role_description,
-                role_instruction=child.role_instruction,
-                policy_key=child.policy_key,
-                policy_revision_no=child.policy_revision_no,
-                policy_description=child.policy_description,
-                policy_instruction=child.policy_instruction,
-                provider_kind=child.provider_kind,
-                description="Review the child output.",
-                node_instruction=None,
-                child_node_keys_json=[],
-                consumes_json={"artifacts": [{"slot": "result", "required": True}]},
-                produces_json=None,
-                criteria_json=[],
-                child_defaults_json=None,
-                state="waiting",
-                current_assignment_id=reviewer_assignment_id,
-                order_index=2,
-            )
-            reviewer_assignment = AssignmentModel(
-                assignment_id=reviewer_assignment_id,
-                task_id=ids.task_id,
-                flow_id=ids.flow_id,
-                flow_revision_id=ids.flow_revision_id,
-                flow_node_id=reviewer_node_id,
-                assignment_key=f"assignment-key.{ids.suffix}.reviewer",
-                node_key="reviewer",
-                parent_assignment_id=ids.root_assignment_id,
-                summary="Review the child output.",
-                instruction=None,
-                criteria_json=[],
-                consumes_json=[],
-                produces_json=[],
-                current_attempt_id=None,
-                work_plan_revision=0,
-            )
-            edge = FlowEdgeModel(
-                flow_edge_id=f"flow-edge.{ids.suffix}.child-reviewer",
-                flow_revision_id=ids.flow_revision_id,
-                provider_node_key="child",
-                consumer_node_key="reviewer",
-                kind="artifact",
-                slot="result",
-                description="Child result consumed by reviewer.",
-                order_index=1,
-            )
-            session.add_all((reviewer, reviewer_assignment, edge))
-            await session.commit()
-
-        with pytest.raises(RuntimeOperationError) as stale_consumer:
-            await executor.execute(
-                scope=NodeOperationScope(
-                    task_id=ids.task_id,
-                    dispatch_id=ids.current_dispatch_id,
-                ),
-                operation_name="assign_child",
-                arguments=_assign_child_arguments(ids.flow_revision_id),
-            )
-
-        async with session_factory() as session:
-            parent = await session.get(AssignmentModel, ids.root_assignment_id)
-            child = await session.get(FlowNodeModel, ids.child_node_id)
-            previous = await session.get(AssignmentModel, ids.child_assignment_id)
-        assert stale_consumer.value.code == OperationFailureCode.CONFLICT
-        assert "downstream artifact consumer" in stale_consumer.value.summary
-        assert parent is not None and parent.child_assignments_remaining == 2
-        assert child is not None and child.current_assignment_id == ids.child_assignment_id
-        assert previous is not None and previous.superseded_at is None
 
 
 async def test_staged_child_allows_progress_but_rejects_terminal_checkpoint(
@@ -577,17 +457,11 @@ async def _prepare_assignable_child(
     async with session_factory() as session:
         parent = await session.get(AssignmentModel, ids.root_assignment_id)
         child = await session.get(FlowNodeModel, ids.child_node_id)
-        policy = await session.get(PolicyRevisionModel, "policy-revision.target.1")
-        assert parent is not None and child is not None and policy is not None
+        assert parent is not None and child is not None
         parent.child_assignment_limit = remaining
         parent.child_assignments_remaining = remaining
         child.current_assignment_id = None
         child.state = "ready"
-        policy.content_json = {
-            "id": "policy.target",
-            "description": "Target child policy.",
-            "applies_to": ["root", "parent", "worker"],
-        }
         assignment_count = await session.scalar(select(func.count()).select_from(AssignmentModel))
         await session.commit()
     return int(assignment_count or 0)

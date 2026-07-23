@@ -4,7 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from banksia.definitions.contracts.workflow import ProviderKind
+from banksia.providers import ProviderKind
 from banksia.runtime.contracts.capabilities import (
     EffectiveNetworkAccess,
     EffectiveProviderNativeAccess,
@@ -45,6 +45,7 @@ type DispatchOpenedReason = Literal[
     "watchdog_recovery",
     "semantic_retry",
     "operator_continue",
+    "structural_replan",
 ]
 type ProviderStartRetryKind = Literal[
     "initial",

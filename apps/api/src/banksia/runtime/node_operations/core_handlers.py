@@ -1,19 +1,18 @@
 from __future__ import annotations
 
-from typing import Literal, assert_never, cast
+from typing import Literal, cast
 
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import raiseload
 
-from banksia.definitions.contracts import DefinitionKind, DefinitionListQuery
-from banksia.definitions.contracts.workflow import NodeKind
 from banksia.persistence.models import (
     AcceptedBoundaryModel,
     DispatchPromptRefsModel,
     FlowNodeModel,
 )
+from banksia.runtime.contracts.member import NodeKind
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
 from banksia.runtime.contracts.prompt import RuntimeReadbackRefs
 from banksia.runtime.dispatch.authority import NodeOperationAuthority
@@ -31,14 +30,12 @@ from banksia.runtime.node_operations.contracts import (
     EmptyNodeOperationRequest,
     FileEntryRead,
     GetCurrentContextResponse,
-    GetDefinitionRequest,
     HumanRequestCapabilityRead,
     ListFilesRequest,
     ListFilesResponse,
     NodeOperationName,
     ReadFileRequest,
     ReadFileResponse,
-    SearchDefinitionsRequest,
     SlotContextRead,
     WorkflowNeighborRead,
 )
@@ -67,6 +64,7 @@ _CURRENT_TRIGGER_KIND_BY_OPENED_REASON = {
     "command_result": CurrentContextTriggerKind.COMMAND_RESULT,
     "watchdog_recovery": CurrentContextTriggerKind.WATCHDOG_RECOVERY,
     "semantic_retry": CurrentContextTriggerKind.SEMANTIC_RETRY,
+    "structural_replan": CurrentContextTriggerKind.STRUCTURAL_REPLAN,
     "operator_continue": CurrentContextTriggerKind.OPERATOR_CONTINUE,
 }
 
@@ -93,35 +91,6 @@ async def execute_core_node_operation(
             authority=authority,
             request=request,
         )
-    if operation_name == NodeOperationName.SEARCH_DEFINITIONS:
-        from banksia.definitions.registry.definition_catalog import (
-            list_policy_definitions,
-            list_role_definitions,
-        )
-
-        assert isinstance(request, SearchDefinitionsRequest)
-        query = DefinitionListQuery(
-            q=request.query,
-            limit=request.limit,
-            cursor=request.cursor,
-            sort=request.sort,
-            allowed_node_kind=request.allowed_node_kind,
-            applies_to=request.applies_to,
-        )
-        if request.kind == DefinitionKind.ROLE:
-            return await list_role_definitions(session, query)
-        if request.kind == DefinitionKind.POLICY:
-            return await list_policy_definitions(session, query)
-        assert_never(request.kind)
-    if operation_name == NodeOperationName.GET_DEFINITION:
-        from banksia.definitions.registry.definition_catalog import get_definition_detail
-
-        assert isinstance(request, GetDefinitionRequest)
-        if request.kind == DefinitionKind.ROLE:
-            return await get_definition_detail(session, DefinitionKind.ROLE, request.key)
-        if request.kind == DefinitionKind.POLICY:
-            return await get_definition_detail(session, DefinitionKind.POLICY, request.key)
-        assert_never(request.kind)
     return None
 
 

@@ -5,8 +5,6 @@ from typing import cast
 
 import pytest
 from banksia.config import CodexSettings, RuntimeSettings, Settings
-from banksia.definitions.contracts.registry import PolicyDefinitionInput
-from banksia.definitions.contracts.workflow import NodeKind, ProviderKind
 from banksia.persistence.models import (
     AcceptedBoundaryModel,
     AssignmentDecisionModel,
@@ -16,8 +14,8 @@ from banksia.persistence.models import (
     DispatchTurnModel,
     FlowModel,
     FlowNodeModel,
-    PolicyRevisionModel,
 )
+from banksia.providers import ProviderKind
 from banksia.runtime.boundary import open_boundary_successor
 from banksia.runtime.clock import utc_now
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
@@ -366,19 +364,12 @@ async def _stage_yield_decision(
         child_node = await session.get(FlowNodeModel, ids.child_node_id)
         child_assignment = await session.get(AssignmentModel, ids.child_assignment_id)
         child_attempt = await session.get(AttemptModel, ids.child_attempt_id)
-        policy = await session.get(PolicyRevisionModel, "policy-revision.target.1")
         assert child_node is not None
         assert child_assignment is not None
         assert child_attempt is not None
-        assert policy is not None
         child_node.state = "waiting"
         child_assignment.created_by_dispatch_id = ids.current_dispatch_id
         child_attempt.status = "pending"
-        policy.content_json = PolicyDefinitionInput(
-            id="policy.target",
-            description="Allow the target runtime continuation.",
-            applies_to=[NodeKind.ROOT, NodeKind.WORKER],
-        ).model_dump(mode="json")
         session.add(
             AssignmentDecisionModel(
                 assignment_decision_id=f"assignment-decision.{ids.current_dispatch_id}",
@@ -407,25 +398,23 @@ async def _make_child_current(
         root_node = await session.get(FlowNodeModel, ids.root_node_id)
         child_node = await session.get(FlowNodeModel, ids.child_node_id)
         assignment = await session.get(AssignmentModel, ids.child_assignment_id)
-        policy = await session.get(PolicyRevisionModel, "policy-revision.target.1")
         assert dispatch is not None
         assert root_node is not None
         assert child_node is not None
         assert assignment is not None
-        assert policy is not None
         dispatch.assignment_id = ids.child_assignment_id
         dispatch.attempt_id = ids.child_attempt_id
+        dispatch.flow_revision_id = ids.flow_revision_id
+        dispatch.flow_node_id = ids.child_node_id
         dispatch.node_key = "child"
+        dispatch.member_id = child_node.member_id
+        dispatch.member_configuration_id = child_node.member_configuration_id
+        dispatch.member_branch_basis_id = child_node.member_branch_basis_id
         root_node.state = "waiting"
         child_node.state = "running"
         if retry:
             assignment.retry_limit = 2
             assignment.retries_remaining = 2
-        policy.content_json = PolicyDefinitionInput(
-            id="policy.target",
-            description="Allow the target runtime continuation.",
-            applies_to=[NodeKind.ROOT, NodeKind.WORKER],
-        ).model_dump(mode="json")
         await session.commit()
 
 

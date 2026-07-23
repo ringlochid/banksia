@@ -117,4 +117,9 @@ async def test_lifespan_creates_schema_only_for_genuinely_empty_database(
     finally:
         await dispose_test_db_engine()
 
-    assert {"tasks", "role_definitions", "workflow_definitions"}.issubset(table_names)
+    assert {
+        "tasks",
+        "workflow_definitions",
+        "members",
+        "team_revisions",
+    }.issubset(table_names)

@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator, Iterable
 from contextlib import AsyncExitStack, asynccontextmanager
 
-from banksia.definitions.contracts.workflow import ProviderKind
+from banksia.providers import ProviderKind
 from banksia.runtime.providers.contracts import ProviderAdapter
 
 

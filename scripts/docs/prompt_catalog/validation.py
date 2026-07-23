@@ -51,8 +51,8 @@ def validate_prompt_contract(*, should_check_generated_readback: bool = True) ->
         if family_assets[:3] != shared_prefix or len(family_assets) != 4:
             errors.append(f"{family.value} does not use three shared assets then one family asset")
 
-    if len(PROMPT_TRIGGER_KINDS) != 8 or len(set(PROMPT_TRIGGER_KINDS)) != 8:
-        errors.append("prompt trigger kinds must contain exactly eight distinct variants")
+    if len(PROMPT_TRIGGER_KINDS) != 9 or len(set(PROMPT_TRIGGER_KINDS)) != 9:
+        errors.append("prompt trigger kinds must contain exactly nine distinct variants")
 
     if should_check_generated_readback:
         if not PROMPT_CONTRACT_READBACK_PATH.is_file():

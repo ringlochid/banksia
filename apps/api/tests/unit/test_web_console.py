@@ -25,8 +25,7 @@ async def test_packaged_web_console_serves_index_for_spa_routes() -> None:
     assert "AutoClaw Console" in root_response.text
     assert task_detail_response.status_code == 200
     assert task_detail_response.text == root_response.text
-    assert editor_response.status_code == 200
-    assert editor_response.text == root_response.text
+    assert editor_response.status_code == 404
 
 
 async def test_packaged_web_console_serves_static_assets() -> None:

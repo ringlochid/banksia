@@ -14,7 +14,6 @@ from banksia.config import (
     format_loopback_authority,
     load_settings,
 )
-from banksia.definitions.contracts.workflow import ProviderKind
 from banksia.interfaces.cli.bootstrap.config import read_config_sections
 from banksia.interfaces.cli.commands.bootstrap import cmd_init, ensure_database_ready
 from banksia.interfaces.cli.commands.config_view import redact_database_url
@@ -63,6 +62,7 @@ from banksia.interfaces.cli.support import (
     service_provider_identity_env,
 )
 from banksia.paths import default_data_dir, default_database_url
+from banksia.providers import ProviderKind
 from banksia.runtime.providers import (
     ProviderAuthenticationMethod,
     ProviderCheckAxisStatus,

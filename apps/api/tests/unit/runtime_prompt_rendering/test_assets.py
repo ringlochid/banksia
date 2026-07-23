@@ -66,13 +66,11 @@ def test_resolved_guidance_follows_the_family_asset() -> None:
         family=PromptFamily.WORKER,
         guidance=PromptInstructionGuidance(
             workflow=("WORKFLOW MARKER",),
-            role=("ROLE MARKER",),
+            member=("MEMBER MARKER",),
             node=("NODE MARKER",),
-            policy=("POLICY MARKER",),
         ),
     )
 
     assert rendered.index("# Worker operating policy") < rendered.index("# Workflow guidance")
-    assert rendered.index("WORKFLOW MARKER") < rendered.index("ROLE MARKER")
-    assert rendered.index("ROLE MARKER") < rendered.index("NODE MARKER")
-    assert rendered.index("NODE MARKER") < rendered.index("POLICY MARKER")
+    assert rendered.index("WORKFLOW MARKER") < rendered.index("MEMBER MARKER")
+    assert rendered.index("MEMBER MARKER") < rendered.index("NODE MARKER")

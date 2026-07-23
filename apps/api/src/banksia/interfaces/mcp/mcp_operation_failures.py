@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from copy import deepcopy
-from typing import Any, ClassVar
+from typing import Any, ClassVar, cast
 
 from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp.tools.base import Tool
@@ -25,8 +25,22 @@ class ContractFastMCP(FastMCP[Any]):
             warn_on_duplicate_tools=self.settings.warn_on_duplicate_tools
         )
 
+    def require_strict_tool_inputs(self, names: tuple[str, ...]) -> None:
+        manager = cast(_ContractToolManager, self._tool_manager)
+        manager.require_strict_inputs(names)
+
 
 class _ContractToolManager(ToolManager):
+    def require_strict_inputs(self, names: tuple[str, ...]) -> None:
+        for name in names:
+            tool = self.get_tool(name)
+            if tool is None:
+                raise ValueError(f"cannot make unregistered tool {name!r} strict")
+            argument_model = tool.fn_metadata.arg_model
+            argument_model.model_config["extra"] = "forbid"
+            argument_model.model_rebuild(force=True)
+            tool.parameters = argument_model.model_json_schema(by_alias=True)
+
     def _add_tool(
         self,
         fn: Callable[..., Any],

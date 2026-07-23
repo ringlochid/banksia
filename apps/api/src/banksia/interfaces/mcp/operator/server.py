@@ -12,22 +12,17 @@ from banksia.runtime.post_commit import RuntimeEffectPublisher
 
 from ..mcp_operation_failures import ContractFastMCP
 from ..transport import local_mcp_transport_security
-from .definition_tools import (
-    register_definition_tools,
-    register_task_start_tool,
-)
 from .runtime_tools import (
     register_operator_read_tools,
     register_runtime_control_tools,
     register_runtime_task_tools,
     register_runtime_wait_tools,
 )
+from .task_start import register_task_start_tool
+from .workflow_tools import WORKFLOW_OPERATOR_TOOL_NAMES, register_workflow_tools
 
 OPERATOR_TOOL_NAMES: tuple[str, ...] = (
-    "search_definitions",
-    "get_definition",
-    "list_definition_versions",
-    "upload_definition",
+    *WORKFLOW_OPERATOR_TOOL_NAMES,
     "start_task",
     "list_runtime_tasks",
     "get_runtime_task",
@@ -72,20 +67,20 @@ _OPERATOR_MCP_INSTRUCTIONS = (
     "- resolving a request commits its answer before return; successor opening is "
     "independent. Command cancellation returns at cancellation_requested, not process "
     "exit or terminalization.\n\n"
-    "Definitions and task start:\n"
-    "- search_definitions, get_definition, and list_definition_versions "
-    "are read-only.\n"
-    "- upload_definition and start_task load local files on the "
-    "Banksia host and mutate controller-owned state.\n"
-    "- upload affects future registry resolution, not pinned execution. start_task "
-    "returns after bootstrap commit, before root dispatch/provider start.\n"
-    "- definition draft authoring stays on the trusted HTTP "
-    "/authoring workbench API.\n\n"
+    "Workflow authoring:\n"
+    "- workflow_search, workflow_get, and workflow_authoring_options are read-only.\n"
+    "- workflow_draft_create, workflow_draft_edit, workflow_draft_validate, "
+    "workflow_draft_undo, workflow_draft_discard, and workflow_draft_publish "
+    "operate controller-owned Workflow drafts and immutable publication.\n"
+    "- draft edits and Undo use the fresh opaque ETag returned by the prior operation. "
+    "Draft creation, editing, and validation never publish or start runtime work.\n\n"
+    "Task start:\n"
+    "- start_task loads the bounded local Task Compose bridge and commits a real Task.\n"
+    "- its receipt confirms controller commit, not provider start or completion.\n\n"
     "Surface continuity:\n"
     "- runtime, operator, and chronology reads stay on this same local "
     "operator MCP surface.\n"
-    "- definition and task-start writes extend this operator MCP surface "
-    "without changing node-tool separation."
+    "- Workflow authoring remains separate from node-tool execution."
 )
 
 
@@ -136,7 +131,7 @@ def create_operator_mcp_server(
             allowed_origins=allowed_origins,
         ),
     )
-    register_definition_tools(server)
+    register_workflow_tools(server)
     register_task_start_tool(
         server,
         runtime_effect_publisher=publishers.runtime_effect_publisher,

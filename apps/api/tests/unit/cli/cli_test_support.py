@@ -6,30 +6,24 @@ import sqlite3
 from pathlib import Path
 
 from banksia.config import DEFAULT_API_PORT, DEFAULT_LOG_LEVEL
-from banksia.definitions.contracts.workflow import ProviderKind
-from banksia.definitions.seeds import resolve_packaged_seed_definitions_root
 from banksia.interfaces.cli.bootstrap.config import settings_to_config_text
 from banksia.interfaces.cli.providers.contracts import (
     ProviderCheckOutcome,
     ProviderCheckSnapshot,
 )
+from banksia.providers import ProviderKind
 from banksia.runtime.providers import (
     ProviderAuthenticationMethod,
     ProviderCheckAxisStatus,
 )
+from banksia.workflows.bootstrap import STARTER_WORKFLOW_FILENAMES
 
-SEED_KIND_TO_TABLE = {
-    "roles": "role_definitions",
-    "policies": "policy_definitions",
-    "workflows": "workflow_definitions",
-}
+SEED_KIND_TO_TABLE = {"workflows": "workflow_definitions"}
 SEEDED_REGISTRY_TABLES = {
-    "role_definitions",
-    "role_revisions",
-    "policy_definitions",
-    "policy_revisions",
     "workflow_definitions",
     "workflow_revisions",
+    "workflow_drafts",
+    "workflow_undo_receipts",
     "tasks",
 }
 
@@ -99,11 +93,7 @@ def find_available_loopback_port() -> int:
 
 
 def count_packaged_seed_definitions() -> dict[str, int]:
-    with resolve_packaged_seed_definitions_root() as definitions_root:
-        return {
-            kind: len(list(definitions_root.joinpath(kind).glob("*.yaml")))
-            for kind in SEED_KIND_TO_TABLE
-        }
+    return {"workflows": len(STARTER_WORKFLOW_FILENAMES)}
 
 
 def read_seeded_registry_counts(database_path: Path) -> tuple[set[str], dict[str, int]]:

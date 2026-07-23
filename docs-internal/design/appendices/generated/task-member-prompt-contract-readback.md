@@ -23,4 +23,4 @@ This page is generated from the shipped AutoClaw 0.1.8 prompt contracts and five
 
 ## Trigger kinds
 
-`root_start | accepted_boundary | child_return | human_result | command_result | watchdog_recovery | semantic_retry | operator_continue`
+`root_start | accepted_boundary | child_return | human_result | command_result | watchdog_recovery | semantic_retry | operator_continue | structural_replan`

@@ -10,7 +10,6 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnElement
 
-from banksia.definitions.contracts.workflow import NodeKind
 from banksia.persistence.models import (
     AssignmentModel,
     AttemptModel,
@@ -18,7 +17,9 @@ from banksia.persistence.models import (
     DispatchTurnModel,
     FlowModel,
     FlowNodeModel,
+    TaskModel,
 )
+from banksia.runtime.contracts.member import NodeKind
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
 from banksia.runtime.errors import RuntimeOperationError, stale_dispatch_error
 
@@ -41,6 +42,7 @@ class NodeOperationAuthority:
     opened_reason: str
     predecessor_dispatch_id: str | None
     expected_provider_start_revision: int | None
+    dispatch: DispatchTurnModel
     assignment: AssignmentModel
     attempt: AttemptModel
     flow_node: FlowNodeModel
@@ -58,8 +60,7 @@ async def read_node_operation_authority(
     scope: NodeOperationScope,
 ) -> NodeOperationAuthority:
     dispatch, flow = await _read_current_dispatch_and_flow(session, scope)
-    flow_revision_id = flow.active_flow_revision_id
-    assert flow_revision_id is not None
+    flow_revision_id = dispatch.flow_revision_id
     assignment, attempt = await _read_current_assignment_and_attempt(
         session,
         scope,
@@ -87,6 +88,7 @@ async def read_node_operation_authority(
         opened_reason=dispatch.opened_reason,
         predecessor_dispatch_id=dispatch.predecessor_dispatch_id,
         expected_provider_start_revision=scope.provider_start_revision,
+        dispatch=dispatch,
         assignment=assignment,
         attempt=attempt,
         flow_node=flow_node,
@@ -155,6 +157,14 @@ async def claim_exact_node_operation_transition(
                 DispatchTurnModel.assignment_id == authority.assignment_id,
                 DispatchTurnModel.attempt_id == authority.attempt_id,
                 DispatchTurnModel.node_key == authority.node_key,
+                DispatchTurnModel.flow_revision_id == authority.flow_revision_id,
+                DispatchTurnModel.flow_node_id == authority.flow_node.flow_node_id,
+                DispatchTurnModel.team_revision_id == authority.dispatch.team_revision_id,
+                DispatchTurnModel.member_id == authority.assignment.member_id,
+                DispatchTurnModel.member_configuration_id
+                == authority.dispatch.member_configuration_id,
+                DispatchTurnModel.member_branch_basis_id
+                == authority.dispatch.member_branch_basis_id,
                 DispatchTurnModel.status.in_(("starting", "open")),
                 exact_node_operation_authority_exists(authority),
             )
@@ -192,6 +202,12 @@ def exact_node_operation_authority_exists(
             )
         ),
         exists(
+            select(TaskModel.task_id).where(
+                TaskModel.task_id == authority.task_id,
+                TaskModel.current_team_revision_id == authority.dispatch.team_revision_id,
+            )
+        ),
+        exists(
             select(DispatchTurnModel.dispatch_id).where(
                 DispatchTurnModel.dispatch_id == authority.dispatch_id,
                 DispatchTurnModel.task_id == authority.task_id,
@@ -208,7 +224,7 @@ def exact_node_operation_authority_exists(
                 AssignmentModel.assignment_id == authority.assignment_id,
                 AssignmentModel.task_id == authority.task_id,
                 AssignmentModel.flow_id == authority.flow_id,
-                AssignmentModel.flow_revision_id == authority.flow_revision_id,
+                AssignmentModel.member_id == authority.dispatch.member_id,
                 AssignmentModel.node_key == authority.node_key,
                 AssignmentModel.current_attempt_id == authority.attempt_id,
             )
@@ -229,6 +245,10 @@ def exact_node_operation_authority_exists(
                 FlowNodeModel.flow_revision_id == authority.flow_revision_id,
                 FlowNodeModel.flow_node_id == authority.flow_node.flow_node_id,
                 FlowNodeModel.node_key == authority.node_key,
+                FlowNodeModel.team_revision_id == authority.dispatch.team_revision_id,
+                FlowNodeModel.member_id == authority.dispatch.member_id,
+                FlowNodeModel.member_configuration_id == authority.dispatch.member_configuration_id,
+                FlowNodeModel.member_branch_basis_id == authority.dispatch.member_branch_basis_id,
                 FlowNodeModel.current_assignment_id == authority.assignment_id,
             )
         ),
@@ -268,9 +288,19 @@ async def _read_current_dispatch_and_flow(
         or flow.task_id != scope.task_id
         or flow.status != "running"
         or flow.current_dispatch_id != dispatch.dispatch_id
-        or flow.active_flow_revision_id is None
+        or flow.active_flow_revision_id != dispatch.flow_revision_id
     ):
         raise stale_dispatch_error("dispatch is no longer exact current flow authority")
+    task_team_is_current = await session.scalar(
+        select(
+            exists().where(
+                TaskModel.task_id == scope.task_id,
+                TaskModel.current_team_revision_id == dispatch.team_revision_id,
+            )
+        )
+    )
+    if not task_team_is_current:
+        raise stale_dispatch_error("dispatch is no longer exact current team authority")
     return dispatch, flow
 
 
@@ -296,7 +326,7 @@ async def _read_current_assignment_and_attempt(
         or attempt is None
         or assignment.task_id != scope.task_id
         or assignment.flow_id != flow.flow_id
-        or assignment.flow_revision_id != flow.active_flow_revision_id
+        or assignment.member_id != dispatch.member_id
         or assignment.current_attempt_id != attempt.attempt_id
         or assignment.node_key != dispatch.node_key
         or attempt.assignment_id != assignment.assignment_id
@@ -318,16 +348,18 @@ async def _read_current_flow_node(
 ) -> FlowNodeModel:
     flow_node = await session.scalar(
         select(FlowNodeModel)
-        .where(
-            FlowNodeModel.flow_revision_id == flow.active_flow_revision_id,
-            FlowNodeModel.node_key == dispatch.node_key,
-        )
+        .where(FlowNodeModel.flow_node_id == dispatch.flow_node_id)
         .execution_options(populate_existing=True)
     )
     if (
         flow_node is None
         or flow_node.flow_id != flow.flow_id
-        or flow_node.flow_node_id != assignment.flow_node_id
+        or flow_node.flow_revision_id != dispatch.flow_revision_id
+        or flow_node.node_key != dispatch.node_key
+        or flow_node.team_revision_id != dispatch.team_revision_id
+        or flow_node.member_id != dispatch.member_id
+        or flow_node.member_configuration_id != dispatch.member_configuration_id
+        or flow_node.member_branch_basis_id != dispatch.member_branch_basis_id
         or flow_node.current_assignment_id != assignment.assignment_id
     ):
         raise stale_dispatch_error("dispatch node is no longer current")

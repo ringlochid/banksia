@@ -64,6 +64,38 @@ def test_schema_verifier_normalizes_postgresql_array_rendering(
 
 
 @pytest.mark.parametrize(
+    ("postgresql_reflection", "metadata_sql"),
+    (
+        (
+            "state = 'pending' AND started_at IS NULL OR "
+            "state = 'running' AND started_at IS NOT NULL",
+            "(state = 'pending' AND started_at IS NULL) OR "
+            "(state = 'running' AND started_at IS NOT NULL)",
+        ),
+        (
+            "order_index >= 0 AND order_index <= 8",
+            "order_index BETWEEN 0 AND 8",
+        ),
+        (
+            "length(TRIM(BOTH FROM model_override)) > 0",
+            "length(trim(model_override)) > 0",
+        ),
+    ),
+)
+def test_schema_verifier_normalizes_postgresql_decompiled_check_sql(
+    postgresql_reflection: str,
+    metadata_sql: str,
+) -> None:
+    assert normalize_schema_sql(postgresql_reflection) == normalize_schema_sql(metadata_sql)
+
+
+def test_schema_verifier_preserves_material_boolean_grouping() -> None:
+    assert normalize_schema_sql("enabled AND (first OR second)") != normalize_schema_sql(
+        "(enabled AND first) OR second"
+    )
+
+
+@pytest.mark.parametrize(
     ("table_name", "transform", "expected_message"),
     (
         (

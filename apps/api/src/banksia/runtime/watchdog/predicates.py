@@ -57,7 +57,7 @@ def watchdog_context_is_current(
             AssignmentModel.assignment_id == prompt.assignment_id,
             AssignmentModel.task_id == prompt.task_id,
             AssignmentModel.flow_id == prompt.flow_id,
-            AssignmentModel.flow_revision_id == prompt.flow_revision_id,
+            AssignmentModel.member_id == prompt.member_id,
             AssignmentModel.node_key == prompt.node_key,
             AssignmentModel.current_attempt_id == prompt.attempt_id,
             AssignmentModel.work_plan_revision == dispatch.assignment_work_plan_revision,
@@ -76,6 +76,7 @@ def watchdog_context_is_current(
             TaskModel.task_root_path == dispatch.task_root_path,
             TaskModel.title == prompt.task_title,
             TaskModel.summary == prompt.task_summary,
+            TaskModel.current_team_revision_id == prompt.team_revision_id,
         )
         & exists().where(
             WorkspaceBindingModel.task_id == prompt.task_id,

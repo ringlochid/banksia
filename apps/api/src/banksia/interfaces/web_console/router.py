@@ -51,9 +51,6 @@ async def get_web_console_runtime_config(request: Request) -> JSONResponse:
 @web_console_router.get("/")
 @web_console_router.get("/tasks")
 @web_console_router.get("/tasks/{console_path:path}")
-@web_console_router.get("/definitions")
-@web_console_router.get("/definitions/{console_path:path}")
-@web_console_router.get("/task-start")
 async def get_web_console_index(console_path: str = "") -> FileResponse:
     del console_path
     return _packaged_asset_response("index.html", media_type="text/html")

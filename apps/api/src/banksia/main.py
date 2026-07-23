@@ -68,6 +68,7 @@ from banksia.runtime.post_commit import (
     HumanRequestDue,
     HumanRequestOpened,
     HumanRequestTerminal,
+    ReplanCommitted,
     RuntimeEffectRouter,
     RuntimeEffectSignal,
     TransientCleanupRequested,
@@ -79,6 +80,7 @@ from banksia.runtime.projection import SupportProjectionOwner, TransientProjecti
 from banksia.runtime.providers.cleanup import create_provider_dispatch_cleanup_handler
 from banksia.runtime.providers.registry import ProviderAdapterRegistry
 from banksia.runtime.providers.starter import DispatchStarter
+from banksia.runtime.replan.continuation import create_replan_committed_handler
 from banksia.runtime.startup_audit import audit_startup_support_projections
 from banksia.runtime.task_root import cleanup_expired_transient
 from banksia.runtime.watchdog import (
@@ -89,6 +91,7 @@ from banksia.runtime.watchdog import (
 _RUNTIME_STARTUP_ROUTED_SIGNAL_TYPES = (
     FlowStartCommitted,
     BoundaryAccepted,
+    ReplanCommitted,
     HumanRequestOpened,
     HumanRequestTerminal,
     CommandRunPending,
@@ -398,6 +401,7 @@ def _register_runtime_effect_routes(
 
     router.register(FlowStartCommitted, create_flow_start_handler(dependencies))
     router.register(BoundaryAccepted, create_boundary_accepted_handler(dependencies))
+    router.register(ReplanCommitted, create_replan_committed_handler(dependencies))
     router.register(HumanRequestOpened, create_human_request_opened_handler(scheduler))
     router.register(
         HumanRequestDue,

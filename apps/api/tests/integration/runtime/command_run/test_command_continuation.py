@@ -5,16 +5,14 @@ from pathlib import Path
 from typing import cast
 
 from banksia.config import CodexSettings, RuntimeSettings, Settings
-from banksia.definitions.contracts.registry import PolicyDefinitionInput
-from banksia.definitions.contracts.workflow import NodeKind, ProviderKind
 from banksia.persistence.models import (
     CommandRunModel,
     DispatchPromptRefsModel,
     DispatchTurnModel,
     FlowModel,
     FlowWaitModel,
-    PolicyRevisionModel,
 )
+from banksia.providers import ProviderKind
 from banksia.runtime.clock import utc_now
 from banksia.runtime.command_run.continuation import open_command_run_successor
 from banksia.runtime.command_run.service import read_command_run
@@ -46,7 +44,6 @@ async def test_terminal_command_source_opens_one_same_attempt_successor(
     ):
         run_id = await _open_command_run(executor, ids)
         await _terminalize_command_run(session_factory, ids, run_id)
-        await _enable_target_policy(session_factory)
         publisher = CapturedRuntimeEffectPublisher()
 
         async with session_factory() as session:
@@ -257,18 +254,6 @@ async def _terminalize_command_run(
         flow.waiting_cause = "none"
         flow.waiting_source_id = None
         flow.control_revision += 1
-        await session.commit()
-
-
-async def _enable_target_policy(session_factory: SessionFactory) -> None:
-    async with session_factory() as session:
-        policy = await session.get(PolicyRevisionModel, "policy-revision.target.1")
-        assert policy is not None
-        policy.content_json = PolicyDefinitionInput(
-            id="policy.target",
-            description="Allow exact-source continuation in the integration fixture.",
-            applies_to=[NodeKind.ROOT, NodeKind.WORKER],
-        ).model_dump(mode="json")
         await session.commit()
 
 

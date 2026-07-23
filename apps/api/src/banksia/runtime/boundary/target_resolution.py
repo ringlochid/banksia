@@ -12,6 +12,8 @@ from banksia.persistence.models import (
     AssignmentModel,
     AttemptCheckpointModel,
     AttemptModel,
+    FlowNodeModel,
+    NodePlanRevisionModel,
 )
 from banksia.runtime.contracts.primitives import CheckpointOutcome, EgressBoundary
 from banksia.runtime.contracts.prompt import (
@@ -53,6 +55,32 @@ async def resolve_boundary_target(
         source_assignment=source_assignment,
         checkpoint=checkpoint,
     )
+
+
+def require_consistent_target_runtime_context(
+    node: FlowNodeModel,
+    node_plan: NodePlanRevisionModel,
+    assignment: AssignmentModel,
+    attempt: AttemptModel,
+) -> None:
+    """Reject a target whose assignment, attempt, and exact Team pins disagree."""
+
+    if (
+        node.state != "running"
+        or node.current_assignment_id != assignment.assignment_id
+        or assignment.current_attempt_id != attempt.attempt_id
+        or assignment.superseded_at is not None
+        or attempt.status != "running"
+        or node_plan.task_id != node.task_id
+        or node_plan.team_revision_id != node.team_revision_id
+        or node_plan.member_id != node.member_id
+        or node_plan.member_configuration_id != node.member_configuration_id
+        or node_plan.member_branch_basis_id != node.member_branch_basis_id
+        or assignment.member_id != node.member_id
+        or assignment.node_key != node.node_key
+        or node_plan.provider_kind != node.provider_kind
+    ):
+        raise ValueError("boundary target has inconsistent pinned runtime context")
 
 
 async def _resolve_yield_target(
@@ -192,4 +220,8 @@ async def _read_boundary_checkpoint(
     )
 
 
-__all__ = ["BoundaryTarget", "resolve_boundary_target"]
+__all__ = [
+    "BoundaryTarget",
+    "require_consistent_target_runtime_context",
+    "resolve_boundary_target",
+]

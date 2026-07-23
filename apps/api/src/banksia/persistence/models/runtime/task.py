@@ -19,11 +19,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from banksia.persistence.base import RuntimeBase
 from banksia.persistence.datetimes import UtcDateTime
-from banksia.persistence.models.registry import (
-    PolicyRevisionModel,
-    RoleRevisionModel,
-    WorkflowRevisionModel,
-)
+from banksia.persistence.models.registry import WorkflowRevisionModel
 from banksia.persistence.models.runtime.common import (
     NODE_KIND_VALUES,
     PROVIDER_VALUES,
@@ -38,11 +34,52 @@ if TYPE_CHECKING:
         TaskEventModel,
         TaskEventStreamHeadModel,
     )
+    from banksia.persistence.models.runtime.team import TeamRevisionModel
 
 
 class TaskModel(RuntimeBase):
     __tablename__ = "tasks"
     __table_args__ = (
+        ForeignKeyConstraint(
+            ["workflow_key", "workflow_revision_no", "workflow_content_hash"],
+            [
+                "workflow_revisions.workflow_key",
+                "workflow_revisions.revision_no",
+                "workflow_revisions.content_hash",
+            ],
+            name="fk_tasks_workflow_revision",
+            deferrable=True,
+            initially="DEFERRED",
+        ),
+        ForeignKeyConstraint(
+            [
+                "task_id",
+                "current_team_revision_id",
+                "workflow_key",
+                "workflow_revision_no",
+                "workflow_content_hash",
+            ],
+            [
+                "team_revisions.task_id",
+                "team_revisions.team_revision_id",
+                "team_revisions.workflow_key",
+                "team_revisions.workflow_revision_no",
+                "team_revisions.workflow_content_hash",
+            ],
+            name="fk_tasks_current_team_revision",
+            deferrable=True,
+            initially="DEFERRED",
+        ),
+        CheckConstraint("workflow_revision_no >= 1", name="ck_tasks_workflow_revision_no"),
+        CheckConstraint(
+            "max_child_assignments_per_assignment >= 0",
+            name="ck_tasks_max_child_assignments_per_assignment",
+        ),
+        CheckConstraint(
+            "max_retries_per_assignment >= 0",
+            name="ck_tasks_max_retries_per_assignment",
+        ),
+        CheckConstraint("max_wave_members >= 1", name="ck_tasks_max_wave_members"),
         Index("ix_tasks_title", "title"),
         Index("ix_tasks_workflow_key", "workflow_key"),
     )
@@ -52,7 +89,21 @@ class TaskModel(RuntimeBase):
     title: Mapped[str] = mapped_column(String(255))
     summary: Mapped[str] = mapped_column(Text)
     instruction: Mapped[str | None] = mapped_column(Text, nullable=True)
-    workflow_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    workflow_key: Mapped[str] = mapped_column(String(255))
+    workflow_revision_no: Mapped[int] = mapped_column(Integer)
+    workflow_content_hash: Mapped[str] = mapped_column(String(64))
+    current_team_revision_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    max_child_assignments_per_assignment: Mapped[int] = mapped_column(
+        Integer,
+        default=20,
+        server_default="20",
+    )
+    max_retries_per_assignment: Mapped[int] = mapped_column(
+        Integer,
+        default=1,
+        server_default="1",
+    )
+    max_wave_members: Mapped[int] = mapped_column(Integer, default=8, server_default="8")
     task_root_path: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(
@@ -63,12 +114,6 @@ class TaskModel(RuntimeBase):
     workspace_binding: Mapped[WorkspaceBindingModel | None] = relationship(
         back_populates="task",
         foreign_keys="WorkspaceBindingModel.task_id",
-        lazy="raise",
-        uselist=False,
-    )
-    task_compose: Mapped[TaskComposeModel | None] = relationship(
-        back_populates="task",
-        foreign_keys="TaskComposeModel.task_id",
         lazy="raise",
         uselist=False,
     )
@@ -99,6 +144,24 @@ class TaskModel(RuntimeBase):
         lazy="raise",
         order_by="TaskEventModel.event_seq",
     )
+    workflow_revision: Mapped[WorkflowRevisionModel] = relationship(
+        "WorkflowRevisionModel",
+        foreign_keys=[workflow_key, workflow_revision_no, workflow_content_hash],
+        lazy="raise",
+        viewonly=True,
+    )
+    current_team_revision: Mapped[TeamRevisionModel | None] = relationship(
+        "TeamRevisionModel",
+        foreign_keys=[
+            task_id,
+            current_team_revision_id,
+            workflow_key,
+            workflow_revision_no,
+            workflow_content_hash,
+        ],
+        lazy="raise",
+        viewonly=True,
+    )
 
 
 class WorkspaceBindingModel(RuntimeBase):
@@ -122,61 +185,12 @@ class WorkspaceBindingModel(RuntimeBase):
     )
 
 
-class TaskComposeModel(RuntimeBase):
-    __tablename__ = "task_composes"
-    __table_args__ = (
-        ForeignKeyConstraint(
-            ["workflow_key", "workflow_revision_no"],
-            ["workflow_revisions.workflow_key", "workflow_revisions.revision_no"],
-            name="fk_task_composes_workflow_revision",
-            deferrable=True,
-            initially="DEFERRED",
-        ),
-        ForeignKeyConstraint(
-            ["task_id", "compiled_plan_id"],
-            ["compiled_plans.task_id", "compiled_plans.compiled_plan_id"],
-            name="fk_task_composes_compiled_plan_owner",
-            deferrable=True,
-            initially="DEFERRED",
-        ),
-    )
-
-    task_compose_id: Mapped[str] = mapped_column(String(255), primary_key=True)
-    task_id: Mapped[str] = mapped_column(ForeignKey("tasks.task_id"), unique=True, index=True)
-    workflow_key: Mapped[str] = mapped_column(String(255))
-    workflow_revision_no: Mapped[int] = mapped_column(Integer)
-    compiled_plan_id: Mapped[str] = mapped_column(String(255))
-    compose_payload: Mapped[dict[str, object]] = mapped_column(JSON(none_as_null=True))
-    created_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow)
-    task: Mapped[TaskModel] = relationship(
-        back_populates="task_compose",
-        foreign_keys=[task_id],
-        lazy="raise",
-    )
-    workflow_revision: Mapped[WorkflowRevisionModel] = relationship(
-        "WorkflowRevisionModel",
-        primaryjoin=lambda: and_(
-            TaskComposeModel.workflow_key == WorkflowRevisionModel.workflow_key,
-            TaskComposeModel.workflow_revision_no == WorkflowRevisionModel.revision_no,
-        ),
-        foreign_keys=[workflow_key, workflow_revision_no],
-        lazy="raise",
-        viewonly=True,
-    )
-    compiled_plan: Mapped[CompiledPlanModel] = relationship(
-        back_populates="task_compose",
-        foreign_keys=[task_id, compiled_plan_id],
-        lazy="raise",
-        viewonly=True,
-    )
-
-
 class CompiledPlanModel(RuntimeBase):
     __tablename__ = "compiled_plans"
     __table_args__ = (
         UniqueConstraint("task_id", "compiled_plan_id"),
         ForeignKeyConstraint(
-            ["workflow_key", "definition_revision_no"],
+            ["workflow_key", "workflow_revision_no"],
             ["workflow_revisions.workflow_key", "workflow_revisions.revision_no"],
             name="fk_compiled_plans_workflow_revision",
             deferrable=True,
@@ -187,7 +201,7 @@ class CompiledPlanModel(RuntimeBase):
     compiled_plan_id: Mapped[str] = mapped_column(String(255), primary_key=True)
     task_id: Mapped[str] = mapped_column(ForeignKey("tasks.task_id"), unique=True, index=True)
     workflow_key: Mapped[str] = mapped_column(String(255))
-    definition_revision_no: Mapped[int] = mapped_column(Integer)
+    workflow_revision_no: Mapped[int] = mapped_column(Integer)
     compiler_version: Mapped[str] = mapped_column(String(255))
     snapshot_json: Mapped[dict[str, object]] = mapped_column(JSON(none_as_null=True))
     created_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow)
@@ -200,17 +214,10 @@ class CompiledPlanModel(RuntimeBase):
         "WorkflowRevisionModel",
         primaryjoin=lambda: and_(
             CompiledPlanModel.workflow_key == WorkflowRevisionModel.workflow_key,
-            CompiledPlanModel.definition_revision_no == WorkflowRevisionModel.revision_no,
+            CompiledPlanModel.workflow_revision_no == WorkflowRevisionModel.revision_no,
         ),
-        foreign_keys=[workflow_key, definition_revision_no],
+        foreign_keys=[workflow_key, workflow_revision_no],
         lazy="raise",
-        viewonly=True,
-    )
-    task_compose: Mapped[TaskComposeModel | None] = relationship(
-        back_populates="compiled_plan",
-        foreign_keys="[TaskComposeModel.task_id, TaskComposeModel.compiled_plan_id]",
-        lazy="raise",
-        uselist=False,
         viewonly=True,
     )
     nodes: Mapped[list[CompiledPlanNodeModel]] = relationship(
@@ -231,6 +238,7 @@ class CompiledPlanNodeModel(RuntimeBase):
     __tablename__ = "compiled_plan_nodes"
     __table_args__ = (
         UniqueConstraint("compiled_plan_id", "node_key"),
+        UniqueConstraint("task_id", "compiled_plan_id", "node_key"),
         CheckConstraint(
             f"structural_kind IN ({sql_in(NODE_KIND_VALUES)})",
             name="ck_compiled_plan_nodes_structural_kind",
@@ -240,16 +248,21 @@ class CompiledPlanNodeModel(RuntimeBase):
             name="ck_compiled_plan_nodes_provider_kind",
         ),
         ForeignKeyConstraint(
-            ["role_key", "role_revision_no"],
-            ["role_revisions.role_key", "role_revisions.revision_no"],
-            name="fk_compiled_plan_nodes_role_revision",
-            deferrable=True,
-            initially="DEFERRED",
-        ),
-        ForeignKeyConstraint(
-            ["policy_key", "policy_revision_no"],
-            ["policy_revisions.policy_key", "policy_revisions.revision_no"],
-            name="fk_compiled_plan_nodes_policy_revision",
+            [
+                "task_id",
+                "team_revision_id",
+                "member_id",
+                "member_configuration_id",
+                "member_branch_basis_id",
+            ],
+            [
+                "team_revision_members.task_id",
+                "team_revision_members.team_revision_id",
+                "team_revision_members.member_id",
+                "team_revision_members.member_configuration_id",
+                "team_revision_members.member_branch_basis_id",
+            ],
+            name="fk_compiled_plan_nodes_team_selection",
             deferrable=True,
             initially="DEFERRED",
         ),
@@ -264,17 +277,15 @@ class CompiledPlanNodeModel(RuntimeBase):
 
     compiled_plan_node_id: Mapped[str] = mapped_column(String(255), primary_key=True)
     compiled_plan_id: Mapped[str] = mapped_column(ForeignKey("compiled_plans.compiled_plan_id"))
+    task_id: Mapped[str] = mapped_column(String(255), index=True)
+    team_revision_id: Mapped[str] = mapped_column(String(255))
+    member_id: Mapped[str] = mapped_column(String(128))
+    member_configuration_id: Mapped[str] = mapped_column(String(255))
+    member_branch_basis_id: Mapped[str] = mapped_column(String(255))
+    member_title: Mapped[str | None] = mapped_column(Text, nullable=True)
     node_key: Mapped[str] = mapped_column(String(255))
     parent_node_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
     structural_kind: Mapped[str] = mapped_column(String(64))
-    role_key: Mapped[str] = mapped_column(String(255))
-    role_revision_no: Mapped[int] = mapped_column(Integer)
-    role_description: Mapped[str] = mapped_column(Text)
-    role_instruction: Mapped[str | None] = mapped_column(Text, nullable=True)
-    policy_key: Mapped[str] = mapped_column(String(255))
-    policy_revision_no: Mapped[int] = mapped_column(Integer)
-    policy_description: Mapped[str] = mapped_column(Text)
-    policy_instruction: Mapped[str | None] = mapped_column(Text, nullable=True)
     description: Mapped[str] = mapped_column(Text)
     node_instruction: Mapped[str | None] = mapped_column(Text, nullable=True)
     child_node_keys_json: Mapped[list[str]] = mapped_column(JSON(none_as_null=True))
@@ -318,23 +329,15 @@ class CompiledPlanNodeModel(RuntimeBase):
         order_by="CompiledPlanNodeModel.order_index",
         viewonly=True,
     )
-    role_revision: Mapped[RoleRevisionModel] = relationship(
-        "RoleRevisionModel",
-        primaryjoin=lambda: and_(
-            CompiledPlanNodeModel.role_key == RoleRevisionModel.role_key,
-            CompiledPlanNodeModel.role_revision_no == RoleRevisionModel.revision_no,
-        ),
-        foreign_keys=[role_key, role_revision_no],
-        lazy="raise",
-        viewonly=True,
-    )
-    policy_revision: Mapped[PolicyRevisionModel] = relationship(
-        "PolicyRevisionModel",
-        primaryjoin=lambda: and_(
-            CompiledPlanNodeModel.policy_key == PolicyRevisionModel.policy_key,
-            CompiledPlanNodeModel.policy_revision_no == PolicyRevisionModel.revision_no,
-        ),
-        foreign_keys=[policy_key, policy_revision_no],
+    team_selection: Mapped[object] = relationship(
+        "TeamRevisionMemberModel",
+        foreign_keys=[
+            task_id,
+            team_revision_id,
+            member_id,
+            member_configuration_id,
+            member_branch_basis_id,
+        ],
         lazy="raise",
         viewonly=True,
     )
@@ -425,7 +428,6 @@ __all__ = [
     "CompiledPlanEdgeModel",
     "CompiledPlanModel",
     "CompiledPlanNodeModel",
-    "TaskComposeModel",
     "TaskModel",
     "WorkspaceBindingModel",
 ]

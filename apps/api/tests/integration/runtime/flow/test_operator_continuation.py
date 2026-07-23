@@ -5,16 +5,14 @@ from typing import cast
 
 import pytest
 from banksia.config import CodexSettings, RuntimeSettings, Settings
-from banksia.definitions.contracts.registry import PolicyDefinitionInput
-from banksia.definitions.contracts.workflow import NodeKind, ProviderKind
 from banksia.persistence.models import (
     DispatchPromptRefsModel,
     DispatchTurnModel,
     FlowModel,
     FlowStartSourceModel,
     HumanRequestModel,
-    PolicyRevisionModel,
 )
+from banksia.providers import ProviderKind
 from banksia.runtime.clock import utc_now
 from banksia.runtime.contracts import HumanRequestResolveRequest
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
@@ -37,9 +35,9 @@ from tests.helpers.executor_harness import (
     seeded_executor,
 )
 from tests.helpers.launch_foundation import (
-    build_launch_foundation_definitions,
     build_launch_foundation_input,
-    seed_launch_foundation_catalog,
+    build_launch_foundation_workflow_revision,
+    seed_launch_foundation_workflow,
 )
 from tests.helpers.lineage_seed import RuntimeIds
 from tests.helpers.sqlite_runtime import (
@@ -63,7 +61,6 @@ async def test_continue_resumes_one_closed_lineage_tail_and_rejects_duplicate(
         ids,
         _,
     ):
-        await _enable_target_policy(session_factory)
         expected_control_revision = await _pause_current_dispatch(session_factory, ids)
         async with session_factory() as session:
             result = await continue_paused_flow(
@@ -114,7 +111,6 @@ async def test_continue_consumes_terminal_human_source_retained_while_paused(
         _,
     ):
         request_id = await _open_human_request(executor, ids)
-        await _enable_target_policy(session_factory)
         await _pause_waiting_flow(session_factory, ids)
         async with session_factory() as session:
             await resolve_human_request(
@@ -158,7 +154,6 @@ async def test_continue_preparation_failure_preserves_existing_pause(tmp_path: P
         ids,
         _,
     ):
-        await _enable_target_policy(session_factory)
         expected_control_revision = await _pause_current_dispatch(session_factory, ids)
         async with session_factory() as session:
             with pytest.raises(RuntimeOperationError) as error:
@@ -189,19 +184,15 @@ async def test_pre_root_continue_consumes_flow_start_without_synthetic_predecess
     tmp_path: Path,
 ) -> None:
     engine = create_runtime_schema_engine(tmp_path, name="pre-root-continue.sqlite")
-    role, policy, workflow = build_launch_foundation_definitions()
+    workflow_revision = build_launch_foundation_workflow_revision()
     bootstrap_input = build_launch_foundation_input(
         tmp_path,
-        role=role,
-        policy=policy,
-        workflow=workflow,
+        workflow_revision=workflow_revision,
     )
     with engine.begin() as connection:
-        seed_launch_foundation_catalog(
+        seed_launch_foundation_workflow(
             connection,
-            role=role,
-            policy=policy,
-            workflow=workflow,
+            workflow_revision=workflow_revision,
         )
     sync_factory = sessionmaker(engine, expire_on_commit=False, autoflush=False)
     try:
@@ -311,18 +302,6 @@ async def _open_human_request(executor: NodeOperationExecutor, ids: RuntimeIds) 
         },
     )
     return cast(str, opened.model_dump()["request_id"])
-
-
-async def _enable_target_policy(session_factory: SessionFactory) -> None:
-    async with session_factory() as session:
-        policy = await session.get(PolicyRevisionModel, "policy-revision.target.1")
-        assert policy is not None
-        policy.content_json = PolicyDefinitionInput(
-            id="policy.target",
-            description="Allow exact-source continuation in the integration fixture.",
-            applies_to=[NodeKind.ROOT, NodeKind.WORKER],
-        ).model_dump(mode="json")
-        await session.commit()
 
 
 def _opening_dependencies(

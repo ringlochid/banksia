@@ -25,7 +25,10 @@ from sqlalchemy.orm import Session, sessionmaker
 from tests.helpers.catalog_seed import seed_catalog
 from tests.helpers.lineage_seed import (
     RuntimeIds,
+    member_branch_basis_id,
+    member_configuration_id,
     seed_runtime_scope,
+    team_revision_id,
 )
 from tests.helpers.sqlite_runtime import (
     SyncSessionAdapter,
@@ -353,6 +356,12 @@ def _starting_successor_row(
         "task_id": ids.task_id,
         "flow_id": ids.flow_id,
         "assignment_id": ids.root_assignment_id,
+        "flow_revision_id": ids.flow_revision_id,
+        "flow_node_id": ids.root_node_id,
+        "team_revision_id": team_revision_id(ids),
+        "member_id": "root",
+        "member_configuration_id": member_configuration_id(ids, "root"),
+        "member_branch_basis_id": member_branch_basis_id(ids, "root"),
         "attempt_id": ids.root_attempt_id,
         "node_key": "root",
         "flow_start_source_flow_id": None,
@@ -364,8 +373,11 @@ def _starting_successor_row(
         "provider_selection_basis": "default",
         "provider_route_kind": "codex",
         "model_override": None,
+        "model_source": "provider_configuration",
         "effort_override": None,
+        "effort_source": "provider_configuration",
         "gateway_profile": None,
+        "gateway_profile_source": None,
         "provider_start_revision": 0,
         "provider_start_attempt_count": 0,
         "next_provider_start_at": START_DUE_AT,

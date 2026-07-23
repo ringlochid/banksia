@@ -8,8 +8,8 @@ from typing import Protocol, cast
 
 import pytest
 from banksia.config import RuntimeSettings
-from banksia.definitions.contracts.workflow import ProviderKind
 from banksia.persistence import RuntimeBase
+from banksia.providers import ProviderKind
 from banksia.runtime.node_mcp import DispatchMcpBindingRegistry
 from banksia.runtime.node_operations import NodeOperationExecutor, NodeOperationName
 from banksia.runtime.node_operations.catalog import get_node_operation_descriptor
@@ -238,17 +238,17 @@ async def test_invalid_request_ref_pauses_without_provider_io(tmp_path: Path) ->
         assert publisher.signals == ()
 
 
-async def test_persisted_unsupported_provider_policy_pauses_without_provider_io(
+async def test_missing_capability_snapshot_pauses_without_provider_io(
     tmp_path: Path,
 ) -> None:
-    with starting_dispatch_database(tmp_path, suffix="starter-unsupported-policy") as database:
+    with starting_dispatch_database(tmp_path, suffix="starter-illegal-configuration") as database:
         _write_request_pair(database, tmp_path)
         capabilities = RuntimeBase.metadata.tables["dispatch_capability_sets"]
         with database.engine.begin() as connection:
             connection.execute(
-                capabilities.update()
-                .where(capabilities.c.dispatch_id == database.ids.current_dispatch_id)
-                .values(provider_native_access="denied")
+                capabilities.delete().where(
+                    capabilities.c.dispatch_id == database.ids.current_dispatch_id
+                )
             )
         adapter = _RecordingAdapter()
         starter, _registry, scheduler, publisher = _starter(
@@ -266,7 +266,7 @@ async def test_persisted_unsupported_provider_policy_pauses_without_provider_io(
         assert dispatch.status == "closed"
         assert dispatch.closed_reason == "control_failed"
         assert flow.status == "paused"
-        assert flow.pause_details["failure_code"] == "provider_capability_unsupported"
+        assert flow.pause_details["failure_code"] == "dispatch_start_request_invalid"
         assert scheduler.registered == []
         assert publisher.signals == ()
 

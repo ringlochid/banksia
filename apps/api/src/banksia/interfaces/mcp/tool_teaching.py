@@ -17,10 +17,6 @@ INSPECT_FIRST_NOTE = "Use only after inspecting current runtime state."
 DISCOVER_CANDIDATES_NOTE = "Use this to discover candidates before choosing or mutating."
 INSPECT_CURRENT_REVISION_NOTE = "Use this to inspect one current revision."
 AUDIT_ONLY_NOTE = "Use this for audit or provenance, not normal planning."
-INSPECT_IF_UNSURE_NOTE = (
-    "Inspect current definitions first if you are unsure which definition to change."
-)
-REAL_RUNTIME_EFFECTS_NOTE = "Creates task root and starts real runtime effects."
 
 
 @dataclass(frozen=True)
@@ -70,11 +66,9 @@ __all__ = [
     "FRESH_REVISION_NOTE",
     "INSPECT_CURRENT_REVISION_NOTE",
     "INSPECT_FIRST_NOTE",
-    "INSPECT_IF_UNSURE_NOTE",
     "LOCAL_FILE_PATH_NOTE",
     "MUTATING_PREFIX",
     "READ_ONLY_PREFIX",
-    "REAL_RUNTIME_EFFECTS_NOTE",
     "RUNTIME_STATE_WARNING",
     "STATUS_CHECK_WARNING",
     "ToolTeaching",

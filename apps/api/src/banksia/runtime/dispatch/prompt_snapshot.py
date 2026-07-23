@@ -3,8 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from banksia.definitions.contracts.workflow import NodeKind
 from banksia.runtime.contracts.capabilities import EffectiveCapabilitySet
+from banksia.runtime.contracts.member import NodeKind
 from banksia.runtime.contracts.primitives import CapabilityDecision
 from banksia.runtime.contracts.prompt import (
     AcceptedBoundaryTrigger,
@@ -29,6 +29,7 @@ from banksia.runtime.contracts.prompt import (
     RootStartTrigger,
     RuntimeReadbackRefs,
     SemanticRetryTrigger,
+    StructuralReplanTrigger,
     WatchdogRecoveryTrigger,
     prompt_family_for_node_kind,
 )
@@ -58,11 +59,12 @@ class RootPromptSnapshot:
     attempt_id: str
     retry_of_attempt_id: str | None
     node_key: str
-    role_key: str
-    role_description: str
-    role_instruction: str | None
-    policy_description: str
-    policy_instruction: str | None
+    flow_node_id: str
+    team_revision_id: str
+    member_id: str
+    member_configuration_id: str
+    member_branch_basis_id: str
+    member_title: str | None
     node_description: str
     node_instruction: str | None
     assignment_summary: str
@@ -81,7 +83,11 @@ class RootPromptSnapshot:
 
 type BoundaryPromptTrigger = AcceptedBoundaryTrigger | ChildReturnTrigger | SemanticRetryTrigger
 type OrdinaryPromptTrigger = (
-    HumanResultTrigger | CommandResultTrigger | WatchdogRecoveryTrigger | OperatorContinueTrigger
+    HumanResultTrigger
+    | CommandResultTrigger
+    | WatchdogRecoveryTrigger
+    | OperatorContinueTrigger
+    | StructuralReplanTrigger
 )
 type RootPromptTrigger = RootStartTrigger | OperatorContinueTrigger
 
@@ -123,15 +129,14 @@ def build_root_dispatch_request(
         family=PromptFamily.PARENT_ROOT,
         guidance=PromptInstructionGuidance(
             workflow=workflow_guidance,
-            role=_texts(snapshot.role_description, snapshot.role_instruction),
+            member=_texts(snapshot.member_title),
             node=_texts(snapshot.node_description, snapshot.node_instruction),
-            policy=_texts(snapshot.policy_description, snapshot.policy_instruction),
         ),
         dynamic_input=PromptDynamicInput(
             assignment=PromptAssignment(
                 assignment_id=snapshot.assignment_id,
-                role_id=snapshot.role_key,
-                role_description=snapshot.role_description,
+                member_id=snapshot.member_id,
+                member_title=snapshot.member_title,
                 node_kind=NodeKind.ROOT,
                 summary=snapshot.assignment_summary,
                 instruction=snapshot.assignment_instruction,
@@ -222,15 +227,14 @@ def _build_continuation_dispatch_request(
                 f"Task: {snapshot.task_title}. {snapshot.task_summary}",
                 snapshot.task_instruction,
             ),
-            role=_texts(snapshot.role_description, snapshot.role_instruction),
+            member=_texts(snapshot.member_title),
             node=_texts(snapshot.node_description, snapshot.node_instruction),
-            policy=_texts(snapshot.policy_description, snapshot.policy_instruction),
         ),
         dynamic_input=PromptDynamicInput(
             assignment=PromptAssignment(
                 assignment_id=snapshot.assignment_id,
-                role_id=snapshot.role_key,
-                role_description=snapshot.role_description,
+                member_id=snapshot.member_id,
+                member_title=snapshot.member_title,
                 node_kind=node_kind,
                 summary=snapshot.assignment_summary,
                 instruction=snapshot.assignment_instruction,
@@ -370,14 +374,9 @@ def _root_start_actions(snapshot: RootPromptSnapshot) -> tuple[str, ...]:
         "return_boundary",
         "set_work_plan",
         "record_checkpoint",
-        "search_definitions",
-        "get_definition",
-        "add_child",
     }
     if any(child.assignment_id is None for child in snapshot.children):
         actions.add("assign_child")
-    if snapshot.children:
-        actions.update(("update_child", "remove_child"))
     human = snapshot.capabilities.human_request
     if CapabilityDecision.ALLOW in {
         human.direction,
@@ -405,13 +404,11 @@ def _boundary_actions(
         "return_boundary",
     }
     if node_kind != NodeKind.WORKER:
-        actions.update(("search_definitions", "get_definition", "add_child", "release_green"))
+        actions.add("release_green")
         if node_kind == NodeKind.ROOT:
             actions.add("release_blocked")
         if any(child.assignment_id is None for child in snapshot.children):
             actions.add("assign_child")
-        if snapshot.children:
-            actions.update(("update_child", "remove_child"))
     human = snapshot.capabilities.human_request
     if CapabilityDecision.ALLOW in {
         human.direction,
@@ -454,6 +451,12 @@ def _ordinary_trigger_instruction(trigger: OrdinaryPromptTrigger) -> str:
         return (
             "Resume the same assignment and attempt from controller-owned context after "
             "the exact predecessor dispatch became inactive."
+        )
+    if isinstance(trigger, StructuralReplanTrigger):
+        return (
+            "Reread the regenerated workflow manifest and continue the same assignment "
+            "and attempt from the accepted Team replan. Do not repeat the completed "
+            "replan request."
         )
     return (
         "Reread the current controller context, honor the recorded pause reason, and "

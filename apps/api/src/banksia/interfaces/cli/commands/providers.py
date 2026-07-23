@@ -8,7 +8,6 @@ from typing import Any
 import click
 
 from banksia.config import OpenClawGatewayAuthMode, Settings, load_settings
-from banksia.definitions.contracts.workflow import ProviderKind
 from banksia.interfaces.cli.bootstrap.config import read_config_sections
 from banksia.interfaces.cli.providers import (
     ProviderConfigurationRequest,
@@ -43,6 +42,7 @@ from banksia.interfaces.cli.support import (
     service_provider_check_env,
     service_provider_identity_env,
 )
+from banksia.providers import ProviderKind
 from banksia.runtime.providers import ProviderAuthenticationMethod
 
 

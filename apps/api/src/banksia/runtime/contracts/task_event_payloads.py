@@ -11,7 +11,7 @@ from pydantic import (
     model_validator,
 )
 
-from banksia.definitions.contracts.workflow import ProviderKind
+from banksia.providers import ProviderKind
 from banksia.runtime.contracts.primitives import (
     CheckpointKind,
     CheckpointOutcome,
@@ -49,6 +49,7 @@ type DispatchOpenedReason = Literal[
     "watchdog_recovery",
     "semantic_retry",
     "operator_continue",
+    "structural_replan",
 ]
 type ProviderStartState = Literal["retry_scheduled", "accepted"]
 type ProviderStartRetryKind = Literal[

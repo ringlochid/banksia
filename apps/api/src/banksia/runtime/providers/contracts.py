@@ -15,8 +15,12 @@ from pydantic import (
     model_validator,
 )
 
-from banksia.definitions.contracts.registry import NetworkAccess, ProviderNativeAccess
-from banksia.definitions.contracts.workflow import ProviderKind
+from banksia.providers import (
+    ManagedSandboxMode,
+    NetworkAccess,
+    ProviderKind,
+    ProviderNativeAccess,
+)
 from banksia.runtime.contracts.provider_resolution import ProviderRoute
 
 MANAGED_NODE_MCP_SERVER_NAME = "banksia_node"
@@ -92,6 +96,7 @@ class DispatchStartRequest(BaseModel):
     provider_route: ProviderRoute
     provider_native_access: ProviderNativeAccess
     network_access: NetworkAccess
+    sandbox_mode: ManagedSandboxMode | None = None
     managed_node_mcp: ManagedNodeMcpConnection | None = None
     compatibility_node_mcp: CompatibilityNodeMcpConnection | None = None
 
@@ -100,8 +105,12 @@ class DispatchStartRequest(BaseModel):
         if self.provider_route.kind in {ProviderKind.CODEX, ProviderKind.CLAUDE}:
             if self.managed_node_mcp is None or self.compatibility_node_mcp is not None:
                 raise ValueError("managed providers require only a managed Node MCP connection")
+            if self.sandbox_mode is None:
+                raise ValueError("managed providers require an exact sandbox mode")
         elif self.managed_node_mcp is not None or self.compatibility_node_mcp is None:
             raise ValueError("OpenClaw requires only a compatibility Node MCP connection")
+        elif self.sandbox_mode is not None:
+            raise ValueError("OpenClaw does not carry a controller-managed sandbox mode")
         return self
 
 

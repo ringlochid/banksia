@@ -99,6 +99,11 @@ def test_task_event_chronology_constraints_are_present() -> None:
 
 
 def test_target_currentness_and_pair_constraints_are_present() -> None:
+    assert (
+        "workflow_key",
+        "revision_no",
+        "content_hash",
+    ) in _unique_columns("workflow_revisions")
     assert {
         "ck_dispatch_turns_exact_source_shape",
         "ck_dispatch_turns_lifecycle_fields",
@@ -110,9 +115,10 @@ def test_target_currentness_and_pair_constraints_are_present() -> None:
     )
     for table_name in ("compiled_plan_nodes", "flow_nodes", "node_plan_revisions"):
         table = RuntimeBase.metadata.tables[table_name]
-        assert table.c.policy_key.nullable is False
-        assert table.c.policy_revision_no.nullable is False
-        assert table.c.policy_description.nullable is False
+        assert table.c.team_revision_id.nullable is False
+        assert table.c.member_id.nullable is False
+        assert table.c.member_configuration_id.nullable is False
+        assert table.c.member_branch_basis_id.nullable is False
         assert table.c.provider_kind.nullable is True
     assert {
         "ck_assignments_child_budget",
@@ -147,6 +153,38 @@ def test_target_currentness_and_pair_constraints_are_present() -> None:
         "uq_dispatch_turns_one_first_per_flow",
         "uq_dispatch_turns_one_current_per_flow",
     }
+
+
+def test_replan_revision_and_team_root_backstops_are_present() -> None:
+    assert (
+        "task_id",
+        "team_revision_id",
+        "predecessor_team_revision_id",
+    ) in _unique_columns("team_revisions")
+    assert (
+        "flow_id",
+        "flow_revision_id",
+        "parent_flow_revision_id",
+    ) in _unique_columns("flow_revisions")
+    assert (
+        "task_id",
+        "team_revision_id",
+        "member_id",
+        "root_selection_marker",
+    ) in _unique_columns("team_revision_members")
+    assert (
+        "task_id",
+        "team_revision_id",
+        "root_selection_marker",
+    ) in _unique_columns("team_revision_members")
+    assert {"fk_team_revisions_selected_root"} <= _constraint_names(
+        "team_revisions",
+        ForeignKeyConstraint,
+    )
+    assert {
+        "fk_replan_transitions_successor_team_predecessor",
+        "fk_replan_transitions_successor_flow_parent",
+    } <= _constraint_names("replan_transitions", ForeignKeyConstraint)
 
 
 def test_target_sources_store_complete_canonical_fields() -> None:

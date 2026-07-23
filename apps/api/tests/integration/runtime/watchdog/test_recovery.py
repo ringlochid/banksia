@@ -8,17 +8,15 @@ from typing import Literal, cast
 
 import pytest
 from banksia.config import CodexSettings, RuntimeSettings, Settings
-from banksia.definitions.contracts.registry import PolicyDefinitionInput
-from banksia.definitions.contracts.workflow import NodeKind, ProviderKind
 from banksia.persistence.models import (
     CommandRunModel,
     DispatchPromptRefsModel,
     DispatchTurnModel,
     FlowModel,
     HumanRequestModel,
-    PolicyRevisionModel,
     TaskEventModel,
 )
+from banksia.providers import ProviderKind
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
 from banksia.runtime.dispatch.authority import read_node_operation_authority
 from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
@@ -77,7 +75,6 @@ async def test_watchdog_replaces_one_stale_dispatch_and_duplicate_signal_loses(
         ids,
         _,
     ):
-        await _enable_target_policy(session_factory)
         signal = await _stale_signal(session_factory, ids, activity_revision=7)
         dependencies = _opening_dependencies(clock=clock, publisher=publisher)
         async with session_factory() as session:
@@ -143,7 +140,6 @@ async def test_new_activity_during_materialization_makes_due_signal_stale(
         ids,
         _,
     ):
-        await _enable_target_policy(session_factory)
         signal = await _stale_signal(session_factory, ids, activity_revision=1)
 
         def publish_then_refresh_activity(
@@ -272,7 +268,6 @@ async def test_wait_open_and_watchdog_have_one_commit_order_winner(
         ids,
         _,
     ):
-        await _enable_target_policy(session_factory)
         signal = await _stale_signal(session_factory, ids, activity_revision=1)
         async with session_factory() as session:
             authority = await read_node_operation_authority(
@@ -331,7 +326,6 @@ async def test_third_same_attempt_stale_dispatch_pauses_without_successor(
         ids,
         _,
     ):
-        await _enable_target_policy(session_factory)
         dependencies = _opening_dependencies(clock=clock, publisher=publisher)
         current_dispatch_id = ids.current_dispatch_id
         for replacement_index in range(2):
@@ -436,18 +430,6 @@ async def _set_open_activity(
         dispatch.provider_start_last_error_code = None
         dispatch.closed_at = None
         dispatch.closed_reason = None
-        await session.commit()
-
-
-async def _enable_target_policy(session_factory: SessionFactory) -> None:
-    async with session_factory() as session:
-        policy = await session.get(PolicyRevisionModel, "policy-revision.target.1")
-        assert policy is not None
-        policy.content_json = PolicyDefinitionInput(
-            id="policy.target",
-            description="Allow exact watchdog continuation in the fixture.",
-            applies_to=[NodeKind.ROOT, NodeKind.WORKER],
-        ).model_dump(mode="json")
         await session.commit()
 
 

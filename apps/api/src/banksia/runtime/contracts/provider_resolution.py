@@ -5,13 +5,36 @@ from typing import Annotated, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from banksia.definitions.contracts.workflow import ProviderKind
+from banksia.providers import ManagedSandboxMode, NetworkAccess, ProviderKind
 from banksia.runtime.contracts.common import RuntimeSchemaText
 
 
 class ProviderSelectionBasis(StrEnum):
     EXPLICIT = "explicit"
     DEFAULT = "default"
+
+
+class ProviderRouteValueSource(StrEnum):
+    MEMBER_CONFIGURATION = "member_configuration"
+    PROVIDER_CONFIGURATION = "provider_configuration"
+
+
+class SandboxResolutionSource(StrEnum):
+    DEFAULT = "default"
+    MEMBER_CONFIGURATION = "member_configuration"
+    CONTROLLER = "controller"
+
+
+class ManagedSandboxResolution(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, from_attributes=True)
+
+    requested_mode: ManagedSandboxMode
+    requested_network: NetworkAccess
+    requested_source: SandboxResolutionSource
+    effective_mode: ManagedSandboxMode
+    effective_network: NetworkAccess
+    effective_mode_source: SandboxResolutionSource
+    effective_network_source: SandboxResolutionSource
 
 
 class CodexProviderRoute(BaseModel):
@@ -50,6 +73,10 @@ class ProviderResolution(BaseModel):
     resolved_provider: ProviderKind
     selection_basis: ProviderSelectionBasis
     route: ProviderRoute
+    sandbox: ManagedSandboxResolution | None
+    model_source: ProviderRouteValueSource | None
+    effort_source: ProviderRouteValueSource | None
+    gateway_profile_source: ProviderRouteValueSource | None
 
     @model_validator(mode="after")
     def validate_exact_route(self) -> Self:
@@ -57,14 +84,50 @@ class ProviderResolution(BaseModel):
             raise ValueError("requested_provider must equal resolved_provider")
         if self.route.kind != self.resolved_provider:
             raise ValueError("route.kind must equal resolved_provider")
+        if self.resolved_provider is ProviderKind.OPENCLAW and self.sandbox is not None:
+            raise ValueError("OpenClaw has no controller-managed sandbox resolution")
+        if self.resolved_provider is not ProviderKind.OPENCLAW and self.sandbox is None:
+            raise ValueError("managed providers require exact sandbox resolution")
+        if self.resolved_provider is ProviderKind.OPENCLAW:
+            if self.model_source is not None or self.effort_source is not None:
+                raise ValueError("OpenClaw has no model or effort route source")
+            if self.gateway_profile_source is None:
+                raise ValueError("OpenClaw requires an exact gateway profile source")
+            if self.gateway_profile_source is not ProviderRouteValueSource.PROVIDER_CONFIGURATION:
+                raise ValueError("OpenClaw gateway profile comes from provider configuration")
+        else:
+            if not isinstance(self.route, CodexProviderRoute | ClaudeProviderRoute):
+                raise ValueError("managed provider requires a managed provider route")
+            if self.model_source is None or self.effort_source is None:
+                raise ValueError("managed providers require exact model and effort sources")
+            if self.gateway_profile_source is not None:
+                raise ValueError("managed providers have no gateway profile source")
+            if (
+                self.model_source is ProviderRouteValueSource.MEMBER_CONFIGURATION
+                and self.route.model_override is None
+            ):
+                raise ValueError("authored model source requires an authored model value")
+            if (
+                self.effort_source is ProviderRouteValueSource.MEMBER_CONFIGURATION
+                and self.route.effort_override is None
+            ):
+                raise ValueError("authored effort source requires an authored effort value")
+            if self.selection_basis is ProviderSelectionBasis.DEFAULT and (
+                self.model_source is ProviderRouteValueSource.MEMBER_CONFIGURATION
+                or self.effort_source is ProviderRouteValueSource.MEMBER_CONFIGURATION
+            ):
+                raise ValueError("default provider selection has no Member field overrides")
         return self
 
 
 __all__ = [
     "ClaudeProviderRoute",
     "CodexProviderRoute",
+    "ManagedSandboxResolution",
     "OpenClawProviderRoute",
     "ProviderResolution",
     "ProviderRoute",
+    "ProviderRouteValueSource",
     "ProviderSelectionBasis",
+    "SandboxResolutionSource",
 ]

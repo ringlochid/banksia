@@ -158,33 +158,6 @@ def empty_checkpoint_preparation(
     )
 
 
-def _publish_checkpoint_bodies(preparation: CheckpointPreparation) -> None:
-    assert preparation.paths is not None
-    for artifact in preparation.artifacts:
-        publish_logical_regular_file(
-            preparation.paths,
-            artifact.source_logical_path,
-            artifact.final_logical_path,
-        )
-    for transient in preparation.transients:
-        publish_logical_regular_file(
-            preparation.paths,
-            transient.source_logical_path,
-            transient.final_logical_path,
-        )
-
-
-def _declared_artifacts(authority: NodeOperationAuthority) -> dict[str, str]:
-    result: dict[str, str] = {}
-    for requirement in authority.assignment.produces_json:
-        slot = requirement.get("slot")
-        description = requirement.get("description")
-        if not isinstance(slot, str) or not slot or slot in result:
-            raise illegal_state_error("current assignment has invalid artifact produce truth")
-        result[slot] = description if isinstance(description, str) and description else slot
-    return result
-
-
 async def require_legal_checkpoint_successor(
     session: AsyncSession,
     authority: NodeOperationAuthority,
@@ -220,6 +193,33 @@ async def require_legal_checkpoint_successor(
         raise illegal_state_error(
             "a terminal checkpoint may be corrected only by a later terminal checkpoint"
         )
+
+
+def _publish_checkpoint_bodies(preparation: CheckpointPreparation) -> None:
+    assert preparation.paths is not None
+    for artifact in preparation.artifacts:
+        publish_logical_regular_file(
+            preparation.paths,
+            artifact.source_logical_path,
+            artifact.final_logical_path,
+        )
+    for transient in preparation.transients:
+        publish_logical_regular_file(
+            preparation.paths,
+            transient.source_logical_path,
+            transient.final_logical_path,
+        )
+
+
+def _declared_artifacts(authority: NodeOperationAuthority) -> dict[str, str]:
+    result: dict[str, str] = {}
+    for requirement in authority.assignment.produces_json:
+        slot = requirement.get("slot")
+        description = requirement.get("description")
+        if not isinstance(slot, str) or not slot or slot in result:
+            raise illegal_state_error("current assignment has invalid artifact produce truth")
+        result[slot] = description if isinstance(description, str) and description else slot
+    return result
 
 
 def _require_safe_segment(value: str, *, label: str) -> None:

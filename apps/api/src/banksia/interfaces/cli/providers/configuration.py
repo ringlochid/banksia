@@ -13,7 +13,6 @@ from banksia.config import (
     RuntimeSettings,
     Settings,
 )
-from banksia.definitions.contracts.workflow import ProviderKind
 from banksia.interfaces.cli.bootstrap.config import (
     ConfigSections,
     persist_config_mutation,
@@ -22,6 +21,7 @@ from banksia.interfaces.cli.providers.contracts import (
     ProviderConfigurationSnapshot,
     ProviderProductStatus,
 )
+from banksia.providers import ProviderKind
 from banksia.runtime.providers import provider_selection_from_kind, resolve_provider_route
 
 

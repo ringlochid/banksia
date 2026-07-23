@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from banksia.definitions.contracts.workflow import NodeKind
 from banksia.runtime.contracts.capabilities import EffectiveCapabilitySet
 from banksia.runtime.contracts.command_runs import CommandRunStartRequest
 from banksia.runtime.contracts.human_requests import (
@@ -11,6 +10,7 @@ from banksia.runtime.contracts.human_requests import (
     HumanRequestTimeout,
     PendingHumanRequest,
 )
+from banksia.runtime.contracts.member import NodeKind
 from banksia.runtime.contracts.primitives import (
     CheckpointOutcome,
     EgressBoundary,
@@ -74,8 +74,8 @@ def sample_dynamic_input(
     return PromptDynamicInput(
         assignment=PromptAssignment(
             assignment_id="assignment-1",
-            role_id="engineer",
-            role_description="Complete one bounded engineering assignment.",
+            member_id="engineer",
+            member_title="Engineer",
             node_kind=node_kind,
             summary="Repair the bounded authentication defect.",
             instruction="Change only the assigned behavior.",
@@ -122,9 +122,8 @@ def sample_request(
         family=family,
         guidance=PromptInstructionGuidance(
             workflow=("Follow the accepted workflow revision.",),
-            role=("Stay inside the assigned role.",),
+            member=("Stay inside the assigned Member boundary.",),
             node=("Use the node-local boundary tools.",),
-            policy=("Preserve controller-owned truth.",),
         ),
         dynamic_input=sample_dynamic_input(node_kind=node_kind, trigger=trigger),
     )

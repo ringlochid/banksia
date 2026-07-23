@@ -9,6 +9,7 @@ if TYPE_CHECKING:
         create_operator_mcp_app,
         create_operator_mcp_server,
     )
+    from banksia.interfaces.mcp.operator.workflow_tools import WORKFLOW_OPERATOR_TOOL_NAMES
 
 _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     "OPERATOR_TOOL_NAMES": (
@@ -22,6 +23,10 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     "create_operator_mcp_server": (
         "banksia.interfaces.mcp.operator.server",
         "create_operator_mcp_server",
+    ),
+    "WORKFLOW_OPERATOR_TOOL_NAMES": (
+        "banksia.interfaces.mcp.operator.workflow_tools",
+        "WORKFLOW_OPERATOR_TOOL_NAMES",
     ),
 }
 
@@ -37,6 +42,7 @@ def __getattr__(name: str) -> Any:
 
 __all__ = [
     "OPERATOR_TOOL_NAMES",
+    "WORKFLOW_OPERATOR_TOOL_NAMES",
     "create_operator_mcp_app",
     "create_operator_mcp_server",
 ]

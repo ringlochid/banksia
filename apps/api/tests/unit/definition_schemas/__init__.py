@@ -1,1 +1,0 @@
-"""Definition schema unit tests."""

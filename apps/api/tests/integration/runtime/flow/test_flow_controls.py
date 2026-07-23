@@ -5,8 +5,6 @@ from typing import cast
 
 import pytest
 from banksia.config import CodexSettings, RuntimeSettings, Settings
-from banksia.definitions.contracts.registry import PolicyDefinitionInput
-from banksia.definitions.contracts.workflow import NodeKind, ProviderKind
 from banksia.persistence.models import (
     AttemptModel,
     CommandRunModel,
@@ -15,9 +13,9 @@ from banksia.persistence.models import (
     FlowNodeModel,
     FlowWaitModel,
     HumanRequestModel,
-    PolicyRevisionModel,
     TaskEventModel,
 )
+from banksia.providers import ProviderKind
 from banksia.runtime.command_run.service import cancel_command_run
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
 from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
@@ -40,7 +38,6 @@ from banksia.runtime.post_commit import (
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from tests.helpers.executor_harness import (
-    SessionFactory,
     seeded_executor,
 )
 from tests.helpers.lineage_seed import RuntimeIds
@@ -196,7 +193,6 @@ async def test_continue_opens_one_successor_at_the_exact_control_revision(
         ids,
         _,
     ):
-        await _enable_target_policy(session_factory)
         async with session_factory() as session:
             flow = await session.get(FlowModel, ids.flow_id)
             assert flow is not None
@@ -288,7 +284,6 @@ async def test_cancel_wins_over_stale_continue_without_opening_a_successor(
         ids,
         _,
     ):
-        await _enable_target_policy(session_factory)
         async with session_factory() as session:
             flow = await session.get(FlowModel, ids.flow_id)
             assert flow is not None
@@ -437,18 +432,6 @@ async def _open_command_run(executor: NodeOperationExecutor, ids: RuntimeIds) ->
         },
     )
     return cast(str, result.model_dump()["run_id"])
-
-
-async def _enable_target_policy(session_factory: SessionFactory) -> None:
-    async with session_factory() as session:
-        policy = await session.get(PolicyRevisionModel, "policy-revision.target.1")
-        assert policy is not None
-        policy.content_json = PolicyDefinitionInput(
-            id="policy.target",
-            description="Allow exact-source continuation in the integration fixture.",
-            applies_to=[NodeKind.ROOT, NodeKind.WORKER],
-        ).model_dump(mode="json")
-        await session.commit()
 
 
 def _opening_dependencies(

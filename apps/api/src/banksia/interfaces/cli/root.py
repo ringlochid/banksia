@@ -12,7 +12,6 @@ from banksia.interfaces.cli.commands.bootstrap import (
     cmd_serve,
 )
 from banksia.interfaces.cli.commands.config_view import cmd_config_path, cmd_config_show
-from banksia.interfaces.cli.commands.definitions import cmd_definitions_import
 from banksia.interfaces.cli.commands.guided_setup import (
     guide_local_initialization,
     guide_provider_setup,
@@ -39,6 +38,10 @@ from banksia.interfaces.cli.commands.service import (
 )
 from banksia.interfaces.cli.commands.status import cmd_status
 from banksia.interfaces.cli.commands.task_compose import cmd_task_compose_start
+from banksia.interfaces.cli.commands.workflow import (
+    cmd_workflow_export,
+    cmd_workflow_import,
+)
 from banksia.interfaces.cli.providers.inspection import PROVIDER_ORDER
 
 from .context import CliContext
@@ -318,34 +321,70 @@ def db_reset_command(**kwargs: Any) -> int:
     )
 
 
-@cli.group("definitions")
-def definitions_group() -> None:
+@cli.group("workflow")
+def workflow_group() -> None:
     return None
 
 
-@definitions_group.command("import")
+@workflow_group.command("import")
 @config_option
-@click.option("--file", "file_path")
+@click.option("--file", "file_path", required=True, help="Workflow file path or '-' for stdin.")
+@click.option("--format", "file_format", type=click.Choice(("json", "yaml")))
 @click.option(
-    "--overwrite",
-    type=click.Choice(["reject", "allow_new_revision"]),
-    default="reject",
-    show_default=True,
+    "--etag",
+    "expected_etag",
+    help="Current opaque draft ETag; required when replacing an existing draft.",
 )
-@click.option("--json", "is_json_output", is_flag=True, help="Emit JSON output only.")
-def definitions_import_command(
+@click.option("--json", "is_json_output", is_flag=True, help="Emit JSON status output only.")
+def workflow_import_command(
     config: str,
-    file_path: str | None,
-    overwrite: str,
+    file_path: str,
+    file_format: str | None,
+    expected_etag: str | None,
     is_json_output: bool,
 ) -> int:
     return invoke_handler_result(
-        cmd_definitions_import(
+        cmd_workflow_import(
             build_argument_namespace(
                 config=config,
                 file=file_path,
-                overwrite=overwrite,
+                format=file_format,
+                expected_etag=expected_etag,
                 json=is_json_output,
+            )
+        )
+    )
+
+
+@workflow_group.command("export")
+@config_option
+@click.argument("workflow_id")
+@click.option("--revision", type=click.IntRange(min=1))
+@click.option("--format", "file_format", type=click.Choice(("json", "yaml")))
+@click.option("--output", help="Output file path or '-' for stdout.")
+@click.option(
+    "--force",
+    "should_force",
+    is_flag=True,
+    help="Overwrite an existing output file.",
+)
+def workflow_export_command(
+    config: str,
+    workflow_id: str,
+    revision: int | None,
+    file_format: str | None,
+    output: str | None,
+    should_force: bool,
+) -> int:
+    return invoke_handler_result(
+        cmd_workflow_export(
+            build_argument_namespace(
+                config=config,
+                workflow_id=workflow_id,
+                revision=revision,
+                format=file_format,
+                output=output,
+                should_force=should_force,
             )
         )
     )

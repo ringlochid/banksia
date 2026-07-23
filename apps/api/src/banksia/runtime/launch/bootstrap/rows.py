@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from banksia.definitions.compiler import NormalizedCompiledNode
 from banksia.persistence.models import (
     CompiledPlanEdgeModel,
     CompiledPlanModel,
@@ -10,7 +9,6 @@ from banksia.persistence.models import (
     FlowNodeModel,
     FlowRevisionModel,
     FlowStartSourceModel,
-    TaskComposeModel,
     TaskEventStreamHeadModel,
     TaskModel,
     WorkspaceBindingModel,
@@ -19,14 +17,10 @@ from banksia.runtime.contracts import (
     RuntimeBootstrapInput,
     RuntimeBootstrapResult,
 )
-from banksia.runtime.ids import (
-    compiled_plan_edge_id,
-    compiled_plan_node_id,
-    task_compose_id_for_task,
-)
+from banksia.runtime.ids import compiled_plan_edge_id, compiled_plan_node_id
 from banksia.runtime.launch.bootstrap.context import LaunchBootstrapPersistenceContext
 from banksia.runtime.launch.bootstrap.criteria import build_node_criteria_json
-from banksia.runtime.launch.bootstrap.revisions import resolve_pinned_role_policy
+from banksia.runtime.launch.legacy_team_adapter import LegacyTeamNode
 from banksia.runtime.launch.persistence.flows import (
     build_flow_edge_row,
     build_flow_node_row,
@@ -34,14 +28,9 @@ from banksia.runtime.launch.persistence.flows import (
     build_flow_row,
     build_node_plan_revision_row,
 )
+from banksia.runtime.team import materialize_initial_task_team
 
-type NodePlanRevisionInput = tuple[
-    NormalizedCompiledNode,
-    str,
-    str | None,
-    str,
-    str | None,
-]
+type NodePlanRevisionInput = tuple[LegacyTeamNode,]
 
 
 async def stage_launch_bootstrap_rows(
@@ -84,11 +73,26 @@ async def _stage_task_root_rows(
             title=bootstrap_input.task_compose.task.title,
             summary=bootstrap_input.task_compose.task.summary,
             instruction=bootstrap_input.task_compose.task.instruction,
-            workflow_key=bootstrap_input.workflow_definition.id,
+            workflow_key=bootstrap_input.workflow_revision.workflow_id,
+            workflow_revision_no=bootstrap_input.workflow_revision.revision_no,
+            workflow_content_hash=bootstrap_input.workflow_revision.content_hash,
+            current_team_revision_id=None,
+            max_child_assignments_per_assignment=(
+                bootstrap_input.max_child_assignments_per_assignment
+            ),
+            max_retries_per_assignment=bootstrap_input.max_retries_per_assignment,
+            max_wave_members=bootstrap_input.max_wave_members,
             task_root_path=str(result.paths.task_root),
         )
     )
     await session.flush()
+    materialized = await materialize_initial_task_team(
+        session,
+        bootstrap_input.workflow_revision,
+        task_id=bootstrap_input.task_id,
+    )
+    if materialized != bootstrap_input.initial_team:
+        raise ValueError("initial Team materialization changed its admitted plan")
 
     session.add(TaskEventStreamHeadModel(task_id=bootstrap_input.task_id))
     session.add(
@@ -100,21 +104,11 @@ async def _stage_task_root_rows(
         )
     )
     session.add(
-        TaskComposeModel(
-            task_compose_id=task_compose_id_for_task(bootstrap_input.task_id),
-            task_id=bootstrap_input.task_id,
-            workflow_key=bootstrap_input.task_compose.workflow.key,
-            workflow_revision_no=bootstrap_input.compiled_plan.definition_revision_no,
-            compiled_plan_id=context.compiled_plan_id,
-            compose_payload=bootstrap_input.task_compose.model_dump(mode="json"),
-        )
-    )
-    session.add(
         CompiledPlanModel(
             compiled_plan_id=context.compiled_plan_id,
             task_id=bootstrap_input.task_id,
             workflow_key=bootstrap_input.compiled_plan.workflow_key,
-            definition_revision_no=bootstrap_input.compiled_plan.definition_revision_no,
+            workflow_revision_no=bootstrap_input.compiled_plan.definition_revision_no,
             compiler_version=bootstrap_input.compiled_plan.compiler_version,
             snapshot_json=bootstrap_input.compiled_plan.model_dump(mode="json"),
         )
@@ -137,13 +131,6 @@ async def _stage_compiled_plan_graph_rows(
     context: LaunchBootstrapPersistenceContext,
 ) -> None:
     for node in bootstrap_input.compiled_plan.nodes:
-        role, policy = resolve_pinned_role_policy(
-            bootstrap_input.role_policy_lookup,
-            role_key=node.role,
-            role_revision_no=node.role_revision_no,
-            policy_key=node.policy,
-            policy_revision_no=node.policy_revision_no,
-        )
         session.add(
             CompiledPlanNodeModel(
                 compiled_plan_node_id=compiled_plan_node_id(
@@ -154,15 +141,13 @@ async def _stage_compiled_plan_graph_rows(
                 node_key=node.node_key,
                 parent_node_key=node.parent_node_key,
                 structural_kind=node.structural_kind.value,
-                role_key=node.role,
-                role_revision_no=node.role_revision_no,
-                role_description=role.definition.description,
-                role_instruction=role.definition.instruction,
-                policy_key=node.policy,
-                policy_revision_no=node.policy_revision_no,
-                policy_description=policy.definition.description,
-                policy_instruction=policy.definition.instruction,
-                provider_kind=node.provider.kind.value if node.provider is not None else None,
+                task_id=bootstrap_input.task_id,
+                team_revision_id=bootstrap_input.initial_team.team_revision_id,
+                member_id=node.member_id,
+                member_configuration_id=node.member_configuration_id,
+                member_branch_basis_id=node.member_branch_basis_id,
+                member_title=node.title,
+                provider_kind=node.provider.kind if node.provider is not None else None,
                 description=node.description,
                 node_instruction=node.node_instruction,
                 child_node_keys_json=list(node.child_node_keys),
@@ -181,13 +166,13 @@ async def _stage_compiled_plan_graph_rows(
                 compiled_plan_edge_id=compiled_plan_edge_id(
                     context.compiled_plan_id,
                     edge.consumer_node_key,
-                    edge.kind.value,
+                    edge.kind,
                     edge.slot,
                 ),
                 compiled_plan_id=context.compiled_plan_id,
                 provider_node_key=edge.provider_node_key,
                 consumer_node_key=edge.consumer_node_key,
-                kind=edge.kind.value,
+                kind=edge.kind,
                 slot=edge.slot,
                 description=edge.description,
                 order_index=edge.order_index,
@@ -258,35 +243,16 @@ def _stage_flow_node_rows(
     flow_node_rows: list[FlowNodeModel] = []
     node_plan_revision_inputs: list[NodePlanRevisionInput] = []
     for node in bootstrap_input.compiled_plan.nodes:
-        role, policy = resolve_pinned_role_policy(
-            bootstrap_input.role_policy_lookup,
-            role_key=node.role,
-            role_revision_no=node.role_revision_no,
-            policy_key=node.policy,
-            policy_revision_no=node.policy_revision_no,
-        )
         flow_node = build_flow_node_row(
             result=result,
             flow_revision=flow_revision,
             context=context,
             bootstrap_input=bootstrap_input,
             node=node,
-            role_description=role.definition.description,
-            role_instruction=role.definition.instruction,
-            policy_description=policy.definition.description,
-            policy_instruction=policy.definition.instruction,
         )
         session.add(flow_node)
         flow_node_rows.append(flow_node)
-        node_plan_revision_inputs.append(
-            (
-                node,
-                role.definition.description,
-                role.definition.instruction,
-                policy.definition.description,
-                policy.definition.instruction,
-            )
-        )
+        node_plan_revision_inputs.append((node,))
     return flow_node_rows, node_plan_revision_inputs
 
 
@@ -300,13 +266,7 @@ def _stage_node_plan_revision_rows(
 ) -> None:
     for (
         flow_node,
-        (
-            node,
-            role_description,
-            role_instruction,
-            policy_description,
-            policy_instruction,
-        ),
+        (node,),
     ) in zip(flow_node_rows, node_plan_revision_inputs, strict=True):
         session.add(
             build_node_plan_revision_row(
@@ -314,9 +274,5 @@ def _stage_node_plan_revision_rows(
                 flow_node=flow_node,
                 bootstrap_input=bootstrap_input,
                 node=node,
-                role_description=role_description,
-                role_instruction=role_instruction,
-                policy_description=policy_description,
-                policy_instruction=policy_instruction,
             )
         )

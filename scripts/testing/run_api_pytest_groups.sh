@@ -46,8 +46,7 @@ list_suite() {
   case "$suite" in
     integration|integration-local)
       describe_group \
-        "definition-registry-and-runtime-schema" \
-        tests/integration/definition_registry \
+        "workflow-and-runtime-schema" \
         tests/integration/runtime_schema_contract \
         tests/integration/test_readyz_real_db.py \
         tests/integration/test_startup_schema_guard.py \
@@ -56,9 +55,12 @@ list_suite() {
       describe_group "runtime" tests/integration/runtime
       describe_group "mcp" tests/integration/mcp
       describe_group "public-surfaces" tests/integration/public_surfaces
+      describe_group "workflow-authoring" tests/integration/workflows
       ;;
     e2e-bounded)
-      describe_group "workflow-bounded" tests/e2e/workflows/test_registry_start_provider.py
+      describe_group \
+        "workflow-bounded" \
+        tests/e2e/workflows/test_published_workflow_start.py
       ;;
     e2e-reviewed)
       describe_group \
@@ -84,8 +86,7 @@ list_suite() {
 
 run_integration_groups() {
   run_group \
-    "definition-registry-and-runtime-schema" \
-    tests/integration/definition_registry \
+    "workflow-and-runtime-schema" \
     tests/integration/runtime_schema_contract \
     tests/integration/test_readyz_real_db.py \
     tests/integration/test_startup_schema_guard.py \
@@ -94,13 +95,16 @@ run_integration_groups() {
   run_group "runtime" tests/integration/runtime
   run_group "mcp" tests/integration/mcp
   run_group "public-surfaces" tests/integration/public_surfaces
+  run_group "workflow-authoring" tests/integration/workflows
 }
 
 run_e2e_suite() {
   suite="$1"
   case "$suite" in
     e2e-bounded)
-      run_group "workflow-bounded" tests/e2e/workflows/test_registry_start_provider.py
+      run_group \
+        "workflow-bounded" \
+        tests/e2e/workflows/test_published_workflow_start.py
       ;;
     e2e-reviewed)
       run_group \

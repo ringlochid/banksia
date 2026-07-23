@@ -11,7 +11,10 @@ from sqlalchemy.exc import IntegrityError
 from tests.helpers.catalog_seed import seed_catalog
 from tests.helpers.lineage_seed import (
     RuntimeIds,
+    member_branch_basis_id,
+    member_configuration_id,
     seed_runtime_scope,
+    team_revision_id,
 )
 from tests.helpers.sqlite_runtime import (
     create_runtime_schema_engine,
@@ -140,51 +143,57 @@ def test_dispatch_node_must_belong_to_its_assignment(tmp_path: Path) -> None:
         ("node_plan_revisions", "flow_node_id", "flow-node.a.root"),
     ),
 )
-@pytest.mark.parametrize("policy_field", ("policy_key", "policy_revision_no"))
-def test_runtime_node_policy_identity_and_revision_are_required(
+@pytest.mark.parametrize(
+    "team_selection_field",
+    (
+        "team_revision_id",
+        "member_id",
+        "member_configuration_id",
+        "member_branch_basis_id",
+    ),
+)
+def test_runtime_node_exact_team_selection_is_required(
     tmp_path: Path,
     table_name: str,
     where_column: str,
     where_value: str,
-    policy_field: str,
+    team_selection_field: str,
 ) -> None:
     def mutate(connection: Connection, scopes: dict[str, RuntimeIds]) -> None:
         del scopes
         table = RuntimeBase.metadata.tables[table_name]
         connection.execute(
-            table.update().where(table.c[where_column] == where_value).values({policy_field: None})
+            table.update()
+            .where(table.c[where_column] == where_value)
+            .values({team_selection_field: None})
         )
 
     _assert_rejected(tmp_path, mutate)
 
 
-@pytest.mark.parametrize("definition_kind", ("workflow", "role", "policy"))
-def test_definition_revision_numbers_are_positive(
-    tmp_path: Path,
-    definition_kind: str,
-) -> None:
+def test_workflow_revision_numbers_are_positive(tmp_path: Path) -> None:
     def mutate(connection: Connection, scopes: dict[str, RuntimeIds]) -> None:
         del scopes
         tables = RuntimeBase.metadata.tables
-        key_column = f"{definition_kind}_key"
-        definition_key = f"{definition_kind}.invalid-revision"
+        workflow_key = "workflow.invalid-revision"
         connection.execute(
-            tables[f"{definition_kind}_definitions"].insert(),
+            tables["workflow_definitions"].insert(),
             {
-                key_column: definition_key,
+                "workflow_key": workflow_key,
                 "current_revision_no": None,
                 "created_at": NOW,
                 "updated_at": NOW,
             },
         )
         connection.execute(
-            tables[f"{definition_kind}_revisions"].insert(),
+            tables["workflow_revisions"].insert(),
             {
-                f"{definition_kind}_revision_id": f"{definition_kind}-revision.invalid",
-                key_column: definition_key,
+                "workflow_revision_id": "workflow-revision.invalid",
+                "workflow_key": workflow_key,
                 "revision_no": 0,
-                "content_hash": "invalid",
+                "content_hash": "0" * 64,
                 "content_json": {},
+                "provenance": "user",
                 "source_path": None,
                 "created_at": NOW,
             },
@@ -374,6 +383,13 @@ def test_watchdog_close_is_illegal_before_provider_acceptance(tmp_path: Path) ->
     (
         {"model_override": ""},
         {"effort_override": "   "},
+        {"model_source": "member_configuration"},
+        {"effort_source": "member_configuration"},
+        {
+            "model_override": "authored",
+            "model_source": "member_configuration",
+            "provider_selection_basis": "default",
+        },
         {
             "requested_provider": "openclaw",
             "resolved_provider": "openclaw",
@@ -392,6 +408,9 @@ def test_watchdog_close_is_illegal_before_provider_acceptance(tmp_path: Path) ->
     ids=(
         "empty-model-override",
         "blank-effort-override",
+        "authored-model-source-without-value",
+        "authored-effort-source-without-value",
+        "authored-field-source-on-default-provider",
         "empty-gateway-profile",
         "gateway-field-on-codex",
         "model-field-on-openclaw",
@@ -439,6 +458,12 @@ def _closed_successor_row(
         "task_id": ids.task_id,
         "flow_id": ids.flow_id,
         "assignment_id": ids.root_assignment_id,
+        "flow_revision_id": ids.flow_revision_id,
+        "flow_node_id": ids.root_node_id,
+        "team_revision_id": team_revision_id(ids),
+        "member_id": "root",
+        "member_configuration_id": member_configuration_id(ids, "root"),
+        "member_branch_basis_id": member_branch_basis_id(ids, "root"),
         "attempt_id": ids.root_attempt_id,
         "node_key": node_key,
         "flow_start_source_flow_id": None,
@@ -450,8 +475,11 @@ def _closed_successor_row(
         "provider_selection_basis": "default",
         "provider_route_kind": "codex",
         "model_override": None,
+        "model_source": "provider_configuration",
         "effort_override": None,
+        "effort_source": "provider_configuration",
         "gateway_profile": None,
+        "gateway_profile_source": None,
         "provider_start_revision": 0,
         "provider_start_attempt_count": 0,
         "next_provider_start_at": None,

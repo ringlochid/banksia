@@ -291,6 +291,11 @@ async def _make_child_current(
         assert child_node is not None
         assert child_assignment is not None
         dispatch.assignment_id = ids.child_assignment_id
+        dispatch.flow_node_id = child_node.flow_node_id
+        dispatch.team_revision_id = child_assignment.team_revision_id
+        dispatch.member_id = child_assignment.member_id
+        dispatch.member_configuration_id = child_assignment.member_configuration_id
+        dispatch.member_branch_basis_id = child_assignment.member_branch_basis_id
         dispatch.attempt_id = ids.child_attempt_id
         dispatch.node_key = "child"
         root_node.state = "waiting"

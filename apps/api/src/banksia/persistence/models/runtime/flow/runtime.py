@@ -233,6 +233,12 @@ class FlowRevisionModel(RuntimeBase):
     __table_args__ = (
         UniqueConstraint("flow_id", "revision_no"),
         UniqueConstraint("flow_id", "flow_revision_id"),
+        UniqueConstraint(
+            "flow_id",
+            "flow_revision_id",
+            "parent_flow_revision_id",
+            name="uq_flow_revisions_exact_parent",
+        ),
         ForeignKeyConstraint(
             ["flow_id", "parent_flow_revision_id"],
             ["flow_revisions.flow_id", "flow_revisions.flow_revision_id"],

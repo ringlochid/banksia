@@ -1,19 +1,12 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from banksia.definitions.contracts.registry import (
-    CapabilityDecision as AuthoredCapabilityDecision,
-)
-from banksia.definitions.contracts.registry import (
-    NetworkAccess,
-    PolicyDefinitionInput,
-    ProviderNativeAccess,
-)
-from banksia.persistence.models import FlowNodeModel, PolicyRevisionModel
+from banksia.persistence.models import FlowNodeModel, MemberConfigurationModel
+from banksia.providers import NetworkAccess, ProviderNativeAccess
 from banksia.runtime.contracts.capabilities import (
     CapabilityCeilingSet,
     CapabilityRejectionError,
@@ -22,107 +15,145 @@ from banksia.runtime.contracts.capabilities import (
     EffectiveNetworkAccess,
     EffectiveProviderNativeAccess,
     HumanRequestCapabilitySet,
+    HumanRequestCapabilitySources,
 )
 from banksia.runtime.contracts.primitives import CapabilityDecision, HumanRequestKind
+from banksia.workflows.contracts import MemberCapabilities
 
 HUMAN_REQUEST_DENIED_NEXT_LEGAL_ACTION = None
 COMMAND_RUN_DENIED_NEXT_LEGAL_ACTION = (
     "avoid long command; for example, run focused tests one by one rather than the whole test suite"
 )
 
-_SOURCE_PRIORITY = {
-    CapabilitySource.DEFAULT: 0,
-    CapabilitySource.POLICY_DEFINITION: 1,
-    CapabilitySource.TASK_POLICY: 2,
-    CapabilitySource.CONTROLLER: 3,
-}
-_PROVIDER_NATIVE_RESTRICTION = {
-    ProviderNativeAccess.FULL: 0,
-    ProviderNativeAccess.RESTRICTED: 1,
-    ProviderNativeAccess.DENIED: 2,
-}
-_NETWORK_RESTRICTION = {
-    NetworkAccess.ALLOW: 0,
-    NetworkAccess.DENY: 1,
-}
-
 
 async def resolve_effective_capabilities_for_node(
     session: AsyncSession,
     *,
     node: FlowNodeModel,
-    task_policy: CapabilityCeilingSet | None = None,
     controller: CapabilityCeilingSet | None = None,
 ) -> EffectiveCapabilitySet:
-    policy_content = await _pinned_policy_content(session, node=node)
-    return resolve_effective_capabilities_from_policy_content(
-        policy_content,
-        task_policy=task_policy,
+    """Resolve residual Flow execution through its exact MemberConfiguration pin."""
+
+    return await resolve_effective_capabilities_for_member_configuration(
+        session,
+        task_id=node.task_id,
+        member_configuration_id=node.member_configuration_id,
         controller=controller,
     )
 
 
-def resolve_effective_capabilities_from_policy_content(
-    policy_content: Mapping[str, object] | PolicyDefinitionInput | None,
+async def resolve_effective_capabilities_for_member_configuration(
+    session: AsyncSession,
     *,
-    task_policy: CapabilityCeilingSet | None = None,
+    task_id: str,
+    member_configuration_id: str,
     controller: CapabilityCeilingSet | None = None,
 ) -> EffectiveCapabilitySet:
-    policy = _policy_definition(policy_content)
-    explicitly_authored_axes = _explicitly_authored_capability_axes(policy_content, policy)
-
-    native_candidates = [(ProviderNativeAccess.FULL, CapabilitySource.DEFAULT)]
-    network_candidates = [(NetworkAccess.ALLOW, CapabilitySource.DEFAULT)]
-    if policy is not None:
-        if "provider_native_access" in explicitly_authored_axes:
-            native_candidates.append(
-                (
-                    policy.capabilities.provider_native_access,
-                    CapabilitySource.POLICY_DEFINITION,
-                )
-            )
-        if "network_access" in explicitly_authored_axes:
-            network_candidates.append(
-                (policy.capabilities.network_access, CapabilitySource.POLICY_DEFINITION)
-            )
-    _append_ceiling_candidates(
-        native_candidates=native_candidates,
-        network_candidates=network_candidates,
-        ceilings=task_policy,
-        source=CapabilitySource.TASK_POLICY,
+    configuration = await session.scalar(
+        select(MemberConfigurationModel).where(
+            MemberConfigurationModel.task_id == task_id,
+            MemberConfigurationModel.member_configuration_id == member_configuration_id,
+        )
     )
-    _append_ceiling_candidates(
-        native_candidates=native_candidates,
-        network_candidates=network_candidates,
-        ceilings=controller,
-        source=CapabilitySource.CONTROLLER,
+    if configuration is None:
+        raise ValueError(
+            f"MemberConfiguration {member_configuration_id!r} does not belong to Task {task_id!r}"
+        )
+    return resolve_effective_capabilities_from_member_request(
+        configuration.requested_capabilities_json,
+        controller=controller,
     )
 
-    native_effective, native_source = max(
-        native_candidates,
-        key=lambda item: (
-            _PROVIDER_NATIVE_RESTRICTION[item[0]],
-            _SOURCE_PRIORITY[item[1]],
-        ),
+
+def resolve_effective_capabilities_from_member_request(
+    requested: Mapping[str, object] | MemberCapabilities | None,
+    *,
+    controller: CapabilityCeilingSet | None = None,
+) -> EffectiveCapabilitySet:
+    """Resolve one Member's default-deny request with controller narrowing only."""
+
+    authored = _member_capabilities(requested)
+    requested_human = set(authored.human_request or ()) if authored is not None else set()
+    effective_human = set(requested_human)
+    requested_human_source = (
+        CapabilitySource.MEMBER_CONFIGURATION
+        if authored is not None and authored.human_request is not None
+        else CapabilitySource.DEFAULT
     )
-    network_effective, network_source = max(
-        network_candidates,
-        key=lambda item: (
-            _NETWORK_RESTRICTION[item[0]],
-            _SOURCE_PRIORITY[item[1]],
-        ),
+    human_sources = {kind.value: requested_human_source for kind in HumanRequestKind}
+    if controller is not None and controller.allowed_human_request_kinds is not None:
+        effective_human.intersection_update(controller.allowed_human_request_kinds)
+        for removed_kind in requested_human - effective_human:
+            human_sources[removed_kind] = CapabilitySource.CONTROLLER
+
+    requested_command_run = (
+        CapabilityDecision.ALLOW
+        if authored is not None and authored.command_run == "allow"
+        else CapabilityDecision.DENY
     )
+    command_run = requested_command_run
+    command_run_source = (
+        CapabilitySource.MEMBER_CONFIGURATION
+        if authored is not None and authored.command_run is not None
+        else CapabilitySource.DEFAULT
+    )
+    if controller is not None and controller.command_run is CapabilityDecision.DENY:
+        command_run = CapabilityDecision.DENY
+        if command_run != requested_command_run:
+            command_run_source = CapabilitySource.CONTROLLER
+
     return EffectiveCapabilitySet(
         provider_native_access=EffectiveProviderNativeAccess(
-            effective=native_effective,
-            source=native_source,
+            effective=(
+                controller.provider_native_access
+                if controller is not None and controller.provider_native_access is not None
+                else ProviderNativeAccess.FULL
+            ),
+            source=(
+                CapabilitySource.CONTROLLER
+                if controller is not None and controller.provider_native_access is not None
+                else CapabilitySource.DEFAULT
+            ),
         ),
         network_access=EffectiveNetworkAccess(
-            effective=network_effective,
-            source=network_source,
+            effective=(
+                controller.network_access
+                if controller is not None and controller.network_access is not None
+                else NetworkAccess.ALLOW
+            ),
+            source=(
+                CapabilitySource.CONTROLLER
+                if controller is not None and controller.network_access is not None
+                else CapabilitySource.DEFAULT
+            ),
         ),
-        human_request=_resolve_human_request_capabilities(policy),
-        command_run=_resolve_command_run_capability(policy),
+        requested_human_request=HumanRequestCapabilitySet(
+            direction=_decision("direction", requested_human),
+            approval=_decision("approval", requested_human),
+            input=_decision("input", requested_human),
+            review=_decision("review", requested_human),
+        ),
+        requested_human_request_source=requested_human_source,
+        human_request=HumanRequestCapabilitySet(
+            direction=_decision("direction", effective_human),
+            approval=_decision("approval", effective_human),
+            input=_decision("input", effective_human),
+            review=_decision("review", effective_human),
+        ),
+        human_request_sources=HumanRequestCapabilitySources(
+            direction=human_sources[HumanRequestKind.DIRECTION.value],
+            approval=human_sources[HumanRequestKind.APPROVAL.value],
+            input=human_sources[HumanRequestKind.INPUT.value],
+            review=human_sources[HumanRequestKind.REVIEW.value],
+        ),
+        requested_command_run=requested_command_run,
+        requested_command_run_source=(
+            CapabilitySource.MEMBER_CONFIGURATION
+            if authored is not None and authored.command_run is not None
+            else CapabilitySource.DEFAULT
+        ),
+        command_run=command_run,
+        command_run_source=command_run_source,
     )
 
 
@@ -141,7 +172,7 @@ def capability_rejection_for_human_request(
     capability = f"human_request.{normalized_kind.value}"
     return CapabilityRejectionError(
         capability=capability,
-        message=f"current node policy does not allow {capability} from this node",
+        message=f"current Member configuration does not allow {capability}",
         next_legal_action=HUMAN_REQUEST_DENIED_NEXT_LEGAL_ACTION,
     )
 
@@ -153,84 +184,23 @@ def capability_rejection_for_command_run(
         return None
     return CapabilityRejectionError(
         capability="command_run",
-        message=(
-            "current node policy does not allow controller-managed command_run from this node"
-        ),
+        message=("current Member configuration does not allow controller-managed command_run"),
         next_legal_action=COMMAND_RUN_DENIED_NEXT_LEGAL_ACTION,
     )
 
 
-def _policy_definition(
-    policy_content: Mapping[str, object] | PolicyDefinitionInput | None,
-) -> PolicyDefinitionInput | None:
-    if policy_content is None:
+def _member_capabilities(
+    requested: Mapping[str, object] | MemberCapabilities | None,
+) -> MemberCapabilities | None:
+    if requested is None:
         return None
-    if isinstance(policy_content, PolicyDefinitionInput):
-        return policy_content
-    return PolicyDefinitionInput.model_validate(policy_content)
+    if isinstance(requested, MemberCapabilities):
+        return requested
+    return MemberCapabilities.model_validate(requested)
 
 
-def _explicitly_authored_capability_axes(
-    policy_content: Mapping[str, object] | PolicyDefinitionInput | None,
-    policy: PolicyDefinitionInput | None,
-) -> frozenset[str]:
-    if policy is None:
-        return frozenset()
-    if isinstance(policy_content, Mapping):
-        capabilities = policy_content.get("capabilities")
-        if isinstance(capabilities, Mapping):
-            return frozenset(str(key) for key in capabilities)
-        return frozenset()
-    return frozenset(policy.capabilities.model_fields_set)
-
-
-def _append_ceiling_candidates(
-    *,
-    native_candidates: list[tuple[ProviderNativeAccess, CapabilitySource]],
-    network_candidates: list[tuple[NetworkAccess, CapabilitySource]],
-    ceilings: CapabilityCeilingSet | None,
-    source: CapabilitySource,
-) -> None:
-    if ceilings is None:
-        return
-    if ceilings.provider_native_access is not None:
-        native_candidates.append((ceilings.provider_native_access, source))
-    if ceilings.network_access is not None:
-        network_candidates.append((ceilings.network_access, source))
-
-
-def _resolve_human_request_capabilities(
-    policy: PolicyDefinitionInput | None,
-) -> HumanRequestCapabilitySet:
-    if policy is None or policy.capabilities.human_request.mode != AuthoredCapabilityDecision.ALLOW:
-        return HumanRequestCapabilitySet()
-
-    allowed_kinds = {
-        HumanRequestKind(kind.value) for kind in policy.capabilities.human_request.allowed_kinds
-    }
-    return HumanRequestCapabilitySet(
-        direction=_human_request_decision(HumanRequestKind.DIRECTION, allowed_kinds),
-        approval=_human_request_decision(HumanRequestKind.APPROVAL, allowed_kinds),
-        input=_human_request_decision(HumanRequestKind.INPUT, allowed_kinds),
-        review=_human_request_decision(HumanRequestKind.REVIEW, allowed_kinds),
-    )
-
-
-def _resolve_command_run_capability(
-    policy: PolicyDefinitionInput | None,
-) -> CapabilityDecision:
-    if policy is not None and policy.capabilities.command_run == AuthoredCapabilityDecision.ALLOW:
-        return CapabilityDecision.ALLOW
-    return CapabilityDecision.DENY
-
-
-def _human_request_decision(
-    request_kind: HumanRequestKind,
-    allowed_kinds: set[HumanRequestKind],
-) -> CapabilityDecision:
-    if request_kind in allowed_kinds:
-        return CapabilityDecision.ALLOW
-    return CapabilityDecision.DENY
+def _decision(kind: str, allowed: Collection[str]) -> CapabilityDecision:
+    return CapabilityDecision.ALLOW if kind in allowed else CapabilityDecision.DENY
 
 
 def _human_request_kind(request_kind: HumanRequestKind | str) -> HumanRequestKind:
@@ -239,30 +209,13 @@ def _human_request_kind(request_kind: HumanRequestKind | str) -> HumanRequestKin
     return HumanRequestKind(request_kind)
 
 
-async def _pinned_policy_content(
-    session: AsyncSession,
-    *,
-    node: FlowNodeModel,
-) -> Mapping[str, object] | None:
-    if node.policy_key is None or node.policy_revision_no is None:
-        return None
-    revision = await session.scalar(
-        select(PolicyRevisionModel).where(
-            PolicyRevisionModel.policy_key == node.policy_key,
-            PolicyRevisionModel.revision_no == node.policy_revision_no,
-        )
-    )
-    if revision is None:
-        return None
-    return revision.content_json
-
-
 __all__ = [
     "COMMAND_RUN_DENIED_NEXT_LEGAL_ACTION",
     "HUMAN_REQUEST_DENIED_NEXT_LEGAL_ACTION",
     "capability_rejection_for_command_run",
     "capability_rejection_for_human_request",
     "default_effective_capabilities",
+    "resolve_effective_capabilities_for_member_configuration",
     "resolve_effective_capabilities_for_node",
-    "resolve_effective_capabilities_from_policy_content",
+    "resolve_effective_capabilities_from_member_request",
 ]

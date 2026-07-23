@@ -12,7 +12,6 @@ from pathlib import Path
 
 import pytest
 from banksia.config import Settings
-from banksia.definitions.contracts.workflow import ProviderKind
 from banksia.interfaces.cli.commands import providers as provider_commands
 from banksia.interfaces.cli.main import build_parser
 from banksia.interfaces.cli.providers import inspection as provider_inspection
@@ -27,6 +26,7 @@ from banksia.interfaces.cli.providers.contracts import (
     ProviderConfigurationSnapshot,
 )
 from banksia.platform.provider_environment import ANTHROPIC_API_KEY, persist_provider_secret
+from banksia.providers import ProviderKind
 from banksia.runtime.providers import (
     ProviderAuthenticationMethod,
     ProviderCheckAxisStatus,

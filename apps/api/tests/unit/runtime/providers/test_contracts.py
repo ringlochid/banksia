@@ -5,8 +5,12 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 import pytest
-from banksia.definitions.contracts.registry import NetworkAccess, ProviderNativeAccess
-from banksia.definitions.contracts.workflow import ProviderKind
+from banksia.providers import (
+    ManagedSandboxMode,
+    NetworkAccess,
+    ProviderKind,
+    ProviderNativeAccess,
+)
 from banksia.runtime.contracts.provider_resolution import (
     CodexProviderRoute,
     OpenClawProviderRoute,
@@ -53,6 +57,7 @@ def test_dispatch_start_request_requires_provider_projection() -> None:
             provider_route=CodexProviderRoute(kind=ProviderKind.CODEX),
             provider_native_access=ProviderNativeAccess.FULL,
             network_access=NetworkAccess.ALLOW,
+            sandbox_mode=ManagedSandboxMode.FULL_ACCESS,
             compatibility_node_mcp=CompatibilityNodeMcpConnection(
                 url="http://127.0.0.1:8123/node/mcp"
             ),

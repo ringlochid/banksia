@@ -61,7 +61,7 @@ While children exist, the prompt tells a Manager not to replace their substantiv
 
 ### Required participation
 
-Before a Manager can finish green, every **current direct child configuration** must have at least one accepted green terminal return whose recorded Assignment-pinned branch basis equals that direct-child branch's basis in the current TeamRevision.
+Before a Manager can finish green, every **current direct child configuration** must have at least one accepted green terminal return whose recorded authoring Dispatch branch basis equals that direct-child branch's basis in the current TeamRevision.
 
 - “At least once” allows repeated implementation, review, repair, and batch Assignments.
 - A blocked return settles work but does not satisfy participation.
@@ -71,7 +71,7 @@ Before a Manager can finish green, every **current direct child configuration** 
 - Unchanged prior returns remain historical evidence but cannot validate a new configuration basis.
 - An irrelevant child should be removed, not given filler work.
 
-Assignment records pin the member configuration and branch basis they execute; an accepted green return records that basis as the participation it satisfies. Terminal green admission derives participation by exact current-basis relationship, never timestamp or broad revision comparison, rather than introducing an authored criteria/evidence model.
+Assignment records pin the immutable work message and Task-scoped member identity. Each Dispatch pins the exact FlowRevision, FlowNode, TeamRevision, MemberConfiguration, and branch basis used for that provider turn. An accepted green return records its authoring Dispatch basis as the participation it satisfies. Terminal green admission derives participation by exact current-basis relationship, never timestamp or broad revision comparison, rather than introducing an authored criteria/evidence model.
 
 ## Work Plan and planning patterns
 
@@ -127,7 +127,7 @@ One atomic start service:
 
 A validation rejection performs no Task, workspace, reference, Dispatch, or provider mutation. A crash or filesystem/DB failure after staging may leave only its controller-marked initialization directory. Startup recovery may remove that directory only when no Task committed; a committed Task with a remaining marker is repaired in place. Reset and generic cleanup never recursively delete an accepted `.banksia/t_<id>/` directory.
 
-Workflow-authored Member IDs become Task-scoped Member identities. They and controller-issued replan IDs are unique and never reused within one Task, not in a global namespace across unrelated Workflows or Tasks. Every immutable MemberConfiguration records its predecessor/basis and the TeamRevision that selects it; Assignments pin the exact MemberConfiguration and branch basis they execute.
+Workflow-authored Member IDs become Task-scoped Member identities. They and controller-issued replan IDs are unique and never reused within one Task, not in a global namespace across unrelated Workflows or Tasks. Every immutable MemberConfiguration records its predecessor/basis and the TeamRevision that selects it. Assignments retain the Task-scoped member and immutable work message; Dispatches pin the exact selected MemberConfiguration and branch basis they execute.
 
 ## Assignment, Attempt, and Dispatch
 
@@ -140,7 +140,7 @@ Assignment
   id
   task_id
   parent_assignment_id?
-  member configuration basis
+  member_id
   prompt
   ordered FileReference values
   creating Dispatch/source
@@ -169,17 +169,23 @@ At most one current/first Dispatch exists per Attempt. Same-Attempt Dispatch pre
 
 ### Dispatch and request
 
-Dispatch is the exact current provider turn. It commits with one immutable request:
+Dispatch is the exact current provider turn and execution snapshot. It commits with exact structural/configuration pins and one immutable request:
 
 ```text
-DispatchRequest
+Dispatch
   dispatch_id
-  exact resolved instructions
-  exact resolved input
-  created_at
+  assignment_id
+  attempt_id
+  flow_revision_id
+  flow_node_id
+  team_revision_id
+  member_id
+  member_configuration_id
+  member_branch_basis_id
+  DispatchRequest { exact resolved instructions, exact resolved input, created_at }
 ```
 
-Adapters receive those two strings and exact effective provider configuration. They do not rerender from current Workflow or filesystem state. Restarting the same Dispatch resends byte-identical strings. A successor Dispatch receives a new request containing its exact continuation.
+Adapters receive those two strings and exact effective provider configuration. The Assignment and Attempt may remain the same across a continuation, while a fresh Dispatch selects current Flow/Team/configuration truth. No continuation mutates an older Dispatch snapshot or rewrites its request. Adapters do not rerender from current Workflow or filesystem state. Restarting the same Dispatch resends byte-identical strings. A successor Dispatch receives a new request containing its exact continuation.
 
 Assignment and continuation lineage remain distinct. Every Dispatch input contains the complete Assignment. An initial Dispatch has no Continuation or trigger. A successor has exactly one typed Continuation whose nested trigger owns:
 
@@ -451,11 +457,11 @@ Every replan operation:
 9. atomically regenerates `manifest.md`; and
 10. returns fresh current direct children, participation, derived behavior, legal actions, and created/changed/removed IDs.
 
-An accepted replan closes the source Dispatch and records its exact structural result. After `manifest.md` is confirmed current, a separate idempotent transition opens exactly one successor Dispatch on the same Attempt. Its Continuation trigger identifies the committed replan result and carries the fresh team, participation, behavior, capabilities, and legal actions. The provider stops after the accepted mutation; it never continues under the old behavior block.
+An accepted replan closes the source Dispatch and records its exact structural result. After `manifest.md` is confirmed current, a separate idempotent transition opens exactly one successor Dispatch on the same Assignment and Attempt. The successor alone pins the fresh FlowRevision, FlowNode, TeamRevision, MemberConfiguration, and branch basis. Its Continuation trigger identifies the committed replan result and carries the fresh team, participation, behavior, capabilities, and legal actions. The provider stops after the accepted mutation; it never continues under the old behavior block.
 
 If manifest projection fails, the Attempt remains in an explicit recoverable between-transitions state with no provider work started. Repair regenerates the manifest from DB truth and then performs the same one-winner successor open. It does not roll back the TeamRevision, fabricate an AttemptWait, or ask the closed provider turn to recover itself.
 
-Updates affect future Assignments/Dispatches only. No replan mutates work already created against an older configuration. The operation rejects updates or removals affecting pending/running work; cancellation is separate.
+Updates affect future Dispatches and newly created Assignments only. An existing Assignment may receive a same-Attempt continuation Dispatch using the new current member configuration because the Assignment owns the work message, not the execution snapshot. No replan mutates an older Dispatch or its request. The operation rejects updates or removals affecting other pending/running work; cancellation is separate.
 
 A projection failure does not roll back committed controller truth, but it marks the Task workspace projection unhealthy and blocks later Dispatch start until repair. Agents never infer mutation success from the file.
 

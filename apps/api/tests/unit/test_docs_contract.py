@@ -384,31 +384,6 @@ def test_versionless_canon_rejects_ignored_dependencies_except_n8n_protocol(
     }
 
 
-def test_definition_examples_must_match_shipped_seeds(tmp_path: Path) -> None:
-    validator, _ = contract_modules()
-    build_valid_contract_tree(tmp_path)
-    write_page(
-        tmp_path,
-        "docs/reference/overview.md",
-        "# Reference\n\n[Example](definitions/workflows/example.md)\n",
-    )
-    seed = "kind: workflow\nid: example\ndescription: Current example\n"
-    write_page(
-        tmp_path,
-        "apps/api/src/banksia/definitions/seeds/workflows/example.yaml",
-        seed,
-    )
-    example_path = "docs/reference/definitions/workflows/example.md"
-    write_page(tmp_path, example_path, f"# Example\n\n```yaml\n{seed}```\n")
-
-    matching_report = validator.build_contract_report(tmp_path)
-    assert "definition-example" not in finding_categories(matching_report)
-
-    write_page(tmp_path, example_path, "# Example\n\n```yaml\nid: stale\n```\n")
-    stale_report = validator.build_contract_report(tmp_path)
-    assert "definition-example" in finding_categories(stale_report)
-
-
 def test_front_door_reports_unreachable_pages(tmp_path: Path) -> None:
     validator, _ = contract_modules()
     build_valid_contract_tree(tmp_path)

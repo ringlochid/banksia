@@ -17,8 +17,8 @@ from banksia.persistence.models import (
 from banksia.runtime.assignment import (
     AssignmentBudgetSnapshot,
     AssignmentDurableInputs,
+    read_task_assignment_budget_snapshot,
     resolve_child_assignment_durable_inputs,
-    snapshot_assignment_budget,
 )
 from banksia.runtime.clock import utc_now
 from banksia.runtime.contracts import (
@@ -50,10 +50,8 @@ from banksia.runtime.node_operations.release import (
     require_release_green_basis,
 )
 from banksia.runtime.node_operations.result_reads import runtime_flow_read
-from banksia.runtime.node_operations.structural_candidate.definitions import (
-    resolve_pinned_policy_definition,
-)
 from banksia.runtime.projection.signals import AttemptAssignmentProjection
+from banksia.runtime.replan import commit_replan
 from banksia.runtime.task_events import append_task_event
 
 
@@ -63,24 +61,15 @@ async def execute_structural_node_operation(
     operation_name: NodeOperationName,
     request: BaseModel,
 ) -> BaseModel:
-    if operation_name == NodeOperationName.ASSIGN_CHILD:
-        assert isinstance(request, AssignChildRequest)
-        return await _assign_child(session, authority, request)
     if operation_name in {
         NodeOperationName.ADD_CHILD,
         NodeOperationName.UPDATE_CHILD,
         NodeOperationName.REMOVE_CHILD,
     }:
-        from banksia.runtime.node_operations.structural_revisions import (
-            adopt_structural_revision,
-        )
-
-        return await adopt_structural_revision(
-            session,
-            authority,
-            operation_name,
-            request,
-        )
+        return await commit_replan(session, authority, operation_name, request)
+    if operation_name == NodeOperationName.ASSIGN_CHILD:
+        assert isinstance(request, AssignChildRequest)
+        return await _assign_child(session, authority, request)
     if operation_name == NodeOperationName.RELEASE_GREEN:
         assert isinstance(request, ReleaseRequest)
         return await _record_release(session, authority, request, blocked=False)
@@ -107,12 +96,7 @@ async def _assign_child(
         authority,
         request,
     )
-    pinned_policy = await resolve_pinned_policy_definition(
-        session,
-        policy_key=target.policy_key,
-        policy_revision_no=target.policy_revision_no,
-    )
-    budget = snapshot_assignment_budget(pinned_policy)
+    budget = await read_task_assignment_budget_snapshot(session, authority)
     durable_inputs = await resolve_child_assignment_durable_inputs(
         session,
         task_id=authority.task_id,
@@ -140,27 +124,7 @@ async def _assign_child(
     if previous_assignment is not None:
         await _supersede_child_assignment(session, authority, previous_assignment)
 
-    session.add_all((assignment, attempt))
-    stage_assignment_criteria_refs(session, assignment)
-    _stage_child_assignment_decision(session, authority, assignment, attempt)
-    await append_task_event(
-        session,
-        task_id=authority.task_id,
-        event_type=TaskEventType.CHILD_ASSIGNMENT_STAGED,
-        event_source=TaskEventSource.NODE,
-        flow_revision_id=authority.flow_revision_id,
-        dispatch_id=authority.dispatch_id,
-        attempt_id=authority.attempt_id,
-        node_key=authority.node_key,
-        payload={
-            "source_dispatch_id": authority.dispatch_id,
-            "parent_assignment_id": authority.assignment_id,
-            "child_assignment_id": assignment.assignment_id,
-            "child_attempt_id": attempt.attempt_id,
-            "child_node_key": target.node_key,
-            "flow_revision_id": authority.flow_revision_id,
-        },
-    )
+    await _stage_child_assignment_records(session, authority, assignment, attempt)
     await session.commit()
 
     flow = await runtime_flow_read(session, authority)
@@ -186,6 +150,35 @@ async def _assign_child(
     )
 
 
+async def _stage_child_assignment_records(
+    session: AsyncSession,
+    authority: NodeOperationAuthority,
+    assignment: AssignmentModel,
+    attempt: AttemptModel,
+) -> None:
+    session.add_all((assignment, attempt))
+    stage_assignment_criteria_refs(session, assignment)
+    _stage_child_assignment_decision(session, authority, assignment, attempt)
+    await append_task_event(
+        session,
+        task_id=authority.task_id,
+        event_type=TaskEventType.CHILD_ASSIGNMENT_STAGED,
+        event_source=TaskEventSource.NODE,
+        flow_revision_id=authority.flow_revision_id,
+        dispatch_id=authority.dispatch_id,
+        attempt_id=authority.attempt_id,
+        node_key=authority.node_key,
+        payload={
+            "source_dispatch_id": authority.dispatch_id,
+            "parent_assignment_id": authority.assignment_id,
+            "child_assignment_id": assignment.assignment_id,
+            "child_attempt_id": attempt.attempt_id,
+            "child_node_key": assignment.node_key,
+            "flow_revision_id": authority.flow_revision_id,
+        },
+    )
+
+
 async def _consume_child_assignment_budget(
     session: AsyncSession,
     authority: NodeOperationAuthority,
@@ -196,7 +189,7 @@ async def _consume_child_assignment_budget(
             AssignmentModel.assignment_id == authority.assignment_id,
             AssignmentModel.task_id == authority.task_id,
             AssignmentModel.flow_id == authority.flow_id,
-            AssignmentModel.flow_revision_id == authority.flow_revision_id,
+            AssignmentModel.member_id == authority.flow_node.member_id,
             AssignmentModel.current_attempt_id == authority.attempt_id,
             AssignmentModel.superseded_at.is_(None),
             (AssignmentModel.child_assignments_remaining.is_(None))
@@ -274,8 +267,7 @@ async def _read_assignable_direct_child(
         historical_parent is not None
         and historical_parent.task_id == authority.task_id
         and historical_parent.flow_id == authority.flow_id
-        and historical_parent.flow_revision_id == authority.flow_revision_id
-        and historical_parent.flow_node_id == authority.assignment.flow_node_id
+        and historical_parent.member_id == authority.assignment.member_id
         and historical_parent.node_key == authority.node_key
         and historical_parent.superseded_at is not None
     )
@@ -283,8 +275,7 @@ async def _read_assignable_direct_child(
         previous_assignment is None
         or previous_assignment.task_id != authority.task_id
         or previous_assignment.flow_id != authority.flow_id
-        or previous_assignment.flow_revision_id != authority.flow_revision_id
-        or previous_assignment.flow_node_id != target.flow_node_id
+        or previous_assignment.member_id != target.member_id
         or previous_assignment.node_key != target.node_key
         or not historical_parent_is_same_node
         or previous_assignment.superseded_at is not None
@@ -358,6 +349,10 @@ def _build_child_assignment(
     assignment = AssignmentModel(
         assignment_id=assignment_id,
         task_id=authority.task_id,
+        team_revision_id=target.team_revision_id,
+        member_id=target.member_id,
+        member_configuration_id=target.member_configuration_id,
+        member_branch_basis_id=target.member_branch_basis_id,
         flow_id=authority.flow_id,
         flow_revision_id=authority.flow_revision_id,
         flow_node_id=target.flow_node_id,
@@ -433,7 +428,7 @@ async def _supersede_child_assignment(
             AssignmentModel.assignment_id == assignment.assignment_id,
             AssignmentModel.task_id == authority.task_id,
             AssignmentModel.flow_id == authority.flow_id,
-            AssignmentModel.flow_revision_id == authority.flow_revision_id,
+            AssignmentModel.member_id == assignment.member_id,
             AssignmentModel.current_attempt_id == assignment.current_attempt_id,
             AssignmentModel.superseded_at.is_(None),
             exact_node_operation_authority_exists(authority),

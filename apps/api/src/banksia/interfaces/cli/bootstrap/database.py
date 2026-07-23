@@ -11,7 +11,6 @@ from sqlalchemy.engine import Connection, make_url
 from sqlalchemy.schema import CreateSchema, DropSchema
 
 from banksia.config import get_settings
-from banksia.definitions.registry import seed_definition_registry
 from banksia.interfaces.cli.bootstrap.task_root_cleanup import (
     delete_controller_task_roots,
 )
@@ -24,6 +23,7 @@ from banksia.persistence.session import (
     get_session_factory,
     ping_database,
 )
+from banksia.workflows.bootstrap import seed_starter_workflows
 
 SQLITE_SIDECAR_SUFFIXES = ("-wal", "-shm", "-journal")
 
@@ -49,7 +49,7 @@ async def ensure_database_ready(
         if progress is not None:
             progress.step("database", "Creating or verifying the exact database schema")
         await ensure_database_schema()
-        await _seed_packaged_definitions(progress=progress)
+        await _seed_starter_workflows(progress=progress)
     finally:
         await dispose_db_engine()
 
@@ -111,7 +111,7 @@ async def reset_database(
             raise RuntimeError("validated database backend is missing its reset target")
 
         await create_empty_database_schema()
-        await _seed_packaged_definitions(progress=progress)
+        await _seed_starter_workflows(progress=progress)
     finally:
         await dispose_db_engine()
 
@@ -132,11 +132,11 @@ def sqlite_database_path(database_url: str) -> Path | None:
     return Path(url.database).expanduser().absolute()
 
 
-async def _seed_packaged_definitions(*, progress: CliProgress | None) -> None:
+async def _seed_starter_workflows(*, progress: CliProgress | None) -> None:
     if progress is not None:
-        progress.step("seed", "Seeding packaged definitions")
+        progress.step("seed", "Seeding Starter Workflows")
     async with get_session_factory()() as session:
-        await seed_definition_registry(session)
+        await seed_starter_workflows(session)
         await session.commit()
 
 

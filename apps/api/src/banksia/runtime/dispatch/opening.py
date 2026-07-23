@@ -24,6 +24,12 @@ class StartingDispatchBasis:
     task_id: str
     flow_id: str
     assignment_id: str
+    flow_revision_id: str
+    flow_node_id: str
+    team_revision_id: str
+    member_id: str
+    member_configuration_id: str
+    member_branch_basis_id: str
     attempt_id: str
     node_key: str
     opened_reason: str
@@ -68,6 +74,12 @@ def _build_starting_dispatch_model(
         task_id=basis.task_id,
         flow_id=basis.flow_id,
         assignment_id=basis.assignment_id,
+        flow_revision_id=basis.flow_revision_id,
+        flow_node_id=basis.flow_node_id,
+        team_revision_id=basis.team_revision_id,
+        member_id=basis.member_id,
+        member_configuration_id=basis.member_configuration_id,
+        member_branch_basis_id=basis.member_branch_basis_id,
         attempt_id=basis.attempt_id,
         node_key=basis.node_key,
         flow_start_source_flow_id=basis.flow_start_source_flow_id,
@@ -79,8 +91,19 @@ def _build_starting_dispatch_model(
         provider_selection_basis=prepared.provider.selection_basis.value,
         provider_route_kind=prepared.provider.route.kind.value,
         model_override=model_override,
+        model_source=(
+            prepared.provider.model_source.value if prepared.provider.model_source else None
+        ),
         effort_override=effort_override,
+        effort_source=(
+            prepared.provider.effort_source.value if prepared.provider.effort_source else None
+        ),
         gateway_profile=gateway_profile,
+        gateway_profile_source=(
+            prepared.provider.gateway_profile_source.value
+            if prepared.provider.gateway_profile_source
+            else None
+        ),
         provider_start_revision=0,
         provider_start_attempt_count=0,
         next_provider_start_at=prepared.due_at,
@@ -178,18 +201,39 @@ def _add_dispatch_support_records(
         )
     )
     capabilities = prepared.capabilities
+    sandbox = prepared.provider.sandbox
     session.add(
         DispatchCapabilitySetModel(
             dispatch_id=prepared.dispatch_id,
+            provider_kind=prepared.provider.route.kind.value,
             provider_native_access=capabilities.provider_native_access.effective.value,
             provider_native_access_source=capabilities.provider_native_access.source.value,
             network_access=capabilities.network_access.effective.value,
             network_access_source=capabilities.network_access.source.value,
+            requested_sandbox_mode=(sandbox.requested_mode.value if sandbox else None),
+            requested_sandbox_network=(sandbox.requested_network.value if sandbox else None),
+            sandbox_request_source=(sandbox.requested_source.value if sandbox else None),
+            effective_sandbox_mode=(sandbox.effective_mode.value if sandbox else None),
+            effective_sandbox_network=(sandbox.effective_network.value if sandbox else None),
+            sandbox_mode_source=(sandbox.effective_mode_source.value if sandbox else None),
+            sandbox_network_source=(sandbox.effective_network_source.value if sandbox else None),
+            requested_human_direction=(capabilities.requested_human_request.direction.value),
+            requested_human_approval=(capabilities.requested_human_request.approval.value),
+            requested_human_input=capabilities.requested_human_request.input.value,
+            requested_human_review=capabilities.requested_human_request.review.value,
+            requested_human_request_source=(capabilities.requested_human_request_source.value),
             human_direction=capabilities.human_request.direction.value,
+            human_direction_source=capabilities.human_request_sources.direction.value,
             human_approval=capabilities.human_request.approval.value,
+            human_approval_source=capabilities.human_request_sources.approval.value,
             human_input=capabilities.human_request.input.value,
+            human_input_source=capabilities.human_request_sources.input.value,
             human_review=capabilities.human_request.review.value,
+            human_review_source=capabilities.human_request_sources.review.value,
+            requested_command_run=capabilities.requested_command_run.value,
+            requested_command_run_source=capabilities.requested_command_run_source.value,
             command_run=capabilities.command_run.value,
+            command_run_source=capabilities.command_run_source.value,
             created_at=prepared.due_at,
         )
     )

@@ -4,7 +4,6 @@ import os
 from io import StringIO
 
 import pytest
-from banksia.definitions.contracts.workflow import ProviderKind
 from banksia.interfaces.cli.commands.guided_presentation import (
     emit_provider_choices,
     emit_wizard_header,
@@ -20,6 +19,7 @@ from banksia.interfaces.cli.providers.presentation import (
     emit_provider_status,
 )
 from banksia.interfaces.cli.theme import build_rich_theme
+from banksia.providers import ProviderKind
 from banksia.runtime.providers import ProviderCheckAxisStatus
 from rich.console import Console
 

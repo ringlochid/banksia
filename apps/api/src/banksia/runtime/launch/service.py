@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from banksia.definitions.registry import compile_current_workflow_launch_snapshot
+from banksia.config import get_settings
 from banksia.runtime import (
     RuntimeBootstrapInput,
     RuntimeBootstrapResult,
@@ -19,9 +19,12 @@ from banksia.runtime.ids import (
     flow_revision_id,
 )
 from banksia.runtime.launch.bootstrap import build_launch_support_projection_signals
+from banksia.runtime.launch.legacy_team_adapter import project_legacy_team_plan
 from banksia.runtime.launch.persistence.runtime import persist_bootstrap_runtime_from_precomputed
 from banksia.runtime.projection.signals import SupportProjectionSignal
 from banksia.runtime.task_events import append_task_event
+from banksia.runtime.team import plan_initial_task_team
+from banksia.workflows.catalog import read_current_published_workflow
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,12 +41,14 @@ async def launch_task_runtime(
 ) -> StagedRuntimeLaunch:
     """Stage task, flow, assignment, attempt, and durable root-source truth."""
 
-    snapshot = await compile_current_workflow_launch_snapshot(
+    workflow_revision = await read_current_published_workflow(
         session,
-        workflow_key=launch_input.task_compose.workflow.key,
-        compiler_version=launch_input.compiler_version,
+        workflow_id=launch_input.task_compose.workflow.key,
     )
-    root_node_key = snapshot.workflow.definition.root.node_key
+    initial_team = plan_initial_task_team(workflow_revision, launch_input.task_id)
+    legacy_plan = project_legacy_team_plan(workflow_revision, initial_team)
+    runtime_settings = get_settings().runtime
+    root_node_key = initial_team.root_member_id
     bootstrap_input = RuntimeBootstrapInput(
         task_id=launch_input.task_id,
         active_flow_revision_id=flow_revision_id(flow_id_for_task(launch_input.task_id), 1),
@@ -51,9 +56,14 @@ async def launch_task_runtime(
         assignment_key=assignment_key_for_task(launch_input.task_id, root_node_key, 1),
         task_root=launch_input.task_root,
         task_compose=launch_input.task_compose,
-        workflow_definition=snapshot.workflow.definition,
-        compiled_plan=snapshot.compiled_plan,
-        role_policy_lookup=snapshot.role_policy_lookup,
+        workflow_revision=workflow_revision,
+        initial_team=initial_team,
+        compiled_plan=legacy_plan,
+        max_child_assignments_per_assignment=(
+            runtime_settings.max_child_assignments_per_assignment
+        ),
+        max_retries_per_assignment=runtime_settings.max_retries_per_assignment,
+        max_wave_members=runtime_settings.max_wave_members,
     )
     bootstrap = await persist_bootstrap_runtime_from_precomputed(
         session,
@@ -72,8 +82,8 @@ async def launch_task_runtime(
         payload={
             "flow_id": flow_id,
             "compiled_plan_id": compiled_plan_id_for_task(launch_input.task_id),
-            "workflow_key": snapshot.compiled_plan.workflow_key,
-            "workflow_revision_no": snapshot.compiled_plan.definition_revision_no,
+            "workflow_key": workflow_revision.workflow_id,
+            "workflow_revision_no": workflow_revision.revision_no,
             "manifest_ref": "_runtime/workflow-manifest.md",
         },
     )

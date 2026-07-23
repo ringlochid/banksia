@@ -5,16 +5,15 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from banksia.definitions.contracts.registry import NetworkAccess, ProviderNativeAccess
+from banksia.providers import NetworkAccess, ProviderNativeAccess
 from banksia.runtime.contracts.common import RuntimeSchemaText
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
-from banksia.runtime.contracts.primitives import CapabilityDecision
+from banksia.runtime.contracts.primitives import CapabilityDecision, HumanRequestKind
 
 
 class CapabilitySource(StrEnum):
     DEFAULT = "default"
-    POLICY_DEFINITION = "policy_definition"
-    TASK_POLICY = "task_policy"
+    MEMBER_CONFIGURATION = "member_configuration"
     CONTROLLER = "controller"
 
 
@@ -23,6 +22,8 @@ class CapabilityCeilingSet(BaseModel):
 
     provider_native_access: ProviderNativeAccess | None = None
     network_access: NetworkAccess | None = None
+    allowed_human_request_kinds: tuple[HumanRequestKind, ...] | None = None
+    command_run: CapabilityDecision | None = None
 
 
 class EffectiveProviderNativeAccess(BaseModel):
@@ -48,6 +49,15 @@ class HumanRequestCapabilitySet(BaseModel):
     review: CapabilityDecision = CapabilityDecision.DENY
 
 
+class HumanRequestCapabilitySources(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, from_attributes=True)
+
+    direction: CapabilitySource = CapabilitySource.DEFAULT
+    approval: CapabilitySource = CapabilitySource.DEFAULT
+    input: CapabilitySource = CapabilitySource.DEFAULT
+    review: CapabilitySource = CapabilitySource.DEFAULT
+
+
 class EffectiveCapabilitySet(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, from_attributes=True)
 
@@ -55,8 +65,18 @@ class EffectiveCapabilitySet(BaseModel):
         default_factory=EffectiveProviderNativeAccess
     )
     network_access: EffectiveNetworkAccess = Field(default_factory=EffectiveNetworkAccess)
+    requested_human_request: HumanRequestCapabilitySet = Field(
+        default_factory=HumanRequestCapabilitySet
+    )
+    requested_human_request_source: CapabilitySource = CapabilitySource.DEFAULT
     human_request: HumanRequestCapabilitySet = Field(default_factory=HumanRequestCapabilitySet)
+    human_request_sources: HumanRequestCapabilitySources = Field(
+        default_factory=HumanRequestCapabilitySources
+    )
+    requested_command_run: CapabilityDecision = CapabilityDecision.DENY
+    requested_command_run_source: CapabilitySource = CapabilitySource.DEFAULT
     command_run: CapabilityDecision = CapabilityDecision.DENY
+    command_run_source: CapabilitySource = CapabilitySource.DEFAULT
 
 
 class CapabilityRejectionError(BaseModel):
@@ -78,4 +98,5 @@ __all__ = [
     "EffectiveNetworkAccess",
     "EffectiveProviderNativeAccess",
     "HumanRequestCapabilitySet",
+    "HumanRequestCapabilitySources",
 ]

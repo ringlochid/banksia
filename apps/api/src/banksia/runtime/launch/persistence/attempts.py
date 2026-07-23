@@ -17,7 +17,6 @@ from banksia.runtime.contracts import (
 )
 from banksia.runtime.ids import assignment_id, flow_node_id
 from banksia.runtime.launch.bootstrap.criteria import stage_assignment_criteria_refs
-from banksia.runtime.launch.bootstrap.revisions import resolve_pinned_role_policy
 
 
 async def stage_launch_attempt_rows(
@@ -59,6 +58,18 @@ def _build_assignment_row(
     result: RuntimeBootstrapResult,
     flow_id: str,
 ) -> AssignmentModel:
+    node = next(
+        (
+            item
+            for item in bootstrap_input.compiled_plan.nodes
+            if item.node_key == result.assignment.node_key
+        ),
+        None,
+    )
+    if node is None:
+        raise ValueError(
+            f"legacy Team plan is missing assignment Member {result.assignment.node_key!r}"
+        )
     budget = _resolve_assignment_budget(
         bootstrap_input=bootstrap_input,
         node_key=result.assignment.node_key,
@@ -66,6 +77,10 @@ def _build_assignment_row(
     return AssignmentModel(
         assignment_id=assignment_id(result.assignment.assignment_key),
         task_id=bootstrap_input.task_id,
+        team_revision_id=bootstrap_input.initial_team.team_revision_id,
+        member_id=node.member_id,
+        member_configuration_id=node.member_configuration_id,
+        member_branch_basis_id=node.member_branch_basis_id,
         flow_id=flow_id,
         flow_revision_id=bootstrap_input.active_flow_revision_id,
         flow_node_id=flow_node_id(
@@ -103,14 +118,10 @@ def _resolve_assignment_budget(
     )
     if node is None:
         raise ValueError(f"compiled plan is missing assignment node '{node_key}'")
-    _, policy = resolve_pinned_role_policy(
-        bootstrap_input.role_policy_lookup,
-        role_key=node.role,
-        role_revision_no=node.role_revision_no,
-        policy_key=node.policy,
-        policy_revision_no=node.policy_revision_no,
+    return snapshot_assignment_budget(
+        child_assignment_limit=bootstrap_input.max_child_assignments_per_assignment,
+        retry_limit=bootstrap_input.max_retries_per_assignment,
     )
-    return snapshot_assignment_budget(policy.definition)
 
 
 def _ref_json(ref: EvidenceRef | NodeRuntimeFileRef) -> dict[str, Any]:

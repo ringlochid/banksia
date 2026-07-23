@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from banksia.definitions.contracts.workflow import NodeKind
+from banksia.runtime.contracts.member import NodeKind
 from banksia.runtime.contracts.prompt import (
     PROMPT_DYNAMIC_INPUT_KEYS,
     DispatchRequestRenderInput,

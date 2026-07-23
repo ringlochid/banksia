@@ -1,16 +1,25 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
+from pathlib import Path
 from typing import cast
 
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
-from claude_agent_sdk.types import EffortLevel, McpHttpServerConfig, SandboxSettings
+from claude_agent_sdk.types import (
+    EffortLevel,
+    HookContext,
+    HookEvent,
+    HookInput,
+    HookJSONOutput,
+    HookMatcher,
+    McpHttpServerConfig,
+    SandboxSettings,
+)
 
-from banksia.definitions.contracts.registry import NetworkAccess, ProviderNativeAccess
-from banksia.definitions.contracts.workflow import ProviderKind
 from banksia.integrations.claude.native_identity import (
     ClaudeAuthenticationState,
     read_claude_authentication,
@@ -18,6 +27,12 @@ from banksia.integrations.claude.native_identity import (
 from banksia.platform.provider_environment import (
     ANTHROPIC_API_KEY,
     provider_subprocess_environment_overrides,
+)
+from banksia.providers import (
+    ManagedSandboxMode,
+    NetworkAccess,
+    ProviderKind,
+    ProviderNativeAccess,
 )
 from banksia.runtime.contracts.provider_resolution import ClaudeProviderRoute
 from banksia.runtime.providers.contracts import (
@@ -59,7 +74,17 @@ _CLAUDE_RESTRICTED_NATIVE_TOOLS = (
     "TodoWrite",
     "Write",
 )
+_CLAUDE_READ_ONLY_NATIVE_TOOLS = (
+    "Glob",
+    "Grep",
+    "Read",
+)
 _CLAUDE_NETWORK_TOOLS = ("WebFetch", "WebSearch")
+_CLAUDE_WRITE_TOOL_PATH_FIELDS = {
+    "Edit": "file_path",
+    "Write": "file_path",
+    "NotebookEdit": "notebook_path",
+}
 _CLAUDE_ALWAYS_DISALLOWED_TOOLS = ("AskUserQuestion",)
 _CLAUDE_EFFORTS = frozenset({"low", "medium", "high", "xhigh", "max"})
 
@@ -258,6 +283,7 @@ def _validate_claude_request(
             kind=ProviderStartFailureKind.DEFINITE_FAILURE,
             code=ProviderStartErrorCode.CONFIGURATION,
         )
+    _validate_claude_access(request)
     return request.provider_route, request.managed_node_mcp
 
 
@@ -277,7 +303,9 @@ def _build_claude_options(
     connection: ManagedNodeMcpConnection,
     instructions: str,
 ) -> ClaudeAgentOptions:
-    native_tools = _resolve_native_tools(request.provider_native_access)
+    assert request.sandbox_mode is not None
+    workspace_root = _resolve_workspace_root(request.working_directory)
+    native_tools = _resolve_native_tools(request.sandbox_mode, request.network_access)
     managed_tools = tuple(
         f"mcp__{MANAGED_NODE_MCP_SERVER_NAME}__{tool}" for tool in connection.enabled_tools
     )
@@ -307,17 +335,137 @@ def _build_claude_options(
         cwd=request.working_directory,
         setting_sources=["user", "project", "local"],
         sandbox=_build_sandbox(request.network_access),
+        hooks=_build_workspace_hooks(request.sandbox_mode, workspace_root),
         effort=_resolve_effort(route.effort_override),
         env=provider_subprocess_environment_overrides(allowed_keys=frozenset({ANTHROPIC_API_KEY})),
     )
 
 
-def _resolve_native_tools(access: ProviderNativeAccess) -> tuple[str, ...]:
-    if access is ProviderNativeAccess.FULL:
-        return _CLAUDE_FULL_NATIVE_TOOLS
-    if access is ProviderNativeAccess.RESTRICTED:
-        return _CLAUDE_RESTRICTED_NATIVE_TOOLS
-    return ()
+def _resolve_native_tools(
+    sandbox_mode: ManagedSandboxMode,
+    network_access: NetworkAccess,
+) -> tuple[str, ...]:
+    match sandbox_mode:
+        case ManagedSandboxMode.FULL_ACCESS:
+            return _CLAUDE_FULL_NATIVE_TOOLS
+        case ManagedSandboxMode.WORKSPACE_WRITE:
+            if network_access is NetworkAccess.ALLOW:
+                return (*_CLAUDE_RESTRICTED_NATIVE_TOOLS, *_CLAUDE_NETWORK_TOOLS)
+            return _CLAUDE_RESTRICTED_NATIVE_TOOLS
+        case ManagedSandboxMode.READ_ONLY:
+            return _CLAUDE_READ_ONLY_NATIVE_TOOLS
+
+
+def _validate_claude_access(request: DispatchStartRequest) -> None:
+    assert request.sandbox_mode is not None
+    expected_native = {
+        ManagedSandboxMode.READ_ONLY: ProviderNativeAccess.DENIED,
+        ManagedSandboxMode.WORKSPACE_WRITE: ProviderNativeAccess.RESTRICTED,
+        ManagedSandboxMode.FULL_ACCESS: ProviderNativeAccess.FULL,
+    }[request.sandbox_mode]
+    legal_pair = (
+        (
+            request.sandbox_mode is ManagedSandboxMode.READ_ONLY
+            and request.network_access is NetworkAccess.DENY
+        )
+        or request.sandbox_mode is ManagedSandboxMode.WORKSPACE_WRITE
+        or (
+            request.sandbox_mode is ManagedSandboxMode.FULL_ACCESS
+            and request.network_access is NetworkAccess.ALLOW
+        )
+    )
+    if request.provider_native_access is not expected_native or not legal_pair:
+        raise ProviderStartError(
+            kind=ProviderStartFailureKind.DEFINITE_FAILURE,
+            code=ProviderStartErrorCode.CONFIGURATION,
+        )
+
+
+def _resolve_workspace_root(working_directory: Path) -> Path:
+    try:
+        workspace_root = working_directory.resolve(strict=True)
+    except OSError as exc:
+        raise ProviderStartError(
+            kind=ProviderStartFailureKind.DEFINITE_FAILURE,
+            code=ProviderStartErrorCode.CONFIGURATION,
+        ) from exc
+    if not workspace_root.is_dir():
+        raise ProviderStartError(
+            kind=ProviderStartFailureKind.DEFINITE_FAILURE,
+            code=ProviderStartErrorCode.CONFIGURATION,
+        )
+    return workspace_root
+
+
+def _build_workspace_hooks(
+    sandbox_mode: ManagedSandboxMode,
+    workspace_root: Path,
+) -> dict[HookEvent, list[HookMatcher]]:
+    if sandbox_mode is not ManagedSandboxMode.WORKSPACE_WRITE:
+        return {}
+
+    async def require_workspace_write_path(
+        hook_input: HookInput,
+        _tool_use_id: str | None,
+        _context: HookContext,
+    ) -> HookJSONOutput:
+        if hook_input["hook_event_name"] != "PreToolUse":
+            return _deny_workspace_write("workspace write guard received a wrong hook event")
+        pre_tool_input = hook_input
+        tool_name = pre_tool_input["tool_name"]
+        path_field = _CLAUDE_WRITE_TOOL_PATH_FIELDS.get(tool_name)
+        raw_path = pre_tool_input["tool_input"].get(path_field) if path_field else None
+        if not isinstance(raw_path, str) or not raw_path or "\x00" in raw_path:
+            return _deny_workspace_write("write tool did not provide one valid target path")
+        if not _is_workspace_write_path(raw_path, workspace_root=workspace_root):
+            return _deny_workspace_write("write target is outside the assigned workspace")
+        return {}
+
+    return {
+        "PreToolUse": [
+            HookMatcher(
+                matcher="Edit|Write|NotebookEdit",
+                hooks=[require_workspace_write_path],
+            )
+        ]
+    }
+
+
+def _is_workspace_write_path(raw_path: str, *, workspace_root: Path) -> bool:
+    try:
+        supplied = Path(raw_path)
+        lexical_path = Path(
+            os.path.abspath(supplied if supplied.is_absolute() else workspace_root / supplied)
+        )
+        lexical_relative = lexical_path.relative_to(workspace_root)
+        cursor = workspace_root
+        for index, part in enumerate(lexical_relative.parts):
+            cursor /= part
+            try:
+                if cursor.is_symlink():
+                    return False
+                if (
+                    index == len(lexical_relative.parts) - 1
+                    and cursor.is_file()
+                    and cursor.stat().st_nlink > 1
+                ):
+                    return False
+            except OSError:
+                return False
+        resolved_path = lexical_path.resolve(strict=False)
+        return resolved_path.is_relative_to(workspace_root)
+    except (OSError, RuntimeError, ValueError):
+        return False
+
+
+def _deny_workspace_write(reason: str) -> HookJSONOutput:
+    return {
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "deny",
+            "permissionDecisionReason": reason,
+        }
+    }
 
 
 def _build_sandbox(network_access: NetworkAccess) -> SandboxSettings | None:

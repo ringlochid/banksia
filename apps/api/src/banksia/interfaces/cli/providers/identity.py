@@ -7,7 +7,6 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Literal
 
-from banksia.definitions.contracts.workflow import ProviderKind
 from banksia.integrations.claude.native_identity import bundled_claude_path
 from banksia.interfaces.cli.providers.contracts import (
     ProviderIdentityOutcome,
@@ -23,6 +22,7 @@ from banksia.platform.provider_environment import (
     read_provider_secret_environment,
     remove_provider_secrets,
 )
+from banksia.providers import ProviderKind
 from banksia.runtime.providers import ProviderAuthenticationMethod
 
 NativeCommandRunner = Callable[..., subprocess.CompletedProcess[str]]

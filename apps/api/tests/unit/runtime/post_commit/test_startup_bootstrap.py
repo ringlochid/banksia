@@ -22,6 +22,7 @@ from banksia.runtime.post_commit.signals import (
     FlowStartCommitted,
     HumanRequestOpened,
     HumanRequestTerminal,
+    ReplanCommitted,
     RuntimeEffectSignal,
     TransientCleanupRequested,
     WatchdogDeadlineChanged,
@@ -55,6 +56,7 @@ async def test_runtime_startup_routes_only_registered_exact_sources(
     signals = (
         FlowStartCommitted("flow.alpha"),
         BoundaryAccepted("dispatch.boundary"),
+        ReplanCommitted("replan.alpha"),
         HumanRequestOpened("human.open"),
         HumanRequestTerminal("human.alpha"),
         CommandRunTerminal("command.alpha"),
@@ -68,6 +70,7 @@ async def test_runtime_startup_routes_only_registered_exact_sources(
     reader_names = (
         "read_flow_start_page",
         "read_boundary_continuation_page",
+        "read_replan_continuation_page",
         "read_human_deadline_page",
         "read_human_continuation_page",
         "read_command_continuation_page",
@@ -91,6 +94,7 @@ async def test_runtime_startup_routes_only_registered_exact_sources(
         publish=publish,
         routed_signal_types=(
             FlowStartCommitted,
+            ReplanCommitted,
             HumanRequestOpened,
             CommandRunPending,
             CommandRunCancellationRequested,
@@ -103,16 +107,19 @@ async def test_runtime_startup_routes_only_registered_exact_sources(
     assert publisher.signals == (
         signals[0],
         signals[2],
-        signals[5],
+        signals[3],
         signals[6],
         signals[7],
         signals[8],
-        signals[10],
+        signals[9],
+        signals[11],
     )
     assert results["runnable_flow_start"].routed_count == 1
     assert results["runnable_flow_start"].deferred_count == 0
     assert results["open_human_request"].routed_count == 1
     assert results["open_human_request"].deferred_count == 0
+    assert results["committed_replan"].routed_count == 1
+    assert results["committed_replan"].deferred_count == 0
     assert all(result.discovered_count == 1 for result in results.values())
     assert all(
         result.deferred_count == 1
@@ -120,6 +127,7 @@ async def test_runtime_startup_routes_only_registered_exact_sources(
         if family_name
         not in {
             "runnable_flow_start",
+            "committed_replan",
             "open_human_request",
             "pending_command_run",
             "running_command_run",
@@ -155,6 +163,7 @@ async def test_runtime_startup_waits_for_router_capacity_without_waiting_for_han
     monkeypatch.setattr(bootstrap_module, "read_flow_start_page", read_flow_page)
     for reader_name in (
         "read_boundary_continuation_page",
+        "read_replan_continuation_page",
         "read_human_deadline_page",
         "read_human_continuation_page",
         "read_command_continuation_page",

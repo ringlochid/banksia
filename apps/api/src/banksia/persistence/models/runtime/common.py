@@ -17,6 +17,15 @@ FLOW_STATUS_VALUES = ("running", "paused", "completed", "cancelled")
 FLOW_TERMINAL_OUTCOME_VALUES = ("green", "blocked")
 FLOW_WAITING_CAUSE_VALUES = ("none", "human_request", "command_run")
 STRUCTURAL_REVISION_CAUSE_VALUES = ("launch", "add_child", "update_child", "remove_child")
+REPLAN_OPERATION_VALUES = ("add_child", "update_child", "remove_child")
+REPLAN_MANIFEST_STATE_VALUES = ("pending", "repair_required", "current")
+REPLAN_SUCCESSOR_STATE_VALUES = (
+    "blocked",
+    "pending",
+    "opening_failed",
+    "opened",
+    "cancelled",
+)
 FLOW_EDGE_KIND_VALUES = ("artifact", "criteria")
 CHECKPOINT_KIND_VALUES = ("progress", "terminal")
 CHECKPOINT_OUTCOME_VALUES = ("green", "retry", "blocked")
@@ -36,6 +45,7 @@ DISPATCH_OPENED_REASON_VALUES = (
     "watchdog_recovery",
     "semantic_retry",
     "operator_continue",
+    "structural_replan",
 )
 DISPATCH_CLOSED_REASON_VALUES = (
     "boundary",
@@ -46,6 +56,7 @@ DISPATCH_CLOSED_REASON_VALUES = (
     "cancelled",
     "control_failed",
     "task_terminal",
+    "structural_replan",
 )
 DISPATCH_STARTING_CLOSE_REASON_VALUES = (
     "boundary",
@@ -55,9 +66,11 @@ DISPATCH_STARTING_CLOSE_REASON_VALUES = (
     "cancelled",
     "control_failed",
     "task_terminal",
+    "structural_replan",
 )
 PROVIDER_VALUES = ("codex", "claude", "openclaw")
 PROVIDER_SELECTION_BASIS_VALUES = ("explicit", "default")
+PROVIDER_ROUTE_VALUE_SOURCE_VALUES = ("member_configuration", "provider_configuration")
 PROVIDER_START_RETRY_KIND_VALUES = (
     "initial",
     "definite_failure",
@@ -65,7 +78,8 @@ PROVIDER_START_RETRY_KIND_VALUES = (
 )
 PROVIDER_NATIVE_ACCESS_VALUES = ("full", "restricted", "denied")
 NETWORK_ACCESS_VALUES = ("allow", "deny")
-CAPABILITY_SOURCE_VALUES = ("default", "policy_definition", "task_policy", "controller")
+MANAGED_SANDBOX_MODE_VALUES = ("read_only", "workspace_write", "full_access")
+CAPABILITY_SOURCE_VALUES = ("default", "member_configuration", "controller")
 CAPABILITY_DECISION_VALUES = ("allow", "deny")
 BOUNDARY_OUTCOME_VALUES = ("yield", "green", "retry", "blocked")
 ASSIGNMENT_DECISION_KIND_VALUES = ("staged_child", "release_green", "release_blocked")
@@ -167,13 +181,18 @@ __all__ = [
     "HUMAN_REQUEST_RESOLUTION_KIND_VALUES",
     "HUMAN_REQUEST_RESOLUTION_SURFACE_VALUES",
     "HUMAN_REQUEST_STATUS_VALUES",
+    "MANAGED_SANDBOX_MODE_VALUES",
     "NETWORK_ACCESS_VALUES",
     "NODE_KIND_VALUES",
     "NODE_STATE_VALUES",
     "PROVIDER_NATIVE_ACCESS_VALUES",
+    "PROVIDER_ROUTE_VALUE_SOURCE_VALUES",
     "PROVIDER_SELECTION_BASIS_VALUES",
     "PROVIDER_START_RETRY_KIND_VALUES",
     "PROVIDER_VALUES",
+    "REPLAN_MANIFEST_STATE_VALUES",
+    "REPLAN_OPERATION_VALUES",
+    "REPLAN_SUCCESSOR_STATE_VALUES",
     "RUNTIME_REF_KIND_VALUES",
     "STRUCTURAL_REVISION_CAUSE_VALUES",
     "TASK_EVENT_SOURCE_VALUES",

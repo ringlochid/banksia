@@ -3,7 +3,6 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from banksia.definitions.contracts.workflow import NodeKind
 from banksia.persistence.models import (
     ArtifactPublicationModel,
     AssignmentModel,
@@ -11,6 +10,7 @@ from banksia.persistence.models import (
     AttemptModel,
     FlowNodeModel,
 )
+from banksia.runtime.contracts.member import NodeKind
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
 from banksia.runtime.dispatch.authority import NodeOperationAuthority
 from banksia.runtime.errors import (
@@ -201,7 +201,6 @@ async def _current_assignments_by_node(
                 AssignmentModel.assignment_id.in_(assignment_ids),
                 AssignmentModel.task_id == authority.task_id,
                 AssignmentModel.flow_id == authority.flow_id,
-                AssignmentModel.flow_revision_id == authority.flow_revision_id,
             )
         )
     )
@@ -213,7 +212,7 @@ async def _current_assignments_by_node(
         if (
             assignment is None
             or assignment.assignment_id != node.current_assignment_id
-            or assignment.flow_node_id != node.flow_node_id
+            or assignment.member_id != node.member_id
         ):
             raise _illegal_state(
                 f"node '{node.node_key}' has stale or cross-lineage assignment truth"

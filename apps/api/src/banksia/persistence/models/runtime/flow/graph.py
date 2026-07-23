@@ -16,7 +16,6 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from banksia.persistence.base import RuntimeBase
-from banksia.persistence.models.registry import PolicyRevisionModel, RoleRevisionModel
 from banksia.persistence.models.runtime.common import (
     FLOW_EDGE_KIND_VALUES,
     NODE_KIND_VALUES,
@@ -34,6 +33,18 @@ class FlowNodeModel(RuntimeBase):
     __tablename__ = "flow_nodes"
     __table_args__ = (
         UniqueConstraint("flow_id", "flow_revision_id", "flow_node_id"),
+        UniqueConstraint(
+            "task_id",
+            "flow_id",
+            "flow_revision_id",
+            "flow_node_id",
+            "team_revision_id",
+            "member_id",
+            "member_configuration_id",
+            "member_branch_basis_id",
+            "node_key",
+            name="uq_flow_nodes_exact_dispatch_snapshot",
+        ),
         UniqueConstraint("flow_revision_id", "node_key"),
         CheckConstraint(
             f"node_kind IN ({sql_in(NODE_KIND_VALUES)})",
@@ -55,16 +66,21 @@ class FlowNodeModel(RuntimeBase):
             initially="DEFERRED",
         ),
         ForeignKeyConstraint(
-            ["role_key", "role_revision_no"],
-            ["role_revisions.role_key", "role_revisions.revision_no"],
-            name="fk_flow_nodes_role_revision",
-            deferrable=True,
-            initially="DEFERRED",
-        ),
-        ForeignKeyConstraint(
-            ["policy_key", "policy_revision_no"],
-            ["policy_revisions.policy_key", "policy_revisions.revision_no"],
-            name="fk_flow_nodes_policy_revision",
+            [
+                "task_id",
+                "team_revision_id",
+                "member_id",
+                "member_configuration_id",
+                "member_branch_basis_id",
+            ],
+            [
+                "team_revision_members.task_id",
+                "team_revision_members.team_revision_id",
+                "team_revision_members.member_id",
+                "team_revision_members.member_configuration_id",
+                "team_revision_members.member_branch_basis_id",
+            ],
+            name="fk_flow_nodes_team_selection",
             deferrable=True,
             initially="DEFERRED",
         ),
@@ -76,8 +92,13 @@ class FlowNodeModel(RuntimeBase):
             initially="DEFERRED",
         ),
         ForeignKeyConstraint(
-            ["current_assignment_id", "flow_node_id"],
-            ["assignments.assignment_id", "assignments.flow_node_id"],
+            ["task_id", "flow_id", "current_assignment_id", "member_id"],
+            [
+                "assignments.task_id",
+                "assignments.flow_id",
+                "assignments.assignment_id",
+                "assignments.member_id",
+            ],
             name="fk_flow_nodes_current_assignment_owner",
             deferrable=True,
             initially="DEFERRED",
@@ -85,19 +106,17 @@ class FlowNodeModel(RuntimeBase):
     )
 
     flow_node_id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    task_id: Mapped[str] = mapped_column(String(255), index=True)
     flow_id: Mapped[str] = mapped_column(ForeignKey("flows.flow_id"), index=True)
     flow_revision_id: Mapped[str] = mapped_column(String(255))
+    team_revision_id: Mapped[str] = mapped_column(String(255))
+    member_id: Mapped[str] = mapped_column(String(128))
+    member_configuration_id: Mapped[str] = mapped_column(String(255))
+    member_branch_basis_id: Mapped[str] = mapped_column(String(255))
+    member_title: Mapped[str | None] = mapped_column(Text, nullable=True)
     node_key: Mapped[str] = mapped_column(String(255))
     parent_node_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
     structural_kind: Mapped[str] = mapped_column("node_kind", String(64))
-    role_key: Mapped[str] = mapped_column(String(255))
-    role_revision_no: Mapped[int] = mapped_column(Integer)
-    role_description: Mapped[str] = mapped_column(Text)
-    role_instruction: Mapped[str | None] = mapped_column(Text, nullable=True)
-    policy_key: Mapped[str] = mapped_column(String(255))
-    policy_revision_no: Mapped[int] = mapped_column(Integer)
-    policy_description: Mapped[str] = mapped_column(Text)
-    policy_instruction: Mapped[str | None] = mapped_column(Text, nullable=True)
     provider_kind: Mapped[str | None] = mapped_column(String(64), nullable=True)
     description: Mapped[str] = mapped_column(Text)
     node_instruction: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -135,23 +154,15 @@ class FlowNodeModel(RuntimeBase):
         order_by="FlowNodeModel.order_index",
         viewonly=True,
     )
-    role_revision: Mapped[RoleRevisionModel] = relationship(
-        "RoleRevisionModel",
-        primaryjoin=lambda: and_(
-            FlowNodeModel.role_key == RoleRevisionModel.role_key,
-            FlowNodeModel.role_revision_no == RoleRevisionModel.revision_no,
-        ),
-        foreign_keys=[role_key, role_revision_no],
-        lazy="raise",
-        viewonly=True,
-    )
-    policy_revision: Mapped[PolicyRevisionModel] = relationship(
-        "PolicyRevisionModel",
-        primaryjoin=lambda: and_(
-            FlowNodeModel.policy_key == PolicyRevisionModel.policy_key,
-            FlowNodeModel.policy_revision_no == PolicyRevisionModel.revision_no,
-        ),
-        foreign_keys=[policy_key, policy_revision_no],
+    team_selection: Mapped[object] = relationship(
+        "TeamRevisionMemberModel",
+        foreign_keys=[
+            task_id,
+            team_revision_id,
+            member_id,
+            member_configuration_id,
+            member_branch_basis_id,
+        ],
         lazy="raise",
         viewonly=True,
     )
@@ -168,10 +179,12 @@ class FlowNodeModel(RuntimeBase):
     current_assignment: Mapped[AssignmentModel | None] = relationship(
         "AssignmentModel",
         primaryjoin=(
-            "and_(FlowNodeModel.flow_node_id == AssignmentModel.flow_node_id, "
-            "FlowNodeModel.current_assignment_id == AssignmentModel.assignment_id)"
+            "and_(FlowNodeModel.task_id == AssignmentModel.task_id, "
+            "FlowNodeModel.flow_id == AssignmentModel.flow_id, "
+            "FlowNodeModel.current_assignment_id == AssignmentModel.assignment_id, "
+            "FlowNodeModel.member_id == AssignmentModel.member_id)"
         ),
-        foreign_keys=[current_assignment_id],
+        foreign_keys=[task_id, flow_id, current_assignment_id, member_id],
         lazy="raise",
         uselist=False,
         viewonly=True,
@@ -285,33 +298,36 @@ class NodePlanRevisionModel(RuntimeBase):
             initially="DEFERRED",
         ),
         ForeignKeyConstraint(
-            ["role_key", "role_revision_no"],
-            ["role_revisions.role_key", "role_revisions.revision_no"],
-            name="fk_node_plan_revisions_role_revision",
-            deferrable=True,
-            initially="DEFERRED",
-        ),
-        ForeignKeyConstraint(
-            ["policy_key", "policy_revision_no"],
-            ["policy_revisions.policy_key", "policy_revisions.revision_no"],
-            name="fk_node_plan_revisions_policy_revision",
+            [
+                "task_id",
+                "team_revision_id",
+                "member_id",
+                "member_configuration_id",
+                "member_branch_basis_id",
+            ],
+            [
+                "team_revision_members.task_id",
+                "team_revision_members.team_revision_id",
+                "team_revision_members.member_id",
+                "team_revision_members.member_configuration_id",
+                "team_revision_members.member_branch_basis_id",
+            ],
+            name="fk_node_plan_revisions_team_selection",
             deferrable=True,
             initially="DEFERRED",
         ),
     )
 
     node_plan_revision_id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    task_id: Mapped[str] = mapped_column(String(255), index=True)
     flow_id: Mapped[str] = mapped_column(String(255))
     flow_revision_id: Mapped[str] = mapped_column(String(255))
     flow_node_id: Mapped[str] = mapped_column(String(255))
-    role_key: Mapped[str] = mapped_column(String(255))
-    role_revision_no: Mapped[int] = mapped_column(Integer)
-    role_description: Mapped[str] = mapped_column(Text)
-    role_instruction: Mapped[str | None] = mapped_column(Text, nullable=True)
-    policy_key: Mapped[str] = mapped_column(String(255))
-    policy_revision_no: Mapped[int] = mapped_column(Integer)
-    policy_description: Mapped[str] = mapped_column(Text)
-    policy_instruction: Mapped[str | None] = mapped_column(Text, nullable=True)
+    team_revision_id: Mapped[str] = mapped_column(String(255))
+    member_id: Mapped[str] = mapped_column(String(128))
+    member_configuration_id: Mapped[str] = mapped_column(String(255))
+    member_branch_basis_id: Mapped[str] = mapped_column(String(255))
+    member_title: Mapped[str | None] = mapped_column(Text, nullable=True)
     provider_kind: Mapped[str | None] = mapped_column(String(64), nullable=True)
     flow_revision: Mapped[FlowRevisionModel] = relationship(
         "FlowRevisionModel",
@@ -329,23 +345,15 @@ class NodePlanRevisionModel(RuntimeBase):
         foreign_keys=[flow_id, flow_revision_id, flow_node_id],
         lazy="raise",
     )
-    role_revision: Mapped[RoleRevisionModel] = relationship(
-        "RoleRevisionModel",
-        primaryjoin=lambda: and_(
-            NodePlanRevisionModel.role_key == RoleRevisionModel.role_key,
-            NodePlanRevisionModel.role_revision_no == RoleRevisionModel.revision_no,
-        ),
-        foreign_keys=[role_key, role_revision_no],
-        lazy="raise",
-        viewonly=True,
-    )
-    policy_revision: Mapped[PolicyRevisionModel] = relationship(
-        "PolicyRevisionModel",
-        primaryjoin=lambda: and_(
-            NodePlanRevisionModel.policy_key == PolicyRevisionModel.policy_key,
-            NodePlanRevisionModel.policy_revision_no == PolicyRevisionModel.revision_no,
-        ),
-        foreign_keys=[policy_key, policy_revision_no],
+    team_selection: Mapped[object] = relationship(
+        "TeamRevisionMemberModel",
+        foreign_keys=[
+            task_id,
+            team_revision_id,
+            member_id,
+            member_configuration_id,
+            member_branch_basis_id,
+        ],
         lazy="raise",
         viewonly=True,
     )

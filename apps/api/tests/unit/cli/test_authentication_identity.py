@@ -5,7 +5,6 @@ import tomllib
 from pathlib import Path
 
 import pytest
-from banksia.definitions.contracts.workflow import ProviderKind
 from banksia.interfaces.cli.main import build_parser
 from banksia.interfaces.cli.providers.configuration import (
     ProviderConfigurationRequest,
@@ -19,6 +18,7 @@ from banksia.platform.provider_environment import (
     OPENCLAW_GATEWAY_TOKEN,
     read_provider_secret_environment,
 )
+from banksia.providers import ProviderKind
 from banksia.runtime.providers import ProviderAuthenticationMethod
 from click.testing import CliRunner
 

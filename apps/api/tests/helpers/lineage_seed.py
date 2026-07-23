@@ -6,6 +6,15 @@ from datetime import UTC, datetime
 from banksia.persistence import RuntimeBase
 from sqlalchemy import Connection
 
+from tests.helpers.assignment_persistence_seed import seed_assignments_and_attempts
+from tests.helpers.catalog_seed import WORKFLOW_CONTENT_HASH
+from tests.helpers.team_persistence_seed import (
+    member_branch_basis_id,
+    member_configuration_id,
+    seed_team,
+    team_revision_id,
+)
+
 FIXTURE_TIMESTAMP = datetime(2026, 7, 18, tzinfo=UTC)
 
 
@@ -68,11 +77,12 @@ def runtime_ids(suffix: str = "a") -> RuntimeIds:
 def seed_runtime_scope(connection: Connection, *, suffix: str = "a") -> RuntimeIds:
     ids = runtime_ids(suffix)
     _seed_task(connection, ids=ids)
+    seed_team(connection, ids=ids, timestamp=FIXTURE_TIMESTAMP)
     _seed_compiled_plan(connection, ids=ids)
-    _seed_task_compose_and_workspace(connection, ids=ids)
+    _seed_workspace(connection, ids=ids)
     _seed_flow_shell(connection, ids=ids)
     _seed_flow_nodes(connection, ids=ids)
-    _seed_assignments_and_attempts(connection, ids=ids, timestamp=FIXTURE_TIMESTAMP)
+    seed_assignments_and_attempts(connection, ids=ids, timestamp=FIXTURE_TIMESTAMP)
     _seed_dispatch_lineage(connection, ids=ids, timestamp=FIXTURE_TIMESTAMP)
     _seed_checkpoints(connection, ids=ids, timestamp=FIXTURE_TIMESTAMP)
     _set_active_runtime_heads(connection, ids=ids)
@@ -90,6 +100,10 @@ def _seed_task(connection: Connection, *, ids: RuntimeIds) -> None:
             "summary": "Target runtime schema fixture.",
             "instruction": None,
             "workflow_key": "workflow.target",
+            "workflow_revision_no": 1,
+            "workflow_content_hash": WORKFLOW_CONTENT_HASH,
+            "current_team_revision_id": None,
+            "max_wave_members": 8,
             "task_root_path": f"/tmp/banksia-task-{ids.suffix}",
             "created_at": FIXTURE_TIMESTAMP,
             "updated_at": FIXTURE_TIMESTAMP,
@@ -109,7 +123,7 @@ def _seed_compiled_plan(connection: Connection, *, ids: RuntimeIds) -> None:
             "compiled_plan_id": ids.compiled_plan_id,
             "task_id": ids.task_id,
             "workflow_key": "workflow.target",
-            "definition_revision_no": 1,
+            "workflow_revision_no": 1,
             "compiler_version": "schema-contract-test",
             "snapshot_json": {},
             "created_at": FIXTURE_TIMESTAMP,
@@ -123,17 +137,15 @@ def _seed_compiled_plan(connection: Connection, *, ids: RuntimeIds) -> None:
             {
                 "compiled_plan_node_id": (f"compiled-plan-node.{ids.suffix}.{node_key}"),
                 "compiled_plan_id": ids.compiled_plan_id,
+                "task_id": ids.task_id,
+                "team_revision_id": team_revision_id(ids),
+                "member_id": node_key,
+                "member_configuration_id": member_configuration_id(ids, node_key),
+                "member_branch_basis_id": member_branch_basis_id(ids, node_key),
+                "member_title": f"{node_key.title()} Member",
                 "node_key": node_key,
                 "parent_node_key": parent_node_key,
                 "structural_kind": structural_kind,
-                "role_key": "role.target",
-                "role_revision_no": 1,
-                "role_description": "Target role.",
-                "role_instruction": None,
-                "policy_key": "policy.target",
-                "policy_revision_no": 1,
-                "policy_description": "Target policy.",
-                "policy_instruction": None,
                 "description": f"{node_key} node",
                 "node_instruction": None,
                 "child_node_keys_json": ["child"] if node_key == "root" else [],
@@ -160,20 +172,8 @@ def _seed_compiled_plan(connection: Connection, *, ids: RuntimeIds) -> None:
     )
 
 
-def _seed_task_compose_and_workspace(connection: Connection, *, ids: RuntimeIds) -> None:
+def _seed_workspace(connection: Connection, *, ids: RuntimeIds) -> None:
     tables = RuntimeBase.metadata.tables
-    connection.execute(
-        tables["task_composes"].insert(),
-        {
-            "task_compose_id": f"task-compose.{ids.suffix}",
-            "task_id": ids.task_id,
-            "workflow_key": "workflow.target",
-            "workflow_revision_no": 1,
-            "compiled_plan_id": ids.compiled_plan_id,
-            "compose_payload": {},
-            "created_at": FIXTURE_TIMESTAMP,
-        },
-    )
     connection.execute(
         tables["workspace_bindings"].insert(),
         {
@@ -253,19 +253,18 @@ def _seed_flow_nodes(
             tables["flow_nodes"].insert(),
             {
                 "flow_node_id": flow_node_id,
+                "task_id": ids.task_id,
                 "flow_id": ids.flow_id,
                 "flow_revision_id": ids.flow_revision_id,
+                "team_revision_id": team_revision_id(ids),
+                "member_id": node_key,
+                "member_configuration_id": member_configuration_id(ids, node_key),
+                "member_branch_basis_id": member_branch_basis_id(ids, node_key),
+                "member_title": f"{node_key.title()} Member",
                 "node_key": node_key,
                 "parent_node_key": parent_node_key,
                 "node_kind": structural_kind,
-                "role_key": "role.target",
-                "role_revision_no": 1,
-                "role_description": "Target role.",
-                "role_instruction": None,
-                "policy_key": "policy.target",
-                "policy_revision_no": 1,
-                "policy_description": "Target policy.",
-                "policy_instruction": None,
+                "provider_kind": "codex",
                 "description": f"{node_key} flow node",
                 "node_instruction": None,
                 "child_node_keys_json": ["child"] if node_key == "root" else [],
@@ -282,17 +281,16 @@ def _seed_flow_nodes(
             tables["node_plan_revisions"].insert(),
             {
                 "node_plan_revision_id": f"node-plan-revision.{ids.suffix}.{node_key}",
+                "task_id": ids.task_id,
                 "flow_id": ids.flow_id,
                 "flow_revision_id": ids.flow_revision_id,
                 "flow_node_id": flow_node_id,
-                "role_key": "role.target",
-                "role_revision_no": 1,
-                "role_description": "Target role.",
-                "role_instruction": None,
-                "policy_key": "policy.target",
-                "policy_revision_no": 1,
-                "policy_description": "Target policy.",
-                "policy_instruction": None,
+                "team_revision_id": team_revision_id(ids),
+                "member_id": node_key,
+                "member_configuration_id": member_configuration_id(ids, node_key),
+                "member_branch_basis_id": member_branch_basis_id(ids, node_key),
+                "member_title": f"{node_key.title()} Member",
+                "provider_kind": "codex",
             },
         )
     connection.execute(
@@ -305,88 +303,6 @@ def _seed_flow_nodes(
             "kind": "artifact",
             "slot": "input",
             "description": "Root output consumed by child.",
-            "order_index": 0,
-        },
-    )
-
-
-def _seed_assignments_and_attempts(
-    connection: Connection,
-    *,
-    ids: RuntimeIds,
-    timestamp: datetime,
-) -> None:
-    tables = RuntimeBase.metadata.tables
-    rows = (
-        (ids.root_assignment_id, ids.root_node_id, "root", None, ids.root_attempt_id),
-        (
-            ids.child_assignment_id,
-            ids.child_node_id,
-            "child",
-            ids.root_assignment_id,
-            ids.child_attempt_id,
-        ),
-    )
-    for assignment_id, flow_node_id, node_key, parent_assignment_id, attempt_id in rows:
-        connection.execute(
-            tables["assignments"].insert(),
-            {
-                "assignment_id": assignment_id,
-                "task_id": ids.task_id,
-                "flow_id": ids.flow_id,
-                "flow_revision_id": ids.flow_revision_id,
-                "flow_node_id": flow_node_id,
-                "assignment_key": f"assignment-key.{ids.suffix}.{node_key}",
-                "node_key": node_key,
-                "parent_assignment_id": parent_assignment_id,
-                "summary": f"{node_key} assignment",
-                "instruction": None,
-                "criteria_json": [],
-                "consumes_json": [],
-                "produces_json": [],
-                "current_attempt_id": None,
-                "work_plan_revision": 0,
-                "created_by_dispatch_id": None,
-                "created_at": timestamp,
-                "superseded_at": None,
-            },
-        )
-        connection.execute(
-            tables["attempts"].insert(),
-            {
-                "attempt_id": attempt_id,
-                "assignment_id": assignment_id,
-                "task_id": ids.task_id,
-                "flow_id": ids.flow_id,
-                "node_key": node_key,
-                "retry_of_attempt_id": None,
-                "status": "running",
-                "terminal_outcome": None,
-                "opened_at": timestamp,
-                "closed_at": None,
-            },
-        )
-        connection.execute(
-            tables["assignments"]
-            .update()
-            .where(tables["assignments"].c.assignment_id == assignment_id)
-            .values(current_attempt_id=attempt_id)
-        )
-        connection.execute(
-            tables["flow_nodes"]
-            .update()
-            .where(tables["flow_nodes"].c.flow_node_id == flow_node_id)
-            .values(current_assignment_id=assignment_id)
-        )
-    connection.execute(
-        tables["assignment_criteria_refs"].insert(),
-        {
-            "assignment_criteria_ref_id": f"criteria-ref.{ids.suffix}.root.0",
-            "assignment_id": ids.root_assignment_id,
-            "slot": "criteria",
-            "logical_path": "_runtime/criteria/root.md",
-            "description": "Root criteria.",
-            "version": 1,
             "order_index": 0,
         },
     )
@@ -480,6 +396,12 @@ def _insert_dispatch_fixture(
             "task_id": ids.task_id,
             "flow_id": ids.flow_id,
             "assignment_id": row.assignment_id,
+            "flow_revision_id": ids.flow_revision_id,
+            "flow_node_id": ids.root_node_id if row.node_key == "root" else ids.child_node_id,
+            "team_revision_id": team_revision_id(ids),
+            "member_id": row.node_key,
+            "member_configuration_id": member_configuration_id(ids, row.node_key),
+            "member_branch_basis_id": member_branch_basis_id(ids, row.node_key),
             "attempt_id": row.attempt_id,
             "node_key": row.node_key,
             "flow_start_source_flow_id": row.flow_start_source_flow_id,
@@ -491,8 +413,11 @@ def _insert_dispatch_fixture(
             "provider_selection_basis": "default",
             "provider_route_kind": "codex",
             "model_override": None,
+            "model_source": "provider_configuration",
             "effort_override": None,
+            "effort_source": "provider_configuration",
             "gateway_profile": None,
+            "gateway_profile_source": None,
             "provider_start_revision": 0,
             "provider_start_attempt_count": 0,
             "next_provider_start_at": None,
@@ -536,15 +461,35 @@ def _insert_dispatch_capability_set(
         RuntimeBase.metadata.tables["dispatch_capability_sets"].insert(),
         {
             "dispatch_id": dispatch_id,
+            "provider_kind": "codex",
             "provider_native_access": "full",
             "provider_native_access_source": "default",
             "network_access": "allow",
             "network_access_source": "default",
+            "requested_sandbox_mode": "full_access",
+            "requested_sandbox_network": "allow",
+            "sandbox_request_source": "default",
+            "effective_sandbox_mode": "full_access",
+            "effective_sandbox_network": "allow",
+            "sandbox_mode_source": "default",
+            "sandbox_network_source": "default",
+            "requested_human_direction": "allow",
+            "requested_human_approval": "allow",
+            "requested_human_input": "allow",
+            "requested_human_review": "allow",
+            "requested_human_request_source": "member_configuration",
             "human_direction": "allow",
+            "human_direction_source": "member_configuration",
             "human_approval": "allow",
+            "human_approval_source": "member_configuration",
             "human_input": "allow",
+            "human_input_source": "member_configuration",
             "human_review": "allow",
+            "human_review_source": "member_configuration",
+            "requested_command_run": "allow",
+            "requested_command_run_source": "member_configuration",
             "command_run": "allow",
+            "command_run_source": "member_configuration",
             "created_at": timestamp,
         },
     )

@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import raiseload
 
-from banksia.definitions.compiler import NormalizedConsumeBuckets
 from banksia.persistence.models import (
     ArtifactCurrentPointerModel,
     ArtifactPublicationModel,
@@ -25,6 +25,24 @@ class AssignmentDurableInputs:
     consumes: tuple[dict[str, object], ...]
 
 
+class _ConsumeSelector(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, populate_by_name=True)
+
+    slot: str
+    is_required: bool = Field(default=True, alias="required")
+
+    @property
+    def required(self) -> bool:
+        return self.is_required
+
+
+class _ConsumeBuckets(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    artifacts: tuple[_ConsumeSelector, ...] = ()
+    criteria: tuple[_ConsumeSelector, ...] = ()
+
+
 async def resolve_child_assignment_durable_inputs(
     session: AsyncSession,
     *,
@@ -35,7 +53,7 @@ async def resolve_child_assignment_durable_inputs(
 ) -> AssignmentDurableInputs:
     """Resolve authored child selectors to exact assignment-time refs."""
 
-    selectors = NormalizedConsumeBuckets.model_validate(target.consumes_json or {})
+    selectors = _ConsumeBuckets.model_validate(target.consumes_json or {})
     edges = await _read_target_edges(
         session,
         flow_revision_id=flow_revision_id,

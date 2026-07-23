@@ -7,8 +7,6 @@ from typing import cast
 
 import pytest
 from banksia.config import OpenClawGatewayAuthMode, OpenClawSettings
-from banksia.definitions.contracts.registry import NetworkAccess, ProviderNativeAccess
-from banksia.definitions.contracts.workflow import ProviderKind
 from banksia.integrations.openclaw.gateway import OpenClawGatewayAdapter, cli_transport
 from banksia.integrations.openclaw.gateway import adapter as adapter_module
 from banksia.integrations.openclaw.gateway.cli_transport import (
@@ -17,6 +15,7 @@ from banksia.integrations.openclaw.gateway.cli_transport import (
     build_openclaw_gateway_command,
     call_openclaw_gateway,
 )
+from banksia.providers import NetworkAccess, ProviderKind, ProviderNativeAccess
 from banksia.runtime.contracts.provider_resolution import OpenClawProviderRoute
 from banksia.runtime.providers.contracts import (
     CompatibilityNodeMcpConnection,

@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Protocol
 
 from banksia.config import Settings
-from banksia.definitions.contracts.workflow import ProviderKind
+from banksia.providers import ProviderKind
 from banksia.runtime.clock import utc_now
 from banksia.runtime.contracts import TaskRootPaths
 from banksia.runtime.contracts.capabilities import EffectiveCapabilitySet
@@ -18,7 +18,7 @@ from banksia.runtime.dispatch.request_pair import (
 )
 from banksia.runtime.post_commit import RuntimeEffectPublisher
 from banksia.runtime.prompt import render_dispatch_request
-from banksia.runtime.providers.resolution import validate_provider_execution_policy
+from banksia.runtime.providers.resolution import validate_provider_execution_configuration
 
 
 class DispatchRequestPairPublisher(Protocol):
@@ -78,10 +78,11 @@ def prepare_dispatch_request(
     capabilities: EffectiveCapabilitySet,
     request: DispatchRequestRenderInput,
 ) -> PreparedDispatchRequest:
-    validate_provider_execution_policy(
+    validate_provider_execution_configuration(
         route=provider.route,
         provider_native_access=capabilities.provider_native_access.effective,
         network_access=capabilities.network_access.effective,
+        sandbox_mode=(provider.sandbox.effective_mode if provider.sandbox is not None else None),
     )
     rendered = render_dispatch_request(request)
     refs = dependencies.request_pair_publisher(

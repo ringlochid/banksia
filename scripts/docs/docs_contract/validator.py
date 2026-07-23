@@ -4,7 +4,6 @@ import re
 from collections import deque
 from pathlib import Path
 
-from .definition_examples import definition_example_findings
 from .discovery import (
     FROZEN_LEGACY_VERSION_ROOTS_BY_FAMILY,
     ROOT,
@@ -87,7 +86,6 @@ def build_contract_report(root: Path = ROOT) -> ContractReport:
         findings.extend(deleted_route_findings(root=root, path=path, text=text))
         findings.extend(link_findings(root=root, path=path, text=text))
         findings.extend(ignored_dependency_findings(root=root, path=path, text=text))
-    findings.extend(definition_example_findings(root))
     findings.extend(unexpected_version_tree_findings(root=root))
     findings.extend(frozen_legacy_front_door_findings(root=root))
     findings.extend(live_legacy_authority_findings(root=root, files=files))

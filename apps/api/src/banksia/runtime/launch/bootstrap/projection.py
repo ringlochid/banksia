@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from banksia.definitions.compiler import NormalizedCompiledNode, NormalizedCompiledPlan
-from banksia.definitions.contracts.workflow import NodeKind
 from banksia.runtime.contracts import (
     AssignmentProjection,
     EvidenceKind,
@@ -14,11 +12,13 @@ from banksia.runtime.contracts import (
     RuntimeBootstrapResult,
     TaskRootPaths,
 )
-from banksia.runtime.errors import illegal_state_error, missing_resource_error
+from banksia.runtime.contracts.member import NodeKind
+from banksia.runtime.errors import illegal_state_error
 from banksia.runtime.ids import assignment_id, flow_id_for_task
 from banksia.runtime.launch.bootstrap.criteria import (
     build_launch_criteria_projection_signals,
 )
+from banksia.runtime.launch.legacy_team_adapter import LegacyTeamNode, LegacyTeamPlan
 from banksia.runtime.projection.signals import (
     AttemptAssignmentProjection,
     SupportProjectionSignal,
@@ -73,12 +73,12 @@ def build_launch_support_projection_signals(
 
 
 def _compiled_nodes_by_key(
-    compiled_plan: NormalizedCompiledPlan,
-) -> dict[str, NormalizedCompiledNode]:
+    compiled_plan: LegacyTeamPlan,
+) -> dict[str, LegacyTeamNode]:
     return {node.node_key: node for node in compiled_plan.nodes}
 
 
-def _criteria_descriptions_by_slot(compiled_plan: NormalizedCompiledPlan) -> dict[str, str]:
+def _criteria_descriptions_by_slot(compiled_plan: LegacyTeamPlan) -> dict[str, str]:
     descriptions: dict[str, str] = {}
     for node in compiled_plan.nodes:
         for criteria in node.criteria:
@@ -106,34 +106,22 @@ def _merge_criteria_refs(
 def _resolve_root_node_context(
     bootstrap_input: RuntimeBootstrapInput,
 ) -> ResolvedNodeContext:
-    root_node_key = bootstrap_input.workflow_definition.root.node_key
+    root_node_key = bootstrap_input.initial_team.root_member_id
     compiled_node = _compiled_nodes_by_key(bootstrap_input.compiled_plan).get(root_node_key)
     if compiled_node is None:
         raise illegal_state_error(f"compiled plan is missing authored root node '{root_node_key}'")
     if compiled_node.structural_kind != NodeKind.ROOT or compiled_node.parent_node_key is not None:
         raise illegal_state_error(f"compiled node '{root_node_key}' is not the structural root")
 
-    role_revision = bootstrap_input.role_policy_lookup.get_role(compiled_node.role)
-    if role_revision is None:
-        raise missing_resource_error(f"missing role definition for '{compiled_node.role}'")
-
-    policy_revision = bootstrap_input.role_policy_lookup.get_policy(compiled_node.policy)
-    if policy_revision is None:
-        raise missing_resource_error(f"missing policy definition for '{compiled_node.policy}'")
-
     return ResolvedNodeContext(
         node_key=compiled_node.node_key,
         node_kind=compiled_node.structural_kind,
         node_description=compiled_node.description,
         node_instruction=compiled_node.node_instruction,
-        role_key=compiled_node.role,
-        role_revision_no=compiled_node.role_revision_no,
-        role_description=role_revision.definition.description,
-        role_instruction=role_revision.definition.instruction,
-        policy_key=compiled_node.policy,
-        policy_revision_no=compiled_node.policy_revision_no,
-        policy_description=policy_revision.definition.description,
-        policy_instruction=policy_revision.definition.instruction,
+        member_id=compiled_node.member_id,
+        member_configuration_id=compiled_node.member_configuration_id,
+        member_branch_basis_id=compiled_node.member_branch_basis_id,
+        member_title=compiled_node.title,
     )
 
 
@@ -187,14 +175,6 @@ def _build_launch_assignment(
     instruction_parts.append(f"Node purpose: {current_node.node_description}")
     if current_node.node_instruction is not None:
         instruction_parts.append(f"Node instruction: {current_node.node_instruction}")
-    instruction_parts.append(f"Role guidance: {current_node.role_description}")
-    if current_node.role_instruction is not None:
-        instruction_parts.append(current_node.role_instruction)
-    if current_node.policy_description is not None:
-        instruction_parts.append(f"Policy guidance: {current_node.policy_description}")
-    if current_node.policy_instruction is not None:
-        instruction_parts.append(current_node.policy_instruction)
-
     return AssignmentProjection(
         assignment_key=bootstrap_input.assignment_key,
         node_key=current_node.node_key,

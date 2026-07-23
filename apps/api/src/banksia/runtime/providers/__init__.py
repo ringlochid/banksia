@@ -20,8 +20,10 @@ from banksia.runtime.providers.resolution import (
     ProviderResolutionErrorCode,
     narrow_provider_capabilities,
     provider_selection_from_kind,
+    read_member_provider_selection,
+    resolve_member_provider_route,
     resolve_provider_route,
-    validate_provider_execution_policy,
+    validate_provider_execution_configuration,
 )
 
 __all__ = [
@@ -44,6 +46,8 @@ __all__ = [
     "ProviderStopOutcome",
     "narrow_provider_capabilities",
     "provider_selection_from_kind",
+    "read_member_provider_selection",
+    "resolve_member_provider_route",
     "resolve_provider_route",
-    "validate_provider_execution_policy",
+    "validate_provider_execution_configuration",
 ]

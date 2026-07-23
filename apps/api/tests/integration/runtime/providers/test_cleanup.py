@@ -6,8 +6,8 @@ from pathlib import Path
 from typing import cast
 
 import pytest
-from banksia.definitions.contracts.workflow import ProviderKind
 from banksia.persistence import RuntimeBase
+from banksia.providers import ProviderKind
 from banksia.runtime.post_commit import DispatchCleanupRequested
 from banksia.runtime.providers import (
     DispatchStartRequest,

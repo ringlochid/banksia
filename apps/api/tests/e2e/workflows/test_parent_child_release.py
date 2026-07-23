@@ -5,8 +5,6 @@ from pathlib import Path
 from typing import cast
 
 from banksia.config import CodexSettings, RuntimeSettings, Settings
-from banksia.definitions.contracts.registry import PolicyDefinitionInput
-from banksia.definitions.contracts.workflow import NodeKind, ProviderKind
 from banksia.persistence.models import (
     AssignmentCriteriaRefModel,
     AssignmentDecisionModel,
@@ -16,8 +14,8 @@ from banksia.persistence.models import (
     FlowEdgeModel,
     FlowModel,
     FlowNodeModel,
-    PolicyRevisionModel,
 )
+from banksia.providers import ProviderKind
 from banksia.runtime.boundary import BoundaryOpeningResult, open_boundary_successor
 from banksia.runtime.dispatch import accept_provider_start_if_current
 from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
@@ -236,12 +234,10 @@ async def _make_child_assignable(
         root_node = await session.get(FlowNodeModel, ids.root_node_id)
         previous_child_attempt = await session.get(AttemptModel, ids.child_attempt_id)
         child_node = await session.get(FlowNodeModel, ids.child_node_id)
-        policy = await session.get(PolicyRevisionModel, "policy-revision.target.1")
         assert parent is not None
         assert root_node is not None
         assert previous_child_attempt is not None
         assert child_node is not None
-        assert policy is not None
 
         parent.child_assignment_limit = 1
         parent.child_assignments_remaining = 1
@@ -276,11 +272,6 @@ async def _make_child_assignable(
                 order_index=1,
             )
         )
-        policy.content_json = PolicyDefinitionInput(
-            id="policy.target",
-            description="Allow the target parent and worker journey.",
-            applies_to=[NodeKind.ROOT, NodeKind.WORKER],
-        ).model_dump(mode="json")
         await session.commit()
 
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Mapping
 from contextlib import AsyncExitStack
 
 from banksia.interfaces.mcp.node import NODE_TOOL_NAMES
@@ -82,7 +83,7 @@ async def test_compatibility_projection_lists_static_strict_explicit_id_catalog(
         tools_result = await session.list_tools()
 
     assert set(tool_names(tools_result)) == set(NODE_TOOL_NAMES)
-    assert len(NODE_TOOL_NAMES) == len(NODE_OPERATION_CATALOG) == 16
+    assert len(NODE_TOOL_NAMES) == len(NODE_OPERATION_CATALOG) == 14
     assert set(tool_names(tools_result)).isdisjoint(_OPERATOR_ONLY_NAMES)
     for tool_name in NODE_TOOL_NAMES:
         schema = tool_input_schema(tools_result, tool_name)
@@ -144,6 +145,37 @@ async def test_managed_and_compatibility_schemas_preserve_semantic_and_result_pa
     assert "no further tool calls or prose" in boundary_description
 
 
+async def test_replan_projections_hide_recursive_controller_guardrails() -> None:
+    applications, registry = create_test_node_mcp_apps(RecordingNodeOperationExecutor())
+    replan_operations = (
+        NodeOperationName.ADD_CHILD,
+        NodeOperationName.UPDATE_CHILD,
+    )
+    issued = issue_test_binding(
+        registry,
+        task_id="task.replan-schema",
+        dispatch_id="dispatch.replan-schema",
+        exposure_ceiling=replan_operations,
+    )
+
+    async with node_mcp_client_session(
+        applications.managed,
+        headers=managed_headers(issued),
+    ) as managed_session:
+        managed_tools = await managed_session.list_tools()
+    async with node_mcp_client_session(applications.compatibility) as compatibility_session:
+        compatibility_tools = await compatibility_session.list_tools()
+
+    expected_children_fields = {"add_child": 1, "update_child": 3}
+    for tools in (managed_tools, compatibility_tools):
+        for operation in replan_operations:
+            schema = tool_input_schema(tools, operation.value)
+            _assert_no_hidden_replan_guardrails(schema)
+            children_fields = _collect_property_schemas(schema, "children")
+            assert len(children_fields) == expected_children_fields[operation.value]
+            assert all("maxItems" not in field for field in children_fields)
+
+
 async def test_both_projections_call_one_executor_with_the_same_semantic_arguments() -> None:
     response = ListFilesResponse(directory="workspace", entries=())
     executor = RecordingNodeOperationExecutor(
@@ -203,7 +235,7 @@ async def test_concurrent_managed_clients_keep_scope_and_tool_ceiling_isolated()
             ),
             "dispatch.concurrent-b": (
                 NodeOperationName.GET_CURRENT_CONTEXT,
-                NodeOperationName.SEARCH_DEFINITIONS,
+                NodeOperationName.READ_FILE,
             ),
         }
     )
@@ -223,7 +255,7 @@ async def test_concurrent_managed_clients_keep_scope_and_tool_ceiling_isolated()
         dispatch_id="dispatch.concurrent-b",
         exposure_ceiling=(
             NodeOperationName.GET_CURRENT_CONTEXT,
-            NodeOperationName.SEARCH_DEFINITIONS,
+            NodeOperationName.READ_FILE,
         ),
     )
 
@@ -247,8 +279,38 @@ async def test_concurrent_managed_clients_keep_scope_and_tool_ceiling_isolated()
             )
 
     assert set(tool_names(tools_a)) == {"get_current_context", "list_files"}
-    assert set(tool_names(tools_b)) == {"get_current_context", "search_definitions"}
+    assert set(tool_names(tools_b)) == {"get_current_context", "read_file"}
     assert {scope.dispatch_id for scope in executor.listed_scopes} == {
         "dispatch.concurrent-a",
         "dispatch.concurrent-b",
     }
+
+
+def _assert_no_hidden_replan_guardrails(value: object) -> None:
+    if isinstance(value, Mapping):
+        assert value.get("maxItems") not in {32, 256}
+        assert value.get("maxLength") != 255
+        for child in value.values():
+            _assert_no_hidden_replan_guardrails(child)
+    elif isinstance(value, list):
+        for child in value:
+            _assert_no_hidden_replan_guardrails(child)
+
+
+def _collect_property_schemas(
+    value: object,
+    property_name: str,
+) -> tuple[Mapping[str, object], ...]:
+    found: list[Mapping[str, object]] = []
+    if isinstance(value, Mapping):
+        properties = value.get("properties")
+        if isinstance(properties, Mapping):
+            property_schema = properties.get(property_name)
+            if isinstance(property_schema, Mapping):
+                found.append(property_schema)
+        for child in value.values():
+            found.extend(_collect_property_schemas(child, property_name))
+    elif isinstance(value, list):
+        for child in value:
+            found.extend(_collect_property_schemas(child, property_name))
+    return tuple(found)

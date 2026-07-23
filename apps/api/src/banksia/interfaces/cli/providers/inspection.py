@@ -9,7 +9,6 @@ from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 
 from banksia.config import Settings
-from banksia.definitions.contracts.workflow import ProviderKind
 from banksia.integrations.claude.native_identity import bundled_claude_path
 from banksia.interfaces.cli.providers.configuration import product_status_for
 from banksia.interfaces.cli.providers.contracts import (
@@ -23,6 +22,7 @@ from banksia.interfaces.cli.providers.identity import (
     provider_native_home,
     service_identity,
 )
+from banksia.providers import ProviderKind
 from banksia.runtime.providers import (
     ProviderAuthenticationMethod,
     ProviderCheckAxisStatus,

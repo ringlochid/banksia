@@ -7,12 +7,12 @@ from dataclasses import dataclass
 from uuid import uuid4
 
 from banksia.config import OpenClawGatewayAuthMode, OpenClawSettings, Settings, get_settings
-from banksia.definitions.contracts.workflow import ProviderKind
 from banksia.integrations.openclaw.gateway.cli_transport import (
     OpenClawGatewayCliError,
     OpenClawGatewayFailureCode,
     call_openclaw_gateway,
 )
+from banksia.providers import ProviderKind
 from banksia.runtime.contracts.provider_resolution import OpenClawProviderRoute
 from banksia.runtime.providers.contracts import (
     DispatchStartRequest,

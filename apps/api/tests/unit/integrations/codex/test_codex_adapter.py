@@ -7,9 +7,8 @@ from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
-from banksia.definitions.contracts.registry import NetworkAccess, ProviderNativeAccess
-from banksia.definitions.contracts.workflow import ProviderKind
 from banksia.integrations.codex import CodexAdapter
+from banksia.providers import ManagedSandboxMode, NetworkAccess, ProviderKind, ProviderNativeAccess
 from banksia.runtime.contracts.provider_resolution import CodexProviderRoute
 from banksia.runtime.providers.contracts import (
     DispatchStartRequest,
@@ -17,8 +16,6 @@ from banksia.runtime.providers.contracts import (
     ProviderAuthenticationMethod,
     ProviderCheckAxisStatus,
     ProviderCheckStatus,
-    ProviderStartError,
-    ProviderStartErrorCode,
     ProviderStopOutcome,
 )
 from openai_codex import AsyncCodex, Sandbox
@@ -96,6 +93,7 @@ def _request() -> DispatchStartRequest:
         ),
         provider_native_access=ProviderNativeAccess.RESTRICTED,
         network_access=NetworkAccess.DENY,
+        sandbox_mode=ManagedSandboxMode.WORKSPACE_WRITE,
         managed_node_mcp=ManagedNodeMcpConnection(
             url="http://127.0.0.1:8123/_internal/node/mcp",
             bearer_token=SecretStr("binding-secret"),
@@ -183,13 +181,30 @@ async def test_codex_check_reports_only_missing_required_authentication(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("provider_native_access", "network_access", "expected_sandbox"),
+    ("sandbox_mode", "provider_native_access", "network_access", "expected_sandbox"),
     (
-        (ProviderNativeAccess.RESTRICTED, NetworkAccess.DENY, Sandbox.workspace_write),
-        (ProviderNativeAccess.FULL, NetworkAccess.ALLOW, Sandbox.full_access),
+        (
+            ManagedSandboxMode.READ_ONLY,
+            ProviderNativeAccess.DENIED,
+            NetworkAccess.DENY,
+            Sandbox.read_only,
+        ),
+        (
+            ManagedSandboxMode.WORKSPACE_WRITE,
+            ProviderNativeAccess.RESTRICTED,
+            NetworkAccess.DENY,
+            Sandbox.workspace_write,
+        ),
+        (
+            ManagedSandboxMode.FULL_ACCESS,
+            ProviderNativeAccess.FULL,
+            NetworkAccess.ALLOW,
+            Sandbox.full_access,
+        ),
     ),
 )
 async def test_codex_start_uses_ephemeral_overlay_and_returns_before_output(
+    sandbox_mode: ManagedSandboxMode,
     provider_native_access: ProviderNativeAccess,
     network_access: NetworkAccess,
     expected_sandbox: Sandbox,
@@ -202,6 +217,7 @@ async def test_codex_start_uses_ephemeral_overlay_and_returns_before_output(
         update={
             "provider_native_access": provider_native_access,
             "network_access": network_access,
+            "sandbox_mode": sandbox_mode,
         }
     )
 
@@ -240,34 +256,3 @@ async def test_codex_lifespan_closes_transport_without_waiting_for_turn_interrup
 
     assert fake.was_closed is True
     assert fake.turn.was_interrupted is False
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize(
-    ("provider_native_access", "network_access"),
-    (
-        (ProviderNativeAccess.DENIED, NetworkAccess.ALLOW),
-        (ProviderNativeAccess.FULL, NetworkAccess.DENY),
-    ),
-)
-async def test_codex_start_fails_closed_for_unsupported_policy_combinations(
-    provider_native_access: ProviderNativeAccess,
-    network_access: NetworkAccess,
-) -> None:
-    fake = _FakeCodex()
-    adapter = CodexAdapter(
-        codex_factory=cast(Callable[[], AsyncCodex], lambda: fake),
-    )
-    request = _request().model_copy(
-        update={
-            "provider_native_access": provider_native_access,
-            "network_access": network_access,
-        }
-    )
-
-    async with adapter.lifespan():
-        with pytest.raises(ProviderStartError) as raised:
-            await adapter.start(request)
-
-    assert raised.value.code is ProviderStartErrorCode.UNSUPPORTED
-    assert fake.thread_kwargs == {}

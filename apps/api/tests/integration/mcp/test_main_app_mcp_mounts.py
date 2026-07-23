@@ -235,13 +235,13 @@ async def test_main_app_openapi_and_http_routes_exclude_private_mcp_and_callback
     route_paths = {getattr(route, "path", "") for route in app.routes}
 
     assert {
-        "/authoring/task-compose/preview",
         "/control/tasks/{task_id}",
         "/control/tasks/{task_id}/snapshot",
         "/control/tasks/{task_id}/trace",
         "/control/tasks/{task_id}/events",
         "/control/tasks/{task_id}/events/stream",
     } <= openapi_paths
+    assert "/authoring/task-compose/preview" not in openapi_paths
     assert "/_internal/node/mcp" not in openapi_paths
     assert "/node/mcp" not in openapi_paths
     assert not any(path.startswith("/callback") for path in openapi_paths)

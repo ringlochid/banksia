@@ -8,9 +8,9 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from banksia.definitions.contracts.workflow import ProviderKind
 from banksia.interfaces.cli.context import CliContext
 from banksia.interfaces.cli.providers.identity import authentication_method_label
+from banksia.providers import ProviderKind
 from banksia.runtime.providers import ProviderAuthenticationMethod, ProviderCheckAxisStatus
 
 from .contracts import (

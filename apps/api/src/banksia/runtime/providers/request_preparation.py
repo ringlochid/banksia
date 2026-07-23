@@ -6,8 +6,12 @@ from pathlib import PurePosixPath
 from pydantic import SecretStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from banksia.definitions.contracts.registry import NetworkAccess, ProviderNativeAccess
-from banksia.definitions.contracts.workflow import ProviderKind
+from banksia.providers import (
+    ManagedSandboxMode,
+    NetworkAccess,
+    ProviderKind,
+    ProviderNativeAccess,
+)
 from banksia.runtime.contracts.provider_resolution import (
     ClaudeProviderRoute,
     CodexProviderRoute,
@@ -23,7 +27,7 @@ from banksia.runtime.providers.contracts import (
     DispatchStartRequest,
     ManagedNodeMcpConnection,
 )
-from banksia.runtime.providers.resolution import validate_provider_execution_policy
+from banksia.runtime.providers.resolution import validate_provider_execution_configuration
 from banksia.runtime.task_root import (
     read_logical_regular_file_bytes,
     read_task_root_paths,
@@ -58,7 +62,7 @@ class ProviderStartRequestBuilder:
         signal: DispatchStartDue,
         candidate: ProviderStartCandidate,
     ) -> PreparedProviderStart:
-        route, native_access, network_access = _validate_candidate(candidate)
+        route, native_access, network_access, sandbox_mode = _validate_candidate(candidate)
         paths = await read_task_root_paths(session, candidate.task_id)
         await session.rollback()
         instructions, input_bytes = _read_request_pair(
@@ -85,6 +89,7 @@ class ProviderStartRequestBuilder:
                 provider_route=route,
                 provider_native_access=native_access,
                 network_access=network_access,
+                sandbox_mode=sandbox_mode,
                 managed_node_mcp=managed_connection,
                 compatibility_node_mcp=compatibility_connection,
             )
@@ -133,7 +138,12 @@ class ProviderStartRequestBuilder:
 
 def _validate_candidate(
     candidate: ProviderStartCandidate,
-) -> tuple[ProviderRoute, ProviderNativeAccess, NetworkAccess]:
+) -> tuple[
+    ProviderRoute,
+    ProviderNativeAccess,
+    NetworkAccess,
+    ManagedSandboxMode | None,
+]:
     if (
         candidate.instructions_logical_path is None
         or candidate.input_logical_path is None
@@ -144,12 +154,16 @@ def _validate_candidate(
     route = _provider_route(candidate)
     native_access = ProviderNativeAccess(candidate.provider_native_access)
     network_access = NetworkAccess(candidate.network_access)
-    validate_provider_execution_policy(
+    sandbox_mode = (
+        ManagedSandboxMode(candidate.sandbox_mode) if candidate.sandbox_mode is not None else None
+    )
+    validate_provider_execution_configuration(
         route=route,
         provider_native_access=native_access,
         network_access=network_access,
+        sandbox_mode=sandbox_mode,
     )
-    return route, native_access, network_access
+    return route, native_access, network_access, sandbox_mode
 
 
 def _read_request_pair(

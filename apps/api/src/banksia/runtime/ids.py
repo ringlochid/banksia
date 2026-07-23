@@ -5,10 +5,6 @@ def flow_id_for_task(task_id: str) -> str:
     return f"flow.{task_id}"
 
 
-def task_compose_id_for_task(task_id: str) -> str:
-    return f"task-compose.{task_id}"
-
-
 def compiled_plan_id_for_task(task_id: str) -> str:
     return f"compiled-plan.{task_id}"
 

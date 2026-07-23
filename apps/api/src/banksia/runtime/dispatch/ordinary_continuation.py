@@ -56,6 +56,10 @@ async def open_ordinary_successor(
     claim_source: OrdinarySourceClaim,
     record_failure: OrdinaryFailureRecorder,
     default_failure_code: str,
+    expected_flow_status: Literal["running", "paused"] = "running",
+    expected_control_revision: int | None = None,
+    should_resume_flow: bool = False,
+    resume_event: TaskResumeEventBasis | None = None,
 ) -> OrdinaryOpeningResult:
     """Prepare and conditionally open one runnable exact-source successor."""
 
@@ -71,7 +75,8 @@ async def open_ordinary_successor(
             basis=basis,
             dispatch_id=dispatch_id,
             dependencies=dependencies,
-            expected_flow_status="running",
+            expected_flow_status=expected_flow_status,
+            expected_control_revision=expected_control_revision,
         )
         if snapshot is None:
             await session.rollback()
@@ -98,7 +103,8 @@ async def open_ordinary_successor(
         snapshot=snapshot,
         prepared=prepared,
         claim_source=claim_source,
-        should_resume_flow=False,
+        should_resume_flow=should_resume_flow,
+        resume_event=resume_event,
     )
     if not committed:
         return OrdinaryOpeningResult(outcome="skipped")
@@ -158,6 +164,12 @@ async def commit_ordinary_dispatch_if_current(
             task_id=snapshot.prompt.task_id,
             flow_id=snapshot.prompt.flow_id,
             assignment_id=snapshot.prompt.assignment_id,
+            flow_revision_id=snapshot.prompt.flow_revision_id,
+            flow_node_id=snapshot.prompt.flow_node_id,
+            team_revision_id=snapshot.prompt.team_revision_id,
+            member_id=snapshot.prompt.member_id,
+            member_configuration_id=snapshot.prompt.member_configuration_id,
+            member_branch_basis_id=snapshot.prompt.member_branch_basis_id,
             attempt_id=snapshot.prompt.attempt_id,
             node_key=snapshot.prompt.node_key,
             opened_reason=snapshot.basis.opened_reason,

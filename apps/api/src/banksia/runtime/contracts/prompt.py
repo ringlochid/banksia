@@ -14,19 +14,20 @@ from pydantic import (
     model_validator,
 )
 
-from banksia.definitions.contracts.workflow import NodeKind
 from banksia.runtime.contracts.capabilities import EffectiveCapabilitySet
 from banksia.runtime.contracts.command_runs import CommandRunStartRequest
 from banksia.runtime.contracts.human_requests import (
     HumanRequestResolution,
     PendingHumanRequest,
 )
+from banksia.runtime.contracts.member import NodeKind
 from banksia.runtime.contracts.primitives import (
     CheckpointOutcome,
     EgressBoundary,
     HumanRequestResolutionKind,
     HumanRequestStatus,
 )
+from banksia.runtime.contracts.replan import ReplanSuccess
 from banksia.runtime.work_plan.contracts import WorkPlanRead
 
 PromptText = Annotated[
@@ -77,13 +78,8 @@ PROMPT_DYNAMIC_INPUT_KEYS = (
 PARENT_ROOT_ACTIONS = frozenset(
     {
         "assign_child",
-        "add_child",
-        "get_definition",
-        "remove_child",
         "release_blocked",
         "release_green",
-        "search_definitions",
-        "update_child",
     }
 )
 
@@ -122,9 +118,8 @@ class PromptCommandTerminalSource(StrEnum):
 
 class PromptInstructionGuidance(PromptContract):
     workflow: tuple[PromptText, ...] = ()
-    role: tuple[PromptText, ...] = ()
+    member: tuple[PromptText, ...] = ()
     node: tuple[PromptText, ...] = ()
-    policy: tuple[PromptText, ...] = ()
 
 
 class PromptLogicalRef(PromptContract):
@@ -184,8 +179,8 @@ class PromptAssignmentBudget(PromptContract):
 
 class PromptAssignment(PromptContract):
     assignment_id: PromptIdentifier
-    role_id: PromptIdentifier
-    role_description: PromptText
+    member_id: PromptIdentifier
+    member_title: PromptText | None = None
     node_kind: NodeKind
     summary: PromptText
     instruction: PromptText | None = None
@@ -323,6 +318,13 @@ class OperatorContinueTrigger(PromptContract):
         return self
 
 
+class StructuralReplanTrigger(PromptContract):
+    kind: Literal["structural_replan"] = "structural_replan"
+    source_dispatch_id: PromptIdentifier
+    operation: Literal["add_child", "update_child", "remove_child"]
+    result: ReplanSuccess
+
+
 type PromptTrigger = Annotated[
     RootStartTrigger
     | AcceptedBoundaryTrigger
@@ -331,7 +333,8 @@ type PromptTrigger = Annotated[
     | CommandResultTrigger
     | WatchdogRecoveryTrigger
     | SemanticRetryTrigger
-    | OperatorContinueTrigger,
+    | OperatorContinueTrigger
+    | StructuralReplanTrigger,
     Field(discriminator="kind"),
 ]
 
@@ -344,6 +347,7 @@ PROMPT_TRIGGER_KINDS = (
     "watchdog_recovery",
     "semantic_retry",
     "operator_continue",
+    "structural_replan",
 )
 
 
@@ -478,6 +482,7 @@ __all__ = [
     "RootStartTrigger",
     "RuntimeReadbackRefs",
     "SemanticRetryTrigger",
+    "StructuralReplanTrigger",
     "WatchdogRecoveryTrigger",
     "prompt_family_for_node_kind",
 ]

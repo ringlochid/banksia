@@ -35,8 +35,7 @@ from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
 from banksia.runtime.post_commit import WatchdogDue
 from banksia.runtime.providers import (
     narrow_provider_capabilities,
-    provider_selection_from_kind,
-    resolve_provider_route,
+    resolve_member_provider_route,
 )
 from banksia.runtime.task_root import read_task_root_paths
 from banksia.runtime.watchdog.deadline import calculate_watchdog_due_at
@@ -181,17 +180,20 @@ async def _build_watchdog_replacement_dispatch(
     )
     prompt_criteria = await read_assignment_prompt_criteria(
         session,
-        flow_revision_id=context.assignment.flow_revision_id,
+        flow_revision_id=context.node.flow_revision_id,
         criteria_refs=context.assignment.criteria_json,
     )
     capabilities = await resolve_effective_capabilities_for_node(session, node=context.node)
-    provider = resolve_provider_route(
-        provider=provider_selection_from_kind(context.node.provider_kind),
+    provider = await resolve_member_provider_route(
+        session,
+        task_id=context.node.task_id,
+        member_configuration_id=context.node.member_configuration_id,
         settings=dependencies.settings,
         available_adapter_kinds=dependencies.available_adapter_kinds,
     )
     capabilities = narrow_provider_capabilities(
         route=provider.route,
+        sandbox=provider.sandbox,
         capabilities=capabilities,
     )
     paths = await read_task_root_paths(session, context.task.task_id)
@@ -274,9 +276,9 @@ async def _read_watchdog_runtime_context(
             )
             .join(
                 FlowNodeModel,
-                (FlowNodeModel.flow_id == AssignmentModel.flow_id)
-                & (FlowNodeModel.flow_revision_id == AssignmentModel.flow_revision_id)
-                & (FlowNodeModel.flow_node_id == AssignmentModel.flow_node_id),
+                (FlowNodeModel.flow_id == DispatchTurnModel.flow_id)
+                & (FlowNodeModel.flow_revision_id == DispatchTurnModel.flow_revision_id)
+                & (FlowNodeModel.flow_node_id == DispatchTurnModel.flow_node_id),
             )
             .join(
                 NodePlanRevisionModel,
@@ -289,7 +291,10 @@ async def _read_watchdog_runtime_context(
                 (AttemptModel.assignment_id == AssignmentModel.assignment_id)
                 & (AttemptModel.attempt_id == DispatchTurnModel.attempt_id),
             )
-            .where(DispatchTurnModel.dispatch_id == dispatch_id)
+            .where(
+                DispatchTurnModel.dispatch_id == dispatch_id,
+                TaskModel.current_team_revision_id == FlowNodeModel.team_revision_id,
+            )
         )
     ).one_or_none()
     return OrdinaryRuntimeContext(*row) if row is not None else None
@@ -313,7 +318,7 @@ def _context_is_plausible(
         and flow.status == "running"
         and flow.current_dispatch_id == source.dispatch_id
         and flow.waiting_cause == "none"
-        and flow.active_flow_revision_id == assignment.flow_revision_id
+        and flow.active_flow_revision_id == source.flow_revision_id
         and source.task_id == assignment.task_id
         and source.flow_id == assignment.flow_id
         and source.assignment_id == assignment.assignment_id
@@ -324,11 +329,18 @@ def _context_is_plausible(
         and assignment.current_attempt_id == attempt.attempt_id
         and assignment.superseded_at is None
         and attempt.status == "running"
-        and node_plan.role_key == node.role_key
-        and node_plan.role_revision_no == node.role_revision_no
-        and node_plan.policy_key == node.policy_key
-        and node_plan.policy_revision_no == node.policy_revision_no
+        and node_plan.task_id == node.task_id
+        and node_plan.team_revision_id == node.team_revision_id
+        and node_plan.member_id == node.member_id
+        and node_plan.member_configuration_id == node.member_configuration_id
+        and node_plan.member_branch_basis_id == node.member_branch_basis_id
+        and assignment.member_id == node.member_id
+        and assignment.node_key == node.node_key
+        and source.team_revision_id == node.team_revision_id
+        and source.member_configuration_id == node.member_configuration_id
+        and source.member_branch_basis_id == node.member_branch_basis_id
         and node_plan.provider_kind == node.provider_kind
+        and context.task.current_team_revision_id == node.team_revision_id
     )
 
 

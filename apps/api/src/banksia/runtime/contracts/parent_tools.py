@@ -1,20 +1,10 @@
 from typing import Literal
 
 from pydantic import (
-    AliasChoices,
     BaseModel,
     ConfigDict,
-    Field,
-    model_validator,
 )
 
-from banksia.definitions.contracts.workflow import (
-    ChildDefaults,
-    ConsumeBuckets,
-    CriteriaDeclaration,
-    ProduceBuckets,
-    ProviderSelection,
-)
 from banksia.runtime.contracts.checkpoint import TransientSurfaceWrite
 from banksia.runtime.contracts.common import RuntimeSchemaText
 from banksia.runtime.contracts.flow import RuntimeFlowRead
@@ -54,77 +44,6 @@ class AssignChildPayload(BaseModel):
     transient_surfaces: tuple[TransientSurfaceWrite, ...] = ()
 
 
-class ChildNodeDraft(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    node_key: RuntimeSchemaText = Field(validation_alias=AliasChoices("node_key", "id"))
-    parent_node_key: RuntimeSchemaText | None = Field(default=None, exclude=True)
-    role: RuntimeSchemaText
-    policy: RuntimeSchemaText
-    provider: ProviderSelection | None = None
-    description: RuntimeSchemaText
-    instruction: RuntimeSchemaText | None = None
-    consumes: ConsumeBuckets | None = None
-    produces: ProduceBuckets | None = None
-    criteria: list[CriteriaDeclaration] | None = None
-    child_defaults: ChildDefaults | None = None
-    children: list["ChildNodeDraft"] | None = None
-
-
-class ChildNodePatch(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    role: RuntimeSchemaText | None = None
-    policy: RuntimeSchemaText | None = None
-    provider: ProviderSelection | None = None
-    description: RuntimeSchemaText | None = None
-    instruction: RuntimeSchemaText | None = None
-    consumes: ConsumeBuckets | None = None
-    produces: ProduceBuckets | None = None
-    criteria: list[CriteriaDeclaration] | None = None
-    child_defaults: ChildDefaults | None = None
-    children: list[ChildNodeDraft] | None = None
-
-    @model_validator(mode="after")
-    def validate_patch_shape(self) -> "ChildNodePatch":
-        if self.children is not None:
-            raise ValueError("update_child does not support subtree patch shapes")
-        if "policy" in self.model_fields_set and self.policy is None:
-            raise ValueError("update_child cannot clear the node policy")
-        return self
-
-
-class AddChildPayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    child: ChildNodeDraft
-    target_parent_node_key: RuntimeSchemaText | None = Field(
-        default=None,
-        validation_alias=AliasChoices("target_parent_node_key", "parent_node_key"),
-    )
-
-    @model_validator(mode="after")
-    def bind_target_parent(self) -> "AddChildPayload":
-        if self.target_parent_node_key is not None:
-            self.child = self.child.model_copy(
-                update={"parent_node_key": self.target_parent_node_key}
-            )
-        return self
-
-
-class UpdateChildPayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    child_node_key: RuntimeSchemaText
-    patch: ChildNodePatch
-
-
-class RemoveChildPayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    child_node_key: RuntimeSchemaText
-
-
 class ReleaseGreenPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -157,18 +76,6 @@ class ParentToolMutationSuccess(BaseModel):
     latest_checkpoint_ref: CheckpointFileRef | None = None
 
 
-class AddChildSuccess(ParentToolMutationSuccess):
-    tool_name: Literal["add_child"] = "add_child"
-
-
-class UpdateChildSuccess(ParentToolMutationSuccess):
-    tool_name: Literal["update_child"] = "update_child"
-
-
-class RemoveChildSuccess(ParentToolMutationSuccess):
-    tool_name: Literal["remove_child"] = "remove_child"
-
-
 class ReleaseGreenSuccess(ParentToolMutationSuccess):
     tool_name: Literal["release_green"] = "release_green"
 
@@ -177,25 +84,15 @@ class ReleaseBlockedSuccess(ParentToolMutationSuccess):
     tool_name: Literal["release_blocked"] = "release_blocked"
 
 
-ChildNodeDraft.model_rebuild()
-
 __all__ = [
-    "AddChildPayload",
-    "AddChildSuccess",
     "AssignChildPayload",
     "AssignChildSuccess",
     "AssignmentIntent",
-    "ChildNodeDraft",
-    "ChildNodePatch",
     "ParentToolMutationSuccess",
     "ReleaseBlockedPayload",
     "ReleaseBlockedSuccess",
     "ReleaseGreenPayload",
     "ReleaseGreenSuccess",
-    "RemoveChildPayload",
-    "RemoveChildSuccess",
     "SupplementalDurableContext",
     "SupplementalSlot",
-    "UpdateChildPayload",
-    "UpdateChildSuccess",
 ]

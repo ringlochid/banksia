@@ -30,6 +30,7 @@ from banksia.runtime.boundary.opening_commit import (
 )
 from banksia.runtime.boundary.target_resolution import (
     BoundaryTarget,
+    require_consistent_target_runtime_context,
     resolve_boundary_target,
 )
 from banksia.runtime.capabilities import resolve_effective_capabilities_for_node
@@ -54,8 +55,7 @@ from banksia.runtime.post_commit import BoundaryAccepted
 from banksia.runtime.providers import (
     ProviderResolutionError,
     narrow_provider_capabilities,
-    provider_selection_from_kind,
-    resolve_provider_route,
+    resolve_member_provider_route,
 )
 from banksia.runtime.task_root import read_task_root_paths
 from banksia.runtime.work_plan import WorkPlanRead, read_assignment_work_plan
@@ -335,16 +335,16 @@ async def _read_target_snapshot(
         flow=flow,
         target=target,
     )
-    task = context.task
-    workspace = context.workspace
-    compiled_plan = context.compiled_plan
     node = context.node
-    node_plan = context.node_plan
     assignment = context.assignment
-    attempt = context.attempt
-    _validate_target_context(node, node_plan, assignment, attempt)
+    require_consistent_target_runtime_context(
+        node,
+        context.node_plan,
+        assignment,
+        context.attempt,
+    )
     assert flow.active_flow_revision_id is not None
-    workflow = await _read_pinned_workflow(session, compiled_plan)
+    workflow = await _read_pinned_workflow(session, context.compiled_plan)
     children = await _read_target_children(session, flow=flow, node=node)
     work_plan = await read_assignment_work_plan(session, assignment_id=assignment.assignment_id)
     prompt_criteria = await read_assignment_prompt_criteria(
@@ -353,16 +353,19 @@ async def _read_target_snapshot(
         criteria_refs=assignment.criteria_json,
     )
     capabilities = await resolve_effective_capabilities_for_node(session, node=node)
-    provider = resolve_provider_route(
-        provider=provider_selection_from_kind(node.provider_kind),
+    provider = await resolve_member_provider_route(
+        session,
+        task_id=node.task_id,
+        member_configuration_id=node.member_configuration_id,
         settings=dependencies.settings,
         available_adapter_kinds=dependencies.available_adapter_kinds,
     )
     capabilities = narrow_provider_capabilities(
         route=provider.route,
+        sandbox=provider.sandbox,
         capabilities=capabilities,
     )
-    paths = await read_task_root_paths(session, task.task_id)
+    paths = await read_task_root_paths(session, context.task.task_id)
     description = workflow.content_json.get("description")
     if description is not None and not isinstance(description, str):
         raise ValueError("pinned workflow description must be text")
@@ -381,10 +384,10 @@ async def _read_target_snapshot(
     return _BoundaryOpeningSnapshot(
         source_committed_at=boundary.committed_at,
         flow_control_revision=flow.control_revision,
-        task_root_path=task.task_root_path,
-        workspace_root_path=workspace.normalized_root_path,
-        compiled_plan_id=compiled_plan.compiled_plan_id,
-        node_plan_revision_id=node_plan.node_plan_revision_id,
+        task_root_path=context.task.task_root_path,
+        workspace_root_path=context.workspace.normalized_root_path,
+        compiled_plan_id=context.compiled_plan.compiled_plan_id,
+        node_plan_revision_id=context.node_plan.node_plan_revision_id,
         assignment_work_plan_revision=assignment.work_plan_revision,
         source_outcome=boundary.outcome,
         raw_provider_kind=node.provider_kind,
@@ -407,7 +410,7 @@ async def _read_pinned_workflow(
         .options(raiseload("*"))
         .where(
             WorkflowRevisionModel.workflow_key == compiled_plan.workflow_key,
-            WorkflowRevisionModel.revision_no == compiled_plan.definition_revision_no,
+            WorkflowRevisionModel.revision_no == compiled_plan.workflow_revision_no,
         )
     )
     if workflow is None:
@@ -462,8 +465,8 @@ async def _read_target_context(
             .join(
                 FlowNodeModel,
                 (FlowNodeModel.flow_id == AssignmentModel.flow_id)
-                & (FlowNodeModel.flow_revision_id == AssignmentModel.flow_revision_id)
-                & (FlowNodeModel.flow_node_id == AssignmentModel.flow_node_id),
+                & (FlowNodeModel.flow_revision_id == flow.active_flow_revision_id)
+                & (FlowNodeModel.member_id == AssignmentModel.member_id),
             )
             .join(
                 NodePlanRevisionModel,
@@ -480,7 +483,7 @@ async def _read_target_context(
                 AssignmentModel.assignment_id == target.assignment_id,
                 AssignmentModel.task_id == boundary.task_id,
                 AssignmentModel.flow_id == boundary.flow_id,
-                AssignmentModel.flow_revision_id == flow.active_flow_revision_id,
+                TaskModel.current_team_revision_id == FlowNodeModel.team_revision_id,
             )
         )
     ).one_or_none()
@@ -505,7 +508,6 @@ def _build_boundary_prompt(
     task = context.task
     compiled_plan = context.compiled_plan
     node = context.node
-    node_plan = context.node_plan
     assignment = context.assignment
     attempt = context.attempt
     assert flow.active_flow_revision_id is not None
@@ -515,7 +517,7 @@ def _build_boundary_prompt(
         task_summary=task.summary,
         task_instruction=task.instruction,
         workflow_key=compiled_plan.workflow_key,
-        workflow_revision_no=compiled_plan.definition_revision_no,
+        workflow_revision_no=compiled_plan.workflow_revision_no,
         workflow_description=workflow_description,
         flow_id=flow.flow_id,
         flow_revision_id=flow.active_flow_revision_id,
@@ -524,11 +526,12 @@ def _build_boundary_prompt(
         attempt_id=attempt.attempt_id,
         retry_of_attempt_id=attempt.retry_of_attempt_id,
         node_key=node.node_key,
-        role_key=node.role_key,
-        role_description=node_plan.role_description,
-        role_instruction=node_plan.role_instruction,
-        policy_description=node_plan.policy_description,
-        policy_instruction=node_plan.policy_instruction,
+        flow_node_id=node.flow_node_id,
+        team_revision_id=node.team_revision_id,
+        member_id=node.member_id,
+        member_configuration_id=node.member_configuration_id,
+        member_branch_basis_id=node.member_branch_basis_id,
+        member_title=node.member_title,
         node_description=node.description,
         node_instruction=node.node_instruction,
         assignment_summary=assignment.summary,
@@ -555,27 +558,6 @@ def _build_boundary_prompt(
         predecessor_dispatch_id=boundary.source_dispatch_id,
         trigger=target.trigger,
     )
-
-
-def _validate_target_context(
-    node: FlowNodeModel,
-    node_plan: NodePlanRevisionModel,
-    assignment: AssignmentModel,
-    attempt: AttemptModel,
-) -> None:
-    if (
-        node.state != "running"
-        or node.current_assignment_id != assignment.assignment_id
-        or assignment.current_attempt_id != attempt.attempt_id
-        or assignment.superseded_at is not None
-        or attempt.status != "running"
-        or node_plan.role_key != node.role_key
-        or node_plan.role_revision_no != node.role_revision_no
-        or node_plan.policy_key != node.policy_key
-        or node_plan.policy_revision_no != node.policy_revision_no
-        or node_plan.provider_kind != node.provider_kind
-    ):
-        raise ValueError("boundary target has inconsistent pinned runtime context")
 
 
 def _boundary_continue_preparation_error(exc: Exception) -> RuntimeOperationError:

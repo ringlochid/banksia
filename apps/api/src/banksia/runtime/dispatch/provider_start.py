@@ -7,13 +7,13 @@ from sqlalchemy import exists, select, update
 from sqlalchemy.engine import RowMapping
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from banksia.definitions.contracts.workflow import ProviderKind
 from banksia.persistence.models import (
     DispatchCapabilitySetModel,
     DispatchPromptRefsModel,
     DispatchTurnModel,
     FlowModel,
 )
+from banksia.providers import ProviderKind
 from banksia.runtime.contracts import TaskEventSource, TaskEventType
 from banksia.runtime.post_commit import DispatchStartDue
 from banksia.runtime.task_events import append_task_event
@@ -42,6 +42,7 @@ class ProviderStartCandidate:
     input_logical_path: str | None
     provider_native_access: str | None
     network_access: str | None
+    sandbox_mode: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -241,6 +242,7 @@ async def read_provider_start_candidate(
                         "provider_native_access"
                     ),
                     DispatchCapabilitySetModel.network_access.label("network_access"),
+                    DispatchCapabilitySetModel.effective_sandbox_mode.label("sandbox_mode"),
                     DispatchTurnModel.status.label("dispatch_status"),
                     DispatchTurnModel.provider_start_revision.label("provider_start_revision"),
                     FlowModel.status.label("flow_status"),
@@ -436,6 +438,7 @@ def _build_provider_start_candidate(row: RowMapping) -> ProviderStartCandidate:
         input_logical_path=row["input_logical_path"],
         provider_native_access=row["provider_native_access"],
         network_access=row["network_access"],
+        sandbox_mode=row["sandbox_mode"],
     )
 
 

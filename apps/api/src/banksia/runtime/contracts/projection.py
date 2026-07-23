@@ -5,7 +5,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from banksia.definitions.contracts.workflow import NodeKind
+from banksia.runtime.contracts.member import NodeKind
 from banksia.runtime.contracts.primitives import (
     AssignmentConsumeRef,
     CheckpointKind,
@@ -49,29 +49,6 @@ class ManifestFilesystemRootsProjection(BaseModel):
     runtime_path: Path
 
 
-class StructuralEditRoleProjection(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    role: RuntimeText
-    allowed_node_kinds: tuple[NodeKind, ...]
-    description: RuntimeText
-
-
-class StructuralEditPolicyProjection(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    policy: RuntimeText
-    applies_to: tuple[NodeKind, ...]
-    description: RuntimeText
-
-
-class StructuralEditPaletteProjection(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    roles: tuple[StructuralEditRoleProjection, ...] = ()
-    policies: tuple[StructuralEditPolicyProjection, ...] = ()
-
-
 class ManifestNodeConsumeProjection(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -111,8 +88,11 @@ class ManifestNodeProjection(BaseModel):
     parent_node_key: RuntimeText | None = None
     child_node_keys: tuple[RuntimeText, ...] = ()
     node_kind: NodeKind
-    role: RuntimeText
-    policy: RuntimeText | None = None
+    team_revision_id: RuntimeText
+    member_id: RuntimeText
+    member_configuration_id: RuntimeText
+    member_branch_basis_id: RuntimeText
+    member_title: RuntimeText | None = None
     description: RuntimeText
     node_instruction: RuntimeText | None = None
     consumes: tuple[ManifestNodeConsumeProjection, ...] = ()
@@ -153,7 +133,6 @@ class ManifestProjection(BaseModel):
     task: ManifestTaskProjection
     workflow: ManifestWorkflowProjection
     filesystem_roots: ManifestFilesystemRootsProjection
-    structural_edit_palette: StructuralEditPaletteProjection | None = None
     current_context: ManifestCurrentContextProjection
     node_tree: tuple[ManifestNodeProjection, ...]
     dependency_index: tuple[ManifestDependencyProjection, ...]
@@ -233,14 +212,10 @@ class ResolvedNodeContext(BaseModel):
     node_kind: NodeKind
     node_description: RuntimeText
     node_instruction: RuntimeText | None = None
-    role_key: RuntimeText
-    role_revision_no: int = Field(ge=1)
-    role_description: RuntimeText
-    role_instruction: RuntimeText | None = None
-    policy_key: RuntimeText
-    policy_revision_no: int = Field(ge=1)
-    policy_description: RuntimeText
-    policy_instruction: RuntimeText | None = None
+    member_id: RuntimeText
+    member_configuration_id: RuntimeText
+    member_branch_basis_id: RuntimeText
+    member_title: RuntimeText | None = None
 
 
 __all__ = [
@@ -259,7 +234,4 @@ __all__ = [
     "ManifestWorkflowProjection",
     "ProduceRequirement",
     "ResolvedNodeContext",
-    "StructuralEditPaletteProjection",
-    "StructuralEditPolicyProjection",
-    "StructuralEditRoleProjection",
 ]

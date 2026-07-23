@@ -10,6 +10,7 @@ COPY README.md /app/README.md
 COPY pyproject.toml /app/pyproject.toml
 COPY apps/api/src /app/apps/api/src
 COPY apps/api/tests /app/apps/api/tests
+COPY docs-internal/design/appendices/workflow-seeds /app/docs-internal/design/appendices/workflow-seeds
 COPY scripts/testing /app/scripts/testing
 
 RUN python -m pip install --upgrade pip \

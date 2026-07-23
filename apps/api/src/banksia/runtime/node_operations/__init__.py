@@ -9,7 +9,6 @@ from banksia.runtime.node_operations.catalog import (
     list_node_operation_descriptors_for_kind,
 )
 from banksia.runtime.node_operations.contracts import (
-    AddChildRequest,
     AssignChildRequest,
     AssignmentContextRead,
     AttemptContextRead,
@@ -20,7 +19,6 @@ from banksia.runtime.node_operations.contracts import (
     EmptyNodeOperationRequest,
     FileEntryRead,
     GetCurrentContextResponse,
-    GetDefinitionRequest,
     HumanRequestCapabilityRead,
     ListFilesRequest,
     ListFilesResponse,
@@ -34,20 +32,16 @@ from banksia.runtime.node_operations.contracts import (
     ReadFileResponse,
     RecordCheckpointRequest,
     ReleaseRequest,
-    RemoveChildRequest,
     ReturnBoundaryRequest,
-    SearchDefinitionsRequest,
     SlotContextRead,
     StartCommandRunRequest,
     StructuralOperationRequest,
-    UpdateChildRequest,
     WorkflowNeighborRead,
 )
 from banksia.runtime.node_operations.executor import NodeOperationExecutor
 
 __all__ = [
     "NODE_OPERATION_CATALOG",
-    "AddChildRequest",
     "AssignChildRequest",
     "AssignmentContextRead",
     "AttemptContextRead",
@@ -58,7 +52,6 @@ __all__ = [
     "EmptyNodeOperationRequest",
     "FileEntryRead",
     "GetCurrentContextResponse",
-    "GetDefinitionRequest",
     "HumanRequestCapabilityRead",
     "ListFilesRequest",
     "ListFilesResponse",
@@ -75,13 +68,10 @@ __all__ = [
     "ReadFileResponse",
     "RecordCheckpointRequest",
     "ReleaseRequest",
-    "RemoveChildRequest",
     "ReturnBoundaryRequest",
-    "SearchDefinitionsRequest",
     "SlotContextRead",
     "StartCommandRunRequest",
     "StructuralOperationRequest",
-    "UpdateChildRequest",
     "WorkflowNeighborRead",
     "create_watchdog_activity_publisher",
     "get_node_operation_descriptor",

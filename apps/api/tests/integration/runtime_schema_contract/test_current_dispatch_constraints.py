@@ -8,6 +8,7 @@ from uuid import uuid4
 import pytest
 from banksia.persistence import RuntimeBase
 from banksia.persistence.schema_contract import verify_schema_contract
+from banksia.persistence.session import create_runtime_schema_tables
 from sqlalchemy import Connection, inspect, make_url, select
 from sqlalchemy.engine import URL
 from sqlalchemy.exc import IntegrityError
@@ -198,7 +199,9 @@ def test_flow_wait_is_valid_only_after_current_authority_is_cleared(
 
 
 @pytest.mark.asyncio
-async def test_postgresql_reflects_and_enforces_current_dispatch_constraints() -> None:
+async def test_postgresql_reflects_and_enforces_current_dispatch_constraints(
+    tmp_path: Path,
+) -> None:
     database_url = _disposable_postgres_url()
     if database_url is None:
         pytest.skip("a disposable PostgreSQL test database is not configured")
@@ -213,7 +216,7 @@ async def test_postgresql_reflects_and_enforces_current_dispatch_constraints() -
         async with engine.begin() as connection:
             await connection.exec_driver_sql(f'CREATE SCHEMA "{schema_name}"')
             schema_created = True
-            await connection.run_sync(RuntimeBase.metadata.create_all)
+            await connection.run_sync(create_runtime_schema_tables)
             await connection.run_sync(
                 lambda sync_connection: verify_schema_contract(sync_connection, schema_name)
             )
@@ -258,6 +261,17 @@ async def test_postgresql_reflects_and_enforces_current_dispatch_constraints() -
             async with engine.begin() as connection:
                 await connection.exec_driver_sql(f'DROP SCHEMA IF EXISTS "{schema_name}" CASCADE')
         await engine.dispose()
+
+    sqlite_engine = create_runtime_schema_engine(tmp_path, name="after-postgresql.sqlite")
+    try:
+        with sqlite_engine.connect() as connection:
+            sqlite_foreign_keys = inspect(connection).get_foreign_keys("flow_start_sources")
+        assert {foreign_key["name"] for foreign_key in sqlite_foreign_keys} >= {
+            "fk_flow_start_sources_flow_owner",
+            "fk_flow_start_sources_successor_owner",
+        }
+    finally:
+        sqlite_engine.dispose()
 
 
 def _set_current_dispatch_starting(connection: Connection, ids: RuntimeIds) -> None:

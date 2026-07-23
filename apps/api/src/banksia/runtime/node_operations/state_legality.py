@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from banksia.definitions.contracts.workflow import NodeKind
 from banksia.persistence.models import (
     AcceptedBoundaryModel,
     AssignmentDecisionModel,
@@ -16,6 +15,7 @@ from banksia.persistence.models import (
     HumanRequestModel,
 )
 from banksia.runtime.checkpoint import read_exact_latest_checkpoint
+from banksia.runtime.contracts.member import NodeKind
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
 from banksia.runtime.dispatch.authority import NodeOperationAuthority
 from banksia.runtime.errors import RuntimeOperationError, illegal_state_error
@@ -36,8 +36,6 @@ _READ_OPERATIONS = frozenset(
         NodeOperationName.GET_CURRENT_CONTEXT,
         NodeOperationName.LIST_FILES,
         NodeOperationName.READ_FILE,
-        NodeOperationName.SEARCH_DEFINITIONS,
-        NodeOperationName.GET_DEFINITION,
     }
 )
 _STRUCTURAL_OPERATIONS = frozenset(
@@ -48,6 +46,13 @@ _STRUCTURAL_OPERATIONS = frozenset(
         NodeOperationName.REMOVE_CHILD,
         NodeOperationName.RELEASE_GREEN,
         NodeOperationName.RELEASE_BLOCKED,
+    }
+)
+_REPLAN_OPERATIONS = frozenset(
+    {
+        NodeOperationName.ADD_CHILD,
+        NodeOperationName.UPDATE_CHILD,
+        NodeOperationName.REMOVE_CHILD,
     }
 )
 _DECISION_SENSITIVE_OPERATIONS = _STRUCTURAL_OPERATIONS | {
@@ -225,7 +230,11 @@ async def _narrow_uncommitted_structural_operations(
     terminal_checkpoint: bool,
 ) -> None:
     structural_operations = legal & _STRUCTURAL_OPERATIONS
-    if authority.node_kind == NodeKind.WORKER or not structural_operations:
+    if not structural_operations:
+        return
+    if terminal_checkpoint:
+        legal.difference_update(_REPLAN_OPERATIONS)
+    if authority.node_kind == NodeKind.WORKER:
         return
     descendants: tuple[FlowNodeModel, ...] = ()
     if structural_operations & {
@@ -245,23 +254,17 @@ async def _narrow_uncommitted_structural_operations(
     direct_children = tuple(
         node for node in descendants if node.parent_node_key == authority.node_key
     )
+    if not direct_children:
+        legal.discard(NodeOperationName.UPDATE_CHILD)
+        legal.discard(NodeOperationName.REMOVE_CHILD)
     if NodeOperationName.ASSIGN_CHILD in structural_operations and not any(
         (child.current_assignment_id is None and child.state == "ready")
         or (child.current_assignment_id is not None and child.state in {"done", "failed"})
         for child in direct_children
     ):
         legal.discard(NodeOperationName.ASSIGN_CHILD)
-    if not descendants and structural_operations & {
-        NodeOperationName.UPDATE_CHILD,
-        NodeOperationName.REMOVE_CHILD,
-    }:
-        legal.discard(NodeOperationName.UPDATE_CHILD)
-        legal.discard(NodeOperationName.REMOVE_CHILD)
     if terminal_checkpoint:
         legal.discard(NodeOperationName.ASSIGN_CHILD)
-        legal.discard(NodeOperationName.ADD_CHILD)
-        legal.discard(NodeOperationName.UPDATE_CHILD)
-        legal.discard(NodeOperationName.REMOVE_CHILD)
     if (
         NodeOperationName.RELEASE_GREEN in structural_operations
         and not await release_green_is_ready(session, authority)

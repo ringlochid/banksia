@@ -9,7 +9,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import raiseload
 from sqlalchemy.sql.elements import ColumnElement
 
-from banksia.definitions.contracts.workflow import NodeKind
 from banksia.persistence.models import (
     AssignmentModel,
     AttemptModel,
@@ -24,6 +23,7 @@ from banksia.persistence.models import (
 )
 from banksia.runtime.capabilities import resolve_effective_capabilities_for_node
 from banksia.runtime.contracts.capabilities import EffectiveCapabilitySet
+from banksia.runtime.contracts.member import NodeKind
 from banksia.runtime.contracts.primitives import TaskRootPaths
 from banksia.runtime.contracts.prompt import OperatorContinueTrigger, RootStartTrigger
 from banksia.runtime.contracts.provider_resolution import ProviderResolution
@@ -35,8 +35,7 @@ from banksia.runtime.dispatch.prompt_snapshot import (
 )
 from banksia.runtime.providers import (
     narrow_provider_capabilities,
-    provider_selection_from_kind,
-    resolve_provider_route,
+    resolve_member_provider_route,
 )
 from banksia.runtime.task_root import read_task_root_paths
 from banksia.runtime.work_plan import WorkPlanRead, read_assignment_work_plan
@@ -120,13 +119,16 @@ async def read_root_opening_snapshot(
         assignment_id=context.assignment.assignment_id,
     )
     capabilities = await resolve_effective_capabilities_for_node(session, node=context.node)
-    provider = resolve_provider_route(
-        provider=provider_selection_from_kind(context.node.provider_kind),
+    provider = await resolve_member_provider_route(
+        session,
+        task_id=context.node.task_id,
+        member_configuration_id=context.node.member_configuration_id,
         settings=dependencies.settings,
         available_adapter_kinds=dependencies.available_adapter_kinds,
     )
     capabilities = narrow_provider_capabilities(
         route=provider.route,
+        sandbox=provider.sandbox,
         capabilities=capabilities,
     )
     paths = await read_task_root_paths(session, context.task.task_id)
@@ -176,13 +178,20 @@ def root_context_is_current(snapshot: RootOpeningSnapshot) -> ColumnElement[bool
             FlowNodeModel.parent_node_key.is_(None),
             FlowNodeModel.state == "running",
             FlowNodeModel.current_assignment_id == prompt.assignment_id,
-            FlowNodeModel.role_key == prompt.role_key,
+            FlowNodeModel.team_revision_id == prompt.team_revision_id,
+            FlowNodeModel.member_id == prompt.member_id,
+            FlowNodeModel.member_configuration_id == prompt.member_configuration_id,
+            FlowNodeModel.member_branch_basis_id == prompt.member_branch_basis_id,
             FlowNodeModel.provider_kind == persisted_provider_kind,
         )
         & exists().where(
             NodePlanRevisionModel.node_plan_revision_id == snapshot.node_plan_revision_id,
             NodePlanRevisionModel.flow_id == prompt.flow_id,
             NodePlanRevisionModel.flow_revision_id == prompt.flow_revision_id,
+            NodePlanRevisionModel.team_revision_id == prompt.team_revision_id,
+            NodePlanRevisionModel.member_id == prompt.member_id,
+            NodePlanRevisionModel.member_configuration_id == prompt.member_configuration_id,
+            NodePlanRevisionModel.member_branch_basis_id == prompt.member_branch_basis_id,
             NodePlanRevisionModel.provider_kind == persisted_provider_kind,
         )
         & exists().where(
@@ -191,6 +200,10 @@ def root_context_is_current(snapshot: RootOpeningSnapshot) -> ColumnElement[bool
             AssignmentModel.flow_id == prompt.flow_id,
             AssignmentModel.flow_revision_id == prompt.flow_revision_id,
             AssignmentModel.node_key == prompt.node_key,
+            AssignmentModel.team_revision_id == prompt.team_revision_id,
+            AssignmentModel.member_id == prompt.member_id,
+            AssignmentModel.member_configuration_id == prompt.member_configuration_id,
+            AssignmentModel.member_branch_basis_id == prompt.member_branch_basis_id,
             AssignmentModel.current_attempt_id == prompt.attempt_id,
             AssignmentModel.work_plan_revision == snapshot.assignment_work_plan_revision,
             AssignmentModel.superseded_at.is_(None),
@@ -276,7 +289,7 @@ async def _read_root_runtime_context(
             .join(
                 WorkflowRevisionModel,
                 (WorkflowRevisionModel.workflow_key == CompiledPlanModel.workflow_key)
-                & (WorkflowRevisionModel.revision_no == CompiledPlanModel.definition_revision_no),
+                & (WorkflowRevisionModel.revision_no == CompiledPlanModel.workflow_revision_no),
             )
             .join(
                 FlowNodeModel,
@@ -312,10 +325,8 @@ async def _read_root_runtime_context(
         node.state != "running"
         or assignment.superseded_at is not None
         or attempt.status != "running"
-        or node_plan.role_key != node.role_key
-        or node_plan.role_revision_no != node.role_revision_no
-        or node_plan.policy_key != node.policy_key
-        or node_plan.policy_revision_no != node.policy_revision_no
+        or not _node_plan_matches_node(node_plan, node)
+        or not _assignment_matches_node(assignment, node)
         or node_plan.provider_kind != node.provider_kind
     ):
         raise ValueError("runnable flow start has inconsistent pinned root context")
@@ -336,7 +347,6 @@ def _build_root_prompt_snapshot(
         raise ValueError("pinned workflow description must be text")
     task = context.task
     node = context.node
-    node_plan = context.node_plan
     assignment = context.assignment
     attempt = context.attempt
     assert flow.active_flow_revision_id is not None
@@ -346,7 +356,7 @@ def _build_root_prompt_snapshot(
         task_summary=task.summary,
         task_instruction=task.instruction,
         workflow_key=context.compiled_plan.workflow_key,
-        workflow_revision_no=context.compiled_plan.definition_revision_no,
+        workflow_revision_no=context.compiled_plan.workflow_revision_no,
         workflow_description=workflow_description,
         flow_id=flow.flow_id,
         flow_revision_id=flow.active_flow_revision_id,
@@ -355,11 +365,12 @@ def _build_root_prompt_snapshot(
         attempt_id=attempt.attempt_id,
         retry_of_attempt_id=attempt.retry_of_attempt_id,
         node_key=node.node_key,
-        role_key=node.role_key,
-        role_description=node_plan.role_description,
-        role_instruction=node_plan.role_instruction,
-        policy_description=node_plan.policy_description,
-        policy_instruction=node_plan.policy_instruction,
+        flow_node_id=node.flow_node_id,
+        team_revision_id=node.team_revision_id,
+        member_id=node.member_id,
+        member_configuration_id=node.member_configuration_id,
+        member_branch_basis_id=node.member_branch_basis_id,
+        member_title=node.member_title,
         node_description=node.description,
         node_instruction=node.node_instruction,
         assignment_summary=assignment.summary,
@@ -381,6 +392,29 @@ def _build_root_prompt_snapshot(
             )
             for child in children
         ),
+    )
+
+
+def _node_plan_matches_node(
+    node_plan: NodePlanRevisionModel,
+    node: FlowNodeModel,
+) -> bool:
+    return (
+        node_plan.task_id == node.task_id
+        and node_plan.team_revision_id == node.team_revision_id
+        and node_plan.member_id == node.member_id
+        and node_plan.member_configuration_id == node.member_configuration_id
+        and node_plan.member_branch_basis_id == node.member_branch_basis_id
+    )
+
+
+def _assignment_matches_node(assignment: AssignmentModel, node: FlowNodeModel) -> bool:
+    return (
+        assignment.task_id == node.task_id
+        and assignment.team_revision_id == node.team_revision_id
+        and assignment.member_id == node.member_id
+        and assignment.member_configuration_id == node.member_configuration_id
+        and assignment.member_branch_basis_id == node.member_branch_basis_id
     )
 
 

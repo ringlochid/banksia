@@ -13,8 +13,7 @@ from banksia.persistence.models import (
     DispatchTurnModel,
     FlowNodeModel,
     HumanRequestModel,
-    PolicyRevisionModel,
-    RoleRevisionModel,
+    TaskModel,
 )
 from banksia.runtime.clock import utc_now
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
@@ -24,39 +23,11 @@ from banksia.runtime.dispatch.authority import (
 )
 from banksia.runtime.errors import RuntimeOperationError
 from banksia.runtime.node_operations import NodeActivitySignal, NodeOperationScope
-from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from tests.helpers.executor_harness import (
-    SessionFactory,
     seeded_executor,
 )
-
-
-async def _seed_definition_lookup_content(
-    session_factory: SessionFactory,
-) -> None:
-    async with session_factory() as session:
-        role_revision = await session.get(
-            RoleRevisionModel,
-            "role-revision.target.1",
-        )
-        policy_revision = await session.get(
-            PolicyRevisionModel,
-            "policy-revision.target.1",
-        )
-        assert role_revision is not None and policy_revision is not None
-        role_revision.content_json = {
-            "id": "role.target",
-            "description": "Target role.",
-            "allowed_node_kinds": ["root", "parent", "worker"],
-        }
-        policy_revision.content_json = {
-            "id": "policy.target",
-            "description": "Target policy.",
-            "applies_to": ["root", "parent", "worker"],
-        }
-        await session.commit()
 
 
 async def test_executor_refreshes_activity_once_and_plan_revisions_only_on_change(
@@ -355,109 +326,7 @@ async def test_transaction_b_rejects_rotated_managed_generation_after_activity_c
         assert [signal.activity_revision for signal in signals] == [1]
 
 
-async def test_definition_search_routes_role_and_policy_without_workflow_fallback(
-    tmp_path: Path,
-) -> None:
-    async with seeded_executor(tmp_path, suffix="definition-search") as (
-        executor,
-        session_factory,
-        ids,
-        signals,
-    ):
-        await _seed_definition_lookup_content(session_factory)
-        scope = NodeOperationScope(
-            task_id=ids.task_id,
-            dispatch_id=ids.current_dispatch_id,
-        )
-        role_result = await executor.execute(
-            scope=scope,
-            operation_name="search_definitions",
-            arguments={"kind": "role"},
-        )
-        policy_result = await executor.execute(
-            scope=scope,
-            operation_name="search_definitions",
-            arguments={"kind": "policy"},
-        )
-
-        with pytest.raises(ValidationError, match="Input should be"):
-            await executor.execute(
-                scope=scope,
-                operation_name="search_definitions",
-                arguments={"kind": "workflow"},
-            )
-
-        role_payload = role_result.model_dump(mode="json")
-        policy_payload = policy_result.model_dump(mode="json")
-        assert role_payload["kind"] == "role"
-        assert [item["key"] for item in role_payload["items"]] == ["role.target"]
-        assert role_payload["items"][0]["allowed_node_kinds"] == [
-            "root",
-            "parent",
-            "worker",
-        ]
-        assert role_payload["items"][0]["applies_to"] is None
-        assert policy_payload["kind"] == "policy"
-        assert [item["key"] for item in policy_payload["items"]] == ["policy.target"]
-        assert policy_payload["items"][0]["allowed_node_kinds"] is None
-        assert policy_payload["items"][0]["applies_to"] == [
-            "root",
-            "parent",
-            "worker",
-        ]
-        assert [signal.activity_revision for signal in signals] == [1, 2]
-
-
-async def test_definition_get_routes_role_and_policy_without_workflow_fallback(
-    tmp_path: Path,
-) -> None:
-    async with seeded_executor(tmp_path, suffix="definition-get") as (
-        executor,
-        session_factory,
-        ids,
-        signals,
-    ):
-        await _seed_definition_lookup_content(session_factory)
-        scope = NodeOperationScope(
-            task_id=ids.task_id,
-            dispatch_id=ids.current_dispatch_id,
-        )
-        role_detail = await executor.execute(
-            scope=scope,
-            operation_name="get_definition",
-            arguments={"kind": "role", "key": "role.target"},
-        )
-        policy_detail = await executor.execute(
-            scope=scope,
-            operation_name="get_definition",
-            arguments={"kind": "policy", "key": "policy.target"},
-        )
-
-        with pytest.raises(ValidationError, match="Input should be"):
-            await executor.execute(
-                scope=scope,
-                operation_name="get_definition",
-                arguments={"kind": "workflow", "key": "workflow.target"},
-            )
-
-        role_detail_payload = role_detail.model_dump(mode="json")
-        policy_detail_payload = policy_detail.model_dump(mode="json")
-        assert role_detail_payload["key"] == "role.target"
-        assert role_detail_payload["content"]["allowed_node_kinds"] == [
-            "root",
-            "parent",
-            "worker",
-        ]
-        assert policy_detail_payload["key"] == "policy.target"
-        assert policy_detail_payload["content"]["applies_to"] == [
-            "root",
-            "parent",
-            "worker",
-        ]
-        assert [signal.activity_revision for signal in signals] == [1, 2]
-
-
-async def test_assign_child_stages_one_direct_child_without_closing_source(
+async def test_assign_child_stages_one_direct_child_with_task_admitted_budget(
     tmp_path: Path,
 ) -> None:
     async with seeded_executor(tmp_path, suffix="assign") as (
@@ -467,20 +336,18 @@ async def test_assign_child_stages_one_direct_child_without_closing_source(
         _signals,
     ):
         async with session_factory() as session:
+            task = await session.get(TaskModel, ids.task_id)
+            parent = await session.get(AssignmentModel, ids.root_assignment_id)
             child = await session.get(FlowNodeModel, ids.child_node_id)
-            policy_revision = await session.get(
-                PolicyRevisionModel,
-                "policy-revision.target.1",
-            )
-            assert child is not None and policy_revision is not None
+            assert task is not None and parent is not None and child is not None
+            task.max_child_assignments_per_assignment = 7
+            task.max_retries_per_assignment = 4
+            parent.child_assignment_limit = 7
+            parent.child_assignments_remaining = 7
+            parent.retry_limit = 4
+            parent.retries_remaining = 4
             child.current_assignment_id = None
             child.state = "ready"
-            policy_revision.content_json = {
-                "id": "policy.target",
-                "description": "Target policy with a child retry budget.",
-                "applies_to": ["root", "parent", "worker"],
-                "budget_spec": {"retry_limit": 4},
-            }
             await session.commit()
 
         result = await executor.execute(
@@ -498,6 +365,8 @@ async def test_assign_child_stages_one_direct_child_without_closing_source(
             },
         )
         async with session_factory() as session:
+            task = await session.get(TaskModel, ids.task_id)
+            parent = await session.get(AssignmentModel, ids.root_assignment_id)
             dispatch = await session.get(DispatchTurnModel, ids.current_dispatch_id)
             child = await session.get(FlowNodeModel, ids.child_node_id)
             staged_assignment = await session.scalar(
@@ -509,12 +378,20 @@ async def test_assign_child_stages_one_direct_child_without_closing_source(
                 AttemptModel,
                 result.model_dump()["target_attempt_id"],
             )
+        assert task is not None
+        assert task.max_child_assignments_per_assignment == 7
+        assert task.max_retries_per_assignment == 4
+        assert parent is not None
+        assert parent.child_assignment_limit == 7
+        assert parent.child_assignments_remaining == 6
+        assert parent.retry_limit == 4
+        assert parent.retries_remaining == 4
         assert dispatch is not None and dispatch.status == "open"
         assert child is not None and staged_assignment is not None
         assert child.current_assignment_id == staged_assignment.assignment_id
         assert staged_assignment.parent_assignment_id == ids.root_assignment_id
-        assert staged_assignment.child_assignment_limit is None
-        assert staged_assignment.child_assignments_remaining is None
+        assert staged_assignment.child_assignment_limit == 7
+        assert staged_assignment.child_assignments_remaining == 7
         assert staged_assignment.retry_limit == 4
         assert staged_assignment.retries_remaining == 4
         assert staged_attempt is not None and staged_attempt.latest_checkpoint_id is None

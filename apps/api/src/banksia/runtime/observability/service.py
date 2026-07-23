@@ -7,7 +7,6 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import raiseload
 
-from banksia.definitions.contracts.workflow import NodeKind
 from banksia.persistence.models import (
     AcceptedBoundaryModel,
     AttemptCheckpointModel,
@@ -32,6 +31,7 @@ from banksia.runtime.contracts import (
     TaskGraphNodeEntry,
     TopActionableItem,
 )
+from banksia.runtime.contracts.member import NodeKind
 from banksia.runtime.errors import invalid_request_shape_error
 from banksia.runtime.flow.reads import effective_capability_readback, read_runtime_flow
 from banksia.runtime.task_events import latest_task_event
@@ -201,8 +201,10 @@ async def _read_graph(
                 node_key=node.node_key,
                 parent_node_key=node.parent_node_key,
                 node_kind=NodeKind(node.structural_kind),
-                role=node.role_key,
-                policy=node.policy_key,
+                member_id=node.member_id,
+                member_configuration_id=node.member_configuration_id,
+                member_branch_basis_id=node.member_branch_basis_id,
+                member_title=node.member_title,
                 description=node.description,
                 order_index=node.order_index,
                 child_node_keys=tuple(node.child_node_keys_json),

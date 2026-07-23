@@ -55,6 +55,42 @@ class AssignmentModel(RuntimeBase):
         ),
         UniqueConstraint("assignment_id", "work_plan_revision"),
         UniqueConstraint("task_id", "flow_id", "assignment_id"),
+        UniqueConstraint(
+            "task_id",
+            "flow_id",
+            "assignment_id",
+            "member_id",
+            name="uq_assignments_member_identity",
+        ),
+        UniqueConstraint(
+            "task_id",
+            "flow_id",
+            "assignment_id",
+            "team_revision_id",
+            "member_id",
+            "member_configuration_id",
+            "member_branch_basis_id",
+            name="uq_assignments_exact_member_basis",
+        ),
+        ForeignKeyConstraint(
+            [
+                "task_id",
+                "team_revision_id",
+                "member_id",
+                "member_configuration_id",
+                "member_branch_basis_id",
+            ],
+            [
+                "team_revision_members.task_id",
+                "team_revision_members.team_revision_id",
+                "team_revision_members.member_id",
+                "team_revision_members.member_configuration_id",
+                "team_revision_members.member_branch_basis_id",
+            ],
+            name="fk_assignments_team_selection",
+            deferrable=True,
+            initially="DEFERRED",
+        ),
         ForeignKeyConstraint(
             ["task_id", "flow_id", "parent_assignment_id"],
             ["assignments.task_id", "assignments.flow_id", "assignments.assignment_id"],
@@ -104,6 +140,10 @@ class AssignmentModel(RuntimeBase):
 
     assignment_id: Mapped[str] = mapped_column(String(255), primary_key=True)
     task_id: Mapped[str] = mapped_column(ForeignKey("tasks.task_id"), index=True)
+    team_revision_id: Mapped[str] = mapped_column(String(255))
+    member_id: Mapped[str] = mapped_column(String(128))
+    member_configuration_id: Mapped[str] = mapped_column(String(255))
+    member_branch_basis_id: Mapped[str] = mapped_column(String(255))
     flow_id: Mapped[str] = mapped_column(ForeignKey("flows.flow_id"), index=True)
     flow_revision_id: Mapped[str] = mapped_column(String(255))
     flow_node_id: Mapped[str] = mapped_column(String(255), index=True)
@@ -117,10 +157,14 @@ class AssignmentModel(RuntimeBase):
     produces_json: Mapped[list[dict[str, object]]] = mapped_column(JSON(none_as_null=True))
     current_attempt_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     work_plan_revision: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
-    child_assignment_limit: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    child_assignments_remaining: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    retry_limit: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    retries_remaining: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    child_assignment_limit: Mapped[int] = mapped_column(Integer, default=20, server_default="20")
+    child_assignments_remaining: Mapped[int] = mapped_column(
+        Integer,
+        default=20,
+        server_default="20",
+    )
+    retry_limit: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    retries_remaining: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
     created_by_dispatch_id: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
@@ -131,6 +175,18 @@ class AssignmentModel(RuntimeBase):
         "TaskModel",
         foreign_keys=[task_id],
         lazy="raise",
+    )
+    team_selection: Mapped[object] = relationship(
+        "TeamRevisionMemberModel",
+        foreign_keys=[
+            task_id,
+            team_revision_id,
+            member_id,
+            member_configuration_id,
+            member_branch_basis_id,
+        ],
+        lazy="raise",
+        viewonly=True,
     )
     flow: Mapped[FlowModel] = relationship(
         "FlowModel",

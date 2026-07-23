@@ -10,8 +10,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from banksia.config import RuntimeSettings
-from banksia.definitions.contracts.workflow import ProviderKind
 from banksia.persistence.models import DispatchTurnModel
+from banksia.providers import ProviderKind
 from banksia.runtime.clock import utc_now
 from banksia.runtime.dispatch.provider_start import (
     ProviderStartAcceptanceResult,

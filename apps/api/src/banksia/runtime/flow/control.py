@@ -4,7 +4,7 @@ import logging
 from collections.abc import Callable
 from datetime import datetime
 
-from sqlalchemy import select, update
+from sqlalchemy import case, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import raiseload
 from sqlalchemy.sql.elements import ColumnElement
@@ -12,6 +12,7 @@ from sqlalchemy.sql.elements import ColumnElement
 from banksia.persistence.models import (
     DispatchTurnModel,
     FlowModel,
+    ReplanTransitionModel,
 )
 from banksia.runtime.clock import utc_now
 from banksia.runtime.contracts import (
@@ -177,6 +178,11 @@ async def cancel_flow(
         cancelled_at=cancelled_at,
     )
     await cancel_execution_rows(session, flow=flow, cancelled_at=cancelled_at)
+    await _cancel_pending_replan_transition(
+        session,
+        flow=flow,
+        cancelled_at=cancelled_at,
+    )
     changed = await _update_flow_to_cancelled(
         session,
         flow=flow,
@@ -324,6 +330,42 @@ async def _update_flow_to_cancelled(
                 updated_at=cancelled_at,
             )
             .returning(FlowModel.flow_id)
+        )
+    )
+
+
+async def _cancel_pending_replan_transition(
+    session: AsyncSession,
+    *,
+    flow: FlowModel,
+    cancelled_at: datetime,
+) -> None:
+    await session.execute(
+        update(ReplanTransitionModel)
+        .where(
+            ReplanTransitionModel.task_id == flow.task_id,
+            ReplanTransitionModel.flow_id == flow.flow_id,
+            ReplanTransitionModel.successor_flow_revision_id == flow.active_flow_revision_id,
+            ReplanTransitionModel.successor_state.not_in(("opened", "cancelled")),
+            ReplanTransitionModel.successor_dispatch_id.is_(None),
+        )
+        .values(
+            successor_state="cancelled",
+            failure_code=case(
+                (
+                    ReplanTransitionModel.manifest_state == "repair_required",
+                    ReplanTransitionModel.failure_code,
+                ),
+                else_=None,
+            ),
+            failure_detail=case(
+                (
+                    ReplanTransitionModel.manifest_state == "repair_required",
+                    ReplanTransitionModel.failure_detail,
+                ),
+                else_=None,
+            ),
+            updated_at=cancelled_at,
         )
     )
 

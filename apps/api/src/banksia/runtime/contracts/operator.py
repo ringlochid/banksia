@@ -3,9 +3,9 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
 
-from banksia.definitions.contracts.workflow import NodeKind
 from banksia.runtime.contracts.common import RuntimeSchemaText
 from banksia.runtime.contracts.flow import EffectiveCapabilityReadback, RuntimeFlowRead
+from banksia.runtime.contracts.member import NodeKind
 from banksia.runtime.contracts.primitives import (
     CheckpointKind,
     CheckpointOutcome,
@@ -114,8 +114,10 @@ class TaskGraphNodeEntry(BaseModel):
     node_key: RuntimeSchemaText
     parent_node_key: RuntimeSchemaText | None = None
     node_kind: NodeKind
-    role: RuntimeSchemaText
-    policy: RuntimeSchemaText | None = None
+    member_id: RuntimeSchemaText
+    member_configuration_id: RuntimeSchemaText
+    member_branch_basis_id: RuntimeSchemaText
+    member_title: RuntimeSchemaText | None = None
     description: RuntimeSchemaText
     order_index: int
     child_node_keys: tuple[RuntimeSchemaText, ...] = ()

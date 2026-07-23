@@ -21,7 +21,7 @@ from urllib.request import urlopen
 REQUIRED_PACKAGE_MEMBERS = (
     "banksia/config.py",
     "banksia/main.py",
-    "banksia/definitions/seeds/roles/planning_lead.yaml",
+    "banksia/workflows/resources/starter_workflows/reviewed-delivery.yaml",
     "banksia/platform/managed_services/resources/systemd/banksia.service",
     "banksia/runtime/prompt/assets/instructions/shared/authority.md",
     "banksia/runtime/prompt/assets/instructions/families/worker.md",
@@ -314,7 +314,7 @@ def verify_installed_runtime(
         cwd=non_repo_cwd,
         env=env,
     )
-    definition_result = verify_installed_definition_import(
+    workflow_result = verify_installed_workflow_import(
         executable=executable,
         venv_path=venv_path,
         config_path=config_path,
@@ -324,6 +324,7 @@ def verify_installed_runtime(
     task_result = verify_installed_task_start(
         executable=executable,
         config_path=config_path,
+        port=port,
         cwd=non_repo_cwd,
         env=env,
     )
@@ -335,7 +336,7 @@ def verify_installed_runtime(
         "server": server_result,
         "database": database_result,
         "providers": provider_result,
-        "definition_import": definition_result,
+        "workflow_import": workflow_result,
         "task_start": task_result,
         "legacy_state_untouched": True,
     }
@@ -372,7 +373,7 @@ from pathlib import Path
 
 import banksia
 from banksia.config import load_settings
-from banksia.definitions.seeds import get_packaged_seed_definitions_root
+from importlib.resources import files
 from banksia.interfaces.web_console import get_packaged_web_console_assets_root
 from banksia.main import create_app
 from banksia.platform.managed_services.resources import get_systemd_service_template
@@ -383,7 +384,9 @@ venv_path = Path(os.environ["BANKSIA_ORACLE_VENV"]).resolve()
 repo_root = Path(os.environ["BANKSIA_ORACLE_REPO_ROOT"]).resolve()
 assert package_path.is_relative_to(venv_path)
 assert not package_path.is_relative_to(repo_root / "apps" / "api" / "src")
-assert get_packaged_seed_definitions_root().joinpath("roles", "planning_lead.yaml").is_file()
+assert files("banksia.workflows.resources.starter_workflows").joinpath(
+    "reviewed-delivery.yaml"
+).is_file()
 assert get_systemd_service_template().is_file()
 assert get_packaged_web_console_assets_root().joinpath("index.html").is_file()
 assert load_instruction_asset(InstructionAsset.AUTHORITY).strip()
@@ -415,6 +418,7 @@ def run_installed_server_smoke(
     port: int,
     cwd: Path,
     env: dict[str, str],
+    task_id: str | None = None,
 ) -> dict[str, object]:
     log_path = cwd / "installed-serve.log"
     process_environment = merged_environment(env)
@@ -432,6 +436,10 @@ def run_installed_server_smoke(
         )
         try:
             health_payloads = wait_for_server_health(process, port=port)
+            if task_id is not None:
+                health_payloads["task"] = read_loopback_json(
+                    f"http://127.0.0.1:{port}/control/tasks/{task_id}"
+                )
         except Exception as exc:
             failure = exc
         finally:
@@ -450,13 +458,16 @@ def run_installed_server_smoke(
             f"installed `banksia serve` exited with {return_code} after shutdown\n"
             f"server output:\n{output[-4000:]}"
         )
-    return {
+    result: dict[str, object] = {
         "host": "127.0.0.1",
         "port": port,
         "health": health_payloads["healthz"],
         "readiness": health_payloads["readyz"],
         "shutdown_return_code": return_code,
     }
+    if task_id is not None:
+        result["task"] = health_payloads["task"]
+    return result
 
 
 def wait_for_server_health(
@@ -611,7 +622,7 @@ def verify_installed_provider_configuration(
     }
 
 
-def verify_installed_definition_import(
+def verify_installed_workflow_import(
     *,
     executable: Path,
     venv_path: Path,
@@ -625,10 +636,9 @@ def verify_installed_definition_import(
                 str(venv_python(venv_path)),
                 "-c",
                 (
-                    "from banksia.definitions.seeds import "
-                    "get_packaged_seed_definitions_root; "
-                    "print(get_packaged_seed_definitions_root() / "
-                    "'roles' / 'planning_lead.yaml')"
+                    "from importlib.resources import files; "
+                    "print(files('banksia.workflows.resources.starter_workflows') / "
+                    "'reviewed-delivery.yaml')"
                 ),
             ),
             cwd=cwd,
@@ -637,23 +647,23 @@ def verify_installed_definition_import(
     ).resolve()
     if not source_path.is_file() or not source_path.is_relative_to(venv_path):
         raise AssertionError(
-            f"definition import source was not installed package data: {source_path}"
+            f"Workflow import source was not installed package data: {source_path}"
         )
 
-    import_path = cwd / "installed_oracle_role.yaml"
+    import_path = cwd / "installed_oracle_workflow.yaml"
     source_text = source_path.read_text(encoding="utf-8")
     imported_text = source_text.replace(
-        "id: planning_lead\n",
-        "id: installed_oracle_planning_lead\n",
+        "id: reviewed-delivery\n",
+        "id: installed-oracle-reviewed-delivery\n",
         1,
     )
     if imported_text == source_text:
-        raise AssertionError("installed role seed no longer has the expected identifier")
+        raise AssertionError("installed Starter Workflow no longer has the expected identifier")
     import_path.write_text(imported_text, encoding="utf-8")
     payload = run_json_command(
         executable,
         (
-            "definitions",
+            "workflow",
             "import",
             "--config",
             str(config_path),
@@ -664,16 +674,11 @@ def verify_installed_definition_import(
         cwd=cwd,
         env=env,
     )
-    results = payload.get("results")
-    if not isinstance(results, list) or len(results) != 1:
-        raise AssertionError(f"installed definition import returned an unexpected shape: {payload}")
-    result = results[0]
-    if not isinstance(result, dict):
-        raise AssertionError(f"installed definition import returned a non-object: {payload}")
-    if result.get("status") != "imported" or result.get("key") != "installed_oracle_planning_lead":
-        raise AssertionError(
-            f"installed definition import did not create the oracle role: {payload}"
-        )
+    draft = payload.get("draft")
+    if not isinstance(draft, dict) or draft.get("workflow_id") != (
+        "installed-oracle-reviewed-delivery"
+    ):
+        raise AssertionError(f"installed Workflow import returned an unexpected shape: {payload}")
     return payload
 
 
@@ -681,6 +686,7 @@ def verify_installed_task_start(
     *,
     executable: Path,
     config_path: Path,
+    port: int,
     cwd: Path,
     env: dict[str, str],
 ) -> dict[str, object]:
@@ -689,14 +695,13 @@ def verify_installed_task_start(
         """task:
     key: installed-wheel-oracle
     title: Installed wheel oracle
-    summary: Prove that the installed task-compose command commits a real task.
-    instruction: Keep this isolated launch as packaging verification only.
+    summary: Prove the installed Task-start bridge commits durable runtime truth.
 workflow:
-    key: planning-only
+    key: reviewed-delivery
 """,
         encoding="utf-8",
     )
-    payload = run_json_command(
+    started = run_json_command(
         executable,
         (
             "task-compose",
@@ -710,12 +715,36 @@ workflow:
         cwd=cwd,
         env=env,
     )
-    task_id = payload.get("task_id")
+    task_id = started.get("task_id")
     if not isinstance(task_id, str) or not task_id.startswith("task_installed-wheel-oracle_"):
-        raise AssertionError(f"installed task start returned an unexpected task id: {payload}")
-    if payload.get("flow_status") != "running":
-        raise AssertionError(f"installed task start did not commit a running flow: {payload}")
-    return payload
+        raise AssertionError(f"installed Task start returned an unexpected task id: {started}")
+    if started.get("flow_status") != "running":
+        raise AssertionError(f"installed Task start did not commit a running Task: {started}")
+
+    reopened = run_installed_server_smoke(
+        executable=executable,
+        config_path=config_path,
+        port=port,
+        cwd=cwd,
+        env=env,
+        task_id=task_id,
+    )
+    task = reopened.pop("task", None)
+    if not isinstance(task, dict):
+        raise AssertionError(f"installed server did not return the committed Task: {reopened}")
+    expected_readback = {
+        "task_id": task_id,
+        "status": "running",
+        "workflow_key": "reviewed-delivery",
+        "active_flow_revision_id": started.get("active_flow_revision_id"),
+    }
+    actual_readback = {key: task.get(key) for key in expected_readback}
+    if actual_readback != expected_readback:
+        raise AssertionError(
+            "installed Task readback did not preserve the committed starter Workflow launch: "
+            f"{task}"
+        )
+    return {"start": started, "durable_readback": task, "restart": reopened}
 
 
 def verify_user_service_installer(

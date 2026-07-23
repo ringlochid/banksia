@@ -39,19 +39,22 @@ TARGET_TABLES = {
     "flow_waits",
     "flows",
     "human_requests",
+    "member_branch_bases",
+    "member_configurations",
+    "members",
     "node_invocations",
     "node_plan_revisions",
-    "policy_definitions",
-    "policy_revisions",
-    "role_definitions",
-    "role_revisions",
-    "task_composes",
+    "replan_transitions",
     "task_events",
     "task_event_stream_heads",
     "tasks",
+    "team_revision_members",
+    "team_revisions",
     "transient_localizations",
     "workflow_definitions",
+    "workflow_drafts",
     "workflow_revisions",
+    "workflow_undo_receipts",
     "workspace_bindings",
 }
 
@@ -137,6 +140,21 @@ def test_currentness_marker_ddl_is_stored_and_portable() -> None:
             ddl = str(CreateTable(RuntimeBase.metadata.tables[table_name]).compile(dialect=dialect))
             assert "GENERATED ALWAYS AS" in ddl
             assert "STORED" in ddl
+
+
+def test_team_root_selection_marker_ddl_is_stored_and_portable() -> None:
+    marker = RuntimeBase.metadata.tables["team_revision_members"].c.root_selection_marker
+    assert marker.computed is not None
+    assert marker.computed.persisted is True
+
+    for dialect in (sqlite.dialect(), postgresql.dialect()):
+        ddl = str(
+            CreateTable(RuntimeBase.metadata.tables["team_revision_members"]).compile(
+                dialect=dialect
+            )
+        )
+        assert "GENERATED ALWAYS AS" in ddl
+        assert "STORED" in ddl
 
 
 def test_runtime_async_session_keeps_ordinary_commit_semantics() -> None:

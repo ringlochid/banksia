@@ -6,22 +6,18 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from banksia.definitions.contracts import (
-    DefinitionKind,
-    DefinitionListSort,
-)
-from banksia.definitions.contracts.workflow import NodeKind
 from banksia.runtime.contracts import (
-    AddChildPayload,
+    AddChildRequest,
     AssignChildPayload,
     CheckpointWriteBody,
     CommandRunStartRequest,
     EgressBoundary,
     HumanRequestOpenRequest,
-    RemoveChildPayload,
-    UpdateChildPayload,
+    RemoveChildRequest,
+    UpdateChildRequest,
 )
 from banksia.runtime.contracts.common import RuntimeSchemaText
+from banksia.runtime.contracts.member import NodeKind
 from banksia.runtime.contracts.prompt import RuntimeReadbackRefs
 from banksia.runtime.work_plan import WorkPlanRead
 
@@ -35,8 +31,6 @@ class NodeOperationName(StrEnum):
     RETURN_BOUNDARY = "return_boundary"
     OPEN_HUMAN_REQUEST = "open_human_request"
     START_COMMAND_RUN = "start_command_run"
-    SEARCH_DEFINITIONS = "search_definitions"
-    GET_DEFINITION = "get_definition"
     ASSIGN_CHILD = "assign_child"
     ADD_CHILD = "add_child"
     UPDATE_CHILD = "update_child"
@@ -94,6 +88,7 @@ class CurrentContextTriggerKind(StrEnum):
     COMMAND_RESULT = "command_result"
     WATCHDOG_RECOVERY = "watchdog_recovery"
     SEMANTIC_RETRY = "semantic_retry"
+    STRUCTURAL_REPLAN = "structural_replan"
     OPERATOR_CONTINUE = "operator_continue"
 
 
@@ -234,25 +229,6 @@ class StartCommandRunRequest(BaseModel):
     request: CommandRunStartRequest
 
 
-class SearchDefinitionsRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    kind: Literal[DefinitionKind.ROLE, DefinitionKind.POLICY]
-    query: RuntimeSchemaText | None = None
-    limit: int = Field(default=50, ge=1, le=100)
-    cursor: RuntimeSchemaText | None = None
-    sort: DefinitionListSort = DefinitionListSort.UPDATED_AT_DESC
-    allowed_node_kind: NodeKind | None = None
-    applies_to: NodeKind | None = None
-
-
-class GetDefinitionRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    kind: Literal[DefinitionKind.ROLE, DefinitionKind.POLICY]
-    key: RuntimeSchemaText
-
-
 class StructuralOperationRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -261,18 +237,6 @@ class StructuralOperationRequest(BaseModel):
 
 class AssignChildRequest(StructuralOperationRequest):
     payload: AssignChildPayload
-
-
-class AddChildRequest(StructuralOperationRequest):
-    payload: AddChildPayload
-
-
-class UpdateChildRequest(StructuralOperationRequest):
-    payload: UpdateChildPayload
-
-
-class RemoveChildRequest(StructuralOperationRequest):
-    payload: RemoveChildPayload
 
 
 class ReleaseRequest(StructuralOperationRequest):
@@ -303,7 +267,6 @@ __all__ = [
     "EmptyNodeOperationRequest",
     "FileEntryRead",
     "GetCurrentContextResponse",
-    "GetDefinitionRequest",
     "HumanRequestCapabilityRead",
     "ListFilesRequest",
     "ListFilesResponse",
@@ -319,7 +282,6 @@ __all__ = [
     "ReleaseRequest",
     "RemoveChildRequest",
     "ReturnBoundaryRequest",
-    "SearchDefinitionsRequest",
     "SlotContextRead",
     "StartCommandRunRequest",
     "StructuralOperationRequest",

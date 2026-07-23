@@ -7,7 +7,7 @@ from sqlite3 import Connection as SQLiteConnection
 from typing import Any
 from weakref import WeakSet
 
-from sqlalchemy import event, text
+from sqlalchemy import MetaData, event, text
 from sqlalchemy.engine import Connection, Engine, make_url
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -65,15 +65,13 @@ async def ensure_database_schema() -> None:
 async def create_empty_database_schema() -> None:
     """Create the current schema only when the configured database has no tables."""
 
-    from banksia.persistence import RuntimeBase
-
     engine = get_async_engine()
     async with engine.begin() as connection:
         await connection.run_sync(_create_configured_schema)
         existing_tables = await connection.run_sync(_table_names)
         if existing_tables:
             raise_schema_mismatch(["database is not empty: " + ", ".join(sorted(existing_tables))])
-        await connection.run_sync(RuntimeBase.metadata.create_all)
+        await connection.run_sync(create_runtime_schema_tables)
         await connection.run_sync(_verify_database_schema_contract)
 
 
@@ -181,6 +179,17 @@ def install_sqlite_transaction_control(engine: Engine) -> None:
     @event.listens_for(engine, "begin")
     def _begin_sqlite_transaction(connection: Connection) -> None:
         connection.exec_driver_sql("BEGIN")
+
+
+def create_runtime_schema_tables(connection: Connection) -> None:
+    """Create runtime tables without mutating the ORM-owned metadata graph."""
+
+    from banksia.persistence import RuntimeBase
+
+    creation_metadata = MetaData()
+    for table in RuntimeBase.metadata.tables.values():
+        table.to_metadata(creation_metadata)
+    creation_metadata.create_all(connection)
 
 
 def _loop_id() -> int:

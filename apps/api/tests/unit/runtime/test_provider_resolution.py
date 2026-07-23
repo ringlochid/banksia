@@ -12,19 +12,13 @@ from banksia.config import (
     Settings,
     load_settings,
 )
-from banksia.definitions.contracts import (
-    ClaudeProviderSelection,
-    CodexProviderSelection,
-    OpenClawProviderSelection,
-    ProviderKind,
-)
-from banksia.definitions.contracts.registry import NetworkAccess, ProviderNativeAccess
+from banksia.providers import ManagedSandboxMode, NetworkAccess, ProviderKind, ProviderNativeAccess
 from banksia.runtime.contracts import (
     CapabilitySource,
     EffectiveCapabilitySet,
-    EffectiveNetworkAccess,
     ProviderResolution,
     ProviderRoute,
+    ProviderRouteValueSource,
     ProviderSelectionBasis,
 )
 from banksia.runtime.providers import (
@@ -32,7 +26,13 @@ from banksia.runtime.providers import (
     ProviderResolutionErrorCode,
     narrow_provider_capabilities,
     resolve_provider_route,
-    validate_provider_execution_policy,
+    validate_provider_execution_configuration,
+)
+from banksia.workflows.contracts import (
+    ClaudeProviderSelection,
+    CodexProviderSelection,
+    OpenClawProviderSelection,
+    ProviderSandbox,
 )
 from pydantic import TypeAdapter, ValidationError
 
@@ -83,7 +83,7 @@ def test_openclaw_gateway_url_rejects_invalid_or_secret_bearing_values(
 
     with pytest.raises(ProviderResolutionError) as error:
         resolve_provider_route(
-            provider=OpenClawProviderSelection(kind=ProviderKind.OPENCLAW),
+            provider=OpenClawProviderSelection(kind="openclaw"),
             settings=settings,
             available_adapter_kinds={ProviderKind.OPENCLAW},
         )
@@ -99,7 +99,7 @@ def test_invalid_unselected_openclaw_config_does_not_block_other_routes() -> Non
     )
 
     resolution = resolve_provider_route(
-        provider=CodexProviderSelection(kind=ProviderKind.CODEX),
+        provider=CodexProviderSelection(kind="codex"),
         settings=settings,
         available_adapter_kinds={ProviderKind.CODEX},
     )
@@ -115,7 +115,7 @@ def test_blank_unselected_provider_values_do_not_block_other_routes() -> None:
     )
 
     resolution = resolve_provider_route(
-        provider=CodexProviderSelection(kind=ProviderKind.CODEX),
+        provider=CodexProviderSelection(kind="codex"),
         settings=settings,
         available_adapter_kinds={ProviderKind.CODEX},
     )
@@ -127,15 +127,15 @@ def test_blank_unselected_provider_values_do_not_block_other_routes() -> None:
     ("selection", "settings"),
     [
         (
-            CodexProviderSelection(kind=ProviderKind.CODEX),
+            CodexProviderSelection(kind="codex"),
             _settings(codex=CodexSettings(enabled=True, model="  ")),
         ),
         (
-            ClaudeProviderSelection(kind=ProviderKind.CLAUDE),
+            ClaudeProviderSelection(kind="claude"),
             _settings(claude=ClaudeSettings(enabled=True, effort="")),
         ),
         (
-            OpenClawProviderSelection(kind=ProviderKind.OPENCLAW),
+            OpenClawProviderSelection(kind="openclaw"),
             _settings(
                 openclaw=OpenClawSettings(
                     enabled=True,
@@ -165,11 +165,11 @@ def test_selected_provider_rejects_explicit_blank_values(
     ("selection", "settings"),
     [
         (
-            CodexProviderSelection(kind=ProviderKind.CODEX),
+            CodexProviderSelection(kind="codex"),
             _settings(codex=CodexSettings(enabled=True, effort="impossible")),
         ),
         (
-            ClaudeProviderSelection(kind=ProviderKind.CLAUDE),
+            ClaudeProviderSelection(kind="claude"),
             _settings(claude=ClaudeSettings(enabled=True, effort="minimal")),
         ),
     ],
@@ -190,58 +190,61 @@ def test_selected_provider_rejects_unsupported_effort_before_dispatch(
 
 
 @pytest.mark.parametrize(
-    ("provider_native_access", "network_access"),
+    ("provider_native_access", "network_access", "sandbox_mode"),
     (
-        (ProviderNativeAccess.DENIED, NetworkAccess.ALLOW),
-        (ProviderNativeAccess.FULL, NetworkAccess.DENY),
+        (ProviderNativeAccess.DENIED, NetworkAccess.ALLOW, ManagedSandboxMode.READ_ONLY),
+        (ProviderNativeAccess.FULL, NetworkAccess.DENY, ManagedSandboxMode.FULL_ACCESS),
     ),
 )
-def test_codex_unsupported_policy_combinations_are_rejected_before_dispatch(
+def test_codex_inconsistent_sandbox_projections_are_rejected_before_dispatch(
     provider_native_access: ProviderNativeAccess,
     network_access: NetworkAccess,
+    sandbox_mode: ManagedSandboxMode,
 ) -> None:
     resolution = resolve_provider_route(
-        provider=CodexProviderSelection(kind=ProviderKind.CODEX),
+        provider=CodexProviderSelection(kind="codex"),
         settings=_settings(codex=CodexSettings(enabled=True)),
         available_adapter_kinds={ProviderKind.CODEX},
     )
 
     with pytest.raises(ProviderResolutionError) as error:
-        validate_provider_execution_policy(
+        validate_provider_execution_configuration(
             route=resolution.route,
             provider_native_access=provider_native_access,
             network_access=network_access,
+            sandbox_mode=sandbox_mode,
         )
 
-    assert error.value.code == ProviderResolutionErrorCode.UNSUPPORTED_CAPABILITY
+    assert error.value.code == ProviderResolutionErrorCode.INVALID_CONFIGURATION
     assert error.value.provider == ProviderKind.CODEX
 
 
-def test_codex_network_deny_applies_an_attributed_native_access_ceiling() -> None:
+def test_codex_workspace_write_network_deny_projects_exact_adapter_access() -> None:
     resolution = resolve_provider_route(
-        provider=CodexProviderSelection(kind=ProviderKind.CODEX),
+        provider=CodexProviderSelection(
+            kind="codex",
+            sandbox=ProviderSandbox(mode="workspace_write", network="deny"),
+        ),
         settings=_settings(codex=CodexSettings(enabled=True)),
         available_adapter_kinds={ProviderKind.CODEX},
     )
-    capabilities = EffectiveCapabilitySet(
-        network_access=EffectiveNetworkAccess(
-            effective=NetworkAccess.DENY,
-            source=CapabilitySource.POLICY_DEFINITION,
-        )
-    )
+    capabilities = EffectiveCapabilitySet()
 
     effective = narrow_provider_capabilities(
         route=resolution.route,
+        sandbox=resolution.sandbox,
         capabilities=capabilities,
     )
 
     assert effective.provider_native_access.effective is ProviderNativeAccess.RESTRICTED
-    assert effective.provider_native_access.source is CapabilitySource.CONTROLLER
-    assert effective.network_access == capabilities.network_access
-    validate_provider_execution_policy(
+    assert effective.provider_native_access.source is CapabilitySource.MEMBER_CONFIGURATION
+    assert effective.network_access.effective is NetworkAccess.DENY
+    assert effective.network_access.source is CapabilitySource.MEMBER_CONFIGURATION
+    validate_provider_execution_configuration(
         route=resolution.route,
         provider_native_access=effective.provider_native_access.effective,
         network_access=effective.network_access.effective,
+        sandbox_mode=ManagedSandboxMode.WORKSPACE_WRITE,
     )
 
 
@@ -320,7 +323,7 @@ def test_provider_settings_reject_unknown_or_secret_fields(
     ("selection", "settings", "expected_route"),
     [
         (
-            CodexProviderSelection(kind=ProviderKind.CODEX),
+            CodexProviderSelection(kind="codex"),
             _settings(codex=CodexSettings(enabled=True, model="gpt-5", effort="high")),
             {
                 "kind": "codex",
@@ -329,7 +332,7 @@ def test_provider_settings_reject_unknown_or_secret_fields(
             },
         ),
         (
-            ClaudeProviderSelection(kind=ProviderKind.CLAUDE),
+            ClaudeProviderSelection(kind="claude"),
             _settings(claude=ClaudeSettings(enabled=True, model="opus", effort="high")),
             {
                 "kind": "claude",
@@ -338,7 +341,7 @@ def test_provider_settings_reject_unknown_or_secret_fields(
             },
         ),
         (
-            OpenClawProviderSelection(kind=ProviderKind.OPENCLAW),
+            OpenClawProviderSelection(kind="openclaw"),
             _settings(
                 openclaw=OpenClawSettings(
                     enabled=True,
@@ -365,6 +368,14 @@ def test_explicit_provider_resolution_constructs_exact_non_secret_route(
     assert resolution.resolved_provider == selection.kind
     assert resolution.selection_basis == ProviderSelectionBasis.EXPLICIT
     assert resolution.route.model_dump(mode="json") == expected_route
+    if selection.kind in {ProviderKind.CODEX, ProviderKind.CLAUDE}:
+        assert resolution.model_source is ProviderRouteValueSource.PROVIDER_CONFIGURATION
+        assert resolution.effort_source is ProviderRouteValueSource.PROVIDER_CONFIGURATION
+        assert resolution.gateway_profile_source is None
+    else:
+        assert resolution.model_source is None
+        assert resolution.effort_source is None
+        assert resolution.gateway_profile_source is ProviderRouteValueSource.PROVIDER_CONFIGURATION
 
 
 def test_omitted_selection_resolves_only_the_configured_default() -> None:
@@ -384,6 +395,7 @@ def test_omitted_selection_resolves_only_the_configured_default() -> None:
     assert resolution.resolved_provider == ProviderKind.CLAUDE
     assert resolution.selection_basis == ProviderSelectionBasis.DEFAULT
     assert resolution.route.kind == ProviderKind.CLAUDE
+    assert resolution.model_source is ProviderRouteValueSource.PROVIDER_CONFIGURATION
 
 
 def test_experimental_openclaw_route_remains_default_eligible() -> None:
@@ -468,7 +480,7 @@ def test_explicit_selection_never_falls_back_to_an_enabled_default() -> None:
 
     with pytest.raises(ProviderResolutionError) as error:
         resolve_provider_route(
-            provider=CodexProviderSelection(kind=ProviderKind.CODEX),
+            provider=CodexProviderSelection(kind="codex"),
             settings=settings,
             available_adapter_kinds={ProviderKind.CODEX, ProviderKind.CLAUDE},
         )
@@ -480,7 +492,7 @@ def test_explicit_selection_never_falls_back_to_an_enabled_default() -> None:
 def test_selected_provider_requires_an_available_adapter() -> None:
     with pytest.raises(ProviderResolutionError) as error:
         resolve_provider_route(
-            provider=CodexProviderSelection(kind=ProviderKind.CODEX),
+            provider=CodexProviderSelection(kind="codex"),
             settings=_settings(codex=CodexSettings(enabled=True)),
             available_adapter_kinds={ProviderKind.CLAUDE},
         )
@@ -513,5 +525,17 @@ def test_provider_resolution_rejects_non_exact_provenance() -> None:
                     "model_override": None,
                     "effort_override": None,
                 },
+                "sandbox": {
+                    "requested_mode": "full_access",
+                    "requested_network": "allow",
+                    "requested_source": "default",
+                    "effective_mode": "full_access",
+                    "effective_network": "allow",
+                    "effective_mode_source": "default",
+                    "effective_network_source": "default",
+                },
+                "model_source": "provider_configuration",
+                "effort_source": "provider_configuration",
+                "gateway_profile_source": None,
             }
         )

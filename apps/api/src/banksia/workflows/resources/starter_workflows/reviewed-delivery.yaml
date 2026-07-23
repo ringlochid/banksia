@@ -1,0 +1,30 @@
+kind: workflow
+id: reviewed-delivery
+description: >-
+  Use when a deliverable benefits from focused creation, independent review,
+  and one accountable owner who reconciles the result.
+note: >-
+  The delivery member creates the requested work and the reviewer examines it
+  independently. The lead owns scope, resolves findings, and returns one
+  coherent result.
+lead:
+  id: lead
+  title: Delivery lead
+  description: Owns the commissioned result and integrates the team's work.
+  instruction: >-
+    Preserve the user's objective and constraints, commission bounded
+    contributions, decide which findings require correction, and return the
+    integrated result with honest remaining limitations.
+  children:
+    - id: delivery
+      title: Delivery member
+      description: Creates or updates the requested deliverable.
+      instruction: >-
+        Produce the requested work within the stated scope and make the result
+        clear enough for an independent teammate to inspect.
+    - id: independent-review
+      title: Independent reviewer
+      description: Examines the deliverable and its verification critically.
+      instruction: >-
+        Review the work independently against the objective and constraints.
+        Report concrete defects, missing proof, and material residual risk.

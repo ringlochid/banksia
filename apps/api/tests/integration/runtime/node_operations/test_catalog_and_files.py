@@ -5,15 +5,12 @@ from pathlib import Path
 
 import banksia.runtime.task_root.file_access as file_access_module
 import pytest
-from banksia.definitions.contracts import DefinitionKind
-from banksia.definitions.contracts.workflow import NodeKind
 from banksia.runtime.contracts import TaskRootPaths
+from banksia.runtime.contracts.member import NodeKind
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
 from banksia.runtime.errors import RuntimeOperationError
 from banksia.runtime.node_operations import (
     NODE_OPERATION_CATALOG,
-    AddChildRequest,
-    UpdateChildRequest,
     get_node_operation_descriptor,
     list_node_operation_descriptors_for_kind,
 )
@@ -23,7 +20,6 @@ from banksia.runtime.task_root.file_access import (
 )
 from banksia.runtime.task_root.logical_paths import normalize_logical_task_path
 from banksia.runtime.work_plan import SetWorkPlanRequest
-from pydantic import ValidationError
 from pytest import MonkeyPatch
 
 EXPECTED_OPERATION_NAMES = (
@@ -35,8 +31,6 @@ EXPECTED_OPERATION_NAMES = (
     "return_boundary",
     "open_human_request",
     "start_command_run",
-    "search_definitions",
-    "get_definition",
     "assign_child",
     "add_child",
     "update_child",
@@ -46,13 +40,13 @@ EXPECTED_OPERATION_NAMES = (
 )
 
 
-def test_catalog_has_one_exact_role_narrowed_sixteen_operation_surface() -> None:
+def test_catalog_has_one_exact_node_kind_narrowed_operation_surface() -> None:
     assert tuple(descriptor.name.value for descriptor in NODE_OPERATION_CATALOG) == (
         EXPECTED_OPERATION_NAMES
     )
-    assert len(list_node_operation_descriptors_for_kind(NodeKind.WORKER)) == 8
-    assert len(list_node_operation_descriptors_for_kind(NodeKind.PARENT)) == 15
-    assert len(list_node_operation_descriptors_for_kind(NodeKind.ROOT)) == 16
+    assert len(list_node_operation_descriptors_for_kind(NodeKind.WORKER)) == 9
+    assert len(list_node_operation_descriptors_for_kind(NodeKind.PARENT)) == 13
+    assert len(list_node_operation_descriptors_for_kind(NodeKind.ROOT)) == 14
     for descriptor in NODE_OPERATION_CATALOG:
         request_properties = descriptor.request_model.model_json_schema().get("properties", {})
         assert "task_id" not in request_properties
@@ -60,7 +54,7 @@ def test_catalog_has_one_exact_role_narrowed_sixteen_operation_surface() -> None
         assert descriptor.request_model.model_config.get("extra") == "forbid"
 
 
-def test_catalog_preserves_terminal_and_structural_operation_teaching() -> None:
+def test_catalog_preserves_terminal_and_child_assignment_teaching() -> None:
     for operation_name in (
         "return_boundary",
         "open_human_request",
@@ -71,73 +65,8 @@ def test_catalog_preserves_terminal_and_structural_operation_teaching() -> None:
         assert "stop the current outer response" in description
         assert "no further tool calls or prose" in description
 
-    for operation_name in ("add_child", "update_child", "remove_child"):
-        description = get_node_operation_descriptor(operation_name).description.lower()
-        assert "reread current context" in description
-        assert "regenerated manifest" in description
-
     assert "parent/root" in get_node_operation_descriptor("assign_child").description
     assert "root-only" in get_node_operation_descriptor("release_blocked").description
-
-
-def test_structural_child_contract_requires_and_preserves_policy_identity() -> None:
-    with pytest.raises(ValidationError, match="policy"):
-        AddChildRequest.model_validate(
-            {
-                "expected_structural_revision_id": "flow-revision.01",
-                "payload": {
-                    "child": {
-                        "node_key": "new-worker",
-                        "role": "role.target",
-                        "description": "Missing mandatory policy.",
-                    }
-                },
-            }
-        )
-
-    with pytest.raises(ValidationError, match="cannot clear the node policy"):
-        UpdateChildRequest.model_validate(
-            {
-                "expected_structural_revision_id": "flow-revision.01",
-                "payload": {
-                    "child_node_key": "worker",
-                    "patch": {"policy": None},
-                },
-            }
-        )
-
-
-def test_definition_lookup_schemas_accept_only_role_and_policy_kinds() -> None:
-    for operation_name in ("search_definitions", "get_definition"):
-        request_model = get_node_operation_descriptor(operation_name).request_model
-        kind_schema = request_model.model_json_schema()["properties"]["kind"]
-
-        assert kind_schema["enum"] == ["role", "policy"]
-        assert (
-            request_model.model_validate(
-                {
-                    "kind": "role",
-                    **({"key": "role.example"} if operation_name == "get_definition" else {}),
-                }
-            ).model_dump()["kind"]
-            == DefinitionKind.ROLE
-        )
-        assert (
-            request_model.model_validate(
-                {
-                    "kind": "policy",
-                    **({"key": "policy.example"} if operation_name == "get_definition" else {}),
-                }
-            ).model_dump()["kind"]
-            == DefinitionKind.POLICY
-        )
-        with pytest.raises(ValidationError, match="Input should be"):
-            request_model.model_validate(
-                {
-                    "kind": "workflow",
-                    **({"key": "workflow.example"} if operation_name == "get_definition" else {}),
-                }
-            )
 
 
 def test_work_plan_contract_rejects_duplicate_and_multiple_active_steps() -> None:

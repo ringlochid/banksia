@@ -1,3 +1,6 @@
+from banksia.persistence.models.runtime.dispatch.capabilities import (
+    DispatchCapabilitySetModel,
+)
 from banksia.persistence.models.runtime.dispatch.states import FlowStartSourceModel
 from banksia.persistence.models.runtime.dispatch.support import (
     AcceptedBoundaryModel,
@@ -6,7 +9,6 @@ from banksia.persistence.models.runtime.dispatch.support import (
     AssignmentDecisionModel,
 )
 from banksia.persistence.models.runtime.dispatch.turns import (
-    DispatchCapabilitySetModel,
     DispatchPromptRefsModel,
     DispatchTurnModel,
     NodeInvocationModel,

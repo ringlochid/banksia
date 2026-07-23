@@ -167,8 +167,7 @@ async def _read_source_assignment(
             AssignmentModel.assignment_id == authority.assignment_id,
             AssignmentModel.task_id == authority.task_id,
             AssignmentModel.flow_id == authority.flow_id,
-            AssignmentModel.flow_revision_id == authority.flow_revision_id,
-            AssignmentModel.flow_node_id == authority.flow_node.flow_node_id,
+            AssignmentModel.member_id == authority.flow_node.member_id,
             AssignmentModel.node_key == authority.node_key,
             AssignmentModel.current_attempt_id == authority.attempt_id,
             AssignmentModel.superseded_at.is_(None),
@@ -209,7 +208,7 @@ async def _start_semantic_retry(
             AssignmentModel.assignment_id == authority.assignment_id,
             AssignmentModel.task_id == authority.task_id,
             AssignmentModel.flow_id == authority.flow_id,
-            AssignmentModel.flow_revision_id == authority.flow_revision_id,
+            AssignmentModel.member_id == authority.flow_node.member_id,
             AssignmentModel.current_attempt_id == authority.attempt_id,
             AssignmentModel.superseded_at.is_(None),
             (AssignmentModel.retries_remaining.is_(None)) | (AssignmentModel.retries_remaining > 0),
@@ -256,7 +255,6 @@ async def _resume_parent(
             AssignmentModel.assignment_id == parent_assignment_id,
             AssignmentModel.task_id == authority.task_id,
             AssignmentModel.flow_id == authority.flow_id,
-            AssignmentModel.flow_revision_id == authority.flow_revision_id,
             AssignmentModel.superseded_at.is_(None),
         )
     )
@@ -276,9 +274,9 @@ async def _resume_parent(
     resumed = await session.scalar(
         update(FlowNodeModel)
         .where(
-            FlowNodeModel.flow_node_id == parent.flow_node_id,
             FlowNodeModel.flow_id == authority.flow_id,
             FlowNodeModel.flow_revision_id == authority.flow_revision_id,
+            FlowNodeModel.member_id == parent.member_id,
             FlowNodeModel.current_assignment_id == parent.assignment_id,
             FlowNodeModel.state.in_(("waiting", "running")),
         )

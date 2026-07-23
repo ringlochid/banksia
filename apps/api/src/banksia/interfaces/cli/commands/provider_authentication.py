@@ -5,7 +5,6 @@ from pathlib import Path
 
 import click
 
-from banksia.definitions.contracts.workflow import ProviderKind
 from banksia.interfaces.cli.commands.guided_presentation import emit_step
 from banksia.interfaces.cli.providers import (
     authentication_method_choices,
@@ -16,6 +15,7 @@ from banksia.platform.provider_environment import (
     provider_environment_file_path,
     read_provider_secret_environment,
 )
+from banksia.providers import ProviderKind
 from banksia.runtime.providers import ProviderAuthenticationMethod
 
 

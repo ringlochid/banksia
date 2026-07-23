@@ -5,9 +5,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import pytest
-from banksia.config import CodexSettings, Settings
-from banksia.definitions.contracts.registry import NetworkAccess
-from banksia.definitions.contracts.workflow import ProviderKind
+from banksia.config import CodexSettings, RuntimeSettings, Settings
 from banksia.persistence.models import (
     DispatchCapabilitySetModel,
     DispatchPromptRefsModel,
@@ -15,6 +13,7 @@ from banksia.persistence.models import (
     FlowModel,
     FlowStartSourceModel,
 )
+from banksia.providers import ManagedSandboxMode, NetworkAccess, ProviderKind
 from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
 from banksia.runtime.launch.continuation import open_root_dispatch
 from banksia.runtime.launch.persistence.runtime import persist_bootstrap_runtime_from_precomputed
@@ -29,9 +28,9 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 from tests.helpers.launch_foundation import (
-    build_launch_foundation_definitions,
     build_launch_foundation_input,
-    seed_launch_foundation_catalog,
+    build_launch_foundation_workflow_revision,
+    seed_launch_foundation_workflow,
 )
 from tests.helpers.sqlite_runtime import (
     SyncSessionAdapter,
@@ -53,31 +52,23 @@ async def test_root_start_materializes_then_commits_one_starting_dispatch(
     expected_native_source: str,
 ) -> None:
     engine = create_runtime_schema_engine(tmp_path, name="root-opening.sqlite")
-    role, policy, workflow = build_launch_foundation_definitions()
-    if network_access is not None:
-        policy = policy.model_copy(
-            update={
-                "capabilities": policy.capabilities.model_copy(
-                    update={"network_access": network_access}
-                )
-            }
-        )
-    assert workflow.root.provider is not None
+    workflow_revision = build_launch_foundation_workflow_revision()
+    assert workflow_revision.workflow.lead.provider is not None
     bootstrap_input = build_launch_foundation_input(
         tmp_path,
-        role=role,
-        policy=policy,
-        workflow=workflow,
+        workflow_revision=workflow_revision,
     )
     with engine.begin() as connection:
-        seed_launch_foundation_catalog(
+        seed_launch_foundation_workflow(
             connection,
-            role=role,
-            policy=policy,
-            workflow=workflow,
+            workflow_revision=workflow_revision,
         )
     publisher = CapturedRuntimeEffectPublisher(should_accept=False)
-    dependencies = _opening_dependencies(workflow.root.provider.kind, publisher)
+    dependencies = _opening_dependencies(
+        ProviderKind(workflow_revision.workflow.lead.provider.kind),
+        publisher,
+        network_access=network_access,
+    )
     sync_factory = sessionmaker(engine, expire_on_commit=False, autoflush=False)
 
     def session_context() -> AbstractAsyncContextManager[AsyncSession]:
@@ -134,24 +125,20 @@ async def test_root_start_route_failure_pauses_without_consuming_source(
     tmp_path: Path,
 ) -> None:
     engine = create_runtime_schema_engine(tmp_path, name="root-route-failure.sqlite")
-    role, policy, workflow = build_launch_foundation_definitions()
-    assert workflow.root.provider is not None
+    workflow_revision = build_launch_foundation_workflow_revision()
+    assert workflow_revision.workflow.lead.provider is not None
     bootstrap_input = build_launch_foundation_input(
         tmp_path,
-        role=role,
-        policy=policy,
-        workflow=workflow,
+        workflow_revision=workflow_revision,
     )
     with engine.begin() as connection:
-        seed_launch_foundation_catalog(
+        seed_launch_foundation_workflow(
             connection,
-            role=role,
-            policy=policy,
-            workflow=workflow,
+            workflow_revision=workflow_revision,
         )
     dependencies = DispatchOpeningDependencies.create(
         settings=Settings(),
-        available_adapter_kinds={workflow.root.provider.kind},
+        available_adapter_kinds={ProviderKind(workflow_revision.workflow.lead.provider.kind)},
         post_commit_publisher=CapturedRuntimeEffectPublisher(),
     )
     sync_factory = sessionmaker(engine, expire_on_commit=False, autoflush=False)
@@ -196,15 +183,27 @@ def _assert_root_opening_result(
     assert dispatch is not None and dispatch.status == "starting"
     assert dispatch.opened_reason == "root"
     assert dispatch.provider_selection_basis == "explicit"
+    assert dispatch.model_source == "provider_configuration"
+    assert dispatch.effort_source == "provider_configuration"
+    assert dispatch.gateway_profile_source is None
     assert dispatch.provider_start_retry_kind == "initial"
     assert refs is not None and refs.dynamic_input_version == 1
     assert capabilities is not None
+    assert capabilities.provider_kind == "codex"
     assert capabilities.provider_native_access == expected_native_access
     assert capabilities.provider_native_access_source == expected_native_source
     assert capabilities.network_access == (network_access or NetworkAccess.ALLOW).value
     assert capabilities.network_access_source == (
-        "policy_definition" if network_access is not None else "default"
+        "controller" if network_access is not None else "default"
     )
+    assert capabilities.requested_human_request_source == "default"
+    assert {
+        capabilities.human_direction_source,
+        capabilities.human_approval_source,
+        capabilities.human_input_source,
+        capabilities.human_review_source,
+    } == {"default"}
+    assert capabilities.requested_command_run_source == "default"
     assert source is not None and source.successor_dispatch_id == dispatch.dispatch_id
     assert flow is not None and flow.current_dispatch_id == dispatch.dispatch_id
     assert root_page.sources == (FlowStartCommitted("flow.task.launch-foundation"),)
@@ -231,9 +230,21 @@ def _assert_root_opening_result(
 def _opening_dependencies(
     provider_kind: ProviderKind,
     publisher: CapturedRuntimeEffectPublisher,
+    *,
+    network_access: NetworkAccess | None,
 ) -> DispatchOpeningDependencies:
     return DispatchOpeningDependencies.create(
-        settings=Settings(codex=CodexSettings(enabled=True)),
+        settings=Settings(
+            runtime=RuntimeSettings(
+                managed_provider_sandbox_mode=(
+                    ManagedSandboxMode.WORKSPACE_WRITE
+                    if network_access is NetworkAccess.DENY
+                    else ManagedSandboxMode.FULL_ACCESS
+                ),
+                managed_provider_network_access=network_access or NetworkAccess.ALLOW,
+            ),
+            codex=CodexSettings(enabled=True),
+        ),
         available_adapter_kinds={provider_kind},
         post_commit_publisher=publisher,
     )

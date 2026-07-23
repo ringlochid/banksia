@@ -17,13 +17,14 @@ from pydantic import (
     Field,
     StringConstraints,
     field_validator,
+    model_validator,
 )
 from pydantic.fields import FieldInfo
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
-from banksia.definitions.contracts.workflow import ProviderKind
 from banksia.paths import default_config_path, default_data_dir, default_database_url
 from banksia.platform.environment import Environment
+from banksia.providers import ManagedSandboxMode, NetworkAccess, ProviderKind
 
 CONFIG_ENV_VAR = "BANKSIA_CONFIG"
 DEFAULT_LOG_LEVEL = "WARNING"
@@ -68,10 +69,29 @@ class RuntimeSettings(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     default_provider: ProviderKind | None = None
+    max_child_assignments_per_assignment: int = Field(default=20, ge=0)
+    max_retries_per_assignment: int = Field(default=1, ge=0)
+    max_wave_members: int = Field(default=8, ge=1)
+    managed_provider_sandbox_mode: ManagedSandboxMode = ManagedSandboxMode.FULL_ACCESS
+    managed_provider_network_access: NetworkAccess = NetworkAccess.ALLOW
     dispatch_launch_retry_initial_backoff_seconds: float = Field(default=1.0, ge=0.0)
     dispatch_launch_retry_max_backoff_seconds: float = Field(default=30.0, ge=0.0)
     watchdog_inactivity_timeout_seconds: int = Field(default=900, ge=1)
     watchdog_same_attempt_replacement_limit: int = Field(default=2, ge=0)
+
+    @model_validator(mode="after")
+    def validate_managed_provider_sandbox_pair(self) -> RuntimeSettings:
+        if (
+            self.managed_provider_sandbox_mode is ManagedSandboxMode.READ_ONLY
+            and self.managed_provider_network_access is not NetworkAccess.DENY
+        ) or (
+            self.managed_provider_sandbox_mode is ManagedSandboxMode.FULL_ACCESS
+            and self.managed_provider_network_access is not NetworkAccess.ALLOW
+        ):
+            raise ValueError(
+                "managed provider sandbox mode and network access are not a legal pair"
+            )
+        return self
 
 
 class Settings(BaseSettings):

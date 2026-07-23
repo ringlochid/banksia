@@ -20,6 +20,7 @@ from banksia.runtime.post_commit.signals import (
     HumanRequestDue,
     HumanRequestOpened,
     HumanRequestTerminal,
+    ReplanCommitted,
     TransientCleanupRequested,
     WatchdogDeadlineChanged,
     WatchdogDue,
@@ -32,6 +33,7 @@ def test_runtime_effect_signals_are_frozen_and_complete() -> None:
     signals = (
         FlowStartCommitted("flow.alpha"),
         BoundaryAccepted("dispatch.alpha"),
+        ReplanCommitted("replan.alpha"),
         HumanRequestOpened("human.alpha"),
         HumanRequestDue("human.alpha", DUE_AT),
         HumanRequestTerminal("human.alpha"),

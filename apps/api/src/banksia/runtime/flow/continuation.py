@@ -16,6 +16,7 @@ from banksia.persistence.models import (
     FlowStartSourceModel,
     FlowWaitModel,
     HumanRequestModel,
+    ReplanTransitionModel,
 )
 from banksia.persistence.models.runtime.common import COMMAND_RUN_TERMINAL_STATE_VALUES
 from banksia.runtime.boundary import continue_paused_boundary
@@ -50,6 +51,7 @@ from banksia.runtime.human_request.continuation import (
 )
 from banksia.runtime.launch.continuation import continue_paused_root_dispatch
 from banksia.runtime.providers import ProviderResolutionError
+from banksia.runtime.replan.continuation import continue_committed_replan
 
 type OperatorContinueSourceClaim = Callable[
     [AsyncSession, OrdinaryDispatchSnapshot, PreparedDispatchRequest],
@@ -73,8 +75,13 @@ class OperatorBoundarySource:
     source_dispatch_id: str
 
 
+@dataclass(frozen=True, slots=True)
+class OperatorReplanSource:
+    transition_id: str
+
+
 type OperatorContinueSelection = (
-    OperatorContinueSource | OperatorFlowStartSource | OperatorBoundarySource
+    OperatorContinueSource | OperatorFlowStartSource | OperatorBoundarySource | OperatorReplanSource
 )
 
 
@@ -129,6 +136,18 @@ async def continue_paused_flow(
                 outcome="opened",
                 dispatch_id=boundary_result.dispatch_id,
             )
+        if isinstance(source, OperatorReplanSource):
+            replan_result = await continue_committed_replan(
+                session,
+                transition_id=source.transition_id,
+                dependencies=dependencies,
+                expected_flow_status="paused",
+                expected_control_revision=expected_control_revision,
+                resume_event=active_resume_event,
+            )
+            if replan_result.outcome != "opened":
+                raise _continue_conflict("paused replan did not open its successor")
+            return replan_result
         return await _continue_ordinary_source(
             session,
             source=source,
@@ -177,7 +196,14 @@ async def read_operator_continue_source(
     human_source = await _read_terminal_human_source(session, flow.flow_id)
     command_source = await _read_terminal_command_source(session, flow.flow_id)
     boundary_source = await _read_unconsumed_boundary_source(session, flow.flow_id)
-    if sum(source is not None for source in (human_source, command_source, boundary_source)) > 1:
+    replan_source = await _read_unconsumed_replan_source(session, flow)
+    if (
+        sum(
+            source is not None
+            for source in (human_source, command_source, boundary_source, replan_source)
+        )
+        > 1
+    ):
         raise _continue_conflict("paused flow has more than one retained continuation source")
     if human_source is not None:
         return OperatorContinueSource(
@@ -197,6 +223,8 @@ async def read_operator_continue_source(
         )
     if boundary_source is not None:
         return OperatorBoundarySource(source_dispatch_id=boundary_source)
+    if replan_source is not None:
+        return OperatorReplanSource(transition_id=replan_source)
     source_dispatch = await _read_unconsumed_lineage_tail(session, flow)
     if source_dispatch is None:
         if await _has_unconsumed_flow_start(session, flow.flow_id):
@@ -423,6 +451,28 @@ async def _read_unconsumed_boundary_source(
     return source_ids[0] if source_ids else None
 
 
+async def _read_unconsumed_replan_source(
+    session: AsyncSession,
+    flow: FlowModel,
+) -> str | None:
+    transition_ids = tuple(
+        await session.scalars(
+            select(ReplanTransitionModel.replan_transition_id)
+            .where(
+                ReplanTransitionModel.task_id == flow.task_id,
+                ReplanTransitionModel.flow_id == flow.flow_id,
+                ReplanTransitionModel.successor_flow_revision_id == flow.active_flow_revision_id,
+                ReplanTransitionModel.successor_state.not_in(("opened", "cancelled")),
+                ReplanTransitionModel.successor_dispatch_id.is_(None),
+            )
+            .limit(2)
+        )
+    )
+    if len(transition_ids) > 1:
+        raise _continue_conflict("paused flow has multiple retained replan sources")
+    return transition_ids[0] if transition_ids else None
+
+
 def _continue_preparation_error(exc: Exception) -> RuntimeOperationError:
     code = str(getattr(exc, "code", "operator_continue_preparation_failed"))
     return RuntimeOperationError(
@@ -448,6 +498,7 @@ __all__ = [
     "OperatorContinueSelection",
     "OperatorContinueSource",
     "OperatorFlowStartSource",
+    "OperatorReplanSource",
     "claim_operator_continue_tail",
     "continue_paused_flow",
     "read_operator_continue_source",

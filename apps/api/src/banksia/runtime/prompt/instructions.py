@@ -8,9 +8,8 @@ from banksia.runtime.prompt.asset_catalog import (
 
 GUIDANCE_SECTIONS = (
     ("Workflow guidance", "workflow"),
-    ("Role guidance", "role"),
+    ("Member guidance", "member"),
     ("Node guidance", "node"),
-    ("Policy guidance", "policy"),
 )
 
 

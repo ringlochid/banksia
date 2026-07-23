@@ -5,37 +5,7 @@ from typing import Any, cast
 
 import yaml
 
-from banksia.definitions.contracts import (
-    DefinitionContent,
-    DefinitionKind,
-    DefinitionUploadRequest,
-    PolicyDefinitionFile,
-    PolicyDefinitionInput,
-    RoleDefinitionFile,
-    RoleDefinitionInput,
-    WorkflowDefinitionFile,
-    WorkflowDefinitionInput,
-)
 from banksia.runtime.contracts import TaskStartRequest
-
-
-def definition_upload_request_from_path(path_value: str | Path) -> DefinitionUploadRequest:
-    payload = load_yaml_mapping(path_value)
-    kind = DefinitionKind(payload["kind"])
-    content: DefinitionContent
-    if kind == DefinitionKind.ROLE:
-        content = RoleDefinitionInput.model_validate(
-            RoleDefinitionFile.model_validate(payload).model_dump(exclude={"kind"})
-        )
-    elif kind == DefinitionKind.POLICY:
-        content = PolicyDefinitionInput.model_validate(
-            PolicyDefinitionFile.model_validate(payload).model_dump(exclude={"kind"})
-        )
-    else:
-        content = WorkflowDefinitionInput.model_validate(
-            WorkflowDefinitionFile.model_validate(payload).model_dump(exclude={"kind"})
-        )
-    return DefinitionUploadRequest(kind=kind, content=content)
 
 
 def task_start_request_from_path(path_value: str | Path) -> TaskStartRequest:
@@ -55,7 +25,6 @@ def resolved_input_path(path_value: str | Path) -> Path:
 
 
 __all__ = [
-    "definition_upload_request_from_path",
     "load_yaml_mapping",
     "resolved_input_path",
     "task_start_request_from_path",

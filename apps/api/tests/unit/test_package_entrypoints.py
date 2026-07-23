@@ -6,12 +6,12 @@ import os
 import subprocess
 import sys
 import tomllib
+from importlib import resources
 from importlib.metadata import version
 from pathlib import Path
 from typing import Any, cast
 
 import banksia
-from banksia.definitions.seeds import get_packaged_seed_definitions_root
 from banksia.interfaces.cli.main import main
 from banksia.interfaces.web_console import get_packaged_web_console_assets_root
 from banksia.main import app, create_app
@@ -41,9 +41,10 @@ def _load_project_configuration() -> dict[str, Any]:
 def test_banksia_package_uses_src_modules_only() -> None:
     package_root = Path(__file__).resolve().parents[2]
     src_root = package_root / "src" / "banksia"
-    packaged_definitions = importlib.import_module("banksia.definitions")
-    packaged_definitions_contracts = importlib.import_module("banksia.definitions.contracts")
-    packaged_definitions_registry = importlib.import_module("banksia.definitions.registry")
+    packaged_workflows = importlib.import_module("banksia.workflows")
+    packaged_workflow_resources = importlib.import_module(
+        "banksia.workflows.resources.starter_workflows"
+    )
     packaged_http = importlib.import_module("banksia.interfaces.http")
     packaged_cli_owner = importlib.import_module("banksia.interfaces.cli")
     packaged_mcp_owner = importlib.import_module("banksia.interfaces.mcp")
@@ -56,17 +57,13 @@ def test_banksia_package_uses_src_modules_only() -> None:
     assert Path(banksia.__file__).resolve() == src_root / "__init__.py"
     assert list(banksia.__path__) == [str(src_root)]
     assert importlib.util.find_spec("banksia.cli") is None
-    assert packaged_definitions.__file__ is not None
-    assert Path(packaged_definitions.__file__).resolve() == src_root / "definitions" / "__init__.py"
-    assert packaged_definitions_contracts.__file__ is not None
+    assert importlib.util.find_spec("banksia.definitions") is None
+    assert packaged_workflows.__file__ is not None
+    assert Path(packaged_workflows.__file__).resolve() == src_root / "workflows" / "__init__.py"
+    assert packaged_workflow_resources.__file__ is not None
     assert (
-        Path(packaged_definitions_contracts.__file__).resolve()
-        == src_root / "definitions" / "contracts" / "__init__.py"
-    )
-    assert packaged_definitions_registry.__file__ is not None
-    assert (
-        Path(packaged_definitions_registry.__file__).resolve()
-        == src_root / "definitions" / "registry" / "__init__.py"
+        Path(packaged_workflow_resources.__file__).resolve()
+        == src_root / "workflows" / "resources" / "starter_workflows" / "__init__.py"
     )
     assert packaged_cli_owner.__file__ is not None
     assert (
@@ -136,9 +133,7 @@ def test_pyproject_ships_canonical_packages_only() -> None:
     assert "autoclaw" not in scripts
     assert "banksia" in package_data
     assert package_data["banksia"] == [
-        "definitions/seeds/policies/*.yaml",
-        "definitions/seeds/roles/*.yaml",
-        "definitions/seeds/workflows/*.yaml",
+        "workflows/resources/starter_workflows/*.yaml",
         "interfaces/web_console/assets/*",
         "interfaces/web_console/assets/assets/*",
         "platform/managed_services/resources/systemd/*.service",
@@ -209,18 +204,18 @@ def test_fresh_interpreter_can_import_canonical_package_roots() -> None:
             "-c",
             (
                 "from importlib import resources; "
-                "import banksia.definitions.compiler; "
-                "import banksia.definitions.registry; "
+                "import banksia.workflows; "
                 "import banksia.persistence; "
                 "import banksia.runtime.contracts; "
                 "import banksia.platform.managed_services.resources; "
                 "import banksia.runtime.prompt.assets; "
                 "import banksia.interfaces.web_console; "
-                "seed_root = resources.files('banksia.definitions.seeds'); "
+                "workflow_root = resources.files("
+                "'banksia.workflows.resources.starter_workflows'); "
                 "service_root = resources.files('banksia.platform.managed_services.resources'); "
                 "prompt_root = resources.files('banksia.runtime.prompt.assets'); "
                 "console_root = resources.files('banksia.interfaces.web_console'); "
-                "assert seed_root.name == 'seeds'; "
+                "assert workflow_root.joinpath('reviewed-delivery.yaml').is_file(); "
                 "assert service_root.name == 'resources'; "
                 "assert prompt_root.name == 'assets'; "
                 "assert console_root.joinpath('assets', 'index.html').is_file()"
@@ -267,12 +262,11 @@ def test_fresh_interpreter_cannot_import_removed_autoclaw_package() -> None:
 
 
 def test_resource_owner_helpers_point_to_canonical_package_paths() -> None:
-    seed_root = get_packaged_seed_definitions_root()
+    workflow_root = resources.files("banksia.workflows.resources.starter_workflows")
     service_root = get_managed_service_resources_root()
     console_assets_root = get_packaged_web_console_assets_root()
 
-    assert seed_root.name == "seeds"
-    assert seed_root.joinpath("roles", "planning_lead.yaml").is_file()
+    assert workflow_root.joinpath("reviewed-delivery.yaml").is_file()
     assert service_root.name == "resources"
     # WP-01 slice B owns the operational service-resource rename.
     assert service_root.joinpath("systemd", "banksia.service").is_file()

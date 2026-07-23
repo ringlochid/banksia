@@ -21,6 +21,11 @@ class BoundaryAccepted(RuntimeEffectSignal):
 
 
 @dataclass(frozen=True, slots=True)
+class ReplanCommitted(RuntimeEffectSignal):
+    transition_id: str
+
+
+@dataclass(frozen=True, slots=True)
 class HumanRequestOpened(RuntimeEffectSignal):
     request_id: str
 
@@ -99,6 +104,7 @@ class DispatchStartDue(RuntimeEffectSignal):
 ALL_RUNTIME_EFFECT_SIGNAL_TYPES: tuple[type[RuntimeEffectSignal], ...] = (
     FlowStartCommitted,
     BoundaryAccepted,
+    ReplanCommitted,
     HumanRequestOpened,
     HumanRequestDue,
     HumanRequestTerminal,
@@ -128,6 +134,8 @@ def runtime_effect_source_context(
             return (("flow_id", flow_id),)
         case BoundaryAccepted(source_dispatch_id=source_dispatch_id):
             return (("source_dispatch_id", source_dispatch_id),)
+        case ReplanCommitted(transition_id=transition_id):
+            return (("transition_id", transition_id),)
         case HumanRequestOpened(request_id=request_id):
             return (("request_id", request_id),)
         case HumanRequestDue(request_id=request_id, due_at=due_at):
@@ -204,6 +212,7 @@ __all__ = [
     "HumanRequestDue",
     "HumanRequestOpened",
     "HumanRequestTerminal",
+    "ReplanCommitted",
     "RuntimeEffectContextValue",
     "RuntimeEffectSignal",
     "RuntimeEffectSourceContext",

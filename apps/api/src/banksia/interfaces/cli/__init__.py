@@ -11,7 +11,6 @@ from banksia.interfaces.cli.commands.config_view import (
     cmd_config_path,
     cmd_config_show,
 )
-from banksia.interfaces.cli.commands.definitions import cmd_definitions_import
 from banksia.interfaces.cli.commands.service import (
     DEFAULT_SERVICE_NAME,
     cmd_service_install,
@@ -24,6 +23,10 @@ from banksia.interfaces.cli.commands.service import (
     render_service_unit,
 )
 from banksia.interfaces.cli.commands.task_compose import cmd_task_compose_start
+from banksia.interfaces.cli.commands.workflow import (
+    cmd_workflow_export,
+    cmd_workflow_import,
+)
 from banksia.interfaces.cli.support import command_env, print_json
 
 from .main import build_parser, main
@@ -35,7 +38,6 @@ __all__ = [
     "cmd_config_show",
     "cmd_db_reset",
     "cmd_db_upgrade",
-    "cmd_definitions_import",
     "cmd_init",
     "cmd_serve",
     "cmd_service_install",
@@ -46,6 +48,8 @@ __all__ = [
     "cmd_service_stop",
     "cmd_service_uninstall",
     "cmd_task_compose_start",
+    "cmd_workflow_export",
+    "cmd_workflow_import",
     "command_env",
     "main",
     "print_json",

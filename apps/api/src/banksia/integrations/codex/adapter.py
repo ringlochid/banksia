@@ -18,9 +18,8 @@ from openai_codex import (
 from openai_codex.generated.v2_all import ReasoningEffort
 from openai_codex.models import JsonObject
 
-from banksia.definitions.contracts.registry import NetworkAccess, ProviderNativeAccess
-from banksia.definitions.contracts.workflow import ProviderKind
 from banksia.platform.provider_environment import provider_subprocess_environment_overrides
+from banksia.providers import ManagedSandboxMode, NetworkAccess, ProviderKind
 from banksia.runtime.contracts.provider_resolution import CodexProviderRoute
 from banksia.runtime.providers.contracts import (
     MANAGED_NODE_MCP_SERVER_NAME,
@@ -63,7 +62,8 @@ class CodexAdapter:
         instructions = _decode_request_lane(request.instructions)
         dispatch_input = _decode_request_lane(request.input)
         effort = _resolve_effort(route.effort_override)
-        sandbox = _resolve_sandbox(request.provider_native_access, request.network_access)
+        assert request.sandbox_mode is not None
+        sandbox = _resolve_sandbox(request.sandbox_mode)
         thread_config = _build_thread_config(connection, request.network_access, sandbox)
 
         await self._reserve_start(request.dispatch_id)
@@ -293,19 +293,15 @@ def _resolve_effort(value: str | None) -> ReasoningEffort | None:
 
 
 def _resolve_sandbox(
-    native_access: ProviderNativeAccess,
-    network_access: NetworkAccess,
+    sandbox_mode: ManagedSandboxMode,
 ) -> Sandbox:
-    if native_access is ProviderNativeAccess.DENIED or (
-        native_access is ProviderNativeAccess.FULL and network_access is NetworkAccess.DENY
-    ):
-        raise ProviderStartError(
-            kind=ProviderStartFailureKind.DEFINITE_FAILURE,
-            code=ProviderStartErrorCode.UNSUPPORTED,
-        )
-    if native_access is ProviderNativeAccess.RESTRICTED:
-        return Sandbox.workspace_write
-    return Sandbox.full_access
+    match sandbox_mode:
+        case ManagedSandboxMode.READ_ONLY:
+            return Sandbox.read_only
+        case ManagedSandboxMode.WORKSPACE_WRITE:
+            return Sandbox.workspace_write
+        case ManagedSandboxMode.FULL_ACCESS:
+            return Sandbox.full_access
 
 
 def _build_thread_config(

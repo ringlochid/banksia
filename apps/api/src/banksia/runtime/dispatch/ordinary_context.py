@@ -37,8 +37,7 @@ from banksia.runtime.dispatch.prompt_snapshot import (
 )
 from banksia.runtime.providers import (
     narrow_provider_capabilities,
-    provider_selection_from_kind,
-    resolve_provider_route,
+    resolve_member_provider_route,
 )
 from banksia.runtime.task_root import read_task_root_paths
 from banksia.runtime.work_plan import WorkPlanRead, read_assignment_work_plan
@@ -56,6 +55,7 @@ class OrdinaryContinuationBasis:
     source_dispatch_closed_reason: str
     opened_reason: str
     trigger: OrdinaryPromptTrigger
+    continuation_source_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -118,17 +118,20 @@ async def read_ordinary_dispatch_snapshot(
     )
     prompt_criteria = await read_assignment_prompt_criteria(
         session,
-        flow_revision_id=context.assignment.flow_revision_id,
+        flow_revision_id=context.node.flow_revision_id,
         criteria_refs=context.assignment.criteria_json,
     )
     capabilities = await resolve_effective_capabilities_for_node(session, node=context.node)
-    provider = resolve_provider_route(
-        provider=provider_selection_from_kind(context.node.provider_kind),
+    provider = await resolve_member_provider_route(
+        session,
+        task_id=context.node.task_id,
+        member_configuration_id=context.node.member_configuration_id,
         settings=dependencies.settings,
         available_adapter_kinds=dependencies.available_adapter_kinds,
     )
     capabilities = narrow_provider_capabilities(
         route=provider.route,
+        sandbox=provider.sandbox,
         capabilities=capabilities,
     )
     paths = await read_task_root_paths(session, context.task.task_id)
@@ -197,7 +200,7 @@ def ordinary_context_is_current(snapshot: OrdinaryDispatchSnapshot) -> ColumnEle
             AssignmentModel.assignment_id == prompt.assignment_id,
             AssignmentModel.task_id == prompt.task_id,
             AssignmentModel.flow_id == prompt.flow_id,
-            AssignmentModel.flow_revision_id == prompt.flow_revision_id,
+            AssignmentModel.member_id == prompt.member_id,
             AssignmentModel.node_key == prompt.node_key,
             AssignmentModel.current_attempt_id == prompt.attempt_id,
             AssignmentModel.work_plan_revision == snapshot.assignment_work_plan_revision,
@@ -216,6 +219,7 @@ def ordinary_context_is_current(snapshot: OrdinaryDispatchSnapshot) -> ColumnEle
             TaskModel.task_root_path == snapshot.task_root_path,
             TaskModel.title == prompt.task_title,
             TaskModel.summary == prompt.task_summary,
+            TaskModel.current_team_revision_id == prompt.team_revision_id,
         )
         & exists().where(
             WorkspaceBindingModel.task_id == prompt.task_id,
@@ -242,7 +246,7 @@ async def read_pinned_workflow_revision(
         .options(raiseload("*"))
         .where(
             WorkflowRevisionModel.workflow_key == compiled_plan.workflow_key,
-            WorkflowRevisionModel.revision_no == compiled_plan.definition_revision_no,
+            WorkflowRevisionModel.revision_no == compiled_plan.workflow_revision_no,
         )
     )
     if workflow is None:
@@ -283,7 +287,6 @@ def build_ordinary_prompt_snapshot(
     flow = context.flow
     compiled_plan = context.compiled_plan
     node = context.node
-    node_plan = context.node_plan
     assignment = context.assignment
     attempt = context.attempt
     assert flow.active_flow_revision_id is not None
@@ -293,7 +296,7 @@ def build_ordinary_prompt_snapshot(
         task_summary=task.summary,
         task_instruction=task.instruction,
         workflow_key=compiled_plan.workflow_key,
-        workflow_revision_no=compiled_plan.definition_revision_no,
+        workflow_revision_no=compiled_plan.workflow_revision_no,
         workflow_description=workflow_description,
         flow_id=flow.flow_id,
         flow_revision_id=flow.active_flow_revision_id,
@@ -302,11 +305,12 @@ def build_ordinary_prompt_snapshot(
         attempt_id=attempt.attempt_id,
         retry_of_attempt_id=attempt.retry_of_attempt_id,
         node_key=node.node_key,
-        role_key=node.role_key,
-        role_description=node_plan.role_description,
-        role_instruction=node_plan.role_instruction,
-        policy_description=node_plan.policy_description,
-        policy_instruction=node_plan.policy_instruction,
+        flow_node_id=node.flow_node_id,
+        team_revision_id=node.team_revision_id,
+        member_id=node.member_id,
+        member_configuration_id=node.member_configuration_id,
+        member_branch_basis_id=node.member_branch_basis_id,
+        member_title=node.member_title,
         node_description=node.description,
         node_instruction=node.node_instruction,
         assignment_summary=assignment.summary,
@@ -364,8 +368,8 @@ async def _read_ordinary_runtime_context(
         .join(
             FlowNodeModel,
             (FlowNodeModel.flow_id == AssignmentModel.flow_id)
-            & (FlowNodeModel.flow_revision_id == AssignmentModel.flow_revision_id)
-            & (FlowNodeModel.flow_node_id == AssignmentModel.flow_node_id),
+            & (FlowNodeModel.flow_revision_id == FlowModel.active_flow_revision_id)
+            & (FlowNodeModel.member_id == AssignmentModel.member_id),
         )
         .join(
             NodePlanRevisionModel,
@@ -383,9 +387,9 @@ async def _read_ordinary_runtime_context(
             AssignmentModel.task_id == basis.task_id,
             AssignmentModel.flow_id == basis.flow_id,
             FlowModel.status == expected_flow_status,
-            FlowModel.active_flow_revision_id == AssignmentModel.flow_revision_id,
             FlowModel.current_dispatch_id.is_(None),
             FlowModel.waiting_cause == "none",
+            TaskModel.current_team_revision_id == FlowNodeModel.team_revision_id,
         )
     )
     if expected_control_revision is not None:
@@ -416,11 +420,15 @@ def _validate_ordinary_runtime_context(
         or assignment.current_attempt_id != attempt.attempt_id
         or assignment.superseded_at is not None
         or attempt.status != "running"
-        or node_plan.role_key != node.role_key
-        or node_plan.role_revision_no != node.role_revision_no
-        or node_plan.policy_key != node.policy_key
-        or node_plan.policy_revision_no != node.policy_revision_no
+        or node_plan.task_id != node.task_id
+        or node_plan.team_revision_id != node.team_revision_id
+        or node_plan.member_id != node.member_id
+        or node_plan.member_configuration_id != node.member_configuration_id
+        or node_plan.member_branch_basis_id != node.member_branch_basis_id
+        or assignment.member_id != node.member_id
+        or assignment.node_key != node.node_key
         or node_plan.provider_kind != node.provider_kind
+        or context.task.current_team_revision_id != node.team_revision_id
     ):
         raise ValueError("ordinary continuation has inconsistent exact runtime context")
 

@@ -6,9 +6,8 @@ from pathlib import Path
 from typing import cast
 
 from banksia.config import CodexSettings, RuntimeSettings, Settings
-from banksia.definitions.contracts.registry import PolicyDefinitionInput
-from banksia.definitions.contracts.workflow import NodeKind, ProviderKind
-from banksia.persistence.models import DispatchTurnModel, FlowModel, PolicyRevisionModel
+from banksia.persistence.models import DispatchTurnModel, FlowModel
+from banksia.providers import ProviderKind
 from banksia.runtime.contracts import HumanRequestResolveRequest
 from banksia.runtime.dispatch import accept_provider_start_if_current
 from banksia.runtime.dispatch.ordinary_continuation import OrdinaryOpeningResult
@@ -56,7 +55,6 @@ async def test_human_wait_excludes_watchdog_then_recovery_replaces_once(
         ids,
         _activity_signals,
     ):
-        await _enable_policy(session_factory)
         excluded, continued = await _wait_for_human_and_continue(
             executor,
             session_factory,
@@ -201,18 +199,6 @@ async def _accept_dispatch(
         )
         await session.commit()
     assert accepted.is_accepted
-
-
-async def _enable_policy(session_factory: SessionFactory) -> None:
-    async with session_factory() as session:
-        policy = await session.get(PolicyRevisionModel, "policy-revision.target.1")
-        assert policy is not None
-        policy.content_json = PolicyDefinitionInput(
-            id="policy.target",
-            description="Allow wait continuation and watchdog recovery.",
-            applies_to=[NodeKind.ROOT, NodeKind.WORKER],
-        ).model_dump(mode="json")
-        await session.commit()
 
 
 def _opening_dependencies(

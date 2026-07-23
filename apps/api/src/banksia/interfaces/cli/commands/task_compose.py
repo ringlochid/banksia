@@ -2,16 +2,16 @@ from __future__ import annotations
 
 import argparse
 
-from banksia.definitions.registry.task_start import start_task_from_definition
 from banksia.interfaces.cli.support import coerce_path, command_env, print_json
 from banksia.platform.file_entrypoints import task_start_request_from_path
+from banksia.runtime.task_start import start_task
 
 
 async def cmd_task_compose_start(args: argparse.Namespace) -> int:
     config_path = coerce_path(args.config)
     with command_env(config_path=config_path, should_load_provider_secrets=True):
         request = task_start_request_from_path(args.file)
-        response = await start_task_from_definition(request)
+        response = await start_task(request)
 
     payload = response.model_dump(mode="json")
     if args.json:

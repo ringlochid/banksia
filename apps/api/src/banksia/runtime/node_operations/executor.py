@@ -45,6 +45,9 @@ from banksia.runtime.node_operations.follow_on import (
     SupportProjectionPublisher,
     committed_node_operation_follow_on,
 )
+from banksia.runtime.node_operations.replan_replay import (
+    read_committed_replan_replay,
+)
 from banksia.runtime.node_operations.state_legality import (
     node_operation_requires_transition_claim,
     read_node_operation_state_token,
@@ -53,6 +56,17 @@ from banksia.runtime.node_operations.state_legality import (
 from banksia.runtime.post_commit.publisher import RuntimeEffectPublisher
 
 logger = logging.getLogger(__name__)
+_REPLAN_OPERATION_NAMES = frozenset(
+    {
+        NodeOperationName.ADD_CHILD,
+        NodeOperationName.UPDATE_CHILD,
+        NodeOperationName.REMOVE_CHILD,
+    }
+)
+_REPLAN_CONFLICT_NEXT_STEP = (
+    "Reread the current Dispatch, workflow manifest, and owned subtree, then rebuild "
+    "the mutation against fresh authority. Do not replay the closed source Dispatch."
+)
 
 
 class NodeOperationExecutor:
@@ -93,6 +107,16 @@ class NodeOperationExecutor:
         checkpoint_preparation: CheckpointPreparation | None = None
         try:
             async with session_factory() as admission_session:
+                replay = await read_committed_replan_replay(
+                    admission_session,
+                    task_id=scope.task_id,
+                    dispatch_id=scope.dispatch_id,
+                    provider_start_revision=scope.provider_start_revision,
+                    operation_name=descriptor.name.value,
+                    request=request,
+                )
+                if replay is not None:
+                    return replay
                 authority = await read_node_operation_authority(admission_session, scope)
                 _authorize(descriptor, authority, request)
                 if descriptor.name == NodeOperationName.RECORD_CHECKPOINT:
@@ -110,6 +134,11 @@ class NodeOperationExecutor:
                 await admission_session.commit()
         except IntegrityError as exc:
             raise _persistence_rejection(scope, descriptor, exc) from exc
+        except RuntimeOperationError as exc:
+            normalized = _normalize_replan_conflict(descriptor, exc)
+            if normalized is exc:
+                raise
+            raise normalized from exc
 
         await self._publish_activity(
             NodeActivitySignal(
@@ -122,12 +151,18 @@ class NodeOperationExecutor:
         if checkpoint_preparation is not None:
             checkpoint_preparation = await publish_checkpoint_bodies(checkpoint_preparation)
 
-        result, follow_on = await self._commit_node_operation(
-            scope=scope,
-            descriptor=descriptor,
-            request=request,
-            checkpoint_preparation=checkpoint_preparation,
-        )
+        try:
+            result, follow_on = await self._commit_node_operation(
+                scope=scope,
+                descriptor=descriptor,
+                request=request,
+                checkpoint_preparation=checkpoint_preparation,
+            )
+        except RuntimeOperationError as exc:
+            normalized = _normalize_replan_conflict(descriptor, exc)
+            if normalized is exc:
+                raise
+            raise normalized from exc
         self._publish_follow_on(follow_on)
         return result
 
@@ -276,6 +311,21 @@ def _persistence_rejection(
         code=OperationFailureCode.INTERNAL_ERROR,
         summary="controller persistence rejected the operation and rolled back its state change",
         is_retryable=False,
+    )
+
+
+def _normalize_replan_conflict(
+    descriptor: NodeOperationDescriptor,
+    exc: RuntimeOperationError,
+) -> RuntimeOperationError:
+    if descriptor.name not in _REPLAN_OPERATION_NAMES or exc.code != OperationFailureCode.CONFLICT:
+        return exc
+    return RuntimeOperationError(
+        code=exc.code,
+        summary=exc.summary,
+        is_retryable=True,
+        suggested_next_step=_REPLAN_CONFLICT_NEXT_STEP,
+        status_code_override=exc.status_code_override,
     )
 
 

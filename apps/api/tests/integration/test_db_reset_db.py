@@ -21,7 +21,7 @@ PACKAGE_ROOT = Path(__file__).resolve().parents[2]
 @dataclass(frozen=True)
 class _PostgresResetReadback:
     dedicated_schema_table_names: frozenset[str]
-    role_definition_count: int
+    workflow_definition_count: int
     public_schema_table_names: frozenset[str]
 
 
@@ -94,23 +94,34 @@ def test_db_reset_recreates_seeded_sqlite_database_on_packaged_cli_path(
                 "SELECT name FROM sqlite_master WHERE type = 'table'"
             ).fetchall()
         }
-        role_count = connection.execute("SELECT COUNT(*) FROM role_definitions").fetchone()[0]
-        policy_count = connection.execute("SELECT COUNT(*) FROM policy_definitions").fetchone()[0]
         workflow_count = connection.execute("SELECT COUNT(*) FROM workflow_definitions").fetchone()[
             0
         ]
+        starter_workflow_ids = tuple(
+            row[0]
+            for row in connection.execute(
+                "SELECT DISTINCT workflow_key FROM workflow_revisions "
+                "WHERE provenance = 'starter_seed' ORDER BY workflow_key"
+            ).fetchall()
+        )
     assert {
-        "role_definitions",
-        "role_revisions",
-        "policy_definitions",
-        "policy_revisions",
         "workflow_definitions",
+        "workflow_drafts",
         "workflow_revisions",
+        "workflow_undo_receipts",
+        "members",
+        "member_configurations",
+        "member_branch_bases",
+        "team_revisions",
+        "team_revision_members",
         "tasks",
     }.issubset(table_names)
-    assert role_count > 0
-    assert policy_count > 0
-    assert workflow_count > 0
+    assert workflow_count == 3
+    assert starter_workflow_ids == (
+        "autonomous-delivery",
+        "evidence-research",
+        "reviewed-delivery",
+    )
     assert {path: path.read_bytes() for path in legacy_files} == legacy_files
 
 
@@ -360,10 +371,10 @@ async def test_postgres_reset_recreates_only_dedicated_schema_and_seeds(
     assert result.database_backend == "postgresql"
     assert result.deleted_task_root_count == 1
     assert not task_root.exists()
-    assert {"tasks", "role_definitions", "workflow_definitions"}.issubset(
+    assert {"tasks", "workflow_definitions", "members", "team_revisions"}.issubset(
         readback.dedicated_schema_table_names
     )
-    assert readback.role_definition_count > 0
+    assert readback.workflow_definition_count == 3
     assert "banksia_reset_sentinel" in readback.public_schema_table_names
 
 
@@ -397,6 +408,9 @@ async def _insert_postgres_reset_task(task_root: Path) -> None:
                     task_key,
                     title,
                     summary,
+                    workflow_key,
+                    workflow_revision_no,
+                    workflow_content_hash,
                     task_root_path,
                     created_at,
                     updated_at
@@ -405,6 +419,13 @@ async def _insert_postgres_reset_task(task_root: Path) -> None:
                     'task-postgres',
                     'PostgreSQL reset proof',
                     'PostgreSQL reset proof.',
+                    'autonomous-delivery',
+                    1,
+                    (
+                        SELECT content_hash
+                        FROM banksia.workflow_revisions
+                        WHERE workflow_key = 'autonomous-delivery' AND revision_no = 1
+                    ),
                     :task_root_path,
                     CURRENT_TIMESTAMP,
                     CURRENT_TIMESTAMP
@@ -424,9 +445,11 @@ async def _read_postgres_reset_state() -> _PostgresResetReadback:
                 lambda sync_connection: inspect(sync_connection).get_table_names(schema="banksia")
             )
         )
-        role_definition_count = int(
+        workflow_definition_count = int(
             (
-                await connection.exec_driver_sql("SELECT COUNT(*) FROM banksia.role_definitions")
+                await connection.exec_driver_sql(
+                    "SELECT COUNT(*) FROM banksia.workflow_definitions"
+                )
             ).scalar_one()
         )
         public_schema_table_names = frozenset(
@@ -436,7 +459,7 @@ async def _read_postgres_reset_state() -> _PostgresResetReadback:
         )
     return _PostgresResetReadback(
         dedicated_schema_table_names=dedicated_schema_table_names,
-        role_definition_count=role_definition_count,
+        workflow_definition_count=workflow_definition_count,
         public_schema_table_names=public_schema_table_names,
     )
 
@@ -448,18 +471,26 @@ async def _drop_postgres_reset_sentinel() -> None:
 
 
 def _insert_task(database_path: Path, *, task_root: Path) -> None:
-    provided_values: dict[str, object] = {
-        "task_id": "task.alpha",
-        "task_key": "task-alpha",
-        "title": "Task alpha",
-        "summary": "Reset cleanup proof.",
-        "instruction": None,
-        "workflow_key": None,
-        "task_root_path": str(task_root),
-        "created_at": "2026-07-18T00:00:00+00:00",
-        "updated_at": "2026-07-18T00:00:00+00:00",
-    }
     with sqlite3.connect(database_path) as connection:
+        workflow_content_hash = connection.execute(
+            "SELECT content_hash FROM workflow_revisions "
+            "WHERE workflow_key = ? AND revision_no = ?",
+            ("autonomous-delivery", 1),
+        ).fetchone()
+        assert workflow_content_hash is not None
+        provided_values: dict[str, object] = {
+            "task_id": "task.alpha",
+            "task_key": "task-alpha",
+            "title": "Task alpha",
+            "summary": "Reset cleanup proof.",
+            "instruction": None,
+            "workflow_key": "autonomous-delivery",
+            "workflow_revision_no": 1,
+            "workflow_content_hash": workflow_content_hash[0],
+            "task_root_path": str(task_root),
+            "created_at": "2026-07-18T00:00:00+00:00",
+            "updated_at": "2026-07-18T00:00:00+00:00",
+        }
         table_info = connection.execute('PRAGMA table_info("tasks")').fetchall()
         insert_columns = [str(row[1]) for row in table_info if str(row[1]) in provided_values]
         missing_required = [

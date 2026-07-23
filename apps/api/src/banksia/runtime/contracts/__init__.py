@@ -1,4 +1,3 @@
-from banksia.definitions.contracts.workflow import NodeKind
 from banksia.runtime.contracts.assignment import AssignmentBody, AssignmentProduceRequirement
 from banksia.runtime.contracts.boundary import BoundaryRead, BoundaryWrite
 from banksia.runtime.contracts.capabilities import (
@@ -9,6 +8,7 @@ from banksia.runtime.contracts.capabilities import (
     EffectiveNetworkAccess,
     EffectiveProviderNativeAccess,
     HumanRequestCapabilitySet,
+    HumanRequestCapabilitySources,
 )
 from banksia.runtime.contracts.checkpoint import (
     CheckpointHandoffRead,
@@ -77,6 +77,7 @@ from banksia.runtime.contracts.launch import (
     RuntimeBootstrapResult,
     RuntimeLaunchInput,
 )
+from banksia.runtime.contracts.member import NodeKind
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
 from banksia.runtime.contracts.operator import (
     BoundaryHistoryEntry,
@@ -90,24 +91,16 @@ from banksia.runtime.contracts.operator import (
     TopActionableItem,
 )
 from banksia.runtime.contracts.parent_tools import (
-    AddChildPayload,
-    AddChildSuccess,
     AssignChildPayload,
     AssignChildSuccess,
     AssignmentIntent,
-    ChildNodeDraft,
-    ChildNodePatch,
     ParentToolMutationSuccess,
     ReleaseBlockedPayload,
     ReleaseBlockedSuccess,
     ReleaseGreenPayload,
     ReleaseGreenSuccess,
-    RemoveChildPayload,
-    RemoveChildSuccess,
     SupplementalDurableContext,
     SupplementalSlot,
-    UpdateChildPayload,
-    UpdateChildSuccess,
 )
 from banksia.runtime.contracts.primitives import (
     CapabilityDecision,
@@ -155,9 +148,6 @@ from banksia.runtime.contracts.projection import (
     ManifestWorkflowProjection,
     ProduceRequirement,
     ResolvedNodeContext,
-    StructuralEditPaletteProjection,
-    StructuralEditPolicyProjection,
-    StructuralEditRoleProjection,
 )
 from banksia.runtime.contracts.prompt import (
     PROMPT_DYNAMIC_INPUT_KEYS,
@@ -190,16 +180,20 @@ from banksia.runtime.contracts.prompt import (
     RootStartTrigger,
     RuntimeReadbackRefs,
     SemanticRetryTrigger,
+    StructuralReplanTrigger,
     WatchdogRecoveryTrigger,
     prompt_family_for_node_kind,
 )
 from banksia.runtime.contracts.provider_resolution import (
     ClaudeProviderRoute,
     CodexProviderRoute,
+    ManagedSandboxResolution,
     OpenClawProviderRoute,
     ProviderResolution,
     ProviderRoute,
+    ProviderRouteValueSource,
     ProviderSelectionBasis,
+    SandboxResolutionSource,
 )
 from banksia.runtime.contracts.refs import (
     ArtifactIndexRef,
@@ -216,14 +210,18 @@ from banksia.runtime.contracts.refs import (
     WikiRef,
     WorkflowManifestRef,
 )
-from banksia.runtime.contracts.start import (
-    TaskComposeNodePreview,
-    TaskComposePreviewIssue,
-    TaskComposePreviewProviderResolution,
-    TaskComposePreviewResponse,
-    TaskStartRequest,
-    TaskStartResponse,
+from banksia.runtime.contracts.replan import (
+    AddChildRequest,
+    RemoveChildRequest,
+    ReplanExistingMemberPatch,
+    ReplanMemberPatch,
+    ReplanMemberRead,
+    ReplanNewMember,
+    ReplanOperation,
+    ReplanSuccess,
+    UpdateChildRequest,
 )
+from banksia.runtime.contracts.start import TaskStartRequest, TaskStartResponse
 from banksia.runtime.contracts.task_events import (
     TaskEventListQuery,
     TaskEventListResponse,
@@ -236,8 +234,7 @@ __all__ = [
     "PROMPT_TRIGGER_KINDS",
     "TERMINAL_COMMAND_RUN_STATES",
     "AcceptedBoundaryTrigger",
-    "AddChildPayload",
-    "AddChildSuccess",
+    "AddChildRequest",
     "ArtifactIndexRef",
     "ArtifactRef",
     "AssignChildPayload",
@@ -266,8 +263,6 @@ __all__ = [
     "CheckpointRead",
     "CheckpointWrite",
     "CheckpointWriteBody",
-    "ChildNodeDraft",
-    "ChildNodePatch",
     "ChildReturnTrigger",
     "ClaudeProviderRoute",
     "CodexProviderRoute",
@@ -305,6 +300,7 @@ __all__ = [
     "EvidenceRef",
     "FlowStatus",
     "HumanRequestCapabilitySet",
+    "HumanRequestCapabilitySources",
     "HumanRequestContextRef",
     "HumanRequestItem",
     "HumanRequestKind",
@@ -322,6 +318,7 @@ __all__ = [
     "HumanRequestSummary",
     "HumanRequestTimeout",
     "HumanResultTrigger",
+    "ManagedSandboxResolution",
     "ManifestCurrentContextProjection",
     "ManifestDependencyProjection",
     "ManifestFilesystemRootsProjection",
@@ -366,6 +363,7 @@ __all__ = [
     "PromptWorkflowNeighbor",
     "ProviderResolution",
     "ProviderRoute",
+    "ProviderRouteValueSource",
     "ProviderSelectionBasis",
     "ProviderStartReadback",
     "ProviderStartRetryKind",
@@ -373,9 +371,14 @@ __all__ = [
     "ReleaseBlockedSuccess",
     "ReleaseGreenPayload",
     "ReleaseGreenSuccess",
-    "RemoveChildPayload",
-    "RemoveChildSuccess",
+    "RemoveChildRequest",
     "RenderedDispatchRequest",
+    "ReplanExistingMemberPatch",
+    "ReplanMemberPatch",
+    "ReplanMemberRead",
+    "ReplanNewMember",
+    "ReplanOperation",
+    "ReplanSuccess",
     "ResolvedNodeContext",
     "RootStartTrigger",
     "RuntimeBootstrapInput",
@@ -394,18 +397,13 @@ __all__ = [
     "RuntimeReadbackRefs",
     "RuntimeTaskListQuery",
     "RuntimeText",
+    "SandboxResolutionSource",
     "SemanticRetryTrigger",
     "SlotIdentifier",
-    "StructuralEditPaletteProjection",
-    "StructuralEditPolicyProjection",
-    "StructuralEditRoleProjection",
+    "StructuralReplanTrigger",
     "SupplementalDurableContext",
     "SupplementalSlot",
     "TaskComposeInput",
-    "TaskComposeNodePreview",
-    "TaskComposePreviewIssue",
-    "TaskComposePreviewProviderResolution",
-    "TaskComposePreviewResponse",
     "TaskComposeRootsInput",
     "TaskComposeTaskInput",
     "TaskComposeWorkflowInput",
@@ -426,8 +424,7 @@ __all__ = [
     "TransientIndexRef",
     "TransientRef",
     "TransientSurfaceWrite",
-    "UpdateChildPayload",
-    "UpdateChildSuccess",
+    "UpdateChildRequest",
     "WatchdogRecoveryTrigger",
     "WikiRef",
     "WorkPlanRead",

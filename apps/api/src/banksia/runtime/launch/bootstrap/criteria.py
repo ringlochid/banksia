@@ -4,16 +4,16 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from banksia.definitions.compiler import NormalizedCompiledNode
 from banksia.persistence.models import AssignmentCriteriaRefModel, AssignmentModel
 from banksia.runtime.ids import assignment_criteria_ref_id
+from banksia.runtime.launch.legacy_team_adapter import LegacyTeamNode
 from banksia.runtime.projection.signals import CriteriaProjection
 from banksia.runtime.task_root import criteria_logical_path
 
 
 def build_node_criteria_json(
     *,
-    node: NormalizedCompiledNode,
+    node: LegacyTeamNode,
 ) -> list[dict[str, Any]]:
     return [
         criteria.model_dump(mode="json")
@@ -50,7 +50,7 @@ def stage_assignment_criteria_refs(
 def build_launch_criteria_projection_signals(
     *,
     flow_revision_id: str,
-    nodes: tuple[NormalizedCompiledNode, ...],
+    nodes: tuple[LegacyTeamNode, ...],
 ) -> tuple[CriteriaProjection, ...]:
     """Expose the exact initial criteria generations without writing support files."""
 

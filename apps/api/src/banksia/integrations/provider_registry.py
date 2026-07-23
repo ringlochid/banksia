@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from banksia.config import Settings
-from banksia.definitions.contracts.workflow import ProviderKind
 from banksia.integrations.claude import ClaudeAdapter
 from banksia.integrations.codex import CodexAdapter
 from banksia.integrations.openclaw import build_openclaw_gateway_adapter
+from banksia.providers import ProviderKind
 from banksia.runtime.providers.contracts import ProviderAdapter
 from banksia.runtime.providers.registry import ProviderAdapterRegistry
 

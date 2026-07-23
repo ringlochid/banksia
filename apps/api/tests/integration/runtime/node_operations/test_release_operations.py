@@ -15,7 +15,6 @@ from banksia.persistence.models import (
     AssignmentModel,
     AttemptCheckpointModel,
     AttemptModel,
-    DispatchCapabilitySetModel,
     DispatchPromptRefsModel,
     DispatchTurnModel,
     FlowModel,
@@ -30,8 +29,14 @@ from banksia.runtime.node_operations.structural_handlers import (
 )
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from tests.helpers.dispatch_capability_seed import allowing_dispatch_capability_set
 from tests.helpers.executor_harness import seeded_executor
-from tests.helpers.lineage_seed import RuntimeIds
+from tests.helpers.lineage_seed import (
+    RuntimeIds,
+    member_branch_basis_id,
+    member_configuration_id,
+    team_revision_id,
+)
 
 
 async def test_release_green_persists_current_child_checkpoint_and_keeps_d1_open(
@@ -560,6 +565,12 @@ def _successor_dispatch(
         task_id=ids.task_id,
         flow_id=ids.flow_id,
         assignment_id=ids.root_assignment_id,
+        flow_revision_id=ids.flow_revision_id,
+        flow_node_id=ids.root_node_id,
+        team_revision_id=team_revision_id(ids),
+        member_id="root",
+        member_configuration_id=member_configuration_id(ids, "root"),
+        member_branch_basis_id=member_branch_basis_id(ids, "root"),
         attempt_id=ids.root_attempt_id,
         node_key="root",
         flow_start_source_flow_id=None,
@@ -571,8 +582,11 @@ def _successor_dispatch(
         provider_selection_basis="default",
         provider_route_kind="codex",
         model_override=None,
+        model_source="provider_configuration",
         effort_override=None,
+        effort_source="provider_configuration",
         gateway_profile=None,
+        gateway_profile_source=None,
         provider_start_revision=0,
         provider_start_attempt_count=0,
         next_provider_start_at=None,
@@ -603,17 +617,8 @@ def _stage_dispatch_support(
         )
     )
     typed_session.add(
-        DispatchCapabilitySetModel(
+        allowing_dispatch_capability_set(
             dispatch_id=successor_id,
-            provider_native_access="full",
-            provider_native_access_source="default",
-            network_access="allow",
-            network_access_source="default",
-            human_direction="allow",
-            human_approval="allow",
-            human_input="allow",
-            human_review="allow",
-            command_run="allow",
             created_at=now,
         )
     )

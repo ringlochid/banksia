@@ -2,13 +2,8 @@ from __future__ import annotations
 
 from functools import partial
 
-from banksia.definitions.contracts import (
-    DefinitionRevisionDetailResponse,
-    DefinitionSummaryListResponse,
-)
-from banksia.definitions.contracts.workflow import NodeKind
 from banksia.runtime.contracts import (
-    AddChildSuccess,
+    AddChildRequest,
     AssignChildSuccess,
     BoundaryRead,
     CheckpointRead,
@@ -16,15 +11,15 @@ from banksia.runtime.contracts import (
     HumanRequestOpenResponse,
     ReleaseBlockedSuccess,
     ReleaseGreenSuccess,
-    RemoveChildSuccess,
-    UpdateChildSuccess,
+    RemoveChildRequest,
+    ReplanSuccess,
+    UpdateChildRequest,
 )
+from banksia.runtime.contracts.member import NodeKind
 from banksia.runtime.node_operations.contracts import (
-    AddChildRequest,
     AssignChildRequest,
     EmptyNodeOperationRequest,
     GetCurrentContextResponse,
-    GetDefinitionRequest,
     ListFilesRequest,
     ListFilesResponse,
     NodeOperationCapability,
@@ -36,11 +31,8 @@ from banksia.runtime.node_operations.contracts import (
     ReadFileResponse,
     RecordCheckpointRequest,
     ReleaseRequest,
-    RemoveChildRequest,
     ReturnBoundaryRequest,
-    SearchDefinitionsRequest,
     StartCommandRunRequest,
-    UpdateChildRequest,
 )
 from banksia.runtime.work_plan import SetWorkPlanRequest, SetWorkPlanResponse
 
@@ -135,24 +127,6 @@ NODE_OPERATION_CATALOG: tuple[NodeOperationDescriptor, ...] = (
         ),
     ),
     _descriptor(
-        NodeOperationName.SEARCH_DEFINITIONS,
-        SearchDefinitionsRequest,
-        DefinitionSummaryListResponse,
-        allowed_node_kinds=_PARENT_ROOT_NODE_KINDS,
-        mutation_kind=NodeOperationMutationKind.READ,
-        title="Search definitions",
-        description="Search current role or policy definitions for structural planning.",
-    ),
-    _descriptor(
-        NodeOperationName.GET_DEFINITION,
-        GetDefinitionRequest,
-        DefinitionRevisionDetailResponse,
-        allowed_node_kinds=_PARENT_ROOT_NODE_KINDS,
-        mutation_kind=NodeOperationMutationKind.READ,
-        title="Get definition",
-        description="Read one current role or policy definition.",
-    ),
-    _descriptor(
         NodeOperationName.ASSIGN_CHILD,
         AssignChildRequest,
         AssignChildSuccess,
@@ -168,34 +142,34 @@ NODE_OPERATION_CATALOG: tuple[NodeOperationDescriptor, ...] = (
     _descriptor(
         NodeOperationName.ADD_CHILD,
         AddChildRequest,
-        AddChildSuccess,
-        allowed_node_kinds=_PARENT_ROOT_NODE_KINDS,
+        ReplanSuccess,
         title="Add child",
         description=(
-            "Adopt a revision-safe structural child addition in the owned subtree. Reread "
-            "current context and the regenerated manifest before staging later work."
+            "Add one controller-identified direct child and optional recursive subtree. "
+            "Success closes this Dispatch; stop immediately and wait for the fresh "
+            "same-Attempt continuation."
         ),
     ),
     _descriptor(
         NodeOperationName.UPDATE_CHILD,
         UpdateChildRequest,
-        UpdateChildSuccess,
+        ReplanSuccess,
         allowed_node_kinds=_PARENT_ROOT_NODE_KINDS,
         title="Update child",
         description=(
-            "Adopt a revision-safe structural child update in the owned subtree. Reread "
-            "current context and the regenerated manifest before staging later work."
+            "Update one current descendant and recursively upsert its direct descendants "
+            "without changing IDs or order. Success closes this Dispatch; stop immediately."
         ),
     ),
     _descriptor(
         NodeOperationName.REMOVE_CHILD,
         RemoveChildRequest,
-        RemoveChildSuccess,
+        ReplanSuccess,
         allowed_node_kinds=_PARENT_ROOT_NODE_KINDS,
         title="Remove child",
         description=(
-            "Adopt a revision-safe structural child removal in the owned subtree. Reread "
-            "current context and the regenerated manifest before staging later work."
+            "Remove one current descendant subtree without erasing history. Success closes "
+            "this Dispatch; stop immediately."
         ),
     ),
     _descriptor(

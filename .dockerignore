@@ -5,6 +5,7 @@
 !pyproject.toml
 !apps/api/src
 !apps/api/tests
+!docs-internal/design/appendices/workflow-seeds
 !scripts/testing
 
 # Caches inside the re-included trees

@@ -14,6 +14,7 @@ from banksia.persistence.models import (
     FlowModel,
     FlowStartSourceModel,
     HumanRequestModel,
+    ReplanTransitionModel,
     TransientLocalizationModel,
 )
 from banksia.persistence.models.runtime.common import COMMAND_RUN_TERMINAL_STATE_VALUES
@@ -27,6 +28,7 @@ from banksia.runtime.post_commit.signals import (
     FlowStartCommitted,
     HumanRequestOpened,
     HumanRequestTerminal,
+    ReplanCommitted,
     RuntimeEffectSignal,
     TransientCleanupRequested,
     WatchdogDeadlineChanged,
@@ -157,6 +159,30 @@ async def read_boundary_continuation_page(
         source_ids,
         page_size=page_size,
         build_signal=BoundaryAccepted,
+    )
+
+
+async def read_replan_continuation_page(
+    session_factory: AsyncSessionContextFactory,
+    cursor: str | None,
+    page_size: int,
+) -> StartupAuditPage[RuntimeEffectSignal, str]:
+    """Read committed replans whose manifest or successor still needs repair."""
+
+    async with session_factory() as session:
+        statement = (
+            select(ReplanTransitionModel.replan_transition_id)
+            .where(ReplanTransitionModel.successor_state.not_in(("opened", "cancelled")))
+            .order_by(ReplanTransitionModel.replan_transition_id)
+            .limit(page_size)
+        )
+        if cursor is not None:
+            statement = statement.where(ReplanTransitionModel.replan_transition_id > cursor)
+        source_ids = tuple((await session.scalars(statement)).all())
+    return _runtime_signal_page(
+        source_ids,
+        page_size=page_size,
+        build_signal=ReplanCommitted,
     )
 
 
@@ -468,6 +494,14 @@ def _continuation_runtime_families(
             lambda cursor, size: read_boundary_continuation_page(session_factory, cursor, size),
         ),
         (
+            "committed_replan",
+            lambda cursor, size: read_replan_continuation_page(
+                session_factory,
+                cursor,
+                size,
+            ),
+        ),
+        (
             "open_human_request",
             lambda cursor, size: read_human_deadline_page(session_factory, cursor, size),
         ),
@@ -575,6 +609,7 @@ __all__ = [
     "read_flow_start_page",
     "read_human_continuation_page",
     "read_human_deadline_page",
+    "read_replan_continuation_page",
     "read_transient_cleanup_page",
     "read_watchdog_deadline_page",
 ]

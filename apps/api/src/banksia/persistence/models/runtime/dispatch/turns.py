@@ -20,14 +20,11 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from banksia.persistence.base import RuntimeBase
 from banksia.persistence.datetimes import UtcDateTime
 from banksia.persistence.models.runtime.common import (
-    CAPABILITY_DECISION_VALUES,
-    CAPABILITY_SOURCE_VALUES,
     DISPATCH_CLOSED_REASON_VALUES,
     DISPATCH_OPENED_REASON_VALUES,
     DISPATCH_STARTING_CLOSE_REASON_VALUES,
     DISPATCH_STATUS_VALUES,
-    NETWORK_ACCESS_VALUES,
-    PROVIDER_NATIVE_ACCESS_VALUES,
+    PROVIDER_ROUTE_VALUE_SOURCE_VALUES,
     PROVIDER_SELECTION_BASIS_VALUES,
     PROVIDER_START_RETRY_KIND_VALUES,
     PROVIDER_VALUES,
@@ -45,11 +42,15 @@ if TYPE_CHECKING:
         AssignmentWorkPlanModel,
     )
     from banksia.persistence.models.runtime.command_runs import CommandRunModel
+    from banksia.persistence.models.runtime.dispatch.capabilities import (
+        DispatchCapabilitySetModel,
+    )
     from banksia.persistence.models.runtime.dispatch.states import FlowStartSourceModel
     from banksia.persistence.models.runtime.dispatch.support import (
         AcceptedBoundaryModel,
         AssignmentDecisionModel,
     )
+    from banksia.persistence.models.runtime.flow.graph import FlowNodeModel
     from banksia.persistence.models.runtime.flow.runtime import FlowModel, FlowRevisionModel
     from banksia.persistence.models.runtime.human_requests import HumanRequestModel
     from banksia.persistence.models.runtime.task import TaskModel
@@ -70,8 +71,23 @@ class DispatchTurnModel(RuntimeBase):
         ),
         UniqueConstraint("dispatch_id", "assignment_id"),
         UniqueConstraint("dispatch_id", "node_key"),
+        UniqueConstraint(
+            "dispatch_id",
+            "provider_route_kind",
+            name="uq_dispatch_turns_provider_route_owner",
+        ),
         UniqueConstraint("dispatch_id", "assignment_id", "attempt_id"),
         UniqueConstraint("dispatch_id", "task_id", "flow_id", "assignment_id", "attempt_id"),
+        UniqueConstraint(
+            "dispatch_id",
+            "task_id",
+            "flow_id",
+            "assignment_id",
+            "attempt_id",
+            "flow_revision_id",
+            "team_revision_id",
+            name="uq_dispatch_turns_replan_snapshot_owner",
+        ),
         UniqueConstraint("flow_id", "dispatch_id", "opened_reason"),
         UniqueConstraint("flow_start_source_flow_id", "dispatch_id"),
         UniqueConstraint("predecessor_dispatch_id"),
@@ -112,11 +128,21 @@ class DispatchTurnModel(RuntimeBase):
         CheckConstraint(
             "provider_route_kind = resolved_provider AND "
             "((provider_route_kind IN ('codex', 'claude') AND gateway_profile IS NULL AND "
+            "gateway_profile_source IS NULL AND "
+            f"model_source IN ({sql_in(PROVIDER_ROUTE_VALUE_SOURCE_VALUES)}) AND "
+            f"effort_source IN ({sql_in(PROVIDER_ROUTE_VALUE_SOURCE_VALUES)}) AND "
+            "(model_source = 'provider_configuration' OR model_override IS NOT NULL) AND "
+            "(effort_source = 'provider_configuration' OR effort_override IS NOT NULL) AND "
+            "(provider_selection_basis = 'explicit' OR "
+            "(model_source = 'provider_configuration' AND "
+            "effort_source = 'provider_configuration')) AND "
             "(model_override IS NULL OR length(trim(model_override)) > 0) AND "
             "(effort_override IS NULL OR length(trim(effort_override)) > 0)) OR "
             "(provider_route_kind = 'openclaw' AND gateway_profile IS NOT NULL AND "
             "length(trim(gateway_profile)) > 0 AND "
-            "model_override IS NULL AND effort_override IS NULL))",
+            "gateway_profile_source = 'provider_configuration' AND "
+            "model_override IS NULL AND effort_override IS NULL AND "
+            "model_source IS NULL AND effort_source IS NULL))",
             name="ck_dispatch_turns_provider_route",
         ),
         CheckConstraint(
@@ -153,9 +179,46 @@ class DispatchTurnModel(RuntimeBase):
             name="ck_dispatch_turns_starting_close_reason",
         ),
         ForeignKeyConstraint(
-            ["task_id", "flow_id", "assignment_id"],
-            ["assignments.task_id", "assignments.flow_id", "assignments.assignment_id"],
+            [
+                "task_id",
+                "flow_id",
+                "assignment_id",
+                "member_id",
+            ],
+            [
+                "assignments.task_id",
+                "assignments.flow_id",
+                "assignments.assignment_id",
+                "assignments.member_id",
+            ],
             name="fk_dispatch_turns_assignment_owner",
+            deferrable=True,
+            initially="DEFERRED",
+        ),
+        ForeignKeyConstraint(
+            [
+                "task_id",
+                "flow_id",
+                "flow_revision_id",
+                "flow_node_id",
+                "team_revision_id",
+                "member_id",
+                "member_configuration_id",
+                "member_branch_basis_id",
+                "node_key",
+            ],
+            [
+                "flow_nodes.task_id",
+                "flow_nodes.flow_id",
+                "flow_nodes.flow_revision_id",
+                "flow_nodes.flow_node_id",
+                "flow_nodes.team_revision_id",
+                "flow_nodes.member_id",
+                "flow_nodes.member_configuration_id",
+                "flow_nodes.member_branch_basis_id",
+                "flow_nodes.node_key",
+            ],
+            name="fk_dispatch_turns_flow_node_snapshot",
             deferrable=True,
             initially="DEFERRED",
         ),
@@ -208,6 +271,12 @@ class DispatchTurnModel(RuntimeBase):
     task_id: Mapped[str] = mapped_column(ForeignKey("tasks.task_id"), index=True)
     flow_id: Mapped[str] = mapped_column(ForeignKey("flows.flow_id"), index=True)
     assignment_id: Mapped[str] = mapped_column(String(255), index=True)
+    flow_revision_id: Mapped[str] = mapped_column(String(255), index=True)
+    flow_node_id: Mapped[str] = mapped_column(String(255), index=True)
+    team_revision_id: Mapped[str] = mapped_column(String(255))
+    member_id: Mapped[str] = mapped_column(String(128))
+    member_configuration_id: Mapped[str] = mapped_column(String(255))
+    member_branch_basis_id: Mapped[str] = mapped_column(String(255))
     attempt_id: Mapped[str] = mapped_column(String(255), index=True)
     node_key: Mapped[str] = mapped_column(String(255), index=True)
     flow_start_source_flow_id: Mapped[str | None] = mapped_column(
@@ -236,8 +305,11 @@ class DispatchTurnModel(RuntimeBase):
     provider_selection_basis: Mapped[str] = mapped_column(String(64))
     provider_route_kind: Mapped[str] = mapped_column(String(64))
     model_override: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    model_source: Mapped[str | None] = mapped_column(String(64), nullable=True)
     effort_override: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    effort_source: Mapped[str | None] = mapped_column(String(64), nullable=True)
     gateway_profile: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    gateway_profile_source: Mapped[str | None] = mapped_column(String(64), nullable=True)
     provider_start_revision: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     provider_start_attempt_count: Mapped[int] = mapped_column(
         Integer,
@@ -279,9 +351,32 @@ class DispatchTurnModel(RuntimeBase):
             "and_(DispatchTurnModel.task_id == AssignmentModel.task_id, "
             "DispatchTurnModel.flow_id == AssignmentModel.flow_id, "
             "DispatchTurnModel.assignment_id == AssignmentModel.assignment_id, "
+            "DispatchTurnModel.member_id == AssignmentModel.member_id, "
             "DispatchTurnModel.node_key == AssignmentModel.node_key)"
         ),
-        foreign_keys=[task_id, flow_id, assignment_id, node_key],
+        foreign_keys=[
+            task_id,
+            flow_id,
+            assignment_id,
+            member_id,
+            node_key,
+        ],
+        lazy="raise",
+        viewonly=True,
+    )
+    flow_node_snapshot: Mapped[FlowNodeModel] = relationship(
+        "FlowNodeModel",
+        foreign_keys=[
+            task_id,
+            flow_id,
+            flow_revision_id,
+            flow_node_id,
+            team_revision_id,
+            member_id,
+            member_configuration_id,
+            member_branch_basis_id,
+            node_key,
+        ],
         lazy="raise",
         viewonly=True,
     )
@@ -326,7 +421,9 @@ class DispatchTurnModel(RuntimeBase):
     )
     capability_set: Mapped[DispatchCapabilitySetModel | None] = relationship(
         back_populates="dispatch",
-        foreign_keys="DispatchCapabilitySetModel.dispatch_id",
+        foreign_keys=(
+            "[DispatchCapabilitySetModel.dispatch_id, DispatchCapabilitySetModel.provider_kind]"
+        ),
         lazy="raise",
         uselist=False,
     )
@@ -451,60 +548,6 @@ class DispatchPromptRefsModel(RuntimeBase):
     )
 
 
-class DispatchCapabilitySetModel(RuntimeBase):
-    __tablename__ = "dispatch_capability_sets"
-    __table_args__ = (
-        CheckConstraint(
-            f"provider_native_access IN ({sql_in(PROVIDER_NATIVE_ACCESS_VALUES)})",
-            name="ck_dispatch_capability_sets_provider_native_access",
-        ),
-        CheckConstraint(
-            f"provider_native_access_source IN ({sql_in(CAPABILITY_SOURCE_VALUES)})",
-            name="ck_dispatch_capability_sets_provider_native_source",
-        ),
-        CheckConstraint(
-            f"network_access IN ({sql_in(NETWORK_ACCESS_VALUES)})",
-            name="ck_dispatch_capability_sets_network_access",
-        ),
-        CheckConstraint(
-            f"network_access_source IN ({sql_in(CAPABILITY_SOURCE_VALUES)})",
-            name="ck_dispatch_capability_sets_network_source",
-        ),
-        *(
-            CheckConstraint(
-                f"{column} IN ({sql_in(CAPABILITY_DECISION_VALUES)})",
-                name=f"ck_dispatch_capability_sets_{column}",
-            )
-            for column in (
-                "human_direction",
-                "human_approval",
-                "human_input",
-                "human_review",
-                "command_run",
-            )
-        ),
-    )
-
-    dispatch_id: Mapped[str] = mapped_column(
-        ForeignKey("dispatch_turns.dispatch_id"), primary_key=True
-    )
-    provider_native_access: Mapped[str] = mapped_column(String(64))
-    provider_native_access_source: Mapped[str] = mapped_column(String(64))
-    network_access: Mapped[str] = mapped_column(String(64))
-    network_access_source: Mapped[str] = mapped_column(String(64))
-    human_direction: Mapped[str] = mapped_column(String(64))
-    human_approval: Mapped[str] = mapped_column(String(64))
-    human_input: Mapped[str] = mapped_column(String(64))
-    human_review: Mapped[str] = mapped_column(String(64))
-    command_run: Mapped[str] = mapped_column(String(64))
-    created_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow)
-    dispatch: Mapped[DispatchTurnModel] = relationship(
-        back_populates="capability_set",
-        foreign_keys=[dispatch_id],
-        lazy="raise",
-    )
-
-
 class NodeInvocationModel(RuntimeBase):
     __tablename__ = "node_invocations"
     __table_args__ = (
@@ -541,7 +584,6 @@ class NodeInvocationModel(RuntimeBase):
 
 
 __all__ = [
-    "DispatchCapabilitySetModel",
     "DispatchPromptRefsModel",
     "DispatchTurnModel",
     "NodeInvocationModel",

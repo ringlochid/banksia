@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     CheckConstraint,
+    Computed,
     ForeignKey,
     ForeignKeyConstraint,
     Index,
@@ -33,6 +34,7 @@ if TYPE_CHECKING:
     from banksia.persistence.models.runtime.dispatch.turns import DispatchTurnModel
     from banksia.persistence.models.runtime.flow.runtime import FlowModel
     from banksia.persistence.models.runtime.task import TaskModel
+    from banksia.persistence.models.runtime.waiting import AttemptWaitModel
 
 
 class AssignmentModel(RuntimeBase):
@@ -238,6 +240,17 @@ class AttemptModel(RuntimeBase):
         UniqueConstraint("attempt_id", "assignment_id"),
         UniqueConstraint("attempt_id", "task_id"),
         UniqueConstraint("task_id", "flow_id", "assignment_id", "attempt_id"),
+        UniqueConstraint(
+            "attempt_id",
+            "current_dispatch_id",
+            "current_dispatch_presence_marker",
+            name="uq_attempts_current_dispatch_owner",
+        ),
+        UniqueConstraint(
+            "attempt_id",
+            "current_wait_id",
+            name="uq_attempts_current_wait_owner",
+        ),
         CheckConstraint(
             f"status IN ({sql_in(ATTEMPT_STATUS_VALUES)})",
             name="ck_attempts_status",
@@ -252,6 +265,14 @@ class AttemptModel(RuntimeBase):
             "(status = 'cancelled' AND terminal_outcome IS NULL AND closed_at IS NOT NULL) OR "
             "(status IN ('pending', 'running') AND terminal_outcome IS NULL AND closed_at IS NULL)",
             name="ck_attempts_terminal_state",
+        ),
+        CheckConstraint(
+            "current_dispatch_id IS NULL OR current_wait_id IS NULL",
+            name="ck_attempts_current_dispatch_excludes_wait",
+        ),
+        CheckConstraint(
+            "status = 'running' OR (current_dispatch_id IS NULL AND current_wait_id IS NULL)",
+            name="ck_attempts_nonrunning_has_no_current_authority",
         ),
         ForeignKeyConstraint(
             ["task_id", "flow_id", "assignment_id"],
@@ -293,6 +314,46 @@ class AttemptModel(RuntimeBase):
             deferrable=True,
             initially="DEFERRED",
         ),
+        ForeignKeyConstraint(
+            [
+                "current_dispatch_id",
+                "task_id",
+                "flow_id",
+                "assignment_id",
+                "attempt_id",
+                "current_dispatch_presence_marker",
+            ],
+            [
+                "dispatch_turns.dispatch_id",
+                "dispatch_turns.task_id",
+                "dispatch_turns.flow_id",
+                "dispatch_turns.assignment_id",
+                "dispatch_turns.attempt_id",
+                "dispatch_turns.active_status_marker",
+            ],
+            name="fk_attempts_current_dispatch_owner",
+            deferrable=True,
+            initially="DEFERRED",
+        ),
+        ForeignKeyConstraint(
+            [
+                "current_wait_id",
+                "task_id",
+                "flow_id",
+                "assignment_id",
+                "attempt_id",
+            ],
+            [
+                "attempt_waits.wait_id",
+                "attempt_waits.task_id",
+                "attempt_waits.flow_id",
+                "attempt_waits.assignment_id",
+                "attempt_waits.attempt_id",
+            ],
+            name="fk_attempts_current_wait_owner",
+            deferrable=True,
+            initially="DEFERRED",
+        ),
         Index("ix_attempts_task_node", "task_id", "node_key"),
     )
 
@@ -303,6 +364,16 @@ class AttemptModel(RuntimeBase):
     node_key: Mapped[str] = mapped_column(String(255), index=True)
     retry_of_attempt_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     latest_checkpoint_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    current_dispatch_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    current_wait_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    current_dispatch_presence_marker: Mapped[int] = mapped_column(
+        Integer,
+        Computed(
+            "CASE WHEN current_dispatch_id IS NULL THEN 0 ELSE 1 END",
+            persisted=True,
+        ),
+        nullable=False,
+    )
     status: Mapped[str] = mapped_column(String(64), default="running")
     terminal_outcome: Mapped[str | None] = mapped_column(String(64), nullable=True)
     opened_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow)
@@ -387,6 +458,49 @@ class AttemptModel(RuntimeBase):
         ),
         lazy="raise",
         order_by="DispatchTurnModel.created_at",
+        viewonly=True,
+    )
+    current_dispatch: Mapped[DispatchTurnModel | None] = relationship(
+        "DispatchTurnModel",
+        primaryjoin=(
+            "and_(AttemptModel.current_dispatch_id == DispatchTurnModel.dispatch_id, "
+            "AttemptModel.task_id == DispatchTurnModel.task_id, "
+            "AttemptModel.flow_id == DispatchTurnModel.flow_id, "
+            "AttemptModel.assignment_id == DispatchTurnModel.assignment_id, "
+            "AttemptModel.attempt_id == DispatchTurnModel.attempt_id, "
+            "AttemptModel.current_dispatch_presence_marker == "
+            "DispatchTurnModel.active_status_marker)"
+        ),
+        foreign_keys=[
+            current_dispatch_id,
+            task_id,
+            flow_id,
+            assignment_id,
+            attempt_id,
+            current_dispatch_presence_marker,
+        ],
+        lazy="raise",
+        uselist=False,
+        viewonly=True,
+    )
+    current_wait: Mapped[AttemptWaitModel | None] = relationship(
+        "AttemptWaitModel",
+        primaryjoin=(
+            "and_(AttemptModel.current_wait_id == AttemptWaitModel.wait_id, "
+            "AttemptModel.task_id == AttemptWaitModel.task_id, "
+            "AttemptModel.flow_id == AttemptWaitModel.flow_id, "
+            "AttemptModel.assignment_id == AttemptWaitModel.assignment_id, "
+            "AttemptModel.attempt_id == AttemptWaitModel.attempt_id)"
+        ),
+        foreign_keys=[
+            current_wait_id,
+            task_id,
+            flow_id,
+            assignment_id,
+            attempt_id,
+        ],
+        lazy="raise",
+        uselist=False,
         viewonly=True,
     )
 

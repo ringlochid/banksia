@@ -8,18 +8,16 @@ import banksia.runtime.dispatch.ordinary_continuation as ordinary_continuation_m
 import pytest
 from banksia.config import CodexSettings, RuntimeSettings, Settings
 from banksia.persistence.models import (
-    CommandRunModel,
+    AttemptModel,
+    AttemptWaitModel,
     DispatchRequestModel,
     DispatchTurnModel,
     FlowModel,
     HumanRequestModel,
 )
 from banksia.providers import ProviderKind
-from banksia.runtime.clock import utc_now
 from banksia.runtime.contracts import HumanRequestResolveRequest
-from banksia.runtime.contracts.operation_failure import OperationFailureCode
 from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
-from banksia.runtime.errors import RuntimeOperationError
 from banksia.runtime.flow.service import runtime_flow_read
 from banksia.runtime.human_request.continuation import open_human_request_successor
 from banksia.runtime.human_request.service import list_human_requests, resolve_human_request
@@ -69,6 +67,13 @@ async def test_terminal_human_source_opens_one_same_attempt_successor(
 
         async with session_factory() as session:
             pre_open = await runtime_flow_read(cast(AsyncSession, session), ids.task_id)
+            unrelated_request_id = await _stage_unrelated_child_wait(
+                cast(AsyncSession, session),
+                ids,
+            )
+            initial_flow = await session.get(FlowModel, ids.flow_id)
+            assert initial_flow is not None
+            initial_control_revision = initial_flow.control_revision
             first = await open_human_request_successor(
                 cast(AsyncSession, session),
                 signal=HumanRequestTerminal(request_id),
@@ -85,6 +90,13 @@ async def test_terminal_human_source_opens_one_same_attempt_successor(
                 task_id=ids.task_id,
             )
             flow = await session.get(FlowModel, ids.flow_id)
+            attempt = await session.get(AttemptModel, ids.root_attempt_id)
+            unrelated_attempt = await session.get(AttemptModel, ids.child_attempt_id)
+            unrelated_wait = await session.scalar(
+                select(AttemptWaitModel).where(
+                    AttemptWaitModel.human_request_id == unrelated_request_id
+                )
+            )
             successor = await session.get(DispatchTurnModel, first.dispatch_id)
             dispatch_request = await session.get(DispatchRequestModel, first.dispatch_id)
             dispatch_count = await session.scalar(
@@ -100,7 +112,12 @@ async def test_terminal_human_source_opens_one_same_attempt_successor(
     assert first.dispatch_id is not None
     assert source is not None and source.successor_dispatch_id == first.dispatch_id
     assert request_page.items[0].request.successor_dispatch_id == first.dispatch_id
-    assert flow is not None and flow.current_dispatch_id == first.dispatch_id
+    assert attempt is not None
+    assert attempt.current_dispatch_id == first.dispatch_id
+    assert attempt.current_wait_id is None
+    assert unrelated_attempt is not None and unrelated_wait is not None
+    assert unrelated_attempt.current_wait_id == unrelated_wait.wait_id
+    assert flow is not None and flow.control_revision == initial_control_revision
     assert successor is not None and successor.opened_reason == "human_result"
     assert successor.assignment_id == ids.root_assignment_id
     assert successor.attempt_id == ids.root_attempt_id
@@ -252,45 +269,6 @@ async def test_human_source_change_during_preparation_loses_cleanly(
     assert dispatch_count == 3
 
 
-async def test_flow_read_rejects_multiple_retained_continuation_sources(
-    tmp_path: Path,
-) -> None:
-    async with seeded_executor(tmp_path, suffix="ambiguous-retained-sources") as (
-        executor,
-        session_factory,
-        ids,
-        _,
-    ):
-        await _open_and_resolve_human_request(executor, session_factory, ids)
-        now = utc_now()
-        async with session_factory() as session:
-            session.add(
-                CommandRunModel(
-                    run_id="c_76543210",
-                    task_id=ids.task_id,
-                    flow_id=ids.flow_id,
-                    assignment_id=ids.root_assignment_id,
-                    attempt_id=ids.root_attempt_id,
-                    source_dispatch_id=ids.root_dispatch_id,
-                    command_spec_json={"kind": "argv", "argv": ["true"]},
-                    summary="Synthetic conflicting retained source.",
-                    output_path=(f".banksia/{ids.task_id}/command-runs/c_76543210/output.log"),
-                    state="succeeded",
-                    started_at=now,
-                    ended_at=now,
-                    terminal_summary="Synthetic command completed.",
-                    terminal_exit_code=0,
-                    terminal_event_source="process_owner",
-                    created_at=now,
-                )
-            )
-            await session.commit()
-            with pytest.raises(RuntimeOperationError) as ambiguous:
-                await runtime_flow_read(cast(AsyncSession, session), ids.task_id)
-
-    assert ambiguous.value.code == OperationFailureCode.ILLEGAL_STATE
-
-
 async def _open_and_resolve_human_request(
     executor: NodeOperationExecutor,
     session_factory: SessionFactory,
@@ -323,6 +301,52 @@ async def _open_and_resolve_human_request(
                 {"item_responses": _DIRECTION_A_ANSWER}
             ),
         )
+    return request_id
+
+
+async def _stage_unrelated_child_wait(
+    session: AsyncSession,
+    ids: RuntimeIds,
+) -> str:
+    request_id = f"human-request.{ids.task_id}.unrelated-child"
+    wait_id = f"attempt-wait.{ids.task_id}.unrelated-child"
+    session.add(
+        HumanRequestModel(
+            request_id=request_id,
+            task_id=ids.task_id,
+            flow_id=ids.flow_id,
+            assignment_id=ids.child_assignment_id,
+            attempt_id=ids.child_attempt_id,
+            source_dispatch_id=ids.child_dispatch_id,
+            request_kind="input",
+            request_summary="Synthetic unrelated child wait.",
+            request_items_json=[
+                {
+                    "id": "detail",
+                    "prompt": "Provide the detail.",
+                    "response_schema": {"type": "string"},
+                    "allow_skip": False,
+                }
+            ],
+            capability_basis_json={"decision": "allow", "kind": "input"},
+            status="open",
+        )
+    )
+    session.add(
+        AttemptWaitModel(
+            wait_id=wait_id,
+            task_id=ids.task_id,
+            flow_id=ids.flow_id,
+            assignment_id=ids.child_assignment_id,
+            attempt_id=ids.child_attempt_id,
+            source_dispatch_id=ids.child_dispatch_id,
+            human_request_id=request_id,
+        )
+    )
+    child_attempt = await session.get(AttemptModel, ids.child_attempt_id)
+    assert child_attempt is not None
+    child_attempt.current_wait_id = wait_id
+    await session.commit()
     return request_id
 
 

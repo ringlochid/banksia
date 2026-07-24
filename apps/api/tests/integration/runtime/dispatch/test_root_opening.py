@@ -8,6 +8,7 @@ from xml.etree import ElementTree
 import pytest
 from banksia.config import CodexSettings, RuntimeSettings, Settings
 from banksia.persistence.models import (
+    AttemptModel,
     DispatchCapabilitySetModel,
     DispatchRequestModel,
     DispatchTurnModel,
@@ -100,6 +101,7 @@ async def test_root_start_persists_then_commits_one_starting_dispatch(
             capabilities = await session.scalar(select(DispatchCapabilitySetModel))
             source = await session.scalar(select(FlowStartSourceModel))
             flow = await session.scalar(select(FlowModel))
+            attempt = await session.scalar(select(AttemptModel))
             starting_page = await read_dispatch_start_page(session_context, None, 2)
             trace = await operator_trace(async_session, bootstrap_input.task_id)
     finally:
@@ -111,6 +113,7 @@ async def test_root_start_persists_then_commits_one_starting_dispatch(
         capabilities=capabilities,
         source=source,
         flow=flow,
+        attempt=attempt,
         root_page=root_page,
         starting_page=starting_page,
         trace=trace,
@@ -155,6 +158,7 @@ async def test_root_start_route_failure_pauses_without_consuming_source(
             count = await session.scalar(select(func.count()).select_from(DispatchTurnModel))
             source = await session.scalar(select(FlowStartSourceModel))
             flow = await session.scalar(select(FlowModel))
+            attempt = await session.scalar(select(AttemptModel))
     finally:
         engine.dispose()
 
@@ -163,6 +167,7 @@ async def test_root_start_route_failure_pauses_without_consuming_source(
     assert source is not None and source.successor_dispatch_id is None
     assert flow is not None and flow.status == "paused"
     assert flow.pause_reason == "runtime_transition_failed"
+    assert attempt is not None and attempt.current_dispatch_id is None
 
 
 def _assert_root_opening_result(
@@ -172,6 +177,7 @@ def _assert_root_opening_result(
     capabilities: DispatchCapabilitySetModel | None,
     source: FlowStartSourceModel | None,
     flow: FlowModel | None,
+    attempt: AttemptModel | None,
     root_page: Any,
     starting_page: Any,
     trace: Any,
@@ -208,7 +214,8 @@ def _assert_root_opening_result(
     } == {"default"}
     assert capabilities.requested_command_run_source == "default"
     assert source is not None and source.successor_dispatch_id == dispatch.dispatch_id
-    assert flow is not None and flow.current_dispatch_id == dispatch.dispatch_id
+    assert flow is not None and flow.status == "running"
+    assert attempt is not None and attempt.current_dispatch_id == dispatch.dispatch_id
     assert root_page.sources == (FlowStartCommitted("flow.task.launch-foundation"),)
     assert dispatch.next_provider_start_at is not None
     assert starting_page.sources == (

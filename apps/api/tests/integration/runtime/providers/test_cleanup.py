@@ -111,7 +111,7 @@ def _close_current_dispatch(
     closed_reason: str,
 ) -> None:
     dispatches = RuntimeBase.metadata.tables["dispatch_turns"]
-    flows = RuntimeBase.metadata.tables["flows"]
+    attempts = RuntimeBase.metadata.tables["attempts"]
     dispatch_values: dict[str, object] = {
         "status": "closed",
         "closed_at": ACCEPTED_AT,
@@ -128,7 +128,7 @@ def _close_current_dispatch(
             .values(**dispatch_values)
         )
         connection.execute(
-            flows.update()
-            .where(flows.c.flow_id == database.ids.flow_id)
+            attempts.update()
+            .where(attempts.c.attempt_id == database.ids.root_attempt_id)
             .values(current_dispatch_id=None)
         )

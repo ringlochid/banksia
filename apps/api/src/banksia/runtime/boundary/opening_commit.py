@@ -29,6 +29,9 @@ from banksia.runtime.dispatch.prompt_snapshot import BoundaryPromptSnapshot
 
 class BoundaryOpeningCommitSnapshot(Protocol):
     @property
+    def source_dispatch_id(self) -> str: ...
+
+    @property
     def source_committed_at(self) -> datetime: ...
 
     @property
@@ -59,6 +62,9 @@ class BoundaryOpeningCommitSnapshot(Protocol):
     def opened_reason(self) -> str: ...
 
     @property
+    def lane_predecessor_dispatch_id(self) -> str | None: ...
+
+    @property
     def prompt(self) -> BoundaryPromptSnapshot: ...
 
     @property
@@ -79,7 +85,7 @@ async def commit_boundary_dispatch_if_current(
     claimed = await session.scalar(
         update(AcceptedBoundaryModel)
         .where(
-            AcceptedBoundaryModel.source_dispatch_id == prompt.predecessor_dispatch_id,
+            AcceptedBoundaryModel.source_dispatch_id == snapshot.source_dispatch_id,
             AcceptedBoundaryModel.task_id == prompt.task_id,
             AcceptedBoundaryModel.flow_id == prompt.flow_id,
             AcceptedBoundaryModel.outcome == snapshot.source_outcome,
@@ -98,15 +104,10 @@ async def commit_boundary_dispatch_if_current(
         FlowModel.compiled_plan_id == snapshot.compiled_plan_id,
         FlowModel.status == snapshot.expected_flow_status,
         FlowModel.active_flow_revision_id == prompt.flow_revision_id,
-        FlowModel.current_dispatch_id.is_(None),
-        FlowModel.waiting_cause == "none",
         FlowModel.control_revision == snapshot.flow_control_revision,
         _boundary_target_is_current(snapshot),
     ]
-    values: dict[str, object] = {
-        "current_dispatch_id": prepared.dispatch_id,
-        "updated_at": prepared.due_at,
-    }
+    values: dict[str, object] = {"updated_at": prepared.due_at}
     if snapshot.expected_flow_status == "paused":
         flow_predicates.append(FlowModel.pause_reason == snapshot.expected_pause_reason)
         values.update(
@@ -138,7 +139,7 @@ async def commit_boundary_dispatch_if_current(
             attempt_id=prompt.attempt_id,
             node_key=prompt.node_key,
             opened_reason=snapshot.opened_reason,
-            predecessor_dispatch_id=prompt.predecessor_dispatch_id,
+            predecessor_dispatch_id=snapshot.lane_predecessor_dispatch_id,
             flow_start_source_flow_id=None,
             resume_event=resume_event,
         ),
@@ -169,8 +170,6 @@ async def pause_failed_boundary_continuation(
         update(FlowModel)
         .where(
             FlowModel.status == "running",
-            FlowModel.current_dispatch_id.is_(None),
-            FlowModel.waiting_cause == "none",
             source_is_unconsumed,
         )
         .values(
@@ -196,7 +195,7 @@ def _boundary_target_is_current(
     prompt = snapshot.prompt
     return (
         exists().where(
-            DispatchTurnModel.dispatch_id == prompt.predecessor_dispatch_id,
+            DispatchTurnModel.dispatch_id == snapshot.source_dispatch_id,
             DispatchTurnModel.task_id == prompt.task_id,
             DispatchTurnModel.flow_id == prompt.flow_id,
             DispatchTurnModel.status == "closed",
@@ -234,6 +233,8 @@ def _boundary_target_is_current(
             AttemptModel.flow_id == prompt.flow_id,
             AttemptModel.node_key == prompt.node_key,
             AttemptModel.status == "running",
+            AttemptModel.current_dispatch_id.is_(None),
+            AttemptModel.current_wait_id.is_(None),
         )
         & exists().where(
             TaskModel.task_id == prompt.task_id,

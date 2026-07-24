@@ -120,27 +120,21 @@ async def commit_ordinary_dispatch_if_current(
     should_resume_flow: bool,
     resume_event: TaskResumeEventBasis | None = None,
 ) -> bool:
-    """Claim one source and commit its flow pointer plus starting D2 atomically."""
+    """Claim the Flow, local source, and same-Attempt successor atomically."""
 
-    if not await claim_source(session, snapshot, prepared):
-        await session.rollback()
-        return False
     flow_predicates: list[ColumnElement[bool]] = [
         FlowModel.flow_id == snapshot.prompt.flow_id,
         FlowModel.task_id == snapshot.prompt.task_id,
         FlowModel.compiled_plan_id == snapshot.compiled_plan_id,
         FlowModel.status == snapshot.expected_flow_status,
         FlowModel.active_flow_revision_id == snapshot.prompt.flow_revision_id,
-        FlowModel.current_dispatch_id.is_(None),
-        FlowModel.waiting_cause == "none",
         FlowModel.control_revision == snapshot.flow_control_revision,
         ordinary_context_is_current(snapshot),
     ]
     if snapshot.expected_flow_status == "paused":
         flow_predicates.append(FlowModel.pause_reason == snapshot.expected_pause_reason)
     values: dict[str, object] = {
-        "current_dispatch_id": prepared.dispatch_id,
-        "updated_at": prepared.due_at,
+        "control_revision": FlowModel.control_revision,
     }
     if should_resume_flow:
         values.update(
@@ -155,6 +149,9 @@ async def commit_ordinary_dispatch_if_current(
         update(FlowModel).where(*flow_predicates).values(**values).returning(FlowModel.flow_id)
     )
     if flow_id is None:
+        await session.rollback()
+        return False
+    if not await claim_source(session, snapshot, prepared):
         await session.rollback()
         return False
     await stage_starting_dispatch(

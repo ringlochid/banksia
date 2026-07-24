@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import cast
 
 from banksia.config import CodexSettings, RuntimeSettings, Settings
-from banksia.persistence.models import DispatchTurnModel, FlowModel
+from banksia.persistence.models import AttemptModel, DispatchTurnModel, FlowModel
 from banksia.providers import ProviderKind
 from banksia.runtime.contracts import HumanRequestResolveRequest
 from banksia.runtime.dispatch import accept_provider_start_if_current
@@ -86,6 +86,7 @@ async def test_human_wait_excludes_watchdog_then_recovery_replaces_once(
             predecessor = await session.get(DispatchTurnModel, continued.dispatch_id)
             successor = await session.get(DispatchTurnModel, recovered.dispatch_id)
             flow = await session.get(FlowModel, ids.flow_id)
+            attempt = await session.get(AttemptModel, ids.root_attempt_id)
 
     assert excluded.outcome == "skipped"
     assert continued.outcome == "opened"
@@ -93,7 +94,8 @@ async def test_human_wait_excludes_watchdog_then_recovery_replaces_once(
     assert duplicate.outcome == "skipped"
     assert predecessor is not None and predecessor.closed_reason == "watchdog_superseded"
     assert successor is not None and successor.opened_reason == "watchdog_recovery"
-    assert flow is not None and flow.current_dispatch_id == recovered.dispatch_id
+    assert flow is not None and flow.status == "running"
+    assert attempt is not None and attempt.current_dispatch_id == recovered.dispatch_id
 
 
 async def _wait_for_human_and_continue(

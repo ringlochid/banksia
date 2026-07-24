@@ -474,8 +474,8 @@ def _assert_started_task_state(
     ]
     assert started.attempt is not None and started.attempt.status == "running"
     assert started.dispatch is not None and started.dispatch.status == "starting"
+    assert started.attempt.current_dispatch_id == started.dispatch.dispatch_id
     assert started.flow is not None
-    assert started.flow.current_dispatch_id == started.dispatch.dispatch_id
     assert started.source is not None
     assert started.source.successor_dispatch_id == started.dispatch.dispatch_id
     assert started.dispatch_request is not None

@@ -5,7 +5,7 @@ from collections.abc import Mapping
 from pathlib import Path
 
 import httpx
-from banksia.persistence.models import DispatchTurnModel, HumanRequestModel
+from banksia.persistence.models import AttemptModel, DispatchTurnModel, HumanRequestModel
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
 from banksia.runtime.errors import RuntimeOperationError
 from banksia.runtime.node_mcp import IssuedDispatchMcpBinding
@@ -204,6 +204,12 @@ async def test_rotated_managed_generation_rejects_inflight_old_binding_before_ad
         ids,
         signals,
     ):
+        async with session_factory() as session:
+            attempt = await session.get(AttemptModel, ids.root_attempt_id)
+            assert attempt is not None
+            attempt.current_dispatch_id = None
+            await session.commit()
+
         paused_executor = _PausedNodeOperationExecutor(executor)
         applications, registry = create_test_node_mcp_apps(paused_executor)
         exposure_ceiling = (

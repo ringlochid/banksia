@@ -80,7 +80,6 @@ class RootPromptSnapshot:
 class BoundaryPromptSnapshot(RootPromptSnapshot):
     node_kind: str
     parent_assignment_id: str | None
-    predecessor_dispatch_id: str
     trigger: BoundaryPromptTrigger
 
 

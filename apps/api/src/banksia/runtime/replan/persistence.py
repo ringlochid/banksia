@@ -7,7 +7,6 @@ from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from banksia.persistence.models import (
-    DispatchTurnModel,
     FlowModel,
     ReplanTransitionModel,
     TaskModel,
@@ -32,6 +31,7 @@ from banksia.runtime.contracts.team_read import (
 from banksia.runtime.dispatch.authority import NodeOperationAuthority
 from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
 from banksia.runtime.errors import RuntimeOperationError
+from banksia.runtime.node_operations.source_transitions import close_source_dispatch
 from banksia.runtime.providers import (
     ProviderResolutionError,
     narrow_provider_capabilities,
@@ -143,6 +143,13 @@ async def _claim_replan_heads(
     successor_team_id: str,
     successor_flow_id: str,
 ) -> None:
+    transitioned_at = utc_now()
+    await close_source_dispatch(
+        session,
+        authority,
+        now=transitioned_at,
+        closed_reason="structural_replan",
+    )
     task_id = await session.scalar(
         update(TaskModel)
         .where(
@@ -159,37 +166,16 @@ async def _claim_replan_heads(
             FlowModel.task_id == authority.task_id,
             FlowModel.status == "running",
             FlowModel.active_flow_revision_id == context.flow_revision.flow_revision_id,
-            FlowModel.current_dispatch_id == authority.dispatch_id,
-            FlowModel.waiting_cause == "none",
             FlowModel.control_revision == context.flow.control_revision,
         )
         .values(
             active_flow_revision_id=successor_flow_id,
-            current_dispatch_id=None,
-            control_revision=FlowModel.control_revision + 1,
-            updated_at=utc_now(),
+            updated_at=transitioned_at,
         )
         .returning(FlowModel.flow_id)
     )
     if task_id is None or flow_id is None:
         raise _conflict("another replan or flow transition won the current pointers")
-    closed = await session.scalar(
-        update(DispatchTurnModel)
-        .where(
-            DispatchTurnModel.dispatch_id == authority.dispatch_id,
-            DispatchTurnModel.status.in_(("starting", "open")),
-        )
-        .values(
-            status="closed",
-            closed_at=utc_now(),
-            closed_reason="structural_replan",
-            next_provider_start_at=None,
-            provider_start_retry_kind=None,
-        )
-        .returning(DispatchTurnModel.dispatch_id)
-    )
-    if closed is None:
-        raise _conflict("another transition closed the source Dispatch")
 
 
 async def _stage_transition_and_event(

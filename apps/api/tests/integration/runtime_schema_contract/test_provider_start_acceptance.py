@@ -15,21 +15,11 @@ from banksia.runtime.dispatch import (
     ProviderStartAcceptanceResult,
     accept_provider_start_if_current,
 )
-from banksia.runtime.dispatch.authority import read_node_operation_authority
-from banksia.runtime.node_operations.contracts import NodeOperationScope
-from banksia.runtime.node_operations.source_transitions import close_source_dispatch
-from sqlalchemy import Connection, Engine, func, select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import Connection, Engine, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session, sessionmaker
 from tests.helpers.catalog_seed import seed_catalog
-from tests.helpers.lineage_seed import (
-    RuntimeIds,
-    member_branch_basis_id,
-    member_configuration_id,
-    seed_runtime_scope,
-    team_revision_id,
-)
+from tests.helpers.lineage_seed import RuntimeIds, seed_runtime_scope
 from tests.helpers.sqlite_runtime import (
     SyncSessionAdapter,
     create_runtime_schema_engine,
@@ -63,9 +53,10 @@ async def test_exact_current_provider_acceptance_opens_once_and_clears_retry_sta
                     == database.ids.current_dispatch_id
                 )
             ).one()
-            flow_current_dispatch_id = connection.scalar(
-                select(RuntimeBase.metadata.tables["flows"].c.current_dispatch_id).where(
-                    RuntimeBase.metadata.tables["flows"].c.flow_id == database.ids.flow_id
+            attempt_current_dispatch_id = connection.scalar(
+                select(RuntimeBase.metadata.tables["attempts"].c.current_dispatch_id).where(
+                    RuntimeBase.metadata.tables["attempts"].c.attempt_id
+                    == database.ids.root_attempt_id
                 )
             )
 
@@ -86,7 +77,7 @@ async def test_exact_current_provider_acceptance_opens_once_and_clears_retry_sta
     assert dispatch.next_provider_start_at is None
     assert dispatch.provider_start_retry_kind is None
     assert dispatch.provider_start_last_error_code is None
-    assert flow_current_dispatch_id == database.ids.current_dispatch_id
+    assert attempt_current_dispatch_id == database.ids.current_dispatch_id
 
 
 async def test_wrong_task_and_stale_provider_start_revision_are_noop_losers(
@@ -142,23 +133,7 @@ async def test_boundary_close_before_late_acceptance_wins_without_reopen(
     tmp_path: Path,
 ) -> None:
     with starting_dispatch_database(tmp_path, suffix="boundary-wins") as database:
-        async with SyncSessionAdapter(database.session_factory) as session:
-            authority = await read_node_operation_authority(
-                cast(AsyncSession, session),
-                NodeOperationScope(
-                    task_id=database.ids.task_id,
-                    dispatch_id=database.ids.current_dispatch_id,
-                ),
-            )
-            await close_source_dispatch(
-                cast(AsyncSession, session),
-                authority,
-                now=ACCEPTED_AT - timedelta(seconds=1),
-                closed_reason="boundary",
-                waiting_cause="none",
-                waiting_source_id=None,
-            )
-            await session.commit()
+        _close_starting_dispatch(database)
 
         late_acceptance = await _accept_start(database)
 
@@ -169,64 +144,18 @@ async def test_boundary_close_before_late_acceptance_wins_without_reopen(
                     == database.ids.current_dispatch_id
                 )
             ).one()
-            flow = connection.execute(
-                select(RuntimeBase.metadata.tables["flows"]).where(
-                    RuntimeBase.metadata.tables["flows"].c.flow_id == database.ids.flow_id
+            attempt_current_dispatch_id = connection.scalar(
+                select(RuntimeBase.metadata.tables["attempts"].c.current_dispatch_id).where(
+                    RuntimeBase.metadata.tables["attempts"].c.attempt_id
+                    == database.ids.root_attempt_id
                 )
-            ).one()
+            )
 
     assert late_acceptance.is_accepted is False
     assert dispatch.status == "closed"
     assert dispatch.closed_reason == "boundary"
     assert dispatch.adapter_started_at is None
-    assert flow.current_dispatch_id is None
-
-
-def test_concurrent_successor_candidates_commit_one_current_dispatch(
-    tmp_path: Path,
-) -> None:
-    with starting_dispatch_database(tmp_path, suffix="successor-race") as database:
-        _close_starting_dispatch_for_successor_race(database)
-        barrier = Barrier(2)
-        candidate_ids = (
-            "dispatch.successor-race.first",
-            "dispatch.successor-race.second",
-        )
-        with ThreadPoolExecutor(max_workers=2) as executor:
-            futures = tuple(
-                executor.submit(
-                    _run_successor_writer,
-                    database,
-                    barrier,
-                    candidate_dispatch_id,
-                )
-                for candidate_dispatch_id in candidate_ids
-            )
-            outcomes = tuple(future.result(timeout=10) for future in futures)
-
-        dispatches = RuntimeBase.metadata.tables["dispatch_turns"]
-        flows = RuntimeBase.metadata.tables["flows"]
-        with database.engine.connect() as connection:
-            committed_candidates = tuple(
-                connection.scalars(
-                    select(dispatches.c.dispatch_id)
-                    .where(dispatches.c.dispatch_id.in_(candidate_ids))
-                    .order_by(dispatches.c.dispatch_id)
-                )
-            )
-            flow_current_dispatch_id = connection.scalar(
-                select(flows.c.current_dispatch_id).where(flows.c.flow_id == database.ids.flow_id)
-            )
-            successor_count = connection.scalar(
-                select(func.count())
-                .select_from(dispatches)
-                .where(dispatches.c.predecessor_dispatch_id == database.ids.current_dispatch_id)
-            )
-
-    assert sorted(outcomes) == ["committed", "constraint_loser"]
-    assert len(committed_candidates) == 1
-    assert successor_count == 1
-    assert flow_current_dispatch_id == committed_candidates[0]
+    assert attempt_current_dispatch_id is None
 
 
 @contextmanager
@@ -297,11 +226,9 @@ def _run_acceptance_writer(
     return asyncio.run(_accept_start(database)).is_accepted
 
 
-def _close_starting_dispatch_for_successor_race(
-    database: StartingDispatchDatabase,
-) -> None:
+def _close_starting_dispatch(database: StartingDispatchDatabase) -> None:
     dispatches = RuntimeBase.metadata.tables["dispatch_turns"]
-    flows = RuntimeBase.metadata.tables["flows"]
+    attempts = RuntimeBase.metadata.tables["attempts"]
     with database.engine.begin() as connection:
         connection.execute(
             dispatches.update()
@@ -315,78 +242,7 @@ def _close_starting_dispatch_for_successor_race(
             )
         )
         connection.execute(
-            flows.update()
-            .where(flows.c.flow_id == database.ids.flow_id)
+            attempts.update()
+            .where(attempts.c.attempt_id == database.ids.root_attempt_id)
             .values(current_dispatch_id=None)
         )
-
-
-def _run_successor_writer(
-    database: StartingDispatchDatabase,
-    barrier: Barrier,
-    candidate_dispatch_id: str,
-) -> str:
-    barrier.wait(timeout=5)
-    try:
-        with database.engine.begin() as connection:
-            connection.execute(
-                RuntimeBase.metadata.tables["dispatch_turns"].insert(),
-                _starting_successor_row(database.ids, candidate_dispatch_id),
-            )
-            flows = RuntimeBase.metadata.tables["flows"]
-            connection.execute(
-                flows.update()
-                .where(
-                    flows.c.flow_id == database.ids.flow_id,
-                    flows.c.current_dispatch_id.is_(None),
-                )
-                .values(current_dispatch_id=candidate_dispatch_id)
-            )
-        return "committed"
-    except IntegrityError:
-        return "constraint_loser"
-
-
-def _starting_successor_row(
-    ids: RuntimeIds,
-    dispatch_id: str,
-) -> dict[str, object]:
-    return {
-        "dispatch_id": dispatch_id,
-        "task_id": ids.task_id,
-        "flow_id": ids.flow_id,
-        "assignment_id": ids.root_assignment_id,
-        "flow_revision_id": ids.flow_revision_id,
-        "flow_node_id": ids.root_node_id,
-        "team_revision_id": team_revision_id(ids),
-        "member_id": "root",
-        "member_configuration_id": member_configuration_id(ids, "root"),
-        "member_branch_basis_id": member_branch_basis_id(ids, "root"),
-        "attempt_id": ids.root_attempt_id,
-        "node_key": "root",
-        "flow_start_source_flow_id": None,
-        "predecessor_dispatch_id": ids.current_dispatch_id,
-        "status": "starting",
-        "opened_reason": "boundary",
-        "requested_provider": "codex",
-        "resolved_provider": "codex",
-        "provider_selection_basis": "default",
-        "provider_route_kind": "codex",
-        "model_override": None,
-        "model_source": "provider_configuration",
-        "effort_override": None,
-        "effort_source": "provider_configuration",
-        "gateway_profile": None,
-        "gateway_profile_source": None,
-        "provider_start_revision": 0,
-        "provider_start_attempt_count": 0,
-        "next_provider_start_at": START_DUE_AT,
-        "provider_start_retry_kind": "initial",
-        "provider_start_last_error_code": None,
-        "created_at": START_DUE_AT,
-        "adapter_started_at": None,
-        "last_node_activity_at": None,
-        "node_activity_revision": 0,
-        "closed_at": None,
-        "closed_reason": None,
-    }

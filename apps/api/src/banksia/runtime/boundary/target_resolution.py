@@ -27,9 +27,6 @@ from banksia.runtime.contracts.prompt import (
     ChildReturnTrigger,
     PromptAssignment,
     PromptCheckpointSummary,
-    SemanticRetryResult,
-    SemanticRetrySource,
-    SemanticRetryTrigger,
 )
 from banksia.runtime.dispatch.prompt_snapshot import BoundaryPromptTrigger
 
@@ -39,6 +36,7 @@ class BoundaryTarget:
     assignment_id: str
     attempt_id: str
     opened_reason: str
+    lane_predecessor_dispatch_id: str | None
     trigger: BoundaryPromptTrigger
 
 
@@ -52,12 +50,7 @@ async def resolve_boundary_target(
         return await _resolve_yield_target(session, boundary)
     checkpoint = await _read_boundary_checkpoint(session, boundary)
     if boundary.outcome == "retry":
-        return await _resolve_retry_target(
-            session,
-            boundary=boundary,
-            source_assignment=source_assignment,
-            checkpoint=checkpoint,
-        )
+        raise ValueError("semantic retry successor must be committed with its Checkpoint")
     return await _resolve_child_return_target(
         session,
         boundary=boundary,
@@ -115,47 +108,13 @@ async def _resolve_yield_target(
         assignment_id=decision.staged_child_assignment_id,
         attempt_id=decision.staged_child_attempt_id,
         opened_reason="boundary",
+        lane_predecessor_dispatch_id=None,
         trigger=AcceptedBoundaryTrigger(
             source=AcceptedBoundarySource(
                 accepted_boundary_id=boundary.accepted_boundary_id,
                 source_dispatch_id=boundary.source_dispatch_id,
             ),
             result=AcceptedBoundaryResult(outcome=EgressBoundary.YIELD),
-        ),
-    )
-
-
-async def _resolve_retry_target(
-    session: AsyncSession,
-    *,
-    boundary: AcceptedBoundaryModel,
-    source_assignment: AssignmentModel,
-    checkpoint: PromptCheckpointSummary,
-) -> BoundaryTarget:
-    retry_attempt_id = source_assignment.current_attempt_id
-    if retry_attempt_id is None or retry_attempt_id == boundary.attempt_id:
-        raise ValueError("retry boundary is missing its new semantic attempt")
-    retry_attempt = await session.scalar(
-        select(AttemptModel.attempt_id).where(
-            AttemptModel.attempt_id == retry_attempt_id,
-            AttemptModel.assignment_id == source_assignment.assignment_id,
-            AttemptModel.retry_of_attempt_id == boundary.attempt_id,
-            AttemptModel.status == "running",
-        )
-    )
-    if retry_attempt is None:
-        raise ValueError("retry boundary does not point to its exact retry attempt")
-    return BoundaryTarget(
-        assignment_id=source_assignment.assignment_id,
-        attempt_id=retry_attempt_id,
-        opened_reason="semantic_retry",
-        trigger=SemanticRetryTrigger(
-            source=SemanticRetrySource(
-                accepted_boundary_id=boundary.accepted_boundary_id,
-                source_dispatch_id=boundary.source_dispatch_id,
-                previous_attempt_id=boundary.attempt_id,
-            ),
-            result=SemanticRetryResult(checkpoint=checkpoint),
         ),
     )
 
@@ -182,6 +141,8 @@ async def _resolve_child_return_target(
     )
     if parent is None or parent.current_attempt_id is None:
         raise ValueError("child return is missing its exact current parent")
+    if source_assignment.created_by_dispatch_id is None:
+        raise ValueError("child return is missing its exact sequential wait source")
     if boundary.outcome == "green":
         child_outcome = EgressBoundary.GREEN
     elif boundary.outcome == "blocked":
@@ -196,6 +157,7 @@ async def _resolve_child_return_target(
         assignment_id=parent.assignment_id,
         attempt_id=parent.current_attempt_id,
         opened_reason="child_return",
+        lane_predecessor_dispatch_id=source_assignment.created_by_dispatch_id,
         trigger=ChildReturnTrigger(
             source=ChildReturnSource(
                 child_assignment_id=boundary.assignment_id,

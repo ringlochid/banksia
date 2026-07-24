@@ -85,6 +85,7 @@ class _TargetRuntimeContext:
 
 @dataclass(frozen=True, slots=True)
 class _BoundaryOpeningSnapshot:
+    source_dispatch_id: str
     source_committed_at: datetime
     flow_control_revision: int
     task_root_path: str
@@ -95,6 +96,7 @@ class _BoundaryOpeningSnapshot:
     source_outcome: str
     raw_provider_kind: str | None
     opened_reason: str
+    lane_predecessor_dispatch_id: str | None
     prompt: BoundaryPromptSnapshot
     provider: ProviderResolution
     capabilities: EffectiveCapabilitySet
@@ -267,6 +269,8 @@ async def _read_boundary_opening_snapshot(
     boundary, source_dispatch, flow = source_row
     if boundary.successor_dispatch_id is not None:
         return None
+    if boundary.outcome == "retry":
+        raise ValueError("semantic retry cannot be opened by boundary continuation")
     if source_dispatch.status != "closed" or source_dispatch.closed_reason != "boundary":
         raise ValueError("accepted boundary source dispatch is not closed by its boundary")
     source_assignment = await session.scalar(
@@ -298,8 +302,6 @@ async def _read_boundary_opening_snapshot(
             expected_control_revision is not None
             and flow.control_revision != expected_control_revision
         )
-        or flow.current_dispatch_id is not None
-        or flow.waiting_cause != "none"
         or (expected_flow_status == "paused" and flow.pause_reason is None)
     ):
         return None
@@ -389,6 +391,7 @@ async def _read_target_snapshot(
         assignment_files=assignment_files,
     )
     return _BoundaryOpeningSnapshot(
+        source_dispatch_id=boundary.source_dispatch_id,
         source_committed_at=boundary.committed_at,
         flow_control_revision=flow.control_revision,
         task_root_path=context.task.task_root_path,
@@ -399,6 +402,7 @@ async def _read_target_snapshot(
         source_outcome=boundary.outcome,
         raw_provider_kind=node.provider_kind,
         opened_reason=target.opened_reason,
+        lane_predecessor_dispatch_id=target.lane_predecessor_dispatch_id,
         prompt=prompt,
         provider=provider,
         capabilities=capabilities,
@@ -548,7 +552,6 @@ def _build_boundary_prompt(
         paths=paths,
         node_kind=node.structural_kind,
         parent_assignment_id=assignment.parent_assignment_id,
-        predecessor_dispatch_id=boundary.source_dispatch_id,
         trigger=target.trigger,
     )
 

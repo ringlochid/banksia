@@ -11,19 +11,15 @@ from sqlalchemy.sql.elements import ColumnElement
 from banksia.persistence.models import (
     AssignmentModel,
     AttemptModel,
-    CommandRunModel,
     CompiledPlanModel,
     DispatchTurnModel,
     FlowModel,
     FlowNodeModel,
-    FlowWaitModel,
-    HumanRequestModel,
     NodePlanRevisionModel,
     TaskModel,
     WorkflowRevisionModel,
     WorkspaceBindingModel,
 )
-from banksia.persistence.models.runtime.common import COMMAND_RUN_TERMINAL_STATE_VALUES
 from banksia.runtime.assignment import read_assignment_file_references
 from banksia.runtime.capabilities import resolve_effective_capabilities_for_node
 from banksia.runtime.contracts.capabilities import EffectiveCapabilitySet
@@ -108,7 +104,7 @@ async def read_ordinary_dispatch_snapshot(
         expected_flow_status=expected_flow_status,
         expected_control_revision=expected_control_revision,
     )
-    if context is None or await _has_active_external_wait(session, flow_id=basis.flow_id):
+    if context is None:
         return None
     _validate_ordinary_runtime_context(context, basis=basis)
 
@@ -221,6 +217,8 @@ def ordinary_context_is_current(snapshot: OrdinaryDispatchSnapshot) -> ColumnEle
             AttemptModel.flow_id == prompt.flow_id,
             AttemptModel.node_key == prompt.node_key,
             AttemptModel.status == "running",
+            AttemptModel.current_dispatch_id.is_(None),
+            AttemptModel.current_wait_id.is_(None),
         )
         & exists().where(
             TaskModel.task_id == prompt.task_id,
@@ -230,15 +228,6 @@ def ordinary_context_is_current(snapshot: OrdinaryDispatchSnapshot) -> ColumnEle
         & exists().where(
             WorkspaceBindingModel.task_id == prompt.task_id,
             WorkspaceBindingModel.normalized_root_path == snapshot.workspace_root_path,
-        )
-        & ~exists().where(FlowWaitModel.flow_id == prompt.flow_id)
-        & ~exists().where(
-            HumanRequestModel.flow_id == prompt.flow_id,
-            HumanRequestModel.status == "open",
-        )
-        & ~exists().where(
-            CommandRunModel.flow_id == prompt.flow_id,
-            CommandRunModel.state.not_in(COMMAND_RUN_TERMINAL_STATE_VALUES),
         )
     )
 
@@ -379,8 +368,9 @@ async def _read_ordinary_runtime_context(
             AssignmentModel.task_id == basis.task_id,
             AssignmentModel.flow_id == basis.flow_id,
             FlowModel.status == expected_flow_status,
-            FlowModel.current_dispatch_id.is_(None),
-            FlowModel.waiting_cause == "none",
+            AttemptModel.status == "running",
+            AttemptModel.current_dispatch_id.is_(None),
+            AttemptModel.current_wait_id.is_(None),
             TaskModel.current_team_revision_id == FlowNodeModel.team_revision_id,
         )
     )
@@ -412,6 +402,8 @@ def _validate_ordinary_runtime_context(
         or assignment.current_attempt_id != attempt.attempt_id
         or assignment.superseded_at is not None
         or attempt.status != "running"
+        or attempt.current_dispatch_id is not None
+        or attempt.current_wait_id is not None
         or node_plan.task_id != node.task_id
         or node_plan.team_revision_id != node.team_revision_id
         or node_plan.member_id != node.member_id
@@ -423,23 +415,6 @@ def _validate_ordinary_runtime_context(
         or context.task.current_team_revision_id != node.team_revision_id
     ):
         raise ValueError("ordinary continuation has inconsistent exact runtime context")
-
-
-async def _has_active_external_wait(session: AsyncSession, *, flow_id: str) -> bool:
-    active_wait = await session.scalar(
-        select(
-            exists().where(FlowWaitModel.flow_id == flow_id)
-            | exists().where(
-                HumanRequestModel.flow_id == flow_id,
-                HumanRequestModel.status == "open",
-            )
-            | exists().where(
-                CommandRunModel.flow_id == flow_id,
-                CommandRunModel.state.not_in(COMMAND_RUN_TERMINAL_STATE_VALUES),
-            )
-        )
-    )
-    return bool(active_wait)
 
 
 __all__ = [

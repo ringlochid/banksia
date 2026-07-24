@@ -4,13 +4,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 
-from sqlalchemy import Select, and_, false, func, or_, select
+from sqlalchemy import Select, false, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import raiseload
 
 from banksia.config import get_settings
 from banksia.persistence.models import (
     AssignmentModel,
+    AttemptModel,
     DispatchCapabilitySetModel,
     DispatchTurnModel,
     FlowModel,
@@ -115,7 +116,10 @@ async def read_runtime_flow(session: AsyncSession, task_id: str) -> RuntimeFlowR
         current_node_key=target.node_key if target is not None else None,
         active_assignment_id=target.assignment_id if target is not None else None,
         active_attempt_id=target.attempt_id if target is not None else None,
-        waiting_cause=normalized_waiting_cause(flow.waiting_cause),
+        waiting_cause=normalized_waiting_cause(
+            has_human_request=current_sources.human_request is not None,
+            has_command_run=current_sources.command_run is not None,
+        ),
         pause_reason=normalized_pause_reason(flow.pause_reason),
         current_dispatch=current_dispatch,
         latest_dispatch_id=latest_dispatch_id,
@@ -131,26 +135,42 @@ async def read_current_dispatch(
     session: AsyncSession,
     flow: FlowModel,
 ) -> DispatchRuntimeRead | None:
-    if flow.current_dispatch_id is None:
-        return None
-    row = (
+    rows = (
         await session.execute(
             select(DispatchTurnModel, DispatchCapabilitySetModel)
+            .join(
+                AttemptModel,
+                (AttemptModel.task_id == DispatchTurnModel.task_id)
+                & (AttemptModel.flow_id == DispatchTurnModel.flow_id)
+                & (AttemptModel.assignment_id == DispatchTurnModel.assignment_id)
+                & (AttemptModel.attempt_id == DispatchTurnModel.attempt_id)
+                & (AttemptModel.current_dispatch_id == DispatchTurnModel.dispatch_id),
+            )
             .join(
                 DispatchCapabilitySetModel,
                 DispatchCapabilitySetModel.dispatch_id == DispatchTurnModel.dispatch_id,
             )
             .options(raiseload("*"))
             .where(
-                DispatchTurnModel.dispatch_id == flow.current_dispatch_id,
                 DispatchTurnModel.task_id == flow.task_id,
                 DispatchTurnModel.flow_id == flow.flow_id,
                 DispatchTurnModel.status.in_(("starting", "open")),
+                AttemptModel.status == "running",
+                AttemptModel.current_wait_id.is_(None),
             )
+            .order_by(
+                AttemptModel.assignment_id,
+                AttemptModel.attempt_id,
+                DispatchTurnModel.dispatch_id,
+            )
+            .limit(2)
         )
-    ).one_or_none()
-    if row is None:
-        raise illegal_state_error("flow current-dispatch pointer is inconsistent")
+    ).all()
+    if len(rows) > 1:
+        raise illegal_state_error("task has more than one active sequential Dispatch")
+    if not rows:
+        return None
+    row = rows[0]
     dispatch, capabilities = row
     provider_start = (
         ProviderStartReadback(
@@ -225,18 +245,13 @@ async def list_runtime_flow_summaries(
     rows = list((await session.execute(statement.limit(limit + 1))).all())
     page = rows[:limit]
     summaries: list[RuntimeFlowSummary] = []
-    for task, flow, dispatch, root_assignment in page:
+    for task, flow, root_assignment in page:
         if flow.active_flow_revision_id is None:
             raise illegal_state_error(f"task '{task.task_id}' has no active flow revision")
-        if dispatch is not None:
-            current_node_key = dispatch.node_key
-            active_assignment_id = dispatch.assignment_id
-            active_attempt_id = dispatch.attempt_id
-        else:
-            target = (await read_runtime_flow_current_sources(session, flow)).target
-            current_node_key = target.node_key if target is not None else None
-            active_assignment_id = target.assignment_id if target is not None else None
-            active_attempt_id = target.attempt_id if target is not None else None
+        target = (await read_runtime_flow_current_sources(session, flow)).target
+        current_node_key = target.node_key if target is not None else None
+        active_assignment_id = target.assignment_id if target is not None else None
+        active_attempt_id = target.attempt_id if target is not None else None
         task_title, task_summary = _task_prompt_excerpts(root_assignment.prompt)
         summaries.append(
             RuntimeFlowSummary(
@@ -265,9 +280,9 @@ def runtime_flow_summary_statement(
     q: str | None,
     status: str,
     sort: str,
-) -> Select[tuple[TaskModel, FlowModel, DispatchTurnModel, AssignmentModel]]:
+) -> Select[tuple[TaskModel, FlowModel, AssignmentModel]]:
     statement = (
-        select(TaskModel, FlowModel, DispatchTurnModel, AssignmentModel)
+        select(TaskModel, FlowModel, AssignmentModel)
         .join(FlowModel, FlowModel.task_id == TaskModel.task_id)
         .join(
             AssignmentModel,
@@ -275,13 +290,6 @@ def runtime_flow_summary_statement(
             & (AssignmentModel.flow_id == FlowModel.flow_id)
             & AssignmentModel.parent_assignment_id.is_(None)
             & AssignmentModel.superseded_at.is_(None),
-        )
-        .outerjoin(
-            DispatchTurnModel,
-            and_(
-                DispatchTurnModel.flow_id == FlowModel.flow_id,
-                DispatchTurnModel.dispatch_id == FlowModel.current_dispatch_id,
-            ),
         )
         .options(raiseload("*"))
     )
@@ -340,10 +348,18 @@ def normalized_pause_reason(
     return cast(RuntimeFlowPauseReason, pause_reason)
 
 
-def normalized_waiting_cause(waiting_cause: str) -> RuntimeFlowWaitingCause | None:
-    if waiting_cause not in {"human_request", "command_run"}:
-        return None
-    return cast(RuntimeFlowWaitingCause, waiting_cause)
+def normalized_waiting_cause(
+    *,
+    has_human_request: bool,
+    has_command_run: bool,
+) -> RuntimeFlowWaitingCause | None:
+    if has_human_request and has_command_run:
+        raise illegal_state_error("task has more than one active external wait")
+    if has_human_request:
+        return "human_request"
+    if has_command_run:
+        return "command_run"
+    return None
 
 
 def normalized_terminal_outcome(
@@ -415,9 +431,9 @@ def _task_prompt_excerpts(prompt: str) -> tuple[str, str]:
 
 
 def _filter_runtime_flow_status(
-    statement: Select[tuple[TaskModel, FlowModel, DispatchTurnModel, AssignmentModel]],
+    statement: Select[tuple[TaskModel, FlowModel, AssignmentModel]],
     status: str,
-) -> Select[tuple[TaskModel, FlowModel, DispatchTurnModel, AssignmentModel]]:
+) -> Select[tuple[TaskModel, FlowModel, AssignmentModel]]:
     if status == "any":
         return statement
     if status == "pending":

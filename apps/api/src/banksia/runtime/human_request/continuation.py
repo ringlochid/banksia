@@ -7,7 +7,7 @@ from sqlalchemy import exists, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import raiseload
 
-from banksia.persistence.models import FlowModel, HumanRequestModel
+from banksia.persistence.models import AttemptModel, FlowModel, HumanRequestModel
 from banksia.runtime.contracts import (
     FileReference,
     HumanRequestOpenRequest,
@@ -151,19 +151,30 @@ async def pause_failed_human_request_continuation(
 ) -> None:
     """Pause only while the exact terminal human source remains consumable."""
 
-    source_is_unconsumed = exists().where(
-        HumanRequestModel.request_id == request_id,
-        HumanRequestModel.flow_id == FlowModel.flow_id,
-        HumanRequestModel.task_id == FlowModel.task_id,
-        HumanRequestModel.status.in_(_TERMINAL_HUMAN_REQUEST_STATUSES),
-        HumanRequestModel.successor_dispatch_id.is_(None),
+    source_is_unconsumed = exists(
+        select(HumanRequestModel.request_id)
+        .join(
+            AttemptModel,
+            (AttemptModel.task_id == HumanRequestModel.task_id)
+            & (AttemptModel.flow_id == HumanRequestModel.flow_id)
+            & (AttemptModel.assignment_id == HumanRequestModel.assignment_id)
+            & (AttemptModel.attempt_id == HumanRequestModel.attempt_id),
+        )
+        .where(
+            HumanRequestModel.request_id == request_id,
+            HumanRequestModel.flow_id == FlowModel.flow_id,
+            HumanRequestModel.task_id == FlowModel.task_id,
+            HumanRequestModel.status.in_(_TERMINAL_HUMAN_REQUEST_STATUSES),
+            HumanRequestModel.successor_dispatch_id.is_(None),
+            AttemptModel.status == "running",
+            AttemptModel.current_dispatch_id.is_(None),
+            AttemptModel.current_wait_id.is_(None),
+        )
     )
     await session.execute(
         update(FlowModel)
         .where(
             FlowModel.status == "running",
-            FlowModel.current_dispatch_id.is_(None),
-            FlowModel.waiting_cause == "none",
             source_is_unconsumed,
         )
         .values(

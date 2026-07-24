@@ -25,7 +25,6 @@ def build_flow_row(
         compiled_plan_id=context.compiled_plan_id,
         status="running",
         active_flow_revision_id=bootstrap_input.active_flow_revision_id,
-        current_dispatch_id=None,
     )
 
 

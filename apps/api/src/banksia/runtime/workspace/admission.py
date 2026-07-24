@@ -13,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from banksia.persistence.models import (
+    AttemptModel,
     DispatchTurnModel,
     FlowModel,
     TaskModel,
@@ -392,13 +393,21 @@ async def _read_recovered_provider_start(
                 DispatchTurnModel.next_provider_start_at,
             )
             .join(
-                FlowModel,
-                (FlowModel.flow_id == DispatchTurnModel.flow_id)
-                & (FlowModel.current_dispatch_id == DispatchTurnModel.dispatch_id),
+                AttemptModel,
+                (AttemptModel.task_id == DispatchTurnModel.task_id)
+                & (AttemptModel.flow_id == DispatchTurnModel.flow_id)
+                & (AttemptModel.assignment_id == DispatchTurnModel.assignment_id)
+                & (AttemptModel.attempt_id == DispatchTurnModel.attempt_id)
+                & (AttemptModel.current_dispatch_id == DispatchTurnModel.dispatch_id),
             )
+            .join(FlowModel, FlowModel.flow_id == DispatchTurnModel.flow_id)
             .where(
                 DispatchTurnModel.task_id == task_id,
                 DispatchTurnModel.status == "starting",
+                AttemptModel.status == "running",
+                AttemptModel.current_wait_id.is_(None),
+                FlowModel.status == "running",
+                FlowModel.active_flow_revision_id == DispatchTurnModel.flow_revision_id,
             )
         )
     ).one_or_none()

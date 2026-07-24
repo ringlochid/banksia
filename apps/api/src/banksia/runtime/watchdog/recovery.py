@@ -6,11 +6,12 @@ from datetime import UTC, datetime
 from typing import Literal
 from uuid import uuid4
 
-from sqlalchemy import select, update
+from sqlalchemy import exists, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import raiseload
+from sqlalchemy.sql.elements import ColumnElement
 
-from banksia.persistence.models import DispatchTurnModel, FlowModel
+from banksia.persistence.models import AttemptModel, DispatchTurnModel, FlowModel
 from banksia.runtime.contracts import TaskEventSource, TaskEventType
 from banksia.runtime.dispatch.opening import StartingDispatchBasis, stage_starting_dispatch
 from banksia.runtime.dispatch.preparation import (
@@ -150,6 +151,7 @@ async def recover_stale_dispatch(
     )
     if not committed:
         return WatchdogRecoveryResult(outcome="skipped")
+    _publish_cleanup(dependencies, signal.dispatch_id)
     _publish_dispatch_start(dependencies, prepared)
     return WatchdogRecoveryResult(outcome="opened", dispatch_id=prepared.dispatch_id)
 
@@ -167,17 +169,15 @@ async def _commit_watchdog_replacement(
         await session.rollback()
         return False
 
+    if not await _claim_watchdog_replacement_flow(
+        session,
+        snapshot=snapshot,
+    ):
+        return False
     if not await _close_watchdog_source_dispatch(
         session,
         snapshot=snapshot,
         closed_at=committed_at,
-    ):
-        return False
-    if not await _claim_watchdog_replacement_flow(
-        session,
-        snapshot=snapshot,
-        prepared=prepared,
-        committed_at=committed_at,
     ):
         return False
 
@@ -256,8 +256,6 @@ async def _claim_watchdog_replacement_flow(
     session: AsyncSession,
     *,
     snapshot: WatchdogRecoverySnapshot,
-    prepared: PreparedDispatchRequest,
-    committed_at: datetime,
 ) -> bool:
     dispatch = snapshot.dispatch
     prompt = dispatch.prompt
@@ -269,18 +267,13 @@ async def _claim_watchdog_replacement_flow(
             FlowModel.compiled_plan_id == dispatch.compiled_plan_id,
             FlowModel.status == "running",
             FlowModel.active_flow_revision_id == prompt.flow_revision_id,
-            FlowModel.current_dispatch_id == prompt.predecessor_dispatch_id,
-            FlowModel.waiting_cause == "none",
             FlowModel.control_revision == dispatch.flow_control_revision,
+            watchdog_context_is_current(snapshot),
             watchdog_replacement_count_matches(snapshot),
             dispatch_has_no_external_source(prompt.predecessor_dispatch_id),
             dispatch_has_no_successor(prompt.predecessor_dispatch_id),
         )
-        .values(
-            current_dispatch_id=prepared.dispatch_id,
-            control_revision=FlowModel.control_revision + 1,
-            updated_at=committed_at,
-        )
+        .values(updated_at=FlowModel.updated_at)
         .returning(FlowModel.flow_id)
     )
     if updated_flow_id is None:
@@ -299,48 +292,23 @@ async def _pause_watchdog_snapshot(
 ) -> bool:
     dispatch = snapshot.dispatch
     prompt = dispatch.prompt
-    closed_dispatch_id = await session.scalar(
-        update(DispatchTurnModel)
-        .where(
-            DispatchTurnModel.dispatch_id == prompt.predecessor_dispatch_id,
-            DispatchTurnModel.task_id == prompt.task_id,
-            DispatchTurnModel.flow_id == prompt.flow_id,
-            DispatchTurnModel.assignment_id == prompt.assignment_id,
-            DispatchTurnModel.attempt_id == prompt.attempt_id,
-            DispatchTurnModel.status == "open",
-            DispatchTurnModel.adapter_started_at == snapshot.adapter_started_at,
-            nullable_datetime_matches(
-                DispatchTurnModel.last_node_activity_at,
-                snapshot.last_node_activity_at,
-            ),
-            DispatchTurnModel.node_activity_revision == snapshot.activity_revision,
-            watchdog_context_is_current(snapshot),
-            watchdog_replacement_count_matches(snapshot),
-            dispatch_has_no_external_source(prompt.predecessor_dispatch_id),
-            dispatch_has_no_successor(prompt.predecessor_dispatch_id),
-        )
-        .values(
-            status="closed",
-            closed_at=paused_at,
-            closed_reason="control_failed",
-            next_provider_start_at=None,
-            provider_start_retry_kind=None,
-        )
-        .returning(DispatchTurnModel.dispatch_id)
-    )
-    if closed_dispatch_id is None:
-        await session.rollback()
-        return False
     return await _commit_watchdog_pause(
         session,
         task_id=prompt.task_id,
         flow_id=prompt.flow_id,
         flow_revision_id=prompt.flow_revision_id,
         dispatch_id=prompt.predecessor_dispatch_id,
+        assignment_id=prompt.assignment_id,
         attempt_id=prompt.attempt_id,
         node_key=prompt.node_key,
         compiled_plan_id=dispatch.compiled_plan_id,
         control_revision=dispatch.flow_control_revision,
+        adapter_started_at=snapshot.adapter_started_at,
+        last_node_activity_at=snapshot.last_node_activity_at,
+        activity_revision=snapshot.activity_revision,
+        source_is_current=(
+            watchdog_context_is_current(snapshot) & watchdog_replacement_count_matches(snapshot)
+        ),
         paused_at=paused_at,
         pause_reason=pause_reason,
         failure_code=failure_code,
@@ -363,23 +331,21 @@ async def _pause_failed_watchdog_signal(
     )
     if candidate is None:
         return False
-    if not await _close_failed_watchdog_dispatch(
-        session,
-        signal=signal,
-        candidate=candidate,
-        closed_at=paused_at,
-    ):
-        return False
     return await _commit_watchdog_pause(
         session,
         task_id=candidate.task_id,
         flow_id=candidate.flow_id,
         flow_revision_id=candidate.flow_revision_id,
         dispatch_id=candidate.dispatch_id,
+        assignment_id=candidate.assignment_id,
         attempt_id=candidate.attempt_id,
         node_key=candidate.node_key,
         compiled_plan_id=candidate.compiled_plan_id,
         control_revision=candidate.control_revision,
+        adapter_started_at=candidate.adapter_started_at,
+        last_node_activity_at=candidate.last_node_activity_at,
+        activity_revision=signal.activity_revision,
+        source_is_current=_failed_watchdog_candidate_is_current(candidate, signal),
         paused_at=paused_at,
         pause_reason="runtime_transition_failed",
         failure_code=failure_code,
@@ -395,23 +361,31 @@ async def _read_failed_watchdog_candidate(
 ) -> _FailedWatchdogCandidate | None:
     row = (
         await session.execute(
-            select(DispatchTurnModel, FlowModel)
+            select(DispatchTurnModel, FlowModel, AttemptModel)
             .options(raiseload("*"))
             .join(FlowModel, FlowModel.flow_id == DispatchTurnModel.flow_id)
+            .join(
+                AttemptModel,
+                (AttemptModel.task_id == DispatchTurnModel.task_id)
+                & (AttemptModel.flow_id == DispatchTurnModel.flow_id)
+                & (AttemptModel.assignment_id == DispatchTurnModel.assignment_id)
+                & (AttemptModel.attempt_id == DispatchTurnModel.attempt_id),
+            )
             .where(DispatchTurnModel.dispatch_id == signal.dispatch_id)
         )
     ).one_or_none()
     if row is None:
         await session.rollback()
         return None
-    dispatch, flow = row
+    dispatch, flow, attempt = row
     if (
         dispatch.status != "open"
         or dispatch.adapter_started_at is None
         or dispatch.node_activity_revision != signal.activity_revision
         or flow.status != "running"
-        or flow.current_dispatch_id != dispatch.dispatch_id
-        or flow.waiting_cause != "none"
+        or attempt.status != "running"
+        or attempt.current_dispatch_id != dispatch.dispatch_id
+        or attempt.current_wait_id is not None
         or await dispatch_owns_external_source(session, dispatch_id=dispatch.dispatch_id)
     ):
         await session.rollback()
@@ -442,44 +416,32 @@ async def _read_failed_watchdog_candidate(
     return candidate
 
 
-async def _close_failed_watchdog_dispatch(
-    session: AsyncSession,
-    *,
-    signal: WatchdogDue,
+def _failed_watchdog_candidate_is_current(
     candidate: _FailedWatchdogCandidate,
-    closed_at: datetime,
-) -> bool:
-    closed_dispatch_id = await session.scalar(
-        update(DispatchTurnModel)
-        .where(
-            DispatchTurnModel.dispatch_id == candidate.dispatch_id,
-            DispatchTurnModel.task_id == candidate.task_id,
-            DispatchTurnModel.flow_id == candidate.flow_id,
-            DispatchTurnModel.assignment_id == candidate.assignment_id,
-            DispatchTurnModel.attempt_id == candidate.attempt_id,
-            DispatchTurnModel.status == "open",
-            DispatchTurnModel.adapter_started_at == candidate.adapter_started_at,
-            nullable_datetime_matches(
-                DispatchTurnModel.last_node_activity_at,
-                candidate.last_node_activity_at,
-            ),
-            DispatchTurnModel.node_activity_revision == signal.activity_revision,
-            dispatch_has_no_external_source(candidate.dispatch_id),
-            dispatch_has_no_successor(candidate.dispatch_id),
-        )
-        .values(
-            status="closed",
-            closed_at=closed_at,
-            closed_reason="control_failed",
-            next_provider_start_at=None,
-            provider_start_retry_kind=None,
-        )
-        .returning(DispatchTurnModel.dispatch_id)
+    signal: WatchdogDue,
+) -> ColumnElement[bool]:
+    return exists().where(
+        AttemptModel.task_id == candidate.task_id,
+        AttemptModel.flow_id == candidate.flow_id,
+        AttemptModel.assignment_id == candidate.assignment_id,
+        AttemptModel.attempt_id == candidate.attempt_id,
+        AttemptModel.status == "running",
+        AttemptModel.current_dispatch_id == candidate.dispatch_id,
+        AttemptModel.current_wait_id.is_(None),
+    ) & exists().where(
+        DispatchTurnModel.dispatch_id == candidate.dispatch_id,
+        DispatchTurnModel.task_id == candidate.task_id,
+        DispatchTurnModel.flow_id == candidate.flow_id,
+        DispatchTurnModel.assignment_id == candidate.assignment_id,
+        DispatchTurnModel.attempt_id == candidate.attempt_id,
+        DispatchTurnModel.status == "open",
+        DispatchTurnModel.adapter_started_at == candidate.adapter_started_at,
+        nullable_datetime_matches(
+            DispatchTurnModel.last_node_activity_at,
+            candidate.last_node_activity_at,
+        ),
+        DispatchTurnModel.node_activity_revision == signal.activity_revision,
     )
-    if closed_dispatch_id is None:
-        await session.rollback()
-        return False
-    return True
 
 
 async def _commit_watchdog_pause(
@@ -489,10 +451,15 @@ async def _commit_watchdog_pause(
     flow_id: str,
     flow_revision_id: str,
     dispatch_id: str,
+    assignment_id: str,
     attempt_id: str,
     node_key: str,
     compiled_plan_id: str,
     control_revision: int,
+    adapter_started_at: datetime,
+    last_node_activity_at: datetime | None,
+    activity_revision: int,
+    source_is_current: ColumnElement[bool],
     paused_at: datetime,
     pause_reason: str,
     failure_code: str | None,
@@ -511,15 +478,13 @@ async def _commit_watchdog_pause(
             FlowModel.compiled_plan_id == compiled_plan_id,
             FlowModel.status == "running",
             FlowModel.active_flow_revision_id == flow_revision_id,
-            FlowModel.current_dispatch_id == dispatch_id,
-            FlowModel.waiting_cause == "none",
             FlowModel.control_revision == control_revision,
+            source_is_current,
             dispatch_has_no_external_source(dispatch_id),
             dispatch_has_no_successor(dispatch_id),
         )
         .values(
             status="paused",
-            current_dispatch_id=None,
             pause_reason=pause_reason,
             pause_details=details,
             paused_at=paused_at,
@@ -530,6 +495,53 @@ async def _commit_watchdog_pause(
         .returning(FlowModel.flow_id)
     )
     if updated_flow_id is None:
+        await session.rollback()
+        return False
+    closed_dispatch_id = await session.scalar(
+        update(DispatchTurnModel)
+        .where(
+            DispatchTurnModel.dispatch_id == dispatch_id,
+            DispatchTurnModel.task_id == task_id,
+            DispatchTurnModel.flow_id == flow_id,
+            DispatchTurnModel.assignment_id == assignment_id,
+            DispatchTurnModel.attempt_id == attempt_id,
+            DispatchTurnModel.status == "open",
+            DispatchTurnModel.adapter_started_at == adapter_started_at,
+            nullable_datetime_matches(
+                DispatchTurnModel.last_node_activity_at,
+                last_node_activity_at,
+            ),
+            DispatchTurnModel.node_activity_revision == activity_revision,
+            dispatch_has_no_external_source(dispatch_id),
+            dispatch_has_no_successor(dispatch_id),
+        )
+        .values(
+            status="closed",
+            closed_at=paused_at,
+            closed_reason="control_failed",
+            next_provider_start_at=None,
+            provider_start_retry_kind=None,
+        )
+        .returning(DispatchTurnModel.dispatch_id)
+    )
+    if closed_dispatch_id is None:
+        await session.rollback()
+        return False
+    cleared_attempt_id = await session.scalar(
+        update(AttemptModel)
+        .where(
+            AttemptModel.task_id == task_id,
+            AttemptModel.flow_id == flow_id,
+            AttemptModel.assignment_id == assignment_id,
+            AttemptModel.attempt_id == attempt_id,
+            AttemptModel.status == "running",
+            AttemptModel.current_dispatch_id == dispatch_id,
+            AttemptModel.current_wait_id.is_(None),
+        )
+        .values(current_dispatch_id=None)
+        .returning(AttemptModel.attempt_id)
+    )
+    if cleared_attempt_id is None:
         await session.rollback()
         return False
     await append_task_event(

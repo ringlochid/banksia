@@ -3,7 +3,7 @@ from __future__ import annotations
 import sqlite3
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Never
 
 from sqlalchemy import and_, case, exists, select, true, update
 from sqlalchemy.exc import DBAPIError
@@ -21,6 +21,10 @@ from banksia.persistence.models import (
 )
 from banksia.runtime.contracts.member import NodeKind
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
+from banksia.runtime.dispatch.currentness import (
+    AttemptDispatchIdentity,
+    attempt_dispatch_is_current,
+)
 from banksia.runtime.errors import RuntimeOperationError, stale_dispatch_error
 
 if TYPE_CHECKING:
@@ -37,6 +41,7 @@ class NodeOperationAuthority:
     node_key: str
     node_kind: NodeKind
     flow_revision_id: str
+    flow_control_revision: int
     work_plan_revision: int
     dispatch_status: str
     opened_reason: str
@@ -83,6 +88,7 @@ async def read_node_operation_authority(
         node_key=dispatch.node_key,
         node_kind=NodeKind(flow_node.structural_kind),
         flow_revision_id=flow_revision_id,
+        flow_control_revision=flow.control_revision,
         work_plan_revision=assignment.work_plan_revision,
         dispatch_status=dispatch.status,
         opened_reason=dispatch.opened_reason,
@@ -102,35 +108,39 @@ async def refresh_node_activity(
     *,
     occurred_at: datetime,
 ) -> NodeActivityRefresh:
-    result = await session.execute(
-        update(DispatchTurnModel)
-        .where(
-            DispatchTurnModel.dispatch_id == authority.dispatch_id,
-            DispatchTurnModel.task_id == authority.task_id,
-            DispatchTurnModel.assignment_id == authority.assignment_id,
-            DispatchTurnModel.attempt_id == authority.attempt_id,
-            DispatchTurnModel.status.in_(("starting", "open")),
-            exact_node_operation_authority_exists(authority),
-        )
-        .values(
-            last_node_activity_at=case(
-                (
-                    DispatchTurnModel.last_node_activity_at.is_(None),
-                    occurred_at,
+    await claim_exact_node_operation_flow(session, authority)
+    try:
+        result = await session.execute(
+            update(DispatchTurnModel)
+            .where(
+                DispatchTurnModel.dispatch_id == authority.dispatch_id,
+                DispatchTurnModel.task_id == authority.task_id,
+                DispatchTurnModel.assignment_id == authority.assignment_id,
+                DispatchTurnModel.attempt_id == authority.attempt_id,
+                DispatchTurnModel.status.in_(("starting", "open")),
+                exact_node_operation_authority_exists(authority),
+            )
+            .values(
+                last_node_activity_at=case(
+                    (
+                        DispatchTurnModel.last_node_activity_at.is_(None),
+                        occurred_at,
+                    ),
+                    (
+                        DispatchTurnModel.last_node_activity_at < occurred_at,
+                        occurred_at,
+                    ),
+                    else_=DispatchTurnModel.last_node_activity_at,
                 ),
-                (
-                    DispatchTurnModel.last_node_activity_at < occurred_at,
-                    occurred_at,
-                ),
-                else_=DispatchTurnModel.last_node_activity_at,
-            ),
-            node_activity_revision=DispatchTurnModel.node_activity_revision + 1,
+                node_activity_revision=DispatchTurnModel.node_activity_revision + 1,
+            )
+            .returning(
+                DispatchTurnModel.node_activity_revision,
+                DispatchTurnModel.last_node_activity_at,
+            )
         )
-        .returning(
-            DispatchTurnModel.node_activity_revision,
-            DispatchTurnModel.last_node_activity_at,
-        )
-    )
+    except DBAPIError as exc:
+        _raise_expected_transition_contention(exc)
     row = result.one_or_none()
     if row is None:
         raise stale_dispatch_error("dispatch lost currentness before Node activity admission")
@@ -147,6 +157,7 @@ async def claim_exact_node_operation_transition(
     authority: NodeOperationAuthority,
 ) -> None:
     """Establish the short exact-dispatch transaction boundary for a mutation."""
+    await claim_exact_node_operation_flow(session, authority)
     try:
         claimed_dispatch_id = await session.scalar(
             update(DispatchTurnModel)
@@ -172,17 +183,41 @@ async def claim_exact_node_operation_transition(
             .returning(DispatchTurnModel.dispatch_id)
         )
     except DBAPIError as exc:
-        if not _is_expected_transition_contention(exc):
-            raise
-        raise RuntimeOperationError(
-            code=OperationFailureCode.CONFLICT,
-            summary="another Node operation won the exact dispatch transition",
-            is_retryable=False,
-        ) from exc
+        _raise_expected_transition_contention(exc)
     if claimed_dispatch_id is None:
         raise RuntimeOperationError(
             code=OperationFailureCode.CONFLICT,
             summary="another transition changed exact dispatch authority",
+            is_retryable=False,
+        )
+
+
+async def claim_exact_node_operation_flow(
+    session: AsyncSession,
+    authority: NodeOperationAuthority,
+) -> None:
+    """Lock and validate the exact running Flow before any Node-owned row."""
+
+    try:
+        claimed_flow_id = await session.scalar(
+            update(FlowModel)
+            .where(
+                FlowModel.flow_id == authority.flow_id,
+                FlowModel.task_id == authority.task_id,
+                FlowModel.status == "running",
+                FlowModel.active_flow_revision_id == authority.flow_revision_id,
+                FlowModel.control_revision == authority.flow_control_revision,
+                exact_node_operation_authority_exists(authority),
+            )
+            .values(control_revision=FlowModel.control_revision)
+            .returning(FlowModel.flow_id)
+        )
+    except DBAPIError as exc:
+        _raise_expected_transition_contention(exc)
+    if claimed_flow_id is None:
+        raise RuntimeOperationError(
+            code=OperationFailureCode.CONFLICT,
+            summary="another transition changed exact Flow authority",
             is_retryable=False,
         )
 
@@ -192,13 +227,22 @@ def exact_node_operation_authority_exists(
 ) -> ColumnElement[bool]:
     """Build the exact-current predicate for one operation-owned write."""
     return and_(
+        attempt_dispatch_is_current(
+            AttemptDispatchIdentity(
+                task_id=authority.task_id,
+                flow_id=authority.flow_id,
+                assignment_id=authority.assignment_id,
+                attempt_id=authority.attempt_id,
+                dispatch_id=authority.dispatch_id,
+            )
+        ),
         exists(
             select(FlowModel.flow_id).where(
                 FlowModel.flow_id == authority.flow_id,
                 FlowModel.task_id == authority.task_id,
                 FlowModel.status == "running",
-                FlowModel.current_dispatch_id == authority.dispatch_id,
                 FlowModel.active_flow_revision_id == authority.flow_revision_id,
+                FlowModel.control_revision == authority.flow_control_revision,
             )
         ),
         exists(
@@ -215,6 +259,7 @@ def exact_node_operation_authority_exists(
                 DispatchTurnModel.assignment_id == authority.assignment_id,
                 DispatchTurnModel.attempt_id == authority.attempt_id,
                 DispatchTurnModel.node_key == authority.node_key,
+                DispatchTurnModel.flow_revision_id == authority.flow_revision_id,
                 DispatchTurnModel.status.in_(("starting", "open")),
                 _managed_provider_start_revision_matches(authority),
             )
@@ -229,16 +274,6 @@ def exact_node_operation_authority_exists(
                 AssignmentModel.current_attempt_id == authority.attempt_id,
                 AssignmentModel.closed_at.is_(None),
                 AssignmentModel.superseded_at.is_(None),
-            )
-        ),
-        exists(
-            select(AttemptModel.attempt_id).where(
-                AttemptModel.attempt_id == authority.attempt_id,
-                AttemptModel.assignment_id == authority.assignment_id,
-                AttemptModel.task_id == authority.task_id,
-                AttemptModel.flow_id == authority.flow_id,
-                AttemptModel.node_key == authority.node_key,
-                AttemptModel.status.in_(("pending", "running")),
             )
         ),
         exists(
@@ -289,10 +324,9 @@ async def _read_current_dispatch_and_flow(
         flow is None
         or flow.task_id != scope.task_id
         or flow.status != "running"
-        or flow.current_dispatch_id != dispatch.dispatch_id
         or flow.active_flow_revision_id != dispatch.flow_revision_id
     ):
-        raise stale_dispatch_error("dispatch is no longer exact current flow authority")
+        raise stale_dispatch_error("dispatch is no longer in the active running flow revision")
     task_team_is_current = await session.scalar(
         select(
             exists().where(
@@ -337,9 +371,11 @@ async def _read_current_assignment_and_attempt(
         or attempt.task_id != scope.task_id
         or attempt.flow_id != flow.flow_id
         or attempt.node_key != dispatch.node_key
-        or attempt.status not in {"pending", "running"}
+        or attempt.status != "running"
+        or attempt.current_dispatch_id != dispatch.dispatch_id
+        or attempt.current_wait_id is not None
     ):
-        raise stale_dispatch_error("dispatch assignment or attempt is no longer current")
+        raise stale_dispatch_error("dispatch assignment or Attempt lane is no longer current")
     return assignment, attempt
 
 
@@ -413,12 +449,23 @@ def _is_expected_transition_contention(exc: DBAPIError) -> bool:
         or getattr(original, "pgcode", None)
         or getattr(driver_cause, "sqlstate", None)
     )
-    return sqlstate in {"40001", "55P03"}
+    return sqlstate in {"40001", "40P01", "55P03"}
+
+
+def _raise_expected_transition_contention(exc: DBAPIError) -> Never:
+    if not _is_expected_transition_contention(exc):
+        raise exc
+    raise RuntimeOperationError(
+        code=OperationFailureCode.CONFLICT,
+        summary="another Node operation won the exact Flow transition",
+        is_retryable=False,
+    ) from exc
 
 
 __all__ = [
     "NodeActivityRefresh",
     "NodeOperationAuthority",
+    "claim_exact_node_operation_flow",
     "claim_exact_node_operation_transition",
     "exact_node_operation_authority_exists",
     "read_node_operation_authority",

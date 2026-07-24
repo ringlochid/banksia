@@ -176,9 +176,6 @@ def _seed_flow_shell(connection: Connection, *, ids: RuntimeIds) -> None:
             "status": "running",
             "terminal_outcome": None,
             "active_flow_revision_id": None,
-            "current_dispatch_id": None,
-            "waiting_cause": "none",
-            "waiting_source_id": None,
             "control_revision": 0,
             "pause_reason": None,
             "pause_details": None,
@@ -205,14 +202,20 @@ def _seed_flow_shell(connection: Connection, *, ids: RuntimeIds) -> None:
 
 
 def _set_active_runtime_heads(connection: Connection, *, ids: RuntimeIds) -> None:
-    flows = RuntimeBase.metadata.tables["flows"]
+    tables = RuntimeBase.metadata.tables
     connection.execute(
-        flows.update()
-        .where(flows.c.flow_id == ids.flow_id)
+        tables["flows"]
+        .update()
+        .where(tables["flows"].c.flow_id == ids.flow_id)
         .values(
             active_flow_revision_id=ids.flow_revision_id,
-            current_dispatch_id=ids.current_dispatch_id,
         )
+    )
+    connection.execute(
+        tables["attempts"]
+        .update()
+        .where(tables["attempts"].c.attempt_id == ids.root_attempt_id)
+        .values(current_dispatch_id=ids.current_dispatch_id)
     )
 
 
@@ -320,7 +323,7 @@ def _dispatch_fixture_rows(
             attempt_id=ids.child_attempt_id,
             node_key="child",
             flow_start_source_flow_id=None,
-            predecessor_dispatch_id=ids.root_dispatch_id,
+            predecessor_dispatch_id=None,
             status="closed",
             opened_reason="boundary",
             adapter_started_at=timestamp,
@@ -333,7 +336,7 @@ def _dispatch_fixture_rows(
             attempt_id=ids.root_attempt_id,
             node_key="root",
             flow_start_source_flow_id=None,
-            predecessor_dispatch_id=ids.child_dispatch_id,
+            predecessor_dispatch_id=ids.root_dispatch_id,
             status="open",
             opened_reason="child_return",
             adapter_started_at=timestamp,

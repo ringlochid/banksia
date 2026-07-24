@@ -152,6 +152,10 @@ class AcceptedBoundaryModel(RuntimeBase):
     __table_args__ = (
         UniqueConstraint("source_dispatch_id"),
         UniqueConstraint("accepted_boundary_id", "task_id"),
+        UniqueConstraint(
+            "successor_dispatch_id",
+            name="uq_accepted_boundaries_successor_dispatch",
+        ),
         CheckConstraint(
             f"outcome IN ({sql_in(BOUNDARY_OUTCOME_VALUES)})",
             name="ck_accepted_boundaries_outcome",
@@ -208,8 +212,8 @@ class AcceptedBoundaryModel(RuntimeBase):
             initially="DEFERRED",
         ),
         ForeignKeyConstraint(
-            ["source_dispatch_id", "successor_dispatch_id"],
-            ["dispatch_turns.predecessor_dispatch_id", "dispatch_turns.dispatch_id"],
+            ["successor_dispatch_id"],
+            ["dispatch_turns.dispatch_id"],
             name="fk_accepted_boundaries_successor_owner",
             deferrable=True,
             initially="DEFERRED",
@@ -254,7 +258,7 @@ class AcceptedBoundaryModel(RuntimeBase):
     )
     successor_dispatch: Mapped[DispatchTurnModel | None] = relationship(
         "DispatchTurnModel",
-        foreign_keys=[source_dispatch_id, successor_dispatch_id],
+        foreign_keys=[successor_dispatch_id],
         lazy="raise",
         viewonly=True,
     )

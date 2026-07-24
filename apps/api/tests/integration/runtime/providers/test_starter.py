@@ -118,7 +118,6 @@ class _DispatchRow(Protocol):
 
 class _FlowRow(Protocol):
     status: str
-    current_dispatch_id: str | None
     pause_reason: str | None
     pause_details: Mapping[str, object]
 
@@ -250,7 +249,7 @@ async def test_missing_dispatch_request_pauses_without_provider_io(tmp_path: Pat
         assert dispatch.status == "closed"
         assert dispatch.closed_reason == "control_failed"
         assert flow.status == "paused"
-        assert flow.current_dispatch_id is None
+        assert _attempt_current_dispatch_id(database) is None
         assert flow.pause_reason == "runtime_transition_failed"
         assert publisher.signals == ()
 
@@ -320,7 +319,7 @@ async def test_early_node_close_is_acceptance_loser_with_stop_and_no_retry(
 
         def close_before_acceptance() -> None:
             dispatches = RuntimeBase.metadata.tables["dispatch_turns"]
-            flows = RuntimeBase.metadata.tables["flows"]
+            attempts = RuntimeBase.metadata.tables["attempts"]
             with database.engine.begin() as connection:
                 connection.execute(
                     dispatches.update()
@@ -334,8 +333,8 @@ async def test_early_node_close_is_acceptance_loser_with_stop_and_no_retry(
                     )
                 )
                 connection.execute(
-                    flows.update()
-                    .where(flows.c.flow_id == database.ids.flow_id)
+                    attempts.update()
+                    .where(attempts.c.attempt_id == database.ids.root_attempt_id)
                     .values(current_dispatch_id=None)
                 )
 
@@ -383,7 +382,7 @@ async def test_initial_watchdog_recovery_stops_predecessor_before_start_once(
             adapter,
             now=ACCEPTED_AT,
         )
-        predecessor_id = database.ids.child_dispatch_id
+        predecessor_id = database.ids.root_dispatch_id
         predecessor = registry.issue_binding(
             task_id=database.ids.task_id,
             dispatch_id=predecessor_id,
@@ -599,4 +598,14 @@ def _flow_row(database: StartingDispatchDatabase) -> _FlowRow:
         return cast(
             _FlowRow,
             connection.execute(select(flows).where(flows.c.flow_id == database.ids.flow_id)).one(),
+        )
+
+
+def _attempt_current_dispatch_id(database: StartingDispatchDatabase) -> str | None:
+    attempts = RuntimeBase.metadata.tables["attempts"]
+    with database.engine.connect() as connection:
+        return connection.scalar(
+            select(attempts.c.current_dispatch_id).where(
+                attempts.c.attempt_id == database.ids.root_attempt_id
+            )
         )

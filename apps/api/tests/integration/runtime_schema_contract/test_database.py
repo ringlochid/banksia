@@ -53,12 +53,6 @@ def test_exact_source_and_owner_backstops_are_present() -> None:
         "fk_dispatch_turns_predecessor_owner",
         "fk_dispatch_turns_flow_start_source",
     } <= _constraint_names("dispatch_turns", ForeignKeyConstraint)
-    assert {"fk_flows_current_dispatch_owner"} <= _constraint_names("flows", ForeignKeyConstraint)
-    assert {
-        "fk_flow_waits_unoccupied_flow",
-        "fk_flow_waits_human_request_owner",
-        "fk_flow_waits_command_run_owner",
-    } <= _constraint_names("flow_waits", ForeignKeyConstraint)
     assert {
         "fk_accepted_boundaries_source_owner",
         "fk_accepted_boundaries_checkpoint_owner",
@@ -111,9 +105,6 @@ def test_target_currentness_and_pair_constraints_are_present() -> None:
         "ck_dispatch_turns_starting_close_reason",
         "ck_dispatch_turns_watchdog_requires_open",
     } <= _constraint_names("dispatch_turns", CheckConstraint)
-    assert "ck_flows_current_dispatch_excludes_wait_pointer" in _constraint_names(
-        "flows", CheckConstraint
-    )
     for table_name in ("compiled_plan_nodes", "flow_nodes", "node_plan_revisions"):
         table = RuntimeBase.metadata.tables[table_name]
         assert table.c.team_revision_id.nullable is False
@@ -155,18 +146,9 @@ def test_target_currentness_and_pair_constraints_are_present() -> None:
         "flow_id",
         "active_status_marker",
     ) in _unique_columns("dispatch_turns")
-    assert (
-        "flow_id",
-        "task_id",
-        "current_dispatch_presence_marker",
-    ) in _unique_columns("flows")
     assert ("source_dispatch_id",) in _unique_columns("accepted_boundaries")
     assert ("source_dispatch_id",) in _unique_columns("human_requests")
     assert ("source_dispatch_id",) in _unique_columns("command_runs")
-    assert {index.name for index in RuntimeBase.metadata.tables["dispatch_turns"].indexes} >= {
-        "uq_dispatch_turns_one_first_per_flow",
-        "uq_dispatch_turns_one_current_per_flow",
-    }
 
 
 def test_replan_revision_and_team_root_backstops_are_present() -> None:

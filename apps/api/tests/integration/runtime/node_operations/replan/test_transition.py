@@ -11,7 +11,9 @@ import banksia.runtime.replan.persistence as replan_persistence
 import pytest
 from banksia.config import ClaudeSettings, CodexSettings, RuntimeSettings, Settings
 from banksia.persistence.models import (
+    AssignmentModel,
     AttemptCheckpointModel,
+    AttemptModel,
     DispatchRequestModel,
     DispatchTurnModel,
     FlowModel,
@@ -23,6 +25,7 @@ from banksia.persistence.models import (
     TeamRevisionModel,
 )
 from banksia.providers import ProviderKind
+from banksia.runtime.clock import utc_now
 from banksia.runtime.contracts import ReplanSuccess
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
 from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
@@ -96,6 +99,7 @@ async def test_manifest_barrier_opens_one_same_attempt_successor(
             )
             flow = await session.get(FlowModel, ids.flow_id)
             successor = await session.get(DispatchTurnModel, first.dispatch_id)
+            attempt = await session.get(AttemptModel, ids.root_attempt_id)
             dispatch_request = await session.get(DispatchRequestModel, first.dispatch_id)
             successor_node = await session.scalar(
                 select(FlowNodeModel)
@@ -109,7 +113,9 @@ async def test_manifest_barrier_opens_one_same_attempt_successor(
         assert duplicate.outcome == "skipped"
         assert transition is not None and transition.successor_state == "opened"
         assert transition.manifest_state == "current"
-        assert flow is not None and flow.current_dispatch_id == first.dispatch_id
+        assert flow is not None
+        assert attempt is not None and attempt.current_dispatch_id == first.dispatch_id
+        assert attempt.current_wait_id is None
         assert successor is not None
         assert successor.opened_reason == "structural_replan"
         assert successor.assignment_id == ids.root_assignment_id
@@ -188,7 +194,7 @@ async def test_manifest_failure_is_repairable_and_startup_discoverable(
         assert transition is not None
         assert transition.manifest_state == "repair_required"
         assert transition.successor_state == "blocked"
-        assert flow is not None and flow.current_dispatch_id is None
+        assert flow is not None
         assert page.sources == (ReplanCommitted(signal.transition_id),)
 
         monkeypatch.undo()
@@ -324,7 +330,6 @@ async def test_failure_after_dual_head_claim_rolls_back_every_replan_write(
         assert task.current_team_revision_id == team_revision_id(ids)
         assert flow is not None
         assert flow.active_flow_revision_id == ids.flow_revision_id
-        assert flow.current_dispatch_id == ids.current_dispatch_id
         assert source is not None and source.status == "open"
         assert team_revisions == 1
         assert flow_revisions == 1
@@ -391,6 +396,23 @@ async def test_replan_and_terminal_checkpoint_have_one_stable_winner(
         ids,
         _signals,
     ):
+        async with session_factory() as session:
+            child_assignment = await session.get(AssignmentModel, ids.child_assignment_id)
+            child_attempt = await session.get(AttemptModel, ids.child_attempt_id)
+            child_node = await session.get(FlowNodeModel, ids.child_node_id)
+            assert child_assignment is not None
+            assert child_attempt is not None
+            assert child_node is not None
+            completed_at = utc_now()
+            child_assignment.terminal_outcome = "blocked"
+            child_assignment.closed_at = completed_at
+            child_attempt.status = "completed"
+            child_attempt.terminal_outcome = "blocked"
+            child_attempt.closed_at = completed_at
+            child_attempt.current_dispatch_id = None
+            child_attempt.current_wait_id = None
+            child_node.state = "failed"
+            await session.commit()
         scope = NodeOperationScope(
             task_id=ids.task_id,
             dispatch_id=ids.current_dispatch_id,

@@ -5,11 +5,13 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Literal, cast
+from xml.etree import ElementTree
 
 import banksia.runtime.watchdog.recovery as watchdog_recovery_module
 import pytest
 from banksia.config import CodexSettings, RuntimeSettings, Settings
 from banksia.persistence.models import (
+    AttemptModel,
     CommandRunModel,
     DispatchRequestModel,
     DispatchTurnModel,
@@ -89,6 +91,7 @@ async def test_watchdog_replaces_one_stale_dispatch_and_duplicate_signal_loses(
             predecessor = await session.get(DispatchTurnModel, ids.current_dispatch_id)
             successor = await session.get(DispatchTurnModel, first.dispatch_id)
             flow = await session.get(FlowModel, ids.flow_id)
+            attempt = await session.get(AttemptModel, ids.root_attempt_id)
             dispatch_request = await session.get(DispatchRequestModel, first.dispatch_id)
             dispatch_count = await session.scalar(
                 select(func.count()).select_from(DispatchTurnModel)
@@ -108,18 +111,19 @@ async def test_watchdog_replaces_one_stale_dispatch_and_duplicate_signal_loses(
     assert successor.predecessor_dispatch_id == ids.current_dispatch_id
     assert successor.assignment_id == ids.root_assignment_id
     assert successor.attempt_id == ids.root_attempt_id
-    assert flow is not None and flow.current_dispatch_id == first.dispatch_id
+    assert flow is not None and flow.status == "running"
+    assert attempt is not None and attempt.current_dispatch_id == first.dispatch_id
     assert dispatch_count == 4
     assert dispatch_request is not None
-    input_text = dispatch_request.input
-    assert '"kind": "watchdog_recovery"' in input_text
-    assert '"recovery_count": 1' in input_text
+    request_root = ElementTree.fromstring(dispatch_request.input)
+    assert request_root.findtext("continuation/trigger/kind") == "watchdog_recovery"
+    assert request_root.findtext("continuation/trigger/result/recovery_count") == "1"
     assert event is not None
     assert event.payload["opened_reason"] == "watchdog_recovery"
     assert event.payload["predecessor_dispatch_id"] == ids.current_dispatch_id
-    assert len(publisher.signals) == 1
-    assert isinstance(publisher.signals[0], DispatchStartDue)
-    assert publisher.signals[0].dispatch_id == first.dispatch_id
+    assert publisher.signals[0] == DispatchCleanupRequested(ids.current_dispatch_id)
+    assert isinstance(publisher.signals[1], DispatchStartDue)
+    assert publisher.signals[1].dispatch_id == first.dispatch_id
 
 
 async def test_new_activity_during_preparation_makes_due_signal_stale(
@@ -353,6 +357,7 @@ async def test_third_same_attempt_stale_dispatch_pauses_without_successor(
                 dependencies=dependencies,
             )
             flow = await session.get(FlowModel, ids.flow_id)
+            attempt = await session.get(AttemptModel, ids.root_attempt_id)
             dispatch = await session.get(DispatchTurnModel, current_dispatch_id)
             replacement_count = await session.scalar(
                 select(func.count())
@@ -367,7 +372,7 @@ async def test_third_same_attempt_stale_dispatch_pauses_without_successor(
     assert exhausted.dispatch_id is None
     assert flow is not None and flow.status == "paused"
     assert flow.pause_reason == "runtime_recovery_exhausted"
-    assert flow.current_dispatch_id is None
+    assert attempt is not None and attempt.current_dispatch_id is None
     assert dispatch is not None and dispatch.closed_reason == "control_failed"
     assert replacement_count == 2
     assert dispatch_count == 5

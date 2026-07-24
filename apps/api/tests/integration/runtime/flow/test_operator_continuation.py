@@ -7,6 +7,7 @@ from xml.etree import ElementTree
 import pytest
 from banksia.config import CodexSettings, RuntimeSettings, Settings
 from banksia.persistence.models import (
+    AttemptModel,
     DispatchRequestModel,
     DispatchTurnModel,
     FlowModel,
@@ -80,6 +81,7 @@ async def test_continue_resumes_one_closed_lineage_tail_and_rejects_duplicate(
                     dependencies=_opening_dependencies(CapturedRuntimeEffectPublisher()),
                 )
             flow = await session.get(FlowModel, ids.flow_id)
+            attempt = await session.get(AttemptModel, ids.root_attempt_id)
             successor = await session.get(DispatchTurnModel, result.dispatch_id)
             dispatch_request = await session.get(DispatchRequestModel, result.dispatch_id)
             dispatch_count = await session.scalar(
@@ -88,7 +90,7 @@ async def test_continue_resumes_one_closed_lineage_tail_and_rejects_duplicate(
 
     assert result.outcome == "opened"
     assert flow is not None and flow.status == "running"
-    assert flow.current_dispatch_id == result.dispatch_id
+    assert attempt is not None and attempt.current_dispatch_id == result.dispatch_id
     assert flow.control_revision == expected_control_revision + 1
     assert flow.pause_reason is None
     assert successor is not None and successor.opened_reason == "operator_continue"
@@ -112,6 +114,9 @@ async def test_continue_consumes_terminal_human_source_retained_while_paused(
         ids,
         _,
     ):
+        workspace = tmp_path / "task-operator-human" / "workspace"
+        (workspace / "decision.md").write_text("Decision context.", encoding="utf-8")
+        (workspace / "constraints.md").write_text("Decision constraints.", encoding="utf-8")
         request_id = await _open_human_request(executor, ids)
         await _pause_waiting_flow(session_factory, ids)
         async with session_factory() as session:
@@ -155,6 +160,11 @@ async def test_continue_consumes_terminal_human_source_retained_while_paused(
     request_root = ElementTree.fromstring(input_text)
     assert request_root.findtext("continuation/trigger/kind") == "human_result"
     assert request_root.findtext("continuation/trigger/source/request_id") == request_id
+    file_nodes = request_root.findall("continuation/trigger/result/request/files/file")
+    assert [(node.findtext("path"), node.findtext("description")) for node in file_nodes] == [
+        ("decision.md", "Decision context."),
+        ("constraints.md", "Decision constraints."),
+    ]
 
 
 async def test_continue_preparation_failure_preserves_existing_pause(tmp_path: Path) -> None:
@@ -186,7 +196,6 @@ async def test_continue_preparation_failure_preserves_existing_pause(tmp_path: P
     assert error.value.code == OperationFailureCode.ILLEGAL_STATE
     assert flow is not None and flow.status == "paused"
     assert flow.control_revision == expected_control_revision
-    assert flow.current_dispatch_id is None
     assert dispatch_count == 3
 
 
@@ -236,6 +245,9 @@ async def test_pre_root_continue_consumes_flow_start_without_synthetic_predecess
                 .where(FlowModel.flow_id == flow.flow_id)
                 .execution_options(populate_existing=True)
             )
+            resumed_attempt = await session.scalar(
+                select(AttemptModel).where(AttemptModel.task_id == flow.task_id)
+            )
     finally:
         engine.dispose()
 
@@ -247,12 +259,13 @@ async def test_pre_root_continue_consumes_flow_start_without_synthetic_predecess
     assert successor.flow_start_source_flow_id == flow.flow_id
     assert resumed_flow is not None
     assert resumed_flow.status == "running"
-    assert resumed_flow.current_dispatch_id == result.dispatch_id
+    assert resumed_attempt is not None
+    assert resumed_attempt.current_dispatch_id == result.dispatch_id
     assert resumed_flow.control_revision == expected_control_revision + 1
     assert dispatch_request is not None
-    input_text = dispatch_request.input
-    assert '"kind": "operator_continue"' in input_text
-    assert f'"source_flow_id": "{flow.flow_id}"' in input_text
+    request_root = ElementTree.fromstring(dispatch_request.input)
+    assert request_root.findtext("continuation/trigger/kind") == "operator_continue"
+    assert request_root.findtext("continuation/trigger/source/source_task_id") == flow.task_id
     assert len(publisher.signals) == 1
 
 
@@ -263,14 +276,16 @@ async def _pause_current_dispatch(
     paused_at = utc_now()
     async with session_factory() as session:
         flow = await session.get(FlowModel, ids.flow_id)
+        attempt = await session.get(AttemptModel, ids.root_attempt_id)
         dispatch = await session.get(DispatchTurnModel, ids.current_dispatch_id)
         assert flow is not None
+        assert attempt is not None
         assert dispatch is not None
         dispatch.status = "closed"
         dispatch.closed_reason = "paused"
         dispatch.closed_at = paused_at
         flow.status = "paused"
-        flow.current_dispatch_id = None
+        attempt.current_dispatch_id = None
         flow.pause_reason = "paused_by_operator"
         flow.pause_details = {"reason": "test"}
         flow.paused_at = paused_at
@@ -307,6 +322,16 @@ async def _open_human_request(executor: NodeOperationExecutor, ids: RuntimeIds) 
                         "prompt": "Which direction?",
                         "options": [{"id": "a", "title": "A"}, {"id": "b", "title": "B"}],
                     }
+                ],
+                "files": [
+                    {
+                        "path": "decision.md",
+                        "description": "Decision context.",
+                    },
+                    {
+                        "path": "constraints.md",
+                        "description": "Decision constraints.",
+                    },
                 ],
             }
         },

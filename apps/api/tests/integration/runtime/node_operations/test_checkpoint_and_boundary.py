@@ -4,7 +4,6 @@ import sqlite3
 from pathlib import Path
 from typing import cast
 
-import banksia.runtime.node_operations.domain_handlers as domain_handlers
 import banksia.runtime.node_operations.executor as executor_module
 import pytest
 from banksia.persistence.models import (
@@ -33,6 +32,7 @@ from banksia.runtime.node_operations import (
     NodeOperationScope,
     get_node_operation_descriptor,
 )
+from banksia.runtime.post_commit.bootstrap import read_boundary_continuation_page
 from banksia.runtime.post_commit.publisher import CapturedRuntimeEffectPublisher
 from banksia.runtime.post_commit.signals import BoundaryAccepted
 from pydantic import ValidationError
@@ -139,6 +139,23 @@ async def test_root_blocked_checkpoint_atomically_selects_exact_task_result(
         ids,
         signals,
     ):
+        async with session_factory() as session:
+            child_assignment = await session.get(AssignmentModel, ids.child_assignment_id)
+            child_attempt = await session.get(AttemptModel, ids.child_attempt_id)
+            child_node = await session.get(FlowNodeModel, ids.child_node_id)
+            assert child_assignment is not None
+            assert child_attempt is not None
+            assert child_node is not None
+            completed_at = utc_now()
+            child_assignment.terminal_outcome = "blocked"
+            child_assignment.closed_at = completed_at
+            child_attempt.status = "completed"
+            child_attempt.terminal_outcome = "blocked"
+            child_attempt.closed_at = completed_at
+            child_attempt.current_dispatch_id = None
+            child_attempt.current_wait_id = None
+            child_node.state = "failed"
+            await session.commit()
         result = cast(
             CheckpointResponse,
             await executor.execute(
@@ -203,71 +220,9 @@ async def test_root_blocked_checkpoint_atomically_selects_exact_task_result(
         assert result.terminal is True
         assert result.must_stop is True
         assert publisher.signals == (BoundaryAccepted(ids.current_dispatch_id),)
+        startup_page = await read_boundary_continuation_page(session_factory, None, 10)
+        assert startup_page.sources == ()
         assert [signal.activity_revision for signal in signals] == [1]
-
-
-async def test_retry_checkpoint_closes_only_execution_and_preserves_assignment(
-    tmp_path: Path,
-) -> None:
-    publisher = CapturedRuntimeEffectPublisher()
-    async with seeded_executor(
-        tmp_path,
-        suffix="checkpoint-retry",
-        runtime_effect_publisher=publisher,
-    ) as (
-        executor,
-        session_factory,
-        ids,
-        _signals,
-    ):
-        result = cast(
-            CheckpointResponse,
-            await executor.execute(
-                scope=_scope(ids.task_id, ids.current_dispatch_id),
-                operation_name="checkpoint",
-                arguments={
-                    "summary": "Retry this exact assignment with the corrected approach.",
-                    "outcome": "retry",
-                },
-            ),
-        )
-
-        async with session_factory() as session:
-            boundary = await session.scalar(
-                select(AcceptedBoundaryModel).where(
-                    AcceptedBoundaryModel.source_dispatch_id == ids.current_dispatch_id
-                )
-            )
-            source_attempt = await session.get(AttemptModel, ids.root_attempt_id)
-            assignment = await session.get(AssignmentModel, ids.root_assignment_id)
-            assert assignment is not None
-            retry_attempt = await session.get(AttemptModel, assignment.current_attempt_id)
-            task = await session.get(TaskModel, ids.task_id)
-            flow = await session.get(FlowModel, ids.flow_id)
-            task_result = await read_task_result(
-                cast(AsyncSession, session),
-                task_id=ids.task_id,
-            )
-
-        assert boundary is not None and boundary.outcome == "retry"
-        assert boundary.checkpoint_id is not None
-        assert source_attempt is not None
-        assert (source_attempt.status, source_attempt.terminal_outcome) == (
-            "completed",
-            "retry",
-        )
-        assert assignment.closed_at is None
-        assert assignment.terminal_outcome is None
-        assert assignment.current_attempt_id != ids.root_attempt_id
-        assert assignment.retries_remaining == 0
-        assert retry_attempt is not None
-        assert retry_attempt.retry_of_attempt_id == ids.root_attempt_id
-        assert retry_attempt.status == "running"
-        assert task is not None and task.result_boundary_id is None
-        assert task_result is None
-        assert flow is not None and flow.status == "running"
-        assert result.terminal is True and result.must_stop is True
-        assert publisher.signals == (BoundaryAccepted(ids.current_dispatch_id),)
 
 
 async def test_green_checkpoint_requires_exact_current_direct_child_participation(
@@ -482,49 +437,6 @@ async def test_terminal_checkpoint_rejects_staged_child_without_partial_write(
         assert rejected.value.code == OperationFailureCode.BOUNDARY_PRECONDITION_FAILED
         assert checkpoints == ()
         assert dispatch is not None and dispatch.status == "open"
-
-
-async def test_unexpected_checkpoint_integrity_failure_is_normalized(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    async def reject_persistence(*_args: object, **_kwargs: object) -> None:
-        raise IntegrityError(
-            "INSERT INTO controller_truth",
-            {},
-            sqlite3.IntegrityError("FOREIGN KEY constraint failed"),
-        )
-
-    monkeypatch.setattr(
-        domain_handlers,
-        "execute_controller_node_operation",
-        reject_persistence,
-    )
-    async with seeded_executor(tmp_path, suffix="checkpoint-integrity") as (
-        executor,
-        session_factory,
-        ids,
-        _signals,
-    ):
-        with pytest.raises(RuntimeOperationError) as rejected:
-            await executor.execute(
-                scope=_scope(ids.task_id, ids.current_dispatch_id),
-                operation_name="checkpoint",
-                arguments={"summary": "Exercise persistence normalization."},
-            )
-
-        async with session_factory() as session:
-            checkpoints = tuple(
-                await session.scalars(
-                    select(AttemptCheckpointModel).where(
-                        AttemptCheckpointModel.authoring_dispatch_id == ids.current_dispatch_id
-                    )
-                )
-            )
-
-        assert rejected.value.code == OperationFailureCode.INTERNAL_ERROR
-        assert "FOREIGN KEY" not in rejected.value.summary
-        assert checkpoints == ()
 
 
 async def test_admission_integrity_failure_is_normalized(

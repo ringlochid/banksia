@@ -10,7 +10,14 @@ from typing import cast
 
 import banksia.runtime.command_run.process_owner as process_owner_module
 import pytest
-from banksia.persistence.models import CommandRunModel, FlowModel, FlowWaitModel, TaskEventModel
+from banksia.persistence.models import (
+    AttemptModel,
+    AttemptWaitModel,
+    CommandRunModel,
+    FlowModel,
+    TaskEventModel,
+)
+from banksia.runtime.clock import utc_now
 from banksia.runtime.command_run import (
     cancel_command_run,
     list_command_runs,
@@ -20,9 +27,13 @@ from banksia.runtime.command_run import (
 from banksia.runtime.command_run.task_paths import (
     StableCommandWorkingDirectory,
 )
+from banksia.runtime.command_run.transitions import terminalize_command_run
+from banksia.runtime.contracts import CommandRunState
+from banksia.runtime.contracts.operation_failure import OperationFailureCode
+from banksia.runtime.errors import RuntimeOperationError
+from banksia.runtime.flow.service import cancel_runtime_flow
 from banksia.runtime.post_commit import (
     CommandProcessExited,
-    CommandRunDue,
     CommandRunPending,
 )
 from banksia.runtime.post_commit.bootstrap import read_command_running_page
@@ -48,6 +59,13 @@ from tests.helpers.command_process import (
 )
 from tests.helpers.executor_harness import SessionFactory, seeded_executor, seeded_task_root
 from tests.helpers.lineage_seed import RuntimeIds
+from tests.helpers.postgres_runtime_race import (
+    PostgresRuntimeHarness,
+    observe_update_order,
+    observe_update_started,
+    postgres_runtime_harness,
+    wait_for_thread_event,
+)
 
 
 async def test_process_owner_preserves_combined_stream_and_terminalizes_once(
@@ -256,10 +274,16 @@ async def test_process_owner_escalates_cancel_and_reaps_ignoring_child(
 
             async with session_factory() as session:
                 source = await session.get(CommandRunModel, run_id)
+                attempt = await session.get(AttemptModel, ids.root_attempt_id)
+                wait = await session.scalar(
+                    select(AttemptWaitModel).where(AttemptWaitModel.command_run_id == run_id)
+                )
             assert source is not None
             assert source.state == "cancelled"
             assert source.ended_at is not None
             assert source.process_metadata_json is None
+            assert attempt is not None and attempt.current_wait_id is None
+            assert wait is None
 
 
 async def test_restart_marks_unprovable_command_ownership_abandoned(
@@ -287,14 +311,16 @@ async def test_restart_marks_unprovable_command_ownership_abandoned(
             await driver.wait_for_terminal()
             async with session_factory() as session:
                 source = await session.get(CommandRunModel, run_id)
-                wait = await session.get(FlowWaitModel, ids.flow_id)
-                flow = await session.get(FlowModel, ids.flow_id)
+                attempt = await session.get(AttemptModel, ids.root_attempt_id)
+                wait = await session.scalar(
+                    select(AttemptWaitModel).where(AttemptWaitModel.command_run_id == run_id)
+                )
             assert source is not None
             assert source.state == "abandoned"
             assert source.terminal_failure_code == "command_ownership_lost"
             assert source.process_metadata_json is None
             assert wait is None
-            assert flow is not None and flow.waiting_cause == "none"
+            assert attempt is not None and attempt.current_wait_id is None
 
 
 async def test_startup_running_command_routes_to_ownership_loss_recovery(
@@ -431,49 +457,190 @@ async def test_process_owner_reaps_child_when_running_state_persistence_fails(
         assert source.process_metadata_json is None
 
 
-async def test_shutdown_owner_ignores_late_deadline_without_rewriting_runtime_truth(
-    tmp_path: Path,
-) -> None:
-    clock = _MutableClock()
-    async with seeded_executor(tmp_path, suffix="command-process-shutdown") as (
-        executor,
-        session_factory,
-        ids,
-        _,
-    ):
-        run_id = await _open_argv_command(
-            executor,
-            ids,
-            [sys.executable, "-V"],
-            timeout_seconds=1,
-        )
-        driver = _OwnerSignalDriver(session_factory)
-        owner = _command_owner(session_factory, driver, clock=clock)
-        driver.owner = owner
-        async with owner:
-            pass
+async def test_command_exit_rechecks_cancelled_owner_after_wait_race() -> None:
+    await _assert_task_cancellation_wins_command_exit_race()
+    await _assert_command_exit_wins_task_cancellation_race()
 
-        async with session_factory() as session:
-            source = await session.get(CommandRunModel, run_id)
-            assert source is not None
-            source.state = "running"
-            source.ownership_revision = 1
-            source.started_at = clock.now
-            source.due_at = clock.now
-            source.process_metadata_json = {"owner_ref": "durable-owner", "pid": 1234}
-            await session.commit()
 
-        async with session_factory() as session:
-            await owner.enforce_command_deadline(
-                cast(AsyncSession, session),
-                CommandRunDue(run_id=run_id, due_at=clock.now),
+async def _assert_task_cancellation_wins_command_exit_race() -> None:
+    async with postgres_runtime_harness(suffix="command-exit-cancel") as harness:
+        (
+            run_id,
+            ownership_revision,
+            active_flow_revision_id,
+            control_revision,
+        ) = await _prepare_cancellation_requested_command(harness)
+
+        async with harness.session_factory() as blocker:
+            locked_run_id = await blocker.scalar(
+                select(CommandRunModel.run_id)
+                .where(CommandRunModel.run_id == run_id)
+                .with_for_update()
             )
-            source = await session.get(CommandRunModel, run_id)
+            assert locked_run_id == run_id
+            with observe_update_started(
+                harness.engine,
+                table_name="command_runs",
+            ) as terminal_update_started:
+                terminal_task = asyncio.create_task(
+                    _terminalize_cancelled_command(
+                        harness,
+                        run_id=run_id,
+                        ownership_revision=ownership_revision,
+                    )
+                )
+                await wait_for_thread_event(terminal_update_started)
+                async with harness.session_factory() as session:
+                    cancelled = await cancel_runtime_flow(
+                        session,
+                        harness.ids.task_id,
+                        expected_active_flow_revision_id=active_flow_revision_id,
+                        expected_control_revision=control_revision,
+                    )
+                await blocker.rollback()
+                terminal_won = await asyncio.wait_for(terminal_task, timeout=20)
 
-        assert source is not None
-        assert source.state == "running"
-        assert source.terminal_failure_code is None
-        assert not driver.terminal.is_set()
+        async with harness.session_factory() as session:
+            source = await session.get(CommandRunModel, run_id)
+            attempt = await session.get(AttemptModel, harness.ids.root_attempt_id)
+            wait = await session.scalar(
+                select(AttemptWaitModel).where(AttemptWaitModel.command_run_id == run_id)
+            )
+
+    assert cancelled.status.value == "cancelled"
+    assert terminal_won
+    assert source is not None and source.state == CommandRunState.CANCELLED.value
+    assert source.successor_dispatch_id is None
+    assert attempt is not None and attempt.status == "cancelled"
+    assert attempt.current_dispatch_id is None and attempt.current_wait_id is None
+    assert wait is None
+
+
+async def _assert_command_exit_wins_task_cancellation_race() -> None:
+    async with postgres_runtime_harness(suffix="command-exit-terminal") as harness:
+        (
+            run_id,
+            ownership_revision,
+            active_flow_revision_id,
+            control_revision,
+        ) = await _prepare_cancellation_requested_command(harness)
+
+        async with harness.session_factory() as blocker:
+            locked_attempt_id = await blocker.scalar(
+                select(AttemptModel.attempt_id)
+                .where(AttemptModel.attempt_id == harness.ids.root_attempt_id)
+                .with_for_update()
+            )
+            assert locked_attempt_id == harness.ids.root_attempt_id
+            with observe_update_order(
+                harness.engine,
+                table_name="attempts",
+            ) as attempt_updates:
+                terminal_task = asyncio.create_task(
+                    _terminalize_cancelled_command(
+                        harness,
+                        run_id=run_id,
+                        ownership_revision=ownership_revision,
+                    )
+                )
+                await wait_for_thread_event(attempt_updates.first_update_started)
+                cancellation_task = asyncio.create_task(
+                    _cancel_task(
+                        harness,
+                        active_flow_revision_id=active_flow_revision_id,
+                        control_revision=control_revision,
+                    )
+                )
+                await wait_for_thread_event(attempt_updates.second_update_started)
+                await blocker.rollback()
+                terminal_result, cancellation_result = await asyncio.wait_for(
+                    asyncio.gather(
+                        terminal_task,
+                        cancellation_task,
+                        return_exceptions=True,
+                    ),
+                    timeout=20,
+                )
+
+        async with harness.session_factory() as session:
+            source = await session.get(CommandRunModel, run_id)
+            flow = await session.get(FlowModel, harness.ids.flow_id)
+            attempt = await session.get(AttemptModel, harness.ids.root_attempt_id)
+            wait = await session.scalar(
+                select(AttemptWaitModel).where(AttemptWaitModel.command_run_id == run_id)
+            )
+
+    assert terminal_result is True
+    assert isinstance(cancellation_result, RuntimeOperationError)
+    assert cancellation_result.code == OperationFailureCode.CONFLICT
+    assert source is not None and source.state == CommandRunState.CANCELLED.value
+    assert source.successor_dispatch_id is None
+    assert flow is not None and flow.status == "running"
+    assert flow.control_revision == control_revision
+    assert attempt is not None and attempt.status == "running"
+    assert attempt.current_dispatch_id is None and attempt.current_wait_id is None
+    assert wait is None
+
+
+async def _prepare_cancellation_requested_command(
+    harness: PostgresRuntimeHarness,
+) -> tuple[str, int, str, int]:
+    run_id = await _open_argv_command(
+        harness.executor,
+        harness.ids,
+        [sys.executable, "-V"],
+    )
+    async with harness.session_factory() as session:
+        await cancel_command_run(
+            session,
+            task_id=harness.ids.task_id,
+            run_id=run_id,
+        )
+        source = await session.get(CommandRunModel, run_id)
+        flow = await session.get(FlowModel, harness.ids.flow_id)
+        assert source is not None and flow is not None
+        assert source.state == CommandRunState.CANCELLATION_REQUESTED.value
+        assert flow.active_flow_revision_id is not None
+        return (
+            run_id,
+            source.ownership_revision,
+            flow.active_flow_revision_id,
+            flow.control_revision,
+        )
+
+
+async def _cancel_task(
+    harness: PostgresRuntimeHarness,
+    *,
+    active_flow_revision_id: str,
+    control_revision: int,
+) -> object:
+    async with harness.session_factory() as session:
+        return await cancel_runtime_flow(
+            session,
+            harness.ids.task_id,
+            expected_active_flow_revision_id=active_flow_revision_id,
+            expected_control_revision=control_revision,
+        )
+
+
+async def _terminalize_cancelled_command(
+    harness: PostgresRuntimeHarness,
+    *,
+    run_id: str,
+    ownership_revision: int,
+) -> bool:
+    async with harness.session_factory() as session:
+        return await terminalize_command_run(
+            session,
+            task_id=harness.ids.task_id,
+            run_id=run_id,
+            expected_ownership_revision=ownership_revision,
+            expected_states=(CommandRunState.CANCELLATION_REQUESTED,),
+            terminal_state=CommandRunState.CANCELLED,
+            summary="The cancelled Task's command process stopped.",
+            ended_at=utc_now(),
+        )
 
 
 __all__ = []

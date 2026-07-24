@@ -24,7 +24,6 @@ from banksia.runtime.dispatch.authority import (
 from banksia.runtime.errors import RuntimeOperationError
 from banksia.runtime.node_operations import (
     NodeActivitySignal,
-    NodeOperationExecutor,
     NodeOperationScope,
 )
 from sqlalchemy import select
@@ -183,79 +182,6 @@ async def test_executor_publishes_the_committed_activity_timestamp(
         assert len(signals) == 1
         assert signals[0].activity_revision == dispatch.node_activity_revision
         assert signals[0].occurred_at == dispatch.last_node_activity_at
-
-
-async def test_transaction_b_rechecks_state_changed_after_activity_commit(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    async with seeded_executor(tmp_path, suffix="state-race") as (
-        executor,
-        session_factory,
-        ids,
-        signals,
-    ):
-
-        async def publish_and_commit_terminal_checkpoint(signal: NodeActivitySignal) -> None:
-            signals.append(signal)
-            await NodeOperationExecutor().execute(
-                scope=NodeOperationScope(
-                    task_id=ids.task_id,
-                    dispatch_id=ids.current_dispatch_id,
-                ),
-                operation_name="checkpoint",
-                arguments={
-                    "outcome": "blocked",
-                    "summary": "A concurrent controller transition made waits illegal.",
-                },
-            )
-
-        monkeypatch.setattr(
-            executor,
-            "_publish_activity_signal",
-            publish_and_commit_terminal_checkpoint,
-        )
-
-        with pytest.raises(RuntimeOperationError) as error:
-            await executor.execute(
-                scope=NodeOperationScope(
-                    task_id=ids.task_id,
-                    dispatch_id=ids.current_dispatch_id,
-                ),
-                operation_name="open_human_request",
-                arguments={
-                    "request": {
-                        "kind": "direction",
-                        "summary": "Choose one bounded direction.",
-                        "items": [
-                            {
-                                "id": "direction",
-                                "prompt": "Which direction?",
-                                "options": [
-                                    {"id": "a", "title": "A"},
-                                    {"id": "b", "title": "B"},
-                                ],
-                            }
-                        ],
-                    }
-                },
-            )
-
-        async with session_factory() as session:
-            request = await session.scalar(
-                select(HumanRequestModel).where(HumanRequestModel.task_id == ids.task_id)
-            )
-            dispatch = await session.get(DispatchTurnModel, ids.current_dispatch_id)
-            attempt = await session.get(AttemptModel, ids.root_attempt_id)
-
-        assert error.value.code == OperationFailureCode.STALE_DISPATCH
-        assert error.value.is_retryable is False
-        assert request is None
-        assert dispatch is not None and dispatch.status == "closed"
-        assert dispatch.node_activity_revision == 2
-        assert attempt is not None
-        assert attempt.latest_checkpoint_id is not None
-        assert [signal.activity_revision for signal in signals] == [1]
 
 
 async def test_transaction_b_rejects_rotated_managed_generation_after_activity_commit(

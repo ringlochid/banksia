@@ -12,6 +12,7 @@ from sqlalchemy.sql.elements import ColumnElement
 
 from banksia.persistence.models import FlowModel, FlowStartSourceModel
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
+from banksia.runtime.dispatch.currentness import AttemptDispatchConflictError
 from banksia.runtime.dispatch.opening import (
     StartingDispatchBasis,
     TaskResumeEventBasis,
@@ -235,7 +236,7 @@ async def _stage_root_dispatch_if_current(
         if rollback_on_conflict:
             await session.rollback()
         return False
-    if not await _advance_root_flow(
+    if not await _advance_root_global_state(
         session,
         snapshot=snapshot,
         prepared=prepared,
@@ -243,27 +244,32 @@ async def _stage_root_dispatch_if_current(
         if rollback_on_conflict:
             await session.rollback()
         return False
-    await stage_starting_dispatch(
-        session,
-        basis=StartingDispatchBasis(
-            task_id=prompt.task_id,
-            flow_id=prompt.flow_id,
-            assignment_id=prompt.assignment_id,
-            flow_revision_id=prompt.flow_revision_id,
-            flow_node_id=prompt.flow_node_id,
-            team_revision_id=prompt.team_revision_id,
-            member_id=prompt.member_id,
-            member_configuration_id=prompt.member_configuration_id,
-            member_branch_basis_id=prompt.member_branch_basis_id,
-            attempt_id=prompt.attempt_id,
-            node_key=prompt.node_key,
-            opened_reason=snapshot.opened_reason,
-            predecessor_dispatch_id=None,
-            flow_start_source_flow_id=prompt.flow_id,
-            resume_event=resume_event,
-        ),
-        prepared=prepared,
-    )
+    try:
+        await stage_starting_dispatch(
+            session,
+            basis=StartingDispatchBasis(
+                task_id=prompt.task_id,
+                flow_id=prompt.flow_id,
+                assignment_id=prompt.assignment_id,
+                flow_revision_id=prompt.flow_revision_id,
+                flow_node_id=prompt.flow_node_id,
+                team_revision_id=prompt.team_revision_id,
+                member_id=prompt.member_id,
+                member_configuration_id=prompt.member_configuration_id,
+                member_branch_basis_id=prompt.member_branch_basis_id,
+                attempt_id=prompt.attempt_id,
+                node_key=prompt.node_key,
+                opened_reason=snapshot.opened_reason,
+                predecessor_dispatch_id=None,
+                flow_start_source_flow_id=prompt.flow_id,
+                resume_event=resume_event,
+            ),
+            prepared=prepared,
+        )
+    except AttemptDispatchConflictError:
+        if rollback_on_conflict:
+            await session.rollback()
+        return False
     if should_commit:
         try:
             await session.commit()
@@ -294,7 +300,7 @@ async def _claim_root_dispatch_source(
     return claimed is not None
 
 
-async def _advance_root_flow(
+async def _advance_root_global_state(
     session: AsyncSession,
     *,
     snapshot: RootOpeningSnapshot,
@@ -307,13 +313,10 @@ async def _advance_root_flow(
         FlowModel.compiled_plan_id == snapshot.compiled_plan_id,
         FlowModel.status == snapshot.expected_flow_status,
         FlowModel.active_flow_revision_id == prompt.flow_revision_id,
-        FlowModel.current_dispatch_id.is_(None),
-        FlowModel.waiting_cause == "none",
         FlowModel.control_revision == snapshot.flow_control_revision,
         root_context_is_current(snapshot),
     ]
     values: dict[str, object] = {
-        "current_dispatch_id": prepared.dispatch_id,
         "updated_at": prepared.due_at,
     }
     if snapshot.expected_flow_status == "paused":
@@ -349,8 +352,6 @@ async def _pause_failed_flow_start(
         .where(
             FlowModel.flow_id == flow_id,
             FlowModel.status == "running",
-            FlowModel.current_dispatch_id.is_(None),
-            FlowModel.waiting_cause == "none",
             source_is_unconsumed,
         )
         .values(

@@ -9,13 +9,16 @@ import pytest
 from banksia.persistence.models import (
     AcceptedBoundaryModel,
     AssignmentDecisionModel,
+    AssignmentModel,
     AttemptCheckpointModel,
+    AttemptModel,
+    AttemptWaitModel,
     CommandRunModel,
     DispatchTurnModel,
     FlowNodeModel,
-    FlowWaitModel,
     HumanRequestModel,
 )
+from banksia.runtime.clock import utc_now
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
 from banksia.runtime.dispatch.authority import read_node_operation_authority
 from banksia.runtime.errors import RuntimeOperationError
@@ -60,6 +63,23 @@ async def test_concurrent_terminal_checkpoints_have_one_stable_winner(
         signals,
     ):
         scope = _scope(ids.task_id, ids.current_dispatch_id)
+        async with session_factory() as session:
+            child_assignment = await session.get(AssignmentModel, ids.child_assignment_id)
+            child_attempt = await session.get(AttemptModel, ids.child_attempt_id)
+            child_node = await session.get(FlowNodeModel, ids.child_node_id)
+            assert child_assignment is not None
+            assert child_attempt is not None
+            assert child_node is not None
+            completed_at = utc_now()
+            child_assignment.terminal_outcome = "blocked"
+            child_assignment.closed_at = completed_at
+            child_attempt.status = "completed"
+            child_attempt.terminal_outcome = "blocked"
+            child_attempt.closed_at = completed_at
+            child_attempt.current_dispatch_id = None
+            child_attempt.current_wait_id = None
+            child_node.state = "failed"
+            await session.commit()
         async with synchronized_transition_claims():
             results = await asyncio.wait_for(
                 asyncio.gather(
@@ -119,6 +139,22 @@ async def test_closed_dispatch_authority_maps_exact_transition_to_conflict(
     ):
         scope = _scope(ids.task_id, ids.current_dispatch_id)
         async with session_factory() as session:
+            child_assignment = await session.get(AssignmentModel, ids.child_assignment_id)
+            child_attempt = await session.get(AttemptModel, ids.child_attempt_id)
+            child_node = await session.get(FlowNodeModel, ids.child_node_id)
+            assert child_assignment is not None
+            assert child_attempt is not None
+            assert child_node is not None
+            completed_at = utc_now()
+            child_assignment.terminal_outcome = "blocked"
+            child_assignment.closed_at = completed_at
+            child_attempt.status = "completed"
+            child_attempt.terminal_outcome = "blocked"
+            child_attempt.closed_at = completed_at
+            child_attempt.current_dispatch_id = None
+            child_attempt.current_wait_id = None
+            child_node.state = "failed"
+            await session.commit()
             stale_authority = await read_node_operation_authority(
                 cast(AsyncSession, session),
                 scope,
@@ -131,7 +167,7 @@ async def test_closed_dispatch_authority_maps_exact_transition_to_conflict(
         )
         request = get_node_operation_descriptor(
             NodeOperationName.CHECKPOINT
-        ).request_model.model_validate(_terminal_checkpoint("retry"))
+        ).request_model.model_validate(_terminal_checkpoint("blocked"))
         with pytest.raises(RuntimeOperationError) as error:
             async with session_factory() as session:
                 await execute_controller_node_operation(
@@ -193,14 +229,32 @@ async def test_terminal_checkpoint_and_human_wait_have_one_winner(
             request_count = await session.scalar(
                 select(func.count()).select_from(HumanRequestModel)
             )
-            wait_count = await session.scalar(select(func.count()).select_from(FlowWaitModel))
+            waits = tuple(
+                await session.scalars(
+                    select(AttemptWaitModel).where(
+                        AttemptWaitModel.task_id == ids.task_id,
+                        AttemptWaitModel.flow_id == ids.flow_id,
+                        AttemptWaitModel.assignment_id == ids.root_assignment_id,
+                        AttemptWaitModel.attempt_id == ids.root_attempt_id,
+                        AttemptWaitModel.source_dispatch_id == ids.current_dispatch_id,
+                    )
+                )
+            )
+            attempt = await session.get(AttemptModel, ids.root_attempt_id)
             dispatch = await session.get(DispatchTurnModel, ids.current_dispatch_id)
 
         assert (int(checkpoint_count or 0), int(request_count or 0)) in {
             (1, 0),
             (0, 1),
         }
-        assert int(wait_count or 0) == int(request_count or 0)
+        assert len(waits) == int(request_count or 0)
+        assert attempt is not None
+        if waits:
+            assert waits[0].human_request_id is not None
+            assert attempt.current_dispatch_id is None
+            assert attempt.current_wait_id == waits[0].wait_id
+        else:
+            assert attempt.current_wait_id is None
         assert dispatch is not None and dispatch.status == "closed"
         assert dispatch.node_activity_revision == 2
         assert [signal.activity_revision for signal in signals] == [1, 2]
@@ -279,18 +333,32 @@ async def test_assign_child_and_external_wait_have_one_stable_winner(
             command_run_count = await session.scalar(
                 select(func.count()).select_from(CommandRunModel)
             )
-            wait_count = await session.scalar(select(func.count()).select_from(FlowWaitModel))
+            waits = tuple(
+                await session.scalars(
+                    select(AttemptWaitModel).where(
+                        AttemptWaitModel.task_id == ids.task_id,
+                        AttemptWaitModel.flow_id == ids.flow_id,
+                        AttemptWaitModel.assignment_id == ids.root_assignment_id,
+                        AttemptWaitModel.attempt_id == ids.root_attempt_id,
+                        AttemptWaitModel.source_dispatch_id == ids.current_dispatch_id,
+                    )
+                )
+            )
+            attempt = await session.get(AttemptModel, ids.root_attempt_id)
             child = await session.get(FlowNodeModel, ids.child_node_id)
             dispatch = await session.get(DispatchTurnModel, ids.current_dispatch_id)
 
         source_count = int(human_request_count or 0) + int(command_run_count or 0)
         assert (int(decision_count or 0), source_count) in {(1, 0), (0, 1)}
-        assert int(wait_count or 0) == source_count
-        assert child is not None and dispatch is not None
+        assert len(waits) == source_count
+        assert attempt is not None and child is not None and dispatch is not None
         if decision_count:
+            assert attempt.current_wait_id is None
             assert child.current_assignment_id is not None
             assert dispatch.status == "open"
         else:
+            assert attempt.current_dispatch_id is None
+            assert attempt.current_wait_id == waits[0].wait_id
             assert child.current_assignment_id is None
             assert dispatch.status == "closed"
         assert dispatch.node_activity_revision == 2

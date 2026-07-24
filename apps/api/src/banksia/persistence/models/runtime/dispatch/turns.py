@@ -54,7 +54,7 @@ if TYPE_CHECKING:
     from banksia.persistence.models.runtime.flow.runtime import FlowModel, FlowRevisionModel
     from banksia.persistence.models.runtime.human_requests import HumanRequestModel
     from banksia.persistence.models.runtime.task import TaskModel
-    from banksia.persistence.models.runtime.waiting import FlowWaitModel
+    from banksia.persistence.models.runtime.waiting import AttemptWaitModel
 
 
 class DispatchTurnModel(RuntimeBase):
@@ -84,6 +84,20 @@ class DispatchTurnModel(RuntimeBase):
             "flow_id",
             "assignment_id",
             "attempt_id",
+            "active_status_marker",
+            name="uq_dispatch_turns_attempt_active_owner",
+        ),
+        UniqueConstraint(
+            "attempt_id",
+            "dispatch_id",
+            name="uq_dispatch_turns_attempt_dispatch",
+        ),
+        UniqueConstraint(
+            "dispatch_id",
+            "task_id",
+            "flow_id",
+            "assignment_id",
+            "attempt_id",
             "flow_revision_id",
             "team_revision_id",
             name="uq_dispatch_turns_replan_snapshot_owner",
@@ -103,8 +117,10 @@ class DispatchTurnModel(RuntimeBase):
         CheckConstraint(
             "(predecessor_dispatch_id IS NULL AND flow_start_source_flow_id = flow_id AND "
             "opened_reason IN ('root', 'operator_continue')) OR "
+            "(predecessor_dispatch_id IS NULL AND flow_start_source_flow_id IS NULL AND "
+            "opened_reason IN ('boundary', 'semantic_retry')) OR "
             "(predecessor_dispatch_id IS NOT NULL AND flow_start_source_flow_id IS NULL AND "
-            "opened_reason != 'root')",
+            "opened_reason NOT IN ('root', 'boundary', 'semantic_retry'))",
             name="ck_dispatch_turns_exact_source_shape",
         ),
         CheckConstraint(
@@ -242,22 +258,33 @@ class DispatchTurnModel(RuntimeBase):
             initially="DEFERRED",
         ),
         ForeignKeyConstraint(
-            ["flow_id", "predecessor_dispatch_id"],
-            ["dispatch_turns.flow_id", "dispatch_turns.dispatch_id"],
+            ["attempt_id", "predecessor_dispatch_id"],
+            ["dispatch_turns.attempt_id", "dispatch_turns.dispatch_id"],
             name="fk_dispatch_turns_predecessor_owner",
             deferrable=True,
             initially="DEFERRED",
         ),
+        ForeignKeyConstraint(
+            ["attempt_id", "dispatch_id", "active_status_marker"],
+            [
+                "attempts.attempt_id",
+                "attempts.current_dispatch_id",
+                "attempts.current_dispatch_presence_marker",
+            ],
+            name="fk_dispatch_turns_current_attempt_owner",
+            deferrable=True,
+            initially="DEFERRED",
+        ),
         Index(
-            "uq_dispatch_turns_one_first_per_flow",
-            "flow_id",
+            "uq_dispatch_turns_one_first_per_attempt",
+            "attempt_id",
             unique=True,
             sqlite_where=text("predecessor_dispatch_id IS NULL"),
             postgresql_where=text("predecessor_dispatch_id IS NULL"),
         ),
         Index(
-            "uq_dispatch_turns_one_current_per_flow",
-            "flow_id",
+            "uq_dispatch_turns_one_current_per_attempt",
+            "attempt_id",
             unique=True,
             sqlite_where=text("status IN ('starting', 'open')"),
             postgresql_where=text("status IN ('starting', 'open')"),
@@ -393,6 +420,19 @@ class DispatchTurnModel(RuntimeBase):
         lazy="raise",
         viewonly=True,
     )
+    current_attempt: Mapped[AttemptModel | None] = relationship(
+        "AttemptModel",
+        primaryjoin=(
+            "and_(DispatchTurnModel.attempt_id == AttemptModel.attempt_id, "
+            "DispatchTurnModel.dispatch_id == AttemptModel.current_dispatch_id, "
+            "DispatchTurnModel.active_status_marker == "
+            "AttemptModel.current_dispatch_presence_marker)"
+        ),
+        foreign_keys=[attempt_id, dispatch_id, active_status_marker],
+        lazy="raise",
+        uselist=False,
+        viewonly=True,
+    )
     flow_start_source: Mapped[FlowStartSourceModel | None] = relationship(
         "FlowStartSourceModel",
         foreign_keys=[flow_start_source_flow_id],
@@ -402,14 +442,14 @@ class DispatchTurnModel(RuntimeBase):
     )
     predecessor: Mapped[DispatchTurnModel | None] = relationship(
         back_populates="successors",
-        foreign_keys=[flow_id, predecessor_dispatch_id],
-        remote_side=lambda: [DispatchTurnModel.flow_id, DispatchTurnModel.dispatch_id],
+        foreign_keys=[attempt_id, predecessor_dispatch_id],
+        remote_side=lambda: [DispatchTurnModel.attempt_id, DispatchTurnModel.dispatch_id],
         lazy="raise",
         viewonly=True,
     )
     successors: Mapped[list[DispatchTurnModel]] = relationship(
         back_populates="predecessor",
-        foreign_keys="[DispatchTurnModel.flow_id, DispatchTurnModel.predecessor_dispatch_id]",
+        foreign_keys="[DispatchTurnModel.attempt_id, DispatchTurnModel.predecessor_dispatch_id]",
         lazy="raise",
         viewonly=True,
     )
@@ -516,12 +556,17 @@ class DispatchTurnModel(RuntimeBase):
         uselist=False,
         viewonly=True,
     )
-    flow_wait: Mapped[FlowWaitModel | None] = relationship(
-        "FlowWaitModel",
+    attempt_wait: Mapped[AttemptWaitModel | None] = relationship(
+        "AttemptWaitModel",
         back_populates="source_dispatch",
-        foreign_keys="FlowWaitModel.source_dispatch_id",
+        foreign_keys=(
+            "[AttemptWaitModel.source_dispatch_id, AttemptWaitModel.task_id, "
+            "AttemptWaitModel.flow_id, AttemptWaitModel.assignment_id, "
+            "AttemptWaitModel.attempt_id]"
+        ),
         lazy="raise",
         uselist=False,
+        viewonly=True,
     )
 
 

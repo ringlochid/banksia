@@ -15,6 +15,11 @@ from banksia.runtime.contracts.provider_resolution import (
     CodexProviderRoute,
     OpenClawProviderRoute,
 )
+from banksia.runtime.dispatch.currentness import (
+    AttemptDispatchConflictError,
+    AttemptDispatchIdentity,
+    select_starting_dispatch_for_attempt,
+)
 from banksia.runtime.dispatch.preparation import PreparedDispatchRequest
 from banksia.runtime.task_events import append_task_event
 
@@ -51,6 +56,21 @@ async def stage_starting_dispatch(
     basis: StartingDispatchBasis,
     prepared: PreparedDispatchRequest,
 ) -> None:
+    identity = AttemptDispatchIdentity(
+        task_id=basis.task_id,
+        flow_id=basis.flow_id,
+        assignment_id=basis.assignment_id,
+        attempt_id=basis.attempt_id,
+        dispatch_id=prepared.dispatch_id,
+    )
+    if not await select_starting_dispatch_for_attempt(
+        session,
+        identity=identity,
+        predecessor_dispatch_id=basis.predecessor_dispatch_id,
+    ):
+        raise AttemptDispatchConflictError(
+            f"Attempt {basis.attempt_id!r} no longer accepts Dispatch {prepared.dispatch_id!r}"
+        )
     session.add(_build_starting_dispatch_model(basis=basis, prepared=prepared))
     await _append_dispatch_opened_event(session, basis=basis, prepared=prepared)
     if basis.resume_event is not None:

@@ -1,20 +1,24 @@
 from __future__ import annotations
 
 from datetime import datetime
-from uuid import uuid4
 
-from sqlalchemy import case, select, update
+from sqlalchemy import case, delete, exists, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from banksia.persistence.models import (
     AssignmentDecisionModel,
     AssignmentModel,
     AttemptModel,
+    AttemptWaitModel,
     FlowModel,
     FlowNodeModel,
 )
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
 from banksia.runtime.dispatch.authority import NodeOperationAuthority
+from banksia.runtime.dispatch.currentness import (
+    AttemptWaitIdentity,
+    clear_current_attempt_wait,
+)
 from banksia.runtime.errors import RuntimeOperationError, budget_exhausted_error
 
 
@@ -25,6 +29,7 @@ async def advance_accepted_boundary_state(
     outcome: str,
     decision: AssignmentDecisionModel | None,
     transitioned_at: datetime,
+    retry_attempt_id: str | None = None,
 ) -> None:
     """Apply the semantic transition owned by one accepted boundary transaction."""
 
@@ -46,13 +51,18 @@ async def advance_accepted_boundary_state(
     )
     source_assignment = await _read_source_assignment(session, authority)
     if outcome == "retry":
+        if retry_attempt_id is None:
+            raise _conflict("semantic retry is missing its replacement Attempt identity")
         await _start_semantic_retry(
             session,
             authority,
             source_assignment=source_assignment,
+            retry_attempt_id=retry_attempt_id,
             transitioned_at=transitioned_at,
         )
         return
+    if retry_attempt_id is not None:
+        raise _conflict("a non-retry boundary cannot select a replacement Attempt")
     await _complete_source_assignment(
         session,
         authority,
@@ -68,7 +78,7 @@ async def advance_accepted_boundary_state(
         await _resume_parent(
             session,
             authority,
-            parent_assignment_id=source_assignment.parent_assignment_id,
+            source_assignment=source_assignment,
         )
         return
     if authority.node_kind.value != "root":
@@ -162,11 +172,15 @@ async def _complete_source_attempt(
             AttemptModel.flow_id == authority.flow_id,
             AttemptModel.node_key == authority.node_key,
             AttemptModel.status.in_(("pending", "running")),
+            AttemptModel.current_dispatch_id.is_(None),
+            AttemptModel.current_wait_id.is_(None),
         )
         .values(
             status="completed",
             terminal_outcome=outcome,
             closed_at=transitioned_at,
+            current_dispatch_id=None,
+            current_wait_id=None,
         )
         .returning(AttemptModel.attempt_id)
     )
@@ -228,11 +242,11 @@ async def _start_semantic_retry(
     authority: NodeOperationAuthority,
     *,
     source_assignment: AssignmentModel,
+    retry_attempt_id: str,
     transitioned_at: datetime,
 ) -> None:
     if source_assignment.retries_remaining is not None and source_assignment.retries_remaining <= 0:
         raise budget_exhausted_error("the current assignment has no semantic retries remaining")
-    retry_attempt_id = f"attempt.{authority.task_id}.{authority.node_key}.{uuid4().hex}"
     session.add(
         AttemptModel(
             attempt_id=retry_attempt_id,
@@ -294,8 +308,11 @@ async def _resume_parent(
     session: AsyncSession,
     authority: NodeOperationAuthority,
     *,
-    parent_assignment_id: str,
+    source_assignment: AssignmentModel,
 ) -> None:
+    parent_assignment_id = source_assignment.parent_assignment_id
+    if parent_assignment_id is None or source_assignment.created_by_dispatch_id is None:
+        raise _conflict("child return is missing its sequential parent source")
     parent = await session.scalar(
         select(AssignmentModel).where(
             AssignmentModel.assignment_id == parent_assignment_id,
@@ -307,17 +324,55 @@ async def _resume_parent(
     )
     if parent is None or parent.current_attempt_id is None:
         raise _conflict("child return is missing its current parent assignment")
-    parent_attempt_is_active = await session.scalar(
-        select(AttemptModel.attempt_id).where(
-            AttemptModel.attempt_id == parent.current_attempt_id,
-            AttemptModel.assignment_id == parent.assignment_id,
-            AttemptModel.task_id == authority.task_id,
-            AttemptModel.flow_id == authority.flow_id,
-            AttemptModel.status.in_(("pending", "running")),
+    parent_wait = await session.scalar(
+        select(AttemptWaitModel).where(
+            AttemptWaitModel.task_id == authority.task_id,
+            AttemptWaitModel.flow_id == authority.flow_id,
+            AttemptWaitModel.assignment_id == parent.assignment_id,
+            AttemptWaitModel.attempt_id == parent.current_attempt_id,
+            AttemptWaitModel.source_dispatch_id == source_assignment.created_by_dispatch_id,
+            AttemptWaitModel.sequential_child_assignment_id == source_assignment.assignment_id,
+            AttemptWaitModel.human_request_id.is_(None),
+            AttemptWaitModel.command_run_id.is_(None),
+            exists(
+                select(AttemptModel.attempt_id).where(
+                    AttemptModel.attempt_id == parent.current_attempt_id,
+                    AttemptModel.assignment_id == parent.assignment_id,
+                    AttemptModel.task_id == authority.task_id,
+                    AttemptModel.flow_id == authority.flow_id,
+                    AttemptModel.status == "running",
+                    AttemptModel.current_dispatch_id.is_(None),
+                    AttemptModel.current_wait_id == AttemptWaitModel.wait_id,
+                )
+            ),
         )
     )
-    if parent_attempt_is_active is None:
-        raise _conflict("child return parent attempt is no longer active")
+    if parent_wait is None:
+        raise _conflict("child return does not match the parent's exact sequential wait")
+    wait_identity = AttemptWaitIdentity(
+        task_id=parent_wait.task_id,
+        flow_id=parent_wait.flow_id,
+        assignment_id=parent_wait.assignment_id,
+        attempt_id=parent_wait.attempt_id,
+        wait_id=parent_wait.wait_id,
+    )
+    if not await clear_current_attempt_wait(session, identity=wait_identity):
+        raise _conflict("another transition already consumed the parent sequential wait")
+    deleted_wait_id = await session.scalar(
+        delete(AttemptWaitModel)
+        .where(
+            AttemptWaitModel.wait_id == parent_wait.wait_id,
+            AttemptWaitModel.task_id == parent_wait.task_id,
+            AttemptWaitModel.flow_id == parent_wait.flow_id,
+            AttemptWaitModel.assignment_id == parent_wait.assignment_id,
+            AttemptWaitModel.attempt_id == parent_wait.attempt_id,
+            AttemptWaitModel.source_dispatch_id == parent_wait.source_dispatch_id,
+            AttemptWaitModel.sequential_child_assignment_id == source_assignment.assignment_id,
+        )
+        .returning(AttemptWaitModel.wait_id)
+    )
+    if deleted_wait_id is None:
+        raise _conflict("another transition removed the parent sequential wait")
     resumed = await session.scalar(
         update(FlowNodeModel)
         .where(
@@ -341,6 +396,21 @@ async def _complete_root_flow(
     outcome: str,
     transitioned_at: datetime,
 ) -> None:
+    live_descendant_attempt = exists(
+        select(AttemptModel.attempt_id)
+        .join(
+            AssignmentModel,
+            (AssignmentModel.task_id == AttemptModel.task_id)
+            & (AssignmentModel.flow_id == AttemptModel.flow_id)
+            & (AssignmentModel.assignment_id == AttemptModel.assignment_id),
+        )
+        .where(
+            AttemptModel.task_id == authority.task_id,
+            AttemptModel.flow_id == authority.flow_id,
+            AttemptModel.status.in_(("pending", "running")),
+            AssignmentModel.parent_assignment_id.is_not(None),
+        )
+    )
     completed = await session.scalar(
         update(FlowModel)
         .where(
@@ -348,8 +418,7 @@ async def _complete_root_flow(
             FlowModel.task_id == authority.task_id,
             FlowModel.status == "running",
             FlowModel.active_flow_revision_id == authority.flow_revision_id,
-            FlowModel.current_dispatch_id.is_(None),
-            FlowModel.waiting_cause == "none",
+            ~live_descendant_attempt,
         )
         .values(
             status="completed",

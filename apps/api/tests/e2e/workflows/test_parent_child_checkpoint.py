@@ -215,12 +215,24 @@ async def _make_child_assignable(
 ) -> None:
     async with session_factory() as session:
         parent = await session.get(AssignmentModel, ids.root_assignment_id)
+        previous_child = await session.get(AssignmentModel, ids.child_assignment_id)
+        previous_child_attempt = await session.get(AttemptModel, ids.child_attempt_id)
         child_node = await session.get(FlowNodeModel, ids.child_node_id)
         assert parent is not None
+        assert previous_child is not None
+        assert previous_child_attempt is not None
         assert child_node is not None
 
+        retired_at = datetime.now(UTC)
         parent.child_assignment_limit = 1
         parent.child_assignments_remaining = 1
+        previous_child_attempt.status = "cancelled"
+        previous_child_attempt.terminal_outcome = None
+        previous_child_attempt.closed_at = retired_at
+        previous_child_attempt.current_dispatch_id = None
+        previous_child_attempt.current_wait_id = None
+        previous_child.terminal_outcome = "blocked"
+        previous_child.closed_at = retired_at
         child_node.current_assignment_id = None
         child_node.state = "ready"
         await session.commit()

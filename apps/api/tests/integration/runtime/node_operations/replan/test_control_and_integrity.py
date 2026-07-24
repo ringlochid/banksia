@@ -5,7 +5,12 @@ from pathlib import Path
 from typing import cast
 
 from banksia.config import CodexSettings, RuntimeSettings, Settings
-from banksia.persistence.models import DispatchTurnModel, FlowModel, ReplanTransitionModel
+from banksia.persistence.models import (
+    AttemptModel,
+    DispatchTurnModel,
+    FlowModel,
+    ReplanTransitionModel,
+)
 from banksia.providers import ProviderKind
 from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
 from banksia.runtime.flow.service import (
@@ -71,6 +76,7 @@ async def test_pause_after_replan_resumes_the_exact_transition_once(
                 ReplanTransitionModel,
                 transition.replan_transition_id,
             )
+            attempt = await session.get(AttemptModel, ids.root_attempt_id)
             successor_count = await session.scalar(
                 select(func.count())
                 .select_from(DispatchTurnModel)
@@ -81,11 +87,11 @@ async def test_pause_after_replan_resumes_the_exact_transition_once(
 
     assert startup_while_paused.outcome == "skipped"
     assert resumed.status.value == "running"
-    assert resumed.current_dispatch is not None
     assert duplicate.outcome == "skipped"
     assert current_transition is not None
     assert current_transition.successor_state == "opened"
-    assert current_transition.successor_dispatch_id == resumed.current_dispatch.dispatch_id
+    assert attempt is not None
+    assert attempt.current_dispatch_id == current_transition.successor_dispatch_id
     assert successor_count == 1
 
 

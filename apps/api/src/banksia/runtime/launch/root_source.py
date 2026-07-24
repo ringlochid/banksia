@@ -219,6 +219,8 @@ def root_context_is_current(snapshot: RootOpeningSnapshot) -> ColumnElement[bool
             AttemptModel.flow_id == prompt.flow_id,
             AttemptModel.node_key == prompt.node_key,
             AttemptModel.status == "running",
+            AttemptModel.current_dispatch_id.is_(None),
+            AttemptModel.current_wait_id.is_(None),
         )
         & exists().where(
             TaskModel.task_id == prompt.task_id,
@@ -281,8 +283,6 @@ async def _read_flow_start_state(
         and (
             expected_control_revision is None or flow.control_revision == expected_control_revision
         )
-        and flow.current_dispatch_id is None
-        and flow.waiting_cause == "none"
         and (expected_flow_status != "paused" or flow.pause_reason is not None)
     )
     return _FlowStartState(source, flow) if is_current else None
@@ -347,6 +347,8 @@ async def _read_root_runtime_context(
         node.state != "running"
         or assignment.superseded_at is not None
         or attempt.status != "running"
+        or attempt.current_dispatch_id is not None
+        or attempt.current_wait_id is not None
         or not _node_plan_matches_node(node_plan, node)
         or not _assignment_matches_node(assignment, node)
         or node_plan.provider_kind != node.provider_kind

@@ -43,6 +43,8 @@ async def stage_launch_attempt_rows(
             node_key=bootstrap_input.initial_team.root_member_id,
             retry_of_attempt_id=None,
             latest_checkpoint_id=None,
+            current_dispatch_id=None,
+            current_wait_id=None,
             status="running",
         )
     )

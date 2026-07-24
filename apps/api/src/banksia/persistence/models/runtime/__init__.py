@@ -45,7 +45,7 @@ from banksia.persistence.models.runtime.team import (
     TeamRevisionMemberModel,
     TeamRevisionModel,
 )
-from banksia.persistence.models.runtime.waiting import FlowWaitModel
+from banksia.persistence.models.runtime.waiting import AttemptWaitModel
 
 __all__ = [
     "AcceptedBoundaryModel",
@@ -56,6 +56,7 @@ __all__ = [
     "AssignmentWorkPlanStepModel",
     "AttemptCheckpointModel",
     "AttemptModel",
+    "AttemptWaitModel",
     "CheckpointFileReferenceModel",
     "CommandRunModel",
     "CompiledPlanModel",
@@ -67,7 +68,6 @@ __all__ = [
     "FlowNodeModel",
     "FlowRevisionModel",
     "FlowStartSourceModel",
-    "FlowWaitModel",
     "HumanRequestFileReferenceModel",
     "HumanRequestModel",
     "MemberBranchBasisModel",

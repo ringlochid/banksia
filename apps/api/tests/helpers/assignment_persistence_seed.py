@@ -34,6 +34,9 @@ class AssignmentSeedIds(TeamSeedIds, Protocol):
     @property
     def child_attempt_id(self) -> str: ...
 
+    @property
+    def root_dispatch_id(self) -> str: ...
+
 
 def seed_assignments_and_attempts(
     connection: Connection,
@@ -44,16 +47,31 @@ def seed_assignments_and_attempts(
     """Persist assignment-attempt heads for the two-member lineage fixture."""
 
     rows = (
-        (ids.root_assignment_id, ids.root_node_id, "root", None, ids.root_attempt_id),
+        (
+            ids.root_assignment_id,
+            ids.root_node_id,
+            "root",
+            None,
+            None,
+            ids.root_attempt_id,
+        ),
         (
             ids.child_assignment_id,
             ids.child_node_id,
             "child",
             ids.root_assignment_id,
+            ids.root_dispatch_id,
             ids.child_attempt_id,
         ),
     )
-    for assignment_id, flow_node_id, member_id, parent_assignment_id, attempt_id in rows:
+    for (
+        assignment_id,
+        flow_node_id,
+        member_id,
+        parent_assignment_id,
+        created_by_dispatch_id,
+        attempt_id,
+    ) in rows:
         _insert_assignment_attempt(
             connection,
             ids=ids,
@@ -61,6 +79,7 @@ def seed_assignments_and_attempts(
             flow_node_id=flow_node_id,
             member_id=member_id,
             parent_assignment_id=parent_assignment_id,
+            created_by_dispatch_id=created_by_dispatch_id,
             attempt_id=attempt_id,
             timestamp=timestamp,
         )
@@ -74,6 +93,7 @@ def _insert_assignment_attempt(
     flow_node_id: str,
     member_id: str,
     parent_assignment_id: str | None,
+    created_by_dispatch_id: str | None,
     attempt_id: str,
     timestamp: datetime,
 ) -> None:
@@ -95,7 +115,7 @@ def _insert_assignment_attempt(
             "child_assignments_remaining": 20,
             "retry_limit": 1,
             "retries_remaining": 1,
-            "created_by_dispatch_id": None,
+            "created_by_dispatch_id": created_by_dispatch_id,
             "created_at": timestamp,
             "terminal_outcome": None,
             "closed_at": None,
@@ -111,6 +131,8 @@ def _insert_assignment_attempt(
             "flow_id": ids.flow_id,
             "node_key": member_id,
             "retry_of_attempt_id": None,
+            "current_dispatch_id": None,
+            "current_wait_id": None,
             "status": "running",
             "terminal_outcome": None,
             "opened_at": timestamp,

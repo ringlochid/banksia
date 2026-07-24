@@ -15,7 +15,6 @@ NODE_STATE_VALUES = (
 )
 FLOW_STATUS_VALUES = ("running", "paused", "completed", "cancelled")
 FLOW_TERMINAL_OUTCOME_VALUES = ("green", "blocked")
-FLOW_WAITING_CAUSE_VALUES = ("none", "human_request", "command_run")
 STRUCTURAL_REVISION_CAUSE_VALUES = ("launch", "add_child", "update_child", "remove_child")
 REPLAN_OPERATION_VALUES = ("add_child", "update_child", "remove_child")
 REPLAN_MANIFEST_STATE_VALUES = ("pending", "repair_required", "current")
@@ -168,7 +167,6 @@ __all__ = [
     "DISPATCH_STATUS_VALUES",
     "FLOW_STATUS_VALUES",
     "FLOW_TERMINAL_OUTCOME_VALUES",
-    "FLOW_WAITING_CAUSE_VALUES",
     "HUMAN_REQUEST_KIND_VALUES",
     "HUMAN_REQUEST_RESOLUTION_KIND_VALUES",
     "HUMAN_REQUEST_RESOLUTION_SURFACE_VALUES",

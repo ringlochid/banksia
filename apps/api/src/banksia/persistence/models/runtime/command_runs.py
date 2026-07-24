@@ -27,10 +27,10 @@ from banksia.persistence.models.runtime.common import (
     sql_in,
     utcnow,
 )
-from banksia.persistence.models.runtime.waiting import FlowWaitModel
 
 if TYPE_CHECKING:
     from banksia.persistence.models.runtime.dispatch.turns import DispatchTurnModel
+    from banksia.persistence.models.runtime.waiting import AttemptWaitModel
 
 
 class CommandRunModel(RuntimeBase):
@@ -38,6 +38,15 @@ class CommandRunModel(RuntimeBase):
     __table_args__ = (
         UniqueConstraint("source_dispatch_id"),
         UniqueConstraint("run_id", "task_id", "flow_id", "source_dispatch_id"),
+        UniqueConstraint(
+            "run_id",
+            "task_id",
+            "flow_id",
+            "assignment_id",
+            "attempt_id",
+            "source_dispatch_id",
+            name="uq_command_runs_attempt_source_owner",
+        ),
         UniqueConstraint("task_id", "output_path"),
         CheckConstraint(
             f"state IN ({sql_in(COMMAND_RUN_STATE_VALUES)})",
@@ -193,10 +202,10 @@ class CommandRunModel(RuntimeBase):
         lazy="raise",
         viewonly=True,
     )
-    flow_wait: Mapped[FlowWaitModel | None] = relationship(
-        "FlowWaitModel",
+    attempt_wait: Mapped[AttemptWaitModel | None] = relationship(
+        "AttemptWaitModel",
         back_populates="command_run",
-        foreign_keys=[FlowWaitModel.command_run_id],
+        foreign_keys="AttemptWaitModel.command_run_id",
         lazy="raise",
         uselist=False,
         viewonly=True,

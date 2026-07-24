@@ -5,18 +5,21 @@ from typing import cast
 
 from banksia.config import CodexSettings, RuntimeSettings, Settings
 from banksia.persistence.models import (
+    AttemptModel,
+    AttemptWaitModel,
     CommandRunModel,
     DispatchRequestModel,
     DispatchTurnModel,
     FlowModel,
-    FlowWaitModel,
 )
 from banksia.providers import ProviderKind
 from banksia.runtime.clock import utc_now
 from banksia.runtime.command_run.continuation import open_command_run_successor
-from banksia.runtime.command_run.service import read_command_run
+from banksia.runtime.command_run.service import cancel_command_run, read_command_run
+from banksia.runtime.command_run.transitions import terminalize_command_run
+from banksia.runtime.contracts import CommandRunState
 from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
-from banksia.runtime.flow.service import pause_runtime_flow, runtime_flow_read
+from banksia.runtime.flow.service import runtime_flow_read
 from banksia.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
 from banksia.runtime.post_commit import (
     CapturedRuntimeEffectPublisher,
@@ -24,7 +27,7 @@ from banksia.runtime.post_commit import (
     DispatchStartDue,
 )
 from banksia.runtime.prompt import parse_prompt_continuation
-from sqlalchemy import delete, func, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from tests.helpers.executor_harness import (
     SessionFactory,
@@ -48,6 +51,9 @@ async def test_terminal_command_source_opens_one_same_attempt_successor(
 
         async with session_factory() as session:
             pre_open = await runtime_flow_read(cast(AsyncSession, session), ids.task_id)
+            initial_flow = await session.get(FlowModel, ids.flow_id)
+            assert initial_flow is not None
+            initial_control_revision = initial_flow.control_revision
             first = await open_command_run_successor(
                 cast(AsyncSession, session),
                 signal=CommandRunTerminal(run_id),
@@ -65,6 +71,7 @@ async def test_terminal_command_source_opens_one_same_attempt_successor(
                 run_id=run_id,
             )
             flow = await session.get(FlowModel, ids.flow_id)
+            attempt = await session.get(AttemptModel, ids.root_attempt_id)
             successor = await session.get(DispatchTurnModel, first.dispatch_id)
             dispatch_request = await session.get(DispatchRequestModel, first.dispatch_id)
             dispatch_count = await session.scalar(
@@ -80,7 +87,10 @@ async def test_terminal_command_source_opens_one_same_attempt_successor(
     assert first.dispatch_id is not None
     assert source is not None and source.successor_dispatch_id == first.dispatch_id
     assert detail.successor_dispatch_id == first.dispatch_id
-    assert flow is not None and flow.current_dispatch_id == first.dispatch_id
+    assert attempt is not None
+    assert attempt.current_dispatch_id == first.dispatch_id
+    assert attempt.current_wait_id is None
+    assert flow is not None and flow.control_revision == initial_control_revision
     assert successor is not None and successor.opened_reason == "command_result"
     assert successor.assignment_id == ids.root_assignment_id
     assert successor.attempt_id == ids.root_attempt_id
@@ -147,7 +157,10 @@ async def test_nonterminal_command_signal_is_a_harmless_noop(tmp_path: Path) -> 
                 dependencies=_opening_dependencies(publisher),
             )
             source = await session.get(CommandRunModel, run_id)
-            flow = await session.get(FlowModel, ids.flow_id)
+            attempt = await session.get(AttemptModel, ids.root_attempt_id)
+            wait = await session.scalar(
+                select(AttemptWaitModel).where(AttemptWaitModel.command_run_id == run_id)
+            )
             dispatch_count = await session.scalar(
                 select(func.count()).select_from(DispatchTurnModel)
             )
@@ -155,9 +168,25 @@ async def test_nonterminal_command_signal_is_a_harmless_noop(tmp_path: Path) -> 
     assert result.outcome == "skipped"
     assert source is not None and source.state == "pending_start"
     assert source.successor_dispatch_id is None
-    assert flow is not None and flow.waiting_source_id == run_id
+    assert attempt is not None and wait is not None
+    assert attempt.current_wait_id == wait.wait_id
     assert dispatch_count == 3
     assert publisher.signals == ()
+
+    async with session_factory() as session:
+        cancelled = await cancel_command_run(
+            cast(AsyncSession, session),
+            task_id=ids.task_id,
+            run_id=run_id,
+        )
+    async with session_factory() as session:
+        attempt = await session.get(AttemptModel, ids.root_attempt_id)
+        wait = await session.scalar(
+            select(AttemptWaitModel).where(AttemptWaitModel.command_run_id == run_id)
+        )
+    assert cancelled.run.state == CommandRunState.CANCELLATION_REQUESTED
+    assert attempt is not None and wait is not None
+    assert attempt.current_wait_id == wait.wait_id
 
 
 async def test_terminal_command_source_remains_current_while_flow_is_paused(
@@ -173,22 +202,35 @@ async def test_terminal_command_source_remains_current_while_flow_is_paused(
         async with session_factory() as session:
             flow = await session.get(FlowModel, ids.flow_id)
             assert flow is not None
-            await pause_runtime_flow(
-                cast(AsyncSession, session),
-                ids.task_id,
-                expected_active_flow_revision_id=ids.flow_revision_id,
-                expected_control_revision=flow.control_revision,
-            )
+            flow.status = "paused"
+            flow.pause_reason = "paused_by_operator"
+            flow.pause_details = {"summary": "Paused by operator."}
+            flow.paused_at = utc_now()
+            flow.paused_by_actor_ref = "local-test"
+            flow.control_revision += 1
+            await session.commit()
         await _terminalize_command_run(session_factory, ids, run_id)
 
+        publisher = CapturedRuntimeEffectPublisher()
         async with session_factory() as session:
+            continuation = await open_command_run_successor(
+                cast(AsyncSession, session),
+                signal=CommandRunTerminal(run_id),
+                dependencies=_opening_dependencies(publisher),
+            )
             readback = await runtime_flow_read(cast(AsyncSession, session), ids.task_id)
+            attempt = await session.get(AttemptModel, ids.root_attempt_id)
 
     assert readback.status.value == "paused"
     assert readback.current_dispatch is None
     assert readback.current_command_run is not None
     assert readback.current_command_run.run_id == run_id
     assert readback.current_command_run.state.value == "succeeded"
+    assert attempt is not None
+    assert attempt.current_dispatch_id is None
+    assert attempt.current_wait_id is None
+    assert continuation.outcome == "skipped"
+    assert publisher.signals == ()
 
 
 async def _open_command_run(executor: NodeOperationExecutor, ids: RuntimeIds) -> str:
@@ -213,28 +255,26 @@ async def _terminalize_command_run(
     now = utc_now()
     async with session_factory() as session:
         source = await session.get(CommandRunModel, run_id)
-        flow = await session.get(FlowModel, ids.flow_id)
         assert source is not None
-        assert flow is not None
-        source.state = "succeeded"
+        source.state = "running"
         source.started_at = now
-        source.ended_at = now
-        source.terminal_summary = "Python reported its version successfully."
-        source.terminal_exit_code = 0
-        source.terminal_event_source = "process_owner"
-        source.output_observed_bytes = 21
-        source.output_written_bytes = 21
-        source.output_complete = True
-        await session.execute(
-            delete(FlowWaitModel).where(
-                FlowWaitModel.flow_id == ids.flow_id,
-                FlowWaitModel.command_run_id == run_id,
-            )
-        )
-        flow.waiting_cause = "none"
-        flow.waiting_source_id = None
-        flow.control_revision += 1
         await session.commit()
+    async with session_factory() as session:
+        won = await terminalize_command_run(
+            cast(AsyncSession, session),
+            task_id=ids.task_id,
+            run_id=run_id,
+            expected_ownership_revision=0,
+            expected_states=(CommandRunState.RUNNING,),
+            terminal_state=CommandRunState.SUCCEEDED,
+            summary="Python reported its version successfully.",
+            ended_at=now,
+            exit_code=0,
+            output_observed_bytes=21,
+            output_written_bytes=21,
+            output_complete=True,
+        )
+    assert won is True
 
 
 def _opening_dependencies(

@@ -11,8 +11,8 @@ from uuid import uuid4
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from banksia.persistence.models import (
+    AttemptWaitModel,
     CommandRunModel,
-    FlowWaitModel,
     HumanRequestFileReferenceModel,
     HumanRequestModel,
 )
@@ -29,13 +29,16 @@ from banksia.runtime.contracts import (
 )
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
 from banksia.runtime.dispatch.authority import NodeOperationAuthority
+from banksia.runtime.dispatch.currentness import (
+    AttemptDispatchIdentity,
+    suspend_current_attempt_on_wait,
+)
 from banksia.runtime.errors import RuntimeOperationError
 from banksia.runtime.file_references import validate_file_references
 from banksia.runtime.node_operations.contracts import (
     OpenHumanRequestRequest,
     StartCommandRunRequest,
 )
-from banksia.runtime.node_operations.source_transitions import close_source_dispatch
 from banksia.runtime.task_events import append_task_event
 from banksia.runtime.task_root.paths import command_run_output_path
 from banksia.runtime.task_root.reads import read_task_root_paths
@@ -49,19 +52,12 @@ async def open_human_request(
     request: OpenHumanRequestRequest,
 ) -> HumanRequestOpenResponse:
     request_id = f"human-request.{authority.task_id}.{uuid4().hex}"
+    wait_id = f"attempt-wait.{uuid4().hex}"
     body = request.request
     paths = await read_task_root_paths(session, authority.task_id)
     files = validate_file_references(paths.workspace_path, body.files)
     timeout = body.timeout or HumanRequestTimeout()
     now = utc_now()
-    await close_source_dispatch(
-        session,
-        authority,
-        now=now,
-        closed_reason="human_request_wait",
-        waiting_cause="human_request",
-        waiting_source_id=request_id,
-    )
     session.add(
         HumanRequestModel(
             request_id=request_id,
@@ -86,13 +82,25 @@ async def open_human_request(
     )
     _stage_human_request_files(session, request_id=request_id, files=files)
     session.add(
-        FlowWaitModel(
+        AttemptWaitModel(
+            wait_id=wait_id,
             flow_id=authority.flow_id,
             task_id=authority.task_id,
+            assignment_id=authority.assignment_id,
+            attempt_id=authority.attempt_id,
             source_dispatch_id=authority.dispatch_id,
+            sequential_child_assignment_id=None,
             human_request_id=request_id,
             command_run_id=None,
         )
+    )
+    await session.flush()
+    await _suspend_current_attempt(
+        session,
+        authority,
+        wait_id=wait_id,
+        closed_at=now,
+        closed_reason="human_request_wait",
     )
     await append_task_event(
         session,
@@ -135,21 +143,23 @@ async def start_command_run(
     body = request.request
     now = utc_now()
     cwd = _normalize_command_cwd(body.cwd)
-    await close_source_dispatch(
-        session,
-        authority,
-        now=now,
-        closed_reason="command_run_wait",
-        waiting_cause="command_run",
-        waiting_source_id=run_id,
-    )
+    wait_id = f"attempt-wait.{uuid4().hex}"
     _stage_command_run_rows(
         session,
         authority,
+        wait_id=wait_id,
         run_id=run_id,
         request=request,
         cwd=cwd,
         output_path=output_path,
+    )
+    await session.flush()
+    await _suspend_current_attempt(
+        session,
+        authority,
+        wait_id=wait_id,
+        closed_at=now,
+        closed_reason="command_run_wait",
     )
     await _append_command_run_opened_event(
         session,
@@ -189,6 +199,7 @@ def _stage_command_run_rows(
     session: AsyncSession,
     authority: NodeOperationAuthority,
     *,
+    wait_id: str,
     run_id: str,
     request: StartCommandRunRequest,
     cwd: str | None,
@@ -214,14 +225,48 @@ def _stage_command_run_rows(
         )
     )
     session.add(
-        FlowWaitModel(
+        AttemptWaitModel(
+            wait_id=wait_id,
             flow_id=authority.flow_id,
             task_id=authority.task_id,
+            assignment_id=authority.assignment_id,
+            attempt_id=authority.attempt_id,
             source_dispatch_id=authority.dispatch_id,
+            sequential_child_assignment_id=None,
             human_request_id=None,
             command_run_id=run_id,
         )
     )
+
+
+async def _suspend_current_attempt(
+    session: AsyncSession,
+    authority: NodeOperationAuthority,
+    *,
+    wait_id: str,
+    closed_at: datetime,
+    closed_reason: str,
+) -> None:
+    won = await suspend_current_attempt_on_wait(
+        session,
+        identity=AttemptDispatchIdentity(
+            task_id=authority.task_id,
+            flow_id=authority.flow_id,
+            assignment_id=authority.assignment_id,
+            attempt_id=authority.attempt_id,
+            dispatch_id=authority.dispatch_id,
+        ),
+        wait_id=wait_id,
+        expected_flow_revision_id=authority.flow_revision_id,
+        closed_at=closed_at,
+        closed_reason=closed_reason,
+    )
+    if not won:
+        raise RuntimeOperationError(
+            code=OperationFailureCode.CONFLICT,
+            summary="another transition changed exact Attempt authority",
+            is_retryable=False,
+        )
 
 
 async def _append_command_run_opened_event(

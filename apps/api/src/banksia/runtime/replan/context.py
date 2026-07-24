@@ -10,18 +10,14 @@ from banksia.persistence.models import (
     AssignmentDecisionModel,
     AssignmentModel,
     AttemptModel,
-    CommandRunModel,
     FlowModel,
     FlowNodeModel,
     FlowRevisionModel,
-    FlowWaitModel,
-    HumanRequestModel,
     MemberConfigurationModel,
     TaskModel,
     TeamRevisionMemberModel,
     TeamRevisionModel,
 )
-from banksia.persistence.models.runtime.common import COMMAND_RUN_TERMINAL_STATE_VALUES
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
 from banksia.runtime.dispatch.authority import NodeOperationAuthority
 from banksia.runtime.errors import RuntimeOperationError
@@ -78,21 +74,19 @@ async def require_replan_admission(
     staged_decision = await session.scalar(
         select(exists().where(AssignmentDecisionModel.source_dispatch_id == authority.dispatch_id))
     )
-    external_wait = await session.scalar(
+    caller_wait = await session.scalar(
         select(
-            exists().where(FlowWaitModel.flow_id == authority.flow_id)
-            | exists().where(
-                HumanRequestModel.flow_id == authority.flow_id,
-                HumanRequestModel.status == "open",
-            )
-            | exists().where(
-                CommandRunModel.flow_id == authority.flow_id,
-                CommandRunModel.state.not_in(COMMAND_RUN_TERMINAL_STATE_VALUES),
+            exists().where(
+                AttemptModel.attempt_id == authority.attempt_id,
+                AttemptModel.task_id == authority.task_id,
+                AttemptModel.flow_id == authority.flow_id,
+                AttemptModel.assignment_id == authority.assignment_id,
+                AttemptModel.current_wait_id.is_not(None),
             )
         )
     )
-    if staged_decision or external_wait:
-        raise _illegal_state("replan requires no staged handoff or unresolved external wait")
+    if staged_decision or caller_wait:
+        raise _illegal_state("replan requires no staged handoff or current caller wait")
     if not mutation.affected_existing_ids:
         return
     busy_statement = (

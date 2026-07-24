@@ -327,8 +327,6 @@ def _context_is_plausible(
         and source.adapter_started_at is not None
         and source.node_activity_revision == signal.activity_revision
         and flow.status == "running"
-        and flow.current_dispatch_id == source.dispatch_id
-        and flow.waiting_cause == "none"
         and flow.active_flow_revision_id == source.flow_revision_id
         and source.task_id == assignment.task_id
         and source.flow_id == assignment.flow_id
@@ -340,6 +338,8 @@ def _context_is_plausible(
         and assignment.current_attempt_id == attempt.attempt_id
         and assignment.superseded_at is None
         and attempt.status == "running"
+        and attempt.current_dispatch_id == source.dispatch_id
+        and attempt.current_wait_id is None
         and node_plan.task_id == node.task_id
         and node_plan.team_revision_id == node.team_revision_id
         and node_plan.member_id == node.member_id

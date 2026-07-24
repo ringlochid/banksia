@@ -30,7 +30,7 @@ from banksia.persistence.models.runtime.common import (
 
 if TYPE_CHECKING:
     from banksia.persistence.models.runtime.dispatch.turns import DispatchTurnModel
-    from banksia.persistence.models.runtime.waiting import FlowWaitModel
+    from banksia.persistence.models.runtime.waiting import AttemptWaitModel
 
 
 class HumanRequestModel(RuntimeBase):
@@ -38,6 +38,15 @@ class HumanRequestModel(RuntimeBase):
     __table_args__ = (
         UniqueConstraint("source_dispatch_id"),
         UniqueConstraint("request_id", "task_id", "flow_id", "source_dispatch_id"),
+        UniqueConstraint(
+            "request_id",
+            "task_id",
+            "flow_id",
+            "assignment_id",
+            "attempt_id",
+            "source_dispatch_id",
+            name="uq_human_requests_attempt_source_owner",
+        ),
         CheckConstraint(
             f"request_kind IN ({sql_in(HUMAN_REQUEST_KIND_VALUES)})",
             name="ck_human_requests_kind",
@@ -153,10 +162,10 @@ class HumanRequestModel(RuntimeBase):
         lazy="raise",
         viewonly=True,
     )
-    flow_wait: Mapped[FlowWaitModel | None] = relationship(
-        "FlowWaitModel",
+    attempt_wait: Mapped[AttemptWaitModel | None] = relationship(
+        "AttemptWaitModel",
         back_populates="human_request",
-        foreign_keys="FlowWaitModel.human_request_id",
+        foreign_keys="AttemptWaitModel.human_request_id",
         lazy="raise",
         uselist=False,
         viewonly=True,

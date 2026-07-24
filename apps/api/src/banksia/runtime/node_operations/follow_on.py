@@ -6,6 +6,8 @@ from typing import Protocol
 from pydantic import BaseModel, ConfigDict
 
 from banksia.runtime.contracts import (
+    CheckpointOutcome,
+    CheckpointRequest,
     CheckpointResponse,
     CommandRunStartResponse,
     HumanRequestOpenResponse,
@@ -82,8 +84,9 @@ def committed_node_operation_follow_on(
             runtime_signals=(CommandRunPending(response.command_id),),
         )
     if operation_name == NodeOperationName.CHECKPOINT:
+        assert isinstance(request, CheckpointRequest)
         assert isinstance(response, CheckpointResponse)
-        if response.terminal:
+        if response.terminal and request.outcome is not CheckpointOutcome.RETRY:
             return CommittedNodeOperationFollowOn(
                 runtime_signals=(BoundaryAccepted(authority.dispatch_id),),
             )

@@ -8,8 +8,9 @@ from typing import cast
 
 import pytest
 from banksia.persistence.models import (
+    AttemptModel,
+    AttemptWaitModel,
     FlowModel,
-    FlowWaitModel,
     HumanRequestModel,
     TaskEventModel,
 )
@@ -152,6 +153,10 @@ async def test_elapsed_human_deadline_terminalizes_exact_source_and_wait(
             default_behavior="Continue with the documented safe default.",
         )
         async with session_factory() as session:
+            initial_flow = await session.get(FlowModel, ids.flow_id)
+        assert initial_flow is not None
+        initial_control_revision = initial_flow.control_revision
+        async with session_factory() as session:
             won = await expire_human_request(
                 cast(AsyncSession, session),
                 signal=HumanRequestDue(request_id, due_at),
@@ -161,8 +166,11 @@ async def test_elapsed_human_deadline_terminalizes_exact_source_and_wait(
 
         async with session_factory() as session:
             source = await session.get(HumanRequestModel, request_id)
+            attempt = await session.get(AttemptModel, ids.root_attempt_id)
             flow = await session.get(FlowModel, ids.flow_id)
-            wait = await session.get(FlowWaitModel, ids.flow_id)
+            wait = await session.scalar(
+                select(AttemptWaitModel).where(AttemptWaitModel.human_request_id == request_id)
+            )
             event = await session.scalar(
                 select(TaskEventModel).where(
                     TaskEventModel.task_id == ids.task_id,
@@ -179,8 +187,10 @@ async def test_elapsed_human_deadline_terminalizes_exact_source_and_wait(
             "value": "Continue with the documented safe default.",
         },
     }
-    assert flow is not None and flow.waiting_cause == "none"
-    assert flow.waiting_source_id is None
+    assert attempt is not None
+    assert attempt.current_dispatch_id is None
+    assert attempt.current_wait_id is None
+    assert flow is not None and flow.control_revision == initial_control_revision
     assert wait is None
     assert event is not None and event.dispatch_id == ids.current_dispatch_id
     assert terminal_publisher.signals == (HumanRequestTerminal(request_id),)
@@ -284,7 +294,9 @@ async def test_stale_or_early_human_due_signal_is_harmless(tmp_path: Path) -> No
             )
         async with session_factory() as session:
             source = await session.get(HumanRequestModel, request_id)
-            wait = await session.get(FlowWaitModel, ids.flow_id)
+            wait = await session.scalar(
+                select(AttemptWaitModel).where(AttemptWaitModel.human_request_id == request_id)
+            )
 
     assert mismatched is False
     assert early is False

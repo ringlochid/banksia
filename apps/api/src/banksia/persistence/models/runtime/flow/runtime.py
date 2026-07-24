@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 from sqlalchemy import (
     JSON,
     CheckConstraint,
-    Computed,
     ForeignKey,
     ForeignKeyConstraint,
     Index,
@@ -22,7 +21,6 @@ from banksia.persistence.datetimes import UtcDateTime
 from banksia.persistence.models.runtime.common import (
     FLOW_STATUS_VALUES,
     FLOW_TERMINAL_OUTCOME_VALUES,
-    FLOW_WAITING_CAUSE_VALUES,
     STRUCTURAL_REVISION_CAUSE_VALUES,
     sql_in,
     utcnow,
@@ -38,19 +36,12 @@ if TYPE_CHECKING:
     )
     from banksia.persistence.models.runtime.task import CompiledPlanModel, TaskModel
     from banksia.persistence.models.runtime.task_events import TaskEventModel
-    from banksia.persistence.models.runtime.waiting import FlowWaitModel
 
 
 class FlowModel(RuntimeBase):
     __tablename__ = "flows"
     __table_args__ = (
         UniqueConstraint("flow_id", "task_id"),
-        UniqueConstraint(
-            "flow_id",
-            "task_id",
-            "current_dispatch_presence_marker",
-            name="uq_flows_current_dispatch_presence",
-        ),
         CheckConstraint(
             f"status IN ({sql_in(FLOW_STATUS_VALUES)})",
             name="ck_flows_status",
@@ -65,33 +56,12 @@ class FlowModel(RuntimeBase):
             "(status != 'completed' AND terminal_outcome IS NULL)",
             name="ck_flows_terminal_outcome_status",
         ),
-        CheckConstraint(
-            f"waiting_cause IN ({sql_in(FLOW_WAITING_CAUSE_VALUES)})",
-            name="ck_flows_waiting_cause",
-        ),
-        CheckConstraint(
-            "(waiting_cause = 'none' AND waiting_source_id IS NULL) OR "
-            "(waiting_cause != 'none' AND waiting_source_id IS NOT NULL)",
-            name="ck_flows_waiting_source",
-        ),
         CheckConstraint("control_revision >= 0", name="ck_flows_control_revision"),
         CheckConstraint(
             "(status = 'paused' AND pause_reason IS NOT NULL AND paused_at IS NOT NULL) OR "
             "(status != 'paused' AND pause_reason IS NULL AND pause_details IS NULL AND "
             "paused_at IS NULL AND paused_by_actor_ref IS NULL)",
             name="ck_flows_pause_state",
-        ),
-        CheckConstraint(
-            "status = 'running' OR current_dispatch_id IS NULL",
-            name="ck_flows_nonrunning_has_no_current_dispatch",
-        ),
-        CheckConstraint(
-            "current_dispatch_id IS NULL OR waiting_cause = 'none'",
-            name="ck_flows_current_dispatch_excludes_wait_pointer",
-        ),
-        CheckConstraint(
-            "status NOT IN ('completed', 'cancelled') OR waiting_cause = 'none'",
-            name="ck_flows_terminal_has_no_current_authority",
         ),
         ForeignKeyConstraint(
             ["task_id", "compiled_plan_id"],
@@ -107,23 +77,6 @@ class FlowModel(RuntimeBase):
             deferrable=True,
             initially="DEFERRED",
         ),
-        ForeignKeyConstraint(
-            [
-                "current_dispatch_id",
-                "task_id",
-                "flow_id",
-                "current_dispatch_presence_marker",
-            ],
-            [
-                "dispatch_turns.dispatch_id",
-                "dispatch_turns.task_id",
-                "dispatch_turns.flow_id",
-                "dispatch_turns.active_status_marker",
-            ],
-            name="fk_flows_current_dispatch_owner",
-            deferrable=True,
-            initially="DEFERRED",
-        ),
         Index("ix_flows_status_updated_at", "status", "updated_at"),
     )
 
@@ -133,17 +86,6 @@ class FlowModel(RuntimeBase):
     status: Mapped[str] = mapped_column(String(64), index=True)
     terminal_outcome: Mapped[str | None] = mapped_column(String(64), nullable=True)
     active_flow_revision_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    current_dispatch_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    current_dispatch_presence_marker: Mapped[int] = mapped_column(
-        Integer,
-        Computed(
-            "CASE WHEN current_dispatch_id IS NULL THEN 0 ELSE 1 END",
-            persisted=True,
-        ),
-        nullable=False,
-    )
-    waiting_cause: Mapped[str] = mapped_column(String(64), default="none", server_default="none")
-    waiting_source_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     control_revision: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     pause_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
     pause_details: Mapped[dict[str, object] | None] = mapped_column(
@@ -192,30 +134,10 @@ class FlowModel(RuntimeBase):
         lazy="raise",
         order_by="DispatchTurnModel.created_at",
     )
-    current_dispatch: Mapped[DispatchTurnModel | None] = relationship(
-        "DispatchTurnModel",
-        primaryjoin=(
-            "and_(FlowModel.flow_id == DispatchTurnModel.flow_id, "
-            "FlowModel.current_dispatch_id == DispatchTurnModel.dispatch_id, "
-            "FlowModel.current_dispatch_presence_marker == "
-            "DispatchTurnModel.active_status_marker)"
-        ),
-        foreign_keys=[flow_id, current_dispatch_id, current_dispatch_presence_marker],
-        lazy="raise",
-        uselist=False,
-        viewonly=True,
-    )
     start_source: Mapped[FlowStartSourceModel | None] = relationship(
         "FlowStartSourceModel",
         back_populates="flow",
         foreign_keys="FlowStartSourceModel.flow_id",
-        lazy="raise",
-        uselist=False,
-    )
-    wait: Mapped[FlowWaitModel | None] = relationship(
-        "FlowWaitModel",
-        back_populates="flow",
-        foreign_keys="FlowWaitModel.flow_id",
         lazy="raise",
         uselist=False,
     )

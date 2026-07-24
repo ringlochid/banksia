@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from uuid import uuid4
 
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -10,6 +11,7 @@ from banksia.persistence.models import (
     AcceptedBoundaryModel,
     AssignmentDecisionModel,
     AssignmentModel,
+    AttemptWaitModel,
     FlowModel,
 )
 from banksia.runtime.boundary.source_transition import advance_accepted_boundary_state
@@ -24,6 +26,10 @@ from banksia.runtime.contracts import (
 )
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
 from banksia.runtime.dispatch.authority import NodeOperationAuthority
+from banksia.runtime.dispatch.currentness import (
+    AttemptDispatchIdentity,
+    suspend_current_attempt_on_wait,
+)
 from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
 from banksia.runtime.errors import RuntimeOperationError
 from banksia.runtime.node_operations.contracts import (
@@ -37,7 +43,6 @@ from banksia.runtime.node_operations.external_wait_handlers import (
     start_command_run,
 )
 from banksia.runtime.node_operations.result_reads import runtime_flow_read
-from banksia.runtime.node_operations.source_transitions import close_source_dispatch
 from banksia.runtime.task_events import append_task_event
 
 
@@ -51,7 +56,12 @@ async def execute_controller_node_operation(
 ) -> BaseModel:
     if operation_name == NodeOperationName.CHECKPOINT:
         assert isinstance(request, CheckpointRequest)
-        return await commit_checkpoint(session, authority, request)
+        return await commit_checkpoint(
+            session,
+            authority,
+            request,
+            dispatch_opening_dependencies=dispatch_opening_dependencies,
+        )
     if operation_name == NodeOperationName.RETURN_BOUNDARY:
         assert isinstance(request, ReturnBoundaryRequest)
         return await _return_yield_boundary(session, authority, request)
@@ -89,6 +99,11 @@ async def _return_yield_boundary(
     decision = await session.scalar(
         select(AssignmentDecisionModel).where(
             AssignmentDecisionModel.source_dispatch_id == authority.dispatch_id,
+            AssignmentDecisionModel.task_id == authority.task_id,
+            AssignmentDecisionModel.flow_id == authority.flow_id,
+            AssignmentDecisionModel.assignment_id == authority.assignment_id,
+            AssignmentDecisionModel.attempt_id == authority.attempt_id,
+            AssignmentDecisionModel.source_flow_revision_id == authority.flow_revision_id,
             AssignmentDecisionModel.decision_kind == "staged_child",
         )
     )
@@ -99,14 +114,41 @@ async def _return_yield_boundary(
             is_retryable=False,
         )
     now = utc_now()
-    await close_source_dispatch(
-        session,
-        authority,
-        now=now,
-        closed_reason="boundary",
-        waiting_cause="none",
-        waiting_source_id=None,
+    wait_id = f"attempt-wait.{uuid4().hex}"
+    session.add(
+        AttemptWaitModel(
+            wait_id=wait_id,
+            task_id=authority.task_id,
+            flow_id=authority.flow_id,
+            assignment_id=authority.assignment_id,
+            attempt_id=authority.attempt_id,
+            source_dispatch_id=authority.dispatch_id,
+            sequential_child_assignment_id=decision.staged_child_assignment_id,
+            human_request_id=None,
+            command_run_id=None,
+        )
     )
+    await session.flush()
+    suspended = await suspend_current_attempt_on_wait(
+        session,
+        identity=AttemptDispatchIdentity(
+            task_id=authority.task_id,
+            flow_id=authority.flow_id,
+            assignment_id=authority.assignment_id,
+            attempt_id=authority.attempt_id,
+            dispatch_id=authority.dispatch_id,
+        ),
+        wait_id=wait_id,
+        expected_flow_revision_id=authority.flow_revision_id,
+        closed_at=now,
+        closed_reason="boundary",
+    )
+    if not suspended:
+        raise RuntimeOperationError(
+            code=OperationFailureCode.CONFLICT,
+            summary="another transition already changed sequential delegation authority",
+            is_retryable=False,
+        )
     await advance_accepted_boundary_state(
         session,
         authority,

@@ -34,8 +34,6 @@ def watchdog_context_is_current(
             FlowModel.compiled_plan_id == dispatch.compiled_plan_id,
             FlowModel.status == "running",
             FlowModel.active_flow_revision_id == prompt.flow_revision_id,
-            FlowModel.current_dispatch_id == source_dispatch_id,
-            FlowModel.waiting_cause == "none",
             FlowModel.control_revision == dispatch.flow_control_revision,
         )
         & exists().where(
@@ -70,6 +68,8 @@ def watchdog_context_is_current(
             AttemptModel.flow_id == prompt.flow_id,
             AttemptModel.node_key == prompt.node_key,
             AttemptModel.status == "running",
+            AttemptModel.current_dispatch_id == source_dispatch_id,
+            AttemptModel.current_wait_id.is_(None),
         )
         & exists().where(
             TaskModel.task_id == prompt.task_id,

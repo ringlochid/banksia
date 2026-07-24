@@ -8,7 +8,7 @@ from pydantic import JsonValue
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from banksia.persistence.models import FlowModel, FlowWaitModel, HumanRequestModel
+from banksia.persistence.models import AttemptWaitModel, FlowModel, HumanRequestModel
 from banksia.runtime.clock import utc_now
 from banksia.runtime.contracts import (
     HumanRequestListResponse,
@@ -22,6 +22,10 @@ from banksia.runtime.contracts import (
     serialize_human_request_item_answers,
 )
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
+from banksia.runtime.dispatch.currentness import (
+    AttemptWaitIdentity,
+    clear_current_attempt_wait,
+)
 from banksia.runtime.errors import RuntimeOperationError, missing_resource_error
 from banksia.runtime.human_request.records import (
     human_request_read_from_model,
@@ -157,10 +161,9 @@ async def persist_human_request_resolution(
     if not wait_consumed:
         await session.rollback()
         raise _human_request_conflict(
-            f"human request '{source.request_id}' no longer owns its exact flow wait"
+            f"human request '{source.request_id}' no longer owns its exact Attempt wait"
         )
 
-    await _clear_matching_human_wait_pointer(session, source=source)
     await _append_human_request_terminal_event(
         session,
         source=source,
@@ -197,37 +200,31 @@ async def _consume_exact_human_wait(
     *,
     source: HumanRequestModel,
 ) -> bool:
-    flow_id = await session.scalar(
-        delete(FlowWaitModel)
+    wait_id = await session.scalar(
+        delete(AttemptWaitModel)
         .where(
-            FlowWaitModel.flow_id == source.flow_id,
-            FlowWaitModel.task_id == source.task_id,
-            FlowWaitModel.source_dispatch_id == source.source_dispatch_id,
-            FlowWaitModel.human_request_id == source.request_id,
+            AttemptWaitModel.task_id == source.task_id,
+            AttemptWaitModel.flow_id == source.flow_id,
+            AttemptWaitModel.assignment_id == source.assignment_id,
+            AttemptWaitModel.attempt_id == source.attempt_id,
+            AttemptWaitModel.source_dispatch_id == source.source_dispatch_id,
+            AttemptWaitModel.human_request_id == source.request_id,
+            AttemptWaitModel.command_run_id.is_(None),
+            AttemptWaitModel.sequential_child_assignment_id.is_(None),
         )
-        .returning(FlowWaitModel.flow_id)
+        .returning(AttemptWaitModel.wait_id)
     )
-    return flow_id is not None
-
-
-async def _clear_matching_human_wait_pointer(
-    session: AsyncSession,
-    *,
-    source: HumanRequestModel,
-) -> None:
-    await session.execute(
-        update(FlowModel)
-        .where(
-            FlowModel.flow_id == source.flow_id,
-            FlowModel.task_id == source.task_id,
-            FlowModel.waiting_cause == "human_request",
-            FlowModel.waiting_source_id == source.request_id,
-        )
-        .values(
-            waiting_cause="none",
-            waiting_source_id=None,
-            control_revision=FlowModel.control_revision + 1,
-        )
+    if wait_id is None:
+        return False
+    return await clear_current_attempt_wait(
+        session,
+        identity=AttemptWaitIdentity(
+            task_id=source.task_id,
+            flow_id=source.flow_id,
+            assignment_id=source.assignment_id,
+            attempt_id=source.attempt_id,
+            wait_id=wait_id,
+        ),
     )
 
 

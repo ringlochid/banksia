@@ -10,11 +10,12 @@ from sqlalchemy.orm import aliased, raiseload
 
 from banksia.persistence.models import (
     AcceptedBoundaryModel,
+    AttemptModel,
+    AttemptWaitModel,
     CommandRunModel,
     DispatchTurnModel,
     FlowModel,
     FlowStartSourceModel,
-    FlowWaitModel,
     HumanRequestModel,
     ReplanTransitionModel,
 )
@@ -55,6 +56,7 @@ from banksia.runtime.human_request.continuation import (
     claim_human_request_continuation,
     human_request_continuation_basis,
 )
+from banksia.runtime.human_request.records import read_human_request_file_references
 from banksia.runtime.launch.continuation import continue_paused_root_dispatch
 from banksia.runtime.providers import ProviderResolutionError
 from banksia.runtime.replan.continuation import continue_committed_replan
@@ -186,8 +188,6 @@ async def read_operator_continue_source(
             FlowModel.status == "paused",
             FlowModel.active_flow_revision_id == expected_active_flow_revision_id,
             FlowModel.control_revision == expected_control_revision,
-            FlowModel.current_dispatch_id.is_(None),
-            FlowModel.waiting_cause == "none",
         )
     )
     if flow is None or flow.pause_reason not in {
@@ -212,10 +212,15 @@ async def read_operator_continue_source(
     ):
         raise _continue_conflict("paused flow has more than one retained continuation source")
     if human_source is not None:
+        files = await read_human_request_file_references(
+            session,
+            request_id=human_source.request_id,
+        )
         return OperatorContinueSource(
             basis=human_request_continuation_basis(
                 human_source,
                 opened_reason="operator_continue",
+                files=files,
             ),
             claim=claim_human_request_continuation,
         )
@@ -348,14 +353,21 @@ async def _has_unresolved_external_source(session: AsyncSession, flow_id: str) -
     return bool(
         await session.scalar(
             select(
-                exists().where(FlowWaitModel.flow_id == flow_id)
-                | exists().where(
-                    HumanRequestModel.flow_id == flow_id,
-                    HumanRequestModel.status == "open",
-                )
-                | exists().where(
-                    CommandRunModel.flow_id == flow_id,
-                    CommandRunModel.state.not_in(COMMAND_RUN_TERMINAL_STATE_VALUES),
+                exists().where(
+                    AttemptWaitModel.flow_id == flow_id,
+                    (
+                        AttemptWaitModel.human_request_id.is_not(None)
+                        | AttemptWaitModel.command_run_id.is_not(None)
+                    ),
+                    exists().where(
+                        AttemptModel.attempt_id == AttemptWaitModel.attempt_id,
+                        AttemptModel.task_id == AttemptWaitModel.task_id,
+                        AttemptModel.flow_id == AttemptWaitModel.flow_id,
+                        AttemptModel.assignment_id == AttemptWaitModel.assignment_id,
+                        AttemptModel.status == "running",
+                        AttemptModel.current_dispatch_id.is_(None),
+                        AttemptModel.current_wait_id == AttemptWaitModel.wait_id,
+                    ),
                 )
             )
         )

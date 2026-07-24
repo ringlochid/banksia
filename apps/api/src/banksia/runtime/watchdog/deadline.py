@@ -6,7 +6,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from banksia.persistence.models import DispatchTurnModel, FlowModel
+from banksia.persistence.models import AttemptModel, DispatchTurnModel, FlowModel
 from banksia.runtime.post_commit import WatchdogDeadlineChanged, WatchdogDue
 from banksia.runtime.post_commit.deadlines import DeadlineScheduler
 
@@ -35,10 +35,21 @@ def create_watchdog_deadline_changed_handler(
                     DispatchTurnModel.adapter_started_at,
                     DispatchTurnModel.last_node_activity_at,
                     FlowModel.status,
-                    FlowModel.current_dispatch_id,
+                    AttemptModel.current_dispatch_id,
                 )
                 .join(FlowModel, FlowModel.flow_id == DispatchTurnModel.flow_id)
-                .where(DispatchTurnModel.dispatch_id == signal.dispatch_id)
+                .join(
+                    AttemptModel,
+                    (AttemptModel.task_id == DispatchTurnModel.task_id)
+                    & (AttemptModel.flow_id == DispatchTurnModel.flow_id)
+                    & (AttemptModel.assignment_id == DispatchTurnModel.assignment_id)
+                    & (AttemptModel.attempt_id == DispatchTurnModel.attempt_id),
+                )
+                .where(
+                    DispatchTurnModel.dispatch_id == signal.dispatch_id,
+                    AttemptModel.status == "running",
+                    AttemptModel.current_wait_id.is_(None),
+                )
             )
         ).one_or_none()
         if row is None:

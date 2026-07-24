@@ -5,17 +5,26 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import cast
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, exists, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import raiseload
 
-from banksia.persistence.models import CommandRunModel, FlowModel, FlowWaitModel
+from banksia.persistence.models import (
+    AttemptModel,
+    AttemptWaitModel,
+    CommandRunModel,
+    FlowModel,
+)
 from banksia.runtime.contracts import (
     COMMAND_RUN_TERMINAL_EVENT_TYPES,
     CommandRunStartRequest,
     CommandRunState,
     TaskEventSource,
     TaskEventType,
+)
+from banksia.runtime.dispatch.currentness import (
+    AttemptWaitIdentity,
+    clear_current_attempt_wait,
 )
 from banksia.runtime.task_events import append_task_event
 
@@ -178,7 +187,7 @@ async def terminalize_command_run(
     output_written_bytes: int | None = None,
     output_complete: bool | None = None,
 ) -> bool:
-    """Commit one exact terminal winner and clear only its matching flow wait."""
+    """Commit one exact terminal winner and clear only its matching Attempt wait."""
 
     event_type = _validate_terminal_transition(terminal_state, failure_code)
     source = await _read_terminal_source(
@@ -190,6 +199,7 @@ async def terminalize_command_run(
     )
     if source is None or (should_match_due_at and source.due_at != expected_due_at):
         return False
+    source_state = CommandRunState(source.state)
     if not await _persist_terminal_state(
         session,
         source=source,
@@ -209,7 +219,14 @@ async def terminalize_command_run(
     ):
         await session.rollback()
         return False
-    if not await _clear_matching_flow_wait(session, source):
+    wait_cleared = await _clear_matching_attempt_wait(session, source)
+    if not wait_cleared and not await _cancelled_owner_accepts_terminal_state(
+        session,
+        source=source,
+        source_state=source_state,
+        terminal_state=terminal_state,
+        expected_ownership_revision=expected_ownership_revision,
+    ):
         await session.rollback()
         return False
 
@@ -352,50 +369,111 @@ async def _persist_terminal_state(
     return won_run_id is not None
 
 
-async def _clear_matching_flow_wait(
+async def _clear_matching_attempt_wait(
     session: AsyncSession,
     source: CommandRunModel,
 ) -> bool:
     wait_id = await session.scalar(
-        delete(FlowWaitModel)
-        .where(
-            FlowWaitModel.flow_id == source.flow_id,
-            FlowWaitModel.task_id == source.task_id,
-            FlowWaitModel.source_dispatch_id == source.source_dispatch_id,
-            FlowWaitModel.command_run_id == source.run_id,
-        )
-        .returning(FlowWaitModel.flow_id)
-    )
-    flow = await session.scalar(
-        select(FlowModel)
-        .options(raiseload("*"))
-        .where(
-            FlowModel.flow_id == source.flow_id,
-            FlowModel.task_id == source.task_id,
+        select(AttemptWaitModel.wait_id).where(
+            AttemptWaitModel.task_id == source.task_id,
+            AttemptWaitModel.flow_id == source.flow_id,
+            AttemptWaitModel.assignment_id == source.assignment_id,
+            AttemptWaitModel.attempt_id == source.attempt_id,
+            AttemptWaitModel.source_dispatch_id == source.source_dispatch_id,
+            AttemptWaitModel.command_run_id == source.run_id,
+            AttemptWaitModel.human_request_id.is_(None),
+            AttemptWaitModel.sequential_child_assignment_id.is_(None),
         )
     )
-    if flow is None or (
-        wait_id is None
-        and flow.status not in {"cancelled", "completed"}
-        and flow.waiting_source_id == source.run_id
+    if wait_id is None:
+        return False
+    if not await clear_current_attempt_wait(
+        session,
+        identity=AttemptWaitIdentity(
+            task_id=source.task_id,
+            flow_id=source.flow_id,
+            assignment_id=source.assignment_id,
+            attempt_id=source.attempt_id,
+            wait_id=wait_id,
+        ),
     ):
         return False
-
-    await session.execute(
-        update(FlowModel)
+    deleted_wait_id = await session.scalar(
+        delete(AttemptWaitModel)
         .where(
-            FlowModel.flow_id == source.flow_id,
-            FlowModel.task_id == source.task_id,
-            FlowModel.waiting_cause == "command_run",
-            FlowModel.waiting_source_id == source.run_id,
+            AttemptWaitModel.wait_id == wait_id,
+            AttemptWaitModel.task_id == source.task_id,
+            AttemptWaitModel.flow_id == source.flow_id,
+            AttemptWaitModel.assignment_id == source.assignment_id,
+            AttemptWaitModel.attempt_id == source.attempt_id,
+            AttemptWaitModel.source_dispatch_id == source.source_dispatch_id,
+            AttemptWaitModel.command_run_id == source.run_id,
+            AttemptWaitModel.human_request_id.is_(None),
+            AttemptWaitModel.sequential_child_assignment_id.is_(None),
         )
-        .values(
-            waiting_cause="none",
-            waiting_source_id=None,
-            control_revision=FlowModel.control_revision + 1,
-        )
+        .returning(AttemptWaitModel.wait_id)
     )
-    return True
+    return deleted_wait_id is not None
+
+
+async def _cancelled_owner_accepts_terminal_state(
+    session: AsyncSession,
+    *,
+    source: CommandRunModel,
+    source_state: CommandRunState,
+    terminal_state: CommandRunState,
+    expected_ownership_revision: int,
+) -> bool:
+    """Accept exact late process truth only after Task cancellation won the wait."""
+
+    if source_state != CommandRunState.CANCELLATION_REQUESTED or terminal_state not in {
+        CommandRunState.CANCELLED,
+        CommandRunState.ABANDONED,
+    }:
+        return False
+    owner_attempt_id = await session.scalar(
+        select(AttemptModel.attempt_id)
+        .join(
+            FlowModel,
+            (FlowModel.task_id == AttemptModel.task_id)
+            & (FlowModel.flow_id == AttemptModel.flow_id),
+        )
+        .where(
+            FlowModel.task_id == source.task_id,
+            FlowModel.flow_id == source.flow_id,
+            FlowModel.status == "cancelled",
+            AttemptModel.task_id == source.task_id,
+            AttemptModel.flow_id == source.flow_id,
+            AttemptModel.assignment_id == source.assignment_id,
+            AttemptModel.attempt_id == source.attempt_id,
+            AttemptModel.status == "cancelled",
+            AttemptModel.current_dispatch_id.is_(None),
+            AttemptModel.current_wait_id.is_(None),
+            exists().where(
+                CommandRunModel.task_id == source.task_id,
+                CommandRunModel.run_id == source.run_id,
+                CommandRunModel.flow_id == source.flow_id,
+                CommandRunModel.assignment_id == source.assignment_id,
+                CommandRunModel.attempt_id == source.attempt_id,
+                CommandRunModel.source_dispatch_id == source.source_dispatch_id,
+                CommandRunModel.state == terminal_state.value,
+                CommandRunModel.ownership_revision == expected_ownership_revision,
+                CommandRunModel.successor_dispatch_id.is_(None),
+            ),
+            ~exists(
+                select(AttemptWaitModel.wait_id).where(
+                    AttemptWaitModel.task_id == source.task_id,
+                    AttemptWaitModel.flow_id == source.flow_id,
+                    AttemptWaitModel.assignment_id == source.assignment_id,
+                    AttemptWaitModel.attempt_id == source.attempt_id,
+                    AttemptWaitModel.source_dispatch_id == source.source_dispatch_id,
+                    AttemptWaitModel.command_run_id == source.run_id,
+                )
+            ),
+        )
+        .limit(1)
+    )
+    return owner_attempt_id is not None
 
 
 async def _append_terminal_event(

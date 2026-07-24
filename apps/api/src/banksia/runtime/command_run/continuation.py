@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import raiseload
 from sqlalchemy.sql.elements import ColumnElement
 
-from banksia.persistence.models import CommandRunModel, FlowModel
+from banksia.persistence.models import AttemptModel, CommandRunModel, FlowModel
 from banksia.persistence.models.runtime.common import COMMAND_RUN_TERMINAL_STATE_VALUES
 from banksia.runtime.contracts.command_runs import CommandRunStartRequest
 from banksia.runtime.contracts.prompt import (
@@ -126,19 +126,30 @@ async def pause_failed_command_run_continuation(
 ) -> None:
     """Pause only while the exact terminal command source remains consumable."""
 
-    source_is_unconsumed = exists().where(
-        CommandRunModel.run_id == run_id,
-        CommandRunModel.flow_id == FlowModel.flow_id,
-        CommandRunModel.task_id == FlowModel.task_id,
-        CommandRunModel.state.in_(COMMAND_RUN_TERMINAL_STATE_VALUES),
-        CommandRunModel.successor_dispatch_id.is_(None),
+    source_is_unconsumed = exists(
+        select(CommandRunModel.run_id)
+        .join(
+            AttemptModel,
+            (AttemptModel.task_id == CommandRunModel.task_id)
+            & (AttemptModel.flow_id == CommandRunModel.flow_id)
+            & (AttemptModel.assignment_id == CommandRunModel.assignment_id)
+            & (AttemptModel.attempt_id == CommandRunModel.attempt_id),
+        )
+        .where(
+            CommandRunModel.run_id == run_id,
+            CommandRunModel.flow_id == FlowModel.flow_id,
+            CommandRunModel.task_id == FlowModel.task_id,
+            CommandRunModel.state.in_(COMMAND_RUN_TERMINAL_STATE_VALUES),
+            CommandRunModel.successor_dispatch_id.is_(None),
+            AttemptModel.status == "running",
+            AttemptModel.current_dispatch_id.is_(None),
+            AttemptModel.current_wait_id.is_(None),
+        )
     )
     await session.execute(
         update(FlowModel)
         .where(
             FlowModel.status == "running",
-            FlowModel.current_dispatch_id.is_(None),
-            FlowModel.waiting_cause == "none",
             source_is_unconsumed,
         )
         .values(

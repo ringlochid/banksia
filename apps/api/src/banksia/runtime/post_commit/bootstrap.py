@@ -9,6 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from banksia.persistence.models import (
     AcceptedBoundaryModel,
+    AssignmentModel,
+    AttemptModel,
+    AttemptWaitModel,
     CommandRunModel,
     DispatchTurnModel,
     FlowModel,
@@ -117,11 +120,26 @@ async def read_flow_start_page(
         statement = (
             select(FlowStartSourceModel.flow_id)
             .join(FlowModel, FlowModel.flow_id == FlowStartSourceModel.flow_id)
+            .join(
+                AssignmentModel,
+                (AssignmentModel.task_id == FlowStartSourceModel.task_id)
+                & (AssignmentModel.flow_id == FlowStartSourceModel.flow_id)
+                & AssignmentModel.parent_assignment_id.is_(None)
+                & AssignmentModel.superseded_at.is_(None),
+            )
+            .join(
+                AttemptModel,
+                (AttemptModel.task_id == AssignmentModel.task_id)
+                & (AttemptModel.flow_id == AssignmentModel.flow_id)
+                & (AttemptModel.assignment_id == AssignmentModel.assignment_id)
+                & (AttemptModel.attempt_id == AssignmentModel.current_attempt_id),
+            )
             .where(
                 FlowStartSourceModel.successor_dispatch_id.is_(None),
                 FlowModel.status == "running",
-                FlowModel.current_dispatch_id.is_(None),
-                FlowModel.waiting_cause == "none",
+                AttemptModel.status == "running",
+                AttemptModel.current_dispatch_id.is_(None),
+                AttemptModel.current_wait_id.is_(None),
             )
             .order_by(FlowStartSourceModel.flow_id)
             .limit(page_size)
@@ -146,7 +164,11 @@ async def read_boundary_continuation_page(
     async with session_factory() as session:
         statement = (
             select(AcceptedBoundaryModel.source_dispatch_id)
-            .where(AcceptedBoundaryModel.successor_dispatch_id.is_(None))
+            .join(FlowModel, FlowModel.flow_id == AcceptedBoundaryModel.flow_id)
+            .where(
+                AcceptedBoundaryModel.successor_dispatch_id.is_(None),
+                FlowModel.status == "running",
+            )
             .order_by(AcceptedBoundaryModel.source_dispatch_id)
             .limit(page_size)
         )
@@ -194,9 +216,19 @@ async def read_human_continuation_page(
     async with session_factory() as session:
         statement = (
             select(HumanRequestModel.request_id)
+            .join(
+                AttemptModel,
+                (AttemptModel.task_id == HumanRequestModel.task_id)
+                & (AttemptModel.flow_id == HumanRequestModel.flow_id)
+                & (AttemptModel.assignment_id == HumanRequestModel.assignment_id)
+                & (AttemptModel.attempt_id == HumanRequestModel.attempt_id),
+            )
             .where(
                 HumanRequestModel.status.in_(_HUMAN_REQUEST_TERMINAL_STATUSES),
                 HumanRequestModel.successor_dispatch_id.is_(None),
+                AttemptModel.status == "running",
+                AttemptModel.current_dispatch_id.is_(None),
+                AttemptModel.current_wait_id.is_(None),
             )
             .order_by(HumanRequestModel.request_id)
             .limit(page_size)
@@ -221,7 +253,28 @@ async def read_human_deadline_page(
     async with session_factory() as session:
         statement = (
             select(HumanRequestModel.request_id)
-            .where(HumanRequestModel.status == "open")
+            .join(
+                AttemptWaitModel,
+                (AttemptWaitModel.task_id == HumanRequestModel.task_id)
+                & (AttemptWaitModel.flow_id == HumanRequestModel.flow_id)
+                & (AttemptWaitModel.assignment_id == HumanRequestModel.assignment_id)
+                & (AttemptWaitModel.attempt_id == HumanRequestModel.attempt_id)
+                & (AttemptWaitModel.source_dispatch_id == HumanRequestModel.source_dispatch_id)
+                & (AttemptWaitModel.human_request_id == HumanRequestModel.request_id),
+            )
+            .join(
+                AttemptModel,
+                (AttemptModel.task_id == AttemptWaitModel.task_id)
+                & (AttemptModel.flow_id == AttemptWaitModel.flow_id)
+                & (AttemptModel.assignment_id == AttemptWaitModel.assignment_id)
+                & (AttemptModel.attempt_id == AttemptWaitModel.attempt_id)
+                & (AttemptModel.current_wait_id == AttemptWaitModel.wait_id),
+            )
+            .where(
+                HumanRequestModel.status == "open",
+                AttemptModel.status == "running",
+                AttemptModel.current_dispatch_id.is_(None),
+            )
             .order_by(HumanRequestModel.request_id)
             .limit(page_size)
         )
@@ -245,9 +298,19 @@ async def read_command_continuation_page(
     async with session_factory() as session:
         statement = (
             select(CommandRunModel.run_id)
+            .join(
+                AttemptModel,
+                (AttemptModel.task_id == CommandRunModel.task_id)
+                & (AttemptModel.flow_id == CommandRunModel.flow_id)
+                & (AttemptModel.assignment_id == CommandRunModel.assignment_id)
+                & (AttemptModel.attempt_id == CommandRunModel.attempt_id),
+            )
             .where(
                 CommandRunModel.state.in_(COMMAND_RUN_TERMINAL_STATE_VALUES),
                 CommandRunModel.successor_dispatch_id.is_(None),
+                AttemptModel.status == "running",
+                AttemptModel.current_dispatch_id.is_(None),
+                AttemptModel.current_wait_id.is_(None),
             )
             .order_by(CommandRunModel.run_id)
             .limit(page_size)
@@ -336,11 +399,24 @@ async def read_dispatch_start_page(
                 DispatchTurnModel.next_provider_start_at,
             )
             .join(
-                FlowModel,
-                (FlowModel.flow_id == DispatchTurnModel.flow_id)
-                & (FlowModel.current_dispatch_id == DispatchTurnModel.dispatch_id),
+                AttemptModel,
+                (AttemptModel.attempt_id == DispatchTurnModel.attempt_id)
+                & (AttemptModel.task_id == DispatchTurnModel.task_id)
+                & (AttemptModel.flow_id == DispatchTurnModel.flow_id)
+                & (AttemptModel.assignment_id == DispatchTurnModel.assignment_id)
+                & (AttemptModel.current_dispatch_id == DispatchTurnModel.dispatch_id),
             )
-            .where(DispatchTurnModel.status == "starting")
+            .join(
+                FlowModel,
+                FlowModel.flow_id == DispatchTurnModel.flow_id,
+            )
+            .where(
+                DispatchTurnModel.status == "starting",
+                AttemptModel.status == "running",
+                AttemptModel.current_wait_id.is_(None),
+                FlowModel.status == "running",
+                FlowModel.active_flow_revision_id == DispatchTurnModel.flow_revision_id,
+            )
             .order_by(DispatchTurnModel.dispatch_id)
             .limit(page_size)
         )
@@ -378,14 +454,19 @@ async def read_watchdog_deadline_page(
                 DispatchTurnModel.last_node_activity_at,
             )
             .join(
-                FlowModel,
-                (FlowModel.flow_id == DispatchTurnModel.flow_id)
-                & (FlowModel.current_dispatch_id == DispatchTurnModel.dispatch_id),
+                AttemptModel,
+                (AttemptModel.task_id == DispatchTurnModel.task_id)
+                & (AttemptModel.flow_id == DispatchTurnModel.flow_id)
+                & (AttemptModel.assignment_id == DispatchTurnModel.assignment_id)
+                & (AttemptModel.attempt_id == DispatchTurnModel.attempt_id)
+                & (AttemptModel.current_dispatch_id == DispatchTurnModel.dispatch_id),
             )
+            .join(FlowModel, FlowModel.flow_id == DispatchTurnModel.flow_id)
             .where(
                 DispatchTurnModel.status == "open",
+                AttemptModel.status == "running",
+                AttemptModel.current_wait_id.is_(None),
                 FlowModel.status == "running",
-                FlowModel.waiting_cause == "none",
                 ~exists().where(
                     HumanRequestModel.source_dispatch_id == DispatchTurnModel.dispatch_id
                 ),
@@ -525,7 +606,28 @@ async def _read_command_state_page(
     async with session_factory() as session:
         statement = (
             select(CommandRunModel.run_id)
-            .where(CommandRunModel.state == state.value)
+            .join(
+                AttemptWaitModel,
+                (AttemptWaitModel.task_id == CommandRunModel.task_id)
+                & (AttemptWaitModel.flow_id == CommandRunModel.flow_id)
+                & (AttemptWaitModel.assignment_id == CommandRunModel.assignment_id)
+                & (AttemptWaitModel.attempt_id == CommandRunModel.attempt_id)
+                & (AttemptWaitModel.source_dispatch_id == CommandRunModel.source_dispatch_id)
+                & (AttemptWaitModel.command_run_id == CommandRunModel.run_id),
+            )
+            .join(
+                AttemptModel,
+                (AttemptModel.task_id == AttemptWaitModel.task_id)
+                & (AttemptModel.flow_id == AttemptWaitModel.flow_id)
+                & (AttemptModel.assignment_id == AttemptWaitModel.assignment_id)
+                & (AttemptModel.attempt_id == AttemptWaitModel.attempt_id)
+                & (AttemptModel.current_wait_id == AttemptWaitModel.wait_id),
+            )
+            .where(
+                CommandRunModel.state == state.value,
+                AttemptModel.status == "running",
+                AttemptModel.current_dispatch_id.is_(None),
+            )
             .order_by(CommandRunModel.run_id)
             .limit(page_size)
         )

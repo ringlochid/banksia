@@ -10,7 +10,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import raiseload
 from sqlalchemy.sql.elements import ColumnElement
 
-from banksia.persistence.models import CommandRunModel, FlowModel, FlowWaitModel
+from banksia.persistence.models import (
+    AttemptModel,
+    AttemptWaitModel,
+    CommandRunModel,
+    FlowModel,
+)
 from banksia.runtime.clock import utc_now
 from banksia.runtime.contracts import (
     TERMINAL_COMMAND_RUN_STATES,
@@ -218,6 +223,7 @@ async def request_command_run_cancellation(
     actor_ref: str | None = None,
     event_source: TaskEventSource = TaskEventSource.CONTROL_API,
     is_already_requested_allowed: bool = False,
+    is_cancelled_flow_allowed: bool = False,
 ) -> tuple[CommandRunModel, bool]:
     """Request exact-run cancellation without committing the caller's transaction."""
 
@@ -227,10 +233,12 @@ async def request_command_run_cancellation(
     state = CommandRunState(source.state)
     if state in TERMINAL_COMMAND_RUN_STATES:
         return source, False
-    if not await session.scalar(select(_current_command_wait_exists(source))):
-        raise _command_run_conflict(
-            f"command run '{run_id}' no longer owns the task's exact current wait"
-        )
+    current_wait = _current_command_wait_exists(
+        source,
+        is_cancelled_flow_allowed=is_cancelled_flow_allowed,
+    )
+    if not await session.scalar(select(current_wait)):
+        raise _command_run_conflict(f"command run '{run_id}' no longer owns its exact Attempt wait")
     if state == CommandRunState.CANCELLATION_REQUESTED:
         if is_already_requested_allowed:
             return source, False
@@ -248,7 +256,7 @@ async def request_command_run_cancellation(
             CommandRunModel.run_id == run_id,
             CommandRunModel.state == state.value,
             CommandRunModel.ownership_revision == source.ownership_revision,
-            _current_command_wait_exists(source),
+            current_wait,
         )
         .values(
             state=CommandRunState.CANCELLATION_REQUESTED.value,
@@ -344,19 +352,41 @@ def command_run_list_item_from_model(source: CommandRunModel) -> CommandRunListI
     )
 
 
-def _current_command_wait_exists(source: CommandRunModel) -> ColumnElement[bool]:
+def _current_command_wait_exists(
+    source: CommandRunModel,
+    *,
+    is_cancelled_flow_allowed: bool = False,
+) -> ColumnElement[bool]:
+    flow_statuses = (
+        ("running", "paused", "cancelled")
+        if is_cancelled_flow_allowed
+        else (
+            "running",
+            "paused",
+        )
+    )
     return exists().where(
         FlowModel.flow_id == source.flow_id,
         FlowModel.task_id == source.task_id,
-        FlowModel.status.in_(("running", "paused")),
-        FlowModel.current_dispatch_id.is_(None),
-        FlowModel.waiting_cause == "command_run",
-        FlowModel.waiting_source_id == source.run_id,
+        FlowModel.status.in_(flow_statuses),
     ) & exists().where(
-        FlowWaitModel.flow_id == source.flow_id,
-        FlowWaitModel.task_id == source.task_id,
-        FlowWaitModel.command_run_id == source.run_id,
-        FlowWaitModel.source_dispatch_id == source.source_dispatch_id,
+        AttemptWaitModel.task_id == source.task_id,
+        AttemptWaitModel.flow_id == source.flow_id,
+        AttemptWaitModel.assignment_id == source.assignment_id,
+        AttemptWaitModel.attempt_id == source.attempt_id,
+        AttemptWaitModel.source_dispatch_id == source.source_dispatch_id,
+        AttemptWaitModel.command_run_id == source.run_id,
+        AttemptWaitModel.human_request_id.is_(None),
+        AttemptWaitModel.sequential_child_assignment_id.is_(None),
+        exists().where(
+            AttemptModel.attempt_id == source.attempt_id,
+            AttemptModel.task_id == source.task_id,
+            AttemptModel.flow_id == source.flow_id,
+            AttemptModel.assignment_id == source.assignment_id,
+            AttemptModel.status == "running",
+            AttemptModel.current_dispatch_id.is_(None),
+            AttemptModel.current_wait_id == AttemptWaitModel.wait_id,
+        ),
     )
 
 

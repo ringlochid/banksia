@@ -172,7 +172,6 @@ async def test_recursive_add_commits_complete_successors_and_closes_source(
 
         assert task is not None and task.current_team_revision_id is not None
         assert flow is not None and flow.active_flow_revision_id is not None
-        assert flow.current_dispatch_id is None
         assert source is not None and source.closed_reason == "structural_replan"
         assert transition is not None
         assert transition.manifest_state == "pending"

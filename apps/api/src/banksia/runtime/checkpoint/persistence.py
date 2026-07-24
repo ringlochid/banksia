@@ -31,19 +31,31 @@ from banksia.runtime.dispatch.authority import (
     NodeOperationAuthority,
     exact_node_operation_authority_exists,
 )
-from banksia.runtime.errors import RuntimeOperationError
+from banksia.runtime.dispatch.opening import stage_starting_dispatch
+from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
+from banksia.runtime.errors import RuntimeOperationError, budget_exhausted_error
 from banksia.runtime.file_references import validate_file_references
+from banksia.runtime.node_operations.follow_on import (
+    CommittedNodeOperationFollowOn,
+    CommittedNodeOperationResult,
+)
 from banksia.runtime.node_operations.source_transitions import close_source_dispatch
+from banksia.runtime.post_commit import DispatchStartDue
+from banksia.runtime.providers import ProviderResolutionError
 from banksia.runtime.task_events import append_task_event
 from banksia.runtime.task_root.reads import read_task_root_paths
 from banksia.runtime.team.participation import read_accepted_green_participation
+
+from .semantic_retry import PreparedSemanticRetry, prepare_semantic_retry
 
 
 async def commit_checkpoint(
     session: AsyncSession,
     authority: NodeOperationAuthority,
     request: CheckpointRequest,
-) -> CheckpointResponse:
+    *,
+    dispatch_opening_dependencies: DispatchOpeningDependencies | None = None,
+) -> CheckpointResponse | CommittedNodeOperationResult:
     """Commit one progress or terminal Checkpoint against exact Dispatch authority."""
 
     paths = await read_task_root_paths(session, authority.task_id)
@@ -56,6 +68,40 @@ async def commit_checkpoint(
 
     now = utc_now()
     checkpoint_id = f"checkpoint.{authority.task_id}.{uuid4().hex}"
+    boundary_id = f"accepted-boundary.{authority.dispatch_id}"
+    prepared_retry: PreparedSemanticRetry | None = None
+    if outcome == "retry":
+        if dispatch_opening_dependencies is None:
+            raise RuntimeOperationError(
+                code=OperationFailureCode.INTERNAL_ERROR,
+                summary="semantic retry requires Dispatch opening dependencies",
+                is_retryable=False,
+            )
+        _require_retry_budget(authority)
+        retry_attempt_id = f"attempt.{authority.task_id}.{authority.node_key}.{uuid4().hex}"
+        retry_dispatch_id = f"dispatch.{uuid4().hex}"
+        try:
+            prepared_retry = await prepare_semantic_retry(
+                session,
+                authority,
+                request,
+                files=files,
+                checkpoint_id=checkpoint_id,
+                accepted_boundary_id=boundary_id,
+                retry_attempt_id=retry_attempt_id,
+                retry_dispatch_id=retry_dispatch_id,
+                dependencies=dispatch_opening_dependencies,
+            )
+        except (ProviderResolutionError, ValueError, OSError) as exc:
+            raise RuntimeOperationError(
+                code=OperationFailureCode.ILLEGAL_STATE,
+                summary="semantic retry Dispatch preparation failed",
+                is_retryable=False,
+                suggested_next_step=(
+                    "Repair the current provider route or workflow configuration, "
+                    "then retry the Checkpoint."
+                ),
+            ) from exc
     checkpoint = AttemptCheckpointModel(
         checkpoint_id=checkpoint_id,
         task_id=authority.task_id,
@@ -96,20 +142,42 @@ async def commit_checkpoint(
             session,
             authority,
             checkpoint_id=checkpoint_id,
+            boundary_id=boundary_id,
             outcome=outcome,
             transitioned_at=now,
+            prepared_retry=prepared_retry,
         )
     try:
         await session.commit()
     except IntegrityError as exc:
         await session.rollback()
         raise _checkpoint_conflict("another operation won the exact Checkpoint transition") from exc
-    return CheckpointResponse(
+    response = CheckpointResponse(
         checkpoint=request,
         recorded_at=now,
         terminal=terminal,
         must_stop=terminal,
     )
+    if prepared_retry is None:
+        return response
+    return CommittedNodeOperationResult(
+        response=response,
+        follow_on=CommittedNodeOperationFollowOn(
+            runtime_signals=(
+                DispatchStartDue(
+                    dispatch_id=prepared_retry.request.dispatch_id,
+                    provider_start_revision=0,
+                    due_at=prepared_retry.request.due_at,
+                ),
+            )
+        ),
+    )
+
+
+def _require_retry_budget(authority: NodeOperationAuthority) -> None:
+    retries_remaining = authority.assignment.retries_remaining
+    if retries_remaining is not None and retries_remaining <= 0:
+        raise budget_exhausted_error("the current assignment has no semantic retries remaining")
 
 
 def _stage_file_references(
@@ -219,16 +287,16 @@ async def _commit_terminal_boundary(
     authority: NodeOperationAuthority,
     *,
     checkpoint_id: str,
+    boundary_id: str,
     outcome: str,
     transitioned_at: datetime,
+    prepared_retry: PreparedSemanticRetry | None,
 ) -> None:
     await close_source_dispatch(
         session,
         authority,
         now=transitioned_at,
         closed_reason="boundary",
-        waiting_cause="none",
-        waiting_source_id=None,
     )
     await advance_accepted_boundary_state(
         session,
@@ -236,8 +304,8 @@ async def _commit_terminal_boundary(
         outcome=outcome,
         decision=None,
         transitioned_at=transitioned_at,
+        retry_attempt_id=(prepared_retry.basis.attempt_id if prepared_retry is not None else None),
     )
-    boundary_id = f"accepted-boundary.{authority.dispatch_id}"
     session.add(
         AcceptedBoundaryModel(
             accepted_boundary_id=boundary_id,
@@ -249,9 +317,18 @@ async def _commit_terminal_boundary(
             outcome=outcome,
             checkpoint_id=checkpoint_id,
             assignment_decision_id=None,
+            successor_dispatch_id=(
+                prepared_retry.request.dispatch_id if prepared_retry is not None else None
+            ),
             committed_at=transitioned_at,
         )
     )
+    if prepared_retry is not None:
+        await stage_starting_dispatch(
+            session,
+            basis=prepared_retry.basis,
+            prepared=prepared_retry.request,
+        )
     if outcome in {"green", "blocked"} and authority.assignment.parent_assignment_id is None:
         await _select_task_result(
             session,

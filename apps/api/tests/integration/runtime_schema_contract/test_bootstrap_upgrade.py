@@ -131,24 +131,6 @@ def test_schema_verifier_preserves_material_boolean_grouping() -> None:
             "dispatch_turns changed column node_activity_revision",
         ),
         (
-            "flows",
-            lambda ddl: ddl.replace(
-                "CASE WHEN current_dispatch_id IS NULL THEN 0 ELSE 1 END",
-                "CASE WHEN current_dispatch_id IS NULL THEN 1 ELSE 0 END",
-            ),
-            "flows changed column current_dispatch_presence_marker",
-        ),
-        (
-            "flows",
-            lambda ddl: ddl.replace(
-                "current_dispatch_presence_marker INTEGER NOT NULL GENERATED ALWAYS AS "
-                "(CASE WHEN current_dispatch_id IS NULL THEN 0 ELSE 1 END) STORED",
-                "current_dispatch_presence_marker INTEGER NOT NULL GENERATED ALWAYS AS "
-                "(CASE WHEN current_dispatch_id IS NULL THEN 0 ELSE 1 END) VIRTUAL",
-            ),
-            "flows changed column current_dispatch_presence_marker",
-        ),
-        (
             "tasks",
             lambda ddl: ddl.replace(
                 "PRIMARY KEY (task_id)",
@@ -193,20 +175,6 @@ def test_schema_verifier_preserves_material_boolean_grouping() -> None:
             "task_event_stream_heads missing or changed check constraint "
             "ck_task_event_stream_heads_allocator_revision",
         ),
-    ),
-    ids=(
-        "missing-column",
-        "column-type",
-        "column-nullability",
-        "server-default",
-        "computed-expression",
-        "computed-persistence",
-        "primary-key",
-        "unique-constraint",
-        "foreign-key",
-        "foreign-key-options",
-        "check-constraint",
-        "event-stream-head-check",
     ),
 )
 def test_exact_schema_verifier_rejects_changed_table_contracts(
@@ -291,7 +259,7 @@ def test_exact_schema_verifier_rejects_a_missing_required_index(tmp_path: Path) 
                 "status IN ('starting', 'open')",
                 "status = 'open'",
             )
-            if name == "uq_dispatch_turns_one_current_per_flow"
+            if name == "uq_dispatch_turns_one_current_per_attempt"
             else ddl
         ),
     ),

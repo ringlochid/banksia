@@ -3,7 +3,13 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from banksia.persistence.models import CommandRunModel, DispatchTurnModel, FlowModel
+from banksia.persistence.models import (
+    AttemptModel,
+    AttemptWaitModel,
+    CommandRunModel,
+    DispatchTurnModel,
+    FlowModel,
+)
 from banksia.runtime.errors import RuntimeOperationError
 from banksia.runtime.node_operations import NodeOperationScope
 from sqlalchemy import select
@@ -19,6 +25,10 @@ async def test_command_run_start_persists_discriminated_request_without_launchin
         ids,
         _signals,
     ):
+        async with session_factory() as session:
+            initial_flow = await session.get(FlowModel, ids.flow_id)
+        assert initial_flow is not None
+        initial_control_revision = initial_flow.control_revision
         result = await executor.execute(
             scope=NodeOperationScope(
                 task_id=ids.task_id,
@@ -45,13 +55,20 @@ async def test_command_run_start_persists_discriminated_request_without_launchin
         async with session_factory() as session:
             source = await session.get(CommandRunModel, run_id)
             dispatch = await session.get(DispatchTurnModel, ids.current_dispatch_id)
+            attempt = await session.get(AttemptModel, ids.root_attempt_id)
+            wait = await session.scalar(
+                select(AttemptWaitModel).where(AttemptWaitModel.command_run_id == run_id)
+            )
             flow = await session.get(FlowModel, ids.flow_id)
         assert source is not None and source.state == "pending_start"
         assert source.command_spec_json == {"kind": "argv", "argv": ["python", "-V"]}
         assert source.cwd_policy_json == {"logical_path": "tools"}
         assert dispatch is not None and dispatch.status == "closed"
-        assert flow is not None and flow.waiting_source_id == run_id
-        assert flow.waiting_cause == "command_run"
+        assert attempt is not None and wait is not None
+        assert attempt.current_dispatch_id is None
+        assert attempt.current_wait_id == wait.wait_id
+        assert wait.source_dispatch_id == ids.current_dispatch_id
+        assert flow is not None and flow.control_revision == initial_control_revision
 
 
 async def test_invalid_command_cwd_creates_no_source_or_wait(tmp_path: Path) -> None:
@@ -81,8 +98,9 @@ async def test_invalid_command_cwd_creates_no_source_or_wait(tmp_path: Path) -> 
                 select(CommandRunModel).where(CommandRunModel.task_id == ids.task_id)
             )
             dispatch = await session.get(DispatchTurnModel, ids.current_dispatch_id)
-            flow = await session.get(FlowModel, ids.flow_id)
+            attempt = await session.get(AttemptModel, ids.root_attempt_id)
         assert source is None
         assert dispatch is not None and dispatch.status == "open"
-        assert flow is not None and flow.current_dispatch_id == ids.current_dispatch_id
-        assert flow.waiting_cause == "none"
+        assert attempt is not None
+        assert attempt.current_dispatch_id == ids.current_dispatch_id
+        assert attempt.current_wait_id is None

@@ -3,13 +3,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from sqlalchemy import and_, exists, select
+from sqlalchemy import and_, exists, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased, raiseload
 
 from banksia.persistence.models import (
     AcceptedBoundaryModel,
     AssignmentModel,
+    AttemptModel,
+    AttemptWaitModel,
     CommandRunModel,
     DispatchTurnModel,
     FlowModel,
@@ -56,59 +58,114 @@ async def read_runtime_flow_current_sources(
 ) -> RuntimeFlowCurrentSources:
     """Resolve the exact controller source that currently explains one flow."""
 
-    if flow.current_dispatch_id is not None:
-        dispatch = await session.scalar(
+    dispatches = tuple(
+        await session.scalars(
             select(DispatchTurnModel)
+            .join(
+                AttemptModel,
+                (AttemptModel.task_id == DispatchTurnModel.task_id)
+                & (AttemptModel.flow_id == DispatchTurnModel.flow_id)
+                & (AttemptModel.assignment_id == DispatchTurnModel.assignment_id)
+                & (AttemptModel.attempt_id == DispatchTurnModel.attempt_id)
+                & (AttemptModel.current_dispatch_id == DispatchTurnModel.dispatch_id),
+            )
             .options(raiseload("*"))
             .where(
-                DispatchTurnModel.dispatch_id == flow.current_dispatch_id,
                 DispatchTurnModel.task_id == flow.task_id,
                 DispatchTurnModel.flow_id == flow.flow_id,
                 DispatchTurnModel.status.in_(("starting", "open")),
+                AttemptModel.status == "running",
+                AttemptModel.current_wait_id.is_(None),
             )
+            .order_by(
+                AttemptModel.assignment_id,
+                AttemptModel.attempt_id,
+                DispatchTurnModel.dispatch_id,
+            )
+            .limit(2)
         )
-        if dispatch is None:
-            raise illegal_state_error("flow current-dispatch pointer is inconsistent")
-        return RuntimeFlowCurrentSources(target=_target_from_dispatch(dispatch))
+    )
+    external_waits = tuple(
+        await session.scalars(
+            select(AttemptWaitModel)
+            .join(
+                AttemptModel,
+                (AttemptModel.task_id == AttemptWaitModel.task_id)
+                & (AttemptModel.flow_id == AttemptWaitModel.flow_id)
+                & (AttemptModel.assignment_id == AttemptWaitModel.assignment_id)
+                & (AttemptModel.attempt_id == AttemptWaitModel.attempt_id)
+                & (AttemptModel.current_wait_id == AttemptWaitModel.wait_id),
+            )
+            .options(raiseload("*"))
+            .where(
+                AttemptWaitModel.task_id == flow.task_id,
+                AttemptWaitModel.flow_id == flow.flow_id,
+                or_(
+                    AttemptWaitModel.human_request_id.is_not(None),
+                    AttemptWaitModel.command_run_id.is_not(None),
+                ),
+                AttemptModel.status == "running",
+                AttemptModel.current_dispatch_id.is_(None),
+            )
+            .order_by(
+                AttemptWaitModel.assignment_id,
+                AttemptWaitModel.attempt_id,
+                AttemptWaitModel.wait_id,
+            )
+            .limit(2)
+        )
+    )
+    if len(dispatches) + len(external_waits) > 1:
+        raise illegal_state_error("task has more than one active sequential source")
+    if dispatches:
+        return RuntimeFlowCurrentSources(target=_target_from_dispatch(dispatches[0]))
 
-    if flow.waiting_cause == "human_request" and flow.waiting_source_id is not None:
+    if external_waits and external_waits[0].human_request_id is not None:
+        wait = external_waits[0]
         request = await session.scalar(
             select(HumanRequestModel)
             .options(raiseload("*"))
             .where(
-                HumanRequestModel.request_id == flow.waiting_source_id,
+                HumanRequestModel.request_id == wait.human_request_id,
                 HumanRequestModel.task_id == flow.task_id,
                 HumanRequestModel.flow_id == flow.flow_id,
+                HumanRequestModel.assignment_id == wait.assignment_id,
+                HumanRequestModel.attempt_id == wait.attempt_id,
+                HumanRequestModel.source_dispatch_id == wait.source_dispatch_id,
                 HumanRequestModel.status == "open",
             )
         )
         if request is None:
-            raise illegal_state_error("flow human-request pointer is inconsistent")
+            raise illegal_state_error("Attempt human-request wait source is inconsistent")
         return RuntimeFlowCurrentSources(
             target=await _target_from_external_source(session, flow, request),
             human_request=_human_request_summary(request),
         )
 
-    if flow.waiting_cause == "command_run" and flow.waiting_source_id is not None:
+    if external_waits and external_waits[0].command_run_id is not None:
+        wait = external_waits[0]
         run = await session.scalar(
             select(CommandRunModel)
             .options(raiseload("*"))
             .where(
-                CommandRunModel.run_id == flow.waiting_source_id,
+                CommandRunModel.run_id == wait.command_run_id,
                 CommandRunModel.task_id == flow.task_id,
                 CommandRunModel.flow_id == flow.flow_id,
+                CommandRunModel.assignment_id == wait.assignment_id,
+                CommandRunModel.attempt_id == wait.attempt_id,
+                CommandRunModel.source_dispatch_id == wait.source_dispatch_id,
                 CommandRunModel.state.not_in(COMMAND_RUN_TERMINAL_STATE_VALUES),
             )
         )
         if run is None:
-            raise illegal_state_error("flow command-run pointer is inconsistent")
+            raise illegal_state_error("Attempt command-run wait source is inconsistent")
         return RuntimeFlowCurrentSources(
             target=await _target_from_external_source(session, flow, run),
             command_run=_command_run_summary(run),
         )
 
-    if flow.waiting_cause != "none" or flow.waiting_source_id is not None:
-        raise illegal_state_error("flow waiting pointer is inconsistent")
+    if external_waits:
+        raise illegal_state_error("Attempt wait has no external source")
     if flow.status in {"completed", "cancelled"}:
         return RuntimeFlowCurrentSources()
 
@@ -188,9 +245,9 @@ async def _read_retained_continuation_sources(
     human_request = human_requests[0] if human_requests else None
     command_run = command_runs[0] if command_runs else None
     if human_request is not None and human_request.status == "open":
-        raise illegal_state_error("open human request is missing its flow wait pointer")
+        raise illegal_state_error("open human request is missing its Attempt wait")
     if command_run is not None and command_run.state not in COMMAND_RUN_TERMINAL_STATE_VALUES:
-        raise illegal_state_error("nonterminal command run is missing its flow wait pointer")
+        raise illegal_state_error("nonterminal command run is missing its Attempt wait")
     return _RetainedContinuationSources(
         boundary=boundaries[0] if boundaries else None,
         human_request=human_request,

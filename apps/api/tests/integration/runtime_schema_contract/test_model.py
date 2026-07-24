@@ -19,6 +19,7 @@ TARGET_TABLES = {
     "assignment_work_plans",
     "assignments",
     "attempt_checkpoints",
+    "attempt_waits",
     "attempts",
     "checkpoint_file_references",
     "command_runs",
@@ -30,7 +31,6 @@ TARGET_TABLES = {
     "flow_nodes",
     "flow_revisions",
     "flow_start_sources",
-    "flow_waits",
     "flows",
     "human_requests",
     "human_request_file_references",
@@ -129,17 +129,16 @@ def test_target_metadata_compiles_for_both_supported_database_dialects() -> None
                 assert str(CreateIndex(index).compile(dialect=dialect)).startswith("CREATE")
 
 
-def test_currentness_marker_ddl_is_stored_and_portable() -> None:
+def test_attempt_lane_marker_ddl_is_stored_and_portable() -> None:
     marker_columns = (
         RuntimeBase.metadata.tables["dispatch_turns"].c.active_status_marker,
-        RuntimeBase.metadata.tables["flows"].c.current_dispatch_presence_marker,
-        RuntimeBase.metadata.tables["flow_waits"].c.required_current_dispatch_presence_marker,
+        RuntimeBase.metadata.tables["attempts"].c.current_dispatch_presence_marker,
     )
     assert all(column.computed is not None for column in marker_columns)
     assert all(column.computed.persisted is True for column in marker_columns if column.computed)
 
     for dialect in (sqlite.dialect(), postgresql.dialect()):
-        for table_name in ("dispatch_turns", "flows", "flow_waits"):
+        for table_name in ("dispatch_turns", "attempts"):
             ddl = str(CreateTable(RuntimeBase.metadata.tables[table_name]).compile(dialect=dialect))
             assert "GENERATED ALWAYS AS" in ddl
             assert "STORED" in ddl

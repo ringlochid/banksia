@@ -22,22 +22,20 @@ EXPECTED_ASSET_PATHS = (
     "shared/workspace-and-files.txt",
     "shared/checkpoint.txt",
     "positions/task-lead.txt",
-    "behaviors/manager-pre-wave.txt",
+    "behaviors/manager.txt",
     "behaviors/contributor.txt",
     "actions/human-request.txt",
     "actions/command-run.txt",
     "situations/continuation.txt",
 )
-STABLE_TARGET_ASSET_PATHS = tuple(
-    path for path in EXPECTED_ASSET_PATHS if path != "behaviors/manager-pre-wave.txt"
-)
+STABLE_TARGET_ASSET_PATHS = EXPECTED_ASSET_PATHS
 
 
 def validate_prompt_contract(*, should_check_generated_readback: bool = True) -> tuple[str, ...]:
     errors: list[str] = []
     asset_paths = tuple(instruction_asset_path(asset).as_posix() for asset in INSTRUCTION_ASSETS)
     if asset_paths != EXPECTED_ASSET_PATHS:
-        errors.append("instruction assets do not match the staged Banksia prompt set")
+        errors.append("instruction assets do not match the Banksia prompt set")
 
     for asset in INSTRUCTION_ASSETS:
         try:
@@ -53,8 +51,8 @@ def validate_prompt_contract(*, should_check_generated_readback: bool = True) ->
     if tuple(PromptDynamicInput.model_fields) != PROMPT_DYNAMIC_INPUT_KEYS:
         errors.append("dynamic prompt input does not expose the canonical ordered sections")
 
-    if len(PROMPT_TRIGGER_KINDS) != 8 or len(set(PROMPT_TRIGGER_KINDS)) != 8:
-        errors.append("prompt trigger kinds must contain exactly eight distinct variants")
+    if len(PROMPT_TRIGGER_KINDS) != 7 or len(set(PROMPT_TRIGGER_KINDS)) != 7:
+        errors.append("prompt trigger kinds must contain exactly seven distinct variants")
 
     if should_check_generated_readback:
         if not PROMPT_CONTRACT_READBACK_PATH.is_file():

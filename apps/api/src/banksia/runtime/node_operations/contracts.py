@@ -3,14 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
-from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from banksia.runtime.contracts import (
     AddChildRequest,
-    AssignChildPayload,
     CommandRunStartRequest,
+    DelegateRequest,
     HumanRequestOpenRequest,
     RemoveChildRequest,
     UpdateChildRequest,
@@ -32,13 +31,12 @@ class NodeOperationName(StrEnum):
     GET_CURRENT_CONTEXT = "get_current_context"
     SET_WORK_PLAN = "set_work_plan"
     CHECKPOINT = "checkpoint"
-    RETURN_BOUNDARY = "return_boundary"
-    OPEN_HUMAN_REQUEST = "open_human_request"
-    START_COMMAND_RUN = "start_command_run"
-    ASSIGN_CHILD = "assign_child"
+    DELEGATE = "delegate"
     ADD_CHILD = "add_child"
     UPDATE_CHILD = "update_child"
     REMOVE_CHILD = "remove_child"
+    OPEN_HUMAN_REQUEST = "open_human_request"
+    START_COMMAND_RUN = "start_command_run"
 
 
 class NodeOperationMutationKind(StrEnum):
@@ -84,12 +82,6 @@ class GetCurrentContextResponse(BaseModel):
     observed_at: datetime
 
 
-class ReturnBoundaryRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    boundary: Literal["yield"]
-
-
 class OpenHumanRequestRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -100,16 +92,6 @@ class StartCommandRunRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     request: CommandRunStartRequest
-
-
-class StructuralOperationRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    expected_structural_revision_id: RuntimeSchemaText
-
-
-class AssignChildRequest(StructuralOperationRequest):
-    payload: AssignChildPayload
 
 
 @dataclass(frozen=True)
@@ -127,7 +109,7 @@ class NodeOperationDescriptor:
 
 __all__ = [
     "AddChildRequest",
-    "AssignChildRequest",
+    "DelegateRequest",
     "EmptyNodeOperationRequest",
     "GetCurrentContextResponse",
     "NodeOperationCapability",
@@ -138,8 +120,6 @@ __all__ = [
     "NodeOperationTransferKind",
     "OpenHumanRequestRequest",
     "RemoveChildRequest",
-    "ReturnBoundaryRequest",
     "StartCommandRunRequest",
-    "StructuralOperationRequest",
     "UpdateChildRequest",
 ]

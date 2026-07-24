@@ -285,6 +285,7 @@ async def _build_result(
         available_actions=available_member_actions(
             direct_team=direct_team,
             capabilities=effective_capabilities,
+            is_task_lead=caller.parent_member_id is None,
         ),
         must_stop=True,
     )

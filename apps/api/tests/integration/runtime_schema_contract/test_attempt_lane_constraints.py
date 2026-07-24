@@ -65,7 +65,7 @@ def test_attempts_in_one_flow_can_each_own_an_active_dispatch(tmp_path: Path) ->
                     node_key="child",
                     predecessor_dispatch_id=ids.child_dispatch_id,
                     status="open",
-                    opened_reason="child_return",
+                    opened_reason="delegation_wave",
                 ),
             )
             connection.execute(
@@ -121,7 +121,7 @@ def test_one_attempt_rejects_duplicate_lineage_heads(
                         node_key="root",
                         predecessor_dispatch_id=None if is_first else ids.current_dispatch_id,
                         status="closed" if is_first else "open",
-                        opened_reason="boundary" if is_first else "child_return",
+                        opened_reason="root" if is_first else "delegation_wave",
                     ),
                 )
                 if not is_first:
@@ -353,113 +353,6 @@ def test_attempt_wait_owns_one_exact_human_request_source(tmp_path: Path) -> Non
         engine.dispose()
 
 
-def test_sequential_wait_rejects_child_from_another_dispatch(tmp_path: Path) -> None:
-    engine = create_runtime_schema_engine(tmp_path)
-    try:
-        with engine.begin() as connection:
-            seed_catalog(connection)
-            ids = seed_runtime_scope(connection)
-            _close_current_dispatch(connection, ids)
-            connection.execute(
-                RuntimeBase.metadata.tables["attempts"]
-                .update()
-                .where(RuntimeBase.metadata.tables["attempts"].c.attempt_id == ids.root_attempt_id)
-                .values(current_dispatch_id=None)
-            )
-
-        with pytest.raises(IntegrityError):
-            with engine.begin() as connection:
-                connection.execute(
-                    RuntimeBase.metadata.tables["attempt_waits"].insert(),
-                    _attempt_wait_row(
-                        ids,
-                        sequential_child_assignment_id=ids.child_assignment_id,
-                    ),
-                )
-                connection.execute(
-                    RuntimeBase.metadata.tables["attempts"]
-                    .update()
-                    .where(
-                        RuntimeBase.metadata.tables["attempts"].c.attempt_id == ids.root_attempt_id
-                    )
-                    .values(current_wait_id=ATTEMPT_WAIT_ID)
-                )
-    finally:
-        engine.dispose()
-
-
-def test_temporary_sequential_wait_accepts_exact_authored_child(tmp_path: Path) -> None:
-    # WP07_SEQUENTIAL_DELEGATION_WAIT: WP-08 must replace this bridge with a Wave.
-    engine = create_runtime_schema_engine(tmp_path)
-    try:
-        with engine.begin() as connection:
-            seed_catalog(connection)
-            ids = seed_runtime_scope(connection)
-            _close_current_dispatch(connection, ids)
-            connection.execute(
-                RuntimeBase.metadata.tables["attempt_waits"].insert(),
-                _attempt_wait_row(
-                    ids,
-                    source_dispatch_id=ids.root_dispatch_id,
-                    sequential_child_assignment_id=ids.child_assignment_id,
-                ),
-            )
-            connection.execute(
-                RuntimeBase.metadata.tables["attempts"]
-                .update()
-                .where(RuntimeBase.metadata.tables["attempts"].c.attempt_id == ids.root_attempt_id)
-                .values(
-                    current_dispatch_id=None,
-                    current_wait_id=ATTEMPT_WAIT_ID,
-                )
-            )
-
-        with engine.connect() as connection:
-            wait_source = connection.execute(
-                select(
-                    RuntimeBase.metadata.tables["attempt_waits"].c.source_dispatch_id,
-                    RuntimeBase.metadata.tables["attempt_waits"].c.sequential_child_assignment_id,
-                )
-            ).one()
-
-        assert wait_source == (ids.root_dispatch_id, ids.child_assignment_id)
-    finally:
-        engine.dispose()
-
-
-def test_accepted_boundary_links_cross_attempt_successor_directly(tmp_path: Path) -> None:
-    engine = create_runtime_schema_engine(tmp_path)
-    try:
-        with engine.begin() as connection:
-            seed_catalog(connection)
-            ids = seed_runtime_scope(connection)
-            connection.execute(
-                RuntimeBase.metadata.tables["accepted_boundaries"].insert(),
-                {
-                    "accepted_boundary_id": "boundary.child.green",
-                    "source_dispatch_id": ids.child_dispatch_id,
-                    "task_id": ids.task_id,
-                    "flow_id": ids.flow_id,
-                    "assignment_id": ids.child_assignment_id,
-                    "attempt_id": ids.child_attempt_id,
-                    "outcome": "green",
-                    "checkpoint_id": ids.child_checkpoint_id,
-                    "assignment_decision_id": None,
-                    "successor_dispatch_id": ids.current_dispatch_id,
-                    "committed_at": NOW,
-                },
-            )
-
-        with engine.connect() as connection:
-            successor_id = connection.scalar(
-                select(RuntimeBase.metadata.tables["accepted_boundaries"].c.successor_dispatch_id)
-            )
-
-        assert successor_id == ids.current_dispatch_id
-    finally:
-        engine.dispose()
-
-
 @pytest.mark.asyncio
 async def test_postgresql_enforces_attempt_lane_schema() -> None:
     database_url = _disposable_postgres_url()
@@ -587,7 +480,6 @@ def _attempt_wait_row(
     ids: RuntimeIds,
     *,
     source_dispatch_id: str | None = None,
-    sequential_child_assignment_id: str | None = None,
     human_request_id: str | None = None,
 ) -> dict[str, object]:
     return {
@@ -597,7 +489,7 @@ def _attempt_wait_row(
         "assignment_id": ids.root_assignment_id,
         "attempt_id": ids.root_attempt_id,
         "source_dispatch_id": source_dispatch_id or ids.current_dispatch_id,
-        "sequential_child_assignment_id": sequential_child_assignment_id,
+        "delegation_wave_id": None,
         "human_request_id": human_request_id,
         "command_run_id": None,
         "created_at": NOW,

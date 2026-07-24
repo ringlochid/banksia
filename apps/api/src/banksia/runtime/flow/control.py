@@ -10,8 +10,6 @@ from sqlalchemy.orm import raiseload
 from sqlalchemy.sql.elements import ColumnElement
 
 from banksia.persistence.models import (
-    AttemptModel,
-    DispatchTurnModel,
     FlowModel,
     ReplanTransitionModel,
 )
@@ -23,6 +21,10 @@ from banksia.runtime.contracts import (
     TaskEventType,
 )
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
+from banksia.runtime.control_transitions import (
+    FlowDispatchControlConflictError,
+    close_current_flow_dispatches,
+)
 from banksia.runtime.dispatch.opening import TaskResumeEventBasis
 from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
 from banksia.runtime.errors import (
@@ -79,12 +81,17 @@ async def pause_flow(
     if not changed:
         await session.rollback()
         raise _flow_control_conflict("another controller transition won before pause")
-    closed_dispatch_ids = await _close_current_dispatches(
-        session,
-        flow=flow,
-        closed_reason="paused",
-        closed_at=paused_at,
-    )
+    try:
+        closed_dispatch_ids = await close_current_flow_dispatches(
+            session,
+            task_id=flow.task_id,
+            flow_id=flow.flow_id,
+            closed_reason="paused",
+            closed_at=paused_at,
+        )
+    except FlowDispatchControlConflictError as exc:
+        await session.rollback()
+        raise _flow_control_conflict(str(exc)) from exc
     await append_task_event(
         session,
         task_id=flow.task_id,
@@ -92,7 +99,6 @@ async def pause_flow(
         event_source=event_source,
         occurred_at=paused_at,
         flow_revision_id=expected_active_flow_revision_id,
-        dispatch_id=_single_dispatch_id(closed_dispatch_ids),
         actor_ref=actor_ref,
         payload={
             "pause_reason": "paused_by_operator",
@@ -116,7 +122,7 @@ async def continue_flow(
     actor_ref: str | None = None,
     event_source: TaskEventSource = TaskEventSource.CONTROL_API,
 ) -> RuntimeFlowRead:
-    """Open one exact paused-flow successor before returning."""
+    """Resume every runnable Attempt lane from one exact paused-flow snapshot."""
 
     flow = await _read_control_flow(session, task_id)
     _require_control_snapshot(
@@ -125,7 +131,7 @@ async def continue_flow(
         expected_control_revision=expected_control_revision,
         allowed_statuses={"paused"},
     )
-    result = await continue_paused_flow(
+    await continue_paused_flow(
         session,
         task_id=task_id,
         expected_active_flow_revision_id=expected_active_flow_revision_id,
@@ -137,8 +143,6 @@ async def continue_flow(
             event_source=event_source,
         ),
     )
-    if result.outcome != "opened" or result.dispatch_id is None:
-        raise _flow_control_conflict("paused flow did not open one successor")
     return await read_runtime_flow(session, task_id)
 
 
@@ -172,12 +176,17 @@ async def cancel_flow(
     if not changed:
         await session.rollback()
         raise _flow_control_conflict("another controller transition won before cancellation")
-    closed_dispatch_ids = await _close_current_dispatches(
-        session,
-        flow=flow,
-        closed_reason="cancelled",
-        closed_at=cancelled_at,
-    )
+    try:
+        closed_dispatch_ids = await close_current_flow_dispatches(
+            session,
+            task_id=flow.task_id,
+            flow_id=flow.flow_id,
+            closed_reason="cancelled",
+            closed_at=cancelled_at,
+        )
+    except FlowDispatchControlConflictError as exc:
+        await session.rollback()
+        raise _flow_control_conflict(str(exc)) from exc
     cancellation_signals = await cancel_attempt_waits(
         session,
         flow=flow,
@@ -198,7 +207,6 @@ async def cancel_flow(
         event_source=event_source,
         occurred_at=cancelled_at,
         flow_revision_id=expected_active_flow_revision_id,
-        dispatch_id=_single_dispatch_id(closed_dispatch_ids),
         actor_ref=actor_ref,
         payload={
             "control_revision": expected_control_revision + 1,
@@ -240,101 +248,6 @@ def _require_control_snapshot(
         raise _flow_control_conflict("the flow control revision changed before control")
     if flow.status not in allowed_statuses:
         raise _flow_control_conflict(f"flow cannot be controlled from status '{flow.status}'")
-
-
-async def _close_current_dispatches(
-    session: AsyncSession,
-    *,
-    flow: FlowModel,
-    closed_reason: str,
-    closed_at: datetime,
-) -> tuple[str, ...]:
-    rows = (
-        await session.execute(
-            select(
-                AttemptModel.assignment_id,
-                AttemptModel.attempt_id,
-                DispatchTurnModel.dispatch_id,
-            )
-            .join(
-                DispatchTurnModel,
-                (DispatchTurnModel.task_id == AttemptModel.task_id)
-                & (DispatchTurnModel.flow_id == AttemptModel.flow_id)
-                & (DispatchTurnModel.assignment_id == AttemptModel.assignment_id)
-                & (DispatchTurnModel.attempt_id == AttemptModel.attempt_id)
-                & (DispatchTurnModel.dispatch_id == AttemptModel.current_dispatch_id),
-            )
-            .where(
-                AttemptModel.task_id == flow.task_id,
-                AttemptModel.flow_id == flow.flow_id,
-                AttemptModel.status == "running",
-                AttemptModel.current_dispatch_id.is_not(None),
-                AttemptModel.current_wait_id.is_(None),
-                DispatchTurnModel.status.in_(("starting", "open")),
-            )
-            .order_by(
-                AttemptModel.assignment_id,
-                AttemptModel.attempt_id,
-                DispatchTurnModel.dispatch_id,
-            )
-        )
-    ).all()
-    closed_ids: list[str] = []
-    for assignment_id, attempt_id, dispatch_id in rows:
-        closed_dispatch_id = await session.scalar(
-            update(DispatchTurnModel)
-            .where(
-                DispatchTurnModel.dispatch_id == dispatch_id,
-                DispatchTurnModel.task_id == flow.task_id,
-                DispatchTurnModel.flow_id == flow.flow_id,
-                DispatchTurnModel.assignment_id == assignment_id,
-                DispatchTurnModel.attempt_id == attempt_id,
-                DispatchTurnModel.status.in_(("starting", "open")),
-            )
-            .values(
-                status="closed",
-                closed_at=closed_at,
-                closed_reason=closed_reason,
-                next_provider_start_at=None,
-                provider_start_retry_kind=None,
-            )
-            .returning(DispatchTurnModel.dispatch_id)
-        )
-        if closed_dispatch_id is None:
-            await session.rollback()
-            raise _flow_control_conflict("a current Attempt dispatch changed before control")
-        cleared_attempt_id = await session.scalar(
-            update(AttemptModel)
-            .where(
-                AttemptModel.task_id == flow.task_id,
-                AttemptModel.flow_id == flow.flow_id,
-                AttemptModel.assignment_id == assignment_id,
-                AttemptModel.attempt_id == attempt_id,
-                AttemptModel.status == "running",
-                AttemptModel.current_dispatch_id == dispatch_id,
-                AttemptModel.current_wait_id.is_(None),
-            )
-            .values(current_dispatch_id=None)
-            .returning(AttemptModel.attempt_id)
-        )
-        if cleared_attempt_id is None:
-            await session.rollback()
-            raise _flow_control_conflict("a current Attempt dispatch changed before control")
-        closed_ids.append(closed_dispatch_id)
-    unsettled_attempt_id = await session.scalar(
-        select(AttemptModel.attempt_id)
-        .where(
-            AttemptModel.task_id == flow.task_id,
-            AttemptModel.flow_id == flow.flow_id,
-            AttemptModel.status == "running",
-            AttemptModel.current_dispatch_id.is_not(None),
-        )
-        .limit(1)
-    )
-    if unsettled_attempt_id is not None:
-        await session.rollback()
-        raise _flow_control_conflict("control did not settle every current Attempt dispatch")
-    return tuple(closed_ids)
 
 
 async def _update_flow_to_paused(
@@ -453,12 +366,6 @@ def _publish_cleanups(
         return
     for dispatch_id in dispatch_ids:
         _publish_effect(publisher, DispatchCleanupRequested(dispatch_id=dispatch_id))
-
-
-def _single_dispatch_id(dispatch_ids: tuple[str, ...]) -> str | None:
-    if len(dispatch_ids) != 1:
-        return None
-    return dispatch_ids[0]
 
 
 def _publish_command_cancellation(

@@ -24,7 +24,6 @@ from banksia.runtime.node_operations.activity import (
 )
 from banksia.runtime.node_operations.catalog import (
     get_node_operation_descriptor,
-    list_node_operation_descriptors_for_kind,
 )
 from banksia.runtime.node_operations.contracts import (
     NodeOperationCapability,
@@ -45,6 +44,7 @@ from banksia.runtime.node_operations.replan_replay import (
 )
 from banksia.runtime.node_operations.state_legality import (
     node_operation_requires_transition_claim,
+    read_available_node_operation_descriptors,
     read_node_operation_state_token,
     require_state_legal_node_operation,
 )
@@ -85,10 +85,9 @@ class NodeOperationExecutor:
         session_factory = get_session_factory()
         async with session_factory() as session:
             authority = await read_node_operation_authority(session, scope)
-            return tuple(
-                descriptor
-                for descriptor in list_node_operation_descriptors_for_kind(authority.node_kind)
-                if _capability_allows(descriptor, authority, None)
+            return await read_available_node_operation_descriptors(
+                session,
+                authority,
             )
 
     async def allowed_human_request_kinds(

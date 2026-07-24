@@ -8,9 +8,12 @@ from banksia.persistence.models.runtime.assignment import (
     CheckpointFileReferenceModel,
 )
 from banksia.persistence.models.runtime.command_runs import CommandRunModel
+from banksia.persistence.models.runtime.delegation import (
+    DelegationWaveMemberModel,
+    DelegationWaveModel,
+)
 from banksia.persistence.models.runtime.dispatch import (
     AcceptedBoundaryModel,
-    AssignmentDecisionModel,
     DispatchCapabilitySetModel,
     DispatchRequestModel,
     DispatchTurnModel,
@@ -49,7 +52,6 @@ from banksia.persistence.models.runtime.waiting import AttemptWaitModel
 
 __all__ = [
     "AcceptedBoundaryModel",
-    "AssignmentDecisionModel",
     "AssignmentFileReferenceModel",
     "AssignmentModel",
     "AssignmentWorkPlanModel",
@@ -61,6 +63,8 @@ __all__ = [
     "CommandRunModel",
     "CompiledPlanModel",
     "CompiledPlanNodeModel",
+    "DelegationWaveMemberModel",
+    "DelegationWaveModel",
     "DispatchCapabilitySetModel",
     "DispatchRequestModel",
     "DispatchTurnModel",

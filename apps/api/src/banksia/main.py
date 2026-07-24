@@ -32,10 +32,13 @@ from banksia.persistence.session import (
     ensure_database_schema,
     get_session_factory,
 )
-from banksia.runtime.boundary import create_boundary_accepted_handler
 from banksia.runtime.command_run import (
     CommandProcessOwner,
     create_command_run_terminal_handler,
+)
+from banksia.runtime.delegation import (
+    create_delegation_wave_settled_handler,
+    create_wave_member_settled_handler,
 )
 from banksia.runtime.dispatch.cleanup import create_dispatch_binding_cleanup_handler
 from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
@@ -51,13 +54,13 @@ from banksia.runtime.node_operations import (
     create_watchdog_activity_publisher,
 )
 from banksia.runtime.post_commit import (
-    BoundaryAccepted,
     CommandProcessExited,
     CommandRunCancellationRequested,
     CommandRunDue,
     CommandRunPending,
     CommandRunTerminal,
     DeadlineScheduler,
+    DelegationWaveSettled,
     DispatchCleanupRequested,
     DispatchStartDue,
     FlowStartCommitted,
@@ -69,6 +72,7 @@ from banksia.runtime.post_commit import (
     RuntimeEffectSignal,
     WatchdogDeadlineChanged,
     WatchdogDue,
+    WaveMemberSettled,
 )
 from banksia.runtime.post_commit.bootstrap import audit_startup_runtime_effects
 from banksia.runtime.projection import SupportProjectionOwner
@@ -85,7 +89,8 @@ from banksia.runtime.workspace.admission import recover_task_workspace_admission
 
 _RUNTIME_STARTUP_ROUTED_SIGNAL_TYPES = (
     FlowStartCommitted,
-    BoundaryAccepted,
+    WaveMemberSettled,
+    DelegationWaveSettled,
     ReplanCommitted,
     HumanRequestOpened,
     HumanRequestTerminal,
@@ -392,7 +397,11 @@ def _register_runtime_effect_routes(
         await provider_cleanup_handler(session, signal)
 
     router.register(FlowStartCommitted, create_flow_start_handler(dependencies))
-    router.register(BoundaryAccepted, create_boundary_accepted_handler(dependencies))
+    router.register(WaveMemberSettled, create_wave_member_settled_handler(dependencies))
+    router.register(
+        DelegationWaveSettled,
+        create_delegation_wave_settled_handler(dependencies),
+    )
     router.register(ReplanCommitted, create_replan_committed_handler(dependencies))
     router.register(HumanRequestOpened, create_human_request_opened_handler(scheduler))
     router.register(

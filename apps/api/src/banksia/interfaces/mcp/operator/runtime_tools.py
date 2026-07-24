@@ -84,7 +84,7 @@ GET_OPERATOR_SNAPSHOT_TEACHING = read_only_tool_teaching(
 )
 GET_OPERATOR_TRACE_TEACHING = read_only_tool_teaching(
     name="get_operator_trace",
-    summary="Inspect dispatch and checkpoint chronology for one task.",
+    summary="Inspect complete dispatch and checkpoint chronology for one task.",
     details=(
         "Use this after get_runtime_task or get_operator_snapshot when you "
         "need to understand how the workflow reached the current state.",
@@ -119,7 +119,8 @@ CONTINUE_TASK_TEACHING = mutating_tool_teaching(
         STATUS_CHECK_WARNING,
         INSPECT_FIRST_NOTE,
         "Pause-resume only.",
-        "Not the ordinary path for yielded child handoff, parent wake, or retry advancement.",
+        "Delegation Waves, external waits, and retries resume through their owning "
+        "controller sources; do not use this operation as polling.",
         FRESH_REVISION_NOTE,
         "The response means the legal successor Dispatch and exact request committed.",
         "Provider start is asynchronous; this tool does not wait for provider output, stop, or "
@@ -270,14 +271,12 @@ def register_operator_read_tools(server: FastMCP) -> None:
     )
     async def get_operator_trace(
         task_id: str,
-        scope: Literal["current", "whole"] = "current",
         query: str | None = None,
         limit: int = 50,
         cursor: str | None = None,
         sort: Literal["occurred_at_desc", "occurred_at_asc"] = "occurred_at_desc",
     ) -> OperatorFlowTraceResponse:
         trace_query = OperatorFlowTraceQuery(
-            scope=scope,
             q=query,
             limit=limit,
             cursor=cursor,
@@ -287,7 +286,6 @@ def register_operator_read_tools(server: FastMCP) -> None:
             lambda session: operator_trace(
                 session,
                 task_id,
-                scope=trace_query.scope,
                 q=trace_query.q,
                 limit=trace_query.limit,
                 cursor=trace_query.cursor,

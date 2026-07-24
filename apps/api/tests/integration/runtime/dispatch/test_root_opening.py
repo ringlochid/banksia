@@ -238,6 +238,12 @@ def _assert_root_opening_result(
     assert request_root.find("continuation") is None
     assert request_root.findtext("dispatch/id") == dispatch.dispatch_id
     assert request_root.findtext("assignment/prompt")
+    assert tuple(item.text for item in request_root.findall("available_actions/action")) == (
+        "get_current_context",
+        "set_work_plan",
+        "checkpoint",
+        "add_child",
+    )
     assert not (tmp_path / "task-root" / "_runtime" / "dispatch").exists()
     assert publisher.signals == ()
 

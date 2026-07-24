@@ -62,14 +62,14 @@ async def continue_committed_replan(
 ) -> OrdinaryOpeningResult:
     """Repair the manifest barrier and open at most one exact successor Dispatch."""
 
-    if not await _ensure_manifest_current(session, transition_id):
+    if not await ensure_replan_manifest_current(session, transition_id):
         return OrdinaryOpeningResult(outcome="paused")
     return await open_ordinary_successor(
         session,
         source_id=transition_id,
         dependencies=dependencies,
-        read_source=_read_replan_source,
-        claim_source=_claim_replan_source,
+        read_source=read_replan_continuation_basis,
+        claim_source=claim_replan_continuation,
         record_failure=_record_opening_failure,
         default_failure_code="replan_dispatch_preparation_failed",
         expected_flow_status=expected_flow_status,
@@ -79,7 +79,7 @@ async def continue_committed_replan(
     )
 
 
-async def _ensure_manifest_current(
+async def ensure_replan_manifest_current(
     session: AsyncSession,
     transition_id: str,
 ) -> bool:
@@ -117,6 +117,74 @@ async def _ensure_manifest_current(
         )
         return False
     return await _mark_manifest_current(session, transition_id)
+
+
+async def read_replan_continuation_basis(
+    session: AsyncSession,
+    transition_id: str,
+) -> OrdinaryContinuationBasis | None:
+    transition = await session.scalar(
+        select(ReplanTransitionModel)
+        .options(raiseload("*"))
+        .where(
+            ReplanTransitionModel.replan_transition_id == transition_id,
+            ReplanTransitionModel.manifest_state == "current",
+            ReplanTransitionModel.successor_state.in_(("pending", "opening_failed")),
+            ReplanTransitionModel.successor_dispatch_id.is_(None),
+        )
+    )
+    if transition is None:
+        return None
+    result = ReplanSuccess.model_validate(transition.committed_result_json)
+    if transition.operation != result.operation:
+        raise ValueError("replan transition operation does not match its committed result")
+    return OrdinaryContinuationBasis(
+        task_id=transition.task_id,
+        flow_id=transition.flow_id,
+        assignment_id=transition.assignment_id,
+        attempt_id=transition.attempt_id,
+        source_dispatch_id=transition.source_dispatch_id,
+        source_dispatch_closed_reason="structural_replan",
+        opened_reason="structural_replan",
+        trigger=StructuralReplanTrigger(
+            source=StructuralReplanSource(
+                source_dispatch_id=transition.source_dispatch_id,
+                operation=result.operation,
+            ),
+            result=StructuralReplanResult(replan=result),
+        ),
+        continuation_source_id=transition.replan_transition_id,
+    )
+
+
+async def claim_replan_continuation(
+    session: AsyncSession,
+    snapshot: OrdinaryDispatchSnapshot,
+    prepared: PreparedDispatchRequest,
+) -> bool:
+    now = prepared.due_at
+    transition_id = _transition_id_from_snapshot(snapshot)
+    claimed = await session.scalar(
+        update(ReplanTransitionModel)
+        .where(
+            ReplanTransitionModel.replan_transition_id == transition_id,
+            ReplanTransitionModel.source_dispatch_id == snapshot.basis.source_dispatch_id,
+            ReplanTransitionModel.successor_flow_revision_id == snapshot.prompt.flow_revision_id,
+            ReplanTransitionModel.manifest_state == "current",
+            ReplanTransitionModel.successor_state.in_(("pending", "opening_failed")),
+            ReplanTransitionModel.successor_dispatch_id.is_(None),
+        )
+        .values(
+            successor_state="opened",
+            successor_dispatch_id=prepared.dispatch_id,
+            successor_opened_at=now,
+            failure_code=None,
+            failure_detail=None,
+            updated_at=now,
+        )
+        .returning(ReplanTransitionModel.replan_transition_id)
+    )
+    return claimed is not None
 
 
 async def _mark_manifest_current(session: AsyncSession, transition_id: str) -> bool:
@@ -173,80 +241,12 @@ async def _record_manifest_failure(
     await session.commit()
 
 
-async def _read_replan_source(
-    session: AsyncSession,
-    transition_id: str,
-) -> OrdinaryContinuationBasis | None:
-    transition = await session.scalar(
-        select(ReplanTransitionModel)
-        .options(raiseload("*"))
-        .where(
-            ReplanTransitionModel.replan_transition_id == transition_id,
-            ReplanTransitionModel.manifest_state == "current",
-            ReplanTransitionModel.successor_state.in_(("pending", "opening_failed")),
-            ReplanTransitionModel.successor_dispatch_id.is_(None),
-        )
-    )
-    if transition is None:
-        return None
-    result = ReplanSuccess.model_validate(transition.committed_result_json)
-    if transition.operation != result.operation:
-        raise ValueError("replan transition operation does not match its committed result")
-    return OrdinaryContinuationBasis(
-        task_id=transition.task_id,
-        flow_id=transition.flow_id,
-        assignment_id=transition.assignment_id,
-        attempt_id=transition.attempt_id,
-        source_dispatch_id=transition.source_dispatch_id,
-        source_dispatch_closed_reason="structural_replan",
-        opened_reason="structural_replan",
-        trigger=StructuralReplanTrigger(
-            source=StructuralReplanSource(
-                source_dispatch_id=transition.source_dispatch_id,
-                operation=result.operation,
-            ),
-            result=StructuralReplanResult(replan=result),
-        ),
-        continuation_source_id=transition.replan_transition_id,
-    )
-
-
-async def _claim_replan_source(
-    session: AsyncSession,
-    snapshot: OrdinaryDispatchSnapshot,
-    prepared: PreparedDispatchRequest,
-) -> bool:
-    now = prepared.due_at
-    transition_id = _transition_id_from_snapshot(snapshot)
-    claimed = await session.scalar(
-        update(ReplanTransitionModel)
-        .where(
-            ReplanTransitionModel.replan_transition_id == transition_id,
-            ReplanTransitionModel.source_dispatch_id == snapshot.basis.source_dispatch_id,
-            ReplanTransitionModel.successor_flow_revision_id == snapshot.prompt.flow_revision_id,
-            ReplanTransitionModel.manifest_state == "current",
-            ReplanTransitionModel.successor_state.in_(("pending", "opening_failed")),
-            ReplanTransitionModel.successor_dispatch_id.is_(None),
-        )
-        .values(
-            successor_state="opened",
-            successor_dispatch_id=prepared.dispatch_id,
-            successor_opened_at=now,
-            failure_code=None,
-            failure_detail=None,
-            updated_at=now,
-        )
-        .returning(ReplanTransitionModel.replan_transition_id)
-    )
-    return claimed is not None
-
-
 async def _record_opening_failure(
     session: AsyncSession,
     transition_id: str,
     failed_at: datetime,
     failure_code: str,
-) -> None:
+) -> tuple[str, ...]:
     await session.execute(
         update(ReplanTransitionModel)
         .where(
@@ -263,6 +263,7 @@ async def _record_opening_failure(
         )
     )
     await session.commit()
+    return ()
 
 
 def _transition_id_from_snapshot(snapshot: OrdinaryDispatchSnapshot) -> str:
@@ -277,6 +278,9 @@ def _transition_id_from_snapshot(snapshot: OrdinaryDispatchSnapshot) -> str:
 
 __all__ = [
     "ReplanCommittedHandler",
+    "claim_replan_continuation",
     "continue_committed_replan",
     "create_replan_committed_handler",
+    "ensure_replan_manifest_current",
+    "read_replan_continuation_basis",
 ]

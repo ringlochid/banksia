@@ -15,7 +15,7 @@ def test_target_prompt_asset_catalog_is_complete_and_packaged_as_text() -> None:
         "shared/workspace-and-files",
         "shared/checkpoint",
         "positions/task-lead",
-        "behaviors/manager-pre-wave",
+        "behaviors/manager",
         "behaviors/contributor",
         "actions/human-request",
         "actions/command-run",

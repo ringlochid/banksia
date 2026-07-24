@@ -48,7 +48,6 @@ if TYPE_CHECKING:
     from banksia.persistence.models.runtime.dispatch.states import FlowStartSourceModel
     from banksia.persistence.models.runtime.dispatch.support import (
         AcceptedBoundaryModel,
-        AssignmentDecisionModel,
     )
     from banksia.persistence.models.runtime.flow.graph import FlowNodeModel
     from banksia.persistence.models.runtime.flow.runtime import FlowModel, FlowRevisionModel
@@ -102,6 +101,25 @@ class DispatchTurnModel(RuntimeBase):
             "team_revision_id",
             name="uq_dispatch_turns_replan_snapshot_owner",
         ),
+        UniqueConstraint(
+            "dispatch_id",
+            "task_id",
+            "flow_id",
+            "assignment_id",
+            "attempt_id",
+            "flow_revision_id",
+            "node_key",
+            name="uq_dispatch_turns_delegation_source_owner",
+        ),
+        UniqueConstraint(
+            "dispatch_id",
+            "task_id",
+            "flow_id",
+            "assignment_id",
+            "attempt_id",
+            "predecessor_dispatch_id",
+            name="uq_dispatch_turns_delegation_successor_owner",
+        ),
         UniqueConstraint("flow_id", "dispatch_id", "opened_reason"),
         UniqueConstraint("flow_start_source_flow_id", "dispatch_id"),
         UniqueConstraint("predecessor_dispatch_id"),
@@ -118,9 +136,9 @@ class DispatchTurnModel(RuntimeBase):
             "(predecessor_dispatch_id IS NULL AND flow_start_source_flow_id = flow_id AND "
             "opened_reason IN ('root', 'operator_continue')) OR "
             "(predecessor_dispatch_id IS NULL AND flow_start_source_flow_id IS NULL AND "
-            "opened_reason IN ('boundary', 'semantic_retry')) OR "
+            "opened_reason IN ('delegation', 'semantic_retry')) OR "
             "(predecessor_dispatch_id IS NOT NULL AND flow_start_source_flow_id IS NULL AND "
-            "opened_reason NOT IN ('root', 'boundary', 'semantic_retry'))",
+            "opened_reason NOT IN ('root', 'delegation', 'semantic_retry'))",
             name="ck_dispatch_turns_exact_source_shape",
         ),
         CheckConstraint(
@@ -506,18 +524,6 @@ class DispatchTurnModel(RuntimeBase):
             "[AssignmentWorkPlanModel.authoring_dispatch_id, AssignmentWorkPlanModel.assignment_id]"
         ),
         lazy="raise",
-        viewonly=True,
-    )
-    assignment_decision: Mapped[AssignmentDecisionModel | None] = relationship(
-        "AssignmentDecisionModel",
-        back_populates="source_dispatch",
-        foreign_keys=(
-            "[AssignmentDecisionModel.source_dispatch_id, AssignmentDecisionModel.task_id, "
-            "AssignmentDecisionModel.flow_id, AssignmentDecisionModel.assignment_id, "
-            "AssignmentDecisionModel.attempt_id]"
-        ),
-        lazy="raise",
-        uselist=False,
         viewonly=True,
     )
     accepted_boundary: Mapped[AcceptedBoundaryModel | None] = relationship(

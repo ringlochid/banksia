@@ -1,14 +1,16 @@
 from __future__ import annotations
 
+from collections.abc import Collection
+from dataclasses import dataclass
 from functools import partial
 
 from banksia.runtime.contracts import (
     AddChildRequest,
-    AssignChildSuccess,
-    BoundaryRead,
     CheckpointRequest,
     CheckpointResponse,
     CommandRunStartResponse,
+    DelegateRequest,
+    DelegateSuccess,
     HumanRequestOpenResponse,
     RemoveChildRequest,
     ReplanSuccess,
@@ -16,7 +18,6 @@ from banksia.runtime.contracts import (
 )
 from banksia.runtime.contracts.member import NodeKind
 from banksia.runtime.node_operations.contracts import (
-    AssignChildRequest,
     EmptyNodeOperationRequest,
     GetCurrentContextResponse,
     NodeOperationCapability,
@@ -25,7 +26,6 @@ from banksia.runtime.node_operations.contracts import (
     NodeOperationName,
     NodeOperationTransferKind,
     OpenHumanRequestRequest,
-    ReturnBoundaryRequest,
     StartCommandRunRequest,
 )
 from banksia.runtime.work_plan import SetWorkPlanRequest, SetWorkPlanResponse
@@ -68,56 +68,17 @@ NODE_OPERATION_CATALOG: tuple[NodeOperationDescriptor, ...] = (
         transfer_kind=NodeOperationTransferKind.TERMINAL_VARIANT,
     ),
     _descriptor(
-        NodeOperationName.RETURN_BOUNDARY,
-        ReturnBoundaryRequest,
-        BoundaryRead,
-        title="Yield to staged child",
-        description=(
-            "Commit the migration-only staged-child yield and synchronously close the "
-            "source dispatch. "
-            "After success, stop the current outer response immediately; make no further "
-            "tool calls or prose."
-        ),
-        transfer_kind=NodeOperationTransferKind.ALWAYS_TRANSFERS,
-    ),
-    _descriptor(
-        NodeOperationName.OPEN_HUMAN_REQUEST,
-        OpenHumanRequestRequest,
-        HumanRequestOpenResponse,
-        required_capability=NodeOperationCapability.HUMAN_REQUEST,
-        title="Open human request",
-        description=(
-            "Commit one typed human wait and close the source dispatch. This is not a "
-            "workflow boundary or task-continue action. After success, stop the current "
-            "outer response immediately; make no further tool calls or prose."
-        ),
-        transfer_kind=NodeOperationTransferKind.ALWAYS_TRANSFERS,
-    ),
-    _descriptor(
-        NodeOperationName.START_COMMAND_RUN,
-        StartCommandRunRequest,
-        CommandRunStartResponse,
-        required_capability=NodeOperationCapability.COMMAND_RUN,
-        title="Start command run",
-        description=(
-            "Commit one controller-managed command wait and close the source dispatch. "
-            "Process launch happens after commit. After success, stop the current outer "
-            "response immediately; make no further tool calls or prose."
-        ),
-        transfer_kind=NodeOperationTransferKind.ALWAYS_TRANSFERS,
-    ),
-    _descriptor(
-        NodeOperationName.ASSIGN_CHILD,
-        AssignChildRequest,
-        AssignChildSuccess,
+        NodeOperationName.DELEGATE,
+        DelegateRequest,
+        DelegateSuccess,
         allowed_node_kinds=_PARENT_ROOT_NODE_KINDS,
-        title="Assign child",
+        title="Delegate",
         description=(
-            "Stage one direct-child assignment for a later yield boundary. A ready child "
-            "starts its first assignment; a terminal child may receive a fresh assignment "
-            "that supersedes its prior assignment. This is legal only for the current "
-            "parent/root dispatch and does not close that dispatch."
+            "Atomically start one to eight fresh Assignments for unique available direct "
+            "children, close this Dispatch, and wait for the complete Wave. After success, "
+            "stop immediately; make no further tool calls or prose."
         ),
+        transfer_kind=NodeOperationTransferKind.ALWAYS_TRANSFERS,
     ),
     _descriptor(
         NodeOperationName.ADD_CHILD,
@@ -155,9 +116,45 @@ NODE_OPERATION_CATALOG: tuple[NodeOperationDescriptor, ...] = (
         ),
         transfer_kind=NodeOperationTransferKind.ALWAYS_TRANSFERS,
     ),
+    _descriptor(
+        NodeOperationName.OPEN_HUMAN_REQUEST,
+        OpenHumanRequestRequest,
+        HumanRequestOpenResponse,
+        required_capability=NodeOperationCapability.HUMAN_REQUEST,
+        title="Open human request",
+        description=(
+            "Commit one typed human wait and close the source dispatch. This is not a "
+            "workflow boundary or task-continue action. After success, stop the current "
+            "outer response immediately; make no further tool calls or prose."
+        ),
+        transfer_kind=NodeOperationTransferKind.ALWAYS_TRANSFERS,
+    ),
+    _descriptor(
+        NodeOperationName.START_COMMAND_RUN,
+        StartCommandRunRequest,
+        CommandRunStartResponse,
+        required_capability=NodeOperationCapability.COMMAND_RUN,
+        title="Start command run",
+        description=(
+            "Commit one controller-managed command wait and close the source dispatch. "
+            "Process launch happens after commit. After success, stop the current outer "
+            "response immediately; make no further tool calls or prose."
+        ),
+        transfer_kind=NodeOperationTransferKind.ALWAYS_TRANSFERS,
+    ),
 )
 
 _DESCRIPTORS_BY_NAME = {descriptor.name: descriptor for descriptor in NODE_OPERATION_CATALOG}
+
+
+@dataclass(frozen=True, slots=True)
+class NodeOperationSelection:
+    """Exact controller facts used to select one ordered operation ceiling."""
+
+    node_kind: NodeKind
+    is_human_request_allowed: bool
+    is_command_run_allowed: bool
+    legal_operations: Collection[NodeOperationName] | None = None
 
 
 def get_node_operation_descriptor(
@@ -169,15 +166,49 @@ def get_node_operation_descriptor(
 def list_node_operation_descriptors_for_kind(
     node_kind: NodeKind,
 ) -> tuple[NodeOperationDescriptor, ...]:
+    return select_node_operation_descriptors(
+        NodeOperationSelection(
+            node_kind=node_kind,
+            is_human_request_allowed=True,
+            is_command_run_allowed=True,
+        )
+    )
+
+
+def select_node_operation_descriptors(
+    selection: NodeOperationSelection | None = None,
+) -> tuple[NodeOperationDescriptor, ...]:
+    """Select from the canonical catalog without changing its order."""
+
+    if selection is None:
+        return NODE_OPERATION_CATALOG
+    legal_operations = (
+        frozenset(selection.legal_operations) if selection.legal_operations is not None else None
+    )
     return tuple(
         descriptor
         for descriptor in NODE_OPERATION_CATALOG
-        if node_kind in descriptor.allowed_node_kinds
+        if selection.node_kind in descriptor.allowed_node_kinds
+        and (legal_operations is None or descriptor.name in legal_operations)
+        and _selection_allows_capability(descriptor, selection)
     )
+
+
+def _selection_allows_capability(
+    descriptor: NodeOperationDescriptor,
+    selection: NodeOperationSelection,
+) -> bool:
+    if descriptor.required_capability is NodeOperationCapability.HUMAN_REQUEST:
+        return selection.is_human_request_allowed
+    if descriptor.required_capability is NodeOperationCapability.COMMAND_RUN:
+        return selection.is_command_run_allowed
+    return True
 
 
 __all__ = [
     "NODE_OPERATION_CATALOG",
+    "NodeOperationSelection",
     "get_node_operation_descriptor",
     "list_node_operation_descriptors_for_kind",
+    "select_node_operation_descriptors",
 ]

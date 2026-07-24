@@ -19,13 +19,6 @@ class FlowStatus(StrEnum):
     CANCELLED = "cancelled"
 
 
-class EgressBoundary(StrEnum):
-    YIELD = "yield"
-    GREEN = "green"
-    RETRY = "retry"
-    BLOCKED = "blocked"
-
-
 class CheckpointOutcome(StrEnum):
     GREEN = "green"
     RETRY = "retry"
@@ -97,8 +90,6 @@ class TaskEventType(StrEnum):
     WORK_PLAN_CLEARED = "work_plan_cleared"
     CHECKPOINT_RECORDED = "checkpoint_recorded"
     BOUNDARY_ACCEPTED = "boundary_accepted"
-    CHILD_ASSIGNMENT_STAGED = "child_assignment_staged"
-    CHILD_ASSIGNMENT_COMMITTED = "child_assignment_committed"
     STRUCTURAL_REVISION_ADOPTED = "structural_revision_adopted"
     HUMAN_REQUEST_OPENED = "human_request_opened"
     HUMAN_REQUEST_RESOLVED = "human_request_resolved"
@@ -130,7 +121,6 @@ __all__ = [
     "CheckpointOutcome",
     "CommandRunState",
     "CommandRunTerminalSource",
-    "EgressBoundary",
     "FlowStatus",
     "HumanRequestKind",
     "HumanRequestResolutionKind",

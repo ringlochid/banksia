@@ -6,6 +6,7 @@ from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from datetime import UTC, datetime
 
 import banksia.runtime.post_commit.bootstrap as bootstrap_module
+import banksia.runtime.post_commit.delegation_wave_startup as wave_startup_module
 import pytest
 from banksia.runtime.post_commit import CapturedRuntimeEffectPublisher
 from banksia.runtime.post_commit.bootstrap import audit_startup_runtime_effects
@@ -14,10 +15,10 @@ from banksia.runtime.post_commit.router import (
     RuntimeEffectRouter,
 )
 from banksia.runtime.post_commit.signals import (
-    BoundaryAccepted,
     CommandRunCancellationRequested,
     CommandRunPending,
     CommandRunTerminal,
+    DelegationWaveSettled,
     DispatchStartDue,
     FlowStartCommitted,
     HumanRequestOpened,
@@ -25,6 +26,7 @@ from banksia.runtime.post_commit.signals import (
     ReplanCommitted,
     RuntimeEffectSignal,
     WatchdogDeadlineChanged,
+    WaveMemberSettled,
 )
 from banksia.runtime.startup_audit import StartupAuditPage
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -54,7 +56,8 @@ async def test_runtime_startup_routes_only_registered_exact_sources(
     due_at = datetime(2030, 1, 1, tzinfo=UTC)
     signals = (
         FlowStartCommitted("flow.alpha"),
-        BoundaryAccepted("dispatch.boundary"),
+        WaveMemberSettled("wave.complete"),
+        DelegationWaveSettled("wave.settled"),
         ReplanCommitted("replan.alpha"),
         HumanRequestOpened("human.open"),
         HumanRequestTerminal("human.alpha"),
@@ -65,21 +68,22 @@ async def test_runtime_startup_routes_only_registered_exact_sources(
         DispatchStartDue("dispatch.starting", 3, due_at),
         WatchdogDeadlineChanged("dispatch.open", 5, due_at),
     )
-    reader_names = (
-        "read_flow_start_page",
-        "read_boundary_continuation_page",
-        "read_replan_continuation_page",
-        "read_human_deadline_page",
-        "read_human_continuation_page",
-        "read_command_continuation_page",
-        "read_command_pending_page",
-        "read_command_running_page",
-        "read_command_cancellation_page",
-        "read_dispatch_start_page",
-        "read_watchdog_deadline_page",
+    readers = (
+        (bootstrap_module, "read_flow_start_page"),
+        (wave_startup_module, "read_wave_settlement_page"),
+        (wave_startup_module, "read_wave_continuation_page"),
+        (bootstrap_module, "read_replan_continuation_page"),
+        (bootstrap_module, "read_human_deadline_page"),
+        (bootstrap_module, "read_human_continuation_page"),
+        (bootstrap_module, "read_command_continuation_page"),
+        (bootstrap_module, "read_command_pending_page"),
+        (bootstrap_module, "read_command_running_page"),
+        (bootstrap_module, "read_command_cancellation_page"),
+        (bootstrap_module, "read_dispatch_start_page"),
+        (bootstrap_module, "read_watchdog_deadline_page"),
     )
-    for reader_name, signal in zip(reader_names, signals, strict=True):
-        monkeypatch.setattr(bootstrap_module, reader_name, build_page_reader(signal))
+    for (reader_module, reader_name), signal in zip(readers, signals, strict=True):
+        monkeypatch.setattr(reader_module, reader_name, build_page_reader(signal))
 
     publisher = CapturedRuntimeEffectPublisher()
 
@@ -91,6 +95,8 @@ async def test_runtime_startup_routes_only_registered_exact_sources(
         publish=publish,
         routed_signal_types=(
             FlowStartCommitted,
+            WaveMemberSettled,
+            DelegationWaveSettled,
             ReplanCommitted,
             HumanRequestOpened,
             CommandRunPending,
@@ -102,15 +108,19 @@ async def test_runtime_startup_routes_only_registered_exact_sources(
 
     assert publisher.signals == (
         signals[0],
+        signals[1],
         signals[2],
         signals[3],
-        signals[6],
+        signals[4],
         signals[7],
         signals[8],
-        signals[10],
+        signals[9],
+        signals[11],
     )
     assert results["runnable_flow_start"].routed_count == 1
     assert results["runnable_flow_start"].deferred_count == 0
+    assert results["complete_delegation_wave"].routed_count == 1
+    assert results["settled_delegation_wave"].routed_count == 1
     assert results["open_human_request"].routed_count == 1
     assert results["open_human_request"].deferred_count == 0
     assert results["committed_replan"].routed_count == 1
@@ -122,6 +132,8 @@ async def test_runtime_startup_routes_only_registered_exact_sources(
         if family_name
         not in {
             "runnable_flow_start",
+            "complete_delegation_wave",
+            "settled_delegation_wave",
             "committed_replan",
             "open_human_request",
             "pending_command_run",
@@ -155,19 +167,21 @@ async def test_runtime_startup_waits_for_router_capacity_without_waiting_for_han
         return StartupAuditPage((), None)
 
     monkeypatch.setattr(bootstrap_module, "read_flow_start_page", read_flow_page)
-    for reader_name in (
-        "read_boundary_continuation_page",
-        "read_replan_continuation_page",
-        "read_human_deadline_page",
-        "read_human_continuation_page",
-        "read_command_continuation_page",
-        "read_command_pending_page",
-        "read_command_running_page",
-        "read_command_cancellation_page",
-        "read_dispatch_start_page",
-        "read_watchdog_deadline_page",
-    ):
-        monkeypatch.setattr(bootstrap_module, reader_name, read_empty_page)
+    empty_readers = (
+        (wave_startup_module, "read_wave_settlement_page"),
+        (wave_startup_module, "read_wave_continuation_page"),
+        (bootstrap_module, "read_replan_continuation_page"),
+        (bootstrap_module, "read_human_deadline_page"),
+        (bootstrap_module, "read_human_continuation_page"),
+        (bootstrap_module, "read_command_continuation_page"),
+        (bootstrap_module, "read_command_pending_page"),
+        (bootstrap_module, "read_command_running_page"),
+        (bootstrap_module, "read_command_cancellation_page"),
+        (bootstrap_module, "read_dispatch_start_page"),
+        (bootstrap_module, "read_watchdog_deadline_page"),
+    )
+    for reader_module, reader_name in empty_readers:
+        monkeypatch.setattr(reader_module, reader_name, read_empty_page)
 
     handled: list[FlowStartCommitted] = []
     all_handled = asyncio.Event()

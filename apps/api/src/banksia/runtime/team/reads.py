@@ -11,6 +11,7 @@ from banksia.persistence.models import (
 )
 from banksia.runtime.capabilities import resolve_effective_capabilities_for_node
 from banksia.runtime.contracts.capabilities import EffectiveCapabilitySet
+from banksia.runtime.contracts.member import NodeKind
 from banksia.runtime.contracts.primitives import (
     CapabilityDecision,
     HumanRequestKind,
@@ -30,6 +31,11 @@ from banksia.runtime.contracts.team_read import (
     ResolvedSandboxRead,
 )
 from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
+from banksia.runtime.node_operations.catalog import (
+    NodeOperationSelection,
+    select_node_operation_descriptors,
+)
+from banksia.runtime.node_operations.contracts import NodeOperationName
 from banksia.runtime.providers import (
     narrow_provider_capabilities,
     resolve_member_provider_route,
@@ -165,23 +171,38 @@ def available_member_actions(
     *,
     direct_team: tuple[DirectTeamMemberRead, ...],
     capabilities: EffectiveCapabilitiesRead,
+    is_task_lead: bool = False,
+    state_legal_actions: frozenset[NodeOperationName] | None = None,
 ) -> tuple[str, ...]:
-    actions = [
-        "get_current_context",
-        "set_work_plan",
-        "checkpoint",
-    ]
-    if capabilities.human_request:
-        actions.append("open_human_request")
-    if capabilities.command_run == "allow":
-        actions.append("start_command_run")
-    if direct_team:
-        if any(member.availability is MemberAvailability.AVAILABLE for member in direct_team):
-            actions.append("assign_child")
-        actions.extend(("add_child", "update_child", "remove_child"))
-    else:
-        actions.append("add_child")
-    return tuple(actions)
+    node_kind = (
+        NodeKind.ROOT if is_task_lead else NodeKind.PARENT if direct_team else NodeKind.WORKER
+    )
+    legal_actions = (
+        set(state_legal_actions)
+        if state_legal_actions is not None
+        else {descriptor.name for descriptor in select_node_operation_descriptors()}
+    )
+    if not direct_team:
+        legal_actions.difference_update(
+            (
+                NodeOperationName.DELEGATE,
+                NodeOperationName.UPDATE_CHILD,
+                NodeOperationName.REMOVE_CHILD,
+            )
+        )
+    elif not any(member.availability is MemberAvailability.AVAILABLE for member in direct_team):
+        legal_actions.discard(NodeOperationName.DELEGATE)
+    return tuple(
+        descriptor.name.value
+        for descriptor in select_node_operation_descriptors(
+            NodeOperationSelection(
+                node_kind=node_kind,
+                is_human_request_allowed=bool(capabilities.human_request),
+                is_command_run_allowed=capabilities.command_run == "allow",
+                legal_operations=legal_actions,
+            )
+        )
+    )
 
 
 def _capability_value(value: object) -> Literal["allow", "deny"]:

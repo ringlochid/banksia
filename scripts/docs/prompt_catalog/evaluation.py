@@ -6,61 +6,36 @@ import json
 from dataclasses import dataclass
 from importlib import metadata
 from pathlib import Path
-from typing import Any, cast
+from typing import cast
 
 from banksia.platform.provider_environment import (
     ANTHROPIC_API_KEY,
     provider_subprocess_environment_overrides,
 )
-from banksia.runtime.contracts.primitives import CheckpointOutcome, EgressBoundary
 from banksia.runtime.contracts.prompt import (
-    ChildReturnResult,
-    ChildReturnSource,
-    ChildReturnTrigger,
     DispatchRequestRenderInput,
     PromptAssignment,
-    PromptCheckpointSummary,
     PromptContinuation,
     PromptDispatch,
     PromptDynamicInput,
     PromptTask,
     PromptWorkspace,
 )
-from banksia.runtime.contracts.refs import FileReference
 from banksia.runtime.contracts.team_read import (
     CurrentMemberRead,
     DirectTeamMemberRead,
     EffectiveCapabilitiesRead,
     MemberAvailability,
     MemberBehavior,
-    MemberParticipation,
     ResolvedProviderRead,
     ResolvedSandboxRead,
 )
 from banksia.runtime.prompt import render_dispatch_request
 from pydantic import BaseModel, ConfigDict
 
+from scripts.docs.prompt_catalog import behavior_scenarios as scenario_catalog
+
 REPO_ROOT = Path(__file__).resolve().parents[3]
-DECISIONS = (
-    "scope_distinct_child_contribution_or_remove_child",
-    "forward_assignment_and_relay_checkpoint",
-    "inspect_evidence_before_accepting",
-    "accept_child_green_without_inspection",
-    "resolve_disagreement_from_evidence",
-    "concatenate_conflicting_summaries",
-    "stop_current_response",
-    "continue_work_or_poll_after_transfer",
-)
-OUTPUT_SCHEMA: dict[str, Any] = {
-    "type": "object",
-    "additionalProperties": False,
-    "properties": {
-        "decision": {"type": "string", "enum": list(DECISIONS)},
-        "stop_now": {"type": "boolean"},
-        "rationale": {"type": "string", "minLength": 1, "maxLength": 1_000},
-    },
-    "required": ["decision", "stop_now", "rationale"],
-}
 
 
 class EvaluationResponse(BaseModel):
@@ -72,152 +47,14 @@ class EvaluationResponse(BaseModel):
 
 
 @dataclass(frozen=True, slots=True)
-class EvaluationScenario:
-    id: str
-    assignment_prompt: str
-    accepted_decisions: frozenset[str]
-    expected_stop: bool
-    child_return: ChildReturnTrigger | None = None
-    participation: MemberParticipation = MemberParticipation.REQUIRED
-    available_actions: tuple[str, ...] = (
-        "get_current_context",
-        "set_work_plan",
-        "checkpoint",
-        "add_child",
-        "update_child",
-        "remove_child",
-        "assign_child",
-    )
-
-
-@dataclass(frozen=True, slots=True)
 class ProviderObservation:
     raw_response: str
     structured_response: object | None
     provider_metadata: dict[str, object]
 
 
-def evaluation_scenarios() -> tuple[EvaluationScenario, ...]:
-    return (
-        EvaluationScenario(
-            id="relay-trap",
-            assignment_prompt=(
-                "Deliver a supported compatibility judgment for the account API change. "
-                "The current reviewer child is broad enough that you could copy this exact "
-                "Assignment to it unchanged and later reuse its Checkpoint as your answer. "
-                "Choose the next accountable Manager action for this bounded decision exercise. "
-                "Do not call tools or modify files; return only the caller's structured response."
-            ),
-            accepted_decisions=frozenset({"scope_distinct_child_contribution_or_remove_child"}),
-            expected_stop=False,
-        ),
-        EvaluationScenario(
-            id="inspect-before-accept",
-            assignment_prompt=(
-                "Deliver the final compatibility judgment for the timeout change. The exact "
-                "Continuation contains the implementation child's green return and its referenced "
-                "review file. Choose the next accountable Manager action for this bounded decision "
-                "exercise. Do not call tools or modify files; return only the caller's structured "
-                "response."
-            ),
-            child_return=_child_return(
-                assignment_prompt=(
-                    "Inspect the timeout implementation and report whether its public behavior "
-                    "remains compatible."
-                ),
-                summary="The timeout implementation is done and compatible.",
-                details=None,
-                file_path=".banksia/t_prompt_eval/artifacts/timeout-review.md",
-                file_description="Child-authored compatibility review to inspect.",
-            ),
-            participation=MemberParticipation.SATISFIED,
-            accepted_decisions=frozenset({"inspect_evidence_before_accepting"}),
-            expected_stop=False,
-        ),
-        EvaluationScenario(
-            id="contradictory-returns",
-            assignment_prompt=(
-                "Deliver the final compatibility judgment for the timeout change. An earlier "
-                "sequential child review reported that the default change is breaking and cited "
-                ".banksia/t_prompt_eval/artifacts/first-review.md. The exact current Continuation "
-                "contains a second child return claiming the same change is compatible. Choose the "
-                "next accountable Manager action for this bounded decision exercise. Do not call "
-                "tools or modify files; return only the caller's structured response."
-            ),
-            child_return=_child_return(
-                assignment_prompt=(
-                    "Independently review the timeout default for public compatibility."
-                ),
-                summary="The timeout default remains fully compatible.",
-                details="No breaking behavior was found.",
-                file_path=".banksia/t_prompt_eval/artifacts/second-review.md",
-                file_description="Second independent compatibility review.",
-            ),
-            participation=MemberParticipation.SATISFIED,
-            accepted_decisions=frozenset(
-                {
-                    "inspect_evidence_before_accepting",
-                    "resolve_disagreement_from_evidence",
-                }
-            ),
-            expected_stop=False,
-        ),
-        EvaluationScenario(
-            id="stop-after-transfer",
-            assignment_prompt=(
-                "The controller has just reported that return_boundary succeeded, closed this "
-                "Dispatch, and transferred control to the staged child. Choose what this provider "
-                "turn must do now. Do not call tools or modify files; return only the caller's "
-                "structured response."
-            ),
-            accepted_decisions=frozenset({"stop_current_response"}),
-            expected_stop=True,
-            available_actions=(
-                "get_current_context",
-                "set_work_plan",
-                "checkpoint",
-                "return_boundary",
-            ),
-        ),
-    )
-
-
-def _child_return(
-    *,
-    assignment_prompt: str,
-    summary: str,
-    details: str | None,
-    file_path: str,
-    file_description: str,
-) -> ChildReturnTrigger:
-    file_reference = FileReference(path=file_path, description=file_description)
-    return ChildReturnTrigger(
-        source=ChildReturnSource(
-            accepted_boundary_id="bnd_prompt_eval",
-            source_dispatch_id="dsp_child_prompt_eval",
-            child_assignment_id="asn_child_prompt_eval",
-            child_attempt_id="att_child_prompt_eval",
-        ),
-        result=ChildReturnResult(
-            assignment=PromptAssignment(
-                id="asn_child_prompt_eval",
-                prompt=assignment_prompt,
-                files=(file_reference,),
-            ),
-            outcome=EgressBoundary.GREEN,
-            checkpoint=PromptCheckpointSummary(
-                id="cp_child_prompt_eval",
-                summary=summary,
-                details=details,
-                files=(file_reference,),
-                outcome=CheckpointOutcome.GREEN,
-            ),
-        ),
-    )
-
-
 def render_scenario_request(
-    scenario: EvaluationScenario,
+    scenario: scenario_catalog.EvaluationScenario,
     *,
     provider: str,
     model: str,
@@ -225,15 +62,18 @@ def render_scenario_request(
     workspace: Path,
 ) -> DispatchRequestRenderInput:
     assignment_id = f"asn_eval_{scenario.id.replace('-', '_')}"
-    direct_member = DirectTeamMemberRead(
-        id="reviewer",
-        title="Independent reviewer",
-        description="Provide a bounded compatibility contribution.",
-        instruction="Challenge consequential compatibility claims.",
-        provider=ResolvedProviderRead(kind=provider, model=model),
-        capabilities=EffectiveCapabilitiesRead(),
-        participation=scenario.participation,
-        availability=MemberAvailability.AVAILABLE,
+    direct_team = tuple(
+        DirectTeamMemberRead(
+            id=child_id,
+            title=child_id.replace("-", " ").title(),
+            description="Own the bounded contribution named by the Manager Assignment.",
+            instruction="Return a scoped result with useful evidence and material limits.",
+            provider=ResolvedProviderRead(kind=provider, model=model),
+            capabilities=EffectiveCapabilitiesRead(),
+            participation=scenario.participation,
+            availability=MemberAvailability.AVAILABLE,
+        )
+        for child_id in scenario.direct_team_ids
     )
     return DispatchRequestRenderInput(
         dynamic_input=PromptDynamicInput(
@@ -260,14 +100,14 @@ def render_scenario_request(
             ),
             assignment=PromptAssignment(
                 id=assignment_id,
-                prompt=scenario.assignment_prompt,
+                prompt=(f"{scenario.assignment_prompt}\n\n{scenario_catalog.STOP_NOW_RUBRIC}"),
             ),
             continuation=(
-                PromptContinuation(trigger=scenario.child_return)
-                if scenario.child_return is not None
+                PromptContinuation(trigger=scenario.wave_return)
+                if scenario.wave_return is not None
                 else None
             ),
-            direct_team=(direct_member,),
+            direct_team=direct_team,
             work_plan=None,
             available_actions=scenario.available_actions,
             workspace=PromptWorkspace(
@@ -283,7 +123,7 @@ def render_scenario_request(
 
 
 def score_response(
-    scenario: EvaluationScenario,
+    scenario: scenario_catalog.EvaluationScenario,
     response: EvaluationResponse,
 ) -> dict[str, object]:
     dimensions = {
@@ -305,7 +145,7 @@ def score_response(
 
 async def run_evaluation(args: argparse.Namespace) -> int:
     output_directory, workspace = prepare_output_directory(Path(args.output_dir))
-    scenarios = evaluation_scenarios()
+    scenarios = scenario_catalog.evaluation_scenarios()
     started = {
         "provider": args.provider,
         "model": args.model,
@@ -400,7 +240,7 @@ async def run_evaluation(args: argparse.Namespace) -> int:
 
 
 async def run_codex_scenarios(
-    scenarios: tuple[EvaluationScenario, ...],
+    scenarios: tuple[scenario_catalog.EvaluationScenario, ...],
     *,
     model: str,
     effort: str,
@@ -437,7 +277,7 @@ async def run_codex_scenarios(
             turn = await thread.turn(
                 rendered.input_text,
                 effort=resolved_effort,
-                output_schema=OUTPUT_SCHEMA,
+                output_schema=scenario_catalog.OUTPUT_SCHEMA,
             )
             result = await turn.run()
             observations.append(
@@ -456,7 +296,7 @@ async def run_codex_scenarios(
 
 
 async def run_claude_scenarios(
-    scenarios: tuple[EvaluationScenario, ...],
+    scenarios: tuple[scenario_catalog.EvaluationScenario, ...],
     *,
     model: str,
     effort: str,
@@ -498,7 +338,10 @@ async def run_claude_scenarios(
             max_turns=2,
             max_budget_usd=max_budget_usd,
             effort=cast(EffortLevel, effort),
-            output_format={"type": "json_schema", "schema": OUTPUT_SCHEMA},
+            output_format={
+                "type": "json_schema",
+                "schema": scenario_catalog.OUTPUT_SCHEMA,
+            },
             env=provider_subprocess_environment_overrides(
                 allowed_keys=frozenset({ANTHROPIC_API_KEY})
             ),

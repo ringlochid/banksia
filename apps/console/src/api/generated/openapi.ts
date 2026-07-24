@@ -482,11 +482,10 @@ export interface components {
         };
         /** BoundaryAcceptedEventPayload */
         BoundaryAcceptedEventPayload: {
-            assignment_decision_id?: components["schemas"]["TaskEventIdentifier"] | null;
             assignment_id: components["schemas"]["TaskEventIdentifier"];
             attempt_id: components["schemas"]["TaskEventIdentifier"];
-            checkpoint_id?: components["schemas"]["TaskEventIdentifier"] | null;
-            outcome: components["schemas"]["EgressBoundary"];
+            checkpoint_id: components["schemas"]["TaskEventIdentifier"];
+            outcome: components["schemas"]["CheckpointOutcome"];
             /**
              * Resulting Flow Status
              * @enum {string}
@@ -496,7 +495,7 @@ export interface components {
         };
         /** BoundaryHistoryEntry */
         BoundaryHistoryEntry: {
-            boundary: components["schemas"]["EgressBoundary"];
+            boundary: components["schemas"]["CheckpointOutcome"];
             /** Checkpoint Id */
             checkpoint_id?: string | null;
             /** Node Key */
@@ -558,24 +557,6 @@ export interface components {
             files: components["schemas"]["FileReference"][];
             outcome?: components["schemas"]["CheckpointOutcome"] | null;
             summary: components["schemas"]["TaskEventSummary"];
-        };
-        /** ChildAssignmentCommittedEventPayload */
-        ChildAssignmentCommittedEventPayload: {
-            child_assignment_id: components["schemas"]["TaskEventIdentifier"];
-            child_attempt_id: components["schemas"]["TaskEventIdentifier"];
-            child_node_key: components["schemas"]["TaskEventIdentifier"];
-            flow_revision_id: components["schemas"]["TaskEventIdentifier"];
-            parent_assignment_id: components["schemas"]["TaskEventIdentifier"];
-            source_dispatch_id: components["schemas"]["TaskEventIdentifier"];
-        };
-        /** ChildAssignmentStagedEventPayload */
-        ChildAssignmentStagedEventPayload: {
-            child_assignment_id: components["schemas"]["TaskEventIdentifier"];
-            child_attempt_id: components["schemas"]["TaskEventIdentifier"];
-            child_node_key: components["schemas"]["TaskEventIdentifier"];
-            flow_revision_id: components["schemas"]["TaskEventIdentifier"];
-            parent_assignment_id: components["schemas"]["TaskEventIdentifier"];
-            source_dispatch_id: components["schemas"]["TaskEventIdentifier"];
         };
         /** ClaudeProviderSelection */
         ClaudeProviderSelection: {
@@ -867,28 +848,6 @@ export interface components {
          * @enum {string}
          */
         CommandRunState: "pending_start" | "running" | "cancellation_requested" | "succeeded" | "failed" | "timed_out" | "cancelled" | "abandoned";
-        /**
-         * CommandRunSummary
-         * @description Bounded current-source readback without command environment or log content.
-         */
-        CommandRunSummary: {
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /** Due At */
-            due_at?: string | null;
-            /** Run Id */
-            run_id: string;
-            /** Source Dispatch Id */
-            source_dispatch_id: string;
-            /** Started At */
-            started_at?: string | null;
-            state: components["schemas"]["CommandRunState"];
-            /** Summary */
-            summary: string;
-        };
         /** CommandRunTerminalEventPayload */
         CommandRunTerminalEventPayload: {
             /**
@@ -1045,35 +1004,7 @@ export interface components {
             status: "starting";
         };
         /** @enum {string} */
-        DispatchOpenedReason: "root" | "boundary" | "child_return" | "human_result" | "command_result" | "watchdog_recovery" | "semantic_retry" | "operator_continue" | "structural_replan";
-        /** DispatchRuntimeRead */
-        DispatchRuntimeRead: {
-            /** Adapter Started At */
-            adapter_started_at?: string | null;
-            /** Assignment Id */
-            assignment_id: string;
-            /** Attempt Id */
-            attempt_id: string;
-            /** Dispatch Id */
-            dispatch_id: string;
-            effective_capabilities: components["schemas"]["EffectiveCapabilityReadback"];
-            /** Last Node Activity At */
-            last_node_activity_at?: string | null;
-            /** Node Activity Revision */
-            node_activity_revision: number;
-            opened_reason: components["schemas"]["DispatchOpenedReason"];
-            /** Predecessor Dispatch Id */
-            predecessor_dispatch_id?: string | null;
-            provider_start?: components["schemas"]["ProviderStartReadback"] | null;
-            requested_provider: components["schemas"]["ProviderKind"];
-            resolved_provider: components["schemas"]["ProviderKind"];
-            selection_basis: components["schemas"]["ProviderSelectionBasis"];
-            status: components["schemas"]["DispatchRuntimeStatus"];
-            /** Watchdog Due At */
-            watchdog_due_at?: string | null;
-        };
-        /** @enum {string} */
-        DispatchRuntimeStatus: "starting" | "open";
+        DispatchOpenedReason: "root" | "delegation" | "delegation_wave" | "human_result" | "command_result" | "watchdog_recovery" | "semantic_retry" | "operator_continue" | "structural_replan";
         /** DispatchStartUpdatedEventPayload */
         DispatchStartUpdatedEventPayload: {
             /** Attempt Count */
@@ -1106,11 +1037,6 @@ export interface components {
             /** @default default */
             source: components["schemas"]["CapabilitySource"];
         };
-        /**
-         * EgressBoundary
-         * @enum {string}
-         */
-        EgressBoundary: "yield" | "green" | "retry" | "blocked";
         /**
          * FileReference
          * @description An ordered navigation value to one ordinary workspace file.
@@ -1270,27 +1196,6 @@ export interface components {
          * @enum {string}
          */
         HumanRequestStatus: "open" | "resolved" | "timed_out" | "cancelled";
-        /**
-         * HumanRequestSummary
-         * @description Bounded current-source readback without answers or policy payloads.
-         */
-        HumanRequestSummary: {
-            /** Due At */
-            due_at?: string | null;
-            kind: components["schemas"]["HumanRequestKind"];
-            /**
-             * Opened At
-             * Format: date-time
-             */
-            opened_at: string;
-            /** Request Id */
-            request_id: string;
-            /** Source Dispatch Id */
-            source_dispatch_id: string;
-            status: components["schemas"]["HumanRequestStatus"];
-            /** Summary */
-            summary: string;
-        };
         /** HumanRequestTerminalEventPayload */
         HumanRequestTerminalEventPayload: {
             /** Due At */
@@ -1469,12 +1374,6 @@ export interface components {
             graph_nodes: components["schemas"]["TaskGraphNodeEntry"][];
             /** Next Cursor */
             next_cursor?: string | null;
-            /**
-             * Scope
-             * @default current
-             * @enum {string}
-             */
-            scope: "current" | "whole";
             /** Task Id */
             task_id: string;
         };
@@ -1545,18 +1444,6 @@ export interface components {
          * @enum {string}
          */
         ProviderSelectionBasis: "explicit" | "default";
-        /** ProviderStartReadback */
-        ProviderStartReadback: {
-            /** Attempt Count */
-            attempt_count: number;
-            /** Last Error Code */
-            last_error_code?: string | null;
-            /** Next Attempt At */
-            next_attempt_at?: string | null;
-            retry_kind?: components["schemas"]["ProviderStartRetryKind"] | null;
-            /** Revision */
-            revision: number;
-        };
         /** @enum {string} */
         ProviderStartRetryKind: "initial" | "definite_failure" | "uncertain_acceptance";
         /** @enum {string} */
@@ -1586,22 +1473,10 @@ export interface components {
         };
         /** RuntimeFlowRead */
         RuntimeFlowRead: {
-            /** Active Assignment Id */
-            active_assignment_id?: string | null;
-            /** Active Attempt Id */
-            active_attempt_id?: string | null;
             /** Active Flow Revision Id */
             active_flow_revision_id: string;
             /** Control Revision */
             control_revision: number;
-            current_command_run?: components["schemas"]["CommandRunSummary"] | null;
-            current_dispatch?: components["schemas"]["DispatchRuntimeRead"] | null;
-            current_human_request?: components["schemas"]["HumanRequestSummary"] | null;
-            /** Current Node Key */
-            current_node_key?: string | null;
-            current_plan?: components["schemas"]["WorkPlanRead"] | null;
-            /** Latest Dispatch Id */
-            latest_dispatch_id?: string | null;
             pause_reason?: components["schemas"]["RuntimeFlowPauseReason"] | null;
             result?: components["schemas"]["TaskResult"] | null;
             status: components["schemas"]["RuntimeLifecycleStatus"];
@@ -1617,23 +1492,14 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
-            waiting_cause?: components["schemas"]["RuntimeFlowWaitingCause"] | null;
-            /** Watchdog Recovery Count */
-            watchdog_recovery_count?: number | null;
             /** Workflow Key */
             workflow_key?: string | null;
             workflow_manifest_ref: components["schemas"]["WorkflowManifestRef"];
         };
         /** RuntimeFlowSummary */
         RuntimeFlowSummary: {
-            /** Active Assignment Id */
-            active_assignment_id?: string | null;
-            /** Active Attempt Id */
-            active_attempt_id?: string | null;
             /** Active Flow Revision Id */
             active_flow_revision_id: string;
-            /** Current Node Key */
-            current_node_key?: string | null;
             status: components["schemas"]["RuntimeLifecycleStatus"];
             /** Task Id */
             task_id: string;
@@ -1660,8 +1526,6 @@ export interface components {
         };
         /** @enum {string} */
         RuntimeFlowTerminalOutcome: "green" | "blocked";
-        /** @enum {string} */
-        RuntimeFlowWaitingCause: "human_request" | "command_run";
         /**
          * RuntimeLifecycleStatus
          * @enum {string}
@@ -1879,24 +1743,6 @@ export interface components {
              */
             updated_at: string;
         };
-        /** WorkPlanRead */
-        WorkPlanRead: {
-            /** Assignment Id */
-            assignment_id: string;
-            /** Authored By Dispatch Id */
-            authored_by_dispatch_id: string;
-            /** Explanation */
-            explanation?: string | null;
-            /** Revision */
-            revision: number;
-            /** Steps */
-            steps: components["schemas"]["WorkPlanStepRead"][];
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-        };
         /** WorkPlanSetEventPayload */
         WorkPlanSetEventPayload: {
             assignment_id: components["schemas"]["TaskEventIdentifier"];
@@ -1911,16 +1757,6 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
-        };
-        /** WorkPlanStepRead */
-        WorkPlanStepRead: {
-            /**
-             * Status
-             * @enum {string}
-             */
-            status: "pending" | "in_progress" | "completed";
-            /** Step */
-            step: string;
         };
         /** @enum {string} */
         WorkPlanStepStatusValue: "pending" | "in_progress" | "completed";
@@ -2104,60 +1940,6 @@ export interface components {
              */
             occurred_at: string;
             payload: components["schemas"]["CheckpointRecordedEventPayload"];
-            prev_event_hash?: components["schemas"]["TaskEventRef"] | null;
-            /** Task Id */
-            task_id: string;
-        };
-        /** _ChildAssignmentCommittedEvent */
-        _ChildAssignmentCommittedEvent: {
-            actor_ref?: components["schemas"]["TaskEventIdentifier"] | null;
-            attempt_id?: components["schemas"]["TaskEventIdentifier"] | null;
-            dispatch_id?: components["schemas"]["TaskEventIdentifier"] | null;
-            event_hash: components["schemas"]["TaskEventRef"];
-            event_id: components["schemas"]["TaskEventIdentifier"];
-            /** Event Seq */
-            event_seq: number;
-            event_source: components["schemas"]["TaskEventSource"];
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            event_type: "child_assignment_committed";
-            flow_revision_id?: components["schemas"]["TaskEventIdentifier"] | null;
-            node_key?: components["schemas"]["TaskEventIdentifier"] | null;
-            /**
-             * Occurred At
-             * Format: date-time
-             */
-            occurred_at: string;
-            payload: components["schemas"]["ChildAssignmentCommittedEventPayload"];
-            prev_event_hash?: components["schemas"]["TaskEventRef"] | null;
-            /** Task Id */
-            task_id: string;
-        };
-        /** _ChildAssignmentStagedEvent */
-        _ChildAssignmentStagedEvent: {
-            actor_ref?: components["schemas"]["TaskEventIdentifier"] | null;
-            attempt_id?: components["schemas"]["TaskEventIdentifier"] | null;
-            dispatch_id?: components["schemas"]["TaskEventIdentifier"] | null;
-            event_hash: components["schemas"]["TaskEventRef"];
-            event_id: components["schemas"]["TaskEventIdentifier"];
-            /** Event Seq */
-            event_seq: number;
-            event_source: components["schemas"]["TaskEventSource"];
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            event_type: "child_assignment_staged";
-            flow_revision_id?: components["schemas"]["TaskEventIdentifier"] | null;
-            node_key?: components["schemas"]["TaskEventIdentifier"] | null;
-            /**
-             * Occurred At
-             * Format: date-time
-             */
-            occurred_at: string;
-            payload: components["schemas"]["ChildAssignmentStagedEventPayload"];
             prev_event_hash?: components["schemas"]["TaskEventRef"] | null;
             /** Task Id */
             task_id: string;
@@ -2459,7 +2241,7 @@ export interface components {
             /** Task Id */
             task_id: string;
         };
-        _TaskEventVariant: components["schemas"]["_TaskStartedEvent"] | components["schemas"]["_DispatchOpenedEvent"] | components["schemas"]["_DispatchStartUpdatedEvent"] | components["schemas"]["_WorkPlanSetEvent"] | components["schemas"]["_WorkPlanClearedEvent"] | components["schemas"]["_CheckpointRecordedEvent"] | components["schemas"]["_BoundaryAcceptedEvent"] | components["schemas"]["_ChildAssignmentStagedEvent"] | components["schemas"]["_ChildAssignmentCommittedEvent"] | components["schemas"]["_StructuralRevisionAdoptedEvent"] | components["schemas"]["_HumanRequestOpenedEvent"] | components["schemas"]["_HumanRequestTerminalEvent"] | components["schemas"]["_CommandRunOpenedEvent"] | components["schemas"]["_CommandRunStartedEvent"] | components["schemas"]["_CommandRunProgressedEvent"] | components["schemas"]["_CommandRunCancelRequestedEvent"] | components["schemas"]["_CommandRunTerminalEvent"] | components["schemas"]["_TaskPausedEvent"] | components["schemas"]["_TaskResumedEvent"] | components["schemas"]["_TaskCancelledEvent"];
+        _TaskEventVariant: components["schemas"]["_TaskStartedEvent"] | components["schemas"]["_DispatchOpenedEvent"] | components["schemas"]["_DispatchStartUpdatedEvent"] | components["schemas"]["_WorkPlanSetEvent"] | components["schemas"]["_WorkPlanClearedEvent"] | components["schemas"]["_CheckpointRecordedEvent"] | components["schemas"]["_BoundaryAcceptedEvent"] | components["schemas"]["_StructuralRevisionAdoptedEvent"] | components["schemas"]["_HumanRequestOpenedEvent"] | components["schemas"]["_HumanRequestTerminalEvent"] | components["schemas"]["_CommandRunOpenedEvent"] | components["schemas"]["_CommandRunStartedEvent"] | components["schemas"]["_CommandRunProgressedEvent"] | components["schemas"]["_CommandRunCancelRequestedEvent"] | components["schemas"]["_CommandRunTerminalEvent"] | components["schemas"]["_TaskPausedEvent"] | components["schemas"]["_TaskResumedEvent"] | components["schemas"]["_TaskCancelledEvent"];
         /** _TaskPausedEvent */
         _TaskPausedEvent: {
             actor_ref?: components["schemas"]["TaskEventIdentifier"] | null;
@@ -3647,7 +3429,6 @@ export interface operations {
     get_control_trace_control_tasks__task_id__trace_get: {
         parameters: {
             query?: {
-                scope?: "current" | "whole";
                 q?: string | null;
                 limit?: number;
                 cursor?: string | null;

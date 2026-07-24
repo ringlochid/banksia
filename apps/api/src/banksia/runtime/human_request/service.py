@@ -210,7 +210,7 @@ async def _consume_exact_human_wait(
             AttemptWaitModel.source_dispatch_id == source.source_dispatch_id,
             AttemptWaitModel.human_request_id == source.request_id,
             AttemptWaitModel.command_run_id.is_(None),
-            AttemptWaitModel.sequential_child_assignment_id.is_(None),
+            AttemptWaitModel.delegation_wave_id.is_(None),
         )
         .returning(AttemptWaitModel.wait_id)
     )

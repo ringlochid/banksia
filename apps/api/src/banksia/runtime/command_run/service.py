@@ -377,7 +377,7 @@ def _current_command_wait_exists(
         AttemptWaitModel.source_dispatch_id == source.source_dispatch_id,
         AttemptWaitModel.command_run_id == source.run_id,
         AttemptWaitModel.human_request_id.is_(None),
-        AttemptWaitModel.sequential_child_assignment_id.is_(None),
+        AttemptWaitModel.delegation_wave_id.is_(None),
         exists().where(
             AttemptModel.attempt_id == source.attempt_id,
             AttemptModel.task_id == source.task_id,

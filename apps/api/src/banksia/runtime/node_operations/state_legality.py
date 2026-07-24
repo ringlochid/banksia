@@ -7,9 +7,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from banksia.persistence.models import (
     AcceptedBoundaryModel,
-    AssignmentDecisionModel,
     AttemptCheckpointModel,
     CommandRunModel,
+    DelegationWaveModel,
     FlowModel,
     FlowNodeModel,
     HumanRequestModel,
@@ -19,9 +19,13 @@ from banksia.runtime.contracts.operation_failure import OperationFailureCode
 from banksia.runtime.dispatch.authority import NodeOperationAuthority
 from banksia.runtime.errors import RuntimeOperationError, illegal_state_error
 from banksia.runtime.node_operations.catalog import (
-    list_node_operation_descriptors_for_kind,
+    NodeOperationSelection,
+    select_node_operation_descriptors,
 )
-from banksia.runtime.node_operations.contracts import NodeOperationName
+from banksia.runtime.node_operations.contracts import (
+    NodeOperationDescriptor,
+    NodeOperationName,
+)
 
 _READ_OPERATIONS = frozenset(
     {
@@ -35,10 +39,9 @@ _REPLAN_OPERATIONS = frozenset(
         NodeOperationName.REMOVE_CHILD,
     }
 )
-_STRUCTURAL_OPERATIONS = _REPLAN_OPERATIONS | {NodeOperationName.ASSIGN_CHILD}
+_STRUCTURAL_OPERATIONS = _REPLAN_OPERATIONS | {NodeOperationName.DELEGATE}
 _TRANSITION_OPERATIONS = _STRUCTURAL_OPERATIONS | {
     NodeOperationName.CHECKPOINT,
-    NodeOperationName.RETURN_BOUNDARY,
     NodeOperationName.OPEN_HUMAN_REQUEST,
     NodeOperationName.START_COMMAND_RUN,
 }
@@ -48,7 +51,6 @@ _TRANSITION_OPERATIONS = _STRUCTURAL_OPERATIONS | {
 class NodeOperationStateToken:
     flow_control_revision: int
     flow_revision_id: str
-    assignment_decision_id: str | None
     checkpoint_count: int
     latest_checkpoint_id: str | None
 
@@ -80,11 +82,6 @@ async def read_node_operation_state_token(
             summary="another transition changed current Flow authority",
             is_retryable=False,
         )
-    decision_id = await session.scalar(
-        select(AssignmentDecisionModel.assignment_decision_id).where(
-            AssignmentDecisionModel.source_dispatch_id == authority.dispatch_id
-        )
-    )
     checkpoint_scope = (
         AttemptCheckpointModel.task_id == authority.task_id,
         AttemptCheckpointModel.flow_id == authority.flow_id,
@@ -104,7 +101,6 @@ async def read_node_operation_state_token(
     return NodeOperationStateToken(
         flow_control_revision=int(flow_state.control_revision),
         flow_revision_id=str(flow_state.active_flow_revision_id),
-        assignment_decision_id=decision_id,
         checkpoint_count=int(checkpoint_count or 0),
         latest_checkpoint_id=latest_checkpoint_id,
     )
@@ -115,6 +111,32 @@ async def read_state_legal_node_operations(
     authority: NodeOperationAuthority,
 ) -> frozenset[NodeOperationName]:
     return await _read_state_legal_node_operations(session, authority)
+
+
+async def read_available_node_operation_descriptors(
+    session: AsyncSession,
+    authority: NodeOperationAuthority,
+) -> tuple[NodeOperationDescriptor, ...]:
+    """Return one ordered catalog selection for the exact current Dispatch."""
+
+    legal_operations = await _read_state_legal_node_operations(session, authority)
+    capabilities = authority.capabilities
+    return select_node_operation_descriptors(
+        NodeOperationSelection(
+            node_kind=authority.node_kind,
+            is_human_request_allowed=any(
+                getattr(capabilities, field_name) == "allow"
+                for field_name in (
+                    "human_direction",
+                    "human_approval",
+                    "human_input",
+                    "human_review",
+                )
+            ),
+            is_command_run_allowed=capabilities.command_run == "allow",
+            legal_operations=legal_operations,
+        )
+    )
 
 
 async def require_state_legal_node_operation(
@@ -143,7 +165,13 @@ async def _read_state_legal_node_operations(
 ) -> frozenset[NodeOperationName]:
     operations = {
         descriptor.name
-        for descriptor in list_node_operation_descriptors_for_kind(authority.node_kind)
+        for descriptor in select_node_operation_descriptors(
+            NodeOperationSelection(
+                node_kind=authority.node_kind,
+                is_human_request_allowed=True,
+                is_command_run_allowed=True,
+            )
+        )
     }
     if candidates is not None:
         operations.intersection_update(candidates)
@@ -152,21 +180,7 @@ async def _read_state_legal_node_operations(
     if await _dispatch_already_owns_source(session, authority):
         return frozenset(operations & _READ_OPERATIONS)
 
-    decision = await session.scalar(
-        select(AssignmentDecisionModel).where(
-            AssignmentDecisionModel.source_dispatch_id == authority.dispatch_id
-        )
-    )
     legal = set(operations)
-    legal.discard(NodeOperationName.RETURN_BOUNDARY)
-    if decision is not None:
-        legal.difference_update(_STRUCTURAL_OPERATIONS)
-        legal.discard(NodeOperationName.OPEN_HUMAN_REQUEST)
-        legal.discard(NodeOperationName.START_COMMAND_RUN)
-        if decision.decision_kind == "staged_child":
-            legal.add(NodeOperationName.RETURN_BOUNDARY)
-        return frozenset(legal)
-
     await _narrow_structural_operations(session, authority, legal=legal)
     return frozenset(legal)
 
@@ -194,19 +208,24 @@ async def _narrow_structural_operations(
     if not direct_team_nodes:
         legal.discard(NodeOperationName.UPDATE_CHILD)
         legal.discard(NodeOperationName.REMOVE_CHILD)
-    if NodeOperationName.ASSIGN_CHILD in legal and not any(
+    if NodeOperationName.DELEGATE in legal and not any(
         (child.current_assignment_id is None and child.state == "ready")
         or (child.current_assignment_id is not None and child.state in {"done", "failed"})
         for child in direct_team_nodes
     ):
-        legal.discard(NodeOperationName.ASSIGN_CHILD)
+        legal.discard(NodeOperationName.DELEGATE)
 
 
 async def _dispatch_already_owns_source(
     session: AsyncSession,
     authority: NodeOperationAuthority,
 ) -> bool:
-    for model in (AcceptedBoundaryModel, HumanRequestModel, CommandRunModel):
+    for model in (
+        AcceptedBoundaryModel,
+        DelegationWaveModel,
+        HumanRequestModel,
+        CommandRunModel,
+    ):
         source_id = await session.scalar(
             select(model.source_dispatch_id)
             .where(model.source_dispatch_id == authority.dispatch_id)
@@ -220,6 +239,7 @@ async def _dispatch_already_owns_source(
 __all__ = [
     "NodeOperationStateToken",
     "node_operation_requires_transition_claim",
+    "read_available_node_operation_descriptors",
     "read_node_operation_state_token",
     "read_state_legal_node_operations",
     "require_state_legal_node_operation",

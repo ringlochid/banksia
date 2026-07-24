@@ -19,6 +19,7 @@ from banksia.runtime.contracts import TaskEventSource, TaskEventType
 from banksia.runtime.dispatch.currentness import dispatch_attempt_is_current
 from banksia.runtime.post_commit import DispatchStartDue
 from banksia.runtime.task_events import append_task_event
+from banksia.runtime.team.currentness import dispatch_team_selection_is_current
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,12 +86,12 @@ async def accept_provider_start_if_current(
                 == expected_provider_start_attempt_count,
                 DispatchTurnModel.next_provider_start_at == expected_due_at,
                 dispatch_attempt_is_current(),
+                dispatch_team_selection_is_current(),
                 exists(
                     select(FlowModel.flow_id).where(
                         FlowModel.flow_id == DispatchTurnModel.flow_id,
                         FlowModel.task_id == DispatchTurnModel.task_id,
                         FlowModel.status == "running",
-                        FlowModel.active_flow_revision_id == DispatchTurnModel.flow_revision_id,
                     )
                 ),
             )
@@ -164,7 +165,6 @@ async def read_provider_start_acceptance_after_commit(
                     DispatchTurnModel.node_activity_revision.label("node_activity_revision"),
                     DispatchTurnModel.last_node_activity_at.label("last_node_activity_at"),
                     FlowModel.status.label("flow_status"),
-                    FlowModel.active_flow_revision_id.label("active_flow_revision_id"),
                     AttemptModel.status.label("attempt_status"),
                     AttemptModel.current_dispatch_id.label("current_dispatch_id"),
                     AttemptModel.current_wait_id.label("current_wait_id"),
@@ -175,6 +175,7 @@ async def read_provider_start_acceptance_after_commit(
                     DispatchTurnModel.dispatch_id == signal.dispatch_id,
                     DispatchTurnModel.task_id == candidate.task_id,
                     DispatchTurnModel.flow_id == candidate.flow_id,
+                    dispatch_team_selection_is_current(),
                 )
             )
         )
@@ -189,7 +190,6 @@ async def read_provider_start_acceptance_after_commit(
         and row.next_provider_start_at is None
         and row.adapter_started_at is not None
         and row.flow_status == "running"
-        and row.active_flow_revision_id == candidate.flow_revision_id
         and row.attempt_status == "running"
         and row.current_dispatch_id == signal.dispatch_id
         and row.current_wait_id is None
@@ -251,7 +251,6 @@ async def read_provider_start_candidate(
                     DispatchTurnModel.status.label("dispatch_status"),
                     DispatchTurnModel.provider_start_revision.label("provider_start_revision"),
                     FlowModel.status.label("flow_status"),
-                    FlowModel.active_flow_revision_id.label("active_flow_revision_id"),
                     AttemptModel.status.label("attempt_status"),
                     AttemptModel.current_dispatch_id.label("current_dispatch_id"),
                     AttemptModel.current_wait_id.label("current_wait_id"),
@@ -266,7 +265,10 @@ async def read_provider_start_candidate(
                     DispatchCapabilitySetModel,
                     DispatchCapabilitySetModel.dispatch_id == DispatchTurnModel.dispatch_id,
                 )
-                .where(DispatchTurnModel.dispatch_id == signal.dispatch_id)
+                .where(
+                    DispatchTurnModel.dispatch_id == signal.dispatch_id,
+                    dispatch_team_selection_is_current(),
+                )
             )
         )
         .mappings()
@@ -280,7 +282,6 @@ async def read_provider_start_candidate(
         or row.persisted_due_at is None
         or _as_utc(row.persisted_due_at) != _as_utc(signal.due_at)
         or row.flow_status != "running"
-        or row.active_flow_revision_id != row.flow_revision_id
         or row.attempt_status != "running"
         or row.current_dispatch_id != signal.dispatch_id
         or row.current_wait_id is not None
@@ -311,11 +312,11 @@ async def provider_start_is_current(
                     == candidate.provider_start_attempt_count,
                     DispatchTurnModel.next_provider_start_at == candidate.persisted_due_at,
                     dispatch_attempt_is_current(),
+                    dispatch_team_selection_is_current(),
                     exists().where(
                         FlowModel.flow_id == candidate.flow_id,
                         FlowModel.task_id == candidate.task_id,
                         FlowModel.status == "running",
-                        FlowModel.active_flow_revision_id == candidate.flow_revision_id,
                     ),
                 )
             )
@@ -348,11 +349,11 @@ async def rotate_provider_start_after_failure(
             == candidate.provider_start_attempt_count,
             DispatchTurnModel.next_provider_start_at == candidate.persisted_due_at,
             dispatch_attempt_is_current(),
+            dispatch_team_selection_is_current(),
             exists().where(
                 FlowModel.flow_id == candidate.flow_id,
                 FlowModel.task_id == candidate.task_id,
                 FlowModel.status == "running",
-                FlowModel.active_flow_revision_id == candidate.flow_revision_id,
             ),
         )
         .values(

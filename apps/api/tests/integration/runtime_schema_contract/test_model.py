@@ -13,7 +13,6 @@ from sqlalchemy.schema import CreateIndex, CreateTable
 
 TARGET_TABLES = {
     "accepted_boundaries",
-    "assignment_decisions",
     "assignment_file_references",
     "assignment_work_plan_steps",
     "assignment_work_plans",
@@ -28,6 +27,8 @@ TARGET_TABLES = {
     "dispatch_capability_sets",
     "dispatch_requests",
     "dispatch_turns",
+    "delegation_wave_members",
+    "delegation_waves",
     "flow_nodes",
     "flow_revisions",
     "flow_start_sources",
@@ -58,6 +59,7 @@ REMOVED_TABLES = {
     "assignment_criteria_refs",
     "assignment_decision_artifacts",
     "assignment_decision_checkpoints",
+    "assignment_decisions",
     "budget_counters",
     "context_items",
     "context_spaces",

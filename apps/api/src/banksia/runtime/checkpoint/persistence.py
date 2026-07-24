@@ -9,7 +9,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from banksia.persistence.models import (
     AcceptedBoundaryModel,
-    AssignmentDecisionModel,
     AttemptCheckpointModel,
     AttemptModel,
     CheckpointFileReferenceModel,
@@ -17,7 +16,6 @@ from banksia.persistence.models import (
     TaskModel,
     TeamRevisionMemberModel,
 )
-from banksia.runtime.boundary.source_transition import advance_accepted_boundary_state
 from banksia.runtime.clock import utc_now
 from banksia.runtime.contracts import (
     CheckpointRequest,
@@ -27,6 +25,7 @@ from banksia.runtime.contracts import (
     TaskEventType,
 )
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
+from banksia.runtime.delegation.settlement import settle_wave_member_for_checkpoint
 from banksia.runtime.dispatch.authority import (
     NodeOperationAuthority,
     exact_node_operation_authority_exists,
@@ -40,13 +39,18 @@ from banksia.runtime.node_operations.follow_on import (
     CommittedNodeOperationResult,
 )
 from banksia.runtime.node_operations.source_transitions import close_source_dispatch
-from banksia.runtime.post_commit import DispatchStartDue
+from banksia.runtime.post_commit import (
+    DispatchStartDue,
+    RuntimeEffectSignal,
+    WaveMemberSettled,
+)
 from banksia.runtime.providers import ProviderResolutionError
 from banksia.runtime.task_events import append_task_event
 from banksia.runtime.task_root.reads import read_task_root_paths
 from banksia.runtime.team.participation import read_accepted_green_participation
 
 from .semantic_retry import PreparedSemanticRetry, prepare_semantic_retry
+from .transitions import advance_terminal_checkpoint_state
 
 
 async def commit_checkpoint(
@@ -61,8 +65,6 @@ async def commit_checkpoint(
     paths = await read_task_root_paths(session, authority.task_id)
     files = validate_file_references(paths.workspace_path, request.files)
     outcome = request.outcome.value if request.outcome is not None else None
-    if outcome is not None:
-        await _require_no_staged_child(session, authority)
     if outcome == "green":
         await _require_current_direct_child_participation(session, authority)
 
@@ -136,9 +138,10 @@ async def commit_checkpoint(
     )
 
     terminal = outcome is not None
+    settled_wave_id: str | None = None
     if terminal:
         assert outcome is not None
-        await _commit_terminal_boundary(
+        settled_wave_id = await _commit_terminal_boundary(
             session,
             authority,
             checkpoint_id=checkpoint_id,
@@ -158,18 +161,24 @@ async def commit_checkpoint(
         terminal=terminal,
         must_stop=terminal,
     )
-    if prepared_retry is None:
+    if prepared_retry is None and settled_wave_id is None:
         return response
+    runtime_signals: tuple[RuntimeEffectSignal, ...]
+    if prepared_retry is not None:
+        runtime_signals = (
+            DispatchStartDue(
+                dispatch_id=prepared_retry.request.dispatch_id,
+                provider_start_revision=0,
+                due_at=prepared_retry.request.due_at,
+            ),
+        )
+    else:
+        assert settled_wave_id is not None
+        runtime_signals = (WaveMemberSettled(delegation_wave_id=settled_wave_id),)
     return CommittedNodeOperationResult(
         response=response,
         follow_on=CommittedNodeOperationFollowOn(
-            runtime_signals=(
-                DispatchStartDue(
-                    dispatch_id=prepared_retry.request.dispatch_id,
-                    provider_start_revision=0,
-                    due_at=prepared_retry.request.due_at,
-                ),
-            )
+            runtime_signals=runtime_signals,
         ),
     )
 
@@ -227,24 +236,6 @@ async def _advance_latest_checkpoint(
         raise _checkpoint_conflict("another Checkpoint changed the Attempt latest pointer")
 
 
-async def _require_no_staged_child(
-    session: AsyncSession,
-    authority: NodeOperationAuthority,
-) -> None:
-    staged = await session.scalar(
-        select(AssignmentDecisionModel.assignment_decision_id).where(
-            AssignmentDecisionModel.source_dispatch_id == authority.dispatch_id,
-            AssignmentDecisionModel.decision_kind == "staged_child",
-        )
-    )
-    if staged is not None:
-        raise RuntimeOperationError(
-            code=OperationFailureCode.BOUNDARY_PRECONDITION_FAILED,
-            summary="a terminal Checkpoint cannot replace a staged child handoff",
-            is_retryable=False,
-        )
-
-
 async def _require_current_direct_child_participation(
     session: AsyncSession,
     authority: NodeOperationAuthority,
@@ -291,18 +282,17 @@ async def _commit_terminal_boundary(
     outcome: str,
     transitioned_at: datetime,
     prepared_retry: PreparedSemanticRetry | None,
-) -> None:
+) -> str | None:
     await close_source_dispatch(
         session,
         authority,
         now=transitioned_at,
         closed_reason="boundary",
     )
-    await advance_accepted_boundary_state(
+    await advance_terminal_checkpoint_state(
         session,
         authority,
         outcome=outcome,
-        decision=None,
         transitioned_at=transitioned_at,
         retry_attempt_id=(prepared_retry.basis.attempt_id if prepared_retry is not None else None),
     )
@@ -316,13 +306,21 @@ async def _commit_terminal_boundary(
             attempt_id=authority.attempt_id,
             outcome=outcome,
             checkpoint_id=checkpoint_id,
-            assignment_decision_id=None,
             successor_dispatch_id=(
                 prepared_retry.request.dispatch_id if prepared_retry is not None else None
             ),
             committed_at=transitioned_at,
         )
     )
+    settled_wave_id: str | None = None
+    if outcome in {"green", "blocked"} and authority.assignment.parent_assignment_id is not None:
+        settled_wave_id = await settle_wave_member_for_checkpoint(
+            session,
+            authority,
+            boundary_id=boundary_id,
+            outcome=outcome,
+            settled_at=transitioned_at,
+        )
     if prepared_retry is not None:
         await stage_starting_dispatch(
             session,
@@ -357,10 +355,10 @@ async def _commit_terminal_boundary(
             "attempt_id": authority.attempt_id,
             "outcome": outcome,
             "checkpoint_id": checkpoint_id,
-            "assignment_decision_id": None,
             "resulting_flow_status": resulting_flow_status,
         },
     )
+    return settled_wave_id
 
 
 async def _select_task_result(

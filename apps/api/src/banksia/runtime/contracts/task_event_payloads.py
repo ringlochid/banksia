@@ -15,7 +15,6 @@ from banksia.providers import ProviderKind
 from banksia.runtime.contracts.primitives import (
     CheckpointOutcome,
     CommandRunState,
-    EgressBoundary,
     HumanRequestKind,
     HumanRequestResolutionKind,
     HumanRequestResolutionSurface,
@@ -42,8 +41,8 @@ type TaskEventStepText = Annotated[
 ]
 type DispatchOpenedReason = Literal[
     "root",
-    "boundary",
-    "child_return",
+    "delegation",
+    "delegation_wave",
     "human_result",
     "command_result",
     "watchdog_recovery",
@@ -149,28 +148,9 @@ class BoundaryAcceptedEventPayload(_TaskEventPayload):
     source_dispatch_id: TaskEventIdentifier
     assignment_id: TaskEventIdentifier
     attempt_id: TaskEventIdentifier
-    outcome: EgressBoundary
-    checkpoint_id: TaskEventIdentifier | None = None
-    assignment_decision_id: TaskEventIdentifier | None = None
+    outcome: CheckpointOutcome
+    checkpoint_id: TaskEventIdentifier
     resulting_flow_status: Literal["running", "completed"]
-
-
-class ChildAssignmentStagedEventPayload(_TaskEventPayload):
-    source_dispatch_id: TaskEventIdentifier
-    parent_assignment_id: TaskEventIdentifier
-    child_assignment_id: TaskEventIdentifier
-    child_attempt_id: TaskEventIdentifier
-    child_node_key: TaskEventIdentifier
-    flow_revision_id: TaskEventIdentifier
-
-
-class ChildAssignmentCommittedEventPayload(_TaskEventPayload):
-    source_dispatch_id: TaskEventIdentifier
-    parent_assignment_id: TaskEventIdentifier
-    child_assignment_id: TaskEventIdentifier
-    child_attempt_id: TaskEventIdentifier
-    child_node_key: TaskEventIdentifier
-    flow_revision_id: TaskEventIdentifier
 
 
 class StructuralRevisionAdoptedEventPayload(_TaskEventPayload):
@@ -315,8 +295,6 @@ type TaskEventPayload = (
     | WorkPlanClearedEventPayload
     | CheckpointRecordedEventPayload
     | BoundaryAcceptedEventPayload
-    | ChildAssignmentStagedEventPayload
-    | ChildAssignmentCommittedEventPayload
     | StructuralRevisionAdoptedEventPayload
     | HumanRequestOpenedEventPayload
     | HumanRequestTerminalEventPayload
@@ -334,8 +312,6 @@ type TaskEventPayload = (
 __all__ = [
     "BoundaryAcceptedEventPayload",
     "CheckpointRecordedEventPayload",
-    "ChildAssignmentCommittedEventPayload",
-    "ChildAssignmentStagedEventPayload",
     "CommandRunCancelRequestedEventPayload",
     "CommandRunOpenedEventPayload",
     "CommandRunProgressedEventPayload",

@@ -35,8 +35,8 @@ ATTEMPT_STATUS_VALUES = (
 DISPATCH_STATUS_VALUES = ("starting", "open", "closed")
 DISPATCH_OPENED_REASON_VALUES = (
     "root",
-    "boundary",
-    "child_return",
+    "delegation",
+    "delegation_wave",
     "human_result",
     "command_result",
     "watchdog_recovery",
@@ -46,6 +46,7 @@ DISPATCH_OPENED_REASON_VALUES = (
 )
 DISPATCH_CLOSED_REASON_VALUES = (
     "boundary",
+    "delegation",
     "human_request_wait",
     "command_run_wait",
     "watchdog_superseded",
@@ -57,6 +58,7 @@ DISPATCH_CLOSED_REASON_VALUES = (
 )
 DISPATCH_STARTING_CLOSE_REASON_VALUES = (
     "boundary",
+    "delegation",
     "human_request_wait",
     "command_run_wait",
     "paused",
@@ -78,7 +80,7 @@ NETWORK_ACCESS_VALUES = ("allow", "deny")
 MANAGED_SANDBOX_MODE_VALUES = ("read_only", "workspace_write", "full_access")
 CAPABILITY_SOURCE_VALUES = ("default", "member_configuration", "controller")
 CAPABILITY_DECISION_VALUES = ("allow", "deny")
-BOUNDARY_OUTCOME_VALUES = ("yield", "green", "retry", "blocked")
+BOUNDARY_OUTCOME_VALUES = ("green", "retry", "blocked")
 WORK_PLAN_STEP_STATUS_VALUES = ("pending", "in_progress", "completed")
 WORKSPACE_BINDING_MODE_VALUES = ("controller_owned", "external")
 HUMAN_REQUEST_KIND_VALUES = ("direction", "approval", "input", "review")
@@ -122,8 +124,6 @@ TASK_EVENT_TYPE_VALUES = (
     "work_plan_cleared",
     "checkpoint_recorded",
     "boundary_accepted",
-    "child_assignment_staged",
-    "child_assignment_committed",
     "structural_revision_adopted",
     "human_request_opened",
     "human_request_resolved",

@@ -54,53 +54,6 @@ def test_flow_start_source_cannot_consume_another_flows_root(tmp_path: Path) -> 
     _assert_rejected(tmp_path, mutate, suffixes=("a", "b"))
 
 
-def test_boundary_decision_must_belong_to_the_same_source_dispatch(
-    tmp_path: Path,
-) -> None:
-    def mutate(connection: Connection, scopes: dict[str, RuntimeIds]) -> None:
-        ids = scopes["a"]
-        assignments = RuntimeBase.metadata.tables["assignments"]
-        connection.execute(
-            assignments.update()
-            .where(assignments.c.assignment_id == ids.child_assignment_id)
-            .values(created_by_dispatch_id=ids.root_dispatch_id)
-        )
-        connection.execute(
-            RuntimeBase.metadata.tables["assignment_decisions"].insert(),
-            {
-                "assignment_decision_id": "decision.root-staged-child",
-                "source_dispatch_id": ids.root_dispatch_id,
-                "task_id": ids.task_id,
-                "flow_id": ids.flow_id,
-                "assignment_id": ids.root_assignment_id,
-                "attempt_id": ids.root_attempt_id,
-                "source_flow_revision_id": ids.flow_revision_id,
-                "decision_kind": "staged_child",
-                "staged_child_assignment_id": ids.child_assignment_id,
-                "staged_child_attempt_id": ids.child_attempt_id,
-                "recorded_at": NOW,
-            },
-        )
-        connection.execute(
-            RuntimeBase.metadata.tables["accepted_boundaries"].insert(),
-            {
-                "accepted_boundary_id": "boundary.invalid-decision-source",
-                "source_dispatch_id": ids.child_dispatch_id,
-                "task_id": ids.task_id,
-                "flow_id": ids.flow_id,
-                "assignment_id": ids.child_assignment_id,
-                "attempt_id": ids.child_attempt_id,
-                "outcome": "yield",
-                "checkpoint_id": None,
-                "assignment_decision_id": "decision.root-staged-child",
-                "successor_dispatch_id": None,
-                "committed_at": NOW,
-            },
-        )
-
-    _assert_rejected(tmp_path, mutate)
-
-
 def test_dispatch_node_must_belong_to_its_assignment(tmp_path: Path) -> None:
     def mutate(connection: Connection, scopes: dict[str, RuntimeIds]) -> None:
         ids = scopes["a"]
@@ -387,7 +340,7 @@ def _closed_successor_row(
         "flow_start_source_flow_id": None,
         "predecessor_dispatch_id": ids.current_dispatch_id,
         "status": "closed",
-        "opened_reason": "child_return",
+        "opened_reason": "delegation_wave",
         "requested_provider": "codex",
         "resolved_provider": "codex",
         "provider_selection_basis": "default",

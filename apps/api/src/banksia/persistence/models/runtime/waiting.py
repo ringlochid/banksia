@@ -18,10 +18,10 @@ from banksia.persistence.models.runtime.common import utcnow
 
 if TYPE_CHECKING:
     from banksia.persistence.models.runtime.assignment.execution import (
-        AssignmentModel,
         AttemptModel,
     )
     from banksia.persistence.models.runtime.command_runs import CommandRunModel
+    from banksia.persistence.models.runtime.delegation import DelegationWaveModel
     from banksia.persistence.models.runtime.dispatch.turns import DispatchTurnModel
     from banksia.persistence.models.runtime.human_requests import HumanRequestModel
 
@@ -33,7 +33,7 @@ class AttemptWaitModel(RuntimeBase):
     __table_args__ = (
         UniqueConstraint("attempt_id"),
         UniqueConstraint("source_dispatch_id"),
-        UniqueConstraint("sequential_child_assignment_id"),
+        UniqueConstraint("delegation_wave_id"),
         UniqueConstraint("human_request_id"),
         UniqueConstraint("command_run_id"),
         UniqueConstraint(
@@ -45,11 +45,11 @@ class AttemptWaitModel(RuntimeBase):
             name="uq_attempt_waits_complete_owner",
         ),
         CheckConstraint(
-            "(sequential_child_assignment_id IS NOT NULL AND "
+            "(delegation_wave_id IS NOT NULL AND "
             "human_request_id IS NULL AND command_run_id IS NULL) OR "
-            "(sequential_child_assignment_id IS NULL AND "
+            "(delegation_wave_id IS NULL AND "
             "human_request_id IS NOT NULL AND command_run_id IS NULL) OR "
-            "(sequential_child_assignment_id IS NULL AND "
+            "(delegation_wave_id IS NULL AND "
             "human_request_id IS NULL AND command_run_id IS NOT NULL)",
             name="ck_attempt_waits_exactly_one_source",
         ),
@@ -129,37 +129,34 @@ class AttemptWaitModel(RuntimeBase):
         ),
         ForeignKeyConstraint(
             [
-                "sequential_child_assignment_id",
+                "delegation_wave_id",
+                "task_id",
+                "flow_id",
                 "assignment_id",
+                "attempt_id",
                 "source_dispatch_id",
             ],
             [
-                "assignments.assignment_id",
-                "assignments.parent_assignment_id",
-                "assignments.created_by_dispatch_id",
+                "delegation_waves.delegation_wave_id",
+                "delegation_waves.task_id",
+                "delegation_waves.flow_id",
+                "delegation_waves.parent_assignment_id",
+                "delegation_waves.parent_attempt_id",
+                "delegation_waves.source_dispatch_id",
             ],
-            name="fk_attempt_waits_sequential_child_source",
-            deferrable=True,
-            initially="DEFERRED",
-        ),
-        ForeignKeyConstraint(
-            ["task_id", "flow_id", "sequential_child_assignment_id"],
-            ["assignments.task_id", "assignments.flow_id", "assignments.assignment_id"],
-            name="fk_attempt_waits_sequential_child_owner",
+            name="fk_attempt_waits_delegation_wave_owner",
             deferrable=True,
             initially="DEFERRED",
         ),
     )
 
-    # WP07_SEQUENTIAL_DELEGATION_WAIT: WP-08 replaces this temporary child
-    # Assignment source with a Delegation Wave source and removes the bridge.
     wait_id: Mapped[str] = mapped_column(String(255), primary_key=True)
     task_id: Mapped[str] = mapped_column(ForeignKey("tasks.task_id"), index=True)
     flow_id: Mapped[str] = mapped_column(ForeignKey("flows.flow_id"), index=True)
     assignment_id: Mapped[str] = mapped_column(String(255), index=True)
     attempt_id: Mapped[str] = mapped_column(String(255), index=True)
     source_dispatch_id: Mapped[str] = mapped_column(String(255), index=True)
-    sequential_child_assignment_id: Mapped[str | None] = mapped_column(
+    delegation_wave_id: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
     )
@@ -186,22 +183,15 @@ class AttemptWaitModel(RuntimeBase):
         lazy="raise",
         viewonly=True,
     )
-    sequential_child_assignment: Mapped[AssignmentModel | None] = relationship(
-        "AssignmentModel",
-        primaryjoin=(
-            "and_(AttemptWaitModel.sequential_child_assignment_id == "
-            "AssignmentModel.assignment_id, "
-            "AttemptWaitModel.assignment_id == AssignmentModel.parent_assignment_id, "
-            "AttemptWaitModel.source_dispatch_id == AssignmentModel.created_by_dispatch_id, "
-            "AttemptWaitModel.task_id == AssignmentModel.task_id, "
-            "AttemptWaitModel.flow_id == AssignmentModel.flow_id)"
-        ),
+    delegation_wave: Mapped[DelegationWaveModel | None] = relationship(
+        "DelegationWaveModel",
         foreign_keys=[
-            sequential_child_assignment_id,
-            assignment_id,
-            source_dispatch_id,
+            delegation_wave_id,
             task_id,
             flow_id,
+            assignment_id,
+            attempt_id,
+            source_dispatch_id,
         ],
         lazy="raise",
         viewonly=True,

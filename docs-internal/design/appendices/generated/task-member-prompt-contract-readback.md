@@ -10,7 +10,7 @@ This page is generated from the shipped Banksia prompt contracts and controller-
 - shared/workspace-and-files.txt
 - shared/checkpoint.txt
 - positions/task-lead.txt
-- behaviors/manager-pre-wave.txt
+- behaviors/manager.txt
 - behaviors/contributor.txt
 - actions/human-request.txt
 - actions/command-run.txt
@@ -22,7 +22,7 @@ This page is generated from the shipped Banksia prompt contracts and controller-
 2. `shared/workspace-and-files.txt`
 3. `shared/checkpoint.txt`
 4. `positions/task-lead.txt` when the current Member is the Task lead
-5. exactly one behavior asset: phase-bounded `behaviors/manager-pre-wave.txt` or `behaviors/contributor.txt`
+5. exactly one behavior asset: `behaviors/manager.txt` or `behaviors/contributor.txt`
 6. `actions/human-request.txt` when an allowed Human Request action is exposed
 7. `actions/command-run.txt` when Command Run is allowed and exposed
 8. `situations/continuation.txt` when a Continuation exists
@@ -35,7 +35,7 @@ This page is generated from the shipped Banksia prompt contracts and controller-
 
 ## Trigger kinds
 
-`accepted_boundary | child_return | human_result | command_result | watchdog_recovery | semantic_retry | operator_continue | structural_replan`
+`delegation_wave_settled | human_result | command_result | watchdog_recovery | semantic_retry | operator_continue | structural_replan`
 
 ## Rendering invariants
 

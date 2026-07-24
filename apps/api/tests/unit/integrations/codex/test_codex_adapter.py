@@ -97,7 +97,7 @@ def _request(*, working_directory: Path | None = None) -> DispatchStartRequest:
         managed_node_mcp=ManagedNodeMcpConnection(
             url="http://127.0.0.1:8123/_internal/node/mcp",
             bearer_token=SecretStr("binding-secret"),
-            enabled_tools=("checkpoint", "return_boundary"),
+            enabled_tools=("checkpoint", "delegate"),
         ),
     )
 
@@ -236,7 +236,7 @@ async def test_codex_start_uses_ephemeral_overlay_and_returns_before_output(
         config = cast(dict[str, Any], fake.thread_kwargs["config"])
         node_config = config["mcp_servers"]["banksia_node"]
         assert node_config["http_headers"] == {"Authorization": "Bearer binding-secret"}
-        assert node_config["enabled_tools"] == ["checkpoint", "return_boundary"]
+        assert node_config["enabled_tools"] == ["checkpoint", "delegate"]
         if expected_sandbox is Sandbox.workspace_write:
             assert config["sandbox_workspace_write"]["network_access"] is False
         else:

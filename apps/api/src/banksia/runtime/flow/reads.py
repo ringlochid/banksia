@@ -8,40 +8,26 @@ from sqlalchemy import Select, false, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import raiseload
 
-from banksia.config import get_settings
 from banksia.persistence.models import (
     AssignmentModel,
-    AttemptModel,
-    DispatchCapabilitySetModel,
-    DispatchTurnModel,
     FlowModel,
     TaskModel,
 )
 from banksia.runtime.checkpoint import read_task_result
 from banksia.runtime.contracts import (
-    DispatchRuntimeRead,
-    EffectiveCapabilityReadback,
-    EffectiveNetworkAccess,
-    EffectiveProviderNativeAccess,
-    ProviderStartReadback,
     RuntimeFlowPauseReason,
     RuntimeFlowRead,
     RuntimeFlowSummary,
     RuntimeFlowSummaryListResponse,
     RuntimeFlowTerminalOutcome,
-    RuntimeFlowWaitingCause,
     RuntimeLifecycleStatus,
     WorkflowManifestRef,
-    WorkPlanRead,
 )
 from banksia.runtime.errors import (
     illegal_state_error,
     invalid_request_shape_error,
     missing_resource_error,
 )
-from banksia.runtime.flow.current_sources import read_runtime_flow_current_sources
-from banksia.runtime.watchdog.deadline import calculate_watchdog_due_at
-from banksia.runtime.work_plan import read_assignment_work_plan
 
 WORKFLOW_MANIFEST_REF_DESCRIPTION = "Whole-workflow visible contract for the current task."
 
@@ -76,29 +62,6 @@ async def read_runtime_flow(session: AsyncSession, task_id: str) -> RuntimeFlowR
     if flow.active_flow_revision_id is None:
         raise illegal_state_error(f"task '{task_id}' has no active flow revision")
 
-    current_sources = await read_runtime_flow_current_sources(session, flow)
-    target = current_sources.target
-    current_dispatch = await read_current_dispatch(session, flow)
-    latest_dispatch_id = await read_latest_dispatch_id(session, flow)
-    stored_plan = (
-        await read_assignment_work_plan(session, assignment_id=target.assignment_id)
-        if target is not None
-        else None
-    )
-    current_plan = WorkPlanRead.model_validate(stored_plan) if stored_plan is not None else None
-    watchdog_recovery_count = (
-        await session.scalar(
-            select(func.count())
-            .select_from(DispatchTurnModel)
-            .where(
-                DispatchTurnModel.task_id == task_id,
-                DispatchTurnModel.attempt_id == target.attempt_id,
-                DispatchTurnModel.opened_reason == "watchdog_recovery",
-            )
-        )
-        if target is not None
-        else None
-    )
     root_prompt = await _read_root_assignment_prompt(session, flow)
     task_title, task_summary = _task_prompt_excerpts(root_prompt)
     result = await read_task_result(session, task_id=task.task_id)
@@ -113,118 +76,8 @@ async def read_runtime_flow(session: AsyncSession, task_id: str) -> RuntimeFlowR
         active_flow_revision_id=flow.active_flow_revision_id,
         control_revision=flow.control_revision,
         workflow_manifest_ref=workflow_manifest_ref(),
-        current_node_key=target.node_key if target is not None else None,
-        active_assignment_id=target.assignment_id if target is not None else None,
-        active_attempt_id=target.attempt_id if target is not None else None,
-        waiting_cause=normalized_waiting_cause(
-            has_human_request=current_sources.human_request is not None,
-            has_command_run=current_sources.command_run is not None,
-        ),
         pause_reason=normalized_pause_reason(flow.pause_reason),
-        current_dispatch=current_dispatch,
-        latest_dispatch_id=latest_dispatch_id,
-        current_plan=current_plan,
-        watchdog_recovery_count=watchdog_recovery_count,
-        current_human_request=current_sources.human_request,
-        current_command_run=current_sources.command_run,
         updated_at=coerce_datetime_to_utc(flow.updated_at),
-    )
-
-
-async def read_current_dispatch(
-    session: AsyncSession,
-    flow: FlowModel,
-) -> DispatchRuntimeRead | None:
-    rows = (
-        await session.execute(
-            select(DispatchTurnModel, DispatchCapabilitySetModel)
-            .join(
-                AttemptModel,
-                (AttemptModel.task_id == DispatchTurnModel.task_id)
-                & (AttemptModel.flow_id == DispatchTurnModel.flow_id)
-                & (AttemptModel.assignment_id == DispatchTurnModel.assignment_id)
-                & (AttemptModel.attempt_id == DispatchTurnModel.attempt_id)
-                & (AttemptModel.current_dispatch_id == DispatchTurnModel.dispatch_id),
-            )
-            .join(
-                DispatchCapabilitySetModel,
-                DispatchCapabilitySetModel.dispatch_id == DispatchTurnModel.dispatch_id,
-            )
-            .options(raiseload("*"))
-            .where(
-                DispatchTurnModel.task_id == flow.task_id,
-                DispatchTurnModel.flow_id == flow.flow_id,
-                DispatchTurnModel.status.in_(("starting", "open")),
-                AttemptModel.status == "running",
-                AttemptModel.current_wait_id.is_(None),
-            )
-            .order_by(
-                AttemptModel.assignment_id,
-                AttemptModel.attempt_id,
-                DispatchTurnModel.dispatch_id,
-            )
-            .limit(2)
-        )
-    ).all()
-    if len(rows) > 1:
-        raise illegal_state_error("task has more than one active sequential Dispatch")
-    if not rows:
-        return None
-    row = rows[0]
-    dispatch, capabilities = row
-    provider_start = (
-        ProviderStartReadback(
-            revision=dispatch.provider_start_revision,
-            attempt_count=dispatch.provider_start_attempt_count,
-            next_attempt_at=_optional_utc(dispatch.next_provider_start_at),
-            retry_kind=dispatch.provider_start_retry_kind,
-            last_error_code=dispatch.provider_start_last_error_code,
-        )
-        if dispatch.status == "starting"
-        else None
-    )
-    watchdog_due_at = None
-    if dispatch.status == "open" and dispatch.adapter_started_at is not None:
-        watchdog_due_at = calculate_watchdog_due_at(
-            adapter_started_at=dispatch.adapter_started_at,
-            last_node_activity_at=dispatch.last_node_activity_at,
-            inactivity_timeout_seconds=(get_settings().runtime.watchdog_inactivity_timeout_seconds),
-        )
-    return DispatchRuntimeRead(
-        dispatch_id=dispatch.dispatch_id,
-        predecessor_dispatch_id=dispatch.predecessor_dispatch_id,
-        assignment_id=dispatch.assignment_id,
-        attempt_id=dispatch.attempt_id,
-        status=dispatch.status,
-        opened_reason=dispatch.opened_reason,
-        requested_provider=dispatch.requested_provider,
-        resolved_provider=dispatch.resolved_provider,
-        selection_basis=dispatch.provider_selection_basis,
-        adapter_started_at=_optional_utc(dispatch.adapter_started_at),
-        last_node_activity_at=_optional_utc(dispatch.last_node_activity_at),
-        node_activity_revision=dispatch.node_activity_revision,
-        watchdog_due_at=watchdog_due_at,
-        provider_start=provider_start,
-        effective_capabilities=effective_capability_readback(capabilities),
-    )
-
-
-def effective_capability_readback(
-    capabilities: DispatchCapabilitySetModel,
-) -> EffectiveCapabilityReadback:
-    return EffectiveCapabilityReadback(
-        provider_native_access=EffectiveProviderNativeAccess.model_validate(
-            {
-                "effective": capabilities.provider_native_access,
-                "source": capabilities.provider_native_access_source,
-            }
-        ),
-        network_access=EffectiveNetworkAccess.model_validate(
-            {
-                "effective": capabilities.network_access,
-                "source": capabilities.network_access_source,
-            }
-        ),
     )
 
 
@@ -248,10 +101,6 @@ async def list_runtime_flow_summaries(
     for task, flow, root_assignment in page:
         if flow.active_flow_revision_id is None:
             raise illegal_state_error(f"task '{task.task_id}' has no active flow revision")
-        target = (await read_runtime_flow_current_sources(session, flow)).target
-        current_node_key = target.node_key if target is not None else None
-        active_assignment_id = target.assignment_id if target is not None else None
-        active_attempt_id = target.attempt_id if target is not None else None
         task_title, task_summary = _task_prompt_excerpts(root_assignment.prompt)
         summaries.append(
             RuntimeFlowSummary(
@@ -263,9 +112,6 @@ async def list_runtime_flow_summaries(
                 terminal_outcome=normalized_terminal_outcome(flow.terminal_outcome),
                 active_flow_revision_id=flow.active_flow_revision_id,
                 workflow_manifest_ref=workflow_manifest_ref(),
-                current_node_key=current_node_key,
-                active_assignment_id=active_assignment_id,
-                active_attempt_id=active_attempt_id,
                 updated_at=coerce_datetime_to_utc(flow.updated_at),
             )
         )
@@ -313,27 +159,6 @@ def runtime_flow_summary_statement(
     return statement.order_by(FlowModel.updated_at.desc(), TaskModel.task_id.desc())
 
 
-async def read_latest_dispatch_id(
-    session: AsyncSession,
-    flow: FlowModel,
-) -> str | None:
-    return cast(
-        str | None,
-        await session.scalar(
-            select(DispatchTurnModel.dispatch_id)
-            .where(
-                DispatchTurnModel.task_id == flow.task_id,
-                DispatchTurnModel.flow_id == flow.flow_id,
-            )
-            .order_by(
-                DispatchTurnModel.created_at.desc(),
-                DispatchTurnModel.dispatch_id.desc(),
-            )
-            .limit(1)
-        ),
-    )
-
-
 def normalized_pause_reason(
     pause_reason: str | None,
 ) -> RuntimeFlowPauseReason | None:
@@ -346,20 +171,6 @@ def normalized_pause_reason(
     }:
         raise illegal_state_error(f"flow has unsupported pause reason '{pause_reason}'")
     return cast(RuntimeFlowPauseReason, pause_reason)
-
-
-def normalized_waiting_cause(
-    *,
-    has_human_request: bool,
-    has_command_run: bool,
-) -> RuntimeFlowWaitingCause | None:
-    if has_human_request and has_command_run:
-        raise illegal_state_error("task has more than one active external wait")
-    if has_human_request:
-        return "human_request"
-    if has_command_run:
-        return "command_run"
-    return None
 
 
 def normalized_terminal_outcome(
@@ -451,19 +262,12 @@ def _filter_runtime_flow_status(
     return statement.where(FlowModel.status == status)
 
 
-def _optional_utc(value: datetime | None) -> datetime | None:
-    return coerce_datetime_to_utc(value) if value is not None else None
-
-
 __all__ = [
     "RUNTIME_FLOW_LIST_SORTS",
     "RUNTIME_FLOW_LIST_STATUSES",
     "WORKFLOW_MANIFEST_REF_DESCRIPTION",
-    "effective_capability_readback",
     "list_runtime_flow_summaries",
     "normalized_pause_reason",
     "normalized_terminal_outcome",
-    "normalized_waiting_cause",
-    "read_current_dispatch",
     "read_runtime_flow",
 ]

@@ -121,7 +121,7 @@ def _request(*, working_directory: Path | None = None) -> DispatchStartRequest:
         managed_node_mcp=ManagedNodeMcpConnection(
             url="http://127.0.0.1:8123/_internal/node/mcp",
             bearer_token=SecretStr("binding-secret"),
-            enabled_tools=("checkpoint", "return_boundary"),
+            enabled_tools=("checkpoint", "delegate"),
         ),
     )
 

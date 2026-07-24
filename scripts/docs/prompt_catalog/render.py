@@ -42,8 +42,7 @@ def render_prompt_contract_readback() -> str:
             "2. `shared/workspace-and-files.txt`",
             "3. `shared/checkpoint.txt`",
             "4. `positions/task-lead.txt` when the current Member is the Task lead",
-            "5. exactly one behavior asset: phase-bounded `behaviors/manager-pre-wave.txt` "
-            "or `behaviors/contributor.txt`",
+            "5. exactly one behavior asset: `behaviors/manager.txt` or `behaviors/contributor.txt`",
             "6. `actions/human-request.txt` when an allowed Human Request action is exposed",
             "7. `actions/command-run.txt` when Command Run is allowed and exposed",
             "8. `situations/continuation.txt` when a Continuation exists",

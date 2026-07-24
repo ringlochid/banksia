@@ -19,7 +19,6 @@ from banksia.runtime.command_run.service import cancel_command_run, read_command
 from banksia.runtime.command_run.transitions import terminalize_command_run
 from banksia.runtime.contracts import CommandRunState
 from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
-from banksia.runtime.flow.service import runtime_flow_read
 from banksia.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
 from banksia.runtime.post_commit import (
     CapturedRuntimeEffectPublisher,
@@ -50,7 +49,6 @@ async def test_terminal_command_source_opens_one_same_attempt_successor(
         publisher = CapturedRuntimeEffectPublisher()
 
         async with session_factory() as session:
-            pre_open = await runtime_flow_read(cast(AsyncSession, session), ids.task_id)
             initial_flow = await session.get(FlowModel, ids.flow_id)
             assert initial_flow is not None
             initial_control_revision = initial_flow.control_revision
@@ -79,10 +77,6 @@ async def test_terminal_command_source_opens_one_same_attempt_successor(
             )
 
     assert first.outcome == "opened"
-    assert pre_open.current_command_run is not None
-    assert pre_open.current_command_run.run_id == run_id
-    assert pre_open.current_command_run.state.value == "succeeded"
-    assert pre_open.current_dispatch is None
     assert duplicate.outcome == "skipped"
     assert first.dispatch_id is not None
     assert source is not None and source.successor_dispatch_id == first.dispatch_id
@@ -187,50 +181,6 @@ async def test_nonterminal_command_signal_is_a_harmless_noop(tmp_path: Path) -> 
     assert cancelled.run.state == CommandRunState.CANCELLATION_REQUESTED
     assert attempt is not None and wait is not None
     assert attempt.current_wait_id == wait.wait_id
-
-
-async def test_terminal_command_source_remains_current_while_flow_is_paused(
-    tmp_path: Path,
-) -> None:
-    async with seeded_executor(tmp_path, suffix="command-paused-readback") as (
-        executor,
-        session_factory,
-        ids,
-        _,
-    ):
-        run_id = await _open_command_run(executor, ids)
-        async with session_factory() as session:
-            flow = await session.get(FlowModel, ids.flow_id)
-            assert flow is not None
-            flow.status = "paused"
-            flow.pause_reason = "paused_by_operator"
-            flow.pause_details = {"summary": "Paused by operator."}
-            flow.paused_at = utc_now()
-            flow.paused_by_actor_ref = "local-test"
-            flow.control_revision += 1
-            await session.commit()
-        await _terminalize_command_run(session_factory, ids, run_id)
-
-        publisher = CapturedRuntimeEffectPublisher()
-        async with session_factory() as session:
-            continuation = await open_command_run_successor(
-                cast(AsyncSession, session),
-                signal=CommandRunTerminal(run_id),
-                dependencies=_opening_dependencies(publisher),
-            )
-            readback = await runtime_flow_read(cast(AsyncSession, session), ids.task_id)
-            attempt = await session.get(AttemptModel, ids.root_attempt_id)
-
-    assert readback.status.value == "paused"
-    assert readback.current_dispatch is None
-    assert readback.current_command_run is not None
-    assert readback.current_command_run.run_id == run_id
-    assert readback.current_command_run.state.value == "succeeded"
-    assert attempt is not None
-    assert attempt.current_dispatch_id is None
-    assert attempt.current_wait_id is None
-    assert continuation.outcome == "skipped"
-    assert publisher.signals == ()
 
 
 async def _open_command_run(executor: NodeOperationExecutor, ids: RuntimeIds) -> str:

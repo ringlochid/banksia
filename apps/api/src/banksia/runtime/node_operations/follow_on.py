@@ -6,9 +6,6 @@ from typing import Protocol
 from pydantic import BaseModel, ConfigDict
 
 from banksia.runtime.contracts import (
-    CheckpointOutcome,
-    CheckpointRequest,
-    CheckpointResponse,
     CommandRunStartResponse,
     HumanRequestOpenResponse,
 )
@@ -17,7 +14,6 @@ from banksia.runtime.node_operations.contracts import (
     NodeOperationName,
 )
 from banksia.runtime.post_commit.signals import (
-    BoundaryAccepted,
     CommandRunPending,
     HumanRequestOpened,
     RuntimeEffectSignal,
@@ -69,10 +65,6 @@ def committed_node_operation_follow_on(
 ) -> CommittedNodeOperationFollowOn:
     """Build exact post-commit hints without rereading broad task state."""
 
-    if operation_name == NodeOperationName.RETURN_BOUNDARY:
-        return CommittedNodeOperationFollowOn(
-            runtime_signals=(BoundaryAccepted(authority.dispatch_id),),
-        )
     if operation_name == NodeOperationName.OPEN_HUMAN_REQUEST:
         assert isinstance(response, HumanRequestOpenResponse)
         return CommittedNodeOperationFollowOn(
@@ -83,13 +75,6 @@ def committed_node_operation_follow_on(
         return CommittedNodeOperationFollowOn(
             runtime_signals=(CommandRunPending(response.command_id),),
         )
-    if operation_name == NodeOperationName.CHECKPOINT:
-        assert isinstance(request, CheckpointRequest)
-        assert isinstance(response, CheckpointResponse)
-        if response.terminal and request.outcome is not CheckpointOutcome.RETRY:
-            return CommittedNodeOperationFollowOn(
-                runtime_signals=(BoundaryAccepted(authority.dispatch_id),),
-            )
     return CommittedNodeOperationFollowOn()
 
 

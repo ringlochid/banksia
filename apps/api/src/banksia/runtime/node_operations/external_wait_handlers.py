@@ -89,7 +89,7 @@ async def open_human_request(
             assignment_id=authority.assignment_id,
             attempt_id=authority.attempt_id,
             source_dispatch_id=authority.dispatch_id,
-            sequential_child_assignment_id=None,
+            delegation_wave_id=None,
             human_request_id=request_id,
             command_run_id=None,
         )
@@ -232,7 +232,7 @@ def _stage_command_run_rows(
             assignment_id=authority.assignment_id,
             attempt_id=authority.attempt_id,
             source_dispatch_id=authority.dispatch_id,
-            sequential_child_assignment_id=None,
+            delegation_wave_id=None,
             human_request_id=None,
             command_run_id=run_id,
         )

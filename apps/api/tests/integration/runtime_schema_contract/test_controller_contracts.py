@@ -39,43 +39,6 @@ def _assert_rejected(
         engine.dispose()
 
 
-def test_staged_child_binds_direct_parent_authoring_dispatch_and_source_revision(
-    tmp_path: Path,
-) -> None:
-    engine = create_runtime_schema_engine(tmp_path)
-    try:
-        with engine.begin() as connection:
-            seed_catalog(connection)
-            ids = seed_runtime_scope(connection)
-            _set_child_authoring_dispatch(
-                connection,
-                ids,
-                dispatch_id=ids.root_dispatch_id,
-            )
-            _insert_staged_child_decision(connection, ids)
-        with engine.connect() as connection:
-            decision = connection.execute(
-                select(RuntimeBase.metadata.tables["assignment_decisions"])
-            ).one()
-        assert decision.staged_child_assignment_id == ids.child_assignment_id
-        assert decision.source_flow_revision_id == ids.flow_revision_id
-    finally:
-        engine.dispose()
-
-
-def test_staged_child_rejects_a_different_authoring_dispatch(tmp_path: Path) -> None:
-    def mutate(connection: Connection, scopes: dict[str, RuntimeIds]) -> None:
-        ids = scopes["a"]
-        _set_child_authoring_dispatch(
-            connection,
-            ids,
-            dispatch_id=ids.child_dispatch_id,
-        )
-        _insert_staged_child_decision(connection, ids)
-
-    _assert_rejected(tmp_path, mutate)
-
-
 def test_source_dispatch_preserves_terminal_checkpoint_supersession_history(
     tmp_path: Path,
 ) -> None:
@@ -341,36 +304,3 @@ def test_work_plan_rejects_more_than_one_in_progress_step(tmp_path: Path) -> Non
         )
 
     _assert_rejected(tmp_path, mutate)
-
-
-def _set_child_authoring_dispatch(
-    connection: Connection,
-    ids: RuntimeIds,
-    *,
-    dispatch_id: str,
-) -> None:
-    assignments = RuntimeBase.metadata.tables["assignments"]
-    connection.execute(
-        assignments.update()
-        .where(assignments.c.assignment_id == ids.child_assignment_id)
-        .values(created_by_dispatch_id=dispatch_id)
-    )
-
-
-def _insert_staged_child_decision(connection: Connection, ids: RuntimeIds) -> None:
-    connection.execute(
-        RuntimeBase.metadata.tables["assignment_decisions"].insert(),
-        {
-            "assignment_decision_id": "decision.staged-child",
-            "source_dispatch_id": ids.root_dispatch_id,
-            "task_id": ids.task_id,
-            "flow_id": ids.flow_id,
-            "assignment_id": ids.root_assignment_id,
-            "attempt_id": ids.root_attempt_id,
-            "source_flow_revision_id": ids.flow_revision_id,
-            "decision_kind": "staged_child",
-            "staged_child_assignment_id": ids.child_assignment_id,
-            "staged_child_attempt_id": ids.child_attempt_id,
-            "recorded_at": NOW,
-        },
-    )

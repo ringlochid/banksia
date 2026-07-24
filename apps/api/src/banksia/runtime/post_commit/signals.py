@@ -16,8 +16,13 @@ class FlowStartCommitted(RuntimeEffectSignal):
 
 
 @dataclass(frozen=True, slots=True)
-class BoundaryAccepted(RuntimeEffectSignal):
-    source_dispatch_id: str
+class WaveMemberSettled(RuntimeEffectSignal):
+    delegation_wave_id: str
+
+
+@dataclass(frozen=True, slots=True)
+class DelegationWaveSettled(RuntimeEffectSignal):
+    delegation_wave_id: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -97,7 +102,8 @@ class DispatchStartDue(RuntimeEffectSignal):
 
 ALL_RUNTIME_EFFECT_SIGNAL_TYPES: tuple[type[RuntimeEffectSignal], ...] = (
     FlowStartCommitted,
-    BoundaryAccepted,
+    WaveMemberSettled,
+    DelegationWaveSettled,
     ReplanCommitted,
     HumanRequestOpened,
     HumanRequestDue,
@@ -125,8 +131,10 @@ def runtime_effect_source_context(
     match signal:
         case FlowStartCommitted(flow_id=flow_id):
             return (("flow_id", flow_id),)
-        case BoundaryAccepted(source_dispatch_id=source_dispatch_id):
-            return (("source_dispatch_id", source_dispatch_id),)
+        case WaveMemberSettled(delegation_wave_id=delegation_wave_id):
+            return (("delegation_wave_id", delegation_wave_id),)
+        case DelegationWaveSettled(delegation_wave_id=delegation_wave_id):
+            return (("delegation_wave_id", delegation_wave_id),)
         case ReplanCommitted(transition_id=transition_id):
             return (("transition_id", transition_id),)
         case HumanRequestOpened(request_id=request_id):
@@ -185,12 +193,12 @@ def runtime_effect_source_context(
 
 __all__ = [
     "ALL_RUNTIME_EFFECT_SIGNAL_TYPES",
-    "BoundaryAccepted",
     "CommandProcessExited",
     "CommandRunCancellationRequested",
     "CommandRunDue",
     "CommandRunPending",
     "CommandRunTerminal",
+    "DelegationWaveSettled",
     "DispatchCleanupRequested",
     "DispatchStartDue",
     "FlowStartCommitted",
@@ -203,5 +211,6 @@ __all__ = [
     "RuntimeEffectSourceContext",
     "WatchdogDeadlineChanged",
     "WatchdogDue",
+    "WaveMemberSettled",
     "runtime_effect_source_context",
 ]

@@ -24,7 +24,7 @@ from banksia.runtime.prompt import (
 )
 from pydantic import ValidationError
 
-from .samples import sample_dynamic_input, sample_request
+from tests.helpers.runtime_prompt_samples import sample_dynamic_input, sample_request
 
 
 def test_initial_dispatch_is_deterministic_complete_xml_without_fake_trigger() -> None:
@@ -119,9 +119,9 @@ def test_instruction_composition_is_conditional_ordered_and_provider_neutral() -
     ]
     assert codex.instructions_text == claude.instructions_text
     assert "You are not a relay" in codex.instructions_text
-    assert "one direct child at a time" in codex.instructions_text
-    assert "multi-member Wave" not in codex.instructions_text
-    assert "delegate action" not in codex.instructions_text
+    assert "one-member Waves" in codex.instructions_text
+    assert "multi-member Wave" in codex.instructions_text
+    assert "delegate action" in codex.instructions_text
 
 
 def test_nested_continuation_round_trips_from_committed_input() -> None:
@@ -129,9 +129,10 @@ def test_nested_continuation_round_trips_from_committed_input() -> None:
     continuation = parse_prompt_continuation(rendered)
 
     assert continuation is not None
-    assert continuation.trigger.kind == "child_return"
-    assert continuation.trigger.result.assignment.prompt == ("Review the exact implementation.")
-    assert continuation.trigger.result.checkpoint.files[0].description == ("Independent review.")
+    assert continuation.trigger.kind == "delegation_wave_settled"
+    member = continuation.trigger.result.members[0]
+    assert member.assignment.prompt == "Review the exact implementation."
+    assert member.checkpoint.files[0].description == "Independent review."
 
 
 def test_structural_replan_continuation_round_trips_fixed_id_collections() -> None:

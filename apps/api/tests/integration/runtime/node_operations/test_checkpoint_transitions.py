@@ -8,7 +8,6 @@ import banksia.runtime.node_operations.executor as executor_module
 import pytest
 from banksia.persistence.models import (
     AcceptedBoundaryModel,
-    AssignmentDecisionModel,
     AssignmentModel,
     AttemptCheckpointModel,
     AttemptModel,
@@ -24,6 +23,7 @@ from banksia.runtime.contracts import (
     AssignmentBody,
     CheckpointRequest,
     CheckpointResponse,
+    DelegateRequest,
     FileReference,
 )
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
@@ -32,9 +32,7 @@ from banksia.runtime.node_operations import (
     NodeOperationScope,
     get_node_operation_descriptor,
 )
-from banksia.runtime.post_commit.bootstrap import read_boundary_continuation_page
 from banksia.runtime.post_commit.publisher import CapturedRuntimeEffectPublisher
-from banksia.runtime.post_commit.signals import BoundaryAccepted
 from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -195,7 +193,6 @@ async def test_root_blocked_checkpoint_atomically_selects_exact_task_result(
 
         assert checkpoint is not None and checkpoint.outcome == "blocked"
         assert boundary is not None and boundary.checkpoint_id == checkpoint.checkpoint_id
-        assert boundary.assignment_decision_id is None
         assert task is not None and task.result_boundary_id == boundary.accepted_boundary_id
         assert flow is not None and (flow.status, flow.terminal_outcome) == (
             "completed",
@@ -219,9 +216,7 @@ async def test_root_blocked_checkpoint_atomically_selects_exact_task_result(
         assert task_result.completed_at == boundary.committed_at
         assert result.terminal is True
         assert result.must_stop is True
-        assert publisher.signals == (BoundaryAccepted(ids.current_dispatch_id),)
-        startup_page = await read_boundary_continuation_page(session_factory, None, 10)
-        assert startup_page.sources == ()
+        assert publisher.signals == ()
         assert [signal.activity_revision for signal in signals] == [1]
 
 
@@ -301,8 +296,7 @@ async def test_green_checkpoint_accepts_exact_current_child_basis(
                     attempt_id=ids.child_attempt_id,
                     outcome="green",
                     checkpoint_id=ids.child_checkpoint_id,
-                    assignment_decision_id=None,
-                    successor_dispatch_id=ids.current_dispatch_id,
+                    successor_dispatch_id=None,
                     committed_at=now,
                 )
             )
@@ -382,63 +376,6 @@ async def test_checkpoint_file_references_fail_atomically(
         assert checkpoints == ()
 
 
-async def test_terminal_checkpoint_rejects_staged_child_without_partial_write(
-    tmp_path: Path,
-) -> None:
-    async with seeded_executor(tmp_path, suffix="checkpoint-staged-child") as (
-        executor,
-        session_factory,
-        ids,
-        _signals,
-    ):
-        async with session_factory() as session:
-            child_assignment = await session.get(
-                AssignmentModel,
-                ids.child_assignment_id,
-            )
-            assert child_assignment is not None
-            child_assignment.created_by_dispatch_id = ids.current_dispatch_id
-            session.add(
-                AssignmentDecisionModel(
-                    assignment_decision_id=f"assignment-decision.{ids.current_dispatch_id}",
-                    source_dispatch_id=ids.current_dispatch_id,
-                    task_id=ids.task_id,
-                    flow_id=ids.flow_id,
-                    assignment_id=ids.root_assignment_id,
-                    attempt_id=ids.root_attempt_id,
-                    source_flow_revision_id=ids.flow_revision_id,
-                    decision_kind="staged_child",
-                    staged_child_assignment_id=ids.child_assignment_id,
-                    staged_child_attempt_id=ids.child_attempt_id,
-                )
-            )
-            await session.commit()
-
-        with pytest.raises(RuntimeOperationError) as rejected:
-            await executor.execute(
-                scope=_scope(ids.task_id, ids.current_dispatch_id),
-                operation_name="checkpoint",
-                arguments={
-                    "summary": "This must not replace delegated work.",
-                    "outcome": "blocked",
-                },
-            )
-
-        async with session_factory() as session:
-            checkpoints = tuple(
-                await session.scalars(
-                    select(AttemptCheckpointModel).where(
-                        AttemptCheckpointModel.authoring_dispatch_id == ids.current_dispatch_id
-                    )
-                )
-            )
-            dispatch = await session.get(DispatchTurnModel, ids.current_dispatch_id)
-
-        assert rejected.value.code == OperationFailureCode.BOUNDARY_PRECONDITION_FAILED
-        assert checkpoints == ()
-        assert dispatch is not None and dispatch.status == "open"
-
-
 async def test_admission_integrity_failure_is_normalized(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -470,13 +407,14 @@ async def test_admission_integrity_failure_is_normalized(
 
 def test_checkpoint_and_assignment_schemas_reject_unknown_fields() -> None:
     checkpoint_descriptor = get_node_operation_descriptor("checkpoint")
-    assignment_descriptor = get_node_operation_descriptor("assign_child")
+    delegation_descriptor = get_node_operation_descriptor("delegate")
 
     for schema_model in (
         AssignmentBody,
         CheckpointRequest,
+        DelegateRequest,
         checkpoint_descriptor.request_model,
-        assignment_descriptor.request_model,
+        delegation_descriptor.request_model,
     ):
         assert schema_model.model_json_schema()["additionalProperties"] is False
     with pytest.raises(ValidationError, match="unexpected_field"):
@@ -487,14 +425,15 @@ def test_checkpoint_and_assignment_schemas_reject_unknown_fields() -> None:
             }
         )
     with pytest.raises(ValidationError, match="unexpected_field"):
-        assignment_descriptor.request_model.model_validate(
+        delegation_descriptor.request_model.model_validate(
             {
-                "expected_structural_revision_id": "revision.current",
-                "payload": {
-                    "child_node_key": "child",
-                    "assignment": {"prompt": "Child assignment."},
-                    "unexpected_field": ["unexpected value"],
-                },
+                "assignments": [
+                    {
+                        "child_id": "child",
+                        "prompt": "Child assignment.",
+                        "unexpected_field": ["unexpected value"],
+                    }
+                ],
             }
         )
 

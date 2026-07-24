@@ -48,8 +48,6 @@ CANONICAL_TYPES = {
     "work_plan_cleared",
     "checkpoint_recorded",
     "boundary_accepted",
-    "child_assignment_staged",
-    "child_assignment_committed",
     "structural_revision_adopted",
     "human_request_opened",
     "human_request_resolved",

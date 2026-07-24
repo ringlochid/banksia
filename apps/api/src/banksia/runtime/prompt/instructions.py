@@ -14,7 +14,7 @@ _ASSET_TAGS = {
     InstructionAsset.WORKSPACE_AND_FILES: "workspace_and_files",
     InstructionAsset.CHECKPOINT: "checkpoint_contract",
     InstructionAsset.TASK_LEAD: "task_lead",
-    InstructionAsset.MANAGER_PRE_WAVE: "manager",
+    InstructionAsset.MANAGER: "manager",
     InstructionAsset.CONTRIBUTOR: "contributor",
     InstructionAsset.HUMAN_REQUEST: "human_request_guidance",
     InstructionAsset.COMMAND_RUN: "command_run_guidance",

@@ -28,7 +28,7 @@ from banksia.runtime.dispatch.preparation import (
     prepare_dispatch_request,
 )
 from banksia.runtime.dispatch.prompt_snapshot import build_ordinary_dispatch_request
-from banksia.runtime.post_commit import DispatchStartDue
+from banksia.runtime.post_commit import DispatchCleanupRequested, DispatchStartDue
 from banksia.runtime.providers import ProviderResolutionError
 
 type OrdinarySourceReader = Callable[
@@ -38,7 +38,10 @@ type OrdinarySourceClaim = Callable[
     [AsyncSession, OrdinaryDispatchSnapshot, PreparedDispatchRequest],
     Awaitable[bool],
 ]
-type OrdinaryFailureRecorder = Callable[[AsyncSession, str, datetime, str], Awaitable[None]]
+type OrdinaryFailureRecorder = Callable[
+    [AsyncSession, str, datetime, str],
+    Awaitable[tuple[str, ...]],
+]
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,7 +97,14 @@ async def open_ordinary_successor(
     except (ProviderResolutionError, ValueError, OSError) as exc:
         await session.rollback()
         failure_code = str(getattr(exc, "code", default_failure_code))
-        await record_failure(session, source_id, due_at, failure_code)
+        closed_dispatch_ids = await record_failure(session, source_id, due_at, failure_code)
+        for closed_dispatch_id in closed_dispatch_ids:
+            try:
+                dependencies.post_commit_publisher.publish(
+                    DispatchCleanupRequested(closed_dispatch_id)
+                )
+            except Exception:
+                pass
         return OrdinaryOpeningResult(outcome="paused")
 
     committed = await commit_ordinary_dispatch_if_current(

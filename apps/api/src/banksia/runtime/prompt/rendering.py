@@ -23,6 +23,7 @@ _COLLECTION_ITEM_TAGS = {
     "files": "file",
     "human_request": "kind",
     "items": "item",
+    "members": "member",
     "options": "option",
     "removed_ids": "id",
     "steps": "step",

@@ -18,6 +18,7 @@ from banksia.persistence.models import (
     TaskModel,
     WorkspaceBindingModel,
 )
+from banksia.runtime.team.currentness import current_team_selects_member
 from banksia.runtime.watchdog.context import WatchdogRecoverySnapshot
 
 
@@ -74,7 +75,12 @@ def watchdog_context_is_current(
         & exists().where(
             TaskModel.task_id == prompt.task_id,
             TaskModel.task_root_path == dispatch.task_root_path,
-            TaskModel.current_team_revision_id == prompt.team_revision_id,
+        )
+        & current_team_selects_member(
+            task_id=prompt.task_id,
+            member_id=prompt.member_id,
+            member_configuration_id=prompt.member_configuration_id,
+            member_branch_basis_id=prompt.member_branch_basis_id,
         )
         & exists().where(
             WorkspaceBindingModel.task_id == prompt.task_id,

@@ -27,9 +27,6 @@ from banksia.runtime.dispatch.prompt_snapshot import (
     workspace_projection,
 )
 from banksia.runtime.errors import RuntimeOperationError
-from banksia.runtime.node_operations.catalog import (
-    list_node_operation_descriptors_for_kind,
-)
 from banksia.runtime.node_operations.contracts import (
     EmptyNodeOperationRequest,
     GetCurrentContextResponse,
@@ -41,6 +38,7 @@ from banksia.runtime.node_operations.state_legality import (
 from banksia.runtime.prompt import parse_prompt_continuation
 from banksia.runtime.task_root import read_task_root_paths
 from banksia.runtime.team.reads import (
+    available_member_actions,
     effective_capabilities_read,
     persisted_provider_read,
     read_direct_team_members,
@@ -100,11 +98,11 @@ async def _get_current_context(
         assignment_id=authority.assignment_id,
     )
     state_legal_actions = await read_state_legal_node_operations(session, authority)
-    available_actions = tuple(
-        descriptor.name
-        for descriptor in list_node_operation_descriptors_for_kind(authority.node_kind)
-        if descriptor.name in state_legal_actions
-        and _capability_allows(descriptor.name, authority.capabilities)
+    available_actions = available_member_actions(
+        direct_team=direct_team,
+        capabilities=effective_capabilities_read(authority.capabilities),
+        is_task_lead=authority.flow_node.parent_node_key is None,
+        state_legal_actions=state_legal_actions,
     )
     workflow_id, workflow_note = await _read_workflow_context(session, authority)
     request = await session.get(DispatchRequestModel, authority.dispatch_id)
@@ -144,7 +142,7 @@ async def _get_current_context(
         continuation=continuation,
         direct_team=direct_team,
         work_plan=work_plan_view(plan),
-        available_actions=available_actions,
+        available_actions=tuple(NodeOperationName(action) for action in available_actions),
         workspace=workspace_projection(
             paths,
             has_workflow_note=bool(workflow_note and workflow_note.strip()),
@@ -202,22 +200,6 @@ async def _read_workflow_context(
     if note is not None and not isinstance(note, str):
         raise _invalid_committed_request("pinned Workflow note is not text")
     return compiled_plan.workflow_key, note
-
-
-def _capability_allows(operation_name: NodeOperationName, capabilities: object) -> bool:
-    if operation_name == NodeOperationName.START_COMMAND_RUN:
-        return getattr(capabilities, "command_run", "deny") == "allow"
-    if operation_name == NodeOperationName.OPEN_HUMAN_REQUEST:
-        return any(
-            getattr(capabilities, field_name, "deny") == "allow"
-            for field_name in (
-                "human_direction",
-                "human_approval",
-                "human_input",
-                "human_review",
-            )
-        )
-    return True
 
 
 def _invalid_committed_request(summary: str) -> RuntimeOperationError:

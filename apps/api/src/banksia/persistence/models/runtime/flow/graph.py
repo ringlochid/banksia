@@ -43,6 +43,15 @@ class FlowNodeModel(RuntimeBase):
             "node_key",
             name="uq_flow_nodes_exact_dispatch_snapshot",
         ),
+        UniqueConstraint(
+            "task_id",
+            "flow_id",
+            "flow_revision_id",
+            "node_key",
+            "parent_node_key",
+            "member_id",
+            name="uq_flow_nodes_delegation_target",
+        ),
         UniqueConstraint("flow_revision_id", "node_key"),
         CheckConstraint(
             f"node_kind IN ({sql_in(NODE_KIND_VALUES)})",

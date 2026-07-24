@@ -8,12 +8,12 @@ from typing import cast
 import pytest
 from banksia.persistence.models import (
     AcceptedBoundaryModel,
-    AssignmentDecisionModel,
     AssignmentModel,
     AttemptCheckpointModel,
     AttemptModel,
     AttemptWaitModel,
     CommandRunModel,
+    DelegationWaveModel,
     DispatchTurnModel,
     FlowNodeModel,
     HumanRequestModel,
@@ -24,13 +24,15 @@ from banksia.runtime.dispatch.authority import read_node_operation_authority
 from banksia.runtime.errors import RuntimeOperationError
 from banksia.runtime.node_operations import NodeOperationScope
 from banksia.runtime.node_operations.catalog import get_node_operation_descriptor
-from banksia.runtime.node_operations.contracts import NodeOperationName
+from banksia.runtime.node_operations.contracts import NodeOperationDescriptor, NodeOperationName
 from banksia.runtime.node_operations.domain_handlers import (
     execute_controller_node_operation,
 )
+from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from tests.helpers.executor_harness import (
+    seeded_async_executor,
     seeded_executor,
     synchronized_transition_claims,
 )
@@ -260,31 +262,14 @@ async def test_terminal_checkpoint_and_human_wait_have_one_winner(
         assert [signal.activity_revision for signal in signals] == [1, 2]
 
 
-@pytest.mark.parametrize(
-    ("wait_operation", "wait_arguments"),
-    (
-        ("open_human_request", _HUMAN_REQUEST_ARGUMENTS),
-        (
-            "start_command_run",
-            {
-                "request": {
-                    "command": {"kind": "argv", "argv": ["printf", "ready"]},
-                    "summary": "Produce one bounded output.",
-                }
-            },
-        ),
-    ),
-)
-async def test_assign_child_and_external_wait_have_one_stable_winner(
+async def test_delegate_and_command_wait_have_one_stable_async_sqlite_winner(
     tmp_path: Path,
-    wait_operation: str,
-    wait_arguments: dict[str, object],
 ) -> None:
-    async with seeded_executor(tmp_path, suffix=f"assign-{wait_operation}") as (
+    async with seeded_async_executor(tmp_path, suffix="delegate-command") as (
         executor,
         session_factory,
         ids,
-        signals,
+        _signals,
     ):
         async with session_factory() as session:
             child = await session.get(FlowNodeModel, ids.child_node_id)
@@ -294,28 +279,47 @@ async def test_assign_child_and_external_wait_have_one_stable_winner(
             await session.commit()
 
         scope = _scope(ids.task_id, ids.current_dispatch_id)
+        delegate_descriptor = get_node_operation_descriptor(NodeOperationName.DELEGATE)
+        delegate_request = delegate_descriptor.request_model.model_validate(
+            {
+                "assignments": [
+                    {
+                        "child_id": "child",
+                        "prompt": "Do bounded child work.",
+                    }
+                ],
+            }
+        )
+        command_descriptor = get_node_operation_descriptor(NodeOperationName.START_COMMAND_RUN)
+        command_request = command_descriptor.request_model.model_validate(
+            {
+                "request": {
+                    "command": {
+                        "kind": "argv",
+                        "argv": ["printf", "ready"],
+                    },
+                    "summary": "Produce one bounded output.",
+                }
+            }
+        )
+
+        async def commit_operation(
+            descriptor: NodeOperationDescriptor,
+            request: BaseModel,
+        ) -> object:
+            async with session_factory() as session:
+                return await executor._execute_node_operation_transaction(
+                    session,
+                    scope=scope,
+                    descriptor=descriptor,
+                    request=request,
+                )
+
         async with synchronized_transition_claims():
-            results = await asyncio.wait_for(
-                asyncio.gather(
-                    executor.execute(
-                        scope=scope,
-                        operation_name="assign_child",
-                        arguments={
-                            "expected_structural_revision_id": ids.flow_revision_id,
-                            "payload": {
-                                "child_node_key": "child",
-                                "assignment": {"prompt": "Do bounded child work."},
-                            },
-                        },
-                    ),
-                    executor.execute(
-                        scope=scope,
-                        operation_name=wait_operation,
-                        arguments=wait_arguments,
-                    ),
-                    return_exceptions=True,
-                ),
-                timeout=5,
+            results = await asyncio.gather(
+                commit_operation(delegate_descriptor, delegate_request),
+                commit_operation(command_descriptor, command_request),
+                return_exceptions=True,
             )
 
         error = _one_runtime_error(results)
@@ -324,12 +328,7 @@ async def test_assign_child_and_external_wait_have_one_stable_winner(
             OperationFailureCode.STALE_DISPATCH,
         }
         async with session_factory() as session:
-            decision_count = await session.scalar(
-                select(func.count()).select_from(AssignmentDecisionModel)
-            )
-            human_request_count = await session.scalar(
-                select(func.count()).select_from(HumanRequestModel)
-            )
+            wave_count = await session.scalar(select(func.count()).select_from(DelegationWaveModel))
             command_run_count = await session.scalar(
                 select(func.count()).select_from(CommandRunModel)
             )
@@ -348,21 +347,25 @@ async def test_assign_child_and_external_wait_have_one_stable_winner(
             child = await session.get(FlowNodeModel, ids.child_node_id)
             dispatch = await session.get(DispatchTurnModel, ids.current_dispatch_id)
 
-        source_count = int(human_request_count or 0) + int(command_run_count or 0)
-        assert (int(decision_count or 0), source_count) in {(1, 0), (0, 1)}
-        assert len(waits) == source_count
+        assert (int(wave_count or 0), int(command_run_count or 0)) in {
+            (1, 0),
+            (0, 1),
+        }
+        assert len(waits) == 1
         assert attempt is not None and child is not None and dispatch is not None
-        if decision_count:
-            assert attempt.current_wait_id is None
+        if wave_count:
+            assert waits[0].delegation_wave_id is not None
+            assert attempt.current_dispatch_id is None
+            assert attempt.current_wait_id == waits[0].wait_id
             assert child.current_assignment_id is not None
-            assert dispatch.status == "open"
+            assert dispatch.status == "closed"
         else:
+            assert waits[0].delegation_wave_id is None
             assert attempt.current_dispatch_id is None
             assert attempt.current_wait_id == waits[0].wait_id
             assert child.current_assignment_id is None
             assert dispatch.status == "closed"
-        assert dispatch.node_activity_revision == 2
-        assert [signal.activity_revision for signal in signals] == [1, 2]
+        assert dispatch.node_activity_revision == 0
 
 
 def _scope(task_id: str, dispatch_id: str) -> NodeOperationScope:

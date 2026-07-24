@@ -8,22 +8,11 @@ from banksia.runtime.clock import utc_now
 from banksia.runtime.node_operations import NodeOperationScope
 from banksia.runtime.post_commit.publisher import CapturedRuntimeEffectPublisher
 from banksia.runtime.post_commit.signals import (
-    BoundaryAccepted,
     CommandRunPending,
     HumanRequestOpened,
     RuntimeEffectSignal,
 )
-from banksia.runtime.projection.signals import SupportProjectionSignal
 from tests.helpers.executor_harness import seeded_executor
-
-
-class _CapturedProjectionPublisher:
-    def __init__(self) -> None:
-        self.signals: list[SupportProjectionSignal] = []
-
-    def publish(self, signal: SupportProjectionSignal) -> bool:
-        self.signals.append(signal)
-        return True
 
 
 class _RaisingRuntimePublisher:
@@ -105,31 +94,3 @@ async def test_command_run_commit_survives_runtime_publication_exception(
 
     assert source is not None and source.state == "pending_start"
     assert publisher.signals == [CommandRunPending(run_id)]
-
-
-async def test_terminal_checkpoint_publishes_boundary_only_after_commit(
-    tmp_path: Path,
-) -> None:
-    runtime_publisher = CapturedRuntimeEffectPublisher()
-    projection_publisher = _CapturedProjectionPublisher()
-    async with seeded_executor(
-        tmp_path,
-        suffix="checkpoint-follow-on",
-        runtime_effect_publisher=runtime_publisher,
-        support_projection_publisher=projection_publisher,
-    ) as (executor, _session_factory, ids, _activity_signals):
-        response = await executor.execute(
-            scope=NodeOperationScope(
-                task_id=ids.task_id,
-                dispatch_id=ids.current_dispatch_id,
-            ),
-            operation_name="checkpoint",
-            arguments={
-                "summary": "The exact blocker is recorded.",
-                "outcome": "blocked",
-            },
-        )
-
-    assert response.model_dump()["terminal"] is True
-    assert runtime_publisher.signals == (BoundaryAccepted(ids.current_dispatch_id),)
-    assert projection_publisher.signals == []

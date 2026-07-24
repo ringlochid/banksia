@@ -288,8 +288,16 @@ async def _read_watchdog_runtime_context(
             .join(
                 FlowNodeModel,
                 (FlowNodeModel.flow_id == DispatchTurnModel.flow_id)
-                & (FlowNodeModel.flow_revision_id == DispatchTurnModel.flow_revision_id)
-                & (FlowNodeModel.flow_node_id == DispatchTurnModel.flow_node_id),
+                & (FlowNodeModel.flow_revision_id == FlowModel.active_flow_revision_id)
+                & (FlowNodeModel.node_key == DispatchTurnModel.node_key)
+                & (FlowNodeModel.member_id == DispatchTurnModel.member_id)
+                & (
+                    FlowNodeModel.member_configuration_id
+                    == DispatchTurnModel.member_configuration_id
+                )
+                & (
+                    FlowNodeModel.member_branch_basis_id == DispatchTurnModel.member_branch_basis_id
+                ),
             )
             .join(
                 NodePlanRevisionModel,
@@ -327,7 +335,6 @@ def _context_is_plausible(
         and source.adapter_started_at is not None
         and source.node_activity_revision == signal.activity_revision
         and flow.status == "running"
-        and flow.active_flow_revision_id == source.flow_revision_id
         and source.task_id == assignment.task_id
         and source.flow_id == assignment.flow_id
         and source.assignment_id == assignment.assignment_id
@@ -347,7 +354,6 @@ def _context_is_plausible(
         and node_plan.member_branch_basis_id == node.member_branch_basis_id
         and assignment.member_id == node.member_id
         and assignment.node_key == node.node_key
-        and source.team_revision_id == node.team_revision_id
         and source.member_configuration_id == node.member_configuration_id
         and source.member_branch_basis_id == node.member_branch_basis_id
         and node_plan.provider_kind == node.provider_kind

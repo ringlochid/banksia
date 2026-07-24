@@ -18,6 +18,9 @@ from banksia.runtime.contracts.prompt import (
     HumanResultSource,
     HumanResultTrigger,
 )
+from banksia.runtime.control_transitions import (
+    pause_flow_for_runtime_transition_failure,
+)
 from banksia.runtime.dispatch.ordinary_context import (
     OrdinaryContinuationBasis,
     OrdinaryDispatchSnapshot,
@@ -148,8 +151,8 @@ async def pause_failed_human_request_continuation(
     request_id: str,
     paused_at: datetime,
     failure_code: str,
-) -> None:
-    """Pause only while the exact terminal human source remains consumable."""
+) -> tuple[str, ...]:
+    """Pause the exact failed source and every runnable sibling Attempt lane."""
 
     source_is_unconsumed = exists(
         select(HumanRequestModel.request_id)
@@ -171,27 +174,16 @@ async def pause_failed_human_request_continuation(
             AttemptModel.current_wait_id.is_(None),
         )
     )
-    await session.execute(
-        update(FlowModel)
-        .where(
-            FlowModel.status == "running",
-            source_is_unconsumed,
-        )
-        .values(
-            status="paused",
-            pause_reason="runtime_transition_failed",
-            pause_details={
-                "source": "human_request",
-                "request_id": request_id,
-                "failure_code": failure_code,
-            },
-            paused_at=paused_at,
-            paused_by_actor_ref="controller.runtime",
-            control_revision=FlowModel.control_revision + 1,
-            updated_at=paused_at,
-        )
+    return await pause_flow_for_runtime_transition_failure(
+        session,
+        source_is_current=source_is_unconsumed,
+        paused_at=paused_at,
+        pause_details={
+            "source": "human_request",
+            "request_id": request_id,
+            "failure_code": failure_code,
+        },
     )
-    await session.commit()
 
 
 def human_request_continuation_basis(

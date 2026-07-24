@@ -7,6 +7,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from banksia.persistence.models import DispatchTurnModel, FlowModel
 from banksia.runtime.contracts import TaskEventSource, TaskEventType
+from banksia.runtime.control_transitions import (
+    FlowDispatchControlConflictError,
+    close_current_flow_dispatches,
+)
 from banksia.runtime.dispatch.currentness import (
     AttemptDispatchIdentity,
     attempt_dispatch_is_current,
@@ -16,6 +20,7 @@ from banksia.runtime.dispatch.currentness import (
 from banksia.runtime.dispatch.provider_start import ProviderStartCandidate
 from banksia.runtime.post_commit import DispatchStartDue
 from banksia.runtime.task_events import append_task_event
+from banksia.runtime.team.currentness import dispatch_team_selection_is_current
 
 
 async def pause_invalid_provider_start(
@@ -25,8 +30,8 @@ async def pause_invalid_provider_start(
     candidate: ProviderStartCandidate,
     failed_at: datetime,
     failure_code: str,
-) -> bool:
-    """Pause only the exact still-current dispatch with invalid committed input."""
+) -> tuple[str, ...]:
+    """Pause one invalid start and close every runnable sibling Attempt lane."""
 
     if not await _pause_invalid_starting_flow(
         session,
@@ -36,16 +41,28 @@ async def pause_invalid_provider_start(
         failure_code,
     ):
         await session.rollback()
-        return False
+        return ()
     if not await _close_invalid_starting_dispatch(session, signal, candidate, failed_at):
         await session.rollback()
-        return False
+        return ()
     if not await clear_current_attempt_dispatch(
         session,
         identity=_attempt_dispatch_identity(signal, candidate),
     ):
         await session.rollback()
-        return False
+        return ()
+
+    try:
+        closed_sibling_dispatch_ids = await close_current_flow_dispatches(
+            session,
+            task_id=candidate.task_id,
+            flow_id=candidate.flow_id,
+            closed_reason="paused",
+            closed_at=failed_at,
+        )
+    except FlowDispatchControlConflictError:
+        await session.rollback()
+        return ()
 
     await _append_invalid_provider_start_event(
         session,
@@ -59,7 +76,7 @@ async def pause_invalid_provider_start(
     except Exception:
         await session.rollback()
         raise
-    return True
+    return closed_sibling_dispatch_ids
 
 
 async def _close_invalid_starting_dispatch(
@@ -110,7 +127,6 @@ async def _pause_invalid_starting_flow(
             FlowModel.flow_id == candidate.flow_id,
             FlowModel.task_id == candidate.task_id,
             FlowModel.status == "running",
-            FlowModel.active_flow_revision_id == candidate.flow_revision_id,
             FlowModel.control_revision == candidate.flow_control_revision,
             attempt_dispatch_is_current(_attempt_dispatch_identity(signal, candidate)),
             exists().where(
@@ -125,6 +141,7 @@ async def _pause_invalid_starting_flow(
                 DispatchTurnModel.provider_start_attempt_count
                 == candidate.provider_start_attempt_count,
                 DispatchTurnModel.next_provider_start_at == candidate.persisted_due_at,
+                dispatch_team_selection_is_current(),
             ),
         )
         .values(

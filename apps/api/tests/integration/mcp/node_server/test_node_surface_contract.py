@@ -28,7 +28,7 @@ _WORKER_CEILING = (
     NodeOperationName.GET_CURRENT_CONTEXT,
     NodeOperationName.SET_WORK_PLAN,
     NodeOperationName.CHECKPOINT,
-    NodeOperationName.RETURN_BOUNDARY,
+    NodeOperationName.ADD_CHILD,
     NodeOperationName.OPEN_HUMAN_REQUEST,
     NodeOperationName.START_COMMAND_RUN,
 )
@@ -57,7 +57,7 @@ async def test_managed_projection_lists_only_binding_scoped_semantic_tools() -> 
     ) as session:
         tools_result = await session.list_tools()
 
-    assert set(tool_names(tools_result)) == {str(name) for name in _WORKER_CEILING}
+    assert tool_names(tools_result) == tuple(str(name) for name in _WORKER_CEILING)
     assert set(tool_names(tools_result)).isdisjoint(_OPERATOR_ONLY_NAMES)
     assert [scope.model_dump(mode="json") for scope in executor.listed_scopes] == [
         {
@@ -80,8 +80,8 @@ async def test_compatibility_projection_lists_static_strict_explicit_id_catalog(
     async with node_mcp_client_session(applications.compatibility) as session:
         tools_result = await session.list_tools()
 
-    assert set(tool_names(tools_result)) == set(NODE_TOOL_NAMES)
-    assert len(NODE_TOOL_NAMES) == len(NODE_OPERATION_CATALOG) == 10
+    assert tool_names(tools_result) == NODE_TOOL_NAMES
+    assert len(NODE_TOOL_NAMES) == len(NODE_OPERATION_CATALOG) == 9
     assert set(tool_names(tools_result)).isdisjoint(_OPERATOR_ONLY_NAMES)
     for tool_name in NODE_TOOL_NAMES:
         schema = tool_input_schema(tools_result, tool_name)
@@ -110,6 +110,7 @@ async def test_managed_and_compatibility_schemas_preserve_semantic_and_result_pa
     async with node_mcp_client_session(applications.compatibility) as compatibility_session:
         compatibility_tools = await compatibility_session.list_tools()
 
+    assert tool_names(managed_tools) == tool_names(compatibility_tools) == NODE_TOOL_NAMES
     descriptors_by_name = {
         str(descriptor.name): descriptor for descriptor in NODE_OPERATION_CATALOG
     }
@@ -138,9 +139,9 @@ async def test_managed_and_compatibility_schemas_preserve_semantic_and_result_pa
             == descriptors_by_name[tool_name].description
         )
 
-    boundary_description = tool_description(managed_tools, "return_boundary")
-    assert "stop the current outer response immediately" in boundary_description
-    assert "no further tool calls or prose" in boundary_description
+    delegate_description = tool_description(managed_tools, "delegate")
+    assert "stop immediately" in delegate_description
+    assert "no further tool calls or prose" in delegate_description
 
 
 async def test_replan_projections_hide_recursive_controller_guardrails() -> None:

@@ -10,6 +10,8 @@ from sqlalchemy.orm import raiseload
 from banksia.persistence.models import (
     AttemptModel,
     AttemptWaitModel,
+    DelegationWaveMemberModel,
+    DelegationWaveModel,
     FlowModel,
     FlowNodeModel,
     HumanRequestModel,
@@ -38,6 +40,56 @@ class CancellationSignals:
     command: tuple[CommandRunCancellationRequested, ...]
 
 
+async def cancel_execution_rows(
+    session: AsyncSession,
+    *,
+    flow: FlowModel,
+    cancelled_at: datetime,
+) -> None:
+    await session.execute(
+        update(DelegationWaveModel)
+        .where(
+            DelegationWaveModel.task_id == flow.task_id,
+            DelegationWaveModel.flow_id == flow.flow_id,
+            DelegationWaveModel.status.in_(("open", "settled")),
+            DelegationWaveModel.successor_dispatch_id.is_(None),
+        )
+        .values(status="cancelled", cancelled_at=cancelled_at)
+    )
+    await session.execute(
+        update(DelegationWaveMemberModel)
+        .where(
+            DelegationWaveMemberModel.task_id == flow.task_id,
+            DelegationWaveMemberModel.flow_id == flow.flow_id,
+            DelegationWaveMemberModel.status == "pending",
+        )
+        .values(status="cancelled", cancelled_at=cancelled_at)
+    )
+    await session.execute(
+        update(AttemptModel)
+        .where(
+            AttemptModel.flow_id == flow.flow_id,
+            AttemptModel.status.in_(("pending", "running")),
+        )
+        .values(
+            status="cancelled",
+            terminal_outcome=None,
+            current_dispatch_id=None,
+            current_wait_id=None,
+            closed_at=cancelled_at,
+        )
+    )
+    await session.execute(
+        update(FlowNodeModel)
+        .where(
+            FlowNodeModel.flow_id == flow.flow_id,
+            FlowNodeModel.flow_revision_id == flow.active_flow_revision_id,
+            FlowNodeModel.state.in_(("ready", "running", "waiting", "paused")),
+        )
+        .values(state="cancelled")
+    )
+
+
 async def cancel_attempt_waits(
     session: AsyncSession,
     *,
@@ -48,6 +100,34 @@ async def cancel_attempt_waits(
 ) -> CancellationSignals:
     """Settle and delete every current Attempt wait after global cancellation wins."""
 
+    waits = await _read_current_attempt_waits(session, flow)
+    human_signals: list[HumanRequestTerminal] = []
+    command_signals: list[CommandRunCancellationRequested] = []
+    for wait in waits:
+        human_signal, command_signal = await _cancel_attempt_wait_source(
+            session,
+            flow=flow,
+            wait=wait,
+            actor_ref=actor_ref,
+            event_source=event_source,
+            cancelled_at=cancelled_at,
+        )
+        if human_signal is not None:
+            human_signals.append(human_signal)
+        if command_signal is not None:
+            command_signals.append(command_signal)
+        await _clear_and_delete_attempt_wait(session, wait)
+    await _ensure_no_attempt_waits_remain(session, flow)
+    return CancellationSignals(
+        human=tuple(human_signals),
+        command=tuple(command_signals),
+    )
+
+
+async def _read_current_attempt_waits(
+    session: AsyncSession,
+    flow: FlowModel,
+) -> tuple[AttemptWaitModel, ...]:
     waits = (
         await session.scalars(
             select(AttemptWaitModel)
@@ -73,58 +153,84 @@ async def cancel_attempt_waits(
             )
         )
     ).all()
-    human_signals: list[HumanRequestTerminal] = []
-    command_signals: list[CommandRunCancellationRequested] = []
-    for wait in waits:
-        if wait.human_request_id is not None:
-            request_id = await _cancel_human_request(
-                session,
-                flow=flow,
-                wait=wait,
-                actor_ref=actor_ref,
-                event_source=event_source,
-                cancelled_at=cancelled_at,
-            )
-            human_signals.append(HumanRequestTerminal(request_id=request_id))
-        elif wait.command_run_id is not None:
-            signal = await _request_waiting_command_cancellation(
-                session,
-                flow=flow,
-                wait=wait,
-                actor_ref=actor_ref,
-                event_source=event_source,
-            )
-            if signal is not None:
-                command_signals.append(signal)
-        elif wait.sequential_child_assignment_id is None:
-            raise illegal_state_error("Attempt wait has no typed source")
+    return tuple(waits)
 
-        cleared = await clear_current_attempt_wait(
+
+async def _cancel_attempt_wait_source(
+    session: AsyncSession,
+    *,
+    flow: FlowModel,
+    wait: AttemptWaitModel,
+    actor_ref: str | None,
+    event_source: TaskEventSource,
+    cancelled_at: datetime,
+) -> tuple[HumanRequestTerminal | None, CommandRunCancellationRequested | None]:
+    if wait.human_request_id is not None:
+        request_id = await _cancel_human_request(
             session,
-            identity=AttemptWaitIdentity(
-                task_id=wait.task_id,
-                flow_id=wait.flow_id,
-                assignment_id=wait.assignment_id,
-                attempt_id=wait.attempt_id,
-                wait_id=wait.wait_id,
-            ),
+            flow=flow,
+            wait=wait,
+            actor_ref=actor_ref,
+            event_source=event_source,
+            cancelled_at=cancelled_at,
         )
-        if not cleared:
-            raise _flow_control_conflict("an Attempt wait changed before task cancellation")
-        deleted_wait_id = await session.scalar(
-            delete(AttemptWaitModel)
-            .where(
-                AttemptWaitModel.wait_id == wait.wait_id,
-                AttemptWaitModel.task_id == wait.task_id,
-                AttemptWaitModel.flow_id == wait.flow_id,
-                AttemptWaitModel.assignment_id == wait.assignment_id,
-                AttemptWaitModel.attempt_id == wait.attempt_id,
-                AttemptWaitModel.source_dispatch_id == wait.source_dispatch_id,
-            )
-            .returning(AttemptWaitModel.wait_id)
+        return HumanRequestTerminal(request_id=request_id), None
+    if wait.command_run_id is not None:
+        signal = await _request_waiting_command_cancellation(
+            session,
+            flow=flow,
+            wait=wait,
+            actor_ref=actor_ref,
+            event_source=event_source,
         )
-        if deleted_wait_id is None:
-            raise _flow_control_conflict("an Attempt wait changed before task cancellation")
+        return None, signal
+    if wait.delegation_wave_id is not None:
+        await _cancel_waiting_delegation_wave(
+            session,
+            flow=flow,
+            wait=wait,
+            cancelled_at=cancelled_at,
+        )
+        return None, None
+    raise illegal_state_error("Attempt wait has no typed source")
+
+
+async def _clear_and_delete_attempt_wait(
+    session: AsyncSession,
+    wait: AttemptWaitModel,
+) -> None:
+    cleared = await clear_current_attempt_wait(
+        session,
+        identity=AttemptWaitIdentity(
+            task_id=wait.task_id,
+            flow_id=wait.flow_id,
+            assignment_id=wait.assignment_id,
+            attempt_id=wait.attempt_id,
+            wait_id=wait.wait_id,
+        ),
+    )
+    if not cleared:
+        raise _flow_control_conflict("an Attempt wait changed before task cancellation")
+    deleted_wait_id = await session.scalar(
+        delete(AttemptWaitModel)
+        .where(
+            AttemptWaitModel.wait_id == wait.wait_id,
+            AttemptWaitModel.task_id == wait.task_id,
+            AttemptWaitModel.flow_id == wait.flow_id,
+            AttemptWaitModel.assignment_id == wait.assignment_id,
+            AttemptWaitModel.attempt_id == wait.attempt_id,
+            AttemptWaitModel.source_dispatch_id == wait.source_dispatch_id,
+        )
+        .returning(AttemptWaitModel.wait_id)
+    )
+    if deleted_wait_id is None:
+        raise _flow_control_conflict("an Attempt wait changed before task cancellation")
+
+
+async def _ensure_no_attempt_waits_remain(
+    session: AsyncSession,
+    flow: FlowModel,
+) -> None:
     residual_wait_id = await session.scalar(
         select(AttemptWaitModel.wait_id)
         .where(
@@ -135,40 +241,44 @@ async def cancel_attempt_waits(
     )
     if residual_wait_id is not None:
         raise illegal_state_error("task cancellation did not settle every Attempt wait")
-    return CancellationSignals(
-        human=tuple(human_signals),
-        command=tuple(command_signals),
-    )
 
 
-async def cancel_execution_rows(
+async def _cancel_waiting_delegation_wave(
     session: AsyncSession,
     *,
     flow: FlowModel,
+    wait: AttemptWaitModel,
     cancelled_at: datetime,
 ) -> None:
-    await session.execute(
-        update(AttemptModel)
+    wave_id = wait.delegation_wave_id
+    if wave_id is None:
+        raise illegal_state_error("Attempt Delegation Wave wait source is missing")
+    cancelled = await session.scalar(
+        update(DelegationWaveModel)
         .where(
-            AttemptModel.flow_id == flow.flow_id,
-            AttemptModel.status.in_(("pending", "running")),
+            DelegationWaveModel.delegation_wave_id == wave_id,
+            DelegationWaveModel.task_id == flow.task_id,
+            DelegationWaveModel.flow_id == flow.flow_id,
+            DelegationWaveModel.parent_assignment_id == wait.assignment_id,
+            DelegationWaveModel.parent_attempt_id == wait.attempt_id,
+            DelegationWaveModel.source_dispatch_id == wait.source_dispatch_id,
+            DelegationWaveModel.status == "open",
+            DelegationWaveModel.successor_dispatch_id.is_(None),
         )
-        .values(
-            status="cancelled",
-            terminal_outcome=None,
-            current_dispatch_id=None,
-            current_wait_id=None,
-            closed_at=cancelled_at,
-        )
+        .values(status="cancelled", cancelled_at=cancelled_at)
+        .returning(DelegationWaveModel.delegation_wave_id)
     )
+    if cancelled is None:
+        raise _flow_control_conflict("the waiting Delegation Wave changed before task cancellation")
     await session.execute(
-        update(FlowNodeModel)
+        update(DelegationWaveMemberModel)
         .where(
-            FlowNodeModel.flow_id == flow.flow_id,
-            FlowNodeModel.flow_revision_id == flow.active_flow_revision_id,
-            FlowNodeModel.state.in_(("ready", "running", "waiting", "paused")),
+            DelegationWaveMemberModel.delegation_wave_id == wave_id,
+            DelegationWaveMemberModel.task_id == flow.task_id,
+            DelegationWaveMemberModel.flow_id == flow.flow_id,
+            DelegationWaveMemberModel.status == "pending",
         )
-        .values(state="cancelled")
+        .values(status="cancelled", cancelled_at=cancelled_at)
     )
 
 
@@ -226,6 +336,28 @@ async def _cancel_human_request(
     )
     if changed is None:
         raise _flow_control_conflict("the waiting human request changed before task cancellation")
+    await _append_human_request_cancelled_event(
+        session,
+        flow=flow,
+        wait=wait,
+        source=source,
+        actor_ref=actor_ref,
+        event_source=event_source,
+        cancelled_at=cancelled_at,
+    )
+    return request_id
+
+
+async def _append_human_request_cancelled_event(
+    session: AsyncSession,
+    *,
+    flow: FlowModel,
+    wait: AttemptWaitModel,
+    source: HumanRequestModel,
+    actor_ref: str | None,
+    event_source: TaskEventSource,
+    cancelled_at: datetime,
+) -> None:
     await append_task_event(
         session,
         task_id=flow.task_id,
@@ -236,7 +368,7 @@ async def _cancel_human_request(
         dispatch_id=wait.source_dispatch_id,
         actor_ref=actor_ref,
         payload={
-            "request_id": request_id,
+            "request_id": source.request_id,
             "kind": source.request_kind,
             "summary": source.request_summary,
             "source_dispatch_id": source.source_dispatch_id,
@@ -249,7 +381,6 @@ async def _cancel_human_request(
             "resolved_by_actor_ref": actor_ref,
         },
     )
-    return request_id
 
 
 async def _request_waiting_command_cancellation(

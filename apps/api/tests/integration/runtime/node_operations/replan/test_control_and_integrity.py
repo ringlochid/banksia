@@ -24,7 +24,7 @@ from banksia.runtime.post_commit.bootstrap import read_replan_continuation_page
 from banksia.runtime.replan.continuation import continue_committed_replan
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from tests.helpers.executor_harness import seeded_executor
+from tests.helpers.executor_harness import make_seed_child_terminal, seeded_executor
 
 
 async def test_pause_after_replan_resumes_the_exact_transition_once(
@@ -36,6 +36,8 @@ async def test_pause_after_replan_resumes_the_exact_transition_once(
         ids,
         _signals,
     ):
+        async with session_factory() as session:
+            await make_seed_child_terminal(session, ids)
         await executor.execute(
             scope=NodeOperationScope(
                 task_id=ids.task_id,
@@ -104,6 +106,8 @@ async def test_cancel_after_replan_settles_and_hides_the_transition_from_startup
         ids,
         _signals,
     ):
+        async with session_factory() as session:
+            await make_seed_child_terminal(session, ids)
         await executor.execute(
             scope=NodeOperationScope(
                 task_id=ids.task_id,

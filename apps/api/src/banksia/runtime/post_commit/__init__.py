@@ -21,12 +21,12 @@ from banksia.runtime.post_commit.router import (
     RuntimeEffectRouter,
 )
 from banksia.runtime.post_commit.signals import (
-    BoundaryAccepted,
     CommandProcessExited,
     CommandRunCancellationRequested,
     CommandRunDue,
     CommandRunPending,
     CommandRunTerminal,
+    DelegationWaveSettled,
     DispatchCleanupRequested,
     DispatchStartDue,
     FlowStartCommitted,
@@ -37,11 +37,11 @@ from banksia.runtime.post_commit.signals import (
     RuntimeEffectSignal,
     WatchdogDeadlineChanged,
     WatchdogDue,
+    WaveMemberSettled,
 )
 
 __all__ = [
     "AsyncSessionContextFactory",
-    "BoundaryAccepted",
     "CapturedRuntimeEffectPublisher",
     "CommandProcessExited",
     "CommandRunCancellationRequested",
@@ -51,6 +51,7 @@ __all__ = [
     "DeadlineDueSignal",
     "DeadlineDueSignalType",
     "DeadlineScheduler",
+    "DelegationWaveSettled",
     "DispatchCleanupRequested",
     "DispatchStartDue",
     "FlowStartCommitted",
@@ -68,4 +69,5 @@ __all__ = [
     "RuntimeEffectSignal",
     "WatchdogDeadlineChanged",
     "WatchdogDue",
+    "WaveMemberSettled",
 ]

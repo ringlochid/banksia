@@ -1,3 +1,8 @@
+from __future__ import annotations
+
+from importlib import import_module
+from typing import TYPE_CHECKING, Any
+
 from banksia.runtime.node_operations.activity import (
     NodeActivitySignal,
     NodeActivitySignalPublisher,
@@ -5,11 +10,13 @@ from banksia.runtime.node_operations.activity import (
 )
 from banksia.runtime.node_operations.catalog import (
     NODE_OPERATION_CATALOG,
+    NodeOperationSelection,
     get_node_operation_descriptor,
     list_node_operation_descriptors_for_kind,
+    select_node_operation_descriptors,
 )
 from banksia.runtime.node_operations.contracts import (
-    AssignChildRequest,
+    DelegateRequest,
     EmptyNodeOperationRequest,
     GetCurrentContextResponse,
     NodeOperationCapability,
@@ -19,15 +26,32 @@ from banksia.runtime.node_operations.contracts import (
     NodeOperationScope,
     NodeOperationTransferKind,
     OpenHumanRequestRequest,
-    ReturnBoundaryRequest,
     StartCommandRunRequest,
-    StructuralOperationRequest,
 )
-from banksia.runtime.node_operations.executor import NodeOperationExecutor
+
+if TYPE_CHECKING:
+    from banksia.runtime.node_operations.executor import NodeOperationExecutor
+
+_LAZY_EXPORTS = {
+    "NodeOperationExecutor": (
+        "banksia.runtime.node_operations.executor",
+        "NodeOperationExecutor",
+    ),
+}
+
+
+def __getattr__(name: str) -> Any:
+    module_name, attribute_name = _LAZY_EXPORTS.get(name, (None, None))
+    if module_name is None or attribute_name is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    value = getattr(import_module(module_name), attribute_name)
+    globals()[name] = value
+    return value
+
 
 __all__ = [
     "NODE_OPERATION_CATALOG",
-    "AssignChildRequest",
+    "DelegateRequest",
     "EmptyNodeOperationRequest",
     "GetCurrentContextResponse",
     "NodeActivitySignal",
@@ -38,12 +62,12 @@ __all__ = [
     "NodeOperationMutationKind",
     "NodeOperationName",
     "NodeOperationScope",
+    "NodeOperationSelection",
     "NodeOperationTransferKind",
     "OpenHumanRequestRequest",
-    "ReturnBoundaryRequest",
     "StartCommandRunRequest",
-    "StructuralOperationRequest",
     "create_watchdog_activity_publisher",
     "get_node_operation_descriptor",
     "list_node_operation_descriptors_for_kind",
+    "select_node_operation_descriptors",
 ]

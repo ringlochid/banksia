@@ -7,7 +7,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import raiseload
 
 from banksia.persistence.models import (
-    AssignmentDecisionModel,
     AssignmentModel,
     AttemptModel,
     FlowModel,
@@ -22,6 +21,7 @@ from banksia.runtime.contracts.operation_failure import OperationFailureCode
 from banksia.runtime.dispatch.authority import NodeOperationAuthority
 from banksia.runtime.errors import RuntimeOperationError
 from banksia.runtime.replan.planning import PlannedMember, ReplanMutation
+from banksia.runtime.team.currentness import current_team_selects_member
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,11 +43,25 @@ async def read_replan_context(
 
     task = await session.get(TaskModel, authority.task_id)
     flow = await session.get(FlowModel, authority.flow_id)
+    selection_is_current = await session.scalar(
+        select(
+            current_team_selects_member(
+                task_id=authority.task_id,
+                member_id=authority.dispatch.member_id,
+                member_configuration_id=authority.dispatch.member_configuration_id,
+                member_branch_basis_id=authority.dispatch.member_branch_basis_id,
+            )
+        )
+    )
     if (
         task is None
         or flow is None
-        or task.current_team_revision_id != authority.dispatch.team_revision_id
-        or flow.active_flow_revision_id != authority.flow_revision_id
+        or flow.task_id != authority.task_id
+        or flow.status != "running"
+        or flow.control_revision != authority.flow_control_revision
+        or task.current_team_revision_id is None
+        or flow.active_flow_revision_id is None
+        or not selection_is_current
     ):
         raise _conflict("current Team or Flow changed before replan admission")
     team_revision = await session.get(TeamRevisionModel, task.current_team_revision_id)
@@ -71,9 +85,6 @@ async def require_replan_admission(
 ) -> None:
     """Reject a replan that conflicts with staged transfer or affected active work."""
 
-    staged_decision = await session.scalar(
-        select(exists().where(AssignmentDecisionModel.source_dispatch_id == authority.dispatch_id))
-    )
     caller_wait = await session.scalar(
         select(
             exists().where(
@@ -85,8 +96,8 @@ async def require_replan_admission(
             )
         )
     )
-    if staged_decision or caller_wait:
-        raise _illegal_state("replan requires no staged handoff or current caller wait")
+    if caller_wait:
+        raise _illegal_state("replan requires no current caller wait")
     if not mutation.affected_existing_ids:
         return
     busy_statement = (

@@ -25,6 +25,7 @@ from banksia.runtime.team import (
     render_current_team_manifest,
     render_initial_team_manifest,
 )
+from banksia.runtime.team.currentness import dispatch_team_selection_is_current
 from banksia.runtime.workspace.storage import (
     WorkspaceIdentity,
     capture_workspace_identity,
@@ -407,7 +408,7 @@ async def _read_recovered_provider_start(
                 AttemptModel.status == "running",
                 AttemptModel.current_wait_id.is_(None),
                 FlowModel.status == "running",
-                FlowModel.active_flow_revision_id == DispatchTurnModel.flow_revision_id,
+                dispatch_team_selection_is_current(),
             )
         )
     ).one_or_none()

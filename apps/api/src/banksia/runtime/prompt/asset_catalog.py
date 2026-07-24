@@ -16,7 +16,7 @@ class InstructionAsset(StrEnum):
     WORKSPACE_AND_FILES = "shared/workspace-and-files"
     CHECKPOINT = "shared/checkpoint"
     TASK_LEAD = "positions/task-lead"
-    MANAGER_PRE_WAVE = "behaviors/manager-pre-wave"
+    MANAGER = "behaviors/manager"
     CONTRIBUTOR = "behaviors/contributor"
     HUMAN_REQUEST = "actions/human-request"
     COMMAND_RUN = "actions/command-run"
@@ -51,7 +51,7 @@ def instruction_assets_for_request(
     if member.position == "task_lead":
         selected.append(InstructionAsset.TASK_LEAD)
     selected.append(
-        InstructionAsset.MANAGER_PRE_WAVE
+        InstructionAsset.MANAGER
         if member.behavior is MemberBehavior.MANAGER
         else InstructionAsset.CONTRIBUTOR
     )

@@ -138,7 +138,7 @@ async def test_recursive_add_commits_complete_successors_and_closes_source(
         assert reviewer.availability == "available"
         assert response.behavior == "manager"
         assert response.effective_capabilities.command_run == "allow"
-        assert "assign_child" in response.available_actions
+        assert "delegate" in response.available_actions
         assert "start_command_run" in response.available_actions
         assert tuple(type(signal) for signal in effects.signals) == (
             ReplanCommitted,
@@ -383,7 +383,7 @@ async def test_remove_commits_successor_without_erasing_historical_rows(
         assert response.removed_ids == ("child",)
         assert response.direct_team == ()
         assert response.behavior == "contributor"
-        assert "assign_child" not in response.available_actions
+        assert "delegate" not in response.available_actions
         assert successor_members == 1
         assert successor_nodes == 1
         assert historical_child is not None

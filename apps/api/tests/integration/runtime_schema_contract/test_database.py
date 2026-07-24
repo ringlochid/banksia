@@ -56,7 +56,6 @@ def test_exact_source_and_owner_backstops_are_present() -> None:
     assert {
         "fk_accepted_boundaries_source_owner",
         "fk_accepted_boundaries_checkpoint_owner",
-        "fk_accepted_boundaries_decision_owner",
         "fk_accepted_boundaries_successor_owner",
     } <= _constraint_names("accepted_boundaries", ForeignKeyConstraint)
     assert {"fk_tasks_result_boundary"} <= _constraint_names(
@@ -71,18 +70,20 @@ def test_exact_source_and_owner_backstops_are_present() -> None:
         "fk_command_runs_source_owner",
         "fk_command_runs_successor_owner",
     } <= _constraint_names("command_runs", ForeignKeyConstraint)
-    assignment_decision_foreign_keys = _constraint_names(
-        "assignment_decisions",
-        ForeignKeyConstraint,
-    )
     assert {
-        "fk_assignment_decisions_source_owner",
-        "fk_assignment_decisions_flow_revision_owner",
-        "fk_assignment_decisions_child_authoring_source",
-        "fk_assignment_decisions_child_assignment_owner",
-        "fk_assignment_decisions_child_attempt_owner",
-    } <= assignment_decision_foreign_keys
-    assert "fk_assignment_decisions_source_revision_owner" not in (assignment_decision_foreign_keys)
+        "fk_delegation_waves_source_owner",
+        "fk_delegation_waves_parent_attempt_owner",
+        "fk_delegation_waves_exact_successor_lineage",
+    } <= _constraint_names("delegation_waves", ForeignKeyConstraint)
+    assert {
+        "fk_delegation_wave_members_wave_owner",
+        "fk_delegation_wave_members_child_source",
+        "fk_delegation_wave_members_child_owner",
+        "fk_delegation_wave_members_child_member",
+        "fk_delegation_wave_members_child_node",
+        "fk_delegation_wave_members_direct_child",
+        "fk_delegation_wave_members_terminal_boundary_owner",
+    } <= _constraint_names("delegation_wave_members", ForeignKeyConstraint)
 
 
 def test_task_event_chronology_constraints_are_present() -> None:

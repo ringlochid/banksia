@@ -177,7 +177,6 @@ async def get_control_trace(
         return await operator_trace(
             session,
             task_id,
-            scope=query.scope,
             q=query.q,
             cursor=query.cursor,
             limit=query.limit,

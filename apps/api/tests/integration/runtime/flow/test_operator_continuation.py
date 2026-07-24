@@ -7,12 +7,15 @@ from xml.etree import ElementTree
 import pytest
 from banksia.config import CodexSettings, RuntimeSettings, Settings
 from banksia.persistence.models import (
+    AssignmentModel,
     AttemptModel,
     DispatchRequestModel,
     DispatchTurnModel,
     FlowModel,
+    FlowNodeModel,
     FlowStartSourceModel,
     HumanRequestModel,
+    TaskEventModel,
 )
 from banksia.providers import ProviderKind
 from banksia.runtime.clock import utc_now
@@ -21,11 +24,13 @@ from banksia.runtime.contracts.operation_failure import OperationFailureCode
 from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
 from banksia.runtime.errors import RuntimeOperationError
 from banksia.runtime.flow.continuation import continue_paused_flow
+from banksia.runtime.flow.control import pause_flow
 from banksia.runtime.human_request.service import resolve_human_request
 from banksia.runtime.launch.persistence.runtime import persist_bootstrap_runtime_from_precomputed
 from banksia.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
 from banksia.runtime.post_commit import (
     CapturedRuntimeEffectPublisher,
+    DispatchStartDue,
     RuntimeEffectPublisher,
     RuntimeEffectSignal,
 )
@@ -63,6 +68,7 @@ async def test_continue_resumes_one_closed_lineage_tail_and_rejects_duplicate(
         ids,
         _,
     ):
+        await _complete_seed_child(session_factory, ids)
         expected_control_revision = await _pause_current_dispatch(session_factory, ids)
         async with session_factory() as session:
             result = await continue_paused_flow(
@@ -82,15 +88,16 @@ async def test_continue_resumes_one_closed_lineage_tail_and_rejects_duplicate(
                 )
             flow = await session.get(FlowModel, ids.flow_id)
             attempt = await session.get(AttemptModel, ids.root_attempt_id)
-            successor = await session.get(DispatchTurnModel, result.dispatch_id)
-            dispatch_request = await session.get(DispatchRequestModel, result.dispatch_id)
+            dispatch_id = result.dispatch_ids[0]
+            successor = await session.get(DispatchTurnModel, dispatch_id)
+            dispatch_request = await session.get(DispatchRequestModel, dispatch_id)
             dispatch_count = await session.scalar(
                 select(func.count()).select_from(DispatchTurnModel)
             )
 
-    assert result.outcome == "opened"
+    assert result.outcome == "resumed"
     assert flow is not None and flow.status == "running"
-    assert attempt is not None and attempt.current_dispatch_id == result.dispatch_id
+    assert attempt is not None and attempt.current_dispatch_id == dispatch_id
     assert flow.control_revision == expected_control_revision + 1
     assert flow.pause_reason is None
     assert successor is not None and successor.opened_reason == "operator_continue"
@@ -105,6 +112,80 @@ async def test_continue_resumes_one_closed_lineage_tail_and_rejects_duplicate(
     assert dispatch_count == 4
 
 
+async def test_continue_resumes_every_paused_attempt_lane_in_one_commit(
+    tmp_path: Path,
+) -> None:
+    async with seeded_executor(tmp_path, suffix="operator-multi-lane") as (
+        _,
+        session_factory,
+        ids,
+        _,
+    ):
+        async with session_factory() as session:
+            child_attempt = await session.get(AttemptModel, ids.child_attempt_id)
+            child_dispatch = await session.get(DispatchTurnModel, ids.child_dispatch_id)
+            flow = await session.get(FlowModel, ids.flow_id)
+            assert child_attempt is not None
+            assert child_dispatch is not None
+            assert flow is not None
+            child_attempt.current_dispatch_id = child_dispatch.dispatch_id
+            child_dispatch.status = "open"
+            child_dispatch.closed_at = None
+            child_dispatch.closed_reason = None
+            await session.flush()
+            paused = await pause_flow(
+                cast(AsyncSession, session),
+                ids.task_id,
+                expected_active_flow_revision_id=ids.flow_revision_id,
+                expected_control_revision=flow.control_revision,
+            )
+
+        publisher = CapturedRuntimeEffectPublisher()
+        async with session_factory() as session:
+            result = await continue_paused_flow(
+                cast(AsyncSession, session),
+                task_id=ids.task_id,
+                expected_active_flow_revision_id=ids.flow_revision_id,
+                expected_control_revision=paused.flow.control_revision,
+                dependencies=_opening_dependencies(publisher),
+            )
+            resumed_flow = await session.get(FlowModel, ids.flow_id)
+            root_attempt = await session.get(AttemptModel, ids.root_attempt_id)
+            child_attempt = await session.get(AttemptModel, ids.child_attempt_id)
+            successors = tuple(
+                await session.scalars(
+                    select(DispatchTurnModel)
+                    .where(DispatchTurnModel.dispatch_id.in_(result.dispatch_ids))
+                    .order_by(DispatchTurnModel.assignment_id)
+                )
+            )
+            resumed_event_count = await session.scalar(
+                select(func.count())
+                .select_from(TaskEventModel)
+                .where(TaskEventModel.event_type == "task_resumed")
+            )
+
+    assert result.outcome == "resumed"
+    assert len(result.dispatch_ids) == 2
+    assert resumed_flow is not None and resumed_flow.status == "running"
+    assert resumed_flow.control_revision == paused.flow.control_revision + 1
+    assert root_attempt is not None
+    assert child_attempt is not None
+    assert {
+        root_attempt.current_dispatch_id,
+        child_attempt.current_dispatch_id,
+    } == set(result.dispatch_ids)
+    assert {
+        (dispatch.assignment_id, dispatch.predecessor_dispatch_id) for dispatch in successors
+    } == {
+        (ids.root_assignment_id, ids.current_dispatch_id),
+        (ids.child_assignment_id, ids.child_dispatch_id),
+    }
+    assert resumed_event_count == 1
+    assert len(publisher.signals) == 2
+    assert all(isinstance(signal, DispatchStartDue) for signal in publisher.signals)
+
+
 async def test_continue_consumes_terminal_human_source_retained_while_paused(
     tmp_path: Path,
 ) -> None:
@@ -114,6 +195,7 @@ async def test_continue_consumes_terminal_human_source_retained_while_paused(
         ids,
         _,
     ):
+        await _complete_seed_child(session_factory, ids)
         workspace = tmp_path / "task-operator-human" / "workspace"
         (workspace / "decision.md").write_text("Decision context.", encoding="utf-8")
         (workspace / "constraints.md").write_text("Decision constraints.", encoding="utf-8")
@@ -146,13 +228,14 @@ async def test_continue_consumes_terminal_human_source_retained_while_paused(
                 expected_control_revision=expected_control_revision,
                 dependencies=_opening_dependencies(CapturedRuntimeEffectPublisher()),
             )
+            dispatch_id = result.dispatch_ids[0]
             source = await session.get(HumanRequestModel, request_id)
-            successor = await session.get(DispatchTurnModel, result.dispatch_id)
-            dispatch_request = await session.get(DispatchRequestModel, result.dispatch_id)
+            successor = await session.get(DispatchTurnModel, dispatch_id)
+            dispatch_request = await session.get(DispatchRequestModel, dispatch_id)
 
-    assert result.outcome == "opened"
-    assert source is not None and source.successor_dispatch_id == result.dispatch_id
-    assert successor is not None and successor.opened_reason == "operator_continue"
+    assert result.outcome == "resumed"
+    assert source is not None and source.successor_dispatch_id == dispatch_id
+    assert successor is not None and successor.opened_reason == "human_result"
     assert successor.assignment_id == ids.root_assignment_id
     assert successor.attempt_id == ids.root_attempt_id
     assert dispatch_request is not None
@@ -167,6 +250,66 @@ async def test_continue_consumes_terminal_human_source_retained_while_paused(
     ]
 
 
+async def test_continue_leaves_unresolved_waiting_lane_and_resumes_ready_sibling(
+    tmp_path: Path,
+) -> None:
+    async with seeded_executor(tmp_path, suffix="operator-wait-and-ready") as (
+        executor,
+        session_factory,
+        ids,
+        _,
+    ):
+        workspace = tmp_path / "task-operator-wait-and-ready" / "workspace"
+        (workspace / "decision.md").write_text("Decision context.", encoding="utf-8")
+        (workspace / "constraints.md").write_text("Decision constraints.", encoding="utf-8")
+        request_id = await _open_human_request(executor, ids)
+        async with session_factory() as session:
+            child_attempt = await session.get(AttemptModel, ids.child_attempt_id)
+            child_dispatch = await session.get(DispatchTurnModel, ids.child_dispatch_id)
+            flow = await session.get(FlowModel, ids.flow_id)
+            assert child_attempt is not None
+            assert child_dispatch is not None
+            assert flow is not None
+            child_attempt.current_dispatch_id = child_dispatch.dispatch_id
+            child_dispatch.status = "open"
+            child_dispatch.closed_at = None
+            child_dispatch.closed_reason = None
+            await session.flush()
+            paused = await pause_flow(
+                cast(AsyncSession, session),
+                ids.task_id,
+                expected_active_flow_revision_id=ids.flow_revision_id,
+                expected_control_revision=flow.control_revision,
+            )
+
+        publisher = CapturedRuntimeEffectPublisher()
+        async with session_factory() as session:
+            result = await continue_paused_flow(
+                cast(AsyncSession, session),
+                task_id=ids.task_id,
+                expected_active_flow_revision_id=ids.flow_revision_id,
+                expected_control_revision=paused.flow.control_revision,
+                dependencies=_opening_dependencies(publisher),
+            )
+            resumed_flow = await session.get(FlowModel, ids.flow_id)
+            root_attempt = await session.get(AttemptModel, ids.root_attempt_id)
+            child_attempt = await session.get(AttemptModel, ids.child_attempt_id)
+            request = await session.get(HumanRequestModel, request_id)
+
+    assert result.outcome == "resumed"
+    assert len(result.dispatch_ids) == 1
+    assert resumed_flow is not None and resumed_flow.status == "running"
+    assert root_attempt is not None and root_attempt.current_wait_id is not None
+    assert root_attempt.current_dispatch_id is None
+    assert child_attempt is not None
+    assert child_attempt.current_dispatch_id == result.dispatch_ids[0]
+    assert request is not None and request.status == "open"
+    assert len(publisher.signals) == 1
+    signal = publisher.signals[0]
+    assert isinstance(signal, DispatchStartDue)
+    assert signal.dispatch_id == result.dispatch_ids[0]
+
+
 async def test_continue_preparation_failure_preserves_existing_pause(tmp_path: Path) -> None:
     async with seeded_executor(tmp_path, suffix="operator-preparation-failure") as (
         _,
@@ -174,6 +317,7 @@ async def test_continue_preparation_failure_preserves_existing_pause(tmp_path: P
         ids,
         _,
     ):
+        await _complete_seed_child(session_factory, ids)
         expected_control_revision = await _pause_current_dispatch(session_factory, ids)
         async with session_factory() as session:
             with pytest.raises(RuntimeOperationError) as error:
@@ -238,8 +382,9 @@ async def test_pre_root_continue_consumes_flow_start_without_synthetic_predecess
                 dependencies=_opening_dependencies(publisher),
             )
             source = await session.scalar(select(FlowStartSourceModel))
-            successor = await session.get(DispatchTurnModel, result.dispatch_id)
-            dispatch_request = await session.get(DispatchRequestModel, result.dispatch_id)
+            dispatch_id = result.dispatch_ids[0]
+            successor = await session.get(DispatchTurnModel, dispatch_id)
+            dispatch_request = await session.get(DispatchRequestModel, dispatch_id)
             resumed_flow = await session.scalar(
                 select(FlowModel)
                 .where(FlowModel.flow_id == flow.flow_id)
@@ -251,8 +396,8 @@ async def test_pre_root_continue_consumes_flow_start_without_synthetic_predecess
     finally:
         engine.dispose()
 
-    assert result.outcome == "opened"
-    assert source is not None and source.successor_dispatch_id == result.dispatch_id
+    assert result.outcome == "resumed"
+    assert source is not None and source.successor_dispatch_id == dispatch_id
     assert successor is not None
     assert successor.opened_reason == "operator_continue"
     assert successor.predecessor_dispatch_id is None
@@ -260,7 +405,7 @@ async def test_pre_root_continue_consumes_flow_start_without_synthetic_predecess
     assert resumed_flow is not None
     assert resumed_flow.status == "running"
     assert resumed_attempt is not None
-    assert resumed_attempt.current_dispatch_id == result.dispatch_id
+    assert resumed_attempt.current_dispatch_id == dispatch_id
     assert resumed_flow.control_revision == expected_control_revision + 1
     assert dispatch_request is not None
     request_root = ElementTree.fromstring(dispatch_request.input)
@@ -293,6 +438,27 @@ async def _pause_current_dispatch(
         flow.control_revision += 1
         await session.commit()
         return cast(int, flow.control_revision)
+
+
+async def _complete_seed_child(
+    session_factory: SessionFactory,
+    ids: RuntimeIds,
+) -> None:
+    async with session_factory() as session:
+        assignment = await session.get(AssignmentModel, ids.child_assignment_id)
+        attempt = await session.get(AttemptModel, ids.child_attempt_id)
+        node = await session.get(FlowNodeModel, ids.child_node_id)
+        assert assignment is not None
+        assert attempt is not None
+        assert node is not None
+        completed_at = utc_now()
+        assignment.terminal_outcome = "blocked"
+        assignment.closed_at = completed_at
+        attempt.status = "completed"
+        attempt.terminal_outcome = "blocked"
+        attempt.closed_at = completed_at
+        node.state = "failed"
+        await session.commit()
 
 
 async def _pause_waiting_flow(session_factory: SessionFactory, ids: RuntimeIds) -> None:

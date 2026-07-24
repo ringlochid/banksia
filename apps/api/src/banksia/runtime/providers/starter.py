@@ -28,6 +28,7 @@ from banksia.runtime.node_operations import NodeOperationExecutor
 from banksia.runtime.post_commit import (
     AsyncSessionContextFactory,
     DeadlineScheduler,
+    DispatchCleanupRequested,
     DispatchStartDue,
     RuntimeEffectPublisher,
     WatchdogDeadlineChanged,
@@ -170,7 +171,7 @@ class DispatchStarter:
             return None
 
         if candidate.provider_kind is None:
-            await pause_invalid_provider_start(
+            await self._pause_invalid_provider_start(
                 session,
                 signal=signal,
                 candidate=candidate,
@@ -181,7 +182,7 @@ class DispatchStarter:
         try:
             adapter = self._adapters.get(candidate.provider_kind)
         except LookupError:
-            await pause_invalid_provider_start(
+            await self._pause_invalid_provider_start(
                 session,
                 signal=signal,
                 candidate=candidate,
@@ -209,7 +210,7 @@ class DispatchStarter:
             ValueError,
         ) as exc:
             await session.rollback()
-            await pause_invalid_provider_start(
+            await self._pause_invalid_provider_start(
                 session,
                 signal=signal,
                 candidate=candidate,
@@ -217,6 +218,31 @@ class DispatchStarter:
                 failure_code=_controller_failure_code(exc),
             )
             return None
+
+    async def _pause_invalid_provider_start(
+        self,
+        session: AsyncSession,
+        *,
+        signal: DispatchStartDue,
+        candidate: ProviderStartCandidate,
+        failed_at: datetime,
+        failure_code: str,
+    ) -> None:
+        closed_sibling_dispatch_ids = await pause_invalid_provider_start(
+            session,
+            signal=signal,
+            candidate=candidate,
+            failed_at=failed_at,
+            failure_code=failure_code,
+        )
+        for dispatch_id in closed_sibling_dispatch_ids:
+            try:
+                self._runtime_effect_publisher.publish(DispatchCleanupRequested(dispatch_id))
+            except Exception:
+                logger.exception(
+                    "post-commit sibling cleanup publication failed",
+                    extra={"dispatch_id": dispatch_id},
+                )
 
     async def _invoke_provider_start(
         self,

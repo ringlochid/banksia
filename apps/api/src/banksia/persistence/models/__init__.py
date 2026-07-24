@@ -6,7 +6,6 @@ from banksia.persistence.models.registry import (
 )
 from banksia.persistence.models.runtime import (
     AcceptedBoundaryModel,
-    AssignmentDecisionModel,
     AssignmentFileReferenceModel,
     AssignmentModel,
     AssignmentWorkPlanModel,
@@ -18,6 +17,8 @@ from banksia.persistence.models.runtime import (
     CommandRunModel,
     CompiledPlanModel,
     CompiledPlanNodeModel,
+    DelegationWaveMemberModel,
+    DelegationWaveModel,
     DispatchCapabilitySetModel,
     DispatchRequestModel,
     DispatchTurnModel,
@@ -43,7 +44,6 @@ from banksia.persistence.models.runtime import (
 
 __all__ = [
     "AcceptedBoundaryModel",
-    "AssignmentDecisionModel",
     "AssignmentFileReferenceModel",
     "AssignmentModel",
     "AssignmentWorkPlanModel",
@@ -55,6 +55,8 @@ __all__ = [
     "CommandRunModel",
     "CompiledPlanModel",
     "CompiledPlanNodeModel",
+    "DelegationWaveMemberModel",
+    "DelegationWaveModel",
     "DispatchCapabilitySetModel",
     "DispatchRequestModel",
     "DispatchTurnModel",

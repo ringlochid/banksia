@@ -9,7 +9,7 @@ from banksia.runtime.post_commit.health import (
     RuntimeEffectHealth,
 )
 from banksia.runtime.post_commit.router import RuntimeEffectRouter
-from banksia.runtime.post_commit.signals import BoundaryAccepted, FlowStartCommitted
+from banksia.runtime.post_commit.signals import DelegationWaveSettled, FlowStartCommitted
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -121,7 +121,7 @@ async def test_router_rejects_unregistered_and_full_queue_visibly() -> None:
     router.register(FlowStartCommitted, handle_flow_start)
 
     async with router:
-        assert router.publish(BoundaryAccepted("dispatch.unregistered")) is False
+        assert router.publish(DelegationWaveSettled("wave.unregistered")) is False
         assert router.publish(FlowStartCommitted("flow.queued")) is True
         assert router.publish(FlowStartCommitted("flow.rejected")) is False
 

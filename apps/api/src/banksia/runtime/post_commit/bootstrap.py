@@ -7,8 +7,8 @@ from dataclasses import dataclass
 from sqlalchemy import exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import banksia.runtime.post_commit.delegation_wave_startup as delegation_wave_startup
 from banksia.persistence.models import (
-    AcceptedBoundaryModel,
     AssignmentModel,
     AttemptModel,
     AttemptWaitModel,
@@ -22,7 +22,6 @@ from banksia.persistence.models import (
 from banksia.persistence.models.runtime.common import COMMAND_RUN_TERMINAL_STATE_VALUES
 from banksia.runtime.contracts import CommandRunState
 from banksia.runtime.post_commit.signals import (
-    BoundaryAccepted,
     CommandRunCancellationRequested,
     CommandRunPending,
     CommandRunTerminal,
@@ -40,6 +39,7 @@ from banksia.runtime.startup_audit import (
     StartupAuditRoutingError,
     audit_startup_source_family,
 )
+from banksia.runtime.team.currentness import dispatch_team_selection_is_current
 from banksia.runtime.watchdog.deadline import calculate_watchdog_due_at
 
 type AsyncSessionContextFactory = Callable[[], AbstractAsyncContextManager[AsyncSession]]
@@ -151,34 +151,6 @@ async def read_flow_start_page(
         source_ids,
         page_size=page_size,
         build_signal=FlowStartCommitted,
-    )
-
-
-async def read_boundary_continuation_page(
-    session_factory: AsyncSessionContextFactory,
-    cursor: str | None,
-    page_size: int,
-) -> StartupAuditPage[RuntimeEffectSignal, str]:
-    """Read accepted boundaries that still have no committed successor."""
-
-    async with session_factory() as session:
-        statement = (
-            select(AcceptedBoundaryModel.source_dispatch_id)
-            .join(FlowModel, FlowModel.flow_id == AcceptedBoundaryModel.flow_id)
-            .where(
-                AcceptedBoundaryModel.successor_dispatch_id.is_(None),
-                FlowModel.status == "running",
-            )
-            .order_by(AcceptedBoundaryModel.source_dispatch_id)
-            .limit(page_size)
-        )
-        if cursor is not None:
-            statement = statement.where(AcceptedBoundaryModel.source_dispatch_id > cursor)
-        source_ids = tuple((await session.scalars(statement)).all())
-    return _runtime_signal_page(
-        source_ids,
-        page_size=page_size,
-        build_signal=BoundaryAccepted,
     )
 
 
@@ -415,7 +387,7 @@ async def read_dispatch_start_page(
                 AttemptModel.status == "running",
                 AttemptModel.current_wait_id.is_(None),
                 FlowModel.status == "running",
-                FlowModel.active_flow_revision_id == DispatchTurnModel.flow_revision_id,
+                dispatch_team_selection_is_current(),
             )
             .order_by(DispatchTurnModel.dispatch_id)
             .limit(page_size)
@@ -467,6 +439,7 @@ async def read_watchdog_deadline_page(
                 AttemptModel.status == "running",
                 AttemptModel.current_wait_id.is_(None),
                 FlowModel.status == "running",
+                dispatch_team_selection_is_current(),
                 ~exists().where(
                     HumanRequestModel.source_dispatch_id == DispatchTurnModel.dispatch_id
                 ),
@@ -529,8 +502,20 @@ def _continuation_runtime_families(
             lambda cursor, size: read_flow_start_page(session_factory, cursor, size),
         ),
         (
-            "accepted_boundary",
-            lambda cursor, size: read_boundary_continuation_page(session_factory, cursor, size),
+            "complete_delegation_wave",
+            lambda cursor, size: delegation_wave_startup.read_wave_settlement_page(
+                session_factory,
+                cursor,
+                size,
+            ),
+        ),
+        (
+            "settled_delegation_wave",
+            lambda cursor, size: delegation_wave_startup.read_wave_continuation_page(
+                session_factory,
+                cursor,
+                size,
+            ),
         ),
         (
             "committed_replan",
@@ -656,7 +641,6 @@ def _runtime_signal_page(
 __all__ = [
     "StartupRuntimeFamilyResult",
     "audit_startup_runtime_effects",
-    "read_boundary_continuation_page",
     "read_command_cancellation_page",
     "read_command_continuation_page",
     "read_command_pending_page",

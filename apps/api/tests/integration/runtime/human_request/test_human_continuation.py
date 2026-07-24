@@ -18,12 +18,12 @@ from banksia.persistence.models import (
 from banksia.providers import ProviderKind
 from banksia.runtime.contracts import HumanRequestResolveRequest
 from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
-from banksia.runtime.flow.service import runtime_flow_read
 from banksia.runtime.human_request.continuation import open_human_request_successor
 from banksia.runtime.human_request.service import list_human_requests, resolve_human_request
 from banksia.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
 from banksia.runtime.post_commit import (
     CapturedRuntimeEffectPublisher,
+    DispatchCleanupRequested,
     DispatchStartDue,
     HumanRequestTerminal,
     RuntimeEffectPublisher,
@@ -66,7 +66,6 @@ async def test_terminal_human_source_opens_one_same_attempt_successor(
         dependencies = _opening_dependencies(publisher=publisher)
 
         async with session_factory() as session:
-            pre_open = await runtime_flow_read(cast(AsyncSession, session), ids.task_id)
             unrelated_request_id = await _stage_unrelated_child_wait(
                 cast(AsyncSession, session),
                 ids,
@@ -104,10 +103,6 @@ async def test_terminal_human_source_opens_one_same_attempt_successor(
             )
 
     assert first.outcome == "opened"
-    assert pre_open.current_human_request is not None
-    assert pre_open.current_human_request.request_id == request_id
-    assert pre_open.current_human_request.status.value == "resolved"
-    assert pre_open.current_dispatch is None
     assert duplicate.outcome == "skipped"
     assert first.dispatch_id is not None
     assert source is not None and source.successor_dispatch_id == first.dispatch_id
@@ -176,6 +171,16 @@ async def test_human_preparation_failure_pauses_without_consuming_source(
         _,
     ):
         request_id = await _open_and_resolve_human_request(executor, session_factory, ids)
+        async with session_factory() as session:
+            child_attempt = await session.get(AttemptModel, ids.child_attempt_id)
+            child_dispatch = await session.get(DispatchTurnModel, ids.child_dispatch_id)
+            assert child_attempt is not None
+            assert child_dispatch is not None
+            child_attempt.current_dispatch_id = child_dispatch.dispatch_id
+            child_dispatch.status = "open"
+            child_dispatch.closed_at = None
+            child_dispatch.closed_reason = None
+            await session.commit()
 
         def fail_preparation(**_kwargs: object) -> None:
             raise ValueError("request preparation failed")
@@ -186,10 +191,11 @@ async def test_human_preparation_failure_pauses_without_consuming_source(
             fail_preparation,
         )
 
+        publisher = CapturedRuntimeEffectPublisher()
         dependencies = DispatchOpeningDependencies.create(
             settings=_provider_settings(),
             available_adapter_kinds={ProviderKind.CODEX},
-            post_commit_publisher=CapturedRuntimeEffectPublisher(),
+            post_commit_publisher=publisher,
         )
         async with session_factory() as session:
             result = await open_human_request_successor(
@@ -199,7 +205,8 @@ async def test_human_preparation_failure_pauses_without_consuming_source(
             )
             source = await session.get(HumanRequestModel, request_id)
             flow = await session.get(FlowModel, ids.flow_id)
-            readback = await runtime_flow_read(cast(AsyncSession, session), ids.task_id)
+            child_attempt = await session.get(AttemptModel, ids.child_attempt_id)
+            child_dispatch = await session.get(DispatchTurnModel, ids.child_dispatch_id)
             dispatch_count = await session.scalar(
                 select(func.count()).select_from(DispatchTurnModel)
             )
@@ -208,10 +215,11 @@ async def test_human_preparation_failure_pauses_without_consuming_source(
     assert source is not None and source.successor_dispatch_id is None
     assert flow is not None and flow.status == "paused"
     assert flow.pause_reason == "runtime_transition_failed"
-    assert readback.current_human_request is not None
-    assert readback.current_human_request.request_id == request_id
-    assert readback.current_human_request.status.value == "resolved"
+    assert child_attempt is not None and child_attempt.current_dispatch_id is None
+    assert child_dispatch is not None and child_dispatch.status == "closed"
+    assert child_dispatch.closed_reason == "paused"
     assert dispatch_count == 3
+    assert publisher.signals == (DispatchCleanupRequested(dispatch_id=ids.child_dispatch_id),)
 
 
 async def test_human_source_change_during_preparation_loses_cleanly(

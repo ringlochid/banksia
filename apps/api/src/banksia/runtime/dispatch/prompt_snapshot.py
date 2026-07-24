@@ -6,9 +6,8 @@ from pathlib import Path
 from banksia.runtime.contracts.capabilities import EffectiveCapabilitySet
 from banksia.runtime.contracts.primitives import TaskRootPaths
 from banksia.runtime.contracts.prompt import (
-    AcceptedBoundaryTrigger,
-    ChildReturnTrigger,
     CommandResultTrigger,
+    DelegationWaveSettledTrigger,
     DispatchRequestRenderInput,
     HumanResultTrigger,
     OperatorContinueTrigger,
@@ -36,9 +35,9 @@ from banksia.runtime.team.reads import (
 )
 from banksia.runtime.work_plan import WorkPlanRead, work_plan_view
 
-type BoundaryPromptTrigger = AcceptedBoundaryTrigger | ChildReturnTrigger | SemanticRetryTrigger
 type OrdinaryPromptTrigger = (
-    HumanResultTrigger
+    DelegationWaveSettledTrigger
+    | HumanResultTrigger
     | CommandResultTrigger
     | WatchdogRecoveryTrigger
     | OperatorContinueTrigger
@@ -77,10 +76,10 @@ class RootPromptSnapshot:
 
 
 @dataclass(frozen=True, slots=True)
-class BoundaryPromptSnapshot(RootPromptSnapshot):
+class SemanticRetryPromptSnapshot(RootPromptSnapshot):
     node_kind: str
     parent_assignment_id: str | None
-    trigger: BoundaryPromptTrigger
+    trigger: SemanticRetryTrigger
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,7 +90,7 @@ class OrdinaryPromptSnapshot(RootPromptSnapshot):
     trigger: OrdinaryPromptTrigger
 
 
-type ContinuationPromptSnapshot = BoundaryPromptSnapshot | OrdinaryPromptSnapshot
+type ContinuationPromptSnapshot = SemanticRetryPromptSnapshot | OrdinaryPromptSnapshot
 
 
 def build_root_dispatch_request(
@@ -102,8 +101,16 @@ def build_root_dispatch_request(
     return _build_dispatch_request(snapshot, trigger=trigger, is_task_lead=True)
 
 
-def build_boundary_dispatch_request(
-    snapshot: BoundaryPromptSnapshot,
+def build_delegated_child_dispatch_request(
+    snapshot: RootPromptSnapshot,
+) -> DispatchRequestRenderInput:
+    """Build one initial non-Task-lead child request without a Continuation."""
+
+    return _build_dispatch_request(snapshot, trigger=None, is_task_lead=False)
+
+
+def build_semantic_retry_dispatch_request(
+    snapshot: SemanticRetryPromptSnapshot,
 ) -> DispatchRequestRenderInput:
     return _build_dispatch_request(
         snapshot,
@@ -142,13 +149,14 @@ def workspace_projection(
 def _build_dispatch_request(
     snapshot: RootPromptSnapshot,
     *,
-    trigger: BoundaryPromptTrigger | OrdinaryPromptTrigger | RootPromptTrigger | None,
+    trigger: SemanticRetryTrigger | OrdinaryPromptTrigger | RootPromptTrigger | None,
     is_task_lead: bool,
 ) -> DispatchRequestRenderInput:
     capabilities = effective_capabilities_read(snapshot.capabilities)
     available_actions = available_member_actions(
         direct_team=snapshot.direct_team,
         capabilities=capabilities,
+        is_task_lead=is_task_lead,
     )
     return DispatchRequestRenderInput(
         dynamic_input=PromptDynamicInput(
@@ -197,15 +205,15 @@ def _relative_workspace_path(path: Path, workspace: Path) -> str:
 
 
 __all__ = [
-    "BoundaryPromptSnapshot",
-    "BoundaryPromptTrigger",
     "ContinuationPromptSnapshot",
     "OrdinaryPromptSnapshot",
     "OrdinaryPromptTrigger",
     "RootPromptSnapshot",
     "RootPromptTrigger",
-    "build_boundary_dispatch_request",
+    "SemanticRetryPromptSnapshot",
+    "build_delegated_child_dispatch_request",
     "build_ordinary_dispatch_request",
     "build_root_dispatch_request",
+    "build_semantic_retry_dispatch_request",
     "workspace_projection",
 ]

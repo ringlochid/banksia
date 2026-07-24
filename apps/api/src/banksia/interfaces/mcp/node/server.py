@@ -34,6 +34,7 @@ from banksia.runtime.node_operations import (
     NodeOperationMutationKind,
     NodeOperationScope,
 )
+from banksia.runtime.node_operations.catalog import select_node_operation_descriptors
 
 from .http_admission import ManagedNodeMcpHttpAdmission, current_managed_binding
 from .schema_projection import (
@@ -43,7 +44,7 @@ from .schema_projection import (
 )
 
 NODE_TOOL_NAMES: tuple[str, ...] = tuple(
-    str(descriptor.name) for descriptor in NODE_OPERATION_CATALOG
+    str(descriptor.name) for descriptor in select_node_operation_descriptors()
 )
 
 
@@ -148,7 +149,7 @@ class _NodeMcpProjection:
 
     async def _listed_descriptors(self) -> tuple[NodeOperationDescriptor, ...]:
         if self._kind is NodeMcpProjectionKind.COMPATIBILITY:
-            return NODE_OPERATION_CATALOG
+            return select_node_operation_descriptors()
 
         binding = current_managed_binding()
         if self._binding_registry is None or not self._binding_registry.is_active(binding):

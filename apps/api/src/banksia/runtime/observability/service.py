@@ -21,7 +21,6 @@ from banksia.runtime.contracts import (
     CheckpointHistoryEntry,
     CheckpointOutcome,
     DispatchHistoryEntry,
-    EgressBoundary,
     FileReference,
     OperatorFlowSnapshotResponse,
     OperatorFlowTraceResponse,
@@ -29,9 +28,14 @@ from banksia.runtime.contracts import (
     TaskGraphNodeEntry,
     TopActionableItem,
 )
+from banksia.runtime.contracts.capabilities import (
+    EffectiveNetworkAccess,
+    EffectiveProviderNativeAccess,
+)
+from banksia.runtime.contracts.flow import EffectiveCapabilityReadback
 from banksia.runtime.contracts.member import NodeKind
 from banksia.runtime.errors import invalid_request_shape_error
-from banksia.runtime.flow.reads import effective_capability_readback, read_runtime_flow
+from banksia.runtime.flow.reads import read_runtime_flow
 from banksia.runtime.task_events import latest_task_event
 
 
@@ -54,13 +58,12 @@ async def operator_trace(
     session: AsyncSession,
     task_id: str,
     *,
-    scope: str = "current",
     q: str | None = None,
     cursor: str | None = None,
     limit: int = 50,
     sort: str = "occurred_at_desc",
 ) -> OperatorFlowTraceResponse:
-    _validate_trace_query(scope=scope, limit=limit, sort=sort)
+    _validate_trace_query(limit=limit, sort=sort)
     offset = _parse_cursor(cursor)
     flow = await read_runtime_flow(session, task_id)
     flow_row = await session.scalar(
@@ -76,7 +79,6 @@ async def operator_trace(
     dispatches = await _read_dispatch_page(
         session,
         task_id=task_id,
-        attempt_id=flow.active_attempt_id if scope == "current" else None,
         q=q,
         offset=offset,
         limit=limit,
@@ -86,17 +88,14 @@ async def operator_trace(
     checkpoint_history = await _read_checkpoints(
         session,
         task_id=task_id,
-        attempt_id=flow.active_attempt_id if scope == "current" else None,
     )
     boundary_history = await _read_boundaries(
         session,
         task_id=task_id,
-        attempt_id=flow.active_attempt_id if scope == "current" else None,
     )
     current_paths = (_manifest_file_reference(flow),)
     return OperatorFlowTraceResponse(
         task_id=task_id,
-        scope=cast(Literal["current", "whole"], scope),
         graph_nodes=graph_nodes,
         dispatch_history=tuple(_dispatch_history(row) for row in page),
         checkpoint_history=checkpoint_history,
@@ -110,55 +109,14 @@ def _actionable_items(
     flow: RuntimeFlowRead,
     current_paths: tuple[FileReference, ...],
 ) -> tuple[TopActionableItem, ...]:
-    if flow.current_human_request is not None:
-        return (
-            TopActionableItem(
-                summary=flow.current_human_request.summary,
-                node_key=flow.current_node_key,
-                current_paths=current_paths,
-                suggested_action="Resolve the current human request.",
-            ),
-        )
-    if flow.current_command_run is not None:
-        return (
-            TopActionableItem(
-                summary=flow.current_command_run.summary,
-                node_key=flow.current_node_key,
-                current_paths=current_paths,
-                suggested_action="Inspect the current command run.",
-            ),
-        )
     if flow.status == "paused":
         return (
             TopActionableItem(
                 summary=f"Task is paused: {flow.pause_reason}.",
-                node_key=flow.current_node_key,
                 current_paths=current_paths,
                 suggested_action="Inspect current truth before continuing or cancelling.",
             ),
         )
-    if flow.current_dispatch is not None and flow.current_dispatch.status == "starting":
-        return (
-            TopActionableItem(
-                summary="Provider start is pending.",
-                node_key=flow.current_node_key,
-                current_paths=current_paths,
-                suggested_action="Wait for the scheduled provider start attempt.",
-            ),
-        )
-    if flow.current_plan is not None:
-        step = next(
-            (item for item in flow.current_plan.steps if item.status != "completed"),
-            None,
-        )
-        if step is not None:
-            return (
-                TopActionableItem(
-                    summary=step.step,
-                    node_key=flow.current_node_key,
-                    current_paths=current_paths,
-                ),
-            )
     return ()
 
 
@@ -200,7 +158,6 @@ async def _read_dispatch_page(
     session: AsyncSession,
     *,
     task_id: str,
-    attempt_id: str | None,
     q: str | None,
     offset: int,
     limit: int,
@@ -215,8 +172,6 @@ async def _read_dispatch_page(
         .options(raiseload("*"))
         .where(DispatchTurnModel.task_id == task_id)
     )
-    if attempt_id is not None:
-        statement = statement.where(DispatchTurnModel.attempt_id == attempt_id)
     normalized_q = (q or "").strip().casefold()
     if normalized_q:
         pattern = f"%{normalized_q}%"
@@ -258,7 +213,7 @@ def _dispatch_history(
         adapter_started_at=_as_utc_optional(dispatch.adapter_started_at),
         last_node_activity_at=_as_utc_optional(dispatch.last_node_activity_at),
         node_activity_revision=dispatch.node_activity_revision,
-        effective_capabilities=effective_capability_readback(capabilities),
+        effective_capabilities=_effective_capability_readback(capabilities),
         created_at=_as_utc(dispatch.created_at),
         closed_at=_as_utc_optional(dispatch.closed_at),
     )
@@ -268,15 +223,12 @@ async def _read_checkpoints(
     session: AsyncSession,
     *,
     task_id: str,
-    attempt_id: str | None,
 ) -> tuple[CheckpointHistoryEntry, ...]:
     statement = (
         select(AttemptCheckpointModel)
         .options(raiseload("*"))
         .where(AttemptCheckpointModel.task_id == task_id)
     )
-    if attempt_id is not None:
-        statement = statement.where(AttemptCheckpointModel.attempt_id == attempt_id)
     rows = tuple(await session.scalars(statement.order_by(AttemptCheckpointModel.recorded_at)))
     history = []
     for row in rows:
@@ -309,7 +261,6 @@ async def _read_boundaries(
     session: AsyncSession,
     *,
     task_id: str,
-    attempt_id: str | None,
 ) -> tuple[BoundaryHistoryEntry, ...]:
     statement = (
         select(AcceptedBoundaryModel, DispatchTurnModel.node_key)
@@ -320,14 +271,12 @@ async def _read_boundaries(
         .options(raiseload("*"))
         .where(AcceptedBoundaryModel.task_id == task_id)
     )
-    if attempt_id is not None:
-        statement = statement.where(AcceptedBoundaryModel.attempt_id == attempt_id)
     rows = await session.execute(statement.order_by(AcceptedBoundaryModel.committed_at))
     return tuple(
         BoundaryHistoryEntry(
             source_dispatch_id=boundary.source_dispatch_id,
             node_key=node_key,
-            boundary=EgressBoundary(boundary.outcome),
+            boundary=CheckpointOutcome(boundary.outcome),
             checkpoint_id=boundary.checkpoint_id,
             successor_dispatch_id=boundary.successor_dispatch_id,
             occurred_at=_as_utc(boundary.committed_at),
@@ -336,9 +285,7 @@ async def _read_boundaries(
     )
 
 
-def _validate_trace_query(*, scope: str, limit: int, sort: str) -> None:
-    if scope not in {"current", "whole"}:
-        raise invalid_request_shape_error("trace scope must be current or whole")
+def _validate_trace_query(*, limit: int, sort: str) -> None:
     if sort not in {"occurred_at_desc", "occurred_at_asc"}:
         raise invalid_request_shape_error("unknown trace sort")
     if not 1 <= limit <= 200:
@@ -365,6 +312,25 @@ def _as_utc(value: datetime) -> datetime:
 
 def _as_utc_optional(value: datetime | None) -> datetime | None:
     return _as_utc(value) if value is not None else None
+
+
+def _effective_capability_readback(
+    capabilities: DispatchCapabilitySetModel,
+) -> EffectiveCapabilityReadback:
+    return EffectiveCapabilityReadback(
+        provider_native_access=EffectiveProviderNativeAccess.model_validate(
+            {
+                "effective": capabilities.provider_native_access,
+                "source": capabilities.provider_native_access_source,
+            }
+        ),
+        network_access=EffectiveNetworkAccess.model_validate(
+            {
+                "effective": capabilities.network_access,
+                "source": capabilities.network_access_source,
+            }
+        ),
+    )
 
 
 __all__ = ["operator_snapshot", "operator_trace"]

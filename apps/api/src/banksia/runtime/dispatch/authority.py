@@ -17,7 +17,6 @@ from banksia.persistence.models import (
     DispatchTurnModel,
     FlowModel,
     FlowNodeModel,
-    TaskModel,
 )
 from banksia.runtime.contracts.member import NodeKind
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
@@ -26,6 +25,7 @@ from banksia.runtime.dispatch.currentness import (
     attempt_dispatch_is_current,
 )
 from banksia.runtime.errors import RuntimeOperationError, stale_dispatch_error
+from banksia.runtime.team.currentness import current_team_selects_member
 
 if TYPE_CHECKING:
     from banksia.runtime.node_operations.contracts import NodeOperationScope
@@ -205,7 +205,6 @@ async def claim_exact_node_operation_flow(
                 FlowModel.flow_id == authority.flow_id,
                 FlowModel.task_id == authority.task_id,
                 FlowModel.status == "running",
-                FlowModel.active_flow_revision_id == authority.flow_revision_id,
                 FlowModel.control_revision == authority.flow_control_revision,
                 exact_node_operation_authority_exists(authority),
             )
@@ -241,15 +240,14 @@ def exact_node_operation_authority_exists(
                 FlowModel.flow_id == authority.flow_id,
                 FlowModel.task_id == authority.task_id,
                 FlowModel.status == "running",
-                FlowModel.active_flow_revision_id == authority.flow_revision_id,
                 FlowModel.control_revision == authority.flow_control_revision,
             )
         ),
-        exists(
-            select(TaskModel.task_id).where(
-                TaskModel.task_id == authority.task_id,
-                TaskModel.current_team_revision_id == authority.dispatch.team_revision_id,
-            )
+        current_team_selects_member(
+            task_id=authority.task_id,
+            member_id=authority.dispatch.member_id,
+            member_configuration_id=authority.dispatch.member_configuration_id,
+            member_branch_basis_id=authority.dispatch.member_branch_basis_id,
         ),
         exists(
             select(DispatchTurnModel.dispatch_id).where(
@@ -320,23 +318,20 @@ async def _read_current_dispatch_and_flow(
         dispatch.flow_id,
         populate_existing=True,
     )
-    if (
-        flow is None
-        or flow.task_id != scope.task_id
-        or flow.status != "running"
-        or flow.active_flow_revision_id != dispatch.flow_revision_id
-    ):
-        raise stale_dispatch_error("dispatch is no longer in the active running flow revision")
-    task_team_is_current = await session.scalar(
+    if flow is None or flow.task_id != scope.task_id or flow.status != "running":
+        raise stale_dispatch_error("dispatch is no longer in the running Flow")
+    task_team_retains_selection = await session.scalar(
         select(
-            exists().where(
-                TaskModel.task_id == scope.task_id,
-                TaskModel.current_team_revision_id == dispatch.team_revision_id,
+            current_team_selects_member(
+                task_id=scope.task_id,
+                member_id=dispatch.member_id,
+                member_configuration_id=dispatch.member_configuration_id,
+                member_branch_basis_id=dispatch.member_branch_basis_id,
             )
         )
     )
-    if not task_team_is_current:
-        raise stale_dispatch_error("dispatch is no longer exact current team authority")
+    if not task_team_retains_selection:
+        raise stale_dispatch_error("current Team no longer retains the Dispatch selection")
     return dispatch, flow
 
 

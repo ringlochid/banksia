@@ -18,10 +18,7 @@ from banksia.runtime.contracts.human_requests import (
     HumanRequestOpenRequest,
     HumanRequestResolution,
 )
-from banksia.runtime.contracts.primitives import (
-    CheckpointOutcome,
-    EgressBoundary,
-)
+from banksia.runtime.contracts.primitives import CheckpointOutcome
 from banksia.runtime.contracts.refs import FileReference
 from banksia.runtime.contracts.replan import ReplanSuccess
 from banksia.runtime.contracts.team_read import (
@@ -121,44 +118,46 @@ class PromptWorkspace(PromptContract):
     command_runs: str
 
 
-class AcceptedBoundarySource(PromptContract):
-    accepted_boundary_id: PromptIdentifier
+class DelegationWaveSettledSource(PromptContract):
+    delegation_wave_id: PromptIdentifier
     source_dispatch_id: PromptIdentifier
 
 
-class AcceptedBoundaryResult(PromptContract):
-    outcome: Literal[EgressBoundary.YIELD]
-
-
-class AcceptedBoundaryTrigger(PromptContract):
-    kind: Literal["accepted_boundary"] = "accepted_boundary"
-    source: AcceptedBoundarySource
-    result: AcceptedBoundaryResult
-
-
-class ChildReturnSource(PromptContract):
-    accepted_boundary_id: PromptIdentifier
-    source_dispatch_id: PromptIdentifier
-    child_assignment_id: PromptIdentifier
-    child_attempt_id: PromptIdentifier
-
-
-class ChildReturnResult(PromptContract):
+class DelegationWaveMemberResult(PromptContract):
+    child_id: PromptIdentifier
     assignment: PromptAssignment
-    outcome: Literal[EgressBoundary.GREEN, EgressBoundary.BLOCKED]
+    outcome: Literal[CheckpointOutcome.GREEN, CheckpointOutcome.BLOCKED]
     checkpoint: PromptCheckpointSummary
 
     @model_validator(mode="after")
-    def validate_checkpoint_outcome(self) -> ChildReturnResult:
+    def validate_checkpoint_outcome(self) -> DelegationWaveMemberResult:
         if self.checkpoint.outcome.value != self.outcome.value:
-            raise ValueError("child-return checkpoint outcome must match the accepted outcome")
+            raise ValueError("Wave-member checkpoint outcome must match the terminal outcome")
         return self
 
 
-class ChildReturnTrigger(PromptContract):
-    kind: Literal["child_return"] = "child_return"
-    source: ChildReturnSource
-    result: ChildReturnResult
+class DelegationWaveSettledResult(PromptContract):
+    members: tuple[DelegationWaveMemberResult, ...] = Field(min_length=1)
+
+    @field_validator("members")
+    @classmethod
+    def validate_unique_members(
+        cls,
+        members: tuple[DelegationWaveMemberResult, ...],
+    ) -> tuple[DelegationWaveMemberResult, ...]:
+        child_ids = tuple(member.child_id for member in members)
+        assignment_ids = tuple(member.assignment.id for member in members)
+        if len(set(child_ids)) != len(child_ids):
+            raise ValueError("Wave result child IDs must be unique")
+        if len(set(assignment_ids)) != len(assignment_ids):
+            raise ValueError("Wave result Assignment IDs must be unique")
+        return members
+
+
+class DelegationWaveSettledTrigger(PromptContract):
+    kind: Literal["delegation_wave_settled"] = "delegation_wave_settled"
+    source: DelegationWaveSettledSource
+    result: DelegationWaveSettledResult
 
 
 class HumanResultSource(PromptContract):
@@ -306,8 +305,7 @@ class StructuralReplanTrigger(PromptContract):
 
 
 type PromptTrigger = Annotated[
-    AcceptedBoundaryTrigger
-    | ChildReturnTrigger
+    DelegationWaveSettledTrigger
     | HumanResultTrigger
     | CommandResultTrigger
     | WatchdogRecoveryTrigger
@@ -318,8 +316,7 @@ type PromptTrigger = Annotated[
 ]
 
 PROMPT_TRIGGER_KINDS = (
-    "accepted_boundary",
-    "child_return",
+    "delegation_wave_settled",
     "human_result",
     "command_result",
     "watchdog_recovery",
@@ -381,15 +378,13 @@ class RenderedDispatchRequest(PromptContract):
 __all__ = [
     "PROMPT_DYNAMIC_INPUT_KEYS",
     "PROMPT_TRIGGER_KINDS",
-    "AcceptedBoundaryResult",
-    "AcceptedBoundarySource",
-    "AcceptedBoundaryTrigger",
-    "ChildReturnResult",
-    "ChildReturnSource",
-    "ChildReturnTrigger",
     "CommandResult",
     "CommandResultSource",
     "CommandResultTrigger",
+    "DelegationWaveMemberResult",
+    "DelegationWaveSettledResult",
+    "DelegationWaveSettledSource",
+    "DelegationWaveSettledTrigger",
     "DispatchRequestRenderInput",
     "HumanResult",
     "HumanResultSource",

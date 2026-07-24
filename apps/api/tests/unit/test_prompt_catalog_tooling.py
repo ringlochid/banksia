@@ -36,7 +36,7 @@ def test_task_member_prompt_contract_readback_is_deterministic() -> None:
         "task | dispatch | current_member | assignment | continuation | direct_team | "
         "work_plan | available_actions | workspace"
     ) in rendered
-    assert "accepted_boundary | child_return | human_result" in rendered
+    assert "delegation_wave_settled | human_result | command_result" in rendered
     assert "root_start" not in rendered
     assert PROMPT_CONTRACT_READBACK_PATH.relative_to(
         Path(__file__).resolve().parents[4]

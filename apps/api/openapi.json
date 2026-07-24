@@ -31,16 +31,6 @@
       "BoundaryAcceptedEventPayload": {
         "additionalProperties": false,
         "properties": {
-          "assignment_decision_id": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/TaskEventIdentifier"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
           "assignment_id": {
             "$ref": "#/components/schemas/TaskEventIdentifier"
           },
@@ -48,17 +38,10 @@
             "$ref": "#/components/schemas/TaskEventIdentifier"
           },
           "checkpoint_id": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/TaskEventIdentifier"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "$ref": "#/components/schemas/TaskEventIdentifier"
           },
           "outcome": {
-            "$ref": "#/components/schemas/EgressBoundary"
+            "$ref": "#/components/schemas/CheckpointOutcome"
           },
           "resulting_flow_status": {
             "enum": [
@@ -77,6 +60,7 @@
           "assignment_id",
           "attempt_id",
           "outcome",
+          "checkpoint_id",
           "resulting_flow_status"
         ],
         "title": "BoundaryAcceptedEventPayload",
@@ -86,7 +70,7 @@
         "additionalProperties": false,
         "properties": {
           "boundary": {
-            "$ref": "#/components/schemas/EgressBoundary"
+            "$ref": "#/components/schemas/CheckpointOutcome"
           },
           "checkpoint_id": {
             "anyOf": [
@@ -274,72 +258,6 @@
           "authored_by_dispatch_id"
         ],
         "title": "CheckpointRecordedEventPayload",
-        "type": "object"
-      },
-      "ChildAssignmentCommittedEventPayload": {
-        "additionalProperties": false,
-        "properties": {
-          "child_assignment_id": {
-            "$ref": "#/components/schemas/TaskEventIdentifier"
-          },
-          "child_attempt_id": {
-            "$ref": "#/components/schemas/TaskEventIdentifier"
-          },
-          "child_node_key": {
-            "$ref": "#/components/schemas/TaskEventIdentifier"
-          },
-          "flow_revision_id": {
-            "$ref": "#/components/schemas/TaskEventIdentifier"
-          },
-          "parent_assignment_id": {
-            "$ref": "#/components/schemas/TaskEventIdentifier"
-          },
-          "source_dispatch_id": {
-            "$ref": "#/components/schemas/TaskEventIdentifier"
-          }
-        },
-        "required": [
-          "source_dispatch_id",
-          "parent_assignment_id",
-          "child_assignment_id",
-          "child_attempt_id",
-          "child_node_key",
-          "flow_revision_id"
-        ],
-        "title": "ChildAssignmentCommittedEventPayload",
-        "type": "object"
-      },
-      "ChildAssignmentStagedEventPayload": {
-        "additionalProperties": false,
-        "properties": {
-          "child_assignment_id": {
-            "$ref": "#/components/schemas/TaskEventIdentifier"
-          },
-          "child_attempt_id": {
-            "$ref": "#/components/schemas/TaskEventIdentifier"
-          },
-          "child_node_key": {
-            "$ref": "#/components/schemas/TaskEventIdentifier"
-          },
-          "flow_revision_id": {
-            "$ref": "#/components/schemas/TaskEventIdentifier"
-          },
-          "parent_assignment_id": {
-            "$ref": "#/components/schemas/TaskEventIdentifier"
-          },
-          "source_dispatch_id": {
-            "$ref": "#/components/schemas/TaskEventIdentifier"
-          }
-        },
-        "required": [
-          "source_dispatch_id",
-          "parent_assignment_id",
-          "child_assignment_id",
-          "child_attempt_id",
-          "child_node_key",
-          "flow_revision_id"
-        ],
-        "title": "ChildAssignmentStagedEventPayload",
         "type": "object"
       },
       "ClaudeProviderSelection": {
@@ -1208,68 +1126,6 @@
         "title": "CommandRunState",
         "type": "string"
       },
-      "CommandRunSummary": {
-        "additionalProperties": false,
-        "description": "Bounded current-source readback without command environment or log content.",
-        "properties": {
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          },
-          "due_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Due At"
-          },
-          "run_id": {
-            "minLength": 1,
-            "title": "Run Id",
-            "type": "string"
-          },
-          "source_dispatch_id": {
-            "minLength": 1,
-            "title": "Source Dispatch Id",
-            "type": "string"
-          },
-          "started_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Started At"
-          },
-          "state": {
-            "$ref": "#/components/schemas/CommandRunState"
-          },
-          "summary": {
-            "minLength": 1,
-            "title": "Summary",
-            "type": "string"
-          }
-        },
-        "required": [
-          "run_id",
-          "source_dispatch_id",
-          "state",
-          "summary",
-          "created_at"
-        ],
-        "title": "CommandRunSummary",
-        "type": "object"
-      },
       "CommandRunTerminalEventPayload": {
         "additionalProperties": false,
         "properties": {
@@ -1751,136 +1607,14 @@
       "DispatchOpenedReason": {
         "enum": [
           "root",
-          "boundary",
-          "child_return",
+          "delegation",
+          "delegation_wave",
           "human_result",
           "command_result",
           "watchdog_recovery",
           "semantic_retry",
           "operator_continue",
           "structural_replan"
-        ],
-        "type": "string"
-      },
-      "DispatchRuntimeRead": {
-        "additionalProperties": false,
-        "properties": {
-          "adapter_started_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Adapter Started At"
-          },
-          "assignment_id": {
-            "minLength": 1,
-            "title": "Assignment Id",
-            "type": "string"
-          },
-          "attempt_id": {
-            "minLength": 1,
-            "title": "Attempt Id",
-            "type": "string"
-          },
-          "dispatch_id": {
-            "minLength": 1,
-            "title": "Dispatch Id",
-            "type": "string"
-          },
-          "effective_capabilities": {
-            "$ref": "#/components/schemas/EffectiveCapabilityReadback"
-          },
-          "last_node_activity_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Last Node Activity At"
-          },
-          "node_activity_revision": {
-            "minimum": 0.0,
-            "title": "Node Activity Revision",
-            "type": "integer"
-          },
-          "opened_reason": {
-            "$ref": "#/components/schemas/DispatchOpenedReason"
-          },
-          "predecessor_dispatch_id": {
-            "anyOf": [
-              {
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Predecessor Dispatch Id"
-          },
-          "provider_start": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ProviderStartReadback"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "requested_provider": {
-            "$ref": "#/components/schemas/ProviderKind"
-          },
-          "resolved_provider": {
-            "$ref": "#/components/schemas/ProviderKind"
-          },
-          "selection_basis": {
-            "$ref": "#/components/schemas/ProviderSelectionBasis"
-          },
-          "status": {
-            "$ref": "#/components/schemas/DispatchRuntimeStatus"
-          },
-          "watchdog_due_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Watchdog Due At"
-          }
-        },
-        "required": [
-          "dispatch_id",
-          "assignment_id",
-          "attempt_id",
-          "status",
-          "opened_reason",
-          "requested_provider",
-          "resolved_provider",
-          "selection_basis",
-          "node_activity_revision",
-          "effective_capabilities"
-        ],
-        "title": "DispatchRuntimeRead",
-        "type": "object"
-      },
-      "DispatchRuntimeStatus": {
-        "enum": [
-          "starting",
-          "open"
         ],
         "type": "string"
       },
@@ -1991,16 +1725,6 @@
         },
         "title": "EffectiveProviderNativeAccess",
         "type": "object"
-      },
-      "EgressBoundary": {
-        "enum": [
-          "yield",
-          "green",
-          "retry",
-          "blocked"
-        ],
-        "title": "EgressBoundary",
-        "type": "string"
       },
       "FileReference": {
         "additionalProperties": false,
@@ -2454,60 +2178,6 @@
         ],
         "title": "HumanRequestStatus",
         "type": "string"
-      },
-      "HumanRequestSummary": {
-        "additionalProperties": false,
-        "description": "Bounded current-source readback without answers or policy payloads.",
-        "properties": {
-          "due_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Due At"
-          },
-          "kind": {
-            "$ref": "#/components/schemas/HumanRequestKind"
-          },
-          "opened_at": {
-            "format": "date-time",
-            "title": "Opened At",
-            "type": "string"
-          },
-          "request_id": {
-            "minLength": 1,
-            "title": "Request Id",
-            "type": "string"
-          },
-          "source_dispatch_id": {
-            "minLength": 1,
-            "title": "Source Dispatch Id",
-            "type": "string"
-          },
-          "status": {
-            "$ref": "#/components/schemas/HumanRequestStatus"
-          },
-          "summary": {
-            "minLength": 1,
-            "title": "Summary",
-            "type": "string"
-          }
-        },
-        "required": [
-          "request_id",
-          "source_dispatch_id",
-          "kind",
-          "status",
-          "summary",
-          "opened_at"
-        ],
-        "title": "HumanRequestSummary",
-        "type": "object"
       },
       "HumanRequestTerminalEventPayload": {
         "additionalProperties": false,
@@ -3170,15 +2840,6 @@
             ],
             "title": "Next Cursor"
           },
-          "scope": {
-            "default": "current",
-            "enum": [
-              "current",
-              "whole"
-            ],
-            "title": "Scope",
-            "type": "string"
-          },
           "task_id": {
             "minLength": 1,
             "title": "Task Id",
@@ -3380,61 +3041,6 @@
         "title": "ProviderSelectionBasis",
         "type": "string"
       },
-      "ProviderStartReadback": {
-        "additionalProperties": false,
-        "properties": {
-          "attempt_count": {
-            "minimum": 0.0,
-            "title": "Attempt Count",
-            "type": "integer"
-          },
-          "last_error_code": {
-            "anyOf": [
-              {
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Last Error Code"
-          },
-          "next_attempt_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Next Attempt At"
-          },
-          "retry_kind": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ProviderStartRetryKind"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "revision": {
-            "minimum": 0.0,
-            "title": "Revision",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "revision",
-          "attempt_count"
-        ],
-        "title": "ProviderStartReadback",
-        "type": "object"
-      },
       "ProviderStartRetryKind": {
         "enum": [
           "initial",
@@ -3518,30 +3124,6 @@
       "RuntimeFlowRead": {
         "additionalProperties": false,
         "properties": {
-          "active_assignment_id": {
-            "anyOf": [
-              {
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Active Assignment Id"
-          },
-          "active_attempt_id": {
-            "anyOf": [
-              {
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Active Attempt Id"
-          },
           "active_flow_revision_id": {
             "minLength": 1,
             "title": "Active Flow Revision Id",
@@ -3551,70 +3133,6 @@
             "minimum": 0.0,
             "title": "Control Revision",
             "type": "integer"
-          },
-          "current_command_run": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/CommandRunSummary"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "current_dispatch": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/DispatchRuntimeRead"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "current_human_request": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/HumanRequestSummary"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "current_node_key": {
-            "anyOf": [
-              {
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Current Node Key"
-          },
-          "current_plan": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/WorkPlanRead"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "latest_dispatch_id": {
-            "anyOf": [
-              {
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Latest Dispatch Id"
           },
           "pause_reason": {
             "anyOf": [
@@ -3669,28 +3187,6 @@
             "title": "Updated At",
             "type": "string"
           },
-          "waiting_cause": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/RuntimeFlowWaitingCause"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "watchdog_recovery_count": {
-            "anyOf": [
-              {
-                "minimum": 0.0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Watchdog Recovery Count"
-          },
           "workflow_key": {
             "anyOf": [
               {
@@ -3723,46 +3219,10 @@
       "RuntimeFlowSummary": {
         "additionalProperties": false,
         "properties": {
-          "active_assignment_id": {
-            "anyOf": [
-              {
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Active Assignment Id"
-          },
-          "active_attempt_id": {
-            "anyOf": [
-              {
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Active Attempt Id"
-          },
           "active_flow_revision_id": {
             "minLength": 1,
             "title": "Active Flow Revision Id",
             "type": "string"
-          },
-          "current_node_key": {
-            "anyOf": [
-              {
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Current Node Key"
           },
           "status": {
             "$ref": "#/components/schemas/RuntimeLifecycleStatus"
@@ -3858,13 +3318,6 @@
         "enum": [
           "green",
           "blocked"
-        ],
-        "type": "string"
-      },
-      "RuntimeFlowWaitingCause": {
-        "enum": [
-          "human_request",
-          "command_run"
         ],
         "type": "string"
       },
@@ -4488,61 +3941,6 @@
         "title": "WorkPlanClearedEventPayload",
         "type": "object"
       },
-      "WorkPlanRead": {
-        "additionalProperties": false,
-        "properties": {
-          "assignment_id": {
-            "minLength": 1,
-            "title": "Assignment Id",
-            "type": "string"
-          },
-          "authored_by_dispatch_id": {
-            "minLength": 1,
-            "title": "Authored By Dispatch Id",
-            "type": "string"
-          },
-          "explanation": {
-            "anyOf": [
-              {
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Explanation"
-          },
-          "revision": {
-            "minimum": 1.0,
-            "title": "Revision",
-            "type": "integer"
-          },
-          "steps": {
-            "items": {
-              "$ref": "#/components/schemas/WorkPlanStepRead"
-            },
-            "maxItems": 9,
-            "minItems": 1,
-            "title": "Steps",
-            "type": "array"
-          },
-          "updated_at": {
-            "format": "date-time",
-            "title": "Updated At",
-            "type": "string"
-          }
-        },
-        "required": [
-          "assignment_id",
-          "revision",
-          "steps",
-          "authored_by_dispatch_id",
-          "updated_at"
-        ],
-        "title": "WorkPlanRead",
-        "type": "object"
-      },
       "WorkPlanSetEventPayload": {
         "additionalProperties": false,
         "properties": {
@@ -4590,31 +3988,6 @@
           "updated_at"
         ],
         "title": "WorkPlanSetEventPayload",
-        "type": "object"
-      },
-      "WorkPlanStepRead": {
-        "additionalProperties": false,
-        "properties": {
-          "status": {
-            "enum": [
-              "pending",
-              "in_progress",
-              "completed"
-            ],
-            "title": "Status",
-            "type": "string"
-          },
-          "step": {
-            "minLength": 1,
-            "title": "Step",
-            "type": "string"
-          }
-        },
-        "required": [
-          "step",
-          "status"
-        ],
-        "title": "WorkPlanStepRead",
         "type": "object"
       },
       "WorkPlanStepStatusValue": {
@@ -5256,224 +4629,6 @@
           "payload"
         ],
         "title": "_CheckpointRecordedEvent",
-        "type": "object"
-      },
-      "_ChildAssignmentCommittedEvent": {
-        "additionalProperties": false,
-        "properties": {
-          "actor_ref": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/TaskEventIdentifier"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "attempt_id": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/TaskEventIdentifier"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "dispatch_id": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/TaskEventIdentifier"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "event_hash": {
-            "$ref": "#/components/schemas/TaskEventRef"
-          },
-          "event_id": {
-            "$ref": "#/components/schemas/TaskEventIdentifier"
-          },
-          "event_seq": {
-            "minimum": 1.0,
-            "title": "Event Seq",
-            "type": "integer"
-          },
-          "event_source": {
-            "$ref": "#/components/schemas/TaskEventSource"
-          },
-          "event_type": {
-            "const": "child_assignment_committed",
-            "title": "Event Type",
-            "type": "string"
-          },
-          "flow_revision_id": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/TaskEventIdentifier"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "node_key": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/TaskEventIdentifier"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "occurred_at": {
-            "format": "date-time",
-            "title": "Occurred At",
-            "type": "string"
-          },
-          "payload": {
-            "$ref": "#/components/schemas/ChildAssignmentCommittedEventPayload"
-          },
-          "prev_event_hash": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/TaskEventRef"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "task_id": {
-            "minLength": 1,
-            "title": "Task Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "event_id",
-          "event_seq",
-          "task_id",
-          "event_source",
-          "occurred_at",
-          "event_hash",
-          "event_type",
-          "payload"
-        ],
-        "title": "_ChildAssignmentCommittedEvent",
-        "type": "object"
-      },
-      "_ChildAssignmentStagedEvent": {
-        "additionalProperties": false,
-        "properties": {
-          "actor_ref": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/TaskEventIdentifier"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "attempt_id": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/TaskEventIdentifier"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "dispatch_id": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/TaskEventIdentifier"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "event_hash": {
-            "$ref": "#/components/schemas/TaskEventRef"
-          },
-          "event_id": {
-            "$ref": "#/components/schemas/TaskEventIdentifier"
-          },
-          "event_seq": {
-            "minimum": 1.0,
-            "title": "Event Seq",
-            "type": "integer"
-          },
-          "event_source": {
-            "$ref": "#/components/schemas/TaskEventSource"
-          },
-          "event_type": {
-            "const": "child_assignment_staged",
-            "title": "Event Type",
-            "type": "string"
-          },
-          "flow_revision_id": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/TaskEventIdentifier"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "node_key": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/TaskEventIdentifier"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "occurred_at": {
-            "format": "date-time",
-            "title": "Occurred At",
-            "type": "string"
-          },
-          "payload": {
-            "$ref": "#/components/schemas/ChildAssignmentStagedEventPayload"
-          },
-          "prev_event_hash": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/TaskEventRef"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "task_id": {
-            "minLength": 1,
-            "title": "Task Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "event_id",
-          "event_seq",
-          "task_id",
-          "event_source",
-          "occurred_at",
-          "event_hash",
-          "event_type",
-          "payload"
-        ],
-        "title": "_ChildAssignmentStagedEvent",
         "type": "object"
       },
       "_CommandRunCancelRequestedEvent": {
@@ -6690,8 +5845,6 @@
           "mapping": {
             "boundary_accepted": "#/components/schemas/_BoundaryAcceptedEvent",
             "checkpoint_recorded": "#/components/schemas/_CheckpointRecordedEvent",
-            "child_assignment_committed": "#/components/schemas/_ChildAssignmentCommittedEvent",
-            "child_assignment_staged": "#/components/schemas/_ChildAssignmentStagedEvent",
             "command_run_abandoned": "#/components/schemas/_CommandRunTerminalEvent",
             "command_run_cancel_requested": "#/components/schemas/_CommandRunCancelRequestedEvent",
             "command_run_cancelled": "#/components/schemas/_CommandRunTerminalEvent",
@@ -6738,12 +5891,6 @@
           },
           {
             "$ref": "#/components/schemas/_BoundaryAcceptedEvent"
-          },
-          {
-            "$ref": "#/components/schemas/_ChildAssignmentStagedEvent"
-          },
-          {
-            "$ref": "#/components/schemas/_ChildAssignmentCommittedEvent"
           },
           {
             "$ref": "#/components/schemas/_StructuralRevisionAdoptedEvent"
@@ -8763,20 +7910,6 @@
             "required": true,
             "schema": {
               "title": "Task Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "scope",
-            "required": false,
-            "schema": {
-              "default": "current",
-              "enum": [
-                "current",
-                "whole"
-              ],
-              "title": "Scope",
               "type": "string"
             }
           },

@@ -16,8 +16,6 @@ from banksia.runtime.contracts.primitives import (
 from banksia.runtime.contracts.task_event_payloads import (
     BoundaryAcceptedEventPayload,
     CheckpointRecordedEventPayload,
-    ChildAssignmentCommittedEventPayload,
-    ChildAssignmentStagedEventPayload,
     CommandRunCancelRequestedEventPayload,
     CommandRunOpenedEventPayload,
     CommandRunProgressedEventPayload,
@@ -90,16 +88,6 @@ class _CheckpointRecordedEvent(_TaskEventEnvelope):
 class _BoundaryAcceptedEvent(_TaskEventEnvelope):
     event_type: Literal[TaskEventType.BOUNDARY_ACCEPTED]
     payload: BoundaryAcceptedEventPayload
-
-
-class _ChildAssignmentStagedEvent(_TaskEventEnvelope):
-    event_type: Literal[TaskEventType.CHILD_ASSIGNMENT_STAGED]
-    payload: ChildAssignmentStagedEventPayload
-
-
-class _ChildAssignmentCommittedEvent(_TaskEventEnvelope):
-    event_type: Literal[TaskEventType.CHILD_ASSIGNMENT_COMMITTED]
-    payload: ChildAssignmentCommittedEventPayload
 
 
 class _StructuralRevisionAdoptedEvent(_TaskEventEnvelope):
@@ -213,8 +201,6 @@ type _TaskEventVariant = Annotated[
     | _WorkPlanClearedEvent
     | _CheckpointRecordedEvent
     | _BoundaryAcceptedEvent
-    | _ChildAssignmentStagedEvent
-    | _ChildAssignmentCommittedEvent
     | _StructuralRevisionAdoptedEvent
     | _HumanRequestOpenedEvent
     | _HumanRequestTerminalEvent
@@ -312,8 +298,6 @@ class TaskEventListResponse(BaseModel):
 __all__ = [
     "BoundaryAcceptedEventPayload",
     "CheckpointRecordedEventPayload",
-    "ChildAssignmentCommittedEventPayload",
-    "ChildAssignmentStagedEventPayload",
     "CommandRunCancelRequestedEventPayload",
     "CommandRunOpenedEventPayload",
     "CommandRunProgressedEventPayload",

@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from banksia.runtime.contracts.common import RuntimeSchemaText
 from banksia.runtime.contracts.flow import EffectiveCapabilityReadback, RuntimeFlowRead
 from banksia.runtime.contracts.member import NodeKind
-from banksia.runtime.contracts.primitives import CheckpointOutcome, EgressBoundary
+from banksia.runtime.contracts.primitives import CheckpointOutcome
 from banksia.runtime.contracts.refs import FileReference
 
 type OperatorCurrentPaths = tuple[FileReference, ...]
@@ -69,7 +69,7 @@ class BoundaryHistoryEntry(BaseModel):
 
     source_dispatch_id: RuntimeSchemaText
     node_key: RuntimeSchemaText
-    boundary: EgressBoundary
+    boundary: CheckpointOutcome
     checkpoint_id: RuntimeSchemaText | None = None
     successor_dispatch_id: RuntimeSchemaText | None = None
     occurred_at: datetime
@@ -94,7 +94,6 @@ class OperatorFlowTraceResponse(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, from_attributes=True)
 
     task_id: RuntimeSchemaText
-    scope: Literal["current", "whole"] = "current"
     graph_nodes: tuple[TaskGraphNodeEntry, ...] = ()
     dispatch_history: tuple[DispatchHistoryEntry, ...]
     checkpoint_history: tuple[CheckpointHistoryEntry, ...]
@@ -106,7 +105,6 @@ class OperatorFlowTraceResponse(BaseModel):
 class OperatorFlowTraceQuery(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    scope: Literal["current", "whole"] = "current"
     q: RuntimeSchemaText | None = None
     limit: int = Field(default=50, ge=1, le=200)
     cursor: RuntimeSchemaText | None = None

@@ -8,12 +8,12 @@ from banksia.runtime.post_commit.health import RuntimeEffectHealth
 from banksia.runtime.post_commit.publisher import CapturedRuntimeEffectPublisher
 from banksia.runtime.post_commit.signals import (
     ALL_RUNTIME_EFFECT_SIGNAL_TYPES,
-    BoundaryAccepted,
     CommandProcessExited,
     CommandRunCancellationRequested,
     CommandRunDue,
     CommandRunPending,
     CommandRunTerminal,
+    DelegationWaveSettled,
     DispatchCleanupRequested,
     DispatchStartDue,
     FlowStartCommitted,
@@ -23,6 +23,7 @@ from banksia.runtime.post_commit.signals import (
     ReplanCommitted,
     WatchdogDeadlineChanged,
     WatchdogDue,
+    WaveMemberSettled,
 )
 
 DUE_AT = datetime(2026, 7, 18, 12, 30, tzinfo=UTC)
@@ -31,7 +32,8 @@ DUE_AT = datetime(2026, 7, 18, 12, 30, tzinfo=UTC)
 def test_runtime_effect_signals_are_frozen_and_complete() -> None:
     signals = (
         FlowStartCommitted("flow.alpha"),
-        BoundaryAccepted("dispatch.alpha"),
+        WaveMemberSettled("wave.alpha"),
+        DelegationWaveSettled("wave.alpha"),
         ReplanCommitted("replan.alpha"),
         HumanRequestOpened("human.alpha"),
         HumanRequestDue("human.alpha", DUE_AT),
@@ -54,7 +56,7 @@ def test_runtime_effect_signals_are_frozen_and_complete() -> None:
 
 def test_captured_publisher_records_exact_signals_without_a_drain_api() -> None:
     publisher = CapturedRuntimeEffectPublisher()
-    signal = BoundaryAccepted("dispatch.alpha")
+    signal = WaveMemberSettled("wave.alpha")
 
     assert publisher.publish(signal) is True
 

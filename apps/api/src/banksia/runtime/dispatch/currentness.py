@@ -43,6 +43,149 @@ class AttemptWaitIdentity:
     wait_id: str
 
 
+async def close_current_attempt_dispatch(
+    session: AsyncSession,
+    *,
+    identity: AttemptDispatchIdentity,
+    expected_flow_revision_id: str,
+    closed_at: datetime,
+    closed_reason: str,
+) -> bool:
+    """Close and clear one exact current Dispatch without changing lane revisions."""
+
+    claimed_flow_id = await session.scalar(
+        update(FlowModel)
+        .where(
+            FlowModel.flow_id == identity.flow_id,
+            FlowModel.task_id == identity.task_id,
+            FlowModel.status == "running",
+            attempt_dispatch_is_current(identity),
+        )
+        # Take the global lifecycle row first without changing semantic truth.
+        # A concurrent pause/cancel therefore wins or loses before this local
+        # Attempt transition mutates its lane.
+        .values(updated_at=FlowModel.updated_at)
+        .returning(FlowModel.flow_id)
+    )
+    if claimed_flow_id is None:
+        return False
+
+    closed_dispatch_id = await session.scalar(
+        update(DispatchTurnModel)
+        .where(
+            DispatchTurnModel.dispatch_id == identity.dispatch_id,
+            DispatchTurnModel.task_id == identity.task_id,
+            DispatchTurnModel.flow_id == identity.flow_id,
+            DispatchTurnModel.assignment_id == identity.assignment_id,
+            DispatchTurnModel.attempt_id == identity.attempt_id,
+            DispatchTurnModel.flow_revision_id == expected_flow_revision_id,
+            DispatchTurnModel.status.in_(("starting", "open")),
+            attempt_dispatch_is_current(identity),
+        )
+        .values(
+            status="closed",
+            closed_at=closed_at,
+            closed_reason=closed_reason,
+            next_provider_start_at=None,
+            provider_start_retry_kind=None,
+        )
+        .returning(DispatchTurnModel.dispatch_id)
+    )
+    if closed_dispatch_id is None:
+        return False
+    return await clear_current_attempt_dispatch(session, identity=identity)
+
+
+async def suspend_current_attempt_on_wait(
+    session: AsyncSession,
+    *,
+    identity: AttemptDispatchIdentity,
+    wait_id: str,
+    expected_flow_revision_id: str,
+    closed_at: datetime,
+    closed_reason: str,
+) -> bool:
+    """Close one current Dispatch and select its exact typed Attempt wait."""
+
+    claimed_flow_id = await session.scalar(
+        update(FlowModel)
+        .where(
+            FlowModel.flow_id == identity.flow_id,
+            FlowModel.task_id == identity.task_id,
+            FlowModel.status == "running",
+            attempt_dispatch_is_current(identity),
+            exists(
+                select(AttemptWaitModel.wait_id).where(
+                    AttemptWaitModel.wait_id == wait_id,
+                    AttemptWaitModel.task_id == identity.task_id,
+                    AttemptWaitModel.flow_id == identity.flow_id,
+                    AttemptWaitModel.assignment_id == identity.assignment_id,
+                    AttemptWaitModel.attempt_id == identity.attempt_id,
+                    AttemptWaitModel.source_dispatch_id == identity.dispatch_id,
+                )
+            ),
+            exists(
+                select(DispatchTurnModel.dispatch_id).where(
+                    DispatchTurnModel.dispatch_id == identity.dispatch_id,
+                    DispatchTurnModel.task_id == identity.task_id,
+                    DispatchTurnModel.flow_id == identity.flow_id,
+                    DispatchTurnModel.assignment_id == identity.assignment_id,
+                    DispatchTurnModel.attempt_id == identity.attempt_id,
+                    DispatchTurnModel.flow_revision_id == expected_flow_revision_id,
+                    DispatchTurnModel.status.in_(("starting", "open")),
+                )
+            ),
+        )
+        .values(updated_at=FlowModel.updated_at)
+        .returning(FlowModel.flow_id)
+    )
+    if claimed_flow_id is None:
+        return False
+
+    closed_dispatch_id = await session.scalar(
+        update(DispatchTurnModel)
+        .where(
+            DispatchTurnModel.dispatch_id == identity.dispatch_id,
+            DispatchTurnModel.task_id == identity.task_id,
+            DispatchTurnModel.flow_id == identity.flow_id,
+            DispatchTurnModel.assignment_id == identity.assignment_id,
+            DispatchTurnModel.attempt_id == identity.attempt_id,
+            DispatchTurnModel.flow_revision_id == expected_flow_revision_id,
+            DispatchTurnModel.status.in_(("starting", "open")),
+            attempt_dispatch_is_current(identity),
+        )
+        .values(
+            status="closed",
+            closed_at=closed_at,
+            closed_reason=closed_reason,
+            next_provider_start_at=None,
+            provider_start_retry_kind=None,
+        )
+        .returning(DispatchTurnModel.dispatch_id)
+    )
+    if closed_dispatch_id is None:
+        return False
+
+    selected_attempt_id = await session.scalar(
+        update(AttemptModel)
+        .where(
+            AttemptModel.attempt_id == identity.attempt_id,
+            AttemptModel.task_id == identity.task_id,
+            AttemptModel.flow_id == identity.flow_id,
+            AttemptModel.assignment_id == identity.assignment_id,
+            AttemptModel.status == "running",
+            AttemptModel.current_dispatch_id == identity.dispatch_id,
+            AttemptModel.current_wait_id.is_(None),
+        )
+        .values(
+            current_dispatch_id=None,
+            current_wait_id=wait_id,
+        )
+        .returning(AttemptModel.attempt_id)
+    )
+    return selected_attempt_id is not None
+
+
 def attempt_dispatch_is_current(
     identity: AttemptDispatchIdentity,
 ) -> ColumnElement[bool]:
@@ -130,151 +273,6 @@ async def clear_current_attempt_dispatch(
         .returning(AttemptModel.attempt_id)
     )
     return cleared_attempt_id is not None
-
-
-async def close_current_attempt_dispatch(
-    session: AsyncSession,
-    *,
-    identity: AttemptDispatchIdentity,
-    expected_flow_revision_id: str,
-    closed_at: datetime,
-    closed_reason: str,
-) -> bool:
-    """Close and clear one exact current Dispatch without changing lane revisions."""
-
-    claimed_flow_id = await session.scalar(
-        update(FlowModel)
-        .where(
-            FlowModel.flow_id == identity.flow_id,
-            FlowModel.task_id == identity.task_id,
-            FlowModel.status == "running",
-            FlowModel.active_flow_revision_id == expected_flow_revision_id,
-            attempt_dispatch_is_current(identity),
-        )
-        # Take the global lifecycle row first without changing semantic truth.
-        # A concurrent pause/cancel therefore wins or loses before this local
-        # Attempt transition mutates its lane.
-        .values(updated_at=FlowModel.updated_at)
-        .returning(FlowModel.flow_id)
-    )
-    if claimed_flow_id is None:
-        return False
-
-    closed_dispatch_id = await session.scalar(
-        update(DispatchTurnModel)
-        .where(
-            DispatchTurnModel.dispatch_id == identity.dispatch_id,
-            DispatchTurnModel.task_id == identity.task_id,
-            DispatchTurnModel.flow_id == identity.flow_id,
-            DispatchTurnModel.assignment_id == identity.assignment_id,
-            DispatchTurnModel.attempt_id == identity.attempt_id,
-            DispatchTurnModel.flow_revision_id == expected_flow_revision_id,
-            DispatchTurnModel.status.in_(("starting", "open")),
-            attempt_dispatch_is_current(identity),
-        )
-        .values(
-            status="closed",
-            closed_at=closed_at,
-            closed_reason=closed_reason,
-            next_provider_start_at=None,
-            provider_start_retry_kind=None,
-        )
-        .returning(DispatchTurnModel.dispatch_id)
-    )
-    if closed_dispatch_id is None:
-        return False
-    return await clear_current_attempt_dispatch(session, identity=identity)
-
-
-async def suspend_current_attempt_on_wait(
-    session: AsyncSession,
-    *,
-    identity: AttemptDispatchIdentity,
-    wait_id: str,
-    expected_flow_revision_id: str,
-    closed_at: datetime,
-    closed_reason: str,
-) -> bool:
-    """Close one current Dispatch and select its exact typed Attempt wait."""
-
-    claimed_flow_id = await session.scalar(
-        update(FlowModel)
-        .where(
-            FlowModel.flow_id == identity.flow_id,
-            FlowModel.task_id == identity.task_id,
-            FlowModel.status == "running",
-            FlowModel.active_flow_revision_id == expected_flow_revision_id,
-            attempt_dispatch_is_current(identity),
-            exists(
-                select(AttemptWaitModel.wait_id).where(
-                    AttemptWaitModel.wait_id == wait_id,
-                    AttemptWaitModel.task_id == identity.task_id,
-                    AttemptWaitModel.flow_id == identity.flow_id,
-                    AttemptWaitModel.assignment_id == identity.assignment_id,
-                    AttemptWaitModel.attempt_id == identity.attempt_id,
-                    AttemptWaitModel.source_dispatch_id == identity.dispatch_id,
-                )
-            ),
-            exists(
-                select(DispatchTurnModel.dispatch_id).where(
-                    DispatchTurnModel.dispatch_id == identity.dispatch_id,
-                    DispatchTurnModel.task_id == identity.task_id,
-                    DispatchTurnModel.flow_id == identity.flow_id,
-                    DispatchTurnModel.assignment_id == identity.assignment_id,
-                    DispatchTurnModel.attempt_id == identity.attempt_id,
-                    DispatchTurnModel.flow_revision_id == expected_flow_revision_id,
-                    DispatchTurnModel.status.in_(("starting", "open")),
-                )
-            ),
-        )
-        .values(updated_at=FlowModel.updated_at)
-        .returning(FlowModel.flow_id)
-    )
-    if claimed_flow_id is None:
-        return False
-
-    closed_dispatch_id = await session.scalar(
-        update(DispatchTurnModel)
-        .where(
-            DispatchTurnModel.dispatch_id == identity.dispatch_id,
-            DispatchTurnModel.task_id == identity.task_id,
-            DispatchTurnModel.flow_id == identity.flow_id,
-            DispatchTurnModel.assignment_id == identity.assignment_id,
-            DispatchTurnModel.attempt_id == identity.attempt_id,
-            DispatchTurnModel.flow_revision_id == expected_flow_revision_id,
-            DispatchTurnModel.status.in_(("starting", "open")),
-            attempt_dispatch_is_current(identity),
-        )
-        .values(
-            status="closed",
-            closed_at=closed_at,
-            closed_reason=closed_reason,
-            next_provider_start_at=None,
-            provider_start_retry_kind=None,
-        )
-        .returning(DispatchTurnModel.dispatch_id)
-    )
-    if closed_dispatch_id is None:
-        return False
-
-    selected_attempt_id = await session.scalar(
-        update(AttemptModel)
-        .where(
-            AttemptModel.attempt_id == identity.attempt_id,
-            AttemptModel.task_id == identity.task_id,
-            AttemptModel.flow_id == identity.flow_id,
-            AttemptModel.assignment_id == identity.assignment_id,
-            AttemptModel.status == "running",
-            AttemptModel.current_dispatch_id == identity.dispatch_id,
-            AttemptModel.current_wait_id.is_(None),
-        )
-        .values(
-            current_dispatch_id=None,
-            current_wait_id=wait_id,
-        )
-        .returning(AttemptModel.attempt_id)
-    )
-    return selected_attempt_id is not None
 
 
 async def clear_current_attempt_wait(

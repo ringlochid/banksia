@@ -382,7 +382,7 @@ async def _clear_matching_attempt_wait(
             AttemptWaitModel.source_dispatch_id == source.source_dispatch_id,
             AttemptWaitModel.command_run_id == source.run_id,
             AttemptWaitModel.human_request_id.is_(None),
-            AttemptWaitModel.sequential_child_assignment_id.is_(None),
+            AttemptWaitModel.delegation_wave_id.is_(None),
         )
     )
     if wait_id is None:
@@ -409,7 +409,7 @@ async def _clear_matching_attempt_wait(
             AttemptWaitModel.source_dispatch_id == source.source_dispatch_id,
             AttemptWaitModel.command_run_id == source.run_id,
             AttemptWaitModel.human_request_id.is_(None),
-            AttemptWaitModel.sequential_child_assignment_id.is_(None),
+            AttemptWaitModel.delegation_wave_id.is_(None),
         )
         .returning(AttemptWaitModel.wait_id)
     )

@@ -8,20 +8,25 @@ from xml.etree import ElementTree
 import pytest
 from banksia.config import CodexSettings, RuntimeSettings, Settings
 from banksia.persistence.models import (
+    AcceptedBoundaryModel,
+    AssignmentModel,
+    AttemptModel,
+    DelegationWaveMemberModel,
+    DelegationWaveModel,
     DispatchRequestModel,
-    DispatchTurnModel,
     ReplanTransitionModel,
     TaskModel,
     TeamRevisionMemberModel,
 )
 from banksia.providers import ProviderKind
-from banksia.runtime.boundary import open_boundary_successor
 from banksia.runtime.contracts import (
     CheckpointResponse,
     ReplanSuccess,
     StructuralReplanTrigger,
 )
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
+from banksia.runtime.delegation.continuation import open_delegation_wave_successor
+from banksia.runtime.delegation.settlement import settle_delegation_wave
 from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
 from banksia.runtime.errors import RuntimeOperationError
 from banksia.runtime.node_operations import (
@@ -29,7 +34,10 @@ from banksia.runtime.node_operations import (
     NodeOperationExecutor,
     NodeOperationScope,
 )
-from banksia.runtime.post_commit import BoundaryAccepted, CapturedRuntimeEffectPublisher
+from banksia.runtime.post_commit import (
+    CapturedRuntimeEffectPublisher,
+    DelegationWaveSettled,
+)
 from banksia.runtime.replan.continuation import continue_committed_replan
 from banksia.runtime.team.participation import read_accepted_green_participation
 from sqlalchemy import select
@@ -211,7 +219,7 @@ class _DeepParticipationScenario:
         assert result.behavior == "manager"
         assert result.direct_team[0].description is None
         assert result.direct_team[0].participation == "required"
-        assert {"assign_child", "update_child", "remove_child"}.issubset(result.available_actions)
+        assert {"delegate", "update_child", "remove_child"}.issubset(result.available_actions)
 
         current_selections = await self._read_current_selections()
         for changed_member_id in ("root", members.a, members.b, members.e):
@@ -314,29 +322,37 @@ class _DeepParticipationScenario:
         assert await self._has_current_participation(replan.current_selections[members.b])
 
     async def _delegate(self, parent_dispatch_id: str, child_id: str) -> str:
-        async with self.session_factory() as session:
-            parent_dispatch = await session.get(
-                DispatchTurnModel,
-                parent_dispatch_id,
-            )
-        assert parent_dispatch is not None
         await self.executor.execute(
             scope=self._scope(parent_dispatch_id),
-            operation_name="assign_child",
+            operation_name="delegate",
             arguments={
-                "expected_structural_revision_id": parent_dispatch.flow_revision_id,
-                "payload": {
-                    "child_node_key": child_id,
-                    "assignment": {"prompt": f"Complete the {child_id} contribution."},
-                },
+                "assignments": [
+                    {
+                        "child_id": child_id,
+                        "prompt": f"Complete the {child_id} contribution.",
+                    }
+                ],
             },
         )
-        await self.executor.execute(
-            scope=self._scope(parent_dispatch_id),
-            operation_name="return_boundary",
-            arguments={"boundary": "yield"},
-        )
-        return await self._open_boundary_successor(parent_dispatch_id)
+        async with self.session_factory() as session:
+            wave = await session.scalar(
+                select(DelegationWaveModel).where(
+                    DelegationWaveModel.source_dispatch_id == parent_dispatch_id
+                )
+            )
+            assert wave is not None
+            member = await session.scalar(
+                select(DelegationWaveMemberModel).where(
+                    DelegationWaveMemberModel.delegation_wave_id == wave.delegation_wave_id,
+                    DelegationWaveMemberModel.child_member_id == child_id,
+                )
+            )
+            assert member is not None
+            assignment = await session.get(AssignmentModel, member.child_assignment_id)
+            assert assignment is not None and assignment.current_attempt_id is not None
+            attempt = await session.get(AttemptModel, assignment.current_attempt_id)
+            assert attempt is not None and attempt.current_dispatch_id is not None
+            return cast(str, attempt.current_dispatch_id)
 
     async def _checkpoint_and_resume(self, dispatch_id: str, outcome: str) -> str:
         await self.executor.execute(
@@ -347,13 +363,32 @@ class _DeepParticipationScenario:
                 "outcome": outcome,
             },
         )
-        return await self._open_boundary_successor(dispatch_id)
-
-    async def _open_boundary_successor(self, source_dispatch_id: str) -> str:
         async with self.session_factory() as session:
-            opened = await open_boundary_successor(
+            boundary = await session.scalar(
+                select(AcceptedBoundaryModel).where(
+                    AcceptedBoundaryModel.source_dispatch_id == dispatch_id
+                )
+            )
+            assert boundary is not None
+            wave_id = await session.scalar(
+                select(DelegationWaveMemberModel.delegation_wave_id).where(
+                    DelegationWaveMemberModel.terminal_boundary_id == boundary.accepted_boundary_id
+                )
+            )
+            assert wave_id is not None
+            settled = await settle_delegation_wave(
                 cast(AsyncSession, session),
-                signal=BoundaryAccepted(source_dispatch_id),
+                delegation_wave_id=wave_id,
+                settled_at=boundary.committed_at,
+            )
+            assert settled
+        return await self._open_wave_successor(wave_id)
+
+    async def _open_wave_successor(self, wave_id: str) -> str:
+        async with self.session_factory() as session:
+            opened = await open_delegation_wave_successor(
+                cast(AsyncSession, session),
+                signal=DelegationWaveSettled(wave_id),
                 dependencies=self.dependencies,
             )
         assert opened.outcome == "opened"
@@ -430,9 +465,7 @@ def _assert_contributor_context(context: GetCurrentContextResponse) -> None:
     assert context.current_member.behavior == "contributor"
     assert context.direct_team == ()
     assert "add_child" in context.available_actions
-    assert not {"assign_child", "update_child", "remove_child"}.intersection(
-        context.available_actions
-    )
+    assert not {"delegate", "update_child", "remove_child"}.intersection(context.available_actions)
 
 
 def _assert_direct_participation(

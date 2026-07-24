@@ -261,7 +261,7 @@ Current shipped workflow fixtures are:
 - `project-management-delivery`
 - `topic-research-brief`
 
-The packaged bootstrap mirror under `apps/api/src/banksia/definitions/seeds/workflows/*.yaml` is the committed authored and shipped seed source for those fixtures. No repo-root definitions mirror is required by shipped paths.
+The packaged bootstrap mirror under `src/banksia/workflows/resources/starter_workflows/*.yaml` is the committed authored and shipped seed source for those fixtures. No repo-root definitions mirror is required by shipped paths.
 
 Current shipped policy fixtures are:
 

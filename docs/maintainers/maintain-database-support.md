@@ -22,11 +22,11 @@ Reset is destructive and must use the configured database:
 Use focused tests while iterating, then run the applicable lanes:
 
 ```bash
-make check-api
-make test-api-integration
-make test-api-db
+make check-backend
+make test-backend-integration
+make test-backend-db
 ```
 
-Add the focused E2E lane when the change can affect launched workflows. PostgreSQL proof uses `infra/testing/api/Dockerfile`; it must not become a production image contract.
+Add the focused E2E lane when the change can affect launched workflows. PostgreSQL proof uses `infra/testing/backend/Dockerfile`; it must not become a production image contract.
 
 Review portable constraints, foreign keys, conditional writes, JSON behavior, schema ownership, reseeding, and `/readyz`.

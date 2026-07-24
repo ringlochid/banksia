@@ -1,0 +1,216 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import datetime
+
+
+class RuntimeEffectSignal:
+    """Marker for one disposable exact-source runtime scheduling hint."""
+
+    __slots__ = ()
+
+
+@dataclass(frozen=True, slots=True)
+class TaskStartCommitted(RuntimeEffectSignal):
+    task_id: str
+
+
+@dataclass(frozen=True, slots=True)
+class WaveMemberSettled(RuntimeEffectSignal):
+    delegation_wave_id: str
+
+
+@dataclass(frozen=True, slots=True)
+class DelegationWaveSettled(RuntimeEffectSignal):
+    delegation_wave_id: str
+
+
+@dataclass(frozen=True, slots=True)
+class ReplanCommitted(RuntimeEffectSignal):
+    transition_id: str
+
+
+@dataclass(frozen=True, slots=True)
+class HumanRequestOpened(RuntimeEffectSignal):
+    request_id: str
+
+
+@dataclass(frozen=True, slots=True)
+class HumanRequestDue(RuntimeEffectSignal):
+    request_id: str
+    due_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class HumanRequestTerminal(RuntimeEffectSignal):
+    request_id: str
+
+
+@dataclass(frozen=True, slots=True)
+class CommandRunPending(RuntimeEffectSignal):
+    run_id: str
+
+
+@dataclass(frozen=True, slots=True)
+class CommandRunDue(RuntimeEffectSignal):
+    run_id: str
+    due_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class CommandRunCancellationRequested(RuntimeEffectSignal):
+    run_id: str
+    ownership_revision: int
+
+
+@dataclass(frozen=True, slots=True)
+class CommandRunTerminal(RuntimeEffectSignal):
+    run_id: str
+
+
+@dataclass(frozen=True, slots=True)
+class CommandProcessExited(RuntimeEffectSignal):
+    run_id: str
+    ownership_revision: int
+
+
+@dataclass(frozen=True, slots=True)
+class DispatchCleanupRequested(RuntimeEffectSignal):
+    dispatch_id: str
+
+
+@dataclass(frozen=True, slots=True)
+class WatchdogDeadlineChanged(RuntimeEffectSignal):
+    dispatch_id: str
+    activity_revision: int
+    due_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class WatchdogDue(RuntimeEffectSignal):
+    dispatch_id: str
+    activity_revision: int
+    due_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class DispatchStartDue(RuntimeEffectSignal):
+    dispatch_id: str
+    provider_start_revision: int
+    due_at: datetime
+
+
+ALL_RUNTIME_EFFECT_SIGNAL_TYPES: tuple[type[RuntimeEffectSignal], ...] = (
+    TaskStartCommitted,
+    WaveMemberSettled,
+    DelegationWaveSettled,
+    ReplanCommitted,
+    HumanRequestOpened,
+    HumanRequestDue,
+    HumanRequestTerminal,
+    CommandRunPending,
+    CommandRunDue,
+    CommandRunCancellationRequested,
+    CommandRunTerminal,
+    CommandProcessExited,
+    DispatchCleanupRequested,
+    WatchdogDeadlineChanged,
+    WatchdogDue,
+    DispatchStartDue,
+)
+
+type RuntimeEffectContextValue = str | int
+type RuntimeEffectSourceContext = tuple[tuple[str, RuntimeEffectContextValue], ...]
+
+
+def runtime_effect_source_context(
+    signal: RuntimeEffectSignal,
+) -> RuntimeEffectSourceContext:
+    """Return the bounded non-secret identity fields safe for runtime health."""
+
+    match signal:
+        case TaskStartCommitted(task_id=task_id):
+            return (("task_id", task_id),)
+        case WaveMemberSettled(delegation_wave_id=delegation_wave_id):
+            return (("delegation_wave_id", delegation_wave_id),)
+        case DelegationWaveSettled(delegation_wave_id=delegation_wave_id):
+            return (("delegation_wave_id", delegation_wave_id),)
+        case ReplanCommitted(transition_id=transition_id):
+            return (("transition_id", transition_id),)
+        case HumanRequestOpened(request_id=request_id):
+            return (("request_id", request_id),)
+        case HumanRequestDue(request_id=request_id, due_at=due_at):
+            return (("request_id", request_id), ("due_at", due_at.isoformat()))
+        case HumanRequestTerminal(request_id=request_id):
+            return (("request_id", request_id),)
+        case CommandRunPending(run_id=run_id):
+            return (("run_id", run_id),)
+        case CommandRunDue(run_id=run_id, due_at=due_at):
+            return (("run_id", run_id), ("due_at", due_at.isoformat()))
+        case CommandRunCancellationRequested(
+            run_id=run_id,
+            ownership_revision=ownership_revision,
+        ):
+            return (("run_id", run_id), ("ownership_revision", ownership_revision))
+        case CommandRunTerminal(run_id=run_id):
+            return (("run_id", run_id),)
+        case CommandProcessExited(run_id=run_id, ownership_revision=ownership_revision):
+            return (("run_id", run_id), ("ownership_revision", ownership_revision))
+        case DispatchCleanupRequested(dispatch_id=dispatch_id):
+            return (("dispatch_id", dispatch_id),)
+        case WatchdogDeadlineChanged(
+            dispatch_id=dispatch_id,
+            activity_revision=activity_revision,
+            due_at=due_at,
+        ):
+            return (
+                ("dispatch_id", dispatch_id),
+                ("activity_revision", activity_revision),
+                ("due_at", due_at.isoformat()),
+            )
+        case WatchdogDue(
+            dispatch_id=dispatch_id,
+            activity_revision=activity_revision,
+            due_at=due_at,
+        ):
+            return (
+                ("dispatch_id", dispatch_id),
+                ("activity_revision", activity_revision),
+                ("due_at", due_at.isoformat()),
+            )
+        case DispatchStartDue(
+            dispatch_id=dispatch_id,
+            provider_start_revision=provider_start_revision,
+            due_at=due_at,
+        ):
+            return (
+                ("dispatch_id", dispatch_id),
+                ("provider_start_revision", provider_start_revision),
+                ("due_at", due_at.isoformat()),
+            )
+    raise TypeError(f"unsupported runtime effect signal type: {type(signal).__name__}")
+
+
+__all__ = [
+    "ALL_RUNTIME_EFFECT_SIGNAL_TYPES",
+    "CommandProcessExited",
+    "CommandRunCancellationRequested",
+    "CommandRunDue",
+    "CommandRunPending",
+    "CommandRunTerminal",
+    "DelegationWaveSettled",
+    "DispatchCleanupRequested",
+    "DispatchStartDue",
+    "HumanRequestDue",
+    "HumanRequestOpened",
+    "HumanRequestTerminal",
+    "ReplanCommitted",
+    "RuntimeEffectContextValue",
+    "RuntimeEffectSignal",
+    "RuntimeEffectSourceContext",
+    "TaskStartCommitted",
+    "WatchdogDeadlineChanged",
+    "WatchdogDue",
+    "WaveMemberSettled",
+    "runtime_effect_source_context",
+]

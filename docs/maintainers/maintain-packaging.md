@@ -1,20 +1,20 @@
 # Maintain packaging
 
-Use this guide when changing package data, dependencies, console assets, service resources, entry points, or versions.
+Use this guide when changing package data, dependencies, service resources, entry points, or versions.
 
 ## Package contract
 
-`pyproject.toml` owns the distribution. Banksia requires Python 3.12 or newer and installs `banksia = banksia.interfaces.cli.main:main` from `apps/api/src`.
+`pyproject.toml` owns the distribution. Banksia requires Python 3.12 or newer and installs `banksia = banksia.interfaces.cli.main:main` from `src`.
 
-The distribution includes definition seeds, shared and family prompt instructions, built console assets, and the systemd user-service template. Add every new runtime resource to package data and read it through `importlib.resources` or another installed-package path.
+The WP-09 distribution includes Starter Workflow seeds, shared and family prompt instructions, and the systemd user-service template. It does not include the imported migration-baseline Console. Add every new runtime resource to package data and read it through `importlib.resources` or another installed-package path.
 
 ## Build
 
 ```bash
-make package-build
+./.venv/bin/python -m build
 ```
 
-This builds the console, copies its production assets into the package tree, and builds both a wheel and source distribution. Inspect both artifacts. Clear stale build output before diagnosing missing or extra files.
+Remove stale `build/`, `dist/`, and egg-info output first. This command builds the interim backend wheel and source distribution; inspect both artifacts. It is package-contraction proof, not a releasable Banksia candidate. WP-10 owns the independently authored root Console and the restored integrated build.
 
 ## Installed proof
 
@@ -26,10 +26,10 @@ Run the repository verifier against the built artifacts:
   --workspace /tmp/banksia-installed-proof
 ```
 
-The verifier installs the wheel in a fresh virtual environment, runs outside the checkout without `PYTHONPATH`, checks packaged resources, enters FastAPI lifespan, and exercises the Linux user-service installer in an isolated home with `--no-start`.
+The verifier installs the wheel in a fresh virtual environment, runs outside the checkout without `PYTHONPATH`, checks packaged resources, enters FastAPI lifespan, starts a Task through the shipped JSON CLI while the server is live, proves semantic Task readback after restart, and exercises the Linux user-service installer in an isolated home with `--no-start`.
 
 Editable installs and source-tree imports do not prove a release artifact.
 
 ## Closeout
 
-Run `make check-api`, `make check-console`, `make check-docs`, and the runtime, database, or E2E lanes affected by the changed resource.
+Run `make check-backend`, `make check-console`, `make check-docs`, and the runtime, database, or E2E lanes affected by the changed resource.

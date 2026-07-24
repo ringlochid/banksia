@@ -34,10 +34,10 @@ services:
             - banksia-postgres-test:/var/lib/postgresql/data
             - ./infra/compose/postgres/init:/docker-entrypoint-initdb.d:ro
 
-    api-test:
+    backend-test:
         build:
             context: .
-            dockerfile: infra/testing/api/Dockerfile
+            dockerfile: infra/testing/backend/Dockerfile
         depends_on:
             postgres-test:
                 condition: service_healthy
@@ -48,7 +48,7 @@ services:
         command:
             - sh
             - -c
-            - BANKSIA_DATABASE_URL="$$BANKSIA_TEST_POSTGRES_URL" python -m banksia db upgrade && exec sh /app/scripts/testing/run_api_pytest_groups.sh integration
+            - BANKSIA_DATABASE_URL="$$BANKSIA_TEST_POSTGRES_URL" python -m banksia db upgrade && exec sh /app/scripts/testing/run_backend_pytest_groups.sh integration
 
 volumes:
     banksia-postgres:

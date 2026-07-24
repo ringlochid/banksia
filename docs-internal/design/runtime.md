@@ -2,7 +2,7 @@
 
 Status: Target
 
-Decision record: accepted 2026-07-22; revised 2026-07-23.
+Decision record: accepted 2026-07-22; revised 2026-07-24.
 
 ## Runtime grammar
 
@@ -71,7 +71,9 @@ Before a Manager can finish green, every **current direct child configuration** 
 - Unchanged prior returns remain historical evidence but cannot validate a new configuration basis.
 - An irrelevant child should be removed, not given filler work.
 
-Assignment records pin the immutable work message and Task-scoped member identity. Each Dispatch pins the exact FlowRevision, FlowNode, TeamRevision, MemberConfiguration, and branch basis used for that provider turn. An accepted green return records its authoring Dispatch basis as the participation it satisfies. Terminal green admission derives participation by exact current-basis relationship, never timestamp or broad revision comparison, rather than introducing an authored criteria/evidence model.
+Assignment records pin the immutable work message and Task-scoped member identity. Each Dispatch pins the exact immutable TeamRevision member selection, including its MemberConfiguration and branch basis, used for that provider turn. An accepted green return records its authoring Dispatch basis as the participation it satisfies. Terminal green admission derives participation by exact current-basis relationship, never timestamp or broad revision comparison, rather than introducing an authored criteria/evidence model.
+
+A live Dispatch remains current across a disjoint replan when the new current TeamRevision still selects the same member, MemberConfiguration, and branch basis. Its immutable Dispatch continues to name the older TeamRevision that authored the turn; currentness compares the retained exact selection rather than requiring the Dispatch revision ID to equal `Task.current_team_revision_id`. Changing or removing that selection invalidates the Dispatch.
 
 ## Work Plan and planning patterns
 
@@ -176,8 +178,6 @@ Dispatch
   dispatch_id
   assignment_id
   attempt_id
-  flow_revision_id
-  flow_node_id
   team_revision_id
   member_id
   member_configuration_id
@@ -185,7 +185,7 @@ Dispatch
   DispatchRequest { exact resolved instructions, exact resolved input, created_at }
 ```
 
-Adapters receive those two strings and exact effective provider configuration. The Assignment and Attempt may remain the same across a continuation, while a fresh Dispatch selects current Flow/Team/configuration truth. No continuation mutates an older Dispatch snapshot or rewrites its request. Adapters do not rerender from current Workflow or filesystem state. Restarting the same Dispatch resends byte-identical strings. A successor Dispatch receives a new request containing its exact continuation.
+The composite `(task_id, team_revision_id, member_id, member_configuration_id, member_branch_basis_id)` is a database-enforced reference to one immutable TeamRevisionMember selection. Adapters receive the two stored request strings and exact effective provider configuration. The Assignment and Attempt may remain the same across a continuation, while a fresh Dispatch selects current Team/configuration truth. No continuation mutates an older Dispatch snapshot or rewrites its request. Adapters do not rerender from current Workflow or filesystem state. Restarting the same Dispatch resends byte-identical strings. A successor Dispatch receives a new request containing its exact continuation.
 
 Assignment and continuation lineage remain distinct. Every Dispatch input contains the complete Assignment. An initial Dispatch has no Continuation or trigger. A successor has exactly one typed Continuation whose nested trigger owns:
 
@@ -457,7 +457,7 @@ Every replan operation:
 9. atomically regenerates `manifest.md`; and
 10. returns fresh current direct children, participation, derived behavior, legal actions, and created/changed/removed IDs.
 
-An accepted replan closes the source Dispatch and records its exact structural result. After `manifest.md` is confirmed current, a separate idempotent transition opens exactly one successor Dispatch on the same Assignment and Attempt. The successor alone pins the fresh FlowRevision, FlowNode, TeamRevision, MemberConfiguration, and branch basis. Its Continuation trigger identifies the committed replan result and carries the fresh team, participation, behavior, capabilities, and legal actions. The provider stops after the accepted mutation; it never continues under the old behavior block.
+An accepted replan closes the source Dispatch and records its exact structural result. After `manifest.md` is confirmed current, a separate idempotent transition opens exactly one successor Dispatch on the same Assignment and Attempt. The successor alone pins the fresh TeamRevision member selection, MemberConfiguration, and branch basis. Its Continuation trigger identifies the committed replan result and carries the fresh team, participation, behavior, capabilities, and legal actions. The provider stops after the accepted mutation; it never continues under the old behavior block.
 
 If manifest projection fails, the Attempt remains in an explicit recoverable between-transitions state with no provider work started. Repair regenerates the manifest from DB truth and then performs the same one-winner successor open. It does not roll back the TeamRevision, fabricate an AttemptWait, or ask the closed provider turn to recover itself.
 
@@ -525,18 +525,23 @@ Command execution preserves commit-before-launch, exact ownership, bounded conti
 
 ## Flow removal migration
 
-Flow is removed only after its invariants have moved and passed one-lane proof:
+Flow is removed only after its invariants have moved and passed direct replacement proof. The final target retains no Flow, FlowRevision, FlowNode, NodePlanRevision, CompiledPlan, `flow_id`, `flow_revision_id`, `flow_node_id`, mutable node-state pointer, or Flow-named service/contract. TeamRevision and TeamRevisionMember are the sole immutable structural history and selection records.
 
-1. add Attempt-local current Dispatch and typed waits while temporarily comparing them with Flow’s single pointers;
-2. migrate provider start, watchdog, node authority, human requests, command runs, continuation, pause/resume/cancel, cleanup, and startup audit one source family at a time;
+1. add Attempt-local current Dispatch and typed waits while temporarily comparing them with Flow's single pointers;
+2. migrate provider start, watchdog, node authority, Human Requests, Command Runs, continuation, pause/resume/cancel, cleanup, and startup audit one source family at a time;
 3. change first/current and predecessor constraints from Flow scope to Attempt scope;
 4. delete Flow current Dispatch/wait fields and prove independent nested lanes;
 5. introduce one-member and then multi-member Waves;
-6. move residual global lifecycle/control/outcome/team-head fields directly to Task with direct tests; and
-7. delete the final one-to-one Flow record.
+6. move global lifecycle, terminal outcome, control revision, pause facts, exact root Assignment, current TeamRevision, and exact accepted root Result relationships directly to Task with conditional-update and constraint parity;
+7. retarget every execution owner tuple from `(task_id, flow_id, ...)` to `(task_id, ...)`, with exact Assignment, Attempt, Dispatch, wait, source, Boundary, Wave, TeamRevisionMember, and Result relationships preserved as database-enforced truth;
+8. replace `FlowStartSource` with a Task-owned exact Task-start source linked to the root Assignment, first Attempt, and first Dispatch;
+9. replace FlowNode's mutable `state` and `current_assignment_id` with Assignment/Attempt truth: a partial unique constraint permits at most one open, nonsuperseded Assignment for one `(task_id, member_id)`, while member work state is derived from that Assignment, its current Attempt/wait, and its terminal history; and
+10. delete the complete Flow graph, duplicate CompiledPlan/NodePlan graph, launch adapter, Flow-named services/contracts, and obsolete tests in the same reset-only cutover.
 
-Task-wide controls enumerate all current lanes and waits. Completion requires the accepted root result and no live descendant Attempt or Wave.
+A DelegationWave pins the parent Dispatch's TeamRevision and parent Member. Each ordered Wave member pins one exact direct-child TeamRevisionMember selection, so deleting FlowNode cannot weaken the direct-child or branch-basis relationship. Replan advances only `Task.current_team_revision_id`; it has no second structural head or dual compare-and-swap.
+
+Task is acquired before Attempt, Dispatch, wait, source, or Wave rows for global mutations. Task-wide controls enumerate all current lanes and waits. Completion conditionally selects the root Result and terminal Task status/outcome in one transaction and requires the accepted root Boundary plus no live descendant Attempt or Wave.
 
 ## Removed runtime concepts
 
-The final runtime has no TaskCompose, CompiledPlan, generic Definition lookup, Role/Policy, criteria, consume/produce, release basis, evidence declarations, legacy Artifact resource/capture/slot/version/current-pointer protocol, transient localization model, per-Dispatch request files, staged child assignment, yield boundary, Flow-wide current pointer, or model-visible release operation.
+The final runtime has no TaskCompose, CompiledPlan, Flow graph or identity, generic Definition lookup, Role/Policy, criteria, consume/produce, release basis, evidence declarations, legacy Artifact resource/capture/slot/version/current-pointer protocol, transient localization model, per-Dispatch request files, staged child assignment, yield boundary, Flow-wide current pointer, or model-visible release operation.

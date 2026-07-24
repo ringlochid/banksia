@@ -2,7 +2,7 @@
 
 Status: Target
 
-Decision record: accepted 2026-07-22; revised 2026-07-23.
+Decision record: accepted 2026-07-22; revised 2026-07-24.
 
 ## Product language and audience boundary
 
@@ -19,6 +19,77 @@ Banksia deliberately separates three planes:
 The browser product API receives only the third plane. Technical fields are not downloaded and then hidden behind a toggle. A separately authorized internal support API/export may expose controller/audit truth.
 
 Opaque resource IDs, URLs, ETags, SSE cursors, and request correlation tokens may be carried by the client when required for navigation or concurrency. They are not rendered as product content.
+
+## Frozen HTTP and service boundary
+
+The product and support planes are separate FastAPI applications over the same domain services. The product application remains at the root HTTP origin. The support application is mounted at `/support`; mounted support routes and schemas never enter the product OpenAPI document.
+
+The outer local admission boundary applies to both applications: direct loopback peer, exact configured loopback `Host`, and exact allowed `Origin` for ordinary unsafe browser requests. Support adds a second boundary:
+
+- support HTTP is disabled unless a high-entropy bearer is supplied through the dedicated controller secret setting;
+- every support route, including `/support/openapi.json`, requires `Authorization: Bearer <support credential>` with constant-time comparison;
+- support requests containing an `Origin` header reject, so the browser product cannot become a support client; and
+- the credential is never returned by configuration readback, product OpenAPI, product responses, Console assets, Operator tools, logs, or errors.
+
+An absent support credential produces no usable support route. Health/readiness remain loopback operational endpoints, are excluded from both generated client schemas, and grant no support access.
+
+The two tracked generated contracts are:
+
+```text
+openapi/product.json
+openapi/support.json
+```
+
+`openapi/product.json` is the only Console and Operator SDK/MCP generation input. `openapi/support.json` is generated directly from the support application and is consumed only by explicitly authorized diagnostic tooling. Neither document is assembled by deleting fields from one combined schema. Generation and drift checks fail when a route appears in both documents, a support schema is reachable from the product component graph, or an Operator operation cannot map to one product-domain operation below.
+
+### Product route matrix
+
+Every product mutation returns controller truth plus an opaque receipt or current resource readback. `If-Match` owns Workflow draft concurrency. Controller-issued action IDs own Task, Human Request, and Command Run legality; the browser never submits runtime revisions.
+
+| HTTP method and path | Domain operation | Response owner | Consumers |
+| --- | --- | --- | --- |
+| `GET /workflows` | Search the published Workflow catalog. | `WorkflowSearchResponse` | Console, Operator `workflow_search` |
+| `GET /workflows/authoring-options` | Read supported provider, sandbox, model/effort, and built-in capability authoring choices. | `WorkflowAuthoringOptions` | Console, Operator `workflow_authoring_options` |
+| `GET /workflows/{workflow_id}` | Read current published Workflow, bounded immutable history, and active draft/ETag when present. | `WorkflowGetResponse` | Console, Operator `workflow_get` |
+| `POST /workflow-drafts` | Create one structured JSON draft. | `WorkflowDraftReadback` | Console, Operator `workflow_draft_create` |
+| `GET /workflow-drafts/{draft_id}` | Read one mutable draft and ETag. | `WorkflowDraftReadback` | Console |
+| `PATCH /workflow-drafts/{draft_id}` | Apply one closed typed metadata, note, Member, provider, or capability edit. | `WorkflowDraftMutationResult` | Console, Operator `workflow_draft_edit` |
+| `POST /workflow-drafts/{draft_id}/validate` | Validate the complete normalized candidate without publishing it. | `WorkflowDraftValidationResult` | Console, Operator `workflow_draft_validate` |
+| `POST /workflow-drafts/{draft_id}/undo` | Consume one controller-issued single-use Undo receipt. | `WorkflowDraftReadback` | Console, Operator `workflow_draft_undo` |
+| `DELETE /workflow-drafts/{draft_id}` | Discard only the mutable draft. | `WorkflowDraftDiscardResult` | Console, Operator `workflow_draft_discard` |
+| `POST /workflow-drafts/{draft_id}/publish` | Publish the exact ETag-selected draft as an immutable revision. | `WorkflowPublishedReadback` | Console, Operator `workflow_draft_publish` |
+| `GET /tasks` | Search Tasks through semantic status and presentation fields. | `TaskSearchResponse` | Console, Operator `task_search` |
+| `POST /tasks` | Start a Task from one published Workflow and one exact prompt. | `TaskStartReceipt` | Console, Operator `task_start` |
+| `GET /tasks/{task_id}` | Read canonical `TaskView`, including current team, plan, attention, legal actions, bounded Activity, Command summaries, and exact Result. | `TaskView` | Console, Operator `task_get` |
+| `POST /tasks/{task_id}/controls/{action_id}` | Execute one returned pause, resume, or cancel action with its typed input and confirmation. | `TaskControlReceipt` | Console, Operator `task_control` |
+| `GET /tasks/{task_id}/activities` | Page semantic Activity from an opaque cursor. | `TaskActivityPage` | Console |
+| `GET /tasks/{task_id}/activities/stream` | Stream semantic Activity plus payload-minimal `task_changed` hints with cursor reset. | SSE `TaskActivity` or `task_changed` | Console |
+| `GET /tasks/{task_id}/human-requests/{request_id}` | Read one product-safe Human Request and its current legal response action. | `HumanRequestView` | Console; included by Operator `task_get` |
+| `POST /tasks/{task_id}/human-requests/{request_id}/responses` | Commit one typed answer or cancellation against a returned action ID. | `HumanRequestResponseReceipt` | Console, Operator `human_request_respond` |
+| `GET /tasks/{task_id}/command-runs/{command_id}` | Read one product-safe managed Action state and current legal cancellation action. | `CommandRunView` | Console, Operator `command_run_get` |
+| `GET /tasks/{task_id}/command-runs/{command_id}/output` | Read one sanitized bounded output range/tail with cursor and completeness facts. | `CommandRunOutputPage` | Console, Operator `command_run_output_read` |
+| `POST /tasks/{task_id}/command-runs/{command_id}/cancel` | Request cancellation against the returned Command Run action ID. | `CommandRunCancelReceipt` | Console, Operator `command_run_cancel` |
+
+There is no separate product Result route: `TaskView.result` is the singular exact root Result. There is no Task file index, generic file route, Artifact route, raw event route, trace route, runtime snapshot route, provider setup route, or execute-anything route. A later scoped browser read of current referenced-file bytes is optional and requires a separate canon addition; it must not be inferred from the Command output route.
+
+### Support route matrix
+
+Support routes are read-only in this baseline. They call support presenters over controller records and never become an alternate mutation or recovery path.
+
+| HTTP method and path | Support operation | Response owner | Consumers |
+| --- | --- | --- | --- |
+| `GET /support/openapi.json` | Read the separately generated support contract. | OpenAPI document | Authorized diagnostic tooling |
+| `GET /support/tasks` | Search technical Task summaries for diagnosis. | `SupportTaskSearchResponse` | Authorized diagnostic tooling |
+| `GET /support/tasks/{task_id}` | Read an exact controller snapshot and current source relationships. | `SupportTaskSnapshot` | Authorized diagnostic tooling |
+| `GET /support/tasks/{task_id}/trace` | Page the technical lineage/transition trace with an opaque cursor. | `SupportTaskTracePage` | Authorized diagnostic tooling |
+| `GET /support/tasks/{task_id}/events` | Page raw durable Task Events with hash-chain and source facts. | `SupportTaskEventPage` | Authorized diagnostic tooling |
+| `GET /support/tasks/{task_id}/events/stream` | Stream raw durable Task Events for live diagnosis. | SSE `SupportTaskEvent` | Authorized diagnostic tooling |
+
+Support responses may contain technical controller fields, but never credentials, secret environment, provider prompt bodies, or arbitrary workspace file contents. Command output remains available only through the product-safe bounded Command output operation unless a future support owner explicitly adds a more privileged contract.
+
+### Service and Operator parity
+
+HTTP handlers and Operator tools are thin projections over one closed domain-operation catalog. The exact seventeen Operator operations map to the product matrix as shown above. HTTP-only reads are draft reload, Activity page/stream, and one Human Request read. Operator `workflow_get` absorbs draft read and bounded revision history; `task_get` absorbs Activity, Human Request, Command summary, Result, legal-action, and owning-message file-reference readback. Support operations have no Operator projection.
 
 ## Nontechnical product contract
 

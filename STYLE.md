@@ -41,12 +41,12 @@ This file holds the repo-wide measurable engineering rules for touched code. Kee
 - large files are acceptable only when the owner surface stays coherent, navigable, and easier to understand together than split apart
 - when a second responsibility becomes reusable or independently testable, extract it into a sibling module or package named for that responsibility
 - when three or more sibling files share the same family stem, stop growing the flat family and extract a responsibility-named package or support module
-- in `apps/api/tests/**`, ignore the required `test_` prefix when evaluating family stems
+- in `tests/**`, ignore the required `test_` prefix when evaluating family stems
 - keep one stable family stem for one concern; do not drift between names such as `dispatch_*`, `task_dispatch_*`, and `runtime_dispatch_*` unless ownership truly differs
 - name files and modules for their dominant responsibility, not for migration leftovers, chronology, or vague categorization
 - avoid new generic names such as `utils.py`, `helpers.py`, `misc.py`, `common.py`, or `support.py` when the responsibility can be named directly
 - avoid steady-state path names with temporary or migration suffixes such as `new`, `old`, `temp`, `final`, or `v2`
-- converge on one canonical `banksia/**` backend package; `apps/api/src/banksia/**` temporarily hosts imported baseline semantics while later work packages replace them, not a second namespace or compatibility surface
+- keep `src/banksia/**` as the one canonical backend package; do not create a second namespace or compatibility surface
 - keep top-level shared surfaces explicit: shared helpers, adapters, selectors, and mappers should be public and non-underscored
 - keep only explicit public-boundary exceptions flat: real `__init__.py` package surfaces, thin `cli.py` entrypoints, and required `conftest.py` discovery surfaces
 - do not keep long-lived compatibility wrappers, import-only shims, or placeholder-only tracked trees as steady-state layout

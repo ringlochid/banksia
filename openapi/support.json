@@ -1,0 +1,4553 @@
+{
+  "components": {
+    "schemas": {
+      "BoundaryAcceptedEventPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "assignment_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "attempt_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "checkpoint_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/CheckpointOutcome"
+          },
+          "resulting_task_status": {
+            "enum": [
+              "running",
+              "completed"
+            ],
+            "title": "Resulting Task Status",
+            "type": "string"
+          },
+          "source_dispatch_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          }
+        },
+        "required": [
+          "source_dispatch_id",
+          "assignment_id",
+          "attempt_id",
+          "outcome",
+          "checkpoint_id",
+          "resulting_task_status"
+        ],
+        "title": "BoundaryAcceptedEventPayload",
+        "type": "object"
+      },
+      "CapabilitySource": {
+        "enum": [
+          "default",
+          "member_configuration",
+          "controller"
+        ],
+        "title": "CapabilitySource",
+        "type": "string"
+      },
+      "CheckpointOutcome": {
+        "enum": [
+          "green",
+          "retry",
+          "blocked"
+        ],
+        "title": "CheckpointOutcome",
+        "type": "string"
+      },
+      "CheckpointRecordedEventPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "assignment_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "attempt_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "authored_by_dispatch_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "checkpoint_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "details": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Details"
+          },
+          "files": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/FileReference"
+            },
+            "maxItems": 32,
+            "title": "Files",
+            "type": "array"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CheckpointOutcome"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "summary": {
+            "$ref": "#/components/schemas/TaskEventSummary"
+          }
+        },
+        "required": [
+          "checkpoint_id",
+          "assignment_id",
+          "attempt_id",
+          "summary",
+          "authored_by_dispatch_id"
+        ],
+        "title": "CheckpointRecordedEventPayload",
+        "type": "object"
+      },
+      "CommandRunCancelRequestedEventPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "ownership_revision": {
+            "minimum": 0.0,
+            "title": "Ownership Revision",
+            "type": "integer"
+          },
+          "requested_at": {
+            "format": "date-time",
+            "title": "Requested At",
+            "type": "string"
+          },
+          "run_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "source_dispatch_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "state": {
+            "const": "cancellation_requested",
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "source_dispatch_id",
+          "state",
+          "requested_at",
+          "ownership_revision"
+        ],
+        "title": "CommandRunCancelRequestedEventPayload",
+        "type": "object"
+      },
+      "CommandRunOpenedEventPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "command": {
+            "$ref": "#/components/schemas/TaskEventSummary"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "description": {
+            "$ref": "#/components/schemas/TaskEventSummary"
+          },
+          "output_path": {
+            "$ref": "#/components/schemas/TaskEventRef"
+          },
+          "ownership_revision": {
+            "const": 0,
+            "default": 0,
+            "title": "Ownership Revision",
+            "type": "integer"
+          },
+          "run_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "source_dispatch_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "state": {
+            "const": "pending_start",
+            "title": "State",
+            "type": "string"
+          },
+          "timeout_seconds": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timeout Seconds"
+          },
+          "workdir": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "run_id",
+          "source_dispatch_id",
+          "state",
+          "command",
+          "description",
+          "created_at",
+          "output_path"
+        ],
+        "title": "CommandRunOpenedEventPayload",
+        "type": "object"
+      },
+      "CommandRunProgressedEventPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "output_path": {
+            "$ref": "#/components/schemas/TaskEventRef"
+          },
+          "ownership_revision": {
+            "minimum": 1.0,
+            "title": "Ownership Revision",
+            "type": "integer"
+          },
+          "run_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "source_dispatch_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "state": {
+            "enum": [
+              "running",
+              "cancellation_requested"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/TaskEventSummary"
+          }
+        },
+        "required": [
+          "run_id",
+          "source_dispatch_id",
+          "state",
+          "summary",
+          "occurred_at",
+          "ownership_revision",
+          "output_path"
+        ],
+        "title": "CommandRunProgressedEventPayload",
+        "type": "object"
+      },
+      "CommandRunStartedEventPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "command": {
+            "$ref": "#/components/schemas/TaskEventSummary"
+          },
+          "description": {
+            "$ref": "#/components/schemas/TaskEventSummary"
+          },
+          "due_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due At"
+          },
+          "output_path": {
+            "$ref": "#/components/schemas/TaskEventRef"
+          },
+          "ownership_revision": {
+            "minimum": 1.0,
+            "title": "Ownership Revision",
+            "type": "integer"
+          },
+          "run_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "source_dispatch_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "state": {
+            "const": "running",
+            "title": "State",
+            "type": "string"
+          },
+          "workdir": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "run_id",
+          "source_dispatch_id",
+          "state",
+          "command",
+          "description",
+          "started_at",
+          "ownership_revision",
+          "output_path"
+        ],
+        "title": "CommandRunStartedEventPayload",
+        "type": "object"
+      },
+      "CommandRunTerminalEventPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "ended_at": {
+            "format": "date-time",
+            "title": "Ended At",
+            "type": "string"
+          },
+          "exit_code": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exit Code"
+          },
+          "failure_code": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "output_complete": {
+            "title": "Output Complete",
+            "type": "boolean"
+          },
+          "output_encoding": {
+            "const": "raw_bytes",
+            "title": "Output Encoding",
+            "type": "string"
+          },
+          "output_observed_bytes": {
+            "minimum": 0.0,
+            "title": "Output Observed Bytes",
+            "type": "integer"
+          },
+          "output_path": {
+            "$ref": "#/components/schemas/TaskEventRef"
+          },
+          "output_written_bytes": {
+            "minimum": 0.0,
+            "title": "Output Written Bytes",
+            "type": "integer"
+          },
+          "ownership_revision": {
+            "minimum": 0.0,
+            "title": "Ownership Revision",
+            "type": "integer"
+          },
+          "run_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "source_dispatch_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "state": {
+            "enum": [
+              "succeeded",
+              "failed",
+              "timed_out",
+              "cancelled",
+              "abandoned"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/TaskEventSummary"
+          }
+        },
+        "required": [
+          "run_id",
+          "source_dispatch_id",
+          "state",
+          "summary",
+          "ended_at",
+          "ownership_revision",
+          "output_path",
+          "output_observed_bytes",
+          "output_written_bytes",
+          "output_complete",
+          "output_encoding"
+        ],
+        "title": "CommandRunTerminalEventPayload",
+        "type": "object"
+      },
+      "ControllerTaskLifecycleStatus": {
+        "enum": [
+          "pending",
+          "running",
+          "paused",
+          "completed",
+          "cancelled"
+        ],
+        "title": "ControllerTaskLifecycleStatus",
+        "type": "string"
+      },
+      "ControllerTaskPauseReason": {
+        "enum": [
+          "paused_by_operator",
+          "runtime_recovery_exhausted",
+          "runtime_transition_failed"
+        ],
+        "type": "string"
+      },
+      "ControllerTaskState": {
+        "additionalProperties": false,
+        "description": "Internal controller lifecycle read used by runtime and support presenters.",
+        "properties": {
+          "control_revision": {
+            "minimum": 0.0,
+            "title": "Control Revision",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "current_team_revision_id": {
+            "minLength": 1,
+            "title": "Current Team Revision Id",
+            "type": "string"
+          },
+          "pause_reason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ControllerTaskPauseReason"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/ControllerTaskLifecycleStatus"
+          },
+          "task_id": {
+            "minLength": 1,
+            "title": "Task Id",
+            "type": "string"
+          },
+          "task_summary": {
+            "minLength": 1,
+            "title": "Task Summary",
+            "type": "string"
+          },
+          "task_title": {
+            "minLength": 1,
+            "title": "Task Title",
+            "type": "string"
+          },
+          "terminal_outcome": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ControllerTaskTerminalOutcome"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "workflow_key": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workflow Key"
+          },
+          "workflow_manifest_ref": {
+            "$ref": "#/components/schemas/WorkflowManifestRef"
+          }
+        },
+        "required": [
+          "task_id",
+          "task_title",
+          "task_summary",
+          "status",
+          "current_team_revision_id",
+          "control_revision",
+          "workflow_manifest_ref",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ControllerTaskState",
+        "type": "object"
+      },
+      "ControllerTaskSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "current_team_revision_id": {
+            "minLength": 1,
+            "title": "Current Team Revision Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ControllerTaskLifecycleStatus"
+          },
+          "task_id": {
+            "minLength": 1,
+            "title": "Task Id",
+            "type": "string"
+          },
+          "task_summary": {
+            "minLength": 1,
+            "title": "Task Summary",
+            "type": "string"
+          },
+          "task_title": {
+            "minLength": 1,
+            "title": "Task Title",
+            "type": "string"
+          },
+          "terminal_outcome": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ControllerTaskTerminalOutcome"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "workflow_key": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workflow Key"
+          },
+          "workflow_manifest_ref": {
+            "$ref": "#/components/schemas/WorkflowManifestRef"
+          }
+        },
+        "required": [
+          "task_id",
+          "task_title",
+          "task_summary",
+          "status",
+          "current_team_revision_id",
+          "workflow_manifest_ref",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ControllerTaskSummary",
+        "type": "object"
+      },
+      "ControllerTaskTerminalOutcome": {
+        "enum": [
+          "green",
+          "blocked"
+        ],
+        "type": "string"
+      },
+      "DispatchOpenedEventPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "assignment_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "attempt_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "dispatch_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "member_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "opened_reason": {
+            "$ref": "#/components/schemas/DispatchOpenedReason"
+          },
+          "predecessor_dispatch_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requested_provider": {
+            "$ref": "#/components/schemas/ProviderKind"
+          },
+          "resolved_provider": {
+            "$ref": "#/components/schemas/ProviderKind"
+          },
+          "selection_basis": {
+            "$ref": "#/components/schemas/ProviderSelectionBasis"
+          },
+          "status": {
+            "const": "starting",
+            "default": "starting",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "dispatch_id",
+          "assignment_id",
+          "attempt_id",
+          "member_id",
+          "opened_reason",
+          "requested_provider",
+          "resolved_provider",
+          "selection_basis"
+        ],
+        "title": "DispatchOpenedEventPayload",
+        "type": "object"
+      },
+      "DispatchOpenedReason": {
+        "enum": [
+          "root",
+          "delegation",
+          "delegation_wave",
+          "human_result",
+          "command_result",
+          "watchdog_recovery",
+          "semantic_retry",
+          "operator_continue",
+          "structural_replan"
+        ],
+        "type": "string"
+      },
+      "DispatchStartUpdatedEventPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt_count": {
+            "minimum": 1.0,
+            "title": "Attempt Count",
+            "type": "integer"
+          },
+          "dispatch_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "last_error_code": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "next_attempt_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Attempt At"
+          },
+          "provider_start_revision": {
+            "minimum": 0.0,
+            "title": "Provider Start Revision",
+            "type": "integer"
+          },
+          "retry_kind": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProviderStartRetryKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "state": {
+            "$ref": "#/components/schemas/ProviderStartState"
+          }
+        },
+        "required": [
+          "dispatch_id",
+          "state",
+          "attempt_count",
+          "provider_start_revision"
+        ],
+        "title": "DispatchStartUpdatedEventPayload",
+        "type": "object"
+      },
+      "EffectiveNetworkAccess": {
+        "additionalProperties": false,
+        "properties": {
+          "effective": {
+            "$ref": "#/components/schemas/NetworkAccess",
+            "default": "allow"
+          },
+          "source": {
+            "$ref": "#/components/schemas/CapabilitySource",
+            "default": "default"
+          }
+        },
+        "title": "EffectiveNetworkAccess",
+        "type": "object"
+      },
+      "EffectiveProviderNativeAccess": {
+        "additionalProperties": false,
+        "properties": {
+          "effective": {
+            "$ref": "#/components/schemas/ProviderNativeAccess",
+            "default": "full"
+          },
+          "source": {
+            "$ref": "#/components/schemas/CapabilitySource",
+            "default": "default"
+          }
+        },
+        "title": "EffectiveProviderNativeAccess",
+        "type": "object"
+      },
+      "FileReference": {
+        "additionalProperties": false,
+        "description": "An ordered navigation value to one ordinary workspace file.",
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "FileReference",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HumanRequestKind": {
+        "enum": [
+          "direction",
+          "approval",
+          "input",
+          "review"
+        ],
+        "title": "HumanRequestKind",
+        "type": "string"
+      },
+      "HumanRequestOpenedEventPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "due_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due At"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/HumanRequestKind"
+          },
+          "opened_at": {
+            "format": "date-time",
+            "title": "Opened At",
+            "type": "string"
+          },
+          "request_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "source_dispatch_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/TaskEventSummary"
+          }
+        },
+        "required": [
+          "request_id",
+          "kind",
+          "summary",
+          "source_dispatch_id",
+          "opened_at"
+        ],
+        "title": "HumanRequestOpenedEventPayload",
+        "type": "object"
+      },
+      "HumanRequestResolutionKind": {
+        "enum": [
+          "answered",
+          "timed_out",
+          "cancelled"
+        ],
+        "title": "HumanRequestResolutionKind",
+        "type": "string"
+      },
+      "HumanRequestResolutionSurface": {
+        "enum": [
+          "control_api",
+          "control_ui",
+          "operator_mcp",
+          "controller"
+        ],
+        "title": "HumanRequestResolutionSurface",
+        "type": "string"
+      },
+      "HumanRequestTerminalEventPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "due_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due At"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/HumanRequestKind"
+          },
+          "request_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "resolution_kind": {
+            "$ref": "#/components/schemas/HumanRequestResolutionKind"
+          },
+          "resolution_summary": {
+            "$ref": "#/components/schemas/TaskEventSummary"
+          },
+          "resolved_at": {
+            "format": "date-time",
+            "title": "Resolved At",
+            "type": "string"
+          },
+          "resolved_by_actor_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "resolved_by_surface": {
+            "$ref": "#/components/schemas/HumanRequestResolutionSurface"
+          },
+          "source_dispatch_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "status": {
+            "enum": [
+              "resolved",
+              "timed_out",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/TaskEventSummary"
+          }
+        },
+        "required": [
+          "request_id",
+          "kind",
+          "summary",
+          "source_dispatch_id",
+          "status",
+          "resolution_kind",
+          "resolution_summary",
+          "resolved_at",
+          "resolved_by_surface"
+        ],
+        "title": "HumanRequestTerminalEventPayload",
+        "type": "object"
+      },
+      "NetworkAccess": {
+        "enum": [
+          "allow",
+          "deny"
+        ],
+        "title": "NetworkAccess",
+        "type": "string"
+      },
+      "NodeKind": {
+        "description": "Residual runtime shape derived from Team membership, never authored authority.",
+        "enum": [
+          "root",
+          "parent",
+          "worker"
+        ],
+        "title": "NodeKind",
+        "type": "string"
+      },
+      "ProviderKind": {
+        "enum": [
+          "codex",
+          "claude",
+          "openclaw"
+        ],
+        "title": "ProviderKind",
+        "type": "string"
+      },
+      "ProviderNativeAccess": {
+        "description": "Residual adapter projection; ManagedSandboxMode is authored authority.",
+        "enum": [
+          "full",
+          "restricted",
+          "denied"
+        ],
+        "title": "ProviderNativeAccess",
+        "type": "string"
+      },
+      "ProviderSelectionBasis": {
+        "enum": [
+          "explicit",
+          "default"
+        ],
+        "title": "ProviderSelectionBasis",
+        "type": "string"
+      },
+      "ProviderStartRetryKind": {
+        "enum": [
+          "initial",
+          "definite_failure",
+          "uncertain_acceptance"
+        ],
+        "type": "string"
+      },
+      "ProviderStartState": {
+        "enum": [
+          "retry_scheduled",
+          "accepted"
+        ],
+        "type": "string"
+      },
+      "StructuralRevisionAdoptedEventPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "adopted_by_dispatch_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "adopted_team_revision_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "cause": {
+            "$ref": "#/components/schemas/TaskEventSummary"
+          },
+          "operation": {
+            "enum": [
+              "add_child",
+              "update_child",
+              "remove_child"
+            ],
+            "title": "Operation",
+            "type": "string"
+          },
+          "source_team_revision_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "target_member_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          }
+        },
+        "required": [
+          "source_team_revision_id",
+          "adopted_team_revision_id",
+          "operation",
+          "target_member_id",
+          "cause",
+          "adopted_by_dispatch_id"
+        ],
+        "title": "StructuralRevisionAdoptedEventPayload",
+        "type": "object"
+      },
+      "SupportActionableItem": {
+        "additionalProperties": false,
+        "properties": {
+          "current_paths": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/FileReference"
+            },
+            "title": "Current Paths",
+            "type": "array"
+          },
+          "member_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Member Id"
+          },
+          "suggested_action": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggested Action"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "summary"
+        ],
+        "title": "SupportActionableItem",
+        "type": "object"
+      },
+      "SupportBoundaryTraceEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "boundary": {
+            "$ref": "#/components/schemas/CheckpointOutcome"
+          },
+          "checkpoint_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checkpoint Id"
+          },
+          "kind": {
+            "const": "boundary",
+            "default": "boundary",
+            "title": "Kind",
+            "type": "string"
+          },
+          "member_id": {
+            "title": "Member Id",
+            "type": "string"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "source_dispatch_id": {
+            "title": "Source Dispatch Id",
+            "type": "string"
+          },
+          "successor_dispatch_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Successor Dispatch Id"
+          }
+        },
+        "required": [
+          "source_dispatch_id",
+          "member_id",
+          "boundary",
+          "occurred_at"
+        ],
+        "title": "SupportBoundaryTraceEntry",
+        "type": "object"
+      },
+      "SupportCheckpointTraceEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt_id": {
+            "title": "Attempt Id",
+            "type": "string"
+          },
+          "checkpoint_id": {
+            "title": "Checkpoint Id",
+            "type": "string"
+          },
+          "details": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Details"
+          },
+          "files": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/FileReference"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "kind": {
+            "const": "checkpoint",
+            "default": "checkpoint",
+            "title": "Kind",
+            "type": "string"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CheckpointOutcome"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "recorded_at": {
+            "format": "date-time",
+            "title": "Recorded At",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "checkpoint_id",
+          "attempt_id",
+          "summary",
+          "recorded_at"
+        ],
+        "title": "SupportCheckpointTraceEntry",
+        "type": "object"
+      },
+      "SupportDispatchTraceEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "adapter_started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Adapter Started At"
+          },
+          "assignment_id": {
+            "title": "Assignment Id",
+            "type": "string"
+          },
+          "attempt_id": {
+            "title": "Attempt Id",
+            "type": "string"
+          },
+          "closed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closed At"
+          },
+          "closed_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closed Reason"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "dispatch_id": {
+            "title": "Dispatch Id",
+            "type": "string"
+          },
+          "effective_capabilities": {
+            "$ref": "#/components/schemas/SupportEffectiveCapabilityReadback"
+          },
+          "kind": {
+            "const": "dispatch",
+            "default": "dispatch",
+            "title": "Kind",
+            "type": "string"
+          },
+          "last_node_activity_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Node Activity At"
+          },
+          "member_id": {
+            "title": "Member Id",
+            "type": "string"
+          },
+          "node_activity_revision": {
+            "minimum": 0.0,
+            "title": "Node Activity Revision",
+            "type": "integer"
+          },
+          "opened_reason": {
+            "title": "Opened Reason",
+            "type": "string"
+          },
+          "predecessor_dispatch_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Predecessor Dispatch Id"
+          },
+          "requested_provider": {
+            "enum": [
+              "codex",
+              "claude",
+              "openclaw"
+            ],
+            "title": "Requested Provider",
+            "type": "string"
+          },
+          "resolved_provider": {
+            "enum": [
+              "codex",
+              "claude",
+              "openclaw"
+            ],
+            "title": "Resolved Provider",
+            "type": "string"
+          },
+          "selection_basis": {
+            "enum": [
+              "explicit",
+              "default"
+            ],
+            "title": "Selection Basis",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "starting",
+              "open",
+              "closed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "dispatch_id",
+          "assignment_id",
+          "attempt_id",
+          "member_id",
+          "status",
+          "opened_reason",
+          "requested_provider",
+          "resolved_provider",
+          "selection_basis",
+          "node_activity_revision",
+          "effective_capabilities",
+          "created_at"
+        ],
+        "title": "SupportDispatchTraceEntry",
+        "type": "object"
+      },
+      "SupportEffectiveCapabilityReadback": {
+        "additionalProperties": false,
+        "properties": {
+          "network_access": {
+            "$ref": "#/components/schemas/EffectiveNetworkAccess"
+          },
+          "provider_native_access": {
+            "$ref": "#/components/schemas/EffectiveProviderNativeAccess"
+          }
+        },
+        "required": [
+          "provider_native_access",
+          "network_access"
+        ],
+        "title": "SupportEffectiveCapabilityReadback",
+        "type": "object"
+      },
+      "SupportTaskEventPage": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TaskEventRecord"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "task_id": {
+            "title": "Task Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "task_id",
+          "items"
+        ],
+        "title": "SupportTaskEventPage",
+        "type": "object"
+      },
+      "SupportTaskSearchResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ControllerTaskSummary"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "SupportTaskSearchResponse",
+        "type": "object"
+      },
+      "SupportTaskSnapshot": {
+        "additionalProperties": false,
+        "properties": {
+          "current_paths": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/FileReference"
+            },
+            "title": "Current Paths",
+            "type": "array"
+          },
+          "stream_head_event_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stream Head Event Id"
+          },
+          "task": {
+            "$ref": "#/components/schemas/ControllerTaskState"
+          },
+          "top_actionable_items": {
+            "items": {
+              "$ref": "#/components/schemas/SupportActionableItem"
+            },
+            "title": "Top Actionable Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "task",
+          "top_actionable_items"
+        ],
+        "title": "SupportTaskSnapshot",
+        "type": "object"
+      },
+      "SupportTaskTracePage": {
+        "additionalProperties": false,
+        "properties": {
+          "current_paths": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/FileReference"
+            },
+            "title": "Current Paths",
+            "type": "array"
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/SupportTraceEntry"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "task_id": {
+            "title": "Task Id",
+            "type": "string"
+          },
+          "team_members": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SupportTeamMemberEntry"
+            },
+            "title": "Team Members",
+            "type": "array"
+          }
+        },
+        "required": [
+          "task_id",
+          "entries"
+        ],
+        "title": "SupportTaskTracePage",
+        "type": "object"
+      },
+      "SupportTeamMemberEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "child_member_ids": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Child Member Ids",
+            "type": "array"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "member_branch_basis_id": {
+            "title": "Member Branch Basis Id",
+            "type": "string"
+          },
+          "member_configuration_id": {
+            "title": "Member Configuration Id",
+            "type": "string"
+          },
+          "member_id": {
+            "title": "Member Id",
+            "type": "string"
+          },
+          "member_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Member Title"
+          },
+          "node_kind": {
+            "$ref": "#/components/schemas/NodeKind"
+          },
+          "parent_member_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Member Id"
+          },
+          "preorder_index": {
+            "title": "Preorder Index",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "member_id",
+          "node_kind",
+          "member_configuration_id",
+          "member_branch_basis_id",
+          "preorder_index"
+        ],
+        "title": "SupportTeamMemberEntry",
+        "type": "object"
+      },
+      "SupportTraceEntry": {
+        "discriminator": {
+          "mapping": {
+            "boundary": "#/components/schemas/SupportBoundaryTraceEntry",
+            "checkpoint": "#/components/schemas/SupportCheckpointTraceEntry",
+            "dispatch": "#/components/schemas/SupportDispatchTraceEntry"
+          },
+          "propertyName": "kind"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/SupportDispatchTraceEntry"
+          },
+          {
+            "$ref": "#/components/schemas/SupportCheckpointTraceEntry"
+          },
+          {
+            "$ref": "#/components/schemas/SupportBoundaryTraceEntry"
+          }
+        ]
+      },
+      "TaskCancelledEventPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "actor_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "control_revision": {
+            "minimum": 1.0,
+            "title": "Control Revision",
+            "type": "integer"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/TaskEventSummary"
+          }
+        },
+        "required": [
+          "control_revision",
+          "summary"
+        ],
+        "title": "TaskCancelledEventPayload",
+        "type": "object"
+      },
+      "TaskEventIdentifier": {
+        "maxLength": 255,
+        "minLength": 1,
+        "type": "string"
+      },
+      "TaskEventRecord": {
+        "$ref": "#/components/schemas/_TaskEventVariant",
+        "description": "One bounded chronology event with an event-type-specific payload.",
+        "title": "TaskEventRecord"
+      },
+      "TaskEventRef": {
+        "maxLength": 2048,
+        "minLength": 1,
+        "type": "string"
+      },
+      "TaskEventSource": {
+        "enum": [
+          "controller",
+          "control_api",
+          "operator_mcp",
+          "node"
+        ],
+        "title": "TaskEventSource",
+        "type": "string"
+      },
+      "TaskEventStepText": {
+        "maxLength": 512,
+        "minLength": 1,
+        "type": "string"
+      },
+      "TaskEventSummary": {
+        "maxLength": 4096,
+        "minLength": 1,
+        "type": "string"
+      },
+      "TaskEventWorkPlanStep": {
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/WorkPlanStepStatusValue"
+          },
+          "step": {
+            "$ref": "#/components/schemas/TaskEventStepText"
+          }
+        },
+        "required": [
+          "step",
+          "status"
+        ],
+        "title": "TaskEventWorkPlanStep",
+        "type": "object"
+      },
+      "TaskPausedEventPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "actor_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "control_revision": {
+            "minimum": 1.0,
+            "title": "Control Revision",
+            "type": "integer"
+          },
+          "pause_reason": {
+            "enum": [
+              "paused_by_operator",
+              "runtime_recovery_exhausted",
+              "runtime_transition_failed"
+            ],
+            "title": "Pause Reason",
+            "type": "string"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/TaskEventSummary"
+          }
+        },
+        "required": [
+          "pause_reason",
+          "control_revision",
+          "summary"
+        ],
+        "title": "TaskPausedEventPayload",
+        "type": "object"
+      },
+      "TaskResult": {
+        "additionalProperties": false,
+        "description": "Exact accepted terminal Checkpoint selected as the Task result.",
+        "properties": {
+          "completed_at": {
+            "format": "date-time",
+            "title": "Completed At",
+            "type": "string"
+          },
+          "details": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Details"
+          },
+          "files": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/FileReference"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "outcome": {
+            "enum": [
+              "green",
+              "blocked"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "outcome",
+          "summary",
+          "completed_at"
+        ],
+        "title": "TaskResult",
+        "type": "object"
+      },
+      "TaskResumedEventPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "actor_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "control_revision": {
+            "minimum": 1.0,
+            "title": "Control Revision",
+            "type": "integer"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/TaskEventSummary"
+          }
+        },
+        "required": [
+          "control_revision",
+          "summary"
+        ],
+        "title": "TaskResumedEventPayload",
+        "type": "object"
+      },
+      "TaskStartedEventPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "manifest_ref": {
+            "$ref": "#/components/schemas/TaskEventRef"
+          },
+          "workflow_key": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "workflow_revision_no": {
+            "minimum": 1.0,
+            "title": "Workflow Revision No",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "workflow_key",
+          "workflow_revision_no",
+          "manifest_ref"
+        ],
+        "title": "TaskStartedEventPayload",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      },
+      "WorkPlanClearedEventPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "assignment_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "authored_by_dispatch_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "explanation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "revision": {
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "assignment_id",
+          "revision",
+          "authored_by_dispatch_id",
+          "updated_at"
+        ],
+        "title": "WorkPlanClearedEventPayload",
+        "type": "object"
+      },
+      "WorkPlanSetEventPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "assignment_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "authored_by_dispatch_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "explanation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "revision": {
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/TaskEventWorkPlanStep"
+            },
+            "maxItems": 9,
+            "minItems": 1,
+            "title": "Steps",
+            "type": "array"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "assignment_id",
+          "revision",
+          "steps",
+          "authored_by_dispatch_id",
+          "updated_at"
+        ],
+        "title": "WorkPlanSetEventPayload",
+        "type": "object"
+      },
+      "WorkPlanStepStatusValue": {
+        "enum": [
+          "pending",
+          "in_progress",
+          "completed"
+        ],
+        "type": "string"
+      },
+      "WorkflowManifestRef": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "minLength": 1,
+            "title": "Description",
+            "type": "string"
+          },
+          "path": {
+            "format": "path",
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "description"
+        ],
+        "title": "WorkflowManifestRef",
+        "type": "object"
+      },
+      "_BoundaryAcceptedEvent": {
+        "additionalProperties": false,
+        "properties": {
+          "actor_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "attempt_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "dispatch_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "event_hash": {
+            "$ref": "#/components/schemas/TaskEventRef"
+          },
+          "event_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "event_seq": {
+            "minimum": 1.0,
+            "title": "Event Seq",
+            "type": "integer"
+          },
+          "event_source": {
+            "$ref": "#/components/schemas/TaskEventSource"
+          },
+          "event_type": {
+            "const": "boundary_accepted",
+            "title": "Event Type",
+            "type": "string"
+          },
+          "member_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/BoundaryAcceptedEventPayload"
+          },
+          "prev_event_hash": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "task_id": {
+            "minLength": 1,
+            "title": "Task Id",
+            "type": "string"
+          },
+          "team_revision_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "event_id",
+          "event_seq",
+          "task_id",
+          "event_source",
+          "occurred_at",
+          "event_hash",
+          "event_type",
+          "payload"
+        ],
+        "title": "_BoundaryAcceptedEvent",
+        "type": "object"
+      },
+      "_CheckpointRecordedEvent": {
+        "additionalProperties": false,
+        "properties": {
+          "actor_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "attempt_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "dispatch_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "event_hash": {
+            "$ref": "#/components/schemas/TaskEventRef"
+          },
+          "event_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "event_seq": {
+            "minimum": 1.0,
+            "title": "Event Seq",
+            "type": "integer"
+          },
+          "event_source": {
+            "$ref": "#/components/schemas/TaskEventSource"
+          },
+          "event_type": {
+            "const": "checkpoint_recorded",
+            "title": "Event Type",
+            "type": "string"
+          },
+          "member_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/CheckpointRecordedEventPayload"
+          },
+          "prev_event_hash": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "task_id": {
+            "minLength": 1,
+            "title": "Task Id",
+            "type": "string"
+          },
+          "team_revision_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "event_id",
+          "event_seq",
+          "task_id",
+          "event_source",
+          "occurred_at",
+          "event_hash",
+          "event_type",
+          "payload"
+        ],
+        "title": "_CheckpointRecordedEvent",
+        "type": "object"
+      },
+      "_CommandRunCancelRequestedEvent": {
+        "additionalProperties": false,
+        "properties": {
+          "actor_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "attempt_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "dispatch_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "event_hash": {
+            "$ref": "#/components/schemas/TaskEventRef"
+          },
+          "event_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "event_seq": {
+            "minimum": 1.0,
+            "title": "Event Seq",
+            "type": "integer"
+          },
+          "event_source": {
+            "$ref": "#/components/schemas/TaskEventSource"
+          },
+          "event_type": {
+            "const": "command_run_cancel_requested",
+            "title": "Event Type",
+            "type": "string"
+          },
+          "member_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/CommandRunCancelRequestedEventPayload"
+          },
+          "prev_event_hash": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "task_id": {
+            "minLength": 1,
+            "title": "Task Id",
+            "type": "string"
+          },
+          "team_revision_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "event_id",
+          "event_seq",
+          "task_id",
+          "event_source",
+          "occurred_at",
+          "event_hash",
+          "event_type",
+          "payload"
+        ],
+        "title": "_CommandRunCancelRequestedEvent",
+        "type": "object"
+      },
+      "_CommandRunOpenedEvent": {
+        "additionalProperties": false,
+        "properties": {
+          "actor_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "attempt_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "dispatch_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "event_hash": {
+            "$ref": "#/components/schemas/TaskEventRef"
+          },
+          "event_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "event_seq": {
+            "minimum": 1.0,
+            "title": "Event Seq",
+            "type": "integer"
+          },
+          "event_source": {
+            "$ref": "#/components/schemas/TaskEventSource"
+          },
+          "event_type": {
+            "const": "command_run_opened",
+            "title": "Event Type",
+            "type": "string"
+          },
+          "member_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/CommandRunOpenedEventPayload"
+          },
+          "prev_event_hash": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "task_id": {
+            "minLength": 1,
+            "title": "Task Id",
+            "type": "string"
+          },
+          "team_revision_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "event_id",
+          "event_seq",
+          "task_id",
+          "event_source",
+          "occurred_at",
+          "event_hash",
+          "event_type",
+          "payload"
+        ],
+        "title": "_CommandRunOpenedEvent",
+        "type": "object"
+      },
+      "_CommandRunProgressedEvent": {
+        "additionalProperties": false,
+        "properties": {
+          "actor_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "attempt_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "dispatch_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "event_hash": {
+            "$ref": "#/components/schemas/TaskEventRef"
+          },
+          "event_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "event_seq": {
+            "minimum": 1.0,
+            "title": "Event Seq",
+            "type": "integer"
+          },
+          "event_source": {
+            "$ref": "#/components/schemas/TaskEventSource"
+          },
+          "event_type": {
+            "const": "command_run_progressed",
+            "title": "Event Type",
+            "type": "string"
+          },
+          "member_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/CommandRunProgressedEventPayload"
+          },
+          "prev_event_hash": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "task_id": {
+            "minLength": 1,
+            "title": "Task Id",
+            "type": "string"
+          },
+          "team_revision_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "event_id",
+          "event_seq",
+          "task_id",
+          "event_source",
+          "occurred_at",
+          "event_hash",
+          "event_type",
+          "payload"
+        ],
+        "title": "_CommandRunProgressedEvent",
+        "type": "object"
+      },
+      "_CommandRunStartedEvent": {
+        "additionalProperties": false,
+        "properties": {
+          "actor_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "attempt_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "dispatch_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "event_hash": {
+            "$ref": "#/components/schemas/TaskEventRef"
+          },
+          "event_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "event_seq": {
+            "minimum": 1.0,
+            "title": "Event Seq",
+            "type": "integer"
+          },
+          "event_source": {
+            "$ref": "#/components/schemas/TaskEventSource"
+          },
+          "event_type": {
+            "const": "command_run_started",
+            "title": "Event Type",
+            "type": "string"
+          },
+          "member_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/CommandRunStartedEventPayload"
+          },
+          "prev_event_hash": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "task_id": {
+            "minLength": 1,
+            "title": "Task Id",
+            "type": "string"
+          },
+          "team_revision_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "event_id",
+          "event_seq",
+          "task_id",
+          "event_source",
+          "occurred_at",
+          "event_hash",
+          "event_type",
+          "payload"
+        ],
+        "title": "_CommandRunStartedEvent",
+        "type": "object"
+      },
+      "_CommandRunTerminalEvent": {
+        "additionalProperties": false,
+        "properties": {
+          "actor_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "attempt_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "dispatch_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "event_hash": {
+            "$ref": "#/components/schemas/TaskEventRef"
+          },
+          "event_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "event_seq": {
+            "minimum": 1.0,
+            "title": "Event Seq",
+            "type": "integer"
+          },
+          "event_source": {
+            "$ref": "#/components/schemas/TaskEventSource"
+          },
+          "event_type": {
+            "enum": [
+              "command_run_succeeded",
+              "command_run_failed",
+              "command_run_timed_out",
+              "command_run_cancelled",
+              "command_run_abandoned"
+            ],
+            "title": "Event Type",
+            "type": "string"
+          },
+          "member_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/CommandRunTerminalEventPayload"
+          },
+          "prev_event_hash": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "task_id": {
+            "minLength": 1,
+            "title": "Task Id",
+            "type": "string"
+          },
+          "team_revision_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "event_id",
+          "event_seq",
+          "task_id",
+          "event_source",
+          "occurred_at",
+          "event_hash",
+          "event_type",
+          "payload"
+        ],
+        "title": "_CommandRunTerminalEvent",
+        "type": "object"
+      },
+      "_DispatchOpenedEvent": {
+        "additionalProperties": false,
+        "properties": {
+          "actor_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "attempt_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "dispatch_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "event_hash": {
+            "$ref": "#/components/schemas/TaskEventRef"
+          },
+          "event_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "event_seq": {
+            "minimum": 1.0,
+            "title": "Event Seq",
+            "type": "integer"
+          },
+          "event_source": {
+            "$ref": "#/components/schemas/TaskEventSource"
+          },
+          "event_type": {
+            "const": "dispatch_opened",
+            "title": "Event Type",
+            "type": "string"
+          },
+          "member_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/DispatchOpenedEventPayload"
+          },
+          "prev_event_hash": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "task_id": {
+            "minLength": 1,
+            "title": "Task Id",
+            "type": "string"
+          },
+          "team_revision_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "event_id",
+          "event_seq",
+          "task_id",
+          "event_source",
+          "occurred_at",
+          "event_hash",
+          "event_type",
+          "payload"
+        ],
+        "title": "_DispatchOpenedEvent",
+        "type": "object"
+      },
+      "_DispatchStartUpdatedEvent": {
+        "additionalProperties": false,
+        "properties": {
+          "actor_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "attempt_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "dispatch_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "event_hash": {
+            "$ref": "#/components/schemas/TaskEventRef"
+          },
+          "event_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "event_seq": {
+            "minimum": 1.0,
+            "title": "Event Seq",
+            "type": "integer"
+          },
+          "event_source": {
+            "$ref": "#/components/schemas/TaskEventSource"
+          },
+          "event_type": {
+            "const": "dispatch_start_updated",
+            "title": "Event Type",
+            "type": "string"
+          },
+          "member_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/DispatchStartUpdatedEventPayload"
+          },
+          "prev_event_hash": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "task_id": {
+            "minLength": 1,
+            "title": "Task Id",
+            "type": "string"
+          },
+          "team_revision_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "event_id",
+          "event_seq",
+          "task_id",
+          "event_source",
+          "occurred_at",
+          "event_hash",
+          "event_type",
+          "payload"
+        ],
+        "title": "_DispatchStartUpdatedEvent",
+        "type": "object"
+      },
+      "_HumanRequestOpenedEvent": {
+        "additionalProperties": false,
+        "properties": {
+          "actor_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "attempt_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "dispatch_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "event_hash": {
+            "$ref": "#/components/schemas/TaskEventRef"
+          },
+          "event_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "event_seq": {
+            "minimum": 1.0,
+            "title": "Event Seq",
+            "type": "integer"
+          },
+          "event_source": {
+            "$ref": "#/components/schemas/TaskEventSource"
+          },
+          "event_type": {
+            "const": "human_request_opened",
+            "title": "Event Type",
+            "type": "string"
+          },
+          "member_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/HumanRequestOpenedEventPayload"
+          },
+          "prev_event_hash": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "task_id": {
+            "minLength": 1,
+            "title": "Task Id",
+            "type": "string"
+          },
+          "team_revision_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "event_id",
+          "event_seq",
+          "task_id",
+          "event_source",
+          "occurred_at",
+          "event_hash",
+          "event_type",
+          "payload"
+        ],
+        "title": "_HumanRequestOpenedEvent",
+        "type": "object"
+      },
+      "_HumanRequestTerminalEvent": {
+        "additionalProperties": false,
+        "properties": {
+          "actor_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "attempt_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "dispatch_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "event_hash": {
+            "$ref": "#/components/schemas/TaskEventRef"
+          },
+          "event_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "event_seq": {
+            "minimum": 1.0,
+            "title": "Event Seq",
+            "type": "integer"
+          },
+          "event_source": {
+            "$ref": "#/components/schemas/TaskEventSource"
+          },
+          "event_type": {
+            "enum": [
+              "human_request_resolved",
+              "human_request_timed_out",
+              "human_request_cancelled"
+            ],
+            "title": "Event Type",
+            "type": "string"
+          },
+          "member_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/HumanRequestTerminalEventPayload"
+          },
+          "prev_event_hash": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "task_id": {
+            "minLength": 1,
+            "title": "Task Id",
+            "type": "string"
+          },
+          "team_revision_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "event_id",
+          "event_seq",
+          "task_id",
+          "event_source",
+          "occurred_at",
+          "event_hash",
+          "event_type",
+          "payload"
+        ],
+        "title": "_HumanRequestTerminalEvent",
+        "type": "object"
+      },
+      "_StructuralRevisionAdoptedEvent": {
+        "additionalProperties": false,
+        "properties": {
+          "actor_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "attempt_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "dispatch_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "event_hash": {
+            "$ref": "#/components/schemas/TaskEventRef"
+          },
+          "event_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "event_seq": {
+            "minimum": 1.0,
+            "title": "Event Seq",
+            "type": "integer"
+          },
+          "event_source": {
+            "$ref": "#/components/schemas/TaskEventSource"
+          },
+          "event_type": {
+            "const": "structural_revision_adopted",
+            "title": "Event Type",
+            "type": "string"
+          },
+          "member_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/StructuralRevisionAdoptedEventPayload"
+          },
+          "prev_event_hash": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "task_id": {
+            "minLength": 1,
+            "title": "Task Id",
+            "type": "string"
+          },
+          "team_revision_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "event_id",
+          "event_seq",
+          "task_id",
+          "event_source",
+          "occurred_at",
+          "event_hash",
+          "event_type",
+          "payload"
+        ],
+        "title": "_StructuralRevisionAdoptedEvent",
+        "type": "object"
+      },
+      "_TaskCancelledEvent": {
+        "additionalProperties": false,
+        "properties": {
+          "actor_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "attempt_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "dispatch_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "event_hash": {
+            "$ref": "#/components/schemas/TaskEventRef"
+          },
+          "event_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "event_seq": {
+            "minimum": 1.0,
+            "title": "Event Seq",
+            "type": "integer"
+          },
+          "event_source": {
+            "$ref": "#/components/schemas/TaskEventSource"
+          },
+          "event_type": {
+            "const": "task_cancelled",
+            "title": "Event Type",
+            "type": "string"
+          },
+          "member_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/TaskCancelledEventPayload"
+          },
+          "prev_event_hash": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "task_id": {
+            "minLength": 1,
+            "title": "Task Id",
+            "type": "string"
+          },
+          "team_revision_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "event_id",
+          "event_seq",
+          "task_id",
+          "event_source",
+          "occurred_at",
+          "event_hash",
+          "event_type",
+          "payload"
+        ],
+        "title": "_TaskCancelledEvent",
+        "type": "object"
+      },
+      "_TaskEventVariant": {
+        "discriminator": {
+          "mapping": {
+            "boundary_accepted": "#/components/schemas/_BoundaryAcceptedEvent",
+            "checkpoint_recorded": "#/components/schemas/_CheckpointRecordedEvent",
+            "command_run_abandoned": "#/components/schemas/_CommandRunTerminalEvent",
+            "command_run_cancel_requested": "#/components/schemas/_CommandRunCancelRequestedEvent",
+            "command_run_cancelled": "#/components/schemas/_CommandRunTerminalEvent",
+            "command_run_failed": "#/components/schemas/_CommandRunTerminalEvent",
+            "command_run_opened": "#/components/schemas/_CommandRunOpenedEvent",
+            "command_run_progressed": "#/components/schemas/_CommandRunProgressedEvent",
+            "command_run_started": "#/components/schemas/_CommandRunStartedEvent",
+            "command_run_succeeded": "#/components/schemas/_CommandRunTerminalEvent",
+            "command_run_timed_out": "#/components/schemas/_CommandRunTerminalEvent",
+            "dispatch_opened": "#/components/schemas/_DispatchOpenedEvent",
+            "dispatch_start_updated": "#/components/schemas/_DispatchStartUpdatedEvent",
+            "human_request_cancelled": "#/components/schemas/_HumanRequestTerminalEvent",
+            "human_request_opened": "#/components/schemas/_HumanRequestOpenedEvent",
+            "human_request_resolved": "#/components/schemas/_HumanRequestTerminalEvent",
+            "human_request_timed_out": "#/components/schemas/_HumanRequestTerminalEvent",
+            "structural_revision_adopted": "#/components/schemas/_StructuralRevisionAdoptedEvent",
+            "task_cancelled": "#/components/schemas/_TaskCancelledEvent",
+            "task_paused": "#/components/schemas/_TaskPausedEvent",
+            "task_resumed": "#/components/schemas/_TaskResumedEvent",
+            "task_started": "#/components/schemas/_TaskStartedEvent",
+            "work_plan_cleared": "#/components/schemas/_WorkPlanClearedEvent",
+            "work_plan_set": "#/components/schemas/_WorkPlanSetEvent"
+          },
+          "propertyName": "event_type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/_TaskStartedEvent"
+          },
+          {
+            "$ref": "#/components/schemas/_DispatchOpenedEvent"
+          },
+          {
+            "$ref": "#/components/schemas/_DispatchStartUpdatedEvent"
+          },
+          {
+            "$ref": "#/components/schemas/_WorkPlanSetEvent"
+          },
+          {
+            "$ref": "#/components/schemas/_WorkPlanClearedEvent"
+          },
+          {
+            "$ref": "#/components/schemas/_CheckpointRecordedEvent"
+          },
+          {
+            "$ref": "#/components/schemas/_BoundaryAcceptedEvent"
+          },
+          {
+            "$ref": "#/components/schemas/_StructuralRevisionAdoptedEvent"
+          },
+          {
+            "$ref": "#/components/schemas/_HumanRequestOpenedEvent"
+          },
+          {
+            "$ref": "#/components/schemas/_HumanRequestTerminalEvent"
+          },
+          {
+            "$ref": "#/components/schemas/_CommandRunOpenedEvent"
+          },
+          {
+            "$ref": "#/components/schemas/_CommandRunStartedEvent"
+          },
+          {
+            "$ref": "#/components/schemas/_CommandRunProgressedEvent"
+          },
+          {
+            "$ref": "#/components/schemas/_CommandRunCancelRequestedEvent"
+          },
+          {
+            "$ref": "#/components/schemas/_CommandRunTerminalEvent"
+          },
+          {
+            "$ref": "#/components/schemas/_TaskPausedEvent"
+          },
+          {
+            "$ref": "#/components/schemas/_TaskResumedEvent"
+          },
+          {
+            "$ref": "#/components/schemas/_TaskCancelledEvent"
+          }
+        ]
+      },
+      "_TaskPausedEvent": {
+        "additionalProperties": false,
+        "properties": {
+          "actor_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "attempt_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "dispatch_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "event_hash": {
+            "$ref": "#/components/schemas/TaskEventRef"
+          },
+          "event_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "event_seq": {
+            "minimum": 1.0,
+            "title": "Event Seq",
+            "type": "integer"
+          },
+          "event_source": {
+            "$ref": "#/components/schemas/TaskEventSource"
+          },
+          "event_type": {
+            "const": "task_paused",
+            "title": "Event Type",
+            "type": "string"
+          },
+          "member_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/TaskPausedEventPayload"
+          },
+          "prev_event_hash": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "task_id": {
+            "minLength": 1,
+            "title": "Task Id",
+            "type": "string"
+          },
+          "team_revision_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "event_id",
+          "event_seq",
+          "task_id",
+          "event_source",
+          "occurred_at",
+          "event_hash",
+          "event_type",
+          "payload"
+        ],
+        "title": "_TaskPausedEvent",
+        "type": "object"
+      },
+      "_TaskResumedEvent": {
+        "additionalProperties": false,
+        "properties": {
+          "actor_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "attempt_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "dispatch_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "event_hash": {
+            "$ref": "#/components/schemas/TaskEventRef"
+          },
+          "event_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "event_seq": {
+            "minimum": 1.0,
+            "title": "Event Seq",
+            "type": "integer"
+          },
+          "event_source": {
+            "$ref": "#/components/schemas/TaskEventSource"
+          },
+          "event_type": {
+            "const": "task_resumed",
+            "title": "Event Type",
+            "type": "string"
+          },
+          "member_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/TaskResumedEventPayload"
+          },
+          "prev_event_hash": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "task_id": {
+            "minLength": 1,
+            "title": "Task Id",
+            "type": "string"
+          },
+          "team_revision_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "event_id",
+          "event_seq",
+          "task_id",
+          "event_source",
+          "occurred_at",
+          "event_hash",
+          "event_type",
+          "payload"
+        ],
+        "title": "_TaskResumedEvent",
+        "type": "object"
+      },
+      "_TaskStartedEvent": {
+        "additionalProperties": false,
+        "properties": {
+          "actor_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "attempt_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "dispatch_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "event_hash": {
+            "$ref": "#/components/schemas/TaskEventRef"
+          },
+          "event_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "event_seq": {
+            "minimum": 1.0,
+            "title": "Event Seq",
+            "type": "integer"
+          },
+          "event_source": {
+            "$ref": "#/components/schemas/TaskEventSource"
+          },
+          "event_type": {
+            "const": "task_started",
+            "title": "Event Type",
+            "type": "string"
+          },
+          "member_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/TaskStartedEventPayload"
+          },
+          "prev_event_hash": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "task_id": {
+            "minLength": 1,
+            "title": "Task Id",
+            "type": "string"
+          },
+          "team_revision_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "event_id",
+          "event_seq",
+          "task_id",
+          "event_source",
+          "occurred_at",
+          "event_hash",
+          "event_type",
+          "payload"
+        ],
+        "title": "_TaskStartedEvent",
+        "type": "object"
+      },
+      "_WorkPlanClearedEvent": {
+        "additionalProperties": false,
+        "properties": {
+          "actor_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "attempt_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "dispatch_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "event_hash": {
+            "$ref": "#/components/schemas/TaskEventRef"
+          },
+          "event_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "event_seq": {
+            "minimum": 1.0,
+            "title": "Event Seq",
+            "type": "integer"
+          },
+          "event_source": {
+            "$ref": "#/components/schemas/TaskEventSource"
+          },
+          "event_type": {
+            "const": "work_plan_cleared",
+            "title": "Event Type",
+            "type": "string"
+          },
+          "member_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/WorkPlanClearedEventPayload"
+          },
+          "prev_event_hash": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "task_id": {
+            "minLength": 1,
+            "title": "Task Id",
+            "type": "string"
+          },
+          "team_revision_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "event_id",
+          "event_seq",
+          "task_id",
+          "event_source",
+          "occurred_at",
+          "event_hash",
+          "event_type",
+          "payload"
+        ],
+        "title": "_WorkPlanClearedEvent",
+        "type": "object"
+      },
+      "_WorkPlanSetEvent": {
+        "additionalProperties": false,
+        "properties": {
+          "actor_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "attempt_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "dispatch_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "event_hash": {
+            "$ref": "#/components/schemas/TaskEventRef"
+          },
+          "event_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "event_seq": {
+            "minimum": 1.0,
+            "title": "Event Seq",
+            "type": "integer"
+          },
+          "event_source": {
+            "$ref": "#/components/schemas/TaskEventSource"
+          },
+          "event_type": {
+            "const": "work_plan_set",
+            "title": "Event Type",
+            "type": "string"
+          },
+          "member_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/WorkPlanSetEventPayload"
+          },
+          "prev_event_hash": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "task_id": {
+            "minLength": 1,
+            "title": "Task Id",
+            "type": "string"
+          },
+          "team_revision_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "event_id",
+          "event_seq",
+          "task_id",
+          "event_source",
+          "occurred_at",
+          "event_hash",
+          "event_type",
+          "payload"
+        ],
+        "title": "_WorkPlanSetEvent",
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "scheme": "bearer",
+        "type": "http"
+      }
+    }
+  },
+  "info": {
+    "title": "Banksia Support API",
+    "version": "0.0.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/support/openapi.json": {
+      "get": {
+        "operationId": "support_openapi_openapi_json_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Support Openapi Openapi Json Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Support Openapi",
+        "tags": [
+          "support"
+        ]
+      }
+    },
+    "/support/tasks": {
+      "get": {
+        "operationId": "search_support_tasks_tasks_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "default": "any",
+              "title": "Status",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportTaskSearchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Search Support Tasks",
+        "tags": [
+          "support"
+        ]
+      }
+    },
+    "/support/tasks/{task_id}": {
+      "get": {
+        "operationId": "get_support_task_tasks__task_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportTaskSnapshot"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Support Task",
+        "tags": [
+          "support"
+        ]
+      }
+    },
+    "/support/tasks/{task_id}/events": {
+      "get": {
+        "operationId": "get_support_task_events_tasks__task_id__events_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportTaskEventPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Support Task Events",
+        "tags": [
+          "support"
+        ]
+      }
+    },
+    "/support/tasks/{task_id}/events/stream": {
+      "get": {
+        "operationId": "stream_support_task_events_tasks__task_id__events_stream_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Last-Event-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Last-Event-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Stream Support Task Events",
+        "tags": [
+          "support"
+        ]
+      }
+    },
+    "/support/tasks/{task_id}/trace": {
+      "get": {
+        "operationId": "get_support_task_trace_tasks__task_id__trace_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "default": "occurred_at_desc",
+              "enum": [
+                "occurred_at_desc",
+                "occurred_at_asc"
+              ],
+              "title": "Sort",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportTaskTracePage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Support Task Trace",
+        "tags": [
+          "support"
+        ]
+      }
+    }
+  }
+}

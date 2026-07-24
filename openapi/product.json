@@ -1,0 +1,5311 @@
+{
+  "components": {
+    "schemas": {
+      "AddMemberOperation": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "add_member",
+            "title": "Kind",
+            "type": "string"
+          },
+          "member": {
+            "$ref": "#/components/schemas/NewMember"
+          },
+          "parent_member_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+            "title": "Parent Member Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "parent_member_id",
+          "member"
+        ],
+        "title": "AddMemberOperation",
+        "type": "object"
+      },
+      "ClaudeProviderSelection": {
+        "additionalProperties": false,
+        "properties": {
+          "effort": {
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "xhigh",
+              "max"
+            ],
+            "title": "Effort",
+            "type": "string"
+          },
+          "kind": {
+            "const": "claude",
+            "title": "Kind",
+            "type": "string"
+          },
+          "model": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Model",
+            "type": "string"
+          },
+          "sandbox": {
+            "$ref": "#/components/schemas/ProviderSandbox",
+            "title": "Sandbox"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "ClaudeProviderSelection",
+        "type": "object"
+      },
+      "CodexProviderSelection": {
+        "additionalProperties": false,
+        "properties": {
+          "effort": {
+            "enum": [
+              "none",
+              "minimal",
+              "low",
+              "medium",
+              "high",
+              "xhigh"
+            ],
+            "title": "Effort",
+            "type": "string"
+          },
+          "kind": {
+            "const": "codex",
+            "title": "Kind",
+            "type": "string"
+          },
+          "model": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Model",
+            "type": "string"
+          },
+          "sandbox": {
+            "$ref": "#/components/schemas/ProviderSandbox",
+            "title": "Sandbox"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "CodexProviderSelection",
+        "type": "object"
+      },
+      "CommandRunCancelReceipt": {
+        "additionalProperties": false,
+        "properties": {
+          "command_run": {
+            "$ref": "#/components/schemas/CommandRunView"
+          },
+          "receipt_id": {
+            "title": "Receipt Id",
+            "type": "string"
+          },
+          "status_message": {
+            "title": "Status Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "receipt_id",
+          "status_message",
+          "command_run"
+        ],
+        "title": "CommandRunCancelReceipt",
+        "type": "object"
+      },
+      "CommandRunCancelRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "action_id": {
+            "title": "Action Id",
+            "type": "string"
+          },
+          "confirmed": {
+            "const": true,
+            "title": "Confirmed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "action_id",
+          "confirmed"
+        ],
+        "title": "CommandRunCancelRequest",
+        "type": "object"
+      },
+      "CommandRunOutputPage": {
+        "additionalProperties": false,
+        "properties": {
+          "command_id": {
+            "title": "Command Id",
+            "type": "string"
+          },
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "is_bounded": {
+            "title": "Is Bounded",
+            "type": "boolean"
+          },
+          "is_changed": {
+            "title": "Is Changed",
+            "type": "boolean"
+          },
+          "is_missing": {
+            "title": "Is Missing",
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "output_complete": {
+            "title": "Output Complete",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "command_id",
+          "content",
+          "output_complete",
+          "is_missing",
+          "is_changed",
+          "is_bounded"
+        ],
+        "title": "CommandRunOutputPage",
+        "type": "object"
+      },
+      "CommandRunProductState": {
+        "enum": [
+          "queued",
+          "running",
+          "cancelling",
+          "succeeded",
+          "failed",
+          "timed_out",
+          "cancelled"
+        ],
+        "type": "string"
+      },
+      "CommandRunView": {
+        "additionalProperties": false,
+        "properties": {
+          "cancel_action": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProductAction"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "elapsed_seconds": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Elapsed Seconds"
+          },
+          "ended_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "member": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskMemberReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "outcome_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome Summary"
+          },
+          "output_complete": {
+            "title": "Output Complete",
+            "type": "boolean"
+          },
+          "output_href": {
+            "title": "Output Href",
+            "type": "string"
+          },
+          "purpose": {
+            "title": "Purpose",
+            "type": "string"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "state": {
+            "$ref": "#/components/schemas/CommandRunProductState"
+          }
+        },
+        "required": [
+          "id",
+          "purpose",
+          "state",
+          "created_at",
+          "output_href",
+          "output_complete"
+        ],
+        "title": "CommandRunView",
+        "type": "object"
+      },
+      "FileReference": {
+        "additionalProperties": false,
+        "description": "An ordered navigation value to one ordinary workspace file.",
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "FileReference",
+        "type": "object"
+      },
+      "HumanRequestAnswerInput": {
+        "additionalProperties": false,
+        "properties": {
+          "item_responses": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/HumanRequestItemAnswer"
+            },
+            "maxProperties": 3,
+            "minProperties": 1,
+            "title": "Item Responses",
+            "type": "object"
+          },
+          "kind": {
+            "const": "answer",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "item_responses"
+        ],
+        "title": "HumanRequestAnswerInput",
+        "type": "object"
+      },
+      "HumanRequestCancelInput": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmed": {
+            "const": true,
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "kind": {
+            "const": "cancel",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "confirmed"
+        ],
+        "title": "HumanRequestCancelInput",
+        "type": "object"
+      },
+      "HumanRequestItem": {
+        "additionalProperties": false,
+        "properties": {
+          "allow_other": {
+            "default": false,
+            "title": "Allow Other",
+            "type": "boolean"
+          },
+          "allow_skip": {
+            "default": false,
+            "title": "Allow Skip",
+            "type": "boolean"
+          },
+          "id": {
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "options": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/HumanRequestOption"
+                },
+                "maxItems": 3,
+                "minItems": 2,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Options"
+          },
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "response_schema": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Response Schema"
+          }
+        },
+        "required": [
+          "id",
+          "prompt"
+        ],
+        "title": "HumanRequestItem",
+        "type": "object"
+      },
+      "HumanRequestItemAnswer": {
+        "discriminator": {
+          "mapping": {
+            "option": "#/components/schemas/HumanRequestOptionAnswer",
+            "other": "#/components/schemas/HumanRequestOtherAnswer",
+            "skipped": "#/components/schemas/HumanRequestSkippedAnswer",
+            "value": "#/components/schemas/HumanRequestValueAnswer"
+          },
+          "propertyName": "kind"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/HumanRequestValueAnswer"
+          },
+          {
+            "$ref": "#/components/schemas/HumanRequestOptionAnswer"
+          },
+          {
+            "$ref": "#/components/schemas/HumanRequestOtherAnswer"
+          },
+          {
+            "$ref": "#/components/schemas/HumanRequestSkippedAnswer"
+          }
+        ]
+      },
+      "HumanRequestOption": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "id": {
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title"
+        ],
+        "title": "HumanRequestOption",
+        "type": "object"
+      },
+      "HumanRequestOptionAnswer": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "option",
+            "title": "Kind",
+            "type": "string"
+          },
+          "option_id": {
+            "minLength": 1,
+            "title": "Option Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "option_id"
+        ],
+        "title": "HumanRequestOptionAnswer",
+        "type": "object"
+      },
+      "HumanRequestOtherAnswer": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "other",
+            "title": "Kind",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "text"
+        ],
+        "title": "HumanRequestOtherAnswer",
+        "type": "object"
+      },
+      "HumanRequestProductStatus": {
+        "enum": [
+          "open",
+          "answered",
+          "expired",
+          "cancelled"
+        ],
+        "type": "string"
+      },
+      "HumanRequestResolutionView": {
+        "additionalProperties": false,
+        "properties": {
+          "resolved_at": {
+            "format": "date-time",
+            "title": "Resolved At",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "answered",
+              "expired",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "summary",
+          "resolved_at"
+        ],
+        "title": "HumanRequestResolutionView",
+        "type": "object"
+      },
+      "HumanRequestResponseInput": {
+        "discriminator": {
+          "mapping": {
+            "answer": "#/components/schemas/HumanRequestAnswerInput",
+            "cancel": "#/components/schemas/HumanRequestCancelInput"
+          },
+          "propertyName": "kind"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/HumanRequestAnswerInput"
+          },
+          {
+            "$ref": "#/components/schemas/HumanRequestCancelInput"
+          }
+        ]
+      },
+      "HumanRequestResponseReceipt": {
+        "additionalProperties": false,
+        "properties": {
+          "continuation_pending": {
+            "const": true,
+            "default": true,
+            "title": "Continuation Pending",
+            "type": "boolean"
+          },
+          "receipt_id": {
+            "title": "Receipt Id",
+            "type": "string"
+          },
+          "request": {
+            "$ref": "#/components/schemas/HumanRequestView"
+          },
+          "status_message": {
+            "title": "Status Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "receipt_id",
+          "status_message",
+          "request"
+        ],
+        "title": "HumanRequestResponseReceipt",
+        "type": "object"
+      },
+      "HumanRequestResponseRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "action_id": {
+            "title": "Action Id",
+            "type": "string"
+          },
+          "input": {
+            "$ref": "#/components/schemas/HumanRequestResponseInput"
+          }
+        },
+        "required": [
+          "action_id",
+          "input"
+        ],
+        "title": "HumanRequestResponseRequest",
+        "type": "object"
+      },
+      "HumanRequestSkippedAnswer": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "skipped",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "HumanRequestSkippedAnswer",
+        "type": "object"
+      },
+      "HumanRequestValueAnswer": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "value",
+            "title": "Kind",
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/components/schemas/JsonValue"
+          }
+        },
+        "required": [
+          "kind",
+          "value"
+        ],
+        "title": "HumanRequestValueAnswer",
+        "type": "object"
+      },
+      "HumanRequestView": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProductAction"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cancel_action": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProductAction"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "due_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due At"
+          },
+          "files": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/FileReference"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/HumanRequestItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "kind": {
+            "enum": [
+              "input",
+              "direction",
+              "approval",
+              "review"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "member": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskMemberReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "opened_at": {
+            "format": "date-time",
+            "title": "Opened At",
+            "type": "string"
+          },
+          "resolution": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HumanRequestResolutionView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/HumanRequestProductStatus"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "summary",
+          "items",
+          "opened_at",
+          "status"
+        ],
+        "title": "HumanRequestView",
+        "type": "object"
+      },
+      "JsonValue": {},
+      "MemberCapabilities": {
+        "additionalProperties": false,
+        "minProperties": 1,
+        "properties": {
+          "command_run": {
+            "const": "allow",
+            "title": "Command Run",
+            "type": "string"
+          },
+          "human_request": {
+            "items": {
+              "enum": [
+                "input",
+                "direction",
+                "approval",
+                "review"
+              ],
+              "type": "string"
+            },
+            "maxItems": 4,
+            "minItems": 1,
+            "title": "Human Request",
+            "type": "array",
+            "uniqueItems": true
+          }
+        },
+        "title": "MemberCapabilities",
+        "type": "object"
+      },
+      "MemberPatch": {
+        "additionalProperties": false,
+        "properties": {
+          "capabilities": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MemberCapabilities"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "instruction": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instruction"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "claude": "#/components/schemas/ClaudeProviderSelection",
+                    "codex": "#/components/schemas/CodexProviderSelection",
+                    "openclaw": "#/components/schemas/OpenClawProviderSelection"
+                  },
+                  "propertyName": "kind"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/CodexProviderSelection"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ClaudeProviderSelection"
+                  },
+                  {
+                    "$ref": "#/components/schemas/OpenClawProviderSelection"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "title": "MemberPatch",
+        "type": "object"
+      },
+      "NewMember": {
+        "additionalProperties": false,
+        "properties": {
+          "capabilities": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MemberCapabilities"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "children": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/NewMember"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Children"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "instruction": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instruction"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "claude": "#/components/schemas/ClaudeProviderSelection",
+                    "codex": "#/components/schemas/CodexProviderSelection",
+                    "openclaw": "#/components/schemas/OpenClawProviderSelection"
+                  },
+                  "propertyName": "kind"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/CodexProviderSelection"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ClaudeProviderSelection"
+                  },
+                  {
+                    "$ref": "#/components/schemas/OpenClawProviderSelection"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "title": "NewMember",
+        "type": "object"
+      },
+      "NormalizedMember-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "capabilities": {
+            "$ref": "#/components/schemas/MemberCapabilities",
+            "title": "Capabilities"
+          },
+          "children": {
+            "items": {
+              "$ref": "#/components/schemas/NormalizedMember-Input"
+            },
+            "title": "Children",
+            "type": "array"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 16384,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+            "title": "Id",
+            "type": "string"
+          },
+          "instruction": {
+            "anyOf": [
+              {
+                "maxLength": 16384,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instruction"
+          },
+          "provider": {
+            "discriminator": {
+              "mapping": {
+                "claude": "#/components/schemas/ClaudeProviderSelection",
+                "codex": "#/components/schemas/CodexProviderSelection",
+                "openclaw": "#/components/schemas/OpenClawProviderSelection"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CodexProviderSelection"
+              },
+              {
+                "$ref": "#/components/schemas/ClaudeProviderSelection"
+              },
+              {
+                "$ref": "#/components/schemas/OpenClawProviderSelection"
+              }
+            ],
+            "title": "Provider"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 16384,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "NormalizedMember",
+        "type": "object"
+      },
+      "NormalizedMember-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "capabilities": {
+            "$ref": "#/components/schemas/MemberCapabilities",
+            "title": "Capabilities"
+          },
+          "children": {
+            "items": {
+              "$ref": "#/components/schemas/NormalizedMember-Output"
+            },
+            "title": "Children",
+            "type": "array"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 16384,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+            "title": "Id",
+            "type": "string"
+          },
+          "instruction": {
+            "anyOf": [
+              {
+                "maxLength": 16384,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instruction"
+          },
+          "provider": {
+            "discriminator": {
+              "mapping": {
+                "claude": "#/components/schemas/ClaudeProviderSelection",
+                "codex": "#/components/schemas/CodexProviderSelection",
+                "openclaw": "#/components/schemas/OpenClawProviderSelection"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CodexProviderSelection"
+              },
+              {
+                "$ref": "#/components/schemas/ClaudeProviderSelection"
+              },
+              {
+                "$ref": "#/components/schemas/OpenClawProviderSelection"
+              }
+            ],
+            "title": "Provider"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 16384,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "NormalizedMember",
+        "type": "object"
+      },
+      "NormalizedWorkflow-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Description",
+            "type": "string"
+          },
+          "id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "const": "workflow",
+            "title": "Kind",
+            "type": "string"
+          },
+          "lead": {
+            "$ref": "#/components/schemas/NormalizedMember-Input"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 8192,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "required": [
+          "kind",
+          "id",
+          "description",
+          "lead"
+        ],
+        "title": "NormalizedWorkflow",
+        "type": "object"
+      },
+      "NormalizedWorkflow-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Description",
+            "type": "string"
+          },
+          "id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "const": "workflow",
+            "title": "Kind",
+            "type": "string"
+          },
+          "lead": {
+            "$ref": "#/components/schemas/NormalizedMember-Output"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 8192,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "required": [
+          "kind",
+          "id",
+          "description",
+          "lead"
+        ],
+        "title": "NormalizedWorkflow",
+        "type": "object"
+      },
+      "OpenClawProviderSelection": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "openclaw",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "OpenClawProviderSelection",
+        "type": "object"
+      },
+      "OperationFailure": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/ProductFailureCode"
+          },
+          "field_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field Path"
+          },
+          "ok": {
+            "const": false,
+            "default": false,
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "retryable": {
+            "title": "Retryable",
+            "type": "boolean"
+          },
+          "suggested_next_step": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggested Next Step"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "summary",
+          "retryable"
+        ],
+        "title": "OperationFailure",
+        "type": "object"
+      },
+      "ProductAction": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmation": {
+            "$ref": "#/components/schemas/ProductActionConfirmation"
+          },
+          "href": {
+            "title": "Href",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "input_schema": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Schema"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "label",
+          "href",
+          "confirmation"
+        ],
+        "title": "ProductAction",
+        "type": "object"
+      },
+      "ProductActionConfirmation": {
+        "additionalProperties": false,
+        "properties": {
+          "consequence": {
+            "title": "Consequence",
+            "type": "string"
+          },
+          "required": {
+            "title": "Required",
+            "type": "boolean"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "required",
+          "title",
+          "consequence"
+        ],
+        "title": "ProductActionConfirmation",
+        "type": "object"
+      },
+      "ProductFailureCode": {
+        "description": "Closed, product-safe failure vocabulary shared by HTTP and Operator.",
+        "enum": [
+          "invalid_request",
+          "not_found",
+          "conflict",
+          "cursor_reset_required",
+          "access_denied",
+          "unavailable",
+          "internal_error"
+        ],
+        "title": "ProductFailureCode",
+        "type": "string"
+      },
+      "ProviderSandbox": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "mode": {
+                "const": "read_only",
+                "type": "string"
+              },
+              "network": {
+                "const": "deny",
+                "type": "string"
+              }
+            },
+            "required": [
+              "mode",
+              "network"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "mode": {
+                "const": "workspace_write",
+                "type": "string"
+              },
+              "network": {
+                "enum": [
+                  "allow",
+                  "deny"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "mode",
+              "network"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "mode": {
+                "const": "full_access",
+                "type": "string"
+              },
+              "network": {
+                "const": "allow",
+                "type": "string"
+              }
+            },
+            "required": [
+              "mode",
+              "network"
+            ],
+            "type": "object"
+          }
+        ],
+        "title": "ProviderSandbox"
+      },
+      "RemoveMemberOperation": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "remove_member",
+            "title": "Kind",
+            "type": "string"
+          },
+          "member_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+            "title": "Member Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "member_id"
+        ],
+        "title": "RemoveMemberOperation",
+        "type": "object"
+      },
+      "TaskActivity": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskActivityLink"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "files": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/FileReference"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/TaskActivityKind"
+          },
+          "member": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskMemberReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskActivityOutcome"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "occurred_at",
+          "title"
+        ],
+        "title": "TaskActivity",
+        "type": "object"
+      },
+      "TaskActivityKind": {
+        "enum": [
+          "task_started",
+          "task_paused",
+          "task_resumed",
+          "task_cancelled",
+          "task_completed",
+          "task_blocked",
+          "work_completed",
+          "work_blocked",
+          "input_requested",
+          "input_received",
+          "input_expired",
+          "input_cancelled",
+          "action_started",
+          "action_succeeded",
+          "action_failed",
+          "action_timed_out",
+          "action_cancelled"
+        ],
+        "type": "string"
+      },
+      "TaskActivityLink": {
+        "additionalProperties": false,
+        "properties": {
+          "href": {
+            "title": "Href",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "href"
+        ],
+        "title": "TaskActivityLink",
+        "type": "object"
+      },
+      "TaskActivityOutcome": {
+        "enum": [
+          "completed",
+          "blocked",
+          "failed",
+          "cancelled"
+        ],
+        "type": "string"
+      },
+      "TaskActivityPage": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TaskActivity"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "TaskActivityPage",
+        "type": "object"
+      },
+      "TaskAttention": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProductAction"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "files": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/FileReference"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/TaskAttentionKind"
+          },
+          "link": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskActivityLink"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "member": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskMemberReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "title",
+          "summary"
+        ],
+        "title": "TaskAttention",
+        "type": "object"
+      },
+      "TaskAttentionKind": {
+        "enum": [
+          "human_request",
+          "action_failed",
+          "blocked_result"
+        ],
+        "type": "string"
+      },
+      "TaskControlKind": {
+        "enum": [
+          "pause",
+          "resume",
+          "cancel"
+        ],
+        "type": "string"
+      },
+      "TaskControlReceipt": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/TaskControlKind"
+          },
+          "receipt_id": {
+            "title": "Receipt Id",
+            "type": "string"
+          },
+          "status_message": {
+            "title": "Status Message",
+            "type": "string"
+          },
+          "task": {
+            "$ref": "#/components/schemas/TaskView"
+          }
+        },
+        "required": [
+          "receipt_id",
+          "action",
+          "status_message",
+          "task"
+        ],
+        "title": "TaskControlReceipt",
+        "type": "object"
+      },
+      "TaskControlRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmed": {
+            "default": false,
+            "title": "Confirmed",
+            "type": "boolean"
+          }
+        },
+        "title": "TaskControlRequest",
+        "type": "object"
+      },
+      "TaskMemberReference": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "TaskMemberReference",
+        "type": "object"
+      },
+      "TaskMemberUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "files": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/FileReference"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "summary",
+          "occurred_at"
+        ],
+        "title": "TaskMemberUpdate",
+        "type": "object"
+      },
+      "TaskMemberView": {
+        "additionalProperties": false,
+        "properties": {
+          "children": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/TaskMemberView"
+            },
+            "title": "Children",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "latest_update": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskMemberUpdate"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "purpose": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Purpose"
+          },
+          "state": {
+            "$ref": "#/components/schemas/TaskMemberWorkState"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "state"
+        ],
+        "title": "TaskMemberView",
+        "type": "object"
+      },
+      "TaskMemberWorkState": {
+        "enum": [
+          "not_started",
+          "working",
+          "waiting",
+          "done",
+          "blocked"
+        ],
+        "type": "string"
+      },
+      "TaskPlanStep": {
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "enum": [
+              "pending",
+              "in_progress",
+              "completed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "status"
+        ],
+        "title": "TaskPlanStep",
+        "type": "object"
+      },
+      "TaskPlanView": {
+        "additionalProperties": false,
+        "properties": {
+          "explanation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Explanation"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/TaskPlanStep"
+            },
+            "title": "Steps",
+            "type": "array"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "steps",
+          "updated_at"
+        ],
+        "title": "TaskPlanView",
+        "type": "object"
+      },
+      "TaskProductStatus": {
+        "enum": [
+          "starting",
+          "working",
+          "waiting_for_you",
+          "paused",
+          "completed",
+          "blocked",
+          "cancelled"
+        ],
+        "type": "string"
+      },
+      "TaskResultView": {
+        "additionalProperties": false,
+        "properties": {
+          "completed_at": {
+            "format": "date-time",
+            "title": "Completed At",
+            "type": "string"
+          },
+          "details": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Details"
+          },
+          "files": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/FileReference"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "completed",
+              "blocked"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "summary",
+          "completed_at"
+        ],
+        "title": "TaskResultView",
+        "type": "object"
+      },
+      "TaskSearchResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TaskSummary"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "TaskSearchResponse",
+        "type": "object"
+      },
+      "TaskStartReceipt": {
+        "additionalProperties": false,
+        "properties": {
+          "manifest": {
+            "title": "Manifest",
+            "type": "string"
+          },
+          "receipt_id": {
+            "title": "Receipt Id",
+            "type": "string"
+          },
+          "status": {
+            "const": "accepted",
+            "default": "accepted",
+            "title": "Status",
+            "type": "string"
+          },
+          "status_message": {
+            "default": "The run was accepted. Work starts asynchronously and may still need attention.",
+            "title": "Status Message",
+            "type": "string"
+          },
+          "task_id": {
+            "title": "Task Id",
+            "type": "string"
+          },
+          "workflow_id": {
+            "title": "Workflow Id",
+            "type": "string"
+          },
+          "workflow_revision": {
+            "minimum": 1.0,
+            "title": "Workflow Revision",
+            "type": "integer"
+          },
+          "workspace": {
+            "title": "Workspace",
+            "type": "string"
+          }
+        },
+        "required": [
+          "receipt_id",
+          "task_id",
+          "workflow_id",
+          "workflow_revision",
+          "workspace",
+          "manifest"
+        ],
+        "title": "TaskStartReceipt",
+        "type": "object"
+      },
+      "TaskStartRequest": {
+        "additionalProperties": false,
+        "description": "The one transient request accepted by every Task-start transport.",
+        "properties": {
+          "files": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/FileReference"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "workflow": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+            "title": "Workflow",
+            "type": "string"
+          },
+          "workspace": {
+            "anyOf": [
+              {
+                "format": "path",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workspace"
+          }
+        },
+        "required": [
+          "workflow",
+          "prompt"
+        ],
+        "title": "TaskStartRequest",
+        "type": "object"
+      },
+      "TaskSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "attention_count": {
+            "minimum": 0.0,
+            "title": "Attention Count",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "prompt_excerpt": {
+            "title": "Prompt Excerpt",
+            "type": "string"
+          },
+          "result_status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "completed",
+                  "blocked"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result Status"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/TaskProductStatus"
+          },
+          "status_message": {
+            "title": "Status Message",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "workflow": {
+            "$ref": "#/components/schemas/TaskWorkflowView"
+          }
+        },
+        "required": [
+          "id",
+          "prompt_excerpt",
+          "workflow",
+          "status",
+          "status_message",
+          "started_at",
+          "updated_at",
+          "attention_count"
+        ],
+        "title": "TaskSummary",
+        "type": "object"
+      },
+      "TaskView": {
+        "additionalProperties": false,
+        "properties": {
+          "actions": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ProductAction"
+            },
+            "title": "Actions",
+            "type": "array"
+          },
+          "activities": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/TaskActivity"
+            },
+            "title": "Activities",
+            "type": "array"
+          },
+          "activities_href": {
+            "title": "Activities Href",
+            "type": "string"
+          },
+          "activities_truncated": {
+            "default": false,
+            "title": "Activities Truncated",
+            "type": "boolean"
+          },
+          "attention": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/TaskAttention"
+            },
+            "title": "Attention",
+            "type": "array"
+          },
+          "command_run_count": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Command Run Count",
+            "type": "integer"
+          },
+          "command_runs": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/CommandRunView"
+            },
+            "title": "Command Runs",
+            "type": "array"
+          },
+          "command_runs_truncated": {
+            "default": false,
+            "title": "Command Runs Truncated",
+            "type": "boolean"
+          },
+          "human_request_count": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Human Request Count",
+            "type": "integer"
+          },
+          "human_requests": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/HumanRequestView"
+            },
+            "title": "Human Requests",
+            "type": "array"
+          },
+          "human_requests_truncated": {
+            "default": false,
+            "title": "Human Requests Truncated",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "plan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskPlanView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "prompt_excerpt": {
+            "title": "Prompt Excerpt",
+            "type": "string"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskResultView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/TaskProductStatus"
+          },
+          "status_message": {
+            "title": "Status Message",
+            "type": "string"
+          },
+          "team": {
+            "$ref": "#/components/schemas/TaskMemberView"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "workflow": {
+            "$ref": "#/components/schemas/TaskWorkflowView"
+          }
+        },
+        "required": [
+          "id",
+          "prompt_excerpt",
+          "workflow",
+          "status",
+          "status_message",
+          "started_at",
+          "updated_at",
+          "team",
+          "activities_href"
+        ],
+        "title": "TaskView",
+        "type": "object"
+      },
+      "TaskWorkflowView": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "description"
+        ],
+        "title": "TaskWorkflowView",
+        "type": "object"
+      },
+      "UpdateMemberOperation": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "update_member",
+            "title": "Kind",
+            "type": "string"
+          },
+          "member_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+            "title": "Member Id",
+            "type": "string"
+          },
+          "patch": {
+            "$ref": "#/components/schemas/MemberPatch"
+          }
+        },
+        "required": [
+          "kind",
+          "member_id",
+          "patch"
+        ],
+        "title": "UpdateMemberOperation",
+        "type": "object"
+      },
+      "UpdateWorkflowOperation": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "update_workflow",
+            "title": "Kind",
+            "type": "string"
+          },
+          "patch": {
+            "$ref": "#/components/schemas/WorkflowPatch"
+          }
+        },
+        "required": [
+          "kind",
+          "patch"
+        ],
+        "title": "UpdateWorkflowOperation",
+        "type": "object"
+      },
+      "WorkflowAuthoringOptions": {
+        "additionalProperties": false,
+        "properties": {
+          "claude_efforts": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Claude Efforts",
+            "type": "array"
+          },
+          "codex_efforts": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Codex Efforts",
+            "type": "array"
+          },
+          "command_run_values": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Command Run Values",
+            "type": "array"
+          },
+          "human_request_kinds": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Human Request Kinds",
+            "type": "array"
+          },
+          "managed_sandbox_options": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderSandbox"
+            },
+            "title": "Managed Sandbox Options",
+            "type": "array"
+          },
+          "member_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Member Fields",
+            "type": "array"
+          },
+          "provider_kinds": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Provider Kinds",
+            "type": "array"
+          },
+          "workflow_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Workflow Fields",
+            "type": "array"
+          }
+        },
+        "required": [
+          "workflow_fields",
+          "member_fields",
+          "provider_kinds",
+          "codex_efforts",
+          "claude_efforts",
+          "managed_sandbox_options",
+          "human_request_kinds",
+          "command_run_values"
+        ],
+        "title": "WorkflowAuthoringOptions",
+        "type": "object"
+      },
+      "WorkflowDraftDiscardResult": {
+        "additionalProperties": false,
+        "properties": {
+          "draft_id": {
+            "title": "Draft Id",
+            "type": "string"
+          },
+          "is_discarded": {
+            "title": "Is Discarded",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "is_discarded",
+          "draft_id"
+        ],
+        "title": "WorkflowDraftDiscardResult",
+        "type": "object"
+      },
+      "WorkflowDraftMutationResult": {
+        "additionalProperties": false,
+        "properties": {
+          "draft": {
+            "$ref": "#/components/schemas/WorkflowDraftReadback"
+          },
+          "undo_receipt": {
+            "title": "Undo Receipt",
+            "type": "string"
+          }
+        },
+        "required": [
+          "draft",
+          "undo_receipt"
+        ],
+        "title": "WorkflowDraftMutationResult",
+        "type": "object"
+      },
+      "WorkflowDraftReadback": {
+        "additionalProperties": false,
+        "properties": {
+          "base_revision_no": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Revision No"
+          },
+          "draft_id": {
+            "title": "Draft Id",
+            "type": "string"
+          },
+          "etag": {
+            "title": "Etag",
+            "type": "string"
+          },
+          "workflow": {
+            "$ref": "#/components/schemas/NormalizedWorkflow-Output"
+          },
+          "workflow_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+            "title": "Workflow Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "draft_id",
+          "workflow_id",
+          "etag",
+          "workflow"
+        ],
+        "title": "WorkflowDraftReadback",
+        "type": "object"
+      },
+      "WorkflowDraftValidationResult": {
+        "additionalProperties": false,
+        "properties": {
+          "draft": {
+            "$ref": "#/components/schemas/WorkflowDraftReadback"
+          },
+          "is_valid": {
+            "title": "Is Valid",
+            "type": "boolean"
+          },
+          "issues": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/WorkflowValidationIssue"
+            },
+            "title": "Issues",
+            "type": "array"
+          }
+        },
+        "required": [
+          "is_valid",
+          "draft"
+        ],
+        "title": "WorkflowDraftValidationResult",
+        "type": "object"
+      },
+      "WorkflowGetResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "active_draft": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorkflowDraftReadback"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "published": {
+            "$ref": "#/components/schemas/WorkflowPublishedReadback"
+          },
+          "revisions": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/WorkflowRevisionReadback"
+            },
+            "title": "Revisions",
+            "type": "array"
+          },
+          "revisions_next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revisions Next Cursor"
+          },
+          "workflow_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+            "title": "Workflow Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workflow_id",
+          "published"
+        ],
+        "title": "WorkflowGetResponse",
+        "type": "object"
+      },
+      "WorkflowPatch": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "title": "WorkflowPatch",
+        "type": "object"
+      },
+      "WorkflowPreconditionRequiredDetail": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/ProductFailureCode"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "WorkflowPreconditionRequiredDetail",
+        "type": "object"
+      },
+      "WorkflowPreconditionRequiredResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "$ref": "#/components/schemas/WorkflowPreconditionRequiredDetail"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "WorkflowPreconditionRequiredResponse",
+        "type": "object"
+      },
+      "WorkflowProvenance": {
+        "enum": [
+          "starter_seed",
+          "user"
+        ],
+        "title": "WorkflowProvenance",
+        "type": "string"
+      },
+      "WorkflowPublishedReadback": {
+        "additionalProperties": false,
+        "properties": {
+          "revision_no": {
+            "minimum": 1.0,
+            "title": "Revision No",
+            "type": "integer"
+          },
+          "workflow": {
+            "$ref": "#/components/schemas/NormalizedWorkflow-Output"
+          },
+          "workflow_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+            "title": "Workflow Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workflow_id",
+          "revision_no",
+          "workflow"
+        ],
+        "title": "WorkflowPublishedReadback",
+        "type": "object"
+      },
+      "WorkflowRevisionReadback": {
+        "additionalProperties": false,
+        "properties": {
+          "provenance": {
+            "$ref": "#/components/schemas/WorkflowProvenance"
+          },
+          "revision_no": {
+            "minimum": 1.0,
+            "title": "Revision No",
+            "type": "integer"
+          },
+          "workflow_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+            "title": "Workflow Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workflow_id",
+          "revision_no",
+          "provenance"
+        ],
+        "title": "WorkflowRevisionReadback",
+        "type": "object"
+      },
+      "WorkflowSearchItem": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/WorkflowProvenance"
+          },
+          "published_revision_no": {
+            "minimum": 1.0,
+            "title": "Published Revision No",
+            "type": "integer"
+          },
+          "workflow_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+            "title": "Workflow Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workflow_id",
+          "description",
+          "published_revision_no",
+          "provenance"
+        ],
+        "title": "WorkflowSearchItem",
+        "type": "object"
+      },
+      "WorkflowSearchResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/WorkflowSearchItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "WorkflowSearchResponse",
+        "type": "object"
+      },
+      "WorkflowStaleDraftDetail": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/ProductFailureCode"
+          },
+          "current": {
+            "$ref": "#/components/schemas/WorkflowDraftReadback"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "current"
+        ],
+        "title": "WorkflowStaleDraftDetail",
+        "type": "object"
+      },
+      "WorkflowStaleDraftResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "$ref": "#/components/schemas/WorkflowStaleDraftDetail"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "WorkflowStaleDraftResponse",
+        "type": "object"
+      },
+      "WorkflowUndoRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "receipt_id": {
+            "title": "Receipt Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "receipt_id"
+        ],
+        "title": "WorkflowUndoRequest",
+        "type": "object"
+      },
+      "WorkflowValidationIssue": {
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "path",
+          "message"
+        ],
+        "title": "WorkflowValidationIssue",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "Banksia Product API",
+    "version": "0.0.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/tasks": {
+      "get": {
+        "operationId": "get_tasks_tasks_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "default": "any",
+              "title": "Status",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskSearchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Get Tasks",
+        "tags": [
+          "tasks"
+        ]
+      },
+      "post": {
+        "operationId": "post_task_tasks_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskStartRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskStartReceipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Post Task",
+        "tags": [
+          "tasks"
+        ]
+      }
+    },
+    "/tasks/{task_id}": {
+      "get": {
+        "operationId": "get_task_tasks__task_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Get Task",
+        "tags": [
+          "tasks"
+        ]
+      }
+    },
+    "/tasks/{task_id}/activities": {
+      "get": {
+        "operationId": "get_task_activities_tasks__task_id__activities_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskActivityPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Gone"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Get Task Activities",
+        "tags": [
+          "task-activity"
+        ]
+      }
+    },
+    "/tasks/{task_id}/activities/stream": {
+      "get": {
+        "operationId": "stream_task_activities_tasks__task_id__activities_stream_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Last-Event-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Last-Event-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Gone"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Stream Task Activities",
+        "tags": [
+          "task-activity"
+        ]
+      }
+    },
+    "/tasks/{task_id}/command-runs/{command_id}": {
+      "get": {
+        "operationId": "get_command_run_tasks__task_id__command_runs__command_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "command_id",
+            "required": true,
+            "schema": {
+              "title": "Command Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommandRunView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Get Command Run",
+        "tags": [
+          "command-runs"
+        ]
+      }
+    },
+    "/tasks/{task_id}/command-runs/{command_id}/cancel": {
+      "post": {
+        "operationId": "post_command_run_cancel_tasks__task_id__command_runs__command_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "command_id",
+            "required": true,
+            "schema": {
+              "title": "Command Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommandRunCancelRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommandRunCancelReceipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Post Command Run Cancel",
+        "tags": [
+          "command-runs"
+        ]
+      }
+    },
+    "/tasks/{task_id}/command-runs/{command_id}/output": {
+      "get": {
+        "operationId": "get_command_run_output_tasks__task_id__command_runs__command_id__output_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "command_id",
+            "required": true,
+            "schema": {
+              "title": "Command Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 65536,
+              "maximum": 65536,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommandRunOutputPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Get Command Run Output",
+        "tags": [
+          "command-runs"
+        ]
+      }
+    },
+    "/tasks/{task_id}/controls/{action_id}": {
+      "post": {
+        "operationId": "post_task_control_tasks__task_id__controls__action_id__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "action_id",
+            "required": true,
+            "schema": {
+              "title": "Action Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskControlRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskControlReceipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Post Task Control",
+        "tags": [
+          "tasks"
+        ]
+      }
+    },
+    "/tasks/{task_id}/human-requests/{request_id}": {
+      "get": {
+        "operationId": "get_human_request_tasks__task_id__human_requests__request_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HumanRequestView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Get Human Request",
+        "tags": [
+          "human-requests"
+        ]
+      }
+    },
+    "/tasks/{task_id}/human-requests/{request_id}/responses": {
+      "post": {
+        "operationId": "post_human_request_response_tasks__task_id__human_requests__request_id__responses_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HumanRequestResponseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HumanRequestResponseReceipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Post Human Request Response",
+        "tags": [
+          "human-requests"
+        ]
+      }
+    },
+    "/workflow-drafts": {
+      "post": {
+        "operationId": "post_workflow_draft_workflow_drafts_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NormalizedWorkflow-Input"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowDraftReadback"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Post Workflow Draft",
+        "tags": [
+          "workflows"
+        ]
+      }
+    },
+    "/workflow-drafts/{draft_id}": {
+      "delete": {
+        "operationId": "delete_workflow_draft_workflow_drafts__draft_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "draft_id",
+            "required": true,
+            "schema": {
+              "title": "Draft Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowDraftDiscardResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "412": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowStaleDraftResponse"
+                }
+              }
+            },
+            "description": "Precondition Failed"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "428": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowPreconditionRequiredResponse"
+                }
+              }
+            },
+            "description": "Precondition Required"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Delete Workflow Draft",
+        "tags": [
+          "workflows"
+        ]
+      },
+      "get": {
+        "operationId": "get_workflow_draft_workflow_drafts__draft_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "draft_id",
+            "required": true,
+            "schema": {
+              "title": "Draft Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowDraftReadback"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Get Workflow Draft",
+        "tags": [
+          "workflows"
+        ]
+      },
+      "patch": {
+        "operationId": "patch_workflow_draft_workflow_drafts__draft_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "draft_id",
+            "required": true,
+            "schema": {
+              "title": "Draft Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "discriminator": {
+                  "mapping": {
+                    "add_member": "#/components/schemas/AddMemberOperation",
+                    "remove_member": "#/components/schemas/RemoveMemberOperation",
+                    "update_member": "#/components/schemas/UpdateMemberOperation",
+                    "update_workflow": "#/components/schemas/UpdateWorkflowOperation"
+                  },
+                  "propertyName": "kind"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/UpdateWorkflowOperation"
+                  },
+                  {
+                    "$ref": "#/components/schemas/AddMemberOperation"
+                  },
+                  {
+                    "$ref": "#/components/schemas/UpdateMemberOperation"
+                  },
+                  {
+                    "$ref": "#/components/schemas/RemoveMemberOperation"
+                  }
+                ],
+                "title": "Operation"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowDraftMutationResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "412": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowStaleDraftResponse"
+                }
+              }
+            },
+            "description": "Precondition Failed"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "428": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowPreconditionRequiredResponse"
+                }
+              }
+            },
+            "description": "Precondition Required"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Patch Workflow Draft",
+        "tags": [
+          "workflows"
+        ]
+      }
+    },
+    "/workflow-drafts/{draft_id}/publish": {
+      "post": {
+        "operationId": "post_workflow_draft_publish_workflow_drafts__draft_id__publish_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "draft_id",
+            "required": true,
+            "schema": {
+              "title": "Draft Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowPublishedReadback"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "412": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowStaleDraftResponse"
+                }
+              }
+            },
+            "description": "Precondition Failed"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "428": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowPreconditionRequiredResponse"
+                }
+              }
+            },
+            "description": "Precondition Required"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Post Workflow Draft Publish",
+        "tags": [
+          "workflows"
+        ]
+      }
+    },
+    "/workflow-drafts/{draft_id}/undo": {
+      "post": {
+        "operationId": "post_workflow_draft_undo_workflow_drafts__draft_id__undo_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "draft_id",
+            "required": true,
+            "schema": {
+              "title": "Draft Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkflowUndoRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowDraftReadback"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "412": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowStaleDraftResponse"
+                }
+              }
+            },
+            "description": "Precondition Failed"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "428": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowPreconditionRequiredResponse"
+                }
+              }
+            },
+            "description": "Precondition Required"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Post Workflow Draft Undo",
+        "tags": [
+          "workflows"
+        ]
+      }
+    },
+    "/workflow-drafts/{draft_id}/validate": {
+      "post": {
+        "operationId": "post_workflow_draft_validate_workflow_drafts__draft_id__validate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "draft_id",
+            "required": true,
+            "schema": {
+              "title": "Draft Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowDraftValidationResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Post Workflow Draft Validate",
+        "tags": [
+          "workflows"
+        ]
+      }
+    },
+    "/workflows": {
+      "get": {
+        "operationId": "get_workflows_workflows_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowSearchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Get Workflows",
+        "tags": [
+          "workflows"
+        ]
+      }
+    },
+    "/workflows/authoring-options": {
+      "get": {
+        "operationId": "get_workflow_authoring_options_workflows_authoring_options_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowAuthoringOptions"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Get Workflow Authoring Options",
+        "tags": [
+          "workflows"
+        ]
+      }
+    },
+    "/workflows/{workflow_id}": {
+      "get": {
+        "operationId": "get_workflow_workflows__workflow_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workflow_id",
+            "required": true,
+            "schema": {
+              "title": "Workflow Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "revision_no",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Revision No"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_revisions",
+            "required": false,
+            "schema": {
+              "default": true,
+              "title": "Include Revisions",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "revision_cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Revision Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "revision_limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Revision Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowGetResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Get Workflow",
+        "tags": [
+          "workflows"
+        ]
+      }
+    }
+  }
+}

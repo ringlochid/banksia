@@ -11,7 +11,7 @@ from pathlib import Path
 from types import FrameType
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-API_SOURCE_ROOT = REPO_ROOT / "apps" / "api" / "src"
+BACKEND_SOURCE_ROOT = REPO_ROOT / "src"
 
 
 def main() -> int:
@@ -67,9 +67,9 @@ def _build_environment() -> dict[str, str]:
     environment = os.environ.copy()
     current_pythonpath = environment.get("PYTHONPATH")
     environment["PYTHONPATH"] = (
-        str(API_SOURCE_ROOT)
+        str(BACKEND_SOURCE_ROOT)
         if not current_pythonpath
-        else os.pathsep.join((str(API_SOURCE_ROOT), current_pythonpath))
+        else os.pathsep.join((str(BACKEND_SOURCE_ROOT), current_pythonpath))
     )
     environment["BANKSIA_ENV"] = "production"
     return environment

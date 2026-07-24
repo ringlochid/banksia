@@ -2,7 +2,7 @@
 
 Use this guide to decide which checks prove a change. Start from the surface changed, then add deeper lanes only when the change reaches that behavior.
 
-`make check-api` is not a test command. It runs lint, mypy, and pyright.
+`make check-backend` is not a test command. It runs lint, mypy, and pyright.
 
 ## Quick selection
 
@@ -13,10 +13,10 @@ Use this guide to decide which checks prove a change. Start from the surface cha
 | docs scripts                                                                            | docs script focused tests when present, `ruff check scripts/docs`, `mypy scripts/docs`                       |
 | prompt assets or prompt catalog                                                         | prompt catalog generate when inputs changed, prompt catalog validate, focused prompt rendering tests         |
 | role, policy, workflow, or task-compose examples                                        | definition schema/catalog focused tests, `make docs-contract-check`, reference link scan                     |
-| Python backend logic                                                                    | focused pytest while iterating, `make check-api`, applicable unit/integration lanes                          |
-| CLI setup, config, OpenClaw, service, or package behavior                               | CLI focused tests, install/start reference checks, `make check-api`, package or service smoke when practical |
-| runtime, registry, DB, or task launch behavior                                          | focused tests, `make check-api`, `make test-api-unit`, `make test-api-integration`                           |
-| Postgres, schema, reset, upgrade, or cross-DB behavior                                  | all SQLite-relevant checks plus `make test-api-db`                                                           |
+| Python backend logic                                                                    | focused pytest while iterating, `make check-backend`, applicable unit/integration lanes                          |
+| CLI setup, config, OpenClaw, service, or package behavior                               | CLI focused tests, install/start reference checks, `make check-backend`, package or service smoke when practical |
+| runtime, registry, DB, or task launch behavior                                          | focused tests, `make check-backend`, `make test-backend-unit`, `make test-backend-integration`                           |
+| Postgres, schema, reset, upgrade, or cross-DB behavior                                  | all SQLite-relevant checks plus `make test-backend-db`                                                           |
 | parent-first runtime, support-state, command-run, human-request, or end-to-end behavior | focused runtime tests plus the relevant e2e lane                                                             |
 | release                                                                                 | release checklist, package build, install smoke, docs/examples parity, relevant DB and e2e lanes             |
 
@@ -45,16 +45,16 @@ Use focused pytest selectors while iterating, then run the applicable command ma
 Core repo commands:
 
 ```bash
-make check-api
-make test-api-unit
-make test-api-integration
-make test-api-db
-make test-api-e2e-bounded
-make test-api-e2e-reviewed
-make test-api-e2e-staged
+make check-backend
+make test-backend-unit
+make test-backend-integration
+make test-backend-db
+make test-backend-e2e-bounded
+make test-backend-e2e-reviewed
+make test-backend-e2e-staged
 ```
 
-Do not claim full backend completion from `make check-api` alone.
+Do not claim full backend completion from `make check-backend` alone.
 
 ## Prompt and generated prompt docs
 

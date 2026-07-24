@@ -12,23 +12,22 @@ Use this guide when adding tests, reorganizing test trees, or deciding what coun
 
 ## Lane ownership
 
-- `make test-api` and `make test-api-unit`: unit behavior under `apps/api/tests/unit`
-- `make test-api-integration`: canonical repo-native SQLite and runtime-template integration behavior
-- `make test-api-integration-local`: compatibility alias for the same local integration lane
-- `make test-api-db`: specialized Docker/Postgres-backed integration behavior using shipped schema/setup paths
-- `make test-api-e2e-bounded|reviewed|staged`: progressive end-to-end behavior
+- `make test-backend` and `make test-backend-unit`: unit behavior under `tests/unit`
+- `make test-backend-integration`: canonical repo-native SQLite and runtime-template integration behavior
+- `make test-backend-integration-local`: compatibility alias for the same local integration lane
+- `make test-backend-db`: specialized Docker/Postgres-backed integration behavior using shipped schema/setup paths
+- `make test-backend-e2e-bounded|reviewed|staged`: progressive end-to-end behavior
 - `make console-test`: frontend unit and component behavior under `apps/console/tests/unit` and `apps/console/tests/component`
 - `make console-test-integration`: MSW-backed frontend flow behavior under `apps/console/tests/integration`
 - `make console-e2e`: browser end-to-end behavior under `apps/console/tests/e2e`
-- `make console-e2e-real`: focused browser behavior against the disposable real AutoClaw migration-baseline backend
 - `make console-openapi-check`: generated frontend API type drift against the current FastAPI OpenAPI schema
 
 ## Placement rules
 
-- put pure unit behavior in `apps/api/tests/unit/**`
-- put local integration flows in `apps/api/tests/integration/**`
-- put end-to-end workflow and public-surface behavior in `apps/api/tests/e2e/**`
-- keep reusable helpers under `apps/api/tests/helpers/**` and keep them support-only
+- put pure unit behavior in `tests/unit/**`
+- put local integration flows in `tests/integration/**`
+- put end-to-end workflow and public-surface behavior in `tests/e2e/**`
+- keep reusable helpers under `tests/helpers/**` and keep them support-only
 - put frontend mapper, reducer, API helper, and small state-machine tests in `apps/console/tests/unit/**`
 - put frontend primitive and feature component tests in `apps/console/tests/component/**`
 - put MSW-backed browser-flow tests in `apps/console/tests/integration/**`
@@ -45,7 +44,7 @@ The steady-state layout should converge toward feature-, boundary-, or product-o
 Preferred direction:
 
 ```text
-apps/api/tests/
+tests/
   unit/
     cli/
     compiler/
@@ -109,8 +108,8 @@ Rules:
 - do not manually install missing schema or synthesize missing setup paths inside tests and then treat that as install or runtime proof
 - if the behavior reaches a public route, public CLI noun family, end-to-end workflow, or support-state readback, use the lane that exercises that surface for real
 - once a progressive e2e lane becomes viable for a surface, later work should keep it green
-- use `make test-api-integration` as the default final-proof integration lane
-- reserve `make test-api-db` for Docker/Postgres-specific proof such as schema/reset coverage, DB-shell changes, or Postgres-only behavior
+- use `make test-backend-integration` as the default final-proof integration lane
+- reserve `make test-backend-db` for Docker/Postgres-specific proof such as schema/reset coverage, DB-shell changes, or Postgres-only behavior
 - frontend MSW tests may prove rendering, state transitions, and API-client behavior, but they do not prove backend persistence, runtime legality, or route implementation
 - frontend API fixtures must be generated or hand-shaped from OpenAPI/current contracts and must stay visibly fake
 - frontend e2e must use real browser behavior for navigation, focus, disclosure, forms, SSE-facing flows, and responsive layout when those surfaces changed

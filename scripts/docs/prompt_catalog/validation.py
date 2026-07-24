@@ -10,7 +10,6 @@ from banksia.runtime.prompt import (
     instruction_asset_path,
     load_instruction_asset,
 )
-
 from scripts.docs.prompt_catalog.render import (
     PROMPT_CONTRACT_READBACK_PATH,
     render_prompt_contract_readback,

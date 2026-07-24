@@ -5,9 +5,9 @@ from pathlib import Path
 from .models import AuditSettings
 
 ROOT = Path(__file__).resolve().parents[3]
-APPS_API_ROOT = ROOT / "apps" / "api"
-APPS_API_TESTS_ROOT = APPS_API_ROOT / "tests"
-BANKSIA_SRC_PACKAGE_ROOT = APPS_API_ROOT / "src" / "banksia"
+BACKEND_ROOT = ROOT
+BACKEND_TESTS_ROOT = BACKEND_ROOT / "tests"
+BANKSIA_SRC_PACKAGE_ROOT = BACKEND_ROOT / "src" / "banksia"
 SCRIPTS_DOCS_ROOT = ROOT / "scripts" / "docs"
 FILE_SPLIT_REVIEW_THRESHOLD = 600
 FILE_NO_GROWTH_THRESHOLD = 600
@@ -47,10 +47,10 @@ def _style_audit_scan_roots() -> tuple[Path, ...]:
     return _existing_roots(
         SCRIPTS_DOCS_ROOT,
         BANKSIA_SRC_PACKAGE_ROOT,
-        APPS_API_TESTS_ROOT / "e2e",
-        APPS_API_TESTS_ROOT / "helpers",
-        APPS_API_TESTS_ROOT / "integration",
-        APPS_API_TESTS_ROOT / "unit",
+        BACKEND_TESTS_ROOT / "e2e",
+        BACKEND_TESTS_ROOT / "helpers",
+        BACKEND_TESTS_ROOT / "integration",
+        BACKEND_TESTS_ROOT / "unit",
     )
 
 
@@ -96,22 +96,22 @@ def _src_runtime_import_exceptions() -> frozenset[Path]:
 
 def _canonical_contract_naming_exceptions() -> frozenset[tuple[Path, str]]:
     return _existing_public_naming_exceptions(
-        (ROOT / "apps/api/src/banksia/config.py", "enabled"),
-        (ROOT / "apps/api/src/banksia/config.py", "value_is_complex"),
+        (ROOT / "src/banksia/config.py", "enabled"),
+        (ROOT / "src/banksia/config.py", "value_is_complex"),
         (
-            ROOT / "apps/api/src/banksia/integrations/openclaw/gateway/adapter.py",
+            ROOT / "src/banksia/integrations/openclaw/gateway/adapter.py",
             "check",
         ),
         (
-            ROOT / "apps/api/src/banksia/runtime/contracts/operation_failure.py",
+            ROOT / "src/banksia/runtime/contracts/operation_failure.py",
             "ok",
         ),
         (
-            ROOT / "apps/api/src/banksia/runtime/contracts/operation_failure.py",
+            ROOT / "src/banksia/runtime/contracts/operation_failure.py",
             "retryable",
         ),
         (
-            ROOT / "apps/api/src/banksia/runtime/work_plan/contracts.py",
+            ROOT / "src/banksia/runtime/work_plan/contracts.py",
             "changed",
         ),
     )
@@ -144,7 +144,7 @@ def build_audit_settings(
 ) -> AuditSettings:
     return AuditSettings(
         root=ROOT,
-        apps_api_root=APPS_API_ROOT,
+        backend_root=BACKEND_ROOT,
         scan_roots=scan_roots or _style_audit_scan_roots(),
         excluded_paths=excluded_paths or frozenset(),
         file_split_review_threshold=FILE_SPLIT_REVIEW_THRESHOLD,

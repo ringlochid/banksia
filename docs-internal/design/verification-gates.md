@@ -168,7 +168,7 @@ A successful final-package completion records **go**. An explicit **no-go** is s
 - A human/command wait in one branch does not suspend siblings.
 - Pause blocks new starts/continuations across all lanes while retaining committed results; resume enumerates every resumable lane/source; cancel prevents every late continuation.
 - Startup audit converges current/startable Dispatches, open terminal sources, and ownership-loss cases without in-memory authority.
-- One-lane comparison proves Flow/Attempt equivalence before Flow currentness fields are removed; direct Task tests prove every residual global invariant before final Flow deletion.
+- One-lane comparison proves Flow/Attempt equivalence before Flow currentness fields are removed. Direct Task tests prove every residual global invariant before the complete Flow graph is deleted. Schema proof shows Dispatches and Wave members reference exact immutable TeamRevisionMember selections, every execution owner tuple is Task-scoped, and no `flow_id`, Flow structural head, or mutable FlowNode pointer survives.
 
 ## Delegation Wave and race matrix
 
@@ -341,6 +341,7 @@ The required usability oracle is an independent no-doc evaluator that did not im
 - No AutoClaw compatibility import/command/config/state path survives.
 - Final package installs from a fresh clone with `src/banksia`; backend tests live at `tests`; fresh Console lives at `console`; no `apps/`, empty wrappers, egg-info, or placeholder directories remain.
 - Wheel/sdist/container/package-data inspection contains expected code/assets and no old identity, old docs, temporary bridges, or development debris.
+- During WP-09 only, a clean backend wheel/sdist build and the installed-distribution verifier prove package contraction. The absent root Console and integrated Console-inclusive build still block release until WP-10.
 - Reset/setup uses the shipped path, not test-only table creation or direct helper calls; SQLite and PostgreSQL schema/integrity paths pass.
 - Public/internal docs describe shipped Banksia only; no internal `design/v1`, `design/v2`, `current/v1`, `vnext`, archive, obsolete ADR, or old owner link remains.
 - Docs format, link, authority/front-door, prompt catalog, generated schema/API, examples, and executable command checks pass at final paths.

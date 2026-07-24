@@ -42,16 +42,16 @@ def iter_python_files(settings: AuditSettings) -> list[Path]:
 
 
 def module_name_for_path(path: Path, settings: AuditSettings) -> str | None:
-    apps_api_root = settings.apps_api_root
-    apps_api_src_root = apps_api_root / "src"
+    backend_root = settings.backend_root
+    backend_src_root = backend_root / "src"
     scripts_docs_root = settings.root / "scripts" / "docs"
 
-    if path.is_relative_to(apps_api_src_root):
-        return dotted_module_name(path.relative_to(apps_api_src_root))
-    if path.is_relative_to(apps_api_root):
-        return dotted_module_name(path.relative_to(apps_api_root))
+    if path.is_relative_to(backend_src_root):
+        return dotted_module_name(path.relative_to(backend_src_root))
     if path.is_relative_to(scripts_docs_root):
         return dotted_module_name(path.relative_to(scripts_docs_root))
+    if path.is_relative_to(backend_root):
+        return dotted_module_name(path.relative_to(backend_root))
     return None
 
 

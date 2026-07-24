@@ -21,7 +21,7 @@ banksia serve
 Repository verification is self-contained:
 
 ```bash
-make test-api-db
+make test-backend-db
 ```
 
-The test lane uses the isolated `postgres-test` service and `infra/testing/api/Dockerfile`, then removes its containers and volumes. It is not a production deployment image or a reset procedure for an existing database.
+The test lane uses the isolated `postgres-test` service and `infra/testing/backend/Dockerfile`, then removes its containers and volumes. It is not a production deployment image or a reset procedure for an existing database.

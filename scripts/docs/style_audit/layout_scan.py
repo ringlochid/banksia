@@ -23,7 +23,7 @@ def collect_structural_findings(
         sibling_prefix_findings=tuple(
             _collect_sibling_prefix_findings(
                 modules,
-                settings.apps_api_root / "tests",
+                settings.backend_root / "tests",
                 settings.sibling_prefix_threshold,
             )
         ),
@@ -83,7 +83,7 @@ def _collect_import_wrapper_modules(
     modules: list[ModuleRecord],
     settings: AuditSettings,
 ) -> list[Path]:
-    tests_root = settings.apps_api_root / "tests"
+    tests_root = settings.backend_root / "tests"
     return sorted(
         (
             module.path
@@ -187,7 +187,7 @@ def _collect_star_import_collectors(
     modules: list[ModuleRecord],
     settings: AuditSettings,
 ) -> list[StarImportCollectorFinding]:
-    tests_root = settings.apps_api_root / "tests"
+    tests_root = settings.backend_root / "tests"
     findings: list[StarImportCollectorFinding] = []
     for module in modules:
         if not module.path.is_relative_to(tests_root) or not module.path.name.startswith("test_"):

@@ -52,19 +52,19 @@ def run_style_audit(settings: AuditSettings) -> AuditResults:
         star_import_collectors=structural_findings.star_import_collectors,
         phase_named_test_directory_findings=collect_phase_named_test_directory_findings(
             modules,
-            settings.apps_api_root / "tests",
+            settings.backend_root / "tests",
         ),
         phase_named_test_file_findings=collect_phase_named_test_file_findings(
             modules,
-            settings.apps_api_root / "tests",
+            settings.backend_root / "tests",
         ),
         phase_named_test_support_api_findings=collect_phase_named_test_support_api_findings(
             modules,
-            settings.apps_api_root / "tests",
+            settings.backend_root / "tests",
         ),
         cross_lane_test_import_findings=collect_cross_lane_test_import_findings(
             modules,
-            settings.apps_api_root / "tests",
+            settings.backend_root / "tests",
         ),
         import_direction_findings=collect_import_direction_findings(modules, settings),
         import_placement_findings=tuple(collect_import_placement_findings(modules)),

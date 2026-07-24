@@ -1,10 +1,10 @@
-# Allowlist: the API image (apps/api/Dockerfile, context = repo root) copies
+# Allowlist: the backend test image (infra/testing/backend/Dockerfile, context = repo root) copies
 # only the paths re-included below. Everything else stays out of the context.
 *
 !README.md
 !pyproject.toml
-!apps/api/src
-!apps/api/tests
+!src
+!tests
 !docs-internal/design/appendices/workflow-seeds
 !scripts/testing
 

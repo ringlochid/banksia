@@ -38,7 +38,7 @@ Do not:
 
 ## Starting-point interpretation
 
-The current tracked repository is the imported AutoClaw 0.1.8 baseline under the Banksia Git repository. Its implementation is now hosted under the Banksia-only `apps/api/src/banksia` package, while `apps/api/tests`, `apps/console`, frozen V1/V2/current documentation, the Role/Policy/compiler model, and the single-Flow execution shape remain migration evidence—not the target layout or product language.
+The tracked repository began as the imported AutoClaw 0.1.8 baseline and is being migrated in place under the Banksia Git repository. The backend now lives under the Banksia-only `src/banksia` package, while the legacy Console still awaits replacement. Frozen V1/V2/current documentation and Git history preserve the removed Role/Policy/compiler and single-Flow baseline as migration evidence; those concepts are neither current implementation owners nor target product language.
 
 Current code and tests can expose invariants and regressions, but they do not override the accepted target. Conversely, a target simplification does not authorize deletion until the responsibility is either proven unnecessary or has a tested new owner.
 
@@ -84,7 +84,7 @@ Preserve semantics before names or current table shapes. For example, the single
 | Request-pair files and managed note/file tools | Exact DB request strings and provider-native filesystem access. |
 | Root/parent/worker prompt families | Task lead overlay plus derived Manager/Contributor behavior and typed XML input. |
 | Staged one-child assignment + yield | Atomic one-or-many DelegationWave and AttemptWait. |
-| Flow-wide current Dispatch/wait | Attempt-local currentness/waits; residual global fields fold into Task; Flow deleted. |
+| Flow-wide current Dispatch/wait and duplicate Flow graph | Attempt-local currentness/waits; global fields fold into Task; TeamRevisionMember is the sole structural snapshot; every Flow identity, table, field, service, and contract is deleted. |
 | Raw Task Event product feed | Semantic TaskActivity and TaskView; raw chronology remains support/audit truth. |
 | Current Console | Delete after evidence extraction; build root Console fresh. |
 | Versioned AutoClaw docs | Versionless Banksia public/internal docs; Git is history. |
@@ -189,12 +189,12 @@ Exit: recursive fan-out/fan-in creates exactly one continuation at every level.
 
 ### 9. Semantic API, backend contraction, and root layout
 
-- Fold final global Flow fields into directly tested Task fields and delete Flow in the existing backend tree before changing product contracts or paths.
+- Fold final global Flow fields into directly tested Task fields, retarget all execution owner tuples to Task, use TeamRevisionMember as the sole Dispatch structural pin, replace mutable FlowNode state with Assignment/Attempt truth, and delete the complete Flow/CompiledPlan graph in the existing backend tree before changing product contracts or paths.
 - Implement Workflow draft/tree APIs, TaskView, attention/actions/result, semantic TaskActivity/SSE, scoped Action output, and separate support/audit contracts against those final records. Freeze exact product and support service/route inventories plus separate OpenAPI documents before either the Console or Operator consumes them.
 - Shape every UI-facing product response for nontechnical consumption: semantic state, human-safe errors/recovery, legal actions, consequences, typed input, and receipts without frontend runtime classification.
 - Finish removal of Role/Policy, generic compiler/registry, Task Compose, criteria/consume/produce, request files, staged delegation, and remaining Flow authority.
 - Extract useful legacy Console API/SSE/accessibility scenarios into contracts or target tests.
-- Only after the existing-tree Flow contraction and semantic product/support contracts pass, move the stable backend without semantic rewriting to `src/banksia/` and tests to `tests/`; remove `apps/api` and update pyproject, Makefile, scripts, generated contracts, Docker/infra, CI, package resources, tooling, and backend path references in `AGENTS.md`, `STYLE.md`, and relevant standards.
+- After the existing-tree Flow contraction and semantic product/support contracts passed, the stable backend moved without semantic rewriting to `src/banksia/` and tests to `tests/`; the former nested backend app root was removed and pyproject, Makefile, scripts, generated contracts, Docker/infra, package resources, tooling, and backend path references were updated together.
 
 Exit: final backend layout and semantic product contracts pass fresh install, reset, SQLite/Postgres, provider, runtime, package-content, and generated-client proof.
 
@@ -300,4 +300,4 @@ Do not publish, tag, archive AutoClaw, or call the migration complete until:
 - a fresh clone can install, configure, author/import a Workflow, start and complete a representative Task, recover from restart, and render its exact Result; and
 - WP-13's two independent whole-program review/fix rounds complete with no unresolved P0/P1 or release-blocking evidence gap.
 
-The reproducible local candidate build is `make package-build`; release proof does not substitute a bare `python -m build` that omits the Console asset pipeline.
+WP-09's interim backend-only package proof uses a clean `python -m build` plus the installed-distribution verifier. That artifact is not a release candidate and must not be published. WP-10 must add the independently authored root Console and restore one Console-inclusive reproducible candidate build before the release barrier can pass.

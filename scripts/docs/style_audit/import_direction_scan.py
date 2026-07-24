@@ -89,12 +89,12 @@ def _import_from_modules(module: ModuleRecord, node: ast.ImportFrom) -> tuple[st
 
 
 def _owner_family(module: ModuleRecord, settings: AuditSettings) -> str | None:
-    apps_api_root = settings.apps_api_root
-    if module.path.is_relative_to(apps_api_root / "app"):
+    backend_root = settings.backend_root
+    if module.path.is_relative_to(backend_root / "app"):
         return "app"
-    if module.path.is_relative_to(apps_api_root / "banksia"):
+    if module.path.is_relative_to(backend_root / "banksia"):
         return "banksia"
-    if module.path.is_relative_to(apps_api_root / "src" / "banksia"):
+    if module.path.is_relative_to(backend_root / "src" / "banksia"):
         return "banksia"
     return None
 
@@ -164,9 +164,9 @@ def _module_name_to_paths(modules: list[ModuleRecord]) -> dict[str, tuple[Path, 
 
 
 def _banksia_tree_kind(path: Path, settings: AuditSettings) -> str | None:
-    if path.is_relative_to(settings.apps_api_root / "banksia"):
+    if path.is_relative_to(settings.backend_root / "banksia"):
         return "legacy"
-    if path.is_relative_to(settings.apps_api_root / "src" / "banksia"):
+    if path.is_relative_to(settings.backend_root / "src" / "banksia"):
         return "src"
     return None
 
@@ -220,8 +220,8 @@ def _repo_owned_module_paths(module_name: str, settings: AuditSettings) -> tuple
     relative_parts = module_name.split(".")[1:]
     paths: set[Path] = set()
     for root in (
-        settings.apps_api_root / "banksia",
-        settings.apps_api_root / "src" / "banksia",
+        settings.backend_root / "banksia",
+        settings.backend_root / "src" / "banksia",
     ):
         paths.update(_existing_module_paths(root, relative_parts))
     return tuple(sorted(paths))

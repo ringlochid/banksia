@@ -11,17 +11,19 @@ Release-ready means code, docs, examples, package data, install behavior, and th
 
 ## Build and verify
 
+WP-09 has no releasable artifact: the imported Console has been withdrawn and the new root Console belongs to WP-10. The interim backend-only artifact can be proved, but must not be published:
+
 ```bash
-make package-build
+./.venv/bin/python -m build
 ./.venv/bin/python scripts/testing/verify_installed_distribution.py \
   --dist-dir dist \
   --workspace /tmp/banksia-installed-proof
 make check-docs
 ```
 
-Also run `make check-api`, `make check-console`, and every applicable focused test lane. Use `make test-api-db` for schema, reset, or PostgreSQL changes. Use `make console-e2e-real` when browser behavior depends on the real backend.
+Also run `make check-backend` and every applicable focused backend lane. Use `make test-backend-db` for schema, reset, or PostgreSQL changes. The final release process must wait until WP-10 restores the root Console, its proof lanes, and one integrated candidate build.
 
-Inspect the wheel and source distribution before publishing. Do not mutate an already published artifact; publish a new version for a fix.
+Inspect the interim wheel and source distribution for contraction evidence only. Once the integrated release surface exists, do not mutate an already published artifact; publish a new version for a fix.
 
 ## After publication
 

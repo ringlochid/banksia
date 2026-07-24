@@ -27,7 +27,7 @@ Use this guide when a change touches seams between backend layers, OpenClaw inte
 - `persistence/**` owns persistence models and DB access surfaces; if legacy `db/**` remains, apply the same ownership rule there
 - keep typed contracts near the owning domain, for example `workflows/contracts/**` and `runtime/contracts/**`; if migration-baseline `schemas/**` remains, treat it as transitional contract ownership that must converge
 
-These paths are relative to the target `src/banksia/**` package. The current `apps/api/src/banksia/**` location is a Banksia-named host for imported AutoClaw migration-baseline semantics; it must follow the same ownership rules while it remains, but it does not define the final package root.
+These paths are relative to the canonical `src/banksia/**` package.
 
 ## OpenClaw and support-state boundaries
 

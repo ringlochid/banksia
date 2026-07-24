@@ -4,7 +4,7 @@ This page defines the stronger DB-backed verification lane.
 
 ## Procedure
 
-1. Run the self-contained DB-backed suite: `make test-api-db`
+1. Run the self-contained DB-backed suite: `make test-backend-db`
 
 ## What this proves
 
@@ -22,7 +22,7 @@ This page defines the stronger DB-backed verification lane.
 
 This is the stronger current DB-backed lane.
 
-Keep `make test-api-integration` as the default repo-native integration lane.
+Keep `make test-backend-integration` as the default repo-native integration lane.
 
 It is appropriate when you need:
 
@@ -32,6 +32,6 @@ It is appropriate when you need:
 
 ## Notes
 
-- `make test-api-db` brings up the isolated test compose project, recreates `banksia_test`, builds `infra/testing/api/Dockerfile`, runs the grouped integration suite, and tears the test project down on exit.
+- `make test-backend-db` brings up the isolated test compose project, recreates `banksia_test`, builds `infra/testing/backend/Dockerfile`, runs the grouped integration suite, and tears the test project down on exit.
 - The Dockerfile is test-only. It is not a shipped deployment image.
 - `make docker-up` and `make docker-down` remain the manual development stack commands; they are not required for this proof lane.

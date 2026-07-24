@@ -55,18 +55,16 @@ banksia = "banksia.interfaces.cli.main:main"
 
 [tool.setuptools]
 include-package-data = true
-package-dir = {"" = "apps/api/src"}
+package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
-where = ["apps/api/src"]
+where = ["src"]
 include = ["banksia*"]
 namespaces = false
 
 [tool.setuptools.package-data]
 banksia = [
   "workflows/resources/starter_workflows/*.yaml",
-  "interfaces/web_console/assets/*",
-  "interfaces/web_console/assets/assets/*",
   "platform/managed_services/resources/systemd/*.service",
   "runtime/prompt/assets/shared/*.txt",
   "runtime/prompt/assets/positions/*.txt",
@@ -76,7 +74,7 @@ banksia = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["apps/api/tests"]
+testpaths = ["tests"]
 asyncio_mode = "auto"
 
 [tool.ruff]

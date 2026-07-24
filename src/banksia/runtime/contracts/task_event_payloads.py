@@ -1,0 +1,332 @@
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Annotated, Literal
+
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    model_validator,
+)
+
+from banksia.providers import ProviderKind
+from banksia.runtime.contracts.primitives import (
+    CheckpointOutcome,
+    CommandRunState,
+    HumanRequestKind,
+    HumanRequestResolutionKind,
+    HumanRequestResolutionSurface,
+    HumanRequestStatus,
+)
+from banksia.runtime.contracts.provider_resolution import ProviderSelectionBasis
+from banksia.runtime.contracts.refs import FileReference
+
+type TaskEventIdentifier = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, min_length=1, max_length=255),
+]
+type TaskEventRef = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, min_length=1, max_length=2_048),
+]
+type TaskEventSummary = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, min_length=1, max_length=4_096),
+]
+type TaskEventStepText = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, min_length=1, max_length=512),
+]
+type DispatchOpenedReason = Literal[
+    "root",
+    "delegation",
+    "delegation_wave",
+    "human_result",
+    "command_result",
+    "watchdog_recovery",
+    "semantic_retry",
+    "operator_continue",
+    "structural_replan",
+]
+type ProviderStartState = Literal["retry_scheduled", "accepted"]
+type ProviderStartRetryKind = Literal[
+    "initial",
+    "definite_failure",
+    "uncertain_acceptance",
+]
+type WorkPlanStepStatusValue = Literal["pending", "in_progress", "completed"]
+
+
+class _TaskEventPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+
+class TaskStartedEventPayload(_TaskEventPayload):
+    workflow_key: TaskEventIdentifier
+    workflow_revision_no: int = Field(ge=1)
+    manifest_ref: TaskEventRef
+
+
+class DispatchOpenedEventPayload(_TaskEventPayload):
+    dispatch_id: TaskEventIdentifier
+    predecessor_dispatch_id: TaskEventIdentifier | None = None
+    assignment_id: TaskEventIdentifier
+    attempt_id: TaskEventIdentifier
+    member_id: TaskEventIdentifier
+    status: Literal["starting"] = "starting"
+    opened_reason: DispatchOpenedReason
+    requested_provider: ProviderKind
+    resolved_provider: ProviderKind
+    selection_basis: ProviderSelectionBasis
+
+
+class DispatchStartUpdatedEventPayload(_TaskEventPayload):
+    dispatch_id: TaskEventIdentifier
+    state: ProviderStartState
+    attempt_count: int = Field(ge=1)
+    provider_start_revision: int = Field(ge=0)
+    next_attempt_at: datetime | None = None
+    retry_kind: ProviderStartRetryKind | None = None
+    last_error_code: TaskEventIdentifier | None = None
+
+    @model_validator(mode="after")
+    def validate_state(self) -> DispatchStartUpdatedEventPayload:
+        if self.state == "accepted":
+            if any(
+                value is not None
+                for value in (
+                    self.next_attempt_at,
+                    self.retry_kind,
+                    self.last_error_code,
+                )
+            ):
+                raise ValueError("accepted provider starts must clear retry state")
+            return self
+        if self.next_attempt_at is None or self.retry_kind is None or self.last_error_code is None:
+            raise ValueError("scheduled provider retries require due, kind, and error code")
+        return self
+
+
+class TaskEventWorkPlanStep(_TaskEventPayload):
+    step: TaskEventStepText
+    status: WorkPlanStepStatusValue
+
+
+class WorkPlanSetEventPayload(_TaskEventPayload):
+    assignment_id: TaskEventIdentifier
+    revision: int = Field(ge=1)
+    explanation: TaskEventSummary | None = None
+    steps: tuple[TaskEventWorkPlanStep, ...] = Field(min_length=1, max_length=9)
+    authored_by_dispatch_id: TaskEventIdentifier
+    updated_at: datetime
+
+
+class WorkPlanClearedEventPayload(_TaskEventPayload):
+    assignment_id: TaskEventIdentifier
+    revision: int = Field(ge=1)
+    explanation: TaskEventSummary | None = None
+    authored_by_dispatch_id: TaskEventIdentifier
+    updated_at: datetime
+
+
+class CheckpointRecordedEventPayload(_TaskEventPayload):
+    checkpoint_id: TaskEventIdentifier
+    assignment_id: TaskEventIdentifier
+    attempt_id: TaskEventIdentifier
+    outcome: CheckpointOutcome | None = None
+    summary: TaskEventSummary
+    details: str | None = None
+    files: tuple[FileReference, ...] = Field(default=(), max_length=32)
+    authored_by_dispatch_id: TaskEventIdentifier
+
+
+class BoundaryAcceptedEventPayload(_TaskEventPayload):
+    source_dispatch_id: TaskEventIdentifier
+    assignment_id: TaskEventIdentifier
+    attempt_id: TaskEventIdentifier
+    outcome: CheckpointOutcome
+    checkpoint_id: TaskEventIdentifier
+    resulting_task_status: Literal["running", "completed"]
+
+
+class StructuralRevisionAdoptedEventPayload(_TaskEventPayload):
+    source_team_revision_id: TaskEventIdentifier
+    adopted_team_revision_id: TaskEventIdentifier
+    operation: Literal["add_child", "update_child", "remove_child"]
+    target_member_id: TaskEventIdentifier
+    cause: TaskEventSummary
+    adopted_by_dispatch_id: TaskEventIdentifier
+
+
+class HumanRequestOpenedEventPayload(_TaskEventPayload):
+    request_id: TaskEventIdentifier
+    kind: HumanRequestKind
+    summary: TaskEventSummary
+    source_dispatch_id: TaskEventIdentifier
+    due_at: datetime | None = None
+    opened_at: datetime
+
+
+class HumanRequestTerminalEventPayload(_TaskEventPayload):
+    request_id: TaskEventIdentifier
+    kind: HumanRequestKind
+    summary: TaskEventSummary
+    source_dispatch_id: TaskEventIdentifier
+    due_at: datetime | None = None
+    status: Literal[
+        HumanRequestStatus.RESOLVED,
+        HumanRequestStatus.TIMED_OUT,
+        HumanRequestStatus.CANCELLED,
+    ]
+    resolution_kind: HumanRequestResolutionKind
+    resolution_summary: TaskEventSummary
+    resolved_at: datetime
+    resolved_by_surface: HumanRequestResolutionSurface
+    resolved_by_actor_ref: TaskEventIdentifier | None = None
+
+
+class CommandRunOpenedEventPayload(_TaskEventPayload):
+    run_id: TaskEventIdentifier
+    source_dispatch_id: TaskEventIdentifier
+    state: Literal[CommandRunState.PENDING_START]
+    command: TaskEventSummary
+    description: TaskEventSummary
+    workdir: TaskEventRef | None = None
+    created_at: datetime
+    timeout_seconds: int | None = Field(default=None, ge=1)
+    ownership_revision: Literal[0] = 0
+    output_path: TaskEventRef
+
+
+class CommandRunStartedEventPayload(_TaskEventPayload):
+    run_id: TaskEventIdentifier
+    source_dispatch_id: TaskEventIdentifier
+    state: Literal[CommandRunState.RUNNING]
+    command: TaskEventSummary
+    description: TaskEventSummary
+    workdir: TaskEventRef | None = None
+    started_at: datetime
+    due_at: datetime | None = None
+    ownership_revision: int = Field(ge=1)
+    output_path: TaskEventRef
+
+
+class CommandRunProgressedEventPayload(_TaskEventPayload):
+    run_id: TaskEventIdentifier
+    source_dispatch_id: TaskEventIdentifier
+    state: Literal[CommandRunState.RUNNING, CommandRunState.CANCELLATION_REQUESTED]
+    summary: TaskEventSummary
+    occurred_at: datetime
+    ownership_revision: int = Field(ge=1)
+    output_path: TaskEventRef
+
+
+class CommandRunCancelRequestedEventPayload(_TaskEventPayload):
+    run_id: TaskEventIdentifier
+    source_dispatch_id: TaskEventIdentifier
+    state: Literal[CommandRunState.CANCELLATION_REQUESTED]
+    requested_at: datetime
+    ownership_revision: int = Field(ge=0)
+
+
+class CommandRunTerminalEventPayload(_TaskEventPayload):
+    run_id: TaskEventIdentifier
+    source_dispatch_id: TaskEventIdentifier
+    state: Literal[
+        CommandRunState.SUCCEEDED,
+        CommandRunState.FAILED,
+        CommandRunState.TIMED_OUT,
+        CommandRunState.CANCELLED,
+        CommandRunState.ABANDONED,
+    ]
+    summary: TaskEventSummary
+    started_at: datetime | None = None
+    ended_at: datetime
+    exit_code: int | None = None
+    failure_code: TaskEventIdentifier | None = None
+    ownership_revision: int = Field(ge=0)
+    output_path: TaskEventRef
+    output_observed_bytes: int = Field(ge=0)
+    output_written_bytes: int = Field(ge=0)
+    output_complete: bool
+    output_encoding: Literal["raw_bytes"]
+
+    @model_validator(mode="after")
+    def validate_output_counts(self) -> CommandRunTerminalEventPayload:
+        if self.output_written_bytes > self.output_observed_bytes:
+            raise ValueError("command output written bytes cannot exceed observed bytes")
+        if self.output_complete and self.output_written_bytes != self.output_observed_bytes:
+            raise ValueError("complete command output requires every observed byte to be written")
+        return self
+
+
+class TaskPausedEventPayload(_TaskEventPayload):
+    pause_reason: Literal[
+        "paused_by_operator",
+        "runtime_recovery_exhausted",
+        "runtime_transition_failed",
+    ]
+    control_revision: int = Field(ge=1)
+    actor_ref: TaskEventIdentifier | None = None
+    summary: TaskEventSummary
+
+
+class TaskResumedEventPayload(_TaskEventPayload):
+    control_revision: int = Field(ge=1)
+    actor_ref: TaskEventIdentifier | None = None
+    summary: TaskEventSummary
+
+
+class TaskCancelledEventPayload(_TaskEventPayload):
+    control_revision: int = Field(ge=1)
+    actor_ref: TaskEventIdentifier | None = None
+    summary: TaskEventSummary
+
+
+type TaskEventPayload = (
+    TaskStartedEventPayload
+    | DispatchOpenedEventPayload
+    | DispatchStartUpdatedEventPayload
+    | WorkPlanSetEventPayload
+    | WorkPlanClearedEventPayload
+    | CheckpointRecordedEventPayload
+    | BoundaryAcceptedEventPayload
+    | StructuralRevisionAdoptedEventPayload
+    | HumanRequestOpenedEventPayload
+    | HumanRequestTerminalEventPayload
+    | CommandRunOpenedEventPayload
+    | CommandRunStartedEventPayload
+    | CommandRunProgressedEventPayload
+    | CommandRunCancelRequestedEventPayload
+    | CommandRunTerminalEventPayload
+    | TaskPausedEventPayload
+    | TaskResumedEventPayload
+    | TaskCancelledEventPayload
+)
+
+
+__all__ = [
+    "BoundaryAcceptedEventPayload",
+    "CheckpointRecordedEventPayload",
+    "CommandRunCancelRequestedEventPayload",
+    "CommandRunOpenedEventPayload",
+    "CommandRunProgressedEventPayload",
+    "CommandRunStartedEventPayload",
+    "CommandRunTerminalEventPayload",
+    "DispatchOpenedEventPayload",
+    "DispatchStartUpdatedEventPayload",
+    "HumanRequestOpenedEventPayload",
+    "HumanRequestTerminalEventPayload",
+    "StructuralRevisionAdoptedEventPayload",
+    "TaskCancelledEventPayload",
+    "TaskEventIdentifier",
+    "TaskEventPayload",
+    "TaskEventRef",
+    "TaskPausedEventPayload",
+    "TaskResumedEventPayload",
+    "TaskStartedEventPayload",
+    "WorkPlanClearedEventPayload",
+    "WorkPlanSetEventPayload",
+]

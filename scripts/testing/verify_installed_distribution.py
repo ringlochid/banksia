@@ -12,6 +12,7 @@ import sysconfig
 import tarfile
 import time
 import zipfile
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -25,8 +26,6 @@ REQUIRED_PACKAGE_MEMBERS = (
     "banksia/platform/managed_services/resources/systemd/banksia.service",
     "banksia/runtime/prompt/assets/shared/core.txt",
     "banksia/runtime/prompt/assets/behaviors/contributor.txt",
-    "banksia/interfaces/web_console/assets/index.html",
-    "banksia/interfaces/web_console/assets/site.webmanifest",
 )
 FORBIDDEN_MEMBER_FRAGMENTS = (
     ".env",
@@ -35,12 +34,53 @@ FORBIDDEN_MEMBER_FRAGMENTS = (
     "prompt.md",
     "session_key",
     "autoclaw",
+    "interfaces/web_console",
 )
 REMOVED_ROOT_COMMANDS = ("onboard", "configure", "doctor", "openclaw")
 COMMAND_TIMEOUT_SECONDS = 60.0
 SERVER_START_TIMEOUT_SECONDS = 20.0
 SERVER_STOP_TIMEOUT_SECONDS = 10.0
 SERVER_REQUEST_TIMEOUT_SECONDS = 1.0
+INSTALLED_TASK_PROMPT = "Prove the installed Banksia Task contract remains durable after restart."
+TASK_START_STATUS_MESSAGE = (
+    "The run was accepted. Work starts asynchronously and may still need attention."
+)
+TASK_VIEW_KEYS = frozenset(
+    {
+        "id",
+        "prompt_excerpt",
+        "workflow",
+        "status",
+        "status_message",
+        "started_at",
+        "updated_at",
+        "team",
+        "plan",
+        "attention",
+        "actions",
+        "result",
+        "activities",
+        "activities_href",
+        "activities_truncated",
+        "human_requests",
+        "human_request_count",
+        "human_requests_truncated",
+        "command_runs",
+        "command_run_count",
+        "command_runs_truncated",
+    }
+)
+TASK_PRODUCT_STATUSES = frozenset(
+    {
+        "starting",
+        "working",
+        "waiting_for_you",
+        "paused",
+        "completed",
+        "blocked",
+        "cancelled",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -110,7 +150,6 @@ def inspect_wheel(wheel_path: Path) -> tuple[str, ...]:
         members = tuple(sorted(archive.namelist()))
         verify_wheel_identity(archive, members)
     verify_package_members(members)
-    verify_console_assets(members)
     verify_forbidden_members(members)
     return members
 
@@ -144,14 +183,13 @@ def inspect_sdist(sdist_path: Path) -> tuple[str, ...]:
     members = tuple(remove_sdist_root(member) for member in raw_members)
     required = (*REQUIRED_PACKAGE_MEMBERS, "LICENSE", "README.md", "pyproject.toml")
     verify_required_suffixes(members, required)
-    verify_console_assets(members)
     verify_forbidden_members(members)
     return raw_members
 
 
 def verify_package_members(members: tuple[str, ...]) -> None:
     verify_required_suffixes(members, REQUIRED_PACKAGE_MEMBERS)
-    if any("apps/api/src/" in member for member in members):
+    if any(member.startswith("src/banksia/") for member in members):
         raise AssertionError("wheel retained a source-tree package prefix")
 
 
@@ -161,15 +199,6 @@ def verify_required_suffixes(members: tuple[str, ...], required: tuple[str, ...]
     ]
     if missing:
         raise AssertionError(f"distribution is missing required members: {missing}")
-
-
-def verify_console_assets(members: tuple[str, ...]) -> None:
-    asset_members = [
-        member for member in members if "banksia/interfaces/web_console/assets/" in member
-    ]
-    for suffix in (".css", ".js"):
-        if not any(member.endswith(suffix) for member in asset_members):
-            raise AssertionError(f"distribution has no packaged console {suffix} asset")
 
 
 def verify_forbidden_members(members: tuple[str, ...]) -> None:
@@ -241,7 +270,7 @@ def verify_installed_runtime(
     removed_executable = venv_executable(venv_path, "autoclaw")
     if removed_executable.exists():
         raise AssertionError("installed wheel retained the removed legacy executable")
-    assert_removed_import_is_unavailable(venv_path=venv_path, cwd=non_repo_cwd, env=env)
+    assert_removed_imports_are_unavailable(venv_path=venv_path, cwd=non_repo_cwd, env=env)
     legacy_state = create_legacy_state_oracle(
         config_home=home / "config",
         data_home=home / "data",
@@ -342,7 +371,7 @@ def verify_installed_runtime(
     }
 
 
-def assert_removed_import_is_unavailable(
+def assert_removed_imports_are_unavailable(
     *,
     venv_path: Path,
     cwd: Path,
@@ -352,7 +381,11 @@ def assert_removed_import_is_unavailable(
         (
             str(venv_python(venv_path)),
             "-c",
-            "from importlib.util import find_spec; assert find_spec('autoclaw') is None",
+            (
+                "from importlib.util import find_spec; "
+                "assert find_spec('autoclaw') is None; "
+                "assert find_spec('banksia.interfaces.web_console') is None"
+            ),
         ),
         cwd=cwd,
         env=env,
@@ -373,8 +406,8 @@ from pathlib import Path
 
 import banksia
 from banksia.config import load_settings
+from importlib.util import find_spec
 from importlib.resources import files
-from banksia.interfaces.web_console import get_packaged_web_console_assets_root
 from banksia.main import create_app
 from banksia.platform.managed_services.resources import get_systemd_service_template
 from banksia.runtime.prompt import InstructionAsset, load_instruction_asset
@@ -383,13 +416,13 @@ package_path = Path(banksia.__file__).resolve()
 venv_path = Path(os.environ["BANKSIA_ORACLE_VENV"]).resolve()
 repo_root = Path(os.environ["BANKSIA_ORACLE_REPO_ROOT"]).resolve()
 assert package_path.is_relative_to(venv_path)
-assert not package_path.is_relative_to(repo_root / "apps" / "api" / "src")
+assert not package_path.is_relative_to(repo_root / "src")
 assert files("banksia.workflows.resources.starter_workflows").joinpath(
     "reviewed-delivery.yaml"
 ).is_file()
 assert get_systemd_service_template().is_file()
-assert get_packaged_web_console_assets_root().joinpath("index.html").is_file()
-assert load_instruction_asset(InstructionAsset.AUTHORITY).strip()
+assert find_spec("banksia.interfaces.web_console") is None
+assert load_instruction_asset(InstructionAsset.CORE).strip()
 assert load_settings().postgres_schema == "banksia"
 
 async def smoke() -> None:
@@ -419,11 +452,13 @@ def run_installed_server_smoke(
     cwd: Path,
     env: dict[str, str],
     task_id: str | None = None,
+    while_running: Callable[[], dict[str, Any]] | None = None,
 ) -> dict[str, object]:
     log_path = cwd / "installed-serve.log"
     process_environment = merged_environment(env)
     failure: Exception | None = None
     health_payloads: dict[str, dict[str, object]] = {}
+    while_running_result: dict[str, Any] | None = None
 
     with log_path.open("w+", encoding="utf-8") as server_log:
         process = subprocess.Popen(
@@ -436,9 +471,11 @@ def run_installed_server_smoke(
         )
         try:
             health_payloads = wait_for_server_health(process, port=port)
+            if while_running is not None:
+                while_running_result = while_running()
             if task_id is not None:
                 health_payloads["task"] = read_loopback_json(
-                    f"http://127.0.0.1:{port}/control/tasks/{task_id}"
+                    f"http://127.0.0.1:{port}/tasks/{task_id}"
                 )
         except Exception as exc:
             failure = exc
@@ -467,6 +504,8 @@ def run_installed_server_smoke(
     }
     if task_id is not None:
         result["task"] = health_payloads["task"]
+    if while_running_result is not None:
+        result["while_running"] = while_running_result
     return result
 
 
@@ -690,37 +729,131 @@ def verify_installed_task_start(
     cwd: Path,
     env: dict[str, str],
 ) -> dict[str, object]:
-    task_compose_path = cwd / "installed-oracle-task.yaml"
-    task_compose_path.write_text(
-        """task:
-    key: installed-wheel-oracle
-    title: Installed wheel oracle
-    summary: Prove the installed Task-start bridge commits durable runtime truth.
-workflow:
-    key: reviewed-delivery
-""",
-        encoding="utf-8",
-    )
-    started = run_json_command(
-        executable,
-        (
-            "task-compose",
-            "start",
-            "--config",
-            str(config_path),
-            "--file",
-            str(task_compose_path),
-            "--json",
-        ),
+    request_path = write_installed_task_request(cwd)
+    started, running = start_installed_task(
+        executable=executable,
+        config_path=config_path,
+        port=port,
         cwd=cwd,
         env=env,
+        request_path=request_path,
     )
-    task_id = started.get("task_id")
-    if not isinstance(task_id, str) or not task_id.startswith("task_installed-wheel-oracle_"):
-        raise AssertionError(f"installed Task start returned an unexpected task id: {started}")
-    if started.get("flow_status") != "running":
-        raise AssertionError(f"installed Task start did not commit a running Task: {started}")
+    task_id = verify_installed_task_start_receipt(started, cwd=cwd)
+    task, reopened = read_installed_task_after_restart(
+        executable=executable,
+        config_path=config_path,
+        port=port,
+        cwd=cwd,
+        env=env,
+        task_id=task_id,
+    )
+    verify_installed_task_view(task, task_id=task_id)
+    return {
+        "start": started,
+        "live_server": running,
+        "durable_readback": task,
+        "restart": reopened,
+    }
 
+
+def write_installed_task_request(cwd: Path) -> Path:
+    request_path = cwd / "installed-oracle-task.json"
+    request_path.write_text(
+        json.dumps(
+            {
+                "workflow": "reviewed-delivery",
+                "prompt": INSTALLED_TASK_PROMPT,
+            }
+        ),
+        encoding="utf-8",
+    )
+    return request_path
+
+
+def start_installed_task(
+    *,
+    executable: Path,
+    config_path: Path,
+    port: int,
+    cwd: Path,
+    env: dict[str, str],
+    request_path: Path,
+) -> tuple[dict[str, Any], dict[str, object]]:
+    running = run_installed_server_smoke(
+        executable=executable,
+        config_path=config_path,
+        port=port,
+        cwd=cwd,
+        env=env,
+        while_running=lambda: run_json_command(
+            executable,
+            (
+                "task",
+                "start",
+                "--config",
+                str(config_path),
+                "--json",
+                f"@{request_path}",
+            ),
+            cwd=cwd,
+            env=env,
+        ),
+    )
+    started = running.pop("while_running", None)
+    if not isinstance(started, dict):
+        raise AssertionError(f"installed Task start returned no receipt: {running}")
+    return started, running
+
+
+def verify_installed_task_start_receipt(
+    started: dict[str, Any],
+    *,
+    cwd: Path,
+) -> str:
+    expected_receipt_keys = {
+        "receipt_id",
+        "task_id",
+        "workflow_id",
+        "workflow_revision",
+        "workspace",
+        "manifest",
+        "status",
+        "status_message",
+    }
+    if set(started) != expected_receipt_keys:
+        raise AssertionError(f"installed Task start returned an unexpected receipt: {started}")
+    task_id = started.get("task_id")
+    if not isinstance(task_id, str) or len(task_id) != 10 or not task_id.startswith("t_"):
+        raise AssertionError(f"installed Task start returned an unexpected task id: {started}")
+    expected_receipt = {
+        "workflow_id": "reviewed-delivery",
+        "workspace": str(cwd.resolve()),
+        "manifest": f".banksia/{task_id}/manifest.md",
+        "status": "accepted",
+        "status_message": TASK_START_STATUS_MESSAGE,
+    }
+    actual_receipt = {key: started.get(key) for key in expected_receipt}
+    if actual_receipt != expected_receipt:
+        raise AssertionError(f"installed Task start receipt was not semantic: {started}")
+    if (
+        not isinstance(started.get("receipt_id"), str)
+        or not str(started["receipt_id"]).startswith("receipt.")
+        or not isinstance(started.get("workflow_revision"), int)
+        or int(started["workflow_revision"]) < 1
+    ):
+        raise AssertionError(f"installed Task start receipt identities were invalid: {started}")
+    return task_id
+
+
+def read_installed_task_after_restart(
+    *,
+    executable: Path,
+    config_path: Path,
+    port: int,
+    cwd: Path,
+    env: dict[str, str],
+    task_id: str,
+) -> tuple[dict[str, object], dict[str, object]]:
     reopened = run_installed_server_smoke(
         executable=executable,
         config_path=config_path,
@@ -732,19 +865,42 @@ workflow:
     task = reopened.pop("task", None)
     if not isinstance(task, dict):
         raise AssertionError(f"installed server did not return the committed Task: {reopened}")
-    expected_readback = {
-        "task_id": task_id,
-        "status": "running",
-        "workflow_key": "reviewed-delivery",
-        "active_flow_revision_id": started.get("active_flow_revision_id"),
-    }
-    actual_readback = {key: task.get(key) for key in expected_readback}
-    if actual_readback != expected_readback:
+    return task, reopened
+
+
+def verify_installed_task_view(task: dict[str, object], *, task_id: str) -> None:
+    workflow = task.get("workflow")
+    team = task.get("team")
+    if (
+        set(task) != TASK_VIEW_KEYS
+        or task.get("id") != task_id
+        or task.get("prompt_excerpt") != INSTALLED_TASK_PROMPT
+        or task.get("status") not in TASK_PRODUCT_STATUSES
+        or not isinstance(task.get("status_message"), str)
+        or not task["status_message"]
+        or task.get("activities_href") != f"/tasks/{task_id}/activities"
+        or not isinstance(workflow, dict)
+        or set(workflow) != {"id", "description"}
+        or workflow.get("id") != "reviewed-delivery"
+        or not isinstance(workflow.get("description"), str)
+        or not workflow["description"]
+        or not isinstance(team, dict)
+        or set(team) != {"id", "name", "purpose", "state", "latest_update", "children"}
+    ):
         raise AssertionError(
-            "installed Task readback did not preserve the committed starter Workflow launch: "
-            f"{task}"
+            f"installed Task readback was not the durable product TaskView: {task}"
         )
-    return {"start": started, "durable_readback": task, "restart": reopened}
+    serialized_task = json.dumps(task, sort_keys=True)
+    for removed_field in (
+        "active_flow_revision_id",
+        "flow_status",
+        "task_id",
+        "workflow_key",
+    ):
+        if f'"{removed_field}"' in serialized_task:
+            raise AssertionError(
+                f"installed Task readback retained legacy field {removed_field}: {task}"
+            )
 
 
 def verify_user_service_installer(

@@ -1,17 +1,13 @@
 {
   "include": [
-    "apps/api/src",
-    "apps/api/tests"
-  ],
-  "exclude": [
-    "apps/api/tests/compat"
+    "src",
+    "tests"
   ],
   "executionEnvironments": [
     {
-      "root": "apps/api",
+      "root": ".",
       "extraPaths": [
-        "apps/api/src",
-        "apps/api/tests/compat"
+        "src"
       ]
     }
   ],

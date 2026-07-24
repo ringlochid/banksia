@@ -8,7 +8,7 @@ from pathlib import Path
 @dataclass(frozen=True)
 class AuditSettings:
     root: Path
-    apps_api_root: Path
+    backend_root: Path
     scan_roots: tuple[Path, ...]
     excluded_paths: frozenset[Path]
     file_split_review_threshold: int

@@ -26,7 +26,7 @@ The versioned design trees and `current/v1` no longer own Banksia target behavio
 7. [Migration](migration.md) — preserve-first cutover, deletion gates, package ordering, final layout, and documentation contraction.
 8. [Verification gates](verification-gates.md) — package evidence, race and failure matrices, usability proof, and the sole numeric owner of hidden controller validation guardrails.
 
-Exact design fixtures and implementation-reference protocols live under the [appendices](appendices/README.md). Durable clean-break rationale lives in [ADR-0013](../adr/ADR-0013-banksia-target-and-clean-break.md), and the separate Operator's tool-isolation and effect-authority decision lives in [ADR-0014](../adr/ADR-0014-operator-tool-isolation-and-effect-authority.md).
+Exact design fixtures and implementation-reference protocols live under the [appendices](appendices/README.md). Durable clean-break rationale lives in [ADR-0013](../adr/ADR-0013-banksia-target-and-clean-break.md), and the separate minimal Operator decision lives in [ADR-0015](../adr/ADR-0015-minimal-operator-agent.md). ADR-0015 supersedes the invocation/effect wrapper from [ADR-0014](../adr/ADR-0014-operator-tool-isolation-and-effect-authority.md).
 
 ## Target in brief
 

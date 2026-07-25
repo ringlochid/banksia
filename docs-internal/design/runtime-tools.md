@@ -277,7 +277,7 @@ Do not persist the binding or write it into user/provider configuration. A same-
 
 ## Operator runtime-tool contraction
 
-The complete target Operator catalog is defined by [Interfaces, Console, and Operator](interfaces-console-and-operator.md) and the curated Operator proposal. It is exactly:
+The complete target Operator catalog is defined by [Interfaces, Console, and Operator](interfaces-console-and-operator.md) and the [Operator conversation contract](appendices/operator-conversation-contract.md). It is exactly:
 
 ```text
 workflow_search
@@ -312,7 +312,7 @@ command_run_output_read
 command_run_cancel
 ```
 
-`workflow_draft_undo` accepts only an opaque, controller-issued, single-use receipt bound to the exact draft and accepted ETag; neither Operator nor the browser computes an inverse mutation. `workflow_draft_discard` removes only a mutable draft. Published Workflow revisions are immutable and have no delete tool in this baseline.
+`workflow_draft_create` accepts one complete structured JSON Workflow candidate and creates or opens its mutable draft through the existing normalization and authoring services. YAML remains a CLI/text-editor input format; Operator has no separate import tool. `workflow_draft_undo` accepts only an opaque, controller-issued, single-use receipt bound to the exact draft and accepted ETag; neither Operator nor the browser computes an inverse mutation. `workflow_draft_discard` removes only a mutable draft. Published Workflow revisions are immutable and have no delete tool in this baseline.
 
 Current runtime-oriented Operator tools change as follows:
 
@@ -340,9 +340,11 @@ There is no `artifact_get` or generic `file_get`. `task_get` returns loose `File
 
 The complete Operator catalog has seventeen operations after this removal: three Workflow reads, six draft actions, four Task actions, one Human Request action, and three Command Run actions.
 
-The provider receives those operations through a fresh invocation-scoped binding. The binding checks conversation, invocation, claim generation, operation name, and provider call ID before calling the shared `OperatorOperationExecutor`. Claude Agent SDK removes every built-in tool and loads no external settings, Skills, or Plugins. The baseline exposes no public Operator MCP mount. Codex Operator remains unavailable until its SDK can enforce the same exact model-visible ceiling.
+Every Operator operation is a direct typed leaf call to its existing product service. Claude and Codex adapters may expose the executor directly or through an invocation-local private in-process MCP projection. No projection is public, static, authorable, or external-MCP configuration.
 
-Read operations and reversible Workflow draft create/open/edit operations may execute immediately. `workflow_draft_undo`, `workflow_draft_discard`, `workflow_draft_publish`, `task_start`, `task_control`, `human_request_respond`, and `command_run_cancel` create controller-owned proposals instead. Their model-visible schemas contain no `confirmed` field. Only the separate exact confirmation boundary can consume and execute the stored payload and ETag/action guard.
+Claude uses native structured output. Codex 0.144.4 uses `outputSchema` and `dynamicTools`; its inert provider-native `update_plan` may remain visible but has no Banksia or host authority. The exact claim is seventeen Banksia product operations, not a literal global model-visible tool count.
+
+Explicit user text or a committed typed answer supplies intent for the action it clearly requests. ETags, controller-issued Undo receipts, current opaque legal-action IDs, strict product schemas, and owning service transactions own currentness and acceptance. Model-visible schemas contain no `confirmed`, proposal, effect, replay, or generic execute field.
 
 ## Explicitly absent tools
 
@@ -353,6 +355,7 @@ Do not add:
 - `wait_for_wave`, `wait_for_attempt`, `get_child_result`, or mutable completion counters;
 - `return_boundary`, `yield`, `finish`, `retry`, `release_green`, or `release_blocked`;
 - `continue`, `resume`, or provider-output completion tools for Task members;
+- Operator `ask_user`, `operator_return`, confirmation, effect, retry, or generic import tools;
 - Role, Policy, Skill, generic Definition, tool-registry, or external-MCP lookup/mutation;
 - provider configuration or capability mutation outside `add_child` and `update_child` Member configuration; or
 - one generic `execute_action(any)` escape hatch.
@@ -370,7 +373,7 @@ Do not add:
 | WP-07 | Move Node authority, activity, waits, binding currentness, and external-wait continuation from Flow to Attempt lanes. |
 | WP-08 | Add `delegate`, Wave settlement/join/recovery, remove temporary `assign_child` and yield, and freeze the exact nine-operation Node catalog. |
 | WP-09 | Freeze semantic Task/product services and remove Flow/runtime payloads used by Operator tools. |
-| WP-11 | Implement the exact seventeen-operation Operator catalog and scoped SDK/MCP projections; do not add `artifact_get` or `file_get`. |
+| WP-11 | Implement the exact seventeen-operation Operator catalog as direct product-service calls, Claude/Codex typed-result adapters, and only adapter-private projections when needed; do not add `artifact_get`, `file_get`, `ask_user`, or `operator_return`. |
 | WP-12 | Rewrite final Banksia docs and delete every old tool/schema/name/test/readback. |
 | WP-13 | Independently audit exact inventories, schemas, exposure, races, provider injection, negative searches, and UI/Operator parity. |
 
@@ -384,7 +387,7 @@ The temporary WP-03-to-WP-07 catalog is an implementation bridge, not public tar
 - Contributor, Manager, capability-granted, denied, stale, and post-replan discovery/call matrices are correct;
 - every transfer operation commits authority loss before success returns and duplicate/stale calls cannot mutate a successor;
 - nested parallel Attempt bindings cannot cross Task, Attempt, Dispatch, tool ceiling, or provider-start generation;
-- the Claude provider allowlist matches the exact catalog and exposes no native tools, settings, Skills, or Plugins; Codex selection fails closed with the documented unsupported-isolation problem until equivalent enforcement exists;
+- Claude and Codex expose the exact seventeen Banksia operations and the same native `message | ask_user` result contract; provider surfaces expose no host filesystem, shell, network, external MCP, Skill, Plugin, or Banksia authority outside that catalog, while harmless inert provider-native planning does not expand product authority;
 - no MCP protocol Task, elicitation, resource, prompt, or dynamic external-MCP behavior becomes runtime authority;
 - native filesystem conformance passes before file-tool removal;
 - loose `FileReference` values preserve exact path/description order across project files, notes, artifacts, and command logs but create no generic file ID, body copy, digest, version, current pointer, or Operator content tool; the physical `artifacts/` convention never becomes an Artifact resource; and

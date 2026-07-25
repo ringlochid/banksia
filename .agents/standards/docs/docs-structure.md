@@ -63,6 +63,7 @@ Allowed live status values for canon docs are:
 - `Status: Reference` Use for standards, ADR front doors, internal routers, and any secondary internal search page that is not the live owner of target or current truth.
 - `Status: Template` Use only for reusable templates.
 - `Status: Accepted` Use only for individual ADR decision records under `docs-internal/adr/**`.
+- `Status: Superseded` Use only for an individual ADR replaced by a newer linked decision record. Preserve its historical rationale, but do not treat it as live implementation authority.
 
 Rules:
 

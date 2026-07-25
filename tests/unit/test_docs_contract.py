@@ -134,6 +134,12 @@ def test_front_door_discovery_keeps_appendices_inside_versionless_design(
         ("docs-internal/design/v1/baseline.md", ("Target", "Reference"), "Current"),
         ("docs-internal/design/v2/runtime.md", ("Target", "Reference"), "Current"),
         ("docs-internal/current/v1/runtime.md", ("Current", "Reference"), "Target"),
+        ("docs-internal/adr/README.md", ("Reference",), "Superseded"),
+        (
+            "docs-internal/adr/ADR-0001-controller.md",
+            ("Accepted", "Superseded", "Reference"),
+            "Target",
+        ),
     ),
 )
 def test_status_rules_are_scoped_to_versionless_and_frozen_doc_roles(

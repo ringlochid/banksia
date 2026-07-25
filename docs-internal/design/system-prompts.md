@@ -723,4 +723,4 @@ The target imports a consistent pattern from current primary sources:
 
 Official documentation and official open-source prompt implementations are the authority for this comparison. Unverified “system prompt leak” collections are excluded because provenance, product version, and surrounding runtime behavior cannot be established reliably.
 
-The Operator is a separate control-plane agent and does not receive Task-member prompt assets. Its exact controller-owned prompt and result boundary live in the [Operator conversation and effect contract](appendices/operator-conversation-contract.md).
+The Operator is a separate control-plane agent and does not receive Task-member prompt assets. Its short controller-owned prompt, native typed result, and provider boundary live in the [Operator conversation contract](appendices/operator-conversation-contract.md).

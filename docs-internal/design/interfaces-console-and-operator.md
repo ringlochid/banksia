@@ -65,7 +65,7 @@ Every product mutation returns controller truth plus an opaque receipt or curren
 | `GET /api/workflows` | Search the unified Workflow library across published Workflows and active drafts. | `WorkflowSearchResponse` | Console, Operator `workflow_search` |
 | `GET /api/workflows/authoring-options` | Read supported provider, sandbox, model/effort, and built-in capability authoring choices. | `WorkflowAuthoringOptions` | Console, Operator `workflow_authoring_options` |
 | `GET /api/workflows/{workflow_id}` | Read current published Workflow when present, bounded immutable history, and active draft/ETag when present. At least one of published or draft truth must exist. | `WorkflowGetResponse` | Console, Operator `workflow_get` |
-| `POST /api/workflow-drafts` | Create a new minimal draft or atomically open an existing Workflow for editing. Return `201 Created` with `Location` only when a draft is created and `200 OK` when the existing active draft is returned. | `WorkflowDraftOpenResult` | Console, Operator `workflow_draft_create` |
+| `POST /api/workflow-drafts` | Create a new draft from a minimal browser request or complete structured JSON candidate, or atomically open an existing Workflow for editing. Return `201 Created` with `Location` only when a draft is created and `200 OK` when the existing active draft is returned. | `WorkflowDraftOpenResult` | Console, Operator `workflow_draft_create` |
 | `GET /api/workflow-drafts/{draft_id}` | Read one mutable draft and ETag. | `WorkflowDraftReadback` | Console |
 | `PATCH /api/workflow-drafts/{draft_id}` | Apply one closed typed metadata, note, Member, provider, or capability edit. | `WorkflowDraftMutationResult` | Console, Operator `workflow_draft_edit` |
 | `POST /api/workflow-drafts/{draft_id}/validate` | Validate the complete normalized candidate without publishing it. | `WorkflowDraftValidationResult` | Console, Operator `workflow_draft_validate` |
@@ -87,14 +87,12 @@ Every product mutation returns controller truth plus an opaque receipt or curren
 | `GET /api/operator/conversations` | Page durable Operator conversation summaries. | `OperatorConversationPage` | Console |
 | `POST /api/operator/conversations` | Create one empty ready conversation pinned to the configured Operator provider. | `OperatorConversationView` | Console |
 | `GET /api/operator/conversations/{conversation_id}` | Read one bounded semantic transcript and current legal actions. | `OperatorConversationView` | Console |
-| `POST /api/operator/conversations/{conversation_id}/messages` | Commit one user message and queue one provider invocation. | `OperatorConversationView` | Console |
-| `POST /api/operator/conversations/{conversation_id}/question-sets/{question_set_id}/answers` | Commit one complete answer receipt and queue a fresh provider invocation. | `OperatorConversationView` | Console |
-| `POST /api/operator/conversations/{conversation_id}/confirmations/{confirmation_id}` | Consume one exact confirmation and execute its stored effect. | `OperatorConversationView` | Console |
-| `POST /api/operator/conversations/{conversation_id}/retries` | Queue one safe retry of the latest failed invocation. | `OperatorConversationView` | Console |
+| `POST /api/operator/conversations/{conversation_id}/messages` | Commit one user message, run one provider turn, and return the committed typed result. | `OperatorConversationView` | Console |
+| `POST /api/operator/conversations/{conversation_id}/question-sets/{question_set_id}/answers` | Commit one complete typed answer, run one fresh turn on the same provider thread, and return the committed result. | `OperatorConversationView` | Console |
 
 There is no separate product Result route: `TaskView.result` is the singular exact root Result. There is no Task file index, generic file route, Artifact route, raw event route, trace route, runtime snapshot route, provider setup route, or execute-anything route. A later scoped browser read of current referenced-file bytes is optional and requires a separate canon addition; it must not be inferred from the Command output route.
 
-Every Operator `POST` requires an idempotency key. Message, answer, and retry submission returns `202` only after the input and queued provider invocation commit. Confirmation returns `200` after the stored controller effect reaches a durable receipt, failure, or indeterminate outcome. Operator readback is the baseline convergence path; Operator SSE is deferred.
+Every Operator `POST` requires an idempotency key. Message and answer routes run synchronously and return `200` only after one provider result or visible interruption is durable. A duplicate returns committed readback without replaying provider work or a product mutation. Operator readback is the baseline convergence path; Operator SSE is deferred.
 
 ### Support route matrix
 
@@ -152,7 +150,7 @@ Browser requests and responses use structured JSON. They contain no generic Defi
 - Creating a new Workflow draft accepts its stable Workflow ID, required description, and optional initial-lead prose/settings without a Member ID. The controller allocates the first Member ID and returns the complete draft.
 - Opening a Workflow for editing is idempotent: return its active draft when one exists; otherwise clone the current published revision and pin its base revision in the same transaction. It never performs a browser read-copy-write or silently replaces an active draft.
 - A Workflow detail response is one coherent controller snapshot. Its semantic state, current description, current published revision, active draft, update time, provenance, actions, and bounded history cannot combine facts from incompatible read snapshots or return a spurious not-found result while Workflow truth existed continuously.
-- HTTP and Operator project the same discriminated create/open request and `WorkflowDraftOpenResult`; Operator does not retain a full-definition draft-create shortcut. Full JSON/YAML ingestion remains an explicit import boundary.
+- HTTP and Operator use the same Workflow normalization and draft-open services. Browser create may begin from minimal fields; Operator `workflow_draft_create` accepts one complete structured JSON Workflow candidate. YAML remains a CLI/text-editor import format, and no separate Operator import tool exists.
 - Draft reads carry an opaque HTTP ETag.
 - Mutations send `If-Match`; a stale client receives a conflict plus current draft readback, never last-write-wins guessing.
 - The ordinary UI does not expose revision tokens.
@@ -374,11 +372,11 @@ Task-start file entries are labeled **Referenced files**, live under Advanced, a
 
 ## Operator agent
 
-Operator is a separate control-plane agent. The baseline uses Claude Agent SDK because it can remove every provider-native tool and expose only Banksia's closed operation catalog. It is not a Workflow member, Task/Attempt/Dispatch, second Banksia runtime, or LangGraph graph.
+Operator is a small, separate control-plane agent over existing Banksia product services. Conceptually it is one configured `Agent` with the controller-owned Operator prompt and exact Operator tool catalog. It is not a Workflow Member, Task, Assignment, Attempt, Dispatch, second Banksia runtime, queue, coordinator, or LangGraph graph.
 
-The controller owns the selected Operator provider and adapter configuration; it never silently falls back or borrows a Task Member's provider choice. Missing or unavailable Claude configuration produces a concrete setup action. Selecting Codex produces the stable unavailable problem `operator_codex_tool_isolation_unsupported`: pinned Codex SDK 0.144.4 cannot enforce the exact tool ceiling, so Banksia starts no Codex Operator work.
+The controller supports Claude and pinned Codex 0.144.4 for Operator. Provider selection is explicit, never borrows a Workflow Member's choice, and never silently falls back. Missing configuration produces a concrete setup action. Both adapters return the same provider-native typed result and preserve the opaque provider thread across turns.
 
-Operator receives Banksia's built-in, controller-authorized Operator tools through an invocation-scoped in-process MCP binding. The browser uses product HTTP only; the baseline exposes no public Operator MCP mount. External user-authored MCP integration remains deferred. Workflow drafting is a primary job, but Operator may perform every Task/Workflow action currently legal in its user scope.
+Operator tools are direct typed calls to existing product services. An adapter may use an invocation-local in-process MCP projection when its SDK benefits from that transport, but no public/static Operator MCP mount or authorable external MCP configuration exists. Workflow drafting is a primary job, and Operator may perform any currently legal operation in the closed catalog when the user's message or typed answer clearly requests it.
 
 ### Complete product-operation coverage
 
@@ -417,30 +415,31 @@ command_run_output_read
 command_run_cancel
 ```
 
-`task_get` returns bounded current attention, Result, Activity, Command Run summaries, and exact source file references embedded with their owning semantic messages. There is no `artifact_get`, `file_get`, generic file reader, or file CRUD/catalog family. Operator receives no support/audit export, raw runtime record, provider credential/setup, host filesystem, or external-MCP administration tool merely to achieve parity. Exact schemas share the same typed product-service contracts as HTTP and the SDK adapter; MCP is one optional projection rather than the authority.
+`workflow_draft_create` accepts one complete structured JSON Workflow candidate and uses the existing normalization and authoring services to create or open its mutable draft. There is no separate import operation. `task_get` returns bounded current attention, Result, Activity, Command Run summaries, and exact source file references embedded with their owning semantic messages. There is no `artifact_get`, `file_get`, generic file reader, or file CRUD/catalog family. Operator receives no support/audit export, raw runtime record, provider credential/setup, host filesystem, or external-MCP administration tool.
 
 ### Durable conversation
 
-Minimal state:
+Only two durable record types exist:
 
 ```text
 OperatorConversation
-  conversation ID
-  configured provider
+  configured provider/model/effort
   opaque provider thread/session ID
-  ordered user and assistant turns
-  state: ready | running | awaiting_answer | failed | provider_thread_lost
+  state and nullable active-turn identity
+
+OperatorConversationEntry
+  conversation ID and ordered sequence
+  user message | user answers | assistant message |
+  assistant question set | visible interruption
 ```
 
-Do not reproduce Assignment, Attempt, Dispatch, Wave, Checkpoint, or raw tool event families for Operator chat. Controller mutations remain canonical in their owning services; chat retains human messages and receipts/links.
+Do not reproduce Assignment, Attempt, Dispatch, Wave, Checkpoint, invocation, effect, proposal, confirmation, retry, or raw tool-event families for Operator chat. One nullable active-turn compare-and-swap permits at most one provider turn per conversation. Message and answer routes run one turn synchronously. Duplicate transport requests return committed readback or a typed conflict and never replay provider work or a mutation. The exact route, record, transaction, and interruption contract lives in the [Operator conversation appendix](appendices/operator-conversation-contract.md).
 
-Conversation create/list/read, message submit, question answer, confirmation, and retry are durable product-service boundaries shared by HTTP and the UI. One conditional controller claim permits at most one active provider turn or confirmed effect execution per conversation. Duplicate submits, answers, confirmations, and reconnects return the committed turn/receipt or a typed conflict; they never start a second turn or product effect. The exact route, record, transaction, and recovery contract lives in the [Operator conversation appendix](appendices/operator-conversation-contract.md).
-
-If the SDK reports that the opaque provider thread no longer exists or cannot be resumed, Banksia records `provider_thread_lost`, preserves every visible turn and controller receipt, and offers an explicit new-conversation action. It does not silently fork the thread, replay committed tool effects, or claim continuity from transcript text.
+If an opaque provider thread cannot continue, Banksia preserves every visible entry, closes the conversation, and offers a new one. It does not silently fork the thread or claim continuity from reconstructed transcript text.
 
 ### Typed turn output
 
-Every provider turn must finish with one structured variant:
+Every provider turn returns exactly one native structured variant:
 
 ```text
 message
@@ -457,23 +456,23 @@ ask_user
       one-sentence consequence
 ```
 
-The model does not generate `Other`, persistent question IDs, or option IDs. `allow_skip` is explicit and defaults to false. Banksia validates, allocates IDs, persists the assistant turn, and changes the conversation to awaiting answer. The provider invocation has ended; no process or open tool call survives the human delay.
+The model does not generate Other, persistent question IDs, or option IDs. `allow_skip` is explicit and defaults to false. Banksia validates the native result, allocates IDs, persists the assistant entry, and changes the conversation to awaiting answer. The provider invocation has ended; no process or open tool call survives the human delay.
 
 The user answers through QuestionCard and presses Continue. Banksia commits one structured user turn, marks the previous card as a receipt, and invokes the same provider thread/session for a fresh turn carrying the exact question and answer. Refresh, navigation, restart, and browser closure therefore do not lose the boundary.
 
-Provider-native question events may later adapt to the same product contract, but the baseline does not enable a second path. LangGraph adds no value for one completed-turn boundary and is excluded.
+Claude uses native structured output. Codex uses `outputSchema` and `dynamicTools`. The Codex SDK may retain an inert provider-native `update_plan`; it has no Banksia or host authority. The contract therefore fixes the seventeen Banksia operations without claiming a literal global model-visible tool count.
 
-### Action and confirmation policy
+### Intent and currentness
 
 These general rules belong to the Operator's controller-owned system prompt and tool teaching. They are never inserted into Workflow `note` or Member `instruction`.
 
-- If a material user choice is missing, Operator asks rather than guessing. Prefer one question and ask none when the request is already specific.
-- An explicit request to create or edit a Workflow authorizes reversible draft create/open/edit mutations. Each accepted mutation returns a human receipt and Undo when available; no redundant Apply confirmation is needed.
+- If a material user choice is missing, Operator returns `ask_user` rather than guessing. Prefer one question and ask none when the request is already specific.
+- An explicit user message or committed typed answer supplies intent for the action it clearly requests.
 - “Create a workflow for me” authorizes drafting, not publishing or starting a Run.
-- Workflow Undo/discard/publish, Run start/control, Human Request response/cancel, and managed Action cancellation always become a proposal when requested by the model. Free-form model interpretation and a model-authored `confirmed` field are never authority.
-- Confirmation is a durable, opaque, single-use controller receipt bound to conversation, stored action payload, and current ETag/action guard. Payload or controller-truth change expires it; the client never reconstructs authority or resumes a provider turn to execute it.
-- Operator never claims a mutation succeeded without the controller tool result and never renders model-invented Workflow/Task state; the client refetches controller truth after receipts/SSE.
-- Product UI shows meaningful messages, questions, changes, and receipts—not chain-of-thought or raw tool-call internals.
+- Workflow ETags, Undo receipts, current opaque legal-action IDs, typed inputs, and owning service transactions—not model-authored `confirmed`, proposals, or effect records—own currentness and acceptance.
+- Operator never claims a mutation succeeded without the accepted tool result and refetches owning controller truth before any later claim that depends on it.
+- Provider/tool/controller interruption becomes one bounded visible entry. Restart and client retry never replay a provider turn or uncertain mutation automatically.
+- Product UI shows meaningful messages, questions, accepted changes, and interruptions—not chain-of-thought or raw tool-call internals.
 
 ## n8n reference boundary
 

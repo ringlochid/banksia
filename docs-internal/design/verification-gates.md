@@ -34,7 +34,7 @@ This table is the sole numeric owner of controller-only baseline safety bounds t
 | Managed-provider `model` and `effort` | 255 characters each. |
 | Task, Assignment, and delegation prompt | 64 KiB UTF-8 each after newline normalization. |
 | Operator user or assistant message | 64 KiB UTF-8 after newline normalization. |
-| Operator `ask_user` turn | Explanation 2,048 characters; header 64 characters; question 4,096 characters; option label 255 characters; option description 1,024 characters; complete serialized turn 64 KiB UTF-8. |
+| Operator native `ask_user` result | Explanation 2,048 characters; header 64 characters; question 4,096 characters; option label 255 characters; option description 1,024 characters; complete serialized result 64 KiB UTF-8. |
 | Operator submitted question answer | 64 KiB serialized UTF-8, depth 16, and 1,024 collection nodes. |
 | `FileReference` list | 32 entries per owning message. |
 | `FileReference.path` | 4,096 UTF-8 bytes after path normalization. |
@@ -110,8 +110,8 @@ A successful final-package completion records **go**. An explicit **no-go** is s
 
 - Structured JSON draft mutations, ETag conflicts, validation, Undo, explicit publish, immutable revision history, and current-published selection work through real persistence.
 - The Workflow library and Workflow-ID detail readback cover draft-only, published-only, and published-with-draft truth. A draft-only Workflow is searchable and reopenable after navigation, browser refresh, controller restart, and pagination without browser-local catalog state.
-- New browser/Operator draft creation accepts no authored lead Member ID; the controller allocates it and returns complete accepted truth. Open-for-editing returns an existing draft idempotently or clones the exact current published revision and pins its base in one transaction.
-- Draft opening returns `201 Created` plus `Location` only for a newly created draft and `200 OK` for idempotent reuse; HTTP and Operator share the exact request/result service contract.
+- New browser/Operator draft creation accepts no authored lead Member ID; the controller allocates it and returns complete accepted truth. Operator may supply the complete structured JSON candidate, while the browser may begin from minimal fields. Open-for-editing returns an existing draft idempotently or clones the exact current published revision and pins its base in one transaction.
+- Draft opening returns `201 Created` plus `Location` only for a newly created draft and `200 OK` for idempotent reuse; HTTP and Operator share the same normalization, authoring, and result services.
 - Barrier-driven SQLite/PostgreSQL tests prove Workflow detail is always one coherent before-or-after snapshot across concurrent open, edit, publish, and discard, never an impossible hybrid or spurious not-found result. File-backed restart proof rediscovers draft-only truth without browser-held state.
 - SQLite/PostgreSQL library tests prove `updated_at` is the latest durable current-publication or active-draft change across seed refresh, draft discard, and old-revision reselection; exact non-ASCII query text is preserved while `%` and `_` remain literal.
 - Interactive Task start traverses the complete unified Workflow-library cursor before filtering to startable published Workflows; draft-only pages cannot hide a later published choice.
@@ -340,16 +340,17 @@ The required usability oracle is an independent no-doc evaluator that did not im
 
 - Question sets validate one to three questions and two to three options; controller allocates stable IDs and UI adds Other.
 - Selection, custom text, allowed Skip, paging, focus, keyboard shortcuts, submit failure, double-submit prevention, receipt, reload, and responsive behavior pass accessibility/browser proof.
-- `ask_user` ends the provider turn and persists awaiting state; no provider process/tool call remains open. Answer starts a fresh turn on the same thread after restart/navigation.
-- Message, answer, retry, and confirmation POSTs require idempotency keys; duplicate same-body requests return committed truth, while key/body mismatch rejects and never starts a second provider invocation or product effect.
-- Operator draft changes use the shared controller Workflow service and show receipt/Undo. Model requests for Undo, discard, publish, start, controls, Human Request response/cancel, and Command cancellation create an exact controller proposal; their schemas expose no model-authored `confirmed`.
-- Confirmation is single-use and bound to conversation, stored payload, and current ETag/action guard. It executes without resuming a provider turn; changed truth expires it.
+- Native `ask_user` output ends the provider turn and persists awaiting state; no provider process/tool call remains open. Answer starts a fresh turn on the same opaque thread after restart/navigation.
+- The schema contains only `OperatorConversation` and ordered `OperatorConversationEntry` records. The product contract contains only status/list/create/get/message/answer routes, with no queue, invocation, effect, proposal, confirmation, retry, `operator_return`, or Operator SSE family.
+- One active-turn compare-and-swap rejects concurrent message/answer work. POST idempotency returns committed readback for a same-body duplicate and rejects key/body mismatch without a second provider turn or mutation.
+- Operator operations call the shared product services directly. Explicit user text or a committed typed answer supplies intent; Workflow ETags, Undo receipts, current opaque legal-action IDs, strict schemas, and owning transactions own currentness and acceptance.
 - Operator tools cover every ordinary Workflow discovery/draft/team/publish, Run start/read/control, Human Request, managed Action, Result, referenced-file, and controller-returned legal-action service through the exact typed family that owns it, with no generic execute-anything operation or support/runtime/setup authority leakage.
-- Claude receives exactly the seventeen invocation-scoped Operator operations with no native tools, external settings, Skills, or Plugins. Codex selection returns `operator_codex_tool_isolation_unsupported` and starts no provider work until its SDK can enforce the same ceiling.
-- Claude fresh-session and exact-session resume use the stable controller-private per-conversation working directory and remain correct when the controller process working directory changes.
-- A crash after a product mutation but before Operator receipt persistence is reconciled from exact controller truth or recorded indeterminate; restart never blindly replays an executing effect.
+- Exact inventory proves seventeen Banksia operations, full-JSON `workflow_draft_create`, and no eighteenth import, `ask_user`, `operator_return`, `artifact_get`, `file_get`, host, support, setup, or generic-execute tool.
+- Claude native structured output and Codex 0.144.4 `outputSchema` plus `dynamicTools` both satisfy the same typed result and same-thread contract. Any inert Codex `update_plan` has no host or Banksia authority; proof does not claim a literal global seventeen-tool ceiling.
+- Provider/tool/controller failure creates one bounded visible interruption, clears only the matching active turn, and refetches owning product truth when known. Restart and duplicate client submission never replay provider work or an uncertain mutation.
+- The shipped Operator prompt is byte-identical to the appendix and teaches authoritative readback, missing-choice questions, explicit intent, accepted-result claims, uncertain-effect nonreplay, one typed result, and hidden-internal omission.
 - Task Human Requests never lock unrelated Operator chat and do not share its persistence or continuation path.
-- Operator messages show outcomes/receipts, not chain-of-thought or raw tool traces, and never claim state absent a controller result/refetch.
+- Operator messages show outcomes and interruptions, not chain-of-thought or raw tool traces, and never claim state absent a controller result/refetch.
 - An independent no-doc evaluator can ask “create a workflow for me,” understand and answer the short clarification, inspect the draft, distinguish draft from publish, and recover from one failed action without knowing tool/MCP/provider/runtime concepts.
 
 ### Provenance

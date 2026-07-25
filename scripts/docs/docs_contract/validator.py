@@ -174,7 +174,9 @@ def allowed_statuses_for_path(*, root: Path, path: Path) -> tuple[str, ...] | No
     if is_frozen_legacy_version_path(relative_path, family="current"):
         return ("Current", "Reference")
     if parts[:2] == ("docs-internal", "adr"):
-        return ("Accepted", "Reference")
+        if path.name == "README.md":
+            return ("Reference",)
+        return ("Accepted", "Superseded", "Reference")
     return None
 
 

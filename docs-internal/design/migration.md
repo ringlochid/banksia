@@ -211,7 +211,7 @@ Exit: the complete Workflow authoring journey passes generated-contract, unit/in
 ### 11. Run Studio and Operator
 
 - Implement Run start from the shared TaskStartRequest, Runs list, read-only team, semantic Activity, attention, Actions and protected log access, Human Requests, referenced files, exact Result, and legal controls.
-- Implement durable Operator threads, structured tool use, typed question turn, QuestionCard, confirmations, receipts, Undo, and controller-truth refetch.
+- Delete the superseded Operator invocation/effect wrapper before rebuilding the separate Operator as two durable records, six synchronous product routes, one active-turn compare-and-swap, native typed `message | ask_user` output, Claude/Codex adapters, and the exact seventeen direct product-service tools. Preserve Workflow-service ETags and Undo plus Task/Human Request/Command Run legal-action guards instead of creating Operator proposals, confirmations, effect journals, or replay coordination.
 - Re-verify and use the pinned Run/log/question/chat reference packets in every edit/review brief, while keeping Banksia product contracts authoritative.
 
 Exit: a nontechnical user can understand, answer, control, and consume a Run and ask Operator to draft work without docs, tool/provider concepts, or technical runtime data.

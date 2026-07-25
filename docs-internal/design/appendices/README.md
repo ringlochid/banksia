@@ -14,7 +14,7 @@ These appendices provide exact fixtures, baseline traceability, and bounded impl
 
 - [Baseline and removal ledger](baseline-and-removal-ledger.md) maps each preserved controller invariant to current ownership, direct proof, and its later replacement package. It also records characterized baseline failures that WP-00 must not misrepresent as new regressions.
 - [n8n reference protocol](n8n-reference-protocol.md) records the pinned upstream source-study boundary, sparse packets, provenance rules, and the evidence required from every UI or UI-facing backend delegation. No n8n source or screenshot is tracked here.
-- [Operator conversation and effect contract](operator-conversation-contract.md) freezes the exact routes, durable records, provider isolation, confirmations, and crash-recovery boundary for the separate Operator agent.
+- [Operator conversation contract](operator-conversation-contract.md) freezes the minimal routes, two durable records, typed provider result, private tool projection, turn exclusion, and interruption boundary for the separate Operator agent.
 
 ## Prompt readback owner
 

@@ -1,6 +1,8 @@
 # ADR-0014: Operator tool isolation and effect authority
 
-Status: Accepted
+Status: Superseded
+
+Superseded by [ADR-0015: Minimal Operator agent](ADR-0015-minimal-operator-agent.md). This record remains as rationale for the rejected invocation/effect wrapper and is not target implementation authority.
 
 ## Decision summary
 

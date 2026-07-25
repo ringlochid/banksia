@@ -49,7 +49,7 @@ def test_sync_app_construction_defers_loop_scoped_session_factory(
     assert isinstance(app.state.dispatch_mcp_binding_registry, DispatchMcpBindingRegistry)
     assert app.state.node_operation_executor is not None
     assert app.state.dispatch_starter is not None
-    assert len(app.state.mcp_lifespan_apps) == 3
+    assert len(app.state.mcp_lifespan_apps) == 2
 
 
 async def _post_initialize(
@@ -98,6 +98,18 @@ def _install_lifespan_mocks(
     async def dispose_engine() -> None:
         startup_calls.append("dispose")
 
+    async def enter_operator_coordinator(_self: object) -> object:
+        startup_calls.append("operator_recovery")
+        return _self
+
+    async def exit_operator_coordinator(
+        _self: object,
+        _exc_type: object,
+        _exc: object,
+        _traceback: object,
+    ) -> None:
+        return None
+
     monkeypatch.setattr(main_module, "ensure_database_schema", ensure_schema)
     monkeypatch.setattr(
         main_module,
@@ -107,6 +119,16 @@ def _install_lifespan_mocks(
     monkeypatch.setattr(main_module, "audit_startup_runtime_effects", audit_runtime)
     monkeypatch.setattr(main_module, "audit_startup_support_projections", audit_projections)
     monkeypatch.setattr(main_module, "dispose_db_engine", dispose_engine)
+    monkeypatch.setattr(
+        main_module.OperatorInvocationCoordinator,
+        "__aenter__",
+        enter_operator_coordinator,
+    )
+    monkeypatch.setattr(
+        main_module.OperatorInvocationCoordinator,
+        "__aexit__",
+        exit_operator_coordinator,
+    )
 
 
 async def test_main_app_mounts_one_managed_and_one_compatibility_node_mcp_app(
@@ -126,10 +148,10 @@ async def test_main_app_mounts_one_managed_and_one_compatibility_node_mcp_app(
     )
 
     mounts = {route.path: route.app for route in app.routes if isinstance(route, Mount)}
-    assert {"/operator", "/_internal/node", "/node"} <= set(mounts)
+    assert {"/_internal/node", "/node"} <= set(mounts)
+    assert "/operator" not in mounts
     assert len({id(mounts["/_internal/node"]), id(mounts["/node"])}) == 2
     assert app.state.mcp_lifespan_apps == (
-        mounts["/operator"],
         mounts["/_internal/node"],
         mounts["/node"],
     )
@@ -138,6 +160,7 @@ async def test_main_app_mounts_one_managed_and_one_compatibility_node_mcp_app(
         assert startup_calls == [
             "schema",
             "workspace_recovery",
+            "operator_recovery",
             "runtime_audit",
             "projection_audit",
         ]
@@ -147,10 +170,6 @@ async def test_main_app_mounts_one_managed_and_one_compatibility_node_mcp_app(
             transport=httpx.ASGITransport(app=app, client=("127.0.0.1", 43125)),
             base_url="http://127.0.0.1:18125",
         ) as client:
-            operator = await _post_initialize(
-                client,
-                "/operator/mcp",
-            )
             managed = await _post_initialize(
                 client,
                 "/_internal/node/mcp",
@@ -158,7 +177,6 @@ async def test_main_app_mounts_one_managed_and_one_compatibility_node_mcp_app(
             )
             compatibility = await _post_initialize(client, "/node/mcp")
 
-            assert operator.status_code == 200
             assert managed.status_code == 200
             assert compatibility.status_code == 200
             assert registry.authenticate(issued.credential) == issued.binding
@@ -166,6 +184,7 @@ async def test_main_app_mounts_one_managed_and_one_compatibility_node_mcp_app(
     assert startup_calls == [
         "schema",
         "workspace_recovery",
+        "operator_recovery",
         "runtime_audit",
         "projection_audit",
         "dispose",
@@ -174,7 +193,7 @@ async def test_main_app_mounts_one_managed_and_one_compatibility_node_mcp_app(
     assert not app.state.support_projection_owner.is_accepting
 
 
-async def test_ipv6_loopback_mount_admits_operator_without_managed_node_authority(
+async def test_ipv6_loopback_mount_keeps_managed_node_authority_private(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     settings = Settings(
@@ -201,19 +220,14 @@ async def test_ipv6_loopback_mount_admits_operator_without_managed_node_authorit
             transport=httpx.ASGITransport(app=app, client=("::1", 43125)),
             base_url="http://[::1]:18125",
         ) as client:
-            operator = await _post_initialize(
-                client,
-                "/operator/mcp",
-                headers={"Origin": "http://[::1]:5173"},
-            )
             wrong_port = await _post_initialize(
                 client,
-                "/operator/mcp",
+                "/node/mcp",
                 headers={"Host": "[::1]:18126"},
             )
             wrong_origin = await _post_initialize(
                 client,
-                "/operator/mcp",
+                "/node/mcp",
                 headers={"Origin": "http://[::1]:5174"},
             )
             managed_without_bearer = await _post_initialize(
@@ -226,7 +240,6 @@ async def test_ipv6_loopback_mount_admits_operator_without_managed_node_authorit
                 headers={"Authorization": f"Bearer {issued.credential}"},
             )
 
-    assert operator.status_code == 200
     assert wrong_port.status_code == 400
     assert wrong_port.json()["code"] == "access_denied"
     assert wrong_origin.status_code == 403
@@ -243,6 +256,8 @@ async def test_main_app_openapi_and_http_routes_exclude_private_mcp_and_callback
     route_paths = {getattr(route, "path", "") for route in app.routes}
 
     assert {
+        "/api/operator/status",
+        "/api/operator/conversations",
         "/api/tasks",
         "/api/tasks/{task_id}",
         "/api/tasks/{task_id}/activities",

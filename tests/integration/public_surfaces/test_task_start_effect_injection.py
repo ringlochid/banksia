@@ -8,19 +8,13 @@ from typing import cast
 
 import httpx
 import pytest
-from mcp.types import CallToolResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import banksia.interfaces.cli as cli
 import banksia.interfaces.http.routers.tasks as tasks_router_module
-import banksia.interfaces.mcp.operator.task_start as operator_task_start_module
 from banksia.config import CodexSettings, RuntimeSettings, Settings, get_settings
 from banksia.interfaces.http.contracts.operation_failure import ProductFailureCode
 from banksia.interfaces.http.runtime_exception_mapping import runtime_exception_failure
-from banksia.interfaces.mcp.operator.server import (
-    OperatorEffectPublishers,
-    create_operator_mcp_server,
-)
 from banksia.main import create_app
 from banksia.persistence.session import get_db_session
 from banksia.providers import ProviderKind
@@ -201,100 +195,6 @@ async def test_http_task_start_wrong_types_return_typed_request_failure(
         "retryable": False,
         "field_path": field_path,
         "suggested_next_step": ("Correct the highlighted field and resend the request."),
-    }
-
-
-async def test_operator_task_start_uses_flat_json_fields_and_same_dependencies(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    dependencies = _dependencies(tmp_path)
-    captured: dict[str, object] = {}
-
-    async def capture_start(
-        request: TaskStartRequest,
-        *,
-        dependencies: DispatchOpeningDependencies,
-        default_workspace: Path | None,
-    ) -> TaskStartReceipt:
-        captured.update(
-            request=request,
-            dependencies=dependencies,
-            default_workspace=default_workspace,
-        )
-        return _receipt("t_01234567", tmp_path)
-
-    monkeypatch.setattr(operator_task_start_module, "start_product_task", capture_start)
-    server = create_operator_mcp_server(
-        effect_publishers=OperatorEffectPublishers(
-            dispatch_opening_dependencies=dependencies,
-        )
-    )
-
-    await server.call_tool(
-        "task_start",
-        {
-            "workflow": "reviewed-delivery",
-            "prompt": "Do the work.",
-            "files": [{"path": "brief.md", "description": "Input brief."}],
-        },
-    )
-
-    assert captured["dependencies"] is dependencies
-    assert captured["default_workspace"] == tmp_path
-    request = cast(TaskStartRequest, captured["request"])
-    assert request.workflow == "reviewed-delivery"
-    assert request.prompt == "Do the work."
-    assert request.workspace is None
-    assert request.files[0].path == "brief.md"
-
-
-@pytest.mark.parametrize(
-    ("arguments", "field_path"),
-    [
-        ({"workflow": "reviewed-delivery", "prompt": 7}, "prompt"),
-        (
-            {
-                "workflow": "reviewed-delivery",
-                "prompt": "Do the work.",
-                "files": [{"path": 7}],
-            },
-            "files.0.path",
-        ),
-        (
-            {
-                "workflow": "reviewed-delivery",
-                "prompt": "Do the work.",
-                "files": [{"path": "brief.md", "description": 7}],
-            },
-            "files.0.description",
-        ),
-    ],
-)
-async def test_operator_task_start_wrong_types_return_typed_request_failure(
-    tmp_path: Path,
-    arguments: dict[str, object],
-    field_path: str,
-) -> None:
-    server = create_operator_mcp_server(
-        effect_publishers=OperatorEffectPublishers(
-            dispatch_opening_dependencies=_dependencies(tmp_path),
-        )
-    )
-
-    result = cast(CallToolResult, await server.call_tool("task_start", arguments))
-
-    assert result.isError is True
-    assert result.structuredContent == {
-        "ok": False,
-        "code": "invalid_request",
-        "summary": "The request contains an unsupported or invalid field.",
-        "retryable": False,
-        "field_path": field_path,
-        "suggested_next_step": (
-            "Check the tool's current input fields and resend the request with only supported "
-            "values."
-        ),
     }
 
 

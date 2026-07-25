@@ -57,13 +57,7 @@ def product_dispatch_dependencies(workspace: Path) -> DispatchOpeningDependencie
     )
 
 
-def operator_payload(result: object) -> object:
-    assert isinstance(result, tuple) and len(result) == 2
-    return result[1]
-
-
 __all__ = [
-    "operator_payload",
     "product_dispatch_dependencies",
     "product_http_client",
 ]

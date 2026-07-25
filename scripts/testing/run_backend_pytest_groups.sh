@@ -52,6 +52,7 @@ list_suite() {
         tests/integration/test_startup_schema_guard.py \
         tests/integration/test_db_reset_db.py
       describe_group "bootstrap" tests/integration/bootstrap
+      describe_group "operator" tests/integration/operator
       describe_group "runtime" tests/integration/runtime
       describe_group "mcp" tests/integration/mcp
       describe_group "public-surfaces" tests/integration/public_surfaces
@@ -92,6 +93,7 @@ run_integration_groups() {
     tests/integration/test_startup_schema_guard.py \
     tests/integration/test_db_reset_db.py
   run_group "bootstrap" tests/integration/bootstrap
+  run_group "operator" tests/integration/operator
   run_group "runtime" tests/integration/runtime
   run_group "mcp" tests/integration/mcp
   run_group "public-surfaces" tests/integration/public_surfaces

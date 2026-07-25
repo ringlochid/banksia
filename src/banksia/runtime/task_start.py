@@ -64,6 +64,7 @@ async def start_task(
     session: AsyncSession | None = None,
     dependencies: DispatchOpeningDependencies,
     default_workspace: Path | None = None,
+    expected_workflow_revision: int | None = None,
 ) -> TaskStartResponse:
     """Validate, stage, and atomically admit one Workflow-backed Task."""
 
@@ -73,6 +74,7 @@ async def start_task(
             request,
             dependencies=dependencies,
             default_workspace=default_workspace,
+            expected_workflow_revision=expected_workflow_revision,
         )
     async with get_session_factory()() as owned_session:
         return await _start_task(
@@ -80,6 +82,7 @@ async def start_task(
             request,
             dependencies=dependencies,
             default_workspace=default_workspace,
+            expected_workflow_revision=expected_workflow_revision,
         )
 
 
@@ -89,6 +92,7 @@ async def _start_task(
     *,
     dependencies: DispatchOpeningDependencies,
     default_workspace: Path | None,
+    expected_workflow_revision: int | None,
 ) -> TaskStartResponse:
     workspace = _resolve_workspace(request.workspace, default_workspace=default_workspace)
     files = validate_file_references(workspace, request.files)
@@ -100,6 +104,7 @@ async def _start_task(
             workspace=workspace,
             files=files,
             dependencies=dependencies,
+            expected_workflow_revision=expected_workflow_revision,
         )
 
     if admission.is_workspace_ready:
@@ -129,6 +134,7 @@ async def _admit_task_in_workspace_lane(
     workspace: Path,
     files: tuple[FileReference, ...],
     dependencies: DispatchOpeningDependencies,
+    expected_workflow_revision: int | None,
 ) -> _CommittedTaskAdmission:
     try:
         workflow_revision = await read_current_published_workflow(
@@ -137,6 +143,19 @@ async def _admit_task_in_workspace_lane(
         )
     except WorkflowNotFoundError as exc:
         raise FileNotFoundError(str(exc)) from exc
+    if (
+        expected_workflow_revision is not None
+        and workflow_revision.revision_no != expected_workflow_revision
+    ):
+        raise RuntimeOperationError(
+            code=OperationFailureCode.ILLEGAL_STATE,
+            summary=(
+                "The confirmed Workflow revision is no longer the current Task-start revision."
+            ),
+            is_retryable=True,
+            suggested_next_step=("Refresh the Workflow and confirm a new Task-start proposal."),
+            status_code_override=409,
+        )
     _validate_workflow_execution(workflow_revision, dependencies=dependencies)
     assignment = AssignmentBody(prompt=request.prompt, files=files)
     workspace_identity = await asyncio.to_thread(capture_workspace_identity, workspace)

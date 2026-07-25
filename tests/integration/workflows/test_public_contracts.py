@@ -7,35 +7,23 @@ from pathlib import Path
 from typing import Any, cast
 
 import httpx
-import pytest
-from mcp.types import CallToolResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import banksia.interfaces.mcp.operator.workflow_tools as workflow_tools_module
-import banksia.persistence.session_operations as session_operations
-import banksia.runtime.task_start as task_start_module
 from banksia.config import CodexSettings, RuntimeSettings, Settings
-from banksia.interfaces.mcp.operator.server import (
-    OperatorEffectPublishers,
-    create_operator_mcp_server,
-)
 from banksia.main import create_app
 from banksia.persistence.session import get_db_session
 from banksia.providers import ProviderKind
 from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
 from banksia.runtime.post_commit import CapturedRuntimeEffectPublisher
-from banksia.workflows.authoring import build_workflow_authoring_options
 from banksia.workflows.cursors import (
     encode_workflow_revision_cursor,
     encode_workflow_search_cursor,
 )
-from tests.helpers.product_surface import operator_payload
 from tests.helpers.workflow_runtime import initialized_workflow_database
 
 
-async def test_workflow_catalog_and_history_are_bounded_and_share_cursors(
+async def test_http_workflow_catalog_and_history_are_bounded_and_share_cursors(
     tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     async with initialized_workflow_database(tmp_path) as session_factory:
         async with _http_client(session_factory) as client:
@@ -64,30 +52,6 @@ async def test_workflow_catalog_and_history_are_bounded_and_share_cursors(
                     "revision_cursor": http_history_first.json()["revisions_next_cursor"],
                 },
             )
-
-        monkeypatch.setattr(session_operations, "get_session_factory", lambda: session_factory)
-        server = create_operator_mcp_server()
-        operator_search_first = await server.call_tool("workflow_search", {"limit": 1})
-        operator_search_second = await server.call_tool(
-            "workflow_search",
-            {
-                "limit": 1,
-                "cursor": http_search_first.json()["next_cursor"],
-            },
-        )
-        operator_history_first = await server.call_tool(
-            "workflow_get",
-            {"workflow_id": "reviewed-delivery", "revision_limit": 1},
-        )
-        operator_history_second = await server.call_tool(
-            "workflow_get",
-            {
-                "workflow_id": "reviewed-delivery",
-                "revision_limit": 1,
-                "revision_cursor": http_history_first.json()["revisions_next_cursor"],
-            },
-        )
-
     assert current.status_code == 200, current.text
     assert active_draft.status_code == 200, active_draft.text
     assert hidden_search.status_code == 200, hidden_search.text
@@ -97,19 +61,14 @@ async def test_workflow_catalog_and_history_are_bounded_and_share_cursors(
     assert http_search_first.status_code == 200, http_search_first.text
     assert http_search_first.json()["next_cursor"] is not None
     assert http_search_second.status_code == 200, http_search_second.text
-    assert operator_payload(operator_search_first) == http_search_first.json()
-    assert operator_payload(operator_search_second) == http_search_second.json()
     assert http_history_first.status_code == 200, http_history_first.text
     assert len(http_history_first.json()["revisions"]) == 1
     assert http_history_first.json()["revisions_next_cursor"] is not None
     assert http_history_second.status_code == 200, http_history_second.text
-    assert operator_payload(operator_history_first) == http_history_first.json()
-    assert operator_payload(operator_history_second) == http_history_second.json()
 
 
-async def test_workflow_cursor_failures_preserve_http_operator_parity(
+async def test_http_workflow_cursor_failures_use_product_error_contract(
     tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     query_mismatched_cursor = encode_workflow_search_cursor(
         "reviewed-delivery",
@@ -132,29 +91,8 @@ async def test_workflow_cursor_failures_preserve_http_operator_parity(
                     params={"revision_cursor": cross_workflow_cursor},
                 ),
             )
-
-        monkeypatch.setattr(session_operations, "get_session_factory", lambda: session_factory)
-        server = create_operator_mcp_server()
-        operator_results = (
-            await server.call_tool("workflow_search", {"cursor": "malformed"}),
-            await server.call_tool(
-                "workflow_search",
-                {"query": "second query", "cursor": query_mismatched_cursor},
-            ),
-            await server.call_tool(
-                "workflow_get",
-                {
-                    "workflow_id": "evidence-research",
-                    "revision_cursor": cross_workflow_cursor,
-                },
-            ),
-        )
-
-    for http_result, operator_result in zip(http_results, operator_results, strict=True):
+    for http_result in http_results:
         assert http_result.status_code == 400, http_result.text
-        assert isinstance(operator_result, CallToolResult)
-        assert operator_result.isError is True
-        assert operator_result.structuredContent == http_result.json()
         assert http_result.json()["code"] == "invalid_request"
 
 
@@ -207,79 +145,6 @@ async def test_http_workflow_readbacks_never_expose_integrity_hashes(tmp_path: P
     assert "content_hash" not in detail.text
 
 
-async def test_operator_workflow_get_never_exposes_integrity_hashes(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    async with initialized_workflow_database(tmp_path) as session_factory:
-        monkeypatch.setattr(session_operations, "get_session_factory", lambda: session_factory)
-        server = create_operator_mcp_server()
-        result = await server.call_tool(
-            "workflow_get",
-            {"workflow_id": "reviewed-delivery"},
-        )
-
-    assert isinstance(result, tuple) and len(result) == 2
-    assert "content_hash" not in json.dumps(result[1], sort_keys=True)
-
-
-async def test_operator_uses_shared_draft_opening_service_and_dynamic_options(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    settings = Settings(
-        runtime=RuntimeSettings(default_provider=ProviderKind.CODEX),
-        codex=CodexSettings(enabled=True, model="operator-config", effort="high"),
-    )
-    async with initialized_workflow_database(tmp_path) as session_factory:
-        monkeypatch.setattr(session_operations, "get_session_factory", lambda: session_factory)
-        monkeypatch.setattr(workflow_tools_module, "get_settings", lambda: settings)
-        server = create_operator_mcp_server()
-        created = await server.call_tool(
-            "workflow_draft_create",
-            {
-                "request": {
-                    "kind": "create",
-                    "workflow_id": "operator-created",
-                    "description": "Created through the shared product service.",
-                }
-            },
-        )
-        opened = await server.call_tool(
-            "workflow_draft_create",
-            {"request": {"kind": "open", "workflow_id": "reviewed-delivery"}},
-        )
-        reopened = await server.call_tool(
-            "workflow_draft_create",
-            {"request": {"kind": "open", "workflow_id": "reviewed-delivery"}},
-        )
-        options = await server.call_tool("workflow_authoring_options", {})
-        rejected_import = await server.call_tool(
-            "workflow_draft_create",
-            {
-                "request": {
-                    "kind": "workflow",
-                    "id": "operator-full-import",
-                    "description": "Full definition import is not an Operator shortcut.",
-                    "lead": {"id": "operator-lead"},
-                }
-            },
-        )
-
-    created_payload = cast(dict[str, object], operator_payload(created))
-    opened_payload = cast(dict[str, object], operator_payload(opened))
-    reopened_payload = cast(dict[str, object], operator_payload(reopened))
-    assert created_payload["is_created"] is True
-    assert opened_payload["is_created"] is True
-    assert reopened_payload["is_created"] is False
-    assert reopened_payload["draft"] == opened_payload["draft"]
-    assert operator_payload(options) == build_workflow_authoring_options(settings).model_dump(
-        mode="json"
-    )
-    assert isinstance(rejected_import, CallToolResult)
-    assert rejected_import.isError is True
-
-
 async def test_http_task_start_commits_current_workflow_and_maps_unknown_to_404(
     tmp_path: Path,
 ) -> None:
@@ -305,32 +170,7 @@ async def test_http_task_start_commits_current_workflow_and_maps_unknown_to_404(
     assert missing.json()["code"] == "not_found"
 
 
-async def test_operator_task_start_uses_the_same_committing_service(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    async with initialized_workflow_database(tmp_path) as session_factory:
-        monkeypatch.setattr(task_start_module, "get_session_factory", lambda: session_factory)
-        result = await create_operator_mcp_server(
-            effect_publishers=OperatorEffectPublishers(
-                dispatch_opening_dependencies=_opening_dependencies(tmp_path),
-            )
-        ).call_tool(
-            "task_start",
-            {
-                "workflow": "reviewed-delivery",
-                "prompt": "Complete the requested work.",
-                "workspace": str(tmp_path),
-            },
-        )
-
-    assert isinstance(result, tuple) and len(result) == 2
-    payload = cast(dict[str, object], result[1])
-    assert str(payload["task_id"]).startswith("t_")
-    assert payload["status"] == "accepted"
-
-
-async def test_http_and_operator_workflow_schemas_hide_private_guardrails_and_hashes() -> None:
+async def test_http_workflow_schemas_hide_private_guardrails_and_hashes() -> None:
     app = create_app(should_enable_mcp_mounts=False)
     openapi = app.openapi()
     workflow_paths = {path: value for path, value in openapi["paths"].items() if "workflow" in path}
@@ -339,14 +179,6 @@ async def test_http_and_operator_workflow_schemas_hide_private_guardrails_and_ha
         cast(Mapping[str, object], openapi["components"]["schemas"]),
     )
     _assert_no_private_workflow_fields_or_guardrails(public_http_contract)
-
-    tools = await create_operator_mcp_server().list_tools()
-    for tool in tools:
-        if not tool.name.startswith("workflow_"):
-            continue
-        _assert_no_private_workflow_fields_or_guardrails(
-            {"input": tool.inputSchema, "output": tool.outputSchema}
-        )
 
 
 def _referenced_openapi_contract(

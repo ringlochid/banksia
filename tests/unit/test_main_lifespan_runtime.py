@@ -44,10 +44,12 @@ async def test_lifespan_keeps_publishers_alive_until_runtime_owners_stop(
     projection = RecordingAsyncOwner("projection", events)
     scheduler = RecordingAsyncOwner("scheduler", events)
     command_owner = RecordingAsyncOwner("command", events)
+    operator = RecordingAsyncOwner("operator", events)
     app.state.runtime_effect_router = router
     app.state.support_projection_owner = projection
     app.state.deadline_scheduler = scheduler
     app.state.command_process_owner = command_owner
+    app.state.operator_invocation_coordinator = operator
 
     async def ensure_schema() -> None:
         events.append("schema")
@@ -101,9 +103,11 @@ async def test_lifespan_keeps_publishers_alive_until_runtime_owners_stop(
         "enter:projection",
         "enter:router",
         "enter:scheduler",
+        "enter:operator",
         "runtime_audit",
         "projection_audit",
         "serving",
+        "exit:operator",
         "exit:scheduler",
         "exit:router",
         "exit:projection",

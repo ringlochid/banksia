@@ -5,11 +5,6 @@ from typing import Literal
 
 import pytest
 
-import banksia.interfaces.mcp.operator.product_tools as product_tools
-from banksia.interfaces.mcp.operator.server import (
-    OperatorEffectPublishers,
-    create_operator_mcp_server,
-)
 from banksia.persistence.models import HumanRequestModel
 from banksia.runtime.contracts.task import (
     HumanRequestResponseReceipt,
@@ -21,25 +16,19 @@ from banksia.runtime.product.human_requests import read_product_human_request
 from tests.helpers.executor_harness import AsyncSessionFactory, seeded_async_executor
 from tests.helpers.lineage_seed import RuntimeIds
 from tests.helpers.product_surface import (
-    operator_payload,
-    product_dispatch_dependencies,
     product_http_client,
 )
 
-type Surface = Literal["http", "operator"]
 type HumanResponseKind = Literal["answer", "cancel"]
 
 
-@pytest.mark.parametrize("surface", ("http", "operator"))
 @pytest.mark.parametrize("response_kind", ("answer", "cancel"))
-async def test_human_request_mutations_share_typed_action_guard_and_receipt(
+async def test_http_human_request_mutations_use_typed_action_guard_and_receipt(
     tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    surface: Surface,
     response_kind: HumanResponseKind,
 ) -> None:
     publisher = CapturedRuntimeEffectPublisher()
-    suffix = f"product-human-{surface}-{response_kind}"
+    suffix = f"product-human-http-{response_kind}"
     async with seeded_async_executor(
         tmp_path,
         suffix=suffix,
@@ -54,35 +43,17 @@ async def test_human_request_mutations_share_typed_action_guard_and_receipt(
         assert action is not None
         input_payload = _human_response_input(response_kind)
 
-        if surface == "http":
-            async with product_http_client(
-                session_factory,
-                tmp_path=tmp_path,
-                publisher=publisher,
-            ) as client:
-                response = await client.post(
-                    f"/api/tasks/{ids.task_id}/human-requests/{request_id}/responses",
-                    json={"action_id": action.id, "input": input_payload},
-                )
-            assert response.status_code == 200, response.text
-            receipt = HumanRequestResponseReceipt.model_validate(response.json())
-        else:
-            monkeypatch.setattr(product_tools, "get_session_factory", lambda: session_factory)
-            result = await create_operator_mcp_server(
-                effect_publishers=OperatorEffectPublishers(
-                    dispatch_opening_dependencies=product_dispatch_dependencies(tmp_path),
-                    runtime_effect_publisher=publisher,
-                )
-            ).call_tool(
-                "human_request_respond",
-                {
-                    "task_id": ids.task_id,
-                    "request_id": request_id,
-                    "action_id": action.id,
-                    "input": input_payload,
-                },
+        async with product_http_client(
+            session_factory,
+            tmp_path=tmp_path,
+            publisher=publisher,
+        ) as client:
+            response = await client.post(
+                f"/api/tasks/{ids.task_id}/human-requests/{request_id}/responses",
+                json={"action_id": action.id, "input": input_payload},
             )
-            receipt = HumanRequestResponseReceipt.model_validate(operator_payload(result))
+        assert response.status_code == 200, response.text
+        receipt = HumanRequestResponseReceipt.model_validate(response.json())
 
         async with session_factory() as session:
             source = await session.get(HumanRequestModel, request_id)

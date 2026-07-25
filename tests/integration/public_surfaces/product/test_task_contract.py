@@ -3,17 +3,9 @@ from __future__ import annotations
 import json
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Literal
 
-import pytest
 from sqlalchemy import event, update
 
-import banksia.interfaces.mcp.operator.product_tools as product_tools
-import banksia.persistence.session_operations as session_operations
-from banksia.interfaces.mcp.operator.server import (
-    OperatorEffectPublishers,
-    create_operator_mcp_server,
-)
 from banksia.persistence.models import (
     AcceptedBoundaryModel,
     AssignmentModel,
@@ -47,18 +39,14 @@ from tests.helpers.executor_harness import (
 )
 from tests.helpers.lineage_seed import RuntimeIds
 from tests.helpers.product_surface import (
-    operator_payload,
     product_dispatch_dependencies,
     product_http_client,
 )
 from tests.helpers.workflow_runtime import initialized_workflow_database
 
-type Surface = Literal["http", "operator"]
 
-
-async def test_http_and_operator_share_one_product_task_read(
+async def test_http_product_task_read_uses_bounded_product_truth(
     tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     async with seeded_async_executor(tmp_path, suffix="product-read-parity") as (
         _executor,
@@ -66,22 +54,12 @@ async def test_http_and_operator_share_one_product_task_read(
         ids,
         _signals,
     ):
-        monkeypatch.setattr(
-            session_operations,
-            "get_session_factory",
-            lambda: session_factory,
-        )
         async with product_http_client(session_factory, tmp_path=tmp_path) as client:
             response = await client.get(f"/api/tasks/{ids.task_id}")
             search = await client.get("/api/tasks", params={"q": "root assignment"})
-        operator = await create_operator_mcp_server().call_tool(
-            "task_get",
-            {"task_id": ids.task_id},
-        )
 
     assert response.status_code == 200, response.text
     http_task = TaskView.model_validate(response.json())
-    assert TaskView.model_validate(operator_payload(operator)) == http_task
     assert search.status_code == 200, search.text
     assert [item["id"] for item in search.json()["items"]] == [ids.task_id]
     assert http_task.team.name == "Root Member"
@@ -105,14 +83,11 @@ async def test_http_and_operator_share_one_product_task_read(
         assert forbidden not in serialized
 
 
-@pytest.mark.parametrize("surface", ("http", "operator"))
-async def test_task_pause_uses_current_action_id_and_returns_receipt(
+async def test_http_task_pause_uses_current_action_id_and_returns_receipt(
     tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    surface: Surface,
 ) -> None:
     publisher = CapturedRuntimeEffectPublisher()
-    async with seeded_async_executor(tmp_path, suffix=f"product-pause-{surface}") as (
+    async with seeded_async_executor(tmp_path, suffix="product-pause-http") as (
         _executor,
         session_factory,
         ids,
@@ -121,38 +96,21 @@ async def test_task_pause_uses_current_action_id_and_returns_receipt(
         async with session_factory() as session:
             current = await read_product_task(session, ids.task_id)
         pause_action = next(action for action in current.actions if action.kind == "pause")
-        if surface == "http":
-            async with product_http_client(
-                session_factory,
-                tmp_path=tmp_path,
-                publisher=publisher,
-            ) as client:
-                response = await client.post(pause_action.href, json={"confirmed": False})
-                stale = await client.post(
-                    f"/api/tasks/{ids.task_id}/controls/action.stale",
-                    json={"confirmed": False},
-                )
-            assert response.status_code == 200, response.text
-            receipt = TaskControlReceipt.model_validate(response.json())
-            assert stale.status_code == 409
-            assert stale.json()["code"] == "conflict"
-            assert "control_revision" not in stale.text
-        else:
-            monkeypatch.setattr(product_tools, "get_session_factory", lambda: session_factory)
-            result = await create_operator_mcp_server(
-                effect_publishers=OperatorEffectPublishers(
-                    dispatch_opening_dependencies=product_dispatch_dependencies(tmp_path),
-                    runtime_effect_publisher=publisher,
-                )
-            ).call_tool(
-                "task_control",
-                {
-                    "task_id": ids.task_id,
-                    "action_id": pause_action.id,
-                    "confirmed": False,
-                },
+        async with product_http_client(
+            session_factory,
+            tmp_path=tmp_path,
+            publisher=publisher,
+        ) as client:
+            response = await client.post(pause_action.href, json={"confirmed": False})
+            stale = await client.post(
+                f"/api/tasks/{ids.task_id}/controls/action.stale",
+                json={"confirmed": False},
             )
-            receipt = TaskControlReceipt.model_validate(operator_payload(result))
+        assert response.status_code == 200, response.text
+        receipt = TaskControlReceipt.model_validate(response.json())
+        assert stale.status_code == 409
+        assert stale.json()["code"] == "conflict"
+        assert "control_revision" not in stale.text
 
     assert receipt.action == "pause"
     assert receipt.receipt_id.startswith("receipt.")

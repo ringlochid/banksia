@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,12 +23,20 @@ from banksia.interfaces.http.router import api_router
 from banksia.interfaces.http.routers.health import router as health_router
 from banksia.interfaces.http.support import create_support_app
 from banksia.interfaces.mcp.node.server import create_node_mcp_apps
-from banksia.interfaces.mcp.operator.server import (
-    OperatorEffectPublishers,
-    create_operator_mcp_app,
-)
 from banksia.interfaces.mcp.transport import node_mcp_transport_policy
 from banksia.interfaces.web_console import register_web_console_routes
+from banksia.operator.contracts import (
+    OperatorFieldError,
+    OperatorProblem,
+    OperatorProblemResponse,
+)
+from banksia.operator.errors import OperatorServiceError
+from banksia.operator.operations import OperatorOperationExecutor
+from banksia.operator.provider import OperatorInvocationCoordinator
+from banksia.operator.service import (
+    OperatorConversationService,
+    create_operator_services,
+)
 from banksia.persistence.session import (
     dispose_db_engine,
     ensure_database_schema,
@@ -115,6 +123,9 @@ class _ApplicationRuntime:
     support_projection_owner: SupportProjectionOwner
     node_operation_executor: NodeOperationExecutor
     dispatch_starter: DispatchStarter
+    operator_conversation_service: OperatorConversationService
+    operator_invocation_coordinator: OperatorInvocationCoordinator
+    operator_operation_executor: OperatorOperationExecutor
 
 
 def _package_version() -> str:
@@ -231,6 +242,12 @@ def _build_application_runtime(settings: Settings) -> _ApplicationRuntime:
         managed_node_mcp_url=_node_mcp_url(settings, path="/_internal/node/mcp"),
         compatibility_node_mcp_url=_node_mcp_url(settings, path="/node/mcp"),
     )
+    operator_services = create_operator_services(
+        session_factory=_runtime_session_context,
+        settings=settings,
+        dispatch_dependencies=dispatch_opening_dependencies,
+        runtime_effect_publisher=runtime_effect_router,
+    )
     return _ApplicationRuntime(
         binding_registry=binding_registry,
         provider_adapter_registry=provider_adapter_registry,
@@ -241,6 +258,9 @@ def _build_application_runtime(settings: Settings) -> _ApplicationRuntime:
         support_projection_owner=support_projection_owner,
         node_operation_executor=node_operation_executor,
         dispatch_starter=dispatch_starter,
+        operator_conversation_service=operator_services.conversations,
+        operator_invocation_coordinator=operator_services.coordinator,
+        operator_operation_executor=operator_services.operations,
     )
 
 
@@ -255,13 +275,26 @@ def _store_application_runtime(app: FastAPI, runtime: _ApplicationRuntime) -> No
     app.state.provider_adapter_registry = runtime.provider_adapter_registry
     app.state.node_operation_executor = runtime.node_operation_executor
     app.state.dispatch_starter = runtime.dispatch_starter
+    app.state.operator_conversation_service = runtime.operator_conversation_service
+    app.state.operator_invocation_coordinator = runtime.operator_invocation_coordinator
+    app.state.operator_operation_executor = runtime.operator_operation_executor
     app.state.mcp_lifespan_apps = ()
 
 
 def _register_exception_handlers(app: FastAPI) -> None:
+    @app.exception_handler(OperatorServiceError)
+    async def _operator_service_error_handler(
+        _request: Request,
+        exc: OperatorServiceError,
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=exc.response.model_dump(mode="json", exclude_none=True),
+        )
+
     @app.exception_handler(HTTPException)
     async def _http_exception_handler(
-        _request: object,
+        _request: Request,
         exc: HTTPException,
     ) -> JSONResponse:
         failure = operation_failure_from_http_exception(exc)
@@ -274,13 +307,35 @@ def _register_exception_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(RequestValidationError)
     async def _request_validation_handler(
-        _request: object,
+        request: Request,
         exc: RequestValidationError,
     ) -> JSONResponse:
-        failure = request_validation_failure(exc)
+        if request.url.path.startswith("/api/operator"):
+            field_errors = tuple(
+                OperatorFieldError(
+                    path=".".join(str(part) for part in error.get("loc", ())),
+                    message=str(error.get("msg", "Invalid value.")),
+                )
+                for error in exc.errors()
+            )
+            operator_failure = OperatorProblemResponse(
+                problem=OperatorProblem.model_validate(
+                    {
+                        "code": "invalid_operator_request",
+                        "message": "The Operator request is invalid.",
+                        "retryable": False,
+                        "field_errors": field_errors or None,
+                    }
+                )
+            )
+            return JSONResponse(
+                status_code=422,
+                content=operator_failure.model_dump(mode="json", exclude_none=True),
+            )
+        product_failure = request_validation_failure(exc)
         return JSONResponse(
             status_code=400,
-            content=failure.model_dump(mode="json"),
+            content=product_failure.model_dump(mode="json"),
         )
 
 
@@ -290,15 +345,6 @@ def _mount_mcp_apps(
     settings: Settings,
     runtime: _ApplicationRuntime,
 ) -> None:
-    operator_mcp_app = create_operator_mcp_app(
-        host=settings.api_host,
-        port=settings.api_port,
-        allowed_origins=tuple(settings.console_origins),
-        effect_publishers=OperatorEffectPublishers(
-            runtime_effect_publisher=runtime.runtime_effect_router,
-            dispatch_opening_dependencies=runtime.dispatch_opening_dependencies,
-        ),
-    )
     node_mcp_apps = create_node_mcp_apps(
         binding_registry=runtime.binding_registry,
         operation_executor=runtime.node_operation_executor,
@@ -309,11 +355,9 @@ def _mount_mcp_apps(
         ),
     )
     app.state.mcp_lifespan_apps = (
-        operator_mcp_app,
         node_mcp_apps.managed,
         node_mcp_apps.compatibility,
     )
-    app.mount("/operator", operator_mcp_app)
     app.mount("/_internal/node", node_mcp_apps.managed)
     app.mount("/node", node_mcp_apps.compatibility)
 
@@ -339,6 +383,9 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         provider_adapter_registry: ProviderAdapterRegistry = app.state.provider_adapter_registry
         dispatch_starter: DispatchStarter = app.state.dispatch_starter
         binding_registry: DispatchMcpBindingRegistry = app.state.dispatch_mcp_binding_registry
+        operator_coordinator: OperatorInvocationCoordinator = (
+            app.state.operator_invocation_coordinator
+        )
 
         async def publish_startup(signal: RuntimeEffectSignal) -> bool:
             if isinstance(signal, DispatchStartDue):
@@ -352,6 +399,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
             await stack.enter_async_context(support_projection_owner)
             await stack.enter_async_context(runtime_effect_router)
             await stack.enter_async_context(deadline_scheduler)
+            await stack.enter_async_context(operator_coordinator)
             for mcp_app in getattr(app.state, "mcp_lifespan_apps", ()):
                 await stack.enter_async_context(mcp_app.router.lifespan_context(mcp_app))
             app.state.runtime_startup_audit = await audit_startup_runtime_effects(

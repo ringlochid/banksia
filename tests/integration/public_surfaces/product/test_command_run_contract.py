@@ -2,15 +2,9 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Literal
 
 import pytest
 
-import banksia.interfaces.mcp.operator.product_tools as product_tools
-from banksia.interfaces.mcp.operator.server import (
-    OperatorEffectPublishers,
-    create_operator_mcp_server,
-)
 from banksia.persistence.models import CommandRunModel
 from banksia.runtime.clock import utc_now
 from banksia.runtime.command_run import (
@@ -40,22 +34,15 @@ from tests.helpers.executor_harness import (
 )
 from tests.helpers.lineage_seed import RuntimeIds
 from tests.helpers.product_surface import (
-    operator_payload,
-    product_dispatch_dependencies,
     product_http_client,
 )
 
-type Surface = Literal["http", "operator"]
 
-
-@pytest.mark.parametrize("surface", ("http", "operator"))
-async def test_command_run_view_output_and_cancel_use_product_contract(
+async def test_http_command_run_view_output_and_cancel_use_product_contract(
     tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    surface: Surface,
 ) -> None:
     publisher = CapturedRuntimeEffectPublisher()
-    suffix = f"product-command-{surface}"
+    suffix = "product-command-http"
     async with seeded_async_executor(
         tmp_path,
         suffix=suffix,
@@ -69,35 +56,17 @@ async def test_command_run_view_output_and_cancel_use_product_contract(
         )
         assert command_view.cancel_action is not None
         cancel_action = command_view.cancel_action
-        if surface == "http":
-            async with product_http_client(
-                session_factory,
-                tmp_path=tmp_path,
-                publisher=publisher,
-            ) as client:
-                response = await client.post(
-                    f"/api/tasks/{ids.task_id}/command-runs/{command_id}/cancel",
-                    json={"action_id": cancel_action.id, "confirmed": True},
-                )
-            assert response.status_code == 200, response.text
-            receipt = CommandRunCancelReceipt.model_validate(response.json())
-        else:
-            monkeypatch.setattr(product_tools, "get_session_factory", lambda: session_factory)
-            result = await create_operator_mcp_server(
-                effect_publishers=OperatorEffectPublishers(
-                    dispatch_opening_dependencies=product_dispatch_dependencies(tmp_path),
-                    runtime_effect_publisher=publisher,
-                )
-            ).call_tool(
-                "command_run_cancel",
-                {
-                    "task_id": ids.task_id,
-                    "command_id": command_id,
-                    "action_id": cancel_action.id,
-                    "confirmed": True,
-                },
+        async with product_http_client(
+            session_factory,
+            tmp_path=tmp_path,
+            publisher=publisher,
+        ) as client:
+            response = await client.post(
+                f"/api/tasks/{ids.task_id}/command-runs/{command_id}/cancel",
+                json={"action_id": cancel_action.id, "confirmed": True},
             )
-            receipt = CommandRunCancelReceipt.model_validate(operator_payload(result))
+        assert response.status_code == 200, response.text
+        receipt = CommandRunCancelReceipt.model_validate(response.json())
 
         async with session_factory() as session:
             source = await session.get(CommandRunModel, command_id)

@@ -131,6 +131,33 @@ def test_external_sources_are_task_scoped_without_flow_columns() -> None:
     } <= _constraint_names("command_runs", ForeignKeyConstraint)
 
 
+def test_operator_records_enforce_durable_order_claim_and_effect_identity() -> None:
+    assert {
+        "ck_operator_conversations_claim_generation",
+        "ck_operator_conversations_next_entry_sequence",
+        "ck_operator_conversations_state",
+    } <= _constraint_names("operator_conversations", CheckConstraint)
+    assert {
+        (
+            "conversation_id",
+            "request_operation",
+            "request_owner_id",
+            "request_idempotency_key",
+        ),
+        ("conversation_id", "sequence"),
+        ("answered_question_set_id",),
+    } <= _unique_columns("operator_conversation_entries")
+    assert {
+        ("conversation_id", "active_claim_marker"),
+        ("conversation_id", "retry_idempotency_key"),
+    } <= _unique_columns("operator_invocations")
+    assert {
+        ("invocation_id", "provider_call_id"),
+        ("confirmation_id",),
+        ("conversation_id", "confirmation_id", "confirmation_idempotency_key"),
+    } <= _unique_columns("operator_effects")
+
+
 def test_external_workspace_binding_is_not_a_cross_task_lease(tmp_path: Path) -> None:
     engine = create_runtime_schema_engine(tmp_path)
     try:

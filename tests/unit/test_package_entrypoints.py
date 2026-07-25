@@ -144,6 +144,7 @@ def test_pyproject_ships_canonical_packages_only() -> None:
         "interfaces/web_console/assets/assets/*",
         "workflows/resources/starter_workflows/*.yaml",
         "platform/managed_services/resources/systemd/*.service",
+        "operator/prompt/assets/*.txt",
         "runtime/prompt/assets/shared/*.txt",
         "runtime/prompt/assets/positions/*.txt",
         "runtime/prompt/assets/behaviors/*.txt",

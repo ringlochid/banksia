@@ -39,6 +39,7 @@ from banksia.runtime.contracts.task import (
 from banksia.runtime.errors import missing_resource_error
 from banksia.runtime.product.action_ids import product_action_id
 from banksia.runtime.task_control.contracts import ControllerTaskState
+from banksia.workflows.integrity import validate_persisted_workflow_identity
 
 
 async def read_product_task_status(
@@ -146,6 +147,11 @@ async def read_product_task_workflow(
     )
     if revision is None:
         raise missing_resource_error("The Workflow used by this run could not be found.")
+    validate_persisted_workflow_identity(
+        revision.content_json.get("id"),
+        expected_workflow_id=workflow_id,
+        source="published Workflow",
+    )
     description = revision.content_json.get("description")
     if not isinstance(description, str) or not description.strip():
         raise RuntimeError("published Workflow has no product description")

@@ -80,6 +80,112 @@ Each operation is a leaf call to an existing product service. There is no generi
 
 `workflow_draft_create` accepts one complete structured JSON Workflow candidate and uses the existing Workflow normalization and authoring services to create or open its mutable draft. YAML remains a CLI/text-editor input format outside the Operator provider boundary. No eighteenth import/upload operation exists.
 
+## Workflow projections and receipts
+
+Operator calls the same Workflow services as HTTP and Console, but its provider-facing result is an Operator-private projection rather than the service's complete Workflow aggregate. This projection changes no shared service or HTTP contract.
+
+`workflow_get` has one required closed source selector:
+
+```text
+workflow_id
+selection =
+  catalog {
+    should_include_revisions = true
+    revision_cursor?
+    revision_limit = 20          # 1..100
+  }
+| published {
+    revision_no                 # >= 1
+    member_id?
+  }
+| draft {
+    draft_id
+    etag
+    member_id?
+  }
+```
+
+`catalog` returns Workflow identity and description, semantic library state, update time, provenance, legal library actions, the exact current published source reference when present, the exact active draft reference and ETag when present, and bounded immutable revision source references plus the next cursor. It returns no authored Workflow tree.
+
+`published` reads exactly the named immutable revision. `draft` reads exactly the named draft and rejects an ETag mismatch with the compact stale-draft failure below. Both return:
+
+```text
+kind = workflow_member
+source = published {workflow_id, revision_no}
+       | draft {workflow_id, draft_id, base_revision_no?, etag}
+workflow {kind, id, description, note?, lead_member_id}
+member {id, title?, description?, instruction?, provider?, capabilities?, child_ids}
+```
+
+The result contains exactly one complete Member and only the ordered IDs of its direct children. An omitted `member_id` selects the lead. `child_ids = null` preserves omitted `children`; an empty list preserves explicitly authored `children: []`; otherwise IDs preserve authored order. Full-tree inspection is a bounded traversal: first read `catalog`, pin one returned source, read its lead, and recurse through returned child IDs with that same source. A stale draft ETag requires a fresh catalog/draft read and a restarted traversal. There is no unpinned “current” or complete-tree selector.
+
+Workflow mutations return only these compact receipts:
+
+```text
+workflow_draft_create
+  {draft, is_created, undo_receipt?}
+
+workflow_draft_edit
+  {draft, undo_receipt, accepted_change}
+  accepted_change =
+    workflow_updated
+  | member_added {parent_member_id, member_id}
+  | member_updated {member_id}
+  | member_removed {member_id}
+
+workflow_draft_validate
+  {draft, is_valid, issues}
+
+workflow_draft_undo
+  {draft, consumed_receipt_id}
+
+workflow_draft_discard
+  {is_discarded, draft_id}
+
+workflow_draft_publish
+  {workflow_id, revision_no}
+```
+
+Every `draft` value is the compact exact source reference `{kind, workflow_id, draft_id, base_revision_no?, etag}`. `member_added.member_id` is the controller-allocated root ID of the accepted subtree. A stale mutation failure exposes only the current compact draft reference and never an authored Workflow body.
+
+After a leaf handler returns, the provider-neutral Operator boundary serializes its typed result once as compact JSON with `ensure_ascii = false` and counts UTF-16 code units. A result above the controller-owned bound in [Verification gates](../verification-gates.md#hidden-controller-validation-guardrails) fails closed without exposing the body. The guard does not replay the handler: an oversize read may be retried only through a new explicit call, and a failure discovered after a committed mutation is an uncertain effect that is never replayed automatically. Successful results cross the boundary without a JSON parse/round-trip rewrite.
+
+## Run projections and receipts
+
+`task_get` calls the existing Task and Human Request product reads, but never returns the complete recursive `TaskView` to a provider. Its optional closed selector defaults to `overview`:
+
+```text
+task_id
+selection =
+  overview
+| member {member_id}
+| result
+| activity {activity_id}
+| human_request {request_id}
+| human_request_files {request_id}
+```
+
+`overview` returns current Run identity, prompt excerpt, Workflow, semantic status, times, Work Plan, and legal actions. It flattens the current team into ordered bounded Member summaries with direct-child IDs, and returns bounded attention, recent Activity, Human Request, Command Run, and Result summaries with total counts and truncation facts. Summary text is excerpted and loose file bodies are represented by counts, so the overview stays below the provider boundary for every legal team.
+
+Detail selectors remain pinned to the named Task:
+
+- `member` returns one Member, its ordered direct-child IDs, exact purpose, state, latest update, and that update's loose file references;
+- `result` returns the singular exact Task Result and its loose file references;
+- `activity` returns one ID from the current bounded Activity overview and its loose file references;
+- `human_request` returns one exact request, typed items, current legal response actions, resolution, and file count; and
+- `human_request_files` returns only that same request's loose file references.
+
+Human Request content and its maximum file set are separate selectors because either owning message is independently useful and their combined legal maxima exceed one provider result. This is source-pinned readback, not a generic file catalog or content reader.
+
+`task_control` calls the shared control service and then returns only:
+
+```text
+{receipt_id, action, status_message,
+ task {id, status, status_message, updated_at, actions}}
+```
+
+`human_request_respond` similarly returns only the accepted receipt, continuation fact, and current request identity/status/resolution. Exact follow-up content is read through `task_get`. Both mutation receipts are statically bounded after commit; the shared HTTP `TaskControlReceipt` and `HumanRequestResponseReceipt` remain unchanged.
+
 ## Product HTTP routes
 
 Operator UI uses product HTTP only. There is no Operator SSE or public Operator MCP mount in this baseline.

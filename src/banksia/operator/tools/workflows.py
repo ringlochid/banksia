@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Awaitable
 from dataclasses import dataclass
+from typing import TypeVar
 
 from banksia.config import Settings
 from banksia.operator.conversation_reads import OperatorSessionFactory
@@ -11,11 +13,33 @@ from banksia.operator.tools.contracts import (
     WorkflowDraftCreateInput,
     WorkflowDraftEditInput,
     WorkflowDraftMutationInput,
+    WorkflowDraftSelection,
     WorkflowDraftUndoInput,
     WorkflowDraftValidateInput,
     WorkflowGetInput,
+    WorkflowPublishedSelection,
     WorkflowSearchInput,
     bind_operator_tool,
+)
+from banksia.operator.tools.workflow_projection import (
+    OperatorPublishedWorkflowSource,
+    OperatorWorkflowCatalogResult,
+    OperatorWorkflowDraftCreateReceipt,
+    OperatorWorkflowDraftDiscardReceipt,
+    OperatorWorkflowDraftEditReceipt,
+    OperatorWorkflowDraftStaleError,
+    OperatorWorkflowDraftUndoReceipt,
+    OperatorWorkflowDraftValidationReceipt,
+    OperatorWorkflowMemberResult,
+    OperatorWorkflowPublishedReceipt,
+    build_operator_workflow_member_result,
+    map_operator_workflow_catalog_result,
+    map_operator_workflow_draft_create_receipt,
+    map_operator_workflow_draft_edit_receipt,
+    map_operator_workflow_draft_reference,
+    map_operator_workflow_draft_undo_receipt,
+    map_operator_workflow_draft_validation_receipt,
+    map_operator_workflow_published_receipt,
 )
 from banksia.persistence.session_operations import write_session_operation
 from banksia.workflows.authoring import (
@@ -28,21 +52,28 @@ from banksia.workflows.authoring import (
 )
 from banksia.workflows.authoring_contracts import (
     WorkflowAuthoringOptions,
-    WorkflowDraftDiscardResult,
-    WorkflowDraftImportResult,
-    WorkflowDraftMutationResult,
-    WorkflowDraftReadback,
-    WorkflowDraftValidationResult,
-    WorkflowGetResponse,
-    WorkflowPublishedReadback,
     WorkflowSearchResponse,
-    map_workflow_published_readback,
+)
+from banksia.workflows.catalog import (
+    list_workflow_revisions,
+    read_published_workflow_revision,
+    read_workflow_catalog_snapshot,
+)
+from banksia.workflows.cursors import (
+    decode_workflow_revision_cursor,
+    encode_workflow_revision_cursor,
 )
 from banksia.workflows.library import (
     build_workflow_authoring_options,
-    read_workflow_catalog_entry,
+    read_workflow_draft,
     search_workflow_catalog,
 )
+from banksia.workflows.service_errors import (
+    WorkflowNotFoundError,
+    WorkflowStaleDraftError,
+)
+
+ResultT = TypeVar("ResultT")
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,15 +90,79 @@ class _WorkflowOperatorLeaves:
                 limit=request.limit,
             )
 
-    async def get(self, request: WorkflowGetInput) -> WorkflowGetResponse:
+    async def get(
+        self,
+        request: WorkflowGetInput,
+    ) -> OperatorWorkflowCatalogResult | OperatorWorkflowMemberResult:
         async with self.session_factory() as session:
-            return await read_workflow_catalog_entry(
+            selection = request.selection
+            if selection.kind == "catalog":
+                snapshot = await read_workflow_catalog_snapshot(
+                    session,
+                    workflow_id=request.workflow_id,
+                )
+                before_revision_no = decode_workflow_revision_cursor(
+                    selection.revision_cursor,
+                    workflow_id=request.workflow_id,
+                )
+                revision_page = (
+                    await list_workflow_revisions(
+                        session,
+                        workflow_id=request.workflow_id,
+                        before_revision_no=before_revision_no,
+                        maximum_revision_no=snapshot.maximum_revision_no,
+                        limit=selection.revision_limit,
+                    )
+                    if (
+                        selection.should_include_revisions
+                        and snapshot.summary.published_revision_no is not None
+                    )
+                    else None
+                )
+                return map_operator_workflow_catalog_result(
+                    snapshot,
+                    revision_page=revision_page,
+                    revisions_next_cursor=(
+                        encode_workflow_revision_cursor(
+                            revision_page.next_revision_no,
+                            workflow_id=request.workflow_id,
+                        )
+                        if revision_page is not None and revision_page.next_revision_no is not None
+                        else None
+                    ),
+                )
+            if isinstance(selection, WorkflowPublishedSelection):
+                published = await read_published_workflow_revision(
+                    session,
+                    workflow_id=request.workflow_id,
+                    revision_no=selection.revision_no,
+                )
+                return build_operator_workflow_member_result(
+                    published.workflow,
+                    source=OperatorPublishedWorkflowSource(
+                        workflow_id=published.workflow_id,
+                        revision_no=published.revision_no,
+                    ),
+                    member_id=selection.member_id,
+                )
+            if not isinstance(selection, WorkflowDraftSelection):
+                raise TypeError("unknown Workflow source selection")
+            draft = await read_workflow_draft(
                 session,
-                workflow_id=request.workflow_id,
-                revision_no=request.revision_no,
-                should_include_revisions=request.should_include_revisions,
-                revision_cursor=request.revision_cursor,
-                revision_limit=request.revision_limit,
+                draft_id=selection.draft_id,
+            )
+            draft_reference = map_operator_workflow_draft_reference(draft)
+            if draft.workflow_id != request.workflow_id:
+                raise WorkflowNotFoundError(
+                    f"Workflow draft {selection.draft_id!r} does not belong to "
+                    f"Workflow {request.workflow_id!r}"
+                )
+            if draft.etag != selection.etag:
+                raise OperatorWorkflowDraftStaleError(draft_reference)
+            return build_operator_workflow_member_result(
+                draft.workflow,
+                source=draft_reference,
+                member_id=selection.member_id,
             )
 
     async def authoring_options(
@@ -80,71 +175,89 @@ class _WorkflowOperatorLeaves:
     async def create_draft(
         self,
         request: WorkflowDraftCreateInput,
-    ) -> WorkflowDraftImportResult:
+    ) -> OperatorWorkflowDraftCreateReceipt:
         async with self.session_factory() as session:
-            return await write_session_operation(
-                lambda db: import_workflow_draft(
-                    db,
-                    workflow=request.workflow,
-                    expected_etag=request.etag,
-                ),
-                session=session,
+            result = await _run_with_compact_stale_error(
+                write_session_operation(
+                    lambda db: import_workflow_draft(
+                        db,
+                        workflow=request.workflow,
+                        expected_etag=request.etag,
+                    ),
+                    session=session,
+                )
             )
+        return map_operator_workflow_draft_create_receipt(result)
 
     async def edit_draft(
         self,
         request: WorkflowDraftEditInput,
-    ) -> WorkflowDraftMutationResult:
+    ) -> OperatorWorkflowDraftEditReceipt:
         async with self.session_factory() as session:
-            return await write_session_operation(
-                lambda db: edit_workflow_draft(
-                    db,
-                    draft_id=request.draft_id,
-                    expected_etag=request.etag,
-                    operation=request.operation,
-                ),
-                session=session,
+            result = await _run_with_compact_stale_error(
+                write_session_operation(
+                    lambda db: edit_workflow_draft(
+                        db,
+                        draft_id=request.draft_id,
+                        expected_etag=request.etag,
+                        operation=request.operation,
+                    ),
+                    session=session,
+                )
             )
+        return map_operator_workflow_draft_edit_receipt(
+            result,
+            operation=request.operation,
+        )
 
     async def validate_draft(
         self,
         request: WorkflowDraftValidateInput,
-    ) -> WorkflowDraftValidationResult:
+    ) -> OperatorWorkflowDraftValidationReceipt:
         async with self.session_factory() as session:
-            return await validate_workflow_draft(
+            result = await validate_workflow_draft(
                 session,
                 draft_id=request.draft_id,
             )
+        return map_operator_workflow_draft_validation_receipt(result)
 
     async def undo_draft(
         self,
         request: WorkflowDraftUndoInput,
-    ) -> WorkflowDraftReadback:
+    ) -> OperatorWorkflowDraftUndoReceipt:
         async with self.session_factory() as session:
-            return await write_session_operation(
-                lambda db: undo_workflow_draft(
-                    db,
-                    draft_id=request.draft_id,
-                    expected_etag=request.etag,
-                    receipt_id=request.receipt_id,
-                ),
-                session=session,
+            draft = await _run_with_compact_stale_error(
+                write_session_operation(
+                    lambda db: undo_workflow_draft(
+                        db,
+                        draft_id=request.draft_id,
+                        expected_etag=request.etag,
+                        receipt_id=request.receipt_id,
+                    ),
+                    session=session,
+                )
             )
+        return map_operator_workflow_draft_undo_receipt(
+            draft,
+            consumed_receipt_id=request.receipt_id,
+        )
 
     async def discard_draft(
         self,
         request: WorkflowDraftMutationInput,
-    ) -> WorkflowDraftDiscardResult:
+    ) -> OperatorWorkflowDraftDiscardReceipt:
         async with self.session_factory() as session:
-            await write_session_operation(
-                lambda db: discard_workflow_draft(
-                    db,
-                    draft_id=request.draft_id,
-                    expected_etag=request.etag,
-                ),
-                session=session,
+            await _run_with_compact_stale_error(
+                write_session_operation(
+                    lambda db: discard_workflow_draft(
+                        db,
+                        draft_id=request.draft_id,
+                        expected_etag=request.etag,
+                    ),
+                    session=session,
+                )
             )
-        return WorkflowDraftDiscardResult(
+        return OperatorWorkflowDraftDiscardReceipt(
             is_discarded=True,
             draft_id=request.draft_id,
         )
@@ -152,17 +265,19 @@ class _WorkflowOperatorLeaves:
     async def publish_draft(
         self,
         request: WorkflowDraftMutationInput,
-    ) -> WorkflowPublishedReadback:
+    ) -> OperatorWorkflowPublishedReceipt:
         async with self.session_factory() as session:
-            published = await write_session_operation(
-                lambda db: publish_workflow_draft(
-                    db,
-                    draft_id=request.draft_id,
-                    expected_etag=request.etag,
-                ),
-                session=session,
+            published = await _run_with_compact_stale_error(
+                write_session_operation(
+                    lambda db: publish_workflow_draft(
+                        db,
+                        draft_id=request.draft_id,
+                        expected_etag=request.etag,
+                    ),
+                    session=session,
+                )
             )
-        return map_workflow_published_readback(published)
+        return map_operator_workflow_published_receipt(published)
 
 
 def build_workflow_operator_tools(
@@ -197,8 +312,8 @@ def _build_workflow_read_tools(
         bind_operator_tool(
             name=OperatorToolName.WORKFLOW_GET,
             description=(
-                "Read one coherent Workflow snapshot, including its current publication, "
-                "active draft and ETag, and bounded revision history."
+                "Read either compact Workflow catalog/history truth or exactly one Member "
+                "from an exact published revision or exact draft ETag."
             ),
             input_model=WorkflowGetInput,
             handler=leaves.get,
@@ -223,7 +338,8 @@ def _build_workflow_edit_tools(
             name=OperatorToolName.WORKFLOW_DRAFT_CREATE,
             description=(
                 "Create a draft from one complete structured JSON Workflow. If that "
-                "Workflow already has an active draft, pass its current ETag to replace it."
+                "Workflow already has an active draft, pass its current ETag to replace it. "
+                "Returns only its current draft reference and optional Undo receipt."
             ),
             input_model=WorkflowDraftCreateInput,
             handler=leaves.create_draft,
@@ -232,14 +348,15 @@ def _build_workflow_edit_tools(
             name=OperatorToolName.WORKFLOW_DRAFT_EDIT,
             description=(
                 "Apply one typed edit to the current draft using its exact ETag. New Member "
-                "IDs are allocated by the controller."
+                "IDs are allocated by the controller and returned in the accepted-change "
+                "receipt."
             ),
             input_model=WorkflowDraftEditInput,
             handler=leaves.edit_draft,
         ),
         bind_operator_tool(
             name=OperatorToolName.WORKFLOW_DRAFT_VALIDATE,
-            description="Validate the current draft and return its complete current readback.",
+            description="Validate the current draft and return its current reference and issues.",
             input_model=WorkflowDraftValidateInput,
             handler=leaves.validate_draft,
         ),
@@ -278,6 +395,17 @@ def _build_workflow_release_tools(
             handler=leaves.publish_draft,
         ),
     )
+
+
+async def _run_with_compact_stale_error(
+    operation: Awaitable[ResultT],
+) -> ResultT:
+    stale_draft = None
+    try:
+        return await operation
+    except WorkflowStaleDraftError as error:
+        stale_draft = map_operator_workflow_draft_reference(error.current)
+    raise OperatorWorkflowDraftStaleError(stale_draft) from None
 
 
 __all__ = ["build_workflow_operator_tools"]

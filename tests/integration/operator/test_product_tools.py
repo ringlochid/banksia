@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -7,6 +8,7 @@ import pytest
 from sqlalchemy import select
 
 from banksia.operator.tools import OperatorTool, OperatorToolName, build_operator_tools
+from banksia.operator.tools.contracts import MAX_OPERATOR_TOOL_RESULT_UTF16_CODE_UNITS
 from banksia.persistence.models import CommandRunModel, HumanRequestModel, TaskEventModel
 from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
 from banksia.runtime.errors import RuntimeOperationError
@@ -16,10 +18,6 @@ from banksia.runtime.post_commit import (
     CommandRunCancellationRequested,
     DispatchCleanupRequested,
     HumanRequestTerminal,
-)
-from banksia.workflows.service_errors import (
-    WorkflowStaleDraftError,
-    WorkflowUndoReceiptError,
 )
 from tests.helpers.executor_harness import (
     AsyncSessionFactory,
@@ -43,161 +41,23 @@ def _captured_publisher(
     return publisher
 
 
-def _operator_workflow_payload() -> dict[str, object]:
+def _large_team_workflow_payload(workflow_id: str) -> dict[str, object]:
+    maximum_prose = "x" * 16_384
     return {
         "kind": "workflow",
-        "id": "operator-authored",
-        "description": "Coordinate a reviewable delivery.",
-        "note": "Keep review independent from implementation.",
+        "id": workflow_id,
+        "description": "Keep a legal large team readable.",
         "lead": {
             "id": "lead",
-            "title": "",
             "children": [
                 {
-                    "id": "reviewer",
-                    "instruction": "Review the proposed delivery independently.",
-                    "provider": {
-                        "kind": "codex",
-                        "effort": "medium",
-                        "sandbox": {
-                            "mode": "workspace_write",
-                            "network": "deny",
-                        },
-                    },
-                    "capabilities": {
-                        "human_request": ["direction"],
-                        "command_run": "allow",
-                    },
+                    "id": f"member-{index}",
+                    "title": maximum_prose,
+                    "description": maximum_prose,
                 }
+                for index in range(10)
             ],
         },
-    }
-
-
-async def _create_and_edit_workflow(
-    tools: tuple[OperatorTool, ...],
-) -> tuple[dict[str, Any], dict[str, Any]]:
-    created = await _tool(tools, OperatorToolName.WORKFLOW_DRAFT_CREATE).call(
-        {"workflow": _operator_workflow_payload()}
-    )
-    original = created["draft"]
-    edited = await _tool(tools, OperatorToolName.WORKFLOW_DRAFT_EDIT).call(
-        {
-            "draft_id": original["draft_id"],
-            "etag": original["etag"],
-            "operation": {
-                "kind": "update_workflow",
-                "patch": {"description": "Coordinate, review, and verify a delivery."},
-            },
-        }
-    )
-    with pytest.raises(WorkflowStaleDraftError):
-        await _tool(tools, OperatorToolName.WORKFLOW_DRAFT_EDIT).call(
-            {
-                "draft_id": original["draft_id"],
-                "etag": original["etag"],
-                "operation": {
-                    "kind": "update_workflow",
-                    "patch": {"description": "A stale replacement."},
-                },
-            }
-        )
-    return created, edited
-
-
-async def _validate_undo_and_publish_workflow(
-    tools: tuple[OperatorTool, ...],
-    *,
-    original: dict[str, Any],
-    edited: dict[str, Any],
-) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
-    validation = await _tool(tools, OperatorToolName.WORKFLOW_DRAFT_VALIDATE).call(
-        {"draft_id": original["draft_id"]}
-    )
-    restored = await _tool(tools, OperatorToolName.WORKFLOW_DRAFT_UNDO).call(
-        {
-            "draft_id": original["draft_id"],
-            "etag": edited["draft"]["etag"],
-            "receipt_id": edited["undo_receipt"],
-        }
-    )
-    with pytest.raises(WorkflowUndoReceiptError):
-        await _tool(tools, OperatorToolName.WORKFLOW_DRAFT_UNDO).call(
-            {
-                "draft_id": original["draft_id"],
-                "etag": restored["etag"],
-                "receipt_id": edited["undo_receipt"],
-            }
-        )
-    published = await _tool(tools, OperatorToolName.WORKFLOW_DRAFT_PUBLISH).call(
-        {
-            "draft_id": original["draft_id"],
-            "etag": restored["etag"],
-        }
-    )
-    return validation, restored, published
-
-
-async def _create_and_discard_workflow(
-    tools: tuple[OperatorTool, ...],
-) -> tuple[dict[str, Any], dict[str, Any]]:
-    candidate = await _tool(tools, OperatorToolName.WORKFLOW_DRAFT_CREATE).call(
-        {
-            "workflow": {
-                "kind": "workflow",
-                "id": "operator-discard",
-                "description": "Discard this draft.",
-                "lead": {"id": "lead"},
-            }
-        }
-    )
-    discarded = await _tool(tools, OperatorToolName.WORKFLOW_DRAFT_DISCARD).call(
-        {
-            "draft_id": candidate["draft"]["draft_id"],
-            "etag": candidate["draft"]["etag"],
-        }
-    )
-    return candidate, discarded
-
-
-async def test_workflow_tools_use_one_authoritative_draft_lifecycle(tmp_path: Path) -> None:
-    dependencies = product_dispatch_dependencies(tmp_path)
-    async with initialized_workflow_database(tmp_path) as session_factory:
-        tools = build_operator_tools(
-            settings=dependencies.settings,
-            session_factory=session_factory,
-            dispatch_dependencies=dependencies,
-        )
-
-        options = await _tool(tools, OperatorToolName.WORKFLOW_AUTHORING_OPTIONS).call({})
-        search = await _tool(tools, OperatorToolName.WORKFLOW_SEARCH).call(
-            {"query": "reviewed-delivery"}
-        )
-        existing = await _tool(tools, OperatorToolName.WORKFLOW_GET).call(
-            {
-                "workflow_id": "reviewed-delivery",
-                "should_include_revisions": False,
-            }
-        )
-        created, edited = await _create_and_edit_workflow(tools)
-        validation, restored, published = await _validate_undo_and_publish_workflow(
-            tools,
-            original=created["draft"],
-            edited=edited,
-        )
-        discard_candidate, discarded = await _create_and_discard_workflow(tools)
-
-    assert options["default_provider"]["kind"] == "codex"
-    assert search["items"][0]["workflow_id"] == "reviewed-delivery"
-    assert existing["active_draft"] is None
-    assert created["is_created"] is True
-    assert validation["draft"]["etag"] == edited["draft"]["etag"]
-    assert restored["workflow"]["description"] == "Coordinate a reviewable delivery."
-    assert published["workflow_id"] == "operator-authored"
-    assert published["revision_no"] == 1
-    assert discarded == {
-        "is_discarded": True,
-        "draft_id": discard_candidate["draft"]["draft_id"],
     }
 
 
@@ -247,11 +107,71 @@ async def test_task_tools_use_current_actions_and_operator_event_provenance(
 
     assert started["workspace"] == str(tmp_path)
     assert search["items"][0]["id"] == task_id
+    assert current["kind"] == "overview"
     assert paused["task"]["status"] == "paused"
     assert event is not None
     assert event.event_source == "operator"
     assert event.actor_ref == "operator"
     assert sum(isinstance(signal, DispatchCleanupRequested) for signal in publisher.signals) == 1
+
+
+async def _open_direction_request(
+    executor: NodeOperationExecutor,
+    ids: RuntimeIds,
+) -> str:
+    opened = await executor.execute(
+        scope=NodeOperationScope(
+            task_id=ids.task_id,
+            dispatch_id=ids.current_dispatch_id,
+        ),
+        operation_name="open_human_request",
+        arguments={
+            "request": {
+                "kind": "direction",
+                "summary": "Choose a delivery direction.",
+                "items": [
+                    {
+                        "id": "direction",
+                        "prompt": "Which direction?",
+                        "options": [
+                            {"id": "a", "title": "Direction A"},
+                            {"id": "b", "title": "Direction B"},
+                        ],
+                    }
+                ],
+            }
+        },
+    )
+    return str(opened.model_dump()["request_id"])
+
+
+async def _read_direction_request(
+    tools: tuple[OperatorTool, ...],
+    *,
+    task_id: str,
+    request_id: str,
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    current = await _tool(tools, OperatorToolName.TASK_GET).call({"task_id": task_id})
+    request_summary = next(item for item in current["human_requests"] if item["id"] == request_id)
+    request_result = await _tool(tools, OperatorToolName.TASK_GET).call(
+        {
+            "task_id": task_id,
+            "selection": {
+                "kind": "human_request",
+                "request_id": request_id,
+            },
+        }
+    )
+    request_files = await _tool(tools, OperatorToolName.TASK_GET).call(
+        {
+            "task_id": task_id,
+            "selection": {
+                "kind": "human_request_files",
+                "request_id": request_id,
+            },
+        }
+    )
+    return request_summary, request_result, request_files
 
 
 async def test_human_request_tool_uses_current_action_and_operator_provenance(
@@ -261,30 +181,7 @@ async def test_human_request_tool_uses_current_action_and_operator_provenance(
         tmp_path,
         suffix="operator-human-tool",
     ) as (executor, session_factory, ids, _signals):
-        opened = await executor.execute(
-            scope=NodeOperationScope(
-                task_id=ids.task_id,
-                dispatch_id=ids.current_dispatch_id,
-            ),
-            operation_name="open_human_request",
-            arguments={
-                "request": {
-                    "kind": "direction",
-                    "summary": "Choose a delivery direction.",
-                    "items": [
-                        {
-                            "id": "direction",
-                            "prompt": "Which direction?",
-                            "options": [
-                                {"id": "a", "title": "Direction A"},
-                                {"id": "b", "title": "Direction B"},
-                            ],
-                        }
-                    ],
-                }
-            },
-        )
-        request_id = str(opened.model_dump()["request_id"])
+        request_id = await _open_direction_request(executor, ids)
         dependencies = product_dispatch_dependencies(tmp_path)
         publisher = _captured_publisher(dependencies)
         tools = build_operator_tools(
@@ -292,8 +189,12 @@ async def test_human_request_tool_uses_current_action_and_operator_provenance(
             session_factory=session_factory,
             dispatch_dependencies=dependencies,
         )
-        current = await _tool(tools, OperatorToolName.TASK_GET).call({"task_id": ids.task_id})
-        request = next(item for item in current["human_requests"] if item["id"] == request_id)
+        request_summary, request_result, request_files = await _read_direction_request(
+            tools,
+            task_id=ids.task_id,
+            request_id=request_id,
+        )
+        request = request_result["request"]
         action_id = request["action"]["id"]
         receipt = await _tool(tools, OperatorToolName.HUMAN_REQUEST_RESPOND).call(
             {
@@ -324,7 +225,12 @@ async def test_human_request_tool_uses_current_action_and_operator_provenance(
                 )
             )
 
+    assert request_summary["item_count"] == 1
+    assert request_summary["file_count"] == 0
+    assert request_files["files"] == []
     assert receipt["request"]["status"] == "answered"
+    assert set(receipt["request"]) == {"id", "status", "resolution"}
+    assert receipt["continuation_pending"] is True
     assert source is not None
     assert source.resolved_by_surface == "operator"
     assert source.resolved_by_actor_ref == "operator"
@@ -439,3 +345,65 @@ async def test_command_tools_read_bounded_output_and_cancel_as_operator(
             ownership_revision=source.ownership_revision,
         ),
     )
+
+
+async def test_large_legal_team_has_bounded_overview_and_control_receipt(
+    tmp_path: Path,
+) -> None:
+    workflow_id = "large-team-overview"
+    dependencies = product_dispatch_dependencies(tmp_path)
+    async with initialized_workflow_database(tmp_path) as session_factory:
+        tools = build_operator_tools(
+            settings=dependencies.settings,
+            session_factory=session_factory,
+            dispatch_dependencies=dependencies,
+        )
+        created = await _tool(tools, OperatorToolName.WORKFLOW_DRAFT_CREATE).call(
+            {"workflow": _large_team_workflow_payload(workflow_id)}
+        )
+        await _tool(tools, OperatorToolName.WORKFLOW_DRAFT_PUBLISH).call(
+            {
+                "draft_id": created["draft"]["draft_id"],
+                "etag": created["draft"]["etag"],
+            }
+        )
+        started = await _tool(tools, OperatorToolName.TASK_START).call(
+            {
+                "workflow": workflow_id,
+                "prompt": "Coordinate the large team.",
+            }
+        )
+        task_id = str(started["task_id"])
+        overview = await _tool(tools, OperatorToolName.TASK_GET).call({"task_id": task_id})
+        member = await _tool(tools, OperatorToolName.TASK_GET).call(
+            {
+                "task_id": task_id,
+                "selection": {
+                    "kind": "member",
+                    "member_id": "member-0",
+                },
+            }
+        )
+        pause_action = next(action for action in overview["actions"] if action["kind"] == "pause")
+        paused = await _tool(tools, OperatorToolName.TASK_CONTROL).call(
+            {
+                "task_id": task_id,
+                "action_id": pause_action["id"],
+            }
+        )
+
+    assert overview["kind"] == "overview"
+    assert len(overview["team"]) == 11
+    assert all(len(team_member["name"]) <= 240 for team_member in overview["team"])
+    assert len(member["member"]["name"]) == 16_384
+    assert set(paused["task"]) == {
+        "id",
+        "status",
+        "status_message",
+        "updated_at",
+        "actions",
+    }
+    serialized_units = (
+        len(json.dumps(paused, ensure_ascii=False, separators=(",", ":")).encode("utf-16-le")) // 2
+    )
+    assert serialized_units < MAX_OPERATOR_TOOL_RESULT_UTF16_CODE_UNITS

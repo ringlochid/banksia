@@ -2,7 +2,7 @@
 
 Status: Target
 
-Decision record: accepted 2026-07-22; revised 2026-07-23.
+Decision record: accepted 2026-07-22; revised 2026-07-26.
 
 No work package closes from inspected code, prose, mocks, or a single happy path when its surface owns persistence, runtime authority, filesystem safety, provider behavior, or a public interface. Tests use real shipped paths at the strongest applicable boundary.
 
@@ -36,6 +36,7 @@ This table is the sole numeric owner of controller-only baseline safety bounds t
 | Operator user or assistant message | 64 KiB UTF-8 after newline normalization. |
 | Operator native `ask_user` result | Explanation 2,048 characters; header 64 characters; question 4,096 characters; option label 255 characters; option description 1,024 characters; complete serialized result 64 KiB UTF-8. |
 | Operator submitted question answer | 64 KiB serialized UTF-8, depth 16, and 1,024 collection nodes. |
+| Operator product-tool result | 327,680 UTF-16 code units after compact JSON serialization with non-ASCII characters unescaped. |
 | `FileReference` list | 32 entries per owning message. |
 | `FileReference.path` | 4,096 UTF-8 bytes after path normalization. |
 | `FileReference.description` | 1,024 characters. |
@@ -346,6 +347,11 @@ The required usability oracle is an independent no-doc evaluator that did not im
 - Operator operations call the shared product services directly. Explicit user text or a committed typed answer supplies intent; Workflow ETags, Undo receipts, current opaque legal-action IDs, strict schemas, and owning transactions own currentness and acceptance.
 - Operator tools cover every ordinary Workflow discovery/draft/team/publish, Run start/read/control, Human Request, managed Action, Result, referenced-file, and controller-returned legal-action service through the exact typed family that owns it, with no generic execute-anything operation or support/runtime/setup authority leakage.
 - Exact inventory proves seventeen Banksia operations, full-JSON `workflow_draft_create`, and no eighteenth import, `ask_user`, `operator_return`, `artifact_get`, `file_get`, host, support, setup, or generic-execute tool.
+- `workflow_get` has one closed source selector. Catalog reads return only metadata, exact published/draft source references, and bounded immutable history. Member reads require an exact published revision or exact draft ID/ETag and return one Member plus ordered direct-child IDs; an absent Member selector chooses the lead, and omitted versus explicit-empty `children` remains distinguishable.
+- Operator Workflow mutations return only compact draft references, accepted-change/Undo/validation facts, allocated root Member identity when adding a subtree, or the published revision receipt. No mutation result or stale-draft failure contains a complete Workflow body.
+- `task_get` defaults to a bounded overview with a flattened team and direct-child IDs, counts, truncation facts, excerpts, legal actions, and no loose file bodies. Closed selectors return one exact Member, Result, recent Activity item, Human Request, or Human Request file set from the named Task; legal maximum team prose no longer makes the overview unreadable.
+- Operator Task control and Human Request response return compact post-commit state receipts. Shared HTTP response contracts remain unchanged, and exact follow-up content comes from a new explicit `task_get` read rather than replaying the mutation.
+- Every Operator leaf result is compact-serialized once and checked against the controller-owned UTF-16 bound above before crossing a provider boundary. Oversize reads fail closed without the body; a post-commit failure is never replayed, and mutation receipts remain statically bounded below the guard.
 - Claude native structured output and Codex 0.144.4 `outputSchema` plus `dynamicTools` both satisfy the same typed result and same-thread contract. Any inert Codex `update_plan` has no host or Banksia authority; proof does not claim a literal global seventeen-tool ceiling.
 - Provider/tool/controller failure creates one bounded visible interruption, clears only the matching active turn, and refetches owning product truth when known. Restart and duplicate client submission never replay provider work or an uncertain mutation.
 - The shipped Operator prompt is byte-identical to the appendix and teaches authoritative readback, missing-choice questions, explicit intent, accepted-result claims, uncertain-effect nonreplay, one typed result, and hidden-internal omission.

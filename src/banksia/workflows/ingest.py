@@ -52,6 +52,28 @@ def parse_workflow(
 
 def normalize_workflow_object(payload: object) -> NormalizedWorkflow:
     _validate_json_shape(payload)
+    return _normalize_validated_workflow_object(payload)
+
+
+def normalize_bounded_workflow_object(payload: object) -> NormalizedWorkflow:
+    """Normalize a structured Workflow after enforcing the authored-input byte bound."""
+
+    _validate_json_shape(payload)
+    _validate_serialized_input_size(payload)
+    return _normalize_validated_workflow_object(payload)
+
+
+def normalize_optional_member_prose(value: str | None) -> str | None:
+    """Apply the shared Workflow Member text guardrails to one optional value."""
+
+    if value is None:
+        return None
+    _validate_text(value, path="$")
+    normalized = value.replace("\r\n", "\n").replace("\r", "\n")
+    return normalized if normalized.strip() else None
+
+
+def _normalize_validated_workflow_object(payload: object) -> NormalizedWorkflow:
     if not isinstance(payload, Mapping):
         raise workflow_input_error(
             source="schema.root",
@@ -65,16 +87,6 @@ def normalize_workflow_object(payload: object) -> NormalizedWorkflow:
         raise WorkflowInputError(*_pydantic_issues(exc)) from exc
     _validate_workflow_semantics(workflow)
     return workflow
-
-
-def normalize_optional_member_prose(value: str | None) -> str | None:
-    """Apply the shared Workflow Member text guardrails to one optional value."""
-
-    if value is None:
-        return None
-    _validate_text(value, path="$")
-    normalized = value.replace("\r\n", "\n").replace("\r", "\n")
-    return normalized if normalized.strip() else None
 
 
 def _decode_bounded_input(raw: bytes | str) -> str:
@@ -100,6 +112,20 @@ def _decode_bounded_input(raw: bytes | str) -> str:
             path="$",
             message="Workflow input must be valid UTF-8",
         ) from exc
+
+
+def _validate_serialized_input_size(payload: object) -> None:
+    encoded = json.dumps(
+        payload,
+        ensure_ascii=False,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    if len(encoded) > MAX_RAW_BYTES:
+        raise workflow_input_error(
+            source="input.size",
+            path="$",
+            message=f"Workflow input exceeds {MAX_RAW_BYTES} bytes",
+        )
 
 
 def _parse_json(text: str) -> object:
@@ -475,6 +501,7 @@ __all__ = [
     "MAX_MEMBERS",
     "MAX_MEMBER_DEPTH",
     "MAX_RAW_BYTES",
+    "normalize_bounded_workflow_object",
     "normalize_optional_member_prose",
     "normalize_workflow_object",
     "parse_workflow",

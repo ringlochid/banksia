@@ -24,13 +24,14 @@ from banksia.workflows.catalog import (
     read_workflow_detail_snapshot,
     search_workflows,
 )
-from banksia.workflows.contracts import NormalizedWorkflow, ProviderSandbox
+from banksia.workflows.contracts import ProviderSandbox
 from banksia.workflows.cursors import (
     decode_workflow_revision_cursor,
     decode_workflow_search_cursor,
     encode_workflow_revision_cursor,
     encode_workflow_search_cursor,
 )
+from banksia.workflows.integrity import read_persisted_workflow
 from banksia.workflows.service_errors import WorkflowNotFoundError
 
 
@@ -86,14 +87,14 @@ async def search_workflow_catalog(
             WorkflowSearchItem(
                 workflow_id=item.workflow_id,
                 description=item.description,
-                state=_library_state(
+                state=derive_workflow_library_state(
                     has_active_draft=item.has_active_draft,
                     has_published_workflow=item.published_revision_no is not None,
                 ),
                 updated_at=item.updated_at,
                 provenance=item.provenance,
                 published_revision_no=item.published_revision_no,
-                available_actions=_library_actions(
+                available_actions=derive_workflow_library_actions(
                     has_published_workflow=item.published_revision_no is not None
                 ),
             )
@@ -150,14 +151,16 @@ async def read_workflow_catalog_entry(
     return WorkflowGetResponse(
         workflow_id=workflow_id,
         description=summary.description,
-        state=_library_state(
+        state=derive_workflow_library_state(
             has_active_draft=summary.has_active_draft,
             has_published_workflow=has_published_workflow,
         ),
         updated_at=summary.updated_at,
         provenance=summary.provenance,
         published_revision_no=summary.published_revision_no,
-        available_actions=_library_actions(has_published_workflow=has_published_workflow),
+        available_actions=derive_workflow_library_actions(
+            has_published_workflow=has_published_workflow
+        ),
         published=(map_workflow_published_readback(published) if published is not None else None),
         revisions=tuple(map_workflow_revision_readback(item) for item in revision_page.items)
         if revision_page is not None
@@ -191,11 +194,15 @@ def map_workflow_draft_readback(row: WorkflowDraftModel) -> WorkflowDraftReadbac
         workflow_id=row.workflow_key,
         base_revision_no=row.base_revision_no,
         etag=row.etag,
-        workflow=NormalizedWorkflow.model_validate(row.content_json),
+        workflow=read_persisted_workflow(
+            row.content_json,
+            expected_workflow_id=row.workflow_key,
+            source="Workflow draft",
+        ),
     )
 
 
-def _library_state(
+def derive_workflow_library_state(
     *,
     has_active_draft: bool,
     has_published_workflow: bool,
@@ -209,7 +216,7 @@ def _library_state(
     raise RuntimeError("Workflow library entry has no controller truth")
 
 
-def _library_actions(
+def derive_workflow_library_actions(
     *,
     has_published_workflow: bool,
 ) -> tuple[WorkflowLibraryAction, ...]:
@@ -223,6 +230,8 @@ def _library_actions(
 
 __all__ = [
     "build_workflow_authoring_options",
+    "derive_workflow_library_actions",
+    "derive_workflow_library_state",
     "map_workflow_draft_readback",
     "read_workflow_catalog_entry",
     "read_workflow_draft",

@@ -7,6 +7,10 @@ class WorkflowServiceError(ValueError):
     pass
 
 
+class WorkflowIntegrityError(WorkflowServiceError):
+    pass
+
+
 class WorkflowNotFoundError(WorkflowServiceError):
     pass
 
@@ -31,6 +35,7 @@ class WorkflowUndoReceiptError(WorkflowServiceError):
 
 __all__ = [
     "WorkflowDraftConflictError",
+    "WorkflowIntegrityError",
     "WorkflowNotFoundError",
     "WorkflowPreconditionRequiredError",
     "WorkflowServiceError",

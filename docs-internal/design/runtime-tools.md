@@ -2,7 +2,7 @@
 
 Status: Target
 
-Decision record: accepted 2026-07-22; revised 2026-07-23.
+Decision record: accepted 2026-07-22; revised 2026-07-26.
 
 ## Boundary
 
@@ -314,12 +314,16 @@ command_run_cancel
 
 `workflow_draft_create` accepts one complete structured JSON Workflow candidate and creates or opens its mutable draft through the existing normalization and authoring services. YAML remains a CLI/text-editor input format; Operator has no separate import tool. `workflow_draft_undo` accepts only an opaque, controller-issued, single-use receipt bound to the exact draft and accepted ETag; neither Operator nor the browser computes an inverse mutation. `workflow_draft_discard` removes only a mutable draft. Published Workflow revisions are immutable and have no delete tool in this baseline.
 
+`workflow_get` is source-pinned and never returns an authored Workflow tree. Its catalog selector returns only metadata, exact current published/draft source references, and bounded immutable history. Its published-revision and exact-draft/ETag selectors return one Member plus ordered direct-child IDs; omission selects the lead, so a model traverses a tree through bounded repeated calls against one unchanged source. Draft mutations expose only compact current-source and accepted-change, validation, Undo, discard, or publication receipts. Exact shapes and stale behavior are owned by the [Operator conversation contract](appendices/operator-conversation-contract.md#workflow-projections-and-receipts).
+
+`task_get` defaults to one compact current overview and uses a closed selector for one exact Member, Result, recent Activity item, Human Request, or that Human Request's loose file references. It never returns the complete recursive `TaskView` across the provider boundary. `task_control` and `human_request_respond` return compact accepted-state receipts after calling their shared product services. Exact shapes are owned by the [Operator conversation contract](appendices/operator-conversation-contract.md#run-projections-and-receipts).
+
 Current runtime-oriented Operator tools change as follows:
 
 | Current Operator tool | Target disposition |
 | --- | --- |
 | `search_definitions` | Replace with Workflow-only `workflow_search`; remove Role/Policy/generic-kind input. |
-| `get_definition` | Replace with `workflow_get`, which reads the current/published Workflow, bounded revision history, and active mutable draft plus ETag when one exists. |
+| `get_definition` | Replace with source-pinned `workflow_get`: catalog metadata and bounded source references, or one Member from an exact published revision or exact draft/ETag. It never returns a complete Workflow tree. |
 | `list_definition_versions` | Fold bounded immutable Workflow history into `workflow_get`. |
 | `upload_definition(path)` | Delete. Use structured-JSON `workflow_draft_create`; validate and publish through separate operations. |
 | `start_task(task_compose_path)` | Replace with structured `task_start(TaskStartRequest)`. |
@@ -340,11 +344,13 @@ There is no `artifact_get` or generic `file_get`. `task_get` returns loose `File
 
 The complete Operator catalog has seventeen operations after this removal: three Workflow reads, six draft actions, four Task actions, one Human Request action, and three Command Run actions.
 
-Every Operator operation is a direct typed leaf call to its existing product service. Claude and Codex adapters may expose the executor directly or through an invocation-local private in-process MCP projection. No projection is public, static, authorable, or external-MCP configuration.
+Every Operator operation is a direct typed leaf call to its existing product service. Provider-facing projections may remove complete aggregates and retain only source-pinned bounded product facts or compact mutation receipts; they do not create another authority or service path. Claude and Codex adapters may expose the executor directly or through an invocation-local private in-process MCP projection. No projection is public, static, authorable, or external-MCP configuration.
 
 Claude uses native structured output. Codex 0.144.4 uses `outputSchema` and `dynamicTools`; its inert provider-native `update_plan` may remain visible but has no Banksia or host authority. The exact claim is seventeen Banksia product operations, not a literal global model-visible tool count.
 
 Explicit user text or a committed typed answer supplies intent for the action it clearly requests. ETags, controller-issued Undo receipts, current opaque legal-action IDs, strict product schemas, and owning service transactions own currentness and acceptance. Model-visible schemas contain no `confirmed`, proposal, effect, replay, or generic execute field.
+
+Every leaf result passes the provider-neutral size guard owned by [Verification gates](verification-gates.md#hidden-controller-validation-guardrails). The guard compact-serializes once with non-ASCII characters unescaped, counts UTF-16 code units, fails closed above the bound, and never replays the leaf. Operator-private Workflow and Run projections plus compact mutation receipts keep legal results below that boundary; any post-commit boundary failure remains an uncertain effect and is not retried automatically.
 
 ## Explicitly absent tools
 

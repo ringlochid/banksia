@@ -14,8 +14,19 @@ from banksia.operator.tools.contracts import (
     OperatorToolName,
     TaskControlInput,
     TaskGetInput,
+    TaskHumanRequestFilesSelection,
+    TaskHumanRequestSelection,
     TaskSearchInput,
     bind_operator_tool,
+)
+from banksia.operator.tools.task_projection import (
+    OperatorHumanRequestResponseReceipt,
+    OperatorTaskControlReceipt,
+    OperatorTaskGetResult,
+    build_operator_human_request_result,
+    build_operator_task_result,
+    map_operator_human_request_response_receipt,
+    map_operator_task_control_receipt,
 )
 from banksia.runtime.contracts.primitives import (
     HumanRequestResolutionSurface,
@@ -29,13 +40,10 @@ from banksia.runtime.contracts.task import (
     CommandRunView,
     HumanRequestAnswerInput,
     HumanRequestCancelInput,
-    HumanRequestResponseReceipt,
     HumanRequestResponseRequest,
-    TaskControlReceipt,
     TaskControlRequest,
     TaskSearchResponse,
     TaskStartReceipt,
-    TaskView,
 )
 from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
 from banksia.runtime.product.command_runs import (
@@ -43,7 +51,10 @@ from banksia.runtime.product.command_runs import (
     read_product_command_output,
     read_product_command_run,
 )
-from banksia.runtime.product.human_requests import respond_to_product_human_request
+from banksia.runtime.product.human_requests import (
+    read_product_human_request,
+    respond_to_product_human_request,
+)
 from banksia.runtime.product.tasks import (
     control_product_task,
     read_product_task,
@@ -70,9 +81,27 @@ class _RuntimeOperatorLeaves:
                 limit=request.limit,
             )
 
-    async def task_get(self, request: TaskGetInput) -> TaskView:
+    async def task_get(self, request: TaskGetInput) -> OperatorTaskGetResult:
         async with self.session_factory() as session:
-            return await read_product_task(session, request.task_id)
+            if isinstance(
+                request.selection,
+                (TaskHumanRequestSelection, TaskHumanRequestFilesSelection),
+            ):
+                human_request = await read_product_human_request(
+                    session,
+                    task_id=request.task_id,
+                    request_id=request.selection.request_id,
+                )
+                return build_operator_human_request_result(
+                    human_request,
+                    task_id=request.task_id,
+                    should_include_files=isinstance(
+                        request.selection,
+                        TaskHumanRequestFilesSelection,
+                    ),
+                )
+            task = await read_product_task(session, request.task_id)
+            return build_operator_task_result(task, selection=request.selection)
 
     async def task_start(self, request: TaskStartRequest) -> TaskStartReceipt:
         async with self.session_factory() as session:
@@ -83,9 +112,9 @@ class _RuntimeOperatorLeaves:
                 default_workspace=self.settings.controller_workspace,
             )
 
-    async def task_control(self, request: TaskControlInput) -> TaskControlReceipt:
+    async def task_control(self, request: TaskControlInput) -> OperatorTaskControlReceipt:
         async with self.session_factory() as session:
-            return await control_product_task(
+            receipt = await control_product_task(
                 session,
                 task_id=request.task_id,
                 action_id=request.action_id,
@@ -95,11 +124,12 @@ class _RuntimeOperatorLeaves:
                 event_source=TaskEventSource.OPERATOR,
                 runtime_effect_publisher=self.dispatch_dependencies.post_commit_publisher,
             )
+        return map_operator_task_control_receipt(receipt)
 
     async def human_request_respond(
         self,
         request: HumanRequestRespondInput,
-    ) -> HumanRequestResponseReceipt:
+    ) -> OperatorHumanRequestResponseReceipt:
         product_input: HumanRequestAnswerInput | HumanRequestCancelInput
         if isinstance(request.input, OperatorHumanRequestCancelInput):
             product_input = HumanRequestCancelInput(
@@ -109,7 +139,7 @@ class _RuntimeOperatorLeaves:
         else:
             product_input = request.input
         async with self.session_factory() as session:
-            return await respond_to_product_human_request(
+            receipt = await respond_to_product_human_request(
                 session,
                 task_id=request.task_id,
                 request_id=request.request_id,
@@ -121,6 +151,7 @@ class _RuntimeOperatorLeaves:
                 resolved_by_surface=HumanRequestResolutionSurface.OPERATOR,
                 runtime_effect_publisher=self.dispatch_dependencies.post_commit_publisher,
             )
+        return map_operator_human_request_response_receipt(receipt)
 
     async def command_run_get(self, request: CommandRunGetInput) -> CommandRunView:
         async with self.session_factory() as session:
@@ -195,8 +226,8 @@ def _build_task_tools(
         bind_operator_tool(
             name=OperatorToolName.TASK_GET,
             description=(
-                "Read one current Run with its team, Work Plan, attention, recent activity, "
-                "result, loose file references, and currently legal actions."
+                "Read one current Run through a bounded overview or one exact team Member, "
+                "Result, recent Activity item, Human Request, or Human Request file set."
             ),
             input_model=TaskGetInput,
             handler=leaves.task_get,
@@ -214,7 +245,7 @@ def _build_task_tools(
             name=OperatorToolName.TASK_CONTROL,
             description=(
                 "Apply one current pause, resume, or cancel action using the opaque action "
-                "ID returned by task_get."
+                "ID returned by task_get. Returns a compact current-state receipt."
             ),
             input_model=TaskControlInput,
             handler=leaves.task_control,

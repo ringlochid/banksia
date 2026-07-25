@@ -1,24 +1,26 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Annotated, Any, Literal, TypeVar
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from banksia.runtime.contracts.common import RuntimeSchemaText
 from banksia.runtime.contracts.human_requests import HumanRequestItemAnswer
 from banksia.runtime.contracts.primitives import TaskIdentifier
 from banksia.runtime.contracts.task import HumanRequestAnswerInput
 from banksia.workflows.contracts import Identifier, NormalizedWorkflow
-from banksia.workflows.ingest import normalize_workflow_object
+from banksia.workflows.ingest import normalize_bounded_workflow_object
 from banksia.workflows.operations import DraftOperation
 
 RequestT = TypeVar("RequestT", bound=BaseModel)
 ResultT = TypeVar("ResultT", bound=BaseModel)
 OperatorToolHandler = Callable[[BaseModel], Awaitable[BaseModel]]
 type OperatorToolResult = dict[str, Any]
+MAX_OPERATOR_TOOL_RESULT_UTF16_CODE_UNITS = 327_680
 type TaskSearchStatus = Literal[
     "any",
     "starting",
@@ -29,6 +31,14 @@ type TaskSearchStatus = Literal[
     "blocked",
     "cancelled",
 ]
+
+
+class OperatorToolResultTooLargeError(ValueError):
+    """Raised after a leaf returns a result too large for a provider boundary."""
+
+    def __init__(self, tool_name: OperatorToolName) -> None:
+        self.tool_name = tool_name
+        super().__init__("Operator tool result exceeds the controller size limit")
 
 
 class OperatorToolName(StrEnum):
@@ -70,7 +80,16 @@ class OperatorTool:
     async def call(self, arguments: object) -> OperatorToolResult:
         request = self.input_model.model_validate(arguments)
         result = await self.handler(request)
-        return result.model_dump(mode="json", by_alias=True)
+        result_payload = result.model_dump(mode="json", by_alias=True)
+        compact_result = json.dumps(
+            result_payload,
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
+        utf16_code_units = len(compact_result.encode("utf-16-le")) // 2
+        if utf16_code_units > MAX_OPERATOR_TOOL_RESULT_UTF16_CODE_UNITS:
+            raise OperatorToolResultTooLargeError(self.name)
+        return result_payload
 
 
 class OperatorToolInput(BaseModel):
@@ -87,12 +106,41 @@ class WorkflowSearchInput(OperatorToolInput):
     limit: Annotated[int, Field(ge=1, le=100)] = 50
 
 
-class WorkflowGetInput(OperatorToolInput):
-    workflow_id: Identifier
-    revision_no: Annotated[int, Field(ge=1)] | None = None
+class WorkflowCatalogSelection(OperatorToolInput):
+    kind: Literal["catalog"]
     should_include_revisions: bool = True
     revision_cursor: str | None = None
     revision_limit: Annotated[int, Field(ge=1, le=100)] = 20
+
+    @model_validator(mode="after")
+    def require_revision_history_for_cursor(self) -> WorkflowCatalogSelection:
+        if not self.should_include_revisions and self.revision_cursor is not None:
+            raise ValueError("A revision cursor requires revision history")
+        return self
+
+
+class WorkflowPublishedSelection(OperatorToolInput):
+    kind: Literal["published"]
+    revision_no: Annotated[int, Field(ge=1)]
+    member_id: Identifier | None = None
+
+
+class WorkflowDraftSelection(OperatorToolInput):
+    kind: Literal["draft"]
+    draft_id: RuntimeSchemaText
+    etag: RuntimeSchemaText
+    member_id: Identifier | None = None
+
+
+type WorkflowGetSelection = Annotated[
+    WorkflowCatalogSelection | WorkflowPublishedSelection | WorkflowDraftSelection,
+    Field(discriminator="kind"),
+]
+
+
+class WorkflowGetInput(OperatorToolInput):
+    workflow_id: Identifier
+    selection: WorkflowGetSelection
 
 
 class WorkflowDraftCreateInput(OperatorToolInput):
@@ -102,7 +150,7 @@ class WorkflowDraftCreateInput(OperatorToolInput):
     @field_validator("workflow", mode="before")
     @classmethod
     def normalize_complete_workflow(cls, value: object) -> NormalizedWorkflow:
-        return normalize_workflow_object(value)
+        return normalize_bounded_workflow_object(value)
 
 
 class WorkflowDraftEditInput(OperatorToolInput):
@@ -133,8 +181,48 @@ class TaskSearchInput(OperatorToolInput):
     limit: Annotated[int, Field(ge=1, le=100)] = 50
 
 
+class TaskOverviewSelection(OperatorToolInput):
+    kind: Literal["overview"] = "overview"
+
+
+class TaskMemberSelection(OperatorToolInput):
+    kind: Literal["member"]
+    member_id: RuntimeSchemaText
+
+
+class TaskResultSelection(OperatorToolInput):
+    kind: Literal["result"]
+
+
+class TaskActivitySelection(OperatorToolInput):
+    kind: Literal["activity"]
+    activity_id: RuntimeSchemaText
+
+
+class TaskHumanRequestSelection(OperatorToolInput):
+    kind: Literal["human_request"]
+    request_id: RuntimeSchemaText
+
+
+class TaskHumanRequestFilesSelection(OperatorToolInput):
+    kind: Literal["human_request_files"]
+    request_id: RuntimeSchemaText
+
+
+type TaskGetSelection = Annotated[
+    TaskOverviewSelection
+    | TaskMemberSelection
+    | TaskResultSelection
+    | TaskActivitySelection
+    | TaskHumanRequestSelection
+    | TaskHumanRequestFilesSelection,
+    Field(discriminator="kind"),
+]
+
+
 class TaskGetInput(OperatorToolInput):
     task_id: TaskIdentifier
+    selection: TaskGetSelection = Field(default_factory=TaskOverviewSelection)
 
 
 class TaskControlInput(OperatorToolInput):
@@ -206,6 +294,7 @@ def bind_operator_tool(
 
 
 __all__ = [
+    "MAX_OPERATOR_TOOL_RESULT_UTF16_CODE_UNITS",
     "CommandRunCancelInput",
     "CommandRunGetInput",
     "CommandRunOutputReadInput",
@@ -217,16 +306,28 @@ __all__ = [
     "OperatorToolInput",
     "OperatorToolName",
     "OperatorToolResult",
+    "OperatorToolResultTooLargeError",
+    "TaskActivitySelection",
     "TaskControlInput",
     "TaskGetInput",
+    "TaskGetSelection",
+    "TaskHumanRequestFilesSelection",
+    "TaskHumanRequestSelection",
+    "TaskMemberSelection",
+    "TaskOverviewSelection",
+    "TaskResultSelection",
     "TaskSearchInput",
     "TaskSearchStatus",
+    "WorkflowCatalogSelection",
     "WorkflowDraftCreateInput",
     "WorkflowDraftEditInput",
     "WorkflowDraftMutationInput",
+    "WorkflowDraftSelection",
     "WorkflowDraftUndoInput",
     "WorkflowDraftValidateInput",
     "WorkflowGetInput",
+    "WorkflowGetSelection",
+    "WorkflowPublishedSelection",
     "WorkflowSearchInput",
     "bind_operator_tool",
 ]

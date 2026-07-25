@@ -2,7 +2,7 @@
 
 Status: Target
 
-Decision record: accepted 2026-07-22; revised 2026-07-24.
+Decision record: accepted 2026-07-22; revised 2026-07-26.
 
 ## Product language and audience boundary
 
@@ -111,7 +111,7 @@ Support responses may contain technical controller fields, but never credentials
 
 ### Service and Operator parity
 
-HTTP handlers and Operator tools are thin projections over one closed domain-operation catalog. The exact seventeen Operator operations map to the product matrix as shown above. HTTP-only reads are draft reload, Activity page/stream, and one Human Request read. Operator `workflow_get` absorbs draft read and bounded revision history; `task_get` absorbs Activity, Human Request, Command summary, Result, legal-action, and owning-message file-reference readback. Support operations have no Operator projection.
+HTTP handlers and Operator tools are thin projections over one closed domain-operation catalog. They may expose different bounded response shapes over the same owning service: an Operator-private projection does not create a second product operation or change the HTTP response contract. The exact seventeen Operator operations map to the product matrix as shown above. HTTP-only reads are draft reload and Activity page/stream. Operator `workflow_get` absorbs draft read and bounded revision history through source-pinned catalog/member projections. Operator `task_get` defaults to a compact current overview and selects one exact Member, Result, recent Activity item, Human Request, or Human Request file set when detail is needed; these facets absorb Human Request read, Command summary, legal-action, Result, and owning-message file-reference readback without returning a potentially oversized recursive `TaskView`. `task_control` and `human_request_respond` return compact accepted-state receipts after their shared service commits. Support operations have no Operator projection.
 
 ## Nontechnical product contract
 
@@ -384,7 +384,7 @@ The Operator catalog must cover every ordinary product operation a user can perf
 
 | Family | Required effects |
 | --- | --- |
-| Workflow discovery | List/search Workflows; read current/published Workflow and revision history; read the active mutable draft and ETag when one exists. |
+| Workflow discovery | List/search Workflows; read catalog metadata and bounded immutable source references; traverse one exact published revision or exact draft/ETag one Member at a time through ordered direct-child IDs. |
 | Draft lifecycle | Create, read, update metadata/note, discard, validate, and explicitly publish a draft. |
 | Team editing | Add, update, or remove a Member/subtree, including prose, provider, and built-in capability settings. |
 | Run lifecycle | Start from one published Workflow; list/read Runs; pause, resume, or cancel when legal. |
@@ -415,7 +415,9 @@ command_run_output_read
 command_run_cancel
 ```
 
-`workflow_draft_create` accepts one complete structured JSON Workflow candidate and uses the existing normalization and authoring services to create or open its mutable draft. There is no separate import operation. `task_get` returns bounded current attention, Result, Activity, Command Run summaries, and exact source file references embedded with their owning semantic messages. There is no `artifact_get`, `file_get`, generic file reader, or file CRUD/catalog family. Operator receives no support/audit export, raw runtime record, provider credential/setup, host filesystem, or external-MCP administration tool.
+`workflow_get` has no unpinned-current or full-tree form. Its required closed selector chooses catalog metadata, one exact published revision, or one exact draft ID/ETag; a Member selector is optional and otherwise selects the lead. One Member result carries only ordered direct-child IDs and preserves omitted versus explicit-empty `children`, so further traversal repeats the same bounded call against the same source. Workflow mutations return compact source/accepted-change/Undo/validation/discard/publication receipts, and a stale failure exposes no Workflow body. The exact shapes and provider-result size guard are owned by the [Operator conversation contract](appendices/operator-conversation-contract.md#workflow-projections-and-receipts) and [Verification gates](verification-gates.md#hidden-controller-validation-guardrails).
+
+`workflow_draft_create` accepts one complete structured JSON Workflow candidate and uses the existing normalization and authoring services to create or open its mutable draft. There is no separate import operation. `task_get` defaults to the bounded current overview and uses the exact detail selectors in the Operator conversation contract for owning-message content and loose file references. There is no `artifact_get`, `file_get`, generic file reader, or file CRUD/catalog family. Operator receives no support/audit export, raw runtime record, provider credential/setup, host filesystem, or external-MCP administration tool.
 
 ### Durable conversation
 

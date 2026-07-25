@@ -33,6 +33,10 @@ from banksia.workflows.contracts import (
     WorkflowProvenance,
 )
 from banksia.workflows.ingest import normalize_workflow_object
+from banksia.workflows.integrity import (
+    read_persisted_workflow,
+    validate_persisted_workflow_identity,
+)
 from banksia.workflows.library import (
     build_workflow_authoring_options,
     map_workflow_draft_readback,
@@ -116,7 +120,11 @@ async def edit_workflow_draft(
     operation: DraftOperation,
 ) -> WorkflowDraftMutationResult:
     row = await _current_draft_row(session, draft_id=draft_id, expected_etag=expected_etag)
-    current_workflow = NormalizedWorkflow.model_validate(row.content_json)
+    current_workflow = read_persisted_workflow(
+        row.content_json,
+        expected_workflow_id=row.workflow_key,
+        source="Workflow draft",
+    )
     next_member_sequence = row.next_member_sequence
 
     def allocate_member_id() -> str:
@@ -170,6 +178,11 @@ async def undo_workflow_draft(
         raise WorkflowUndoReceiptError("Undo receipt is missing or has already been used")
     if receipt.expected_etag != row.etag:
         raise WorkflowStaleDraftError(map_workflow_draft_readback(row))
+    read_persisted_workflow(
+        receipt.previous_content_json,
+        expected_workflow_id=row.workflow_key,
+        source="Workflow undo receipt",
+    )
     new_etag = _etag()
     consumed = await session.execute(
         update(WorkflowUndoReceiptModel)
@@ -242,7 +255,12 @@ async def publish_workflow_draft(
     expected_etag: str,
 ) -> PublishedWorkflowRevision:
     row = await _current_draft_row(session, draft_id=draft_id, expected_etag=expected_etag)
-    workflow = normalize_workflow_object(row.content_json)
+    workflow = read_persisted_workflow(
+        row.content_json,
+        expected_workflow_id=row.workflow_key,
+        source="Workflow draft",
+    )
+    workflow = normalize_workflow_object(workflow.model_dump(mode="json", exclude_none=True))
     await _delete_draft_with_etag(
         session,
         row=row,
@@ -264,6 +282,16 @@ async def _replace_draft_content(
     workflow: NormalizedWorkflow,
     next_member_sequence: int | None = None,
 ) -> str:
+    validate_persisted_workflow_identity(
+        workflow.id,
+        expected_workflow_id=row.workflow_key,
+        source="replacement Workflow draft",
+    )
+    read_persisted_workflow(
+        row.content_json,
+        expected_workflow_id=row.workflow_key,
+        source="Workflow draft",
+    )
     previous_etag = row.etag
     previous_content_hash = row.content_hash
     previous_content_json = row.content_json
@@ -457,6 +485,12 @@ async def _draft_row_for_update(
     row = await session.scalar(
         select(WorkflowDraftModel).where(WorkflowDraftModel.draft_id == draft_id).with_for_update()
     )
+    if row is not None:
+        read_persisted_workflow(
+            row.content_json,
+            expected_workflow_id=row.workflow_key,
+            source="Workflow draft",
+        )
     return row
 
 
@@ -469,7 +503,7 @@ async def _active_draft_row_for_update(
         session,
         where_clause=WorkflowDraftModel.workflow_key == workflow_id,
     )
-    return cast(
+    row = cast(
         WorkflowDraftModel | None,
         await session.scalar(
             select(WorkflowDraftModel)
@@ -477,6 +511,13 @@ async def _active_draft_row_for_update(
             .with_for_update()
         ),
     )
+    if row is not None:
+        read_persisted_workflow(
+            row.content_json,
+            expected_workflow_id=row.workflow_key,
+            source="Workflow draft",
+        )
+    return row
 
 
 async def _lock_sqlite_draft_rows(

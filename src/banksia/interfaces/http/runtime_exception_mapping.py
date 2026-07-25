@@ -14,6 +14,7 @@ from banksia.runtime.task_events import TaskEventCursorResetRequiredError
 from banksia.workflows.errors import WorkflowInputError
 from banksia.workflows.service_errors import (
     WorkflowDraftConflictError,
+    WorkflowIntegrityError,
     WorkflowNotFoundError,
     WorkflowPreconditionRequiredError,
     WorkflowStaleDraftError,
@@ -170,6 +171,14 @@ def _mapped_runtime_failure(exc: RuntimeOperationError) -> tuple[int, OperationF
 
 
 def _workflow_exception_failure(exc: Exception) -> tuple[int, OperationFailure] | None:
+    if isinstance(exc, WorkflowIntegrityError):
+        return _runtime_failure(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            code=ProductFailureCode.INTERNAL_ERROR,
+            summary="Stored Workflow truth failed its integrity check.",
+            is_retryable=False,
+            suggested_next_step="Use the support reference before retrying this action.",
+        )
     if isinstance(exc, WorkflowNotFoundError):
         return _runtime_failure(
             status_code=status.HTTP_404_NOT_FOUND,

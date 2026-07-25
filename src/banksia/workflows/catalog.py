@@ -18,11 +18,14 @@ from banksia.persistence.models import (
 )
 from banksia.workflows.authoring_contracts import WorkflowDraftReadback
 from banksia.workflows.contracts import (
-    NormalizedWorkflow,
     PublishedWorkflowRevision,
     WorkflowProvenance,
     WorkflowRevisionSummary,
     WorkflowSummary,
+)
+from banksia.workflows.integrity import (
+    read_persisted_workflow,
+    validate_persisted_workflow_identity,
 )
 from banksia.workflows.service_errors import WorkflowNotFoundError
 
@@ -35,6 +38,21 @@ class WorkflowSummaryPage(NamedTuple):
 class WorkflowRevisionSummaryPage(NamedTuple):
     items: tuple[WorkflowRevisionSummary, ...]
     next_revision_no: int | None
+
+
+@dataclass(frozen=True, slots=True)
+class WorkflowDraftSnapshot:
+    workflow_id: str
+    draft_id: str
+    base_revision_no: int | None
+    etag: str
+
+
+@dataclass(frozen=True, slots=True)
+class WorkflowCatalogSnapshot:
+    summary: WorkflowSummary
+    active_draft: WorkflowDraftSnapshot | None
+    maximum_revision_no: int | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,6 +117,11 @@ async def read_current_workflow_provenance(
     )
     if row is None or row.provenance is None:
         raise WorkflowNotFoundError(f"published Workflow {workflow_id!r} does not exist")
+    read_persisted_workflow(
+        row.content_json,
+        expected_workflow_id=row.workflow_key,
+        source="published Workflow",
+    )
     return WorkflowProvenance(row.provenance)
 
 
@@ -159,6 +182,27 @@ async def read_workflow_detail_snapshot(
     return snapshot
 
 
+async def read_workflow_catalog_snapshot(
+    session: AsyncSession,
+    *,
+    workflow_id: str,
+) -> WorkflowCatalogSnapshot:
+    row = (
+        (
+            await session.execute(
+                _workflow_catalog_query(
+                    workflow_id=workflow_id,
+                )
+            )
+        )
+        .mappings()
+        .one_or_none()
+    )
+    if row is None:
+        raise WorkflowNotFoundError(f"Workflow {workflow_id!r} does not exist")
+    return _workflow_catalog_snapshot(row)
+
+
 async def list_workflow_revisions(
     session: AsyncSession,
     *,
@@ -169,40 +213,53 @@ async def list_workflow_revisions(
 ) -> WorkflowRevisionSummaryPage:
     if not 1 <= limit <= 100:
         raise ValueError("Workflow revision limit must be between 1 and 100")
-    statement = _target_revision_query().where(WorkflowRevisionModel.workflow_key == workflow_id)
+    statement = _workflow_revision_summary_query().where(
+        WorkflowRevisionModel.workflow_key == workflow_id
+    )
     if before_revision_no is not None:
         statement = statement.where(WorkflowRevisionModel.revision_no < before_revision_no)
     if maximum_revision_no is not None:
         statement = statement.where(WorkflowRevisionModel.revision_no <= maximum_revision_no)
     rows = tuple(
         (
-            await session.scalars(
+            await session.execute(
                 statement.order_by(WorkflowRevisionModel.revision_no.desc()).limit(limit + 1)
             )
-        ).all()
+        )
+        .mappings()
+        .all()
     )
     if not rows and before_revision_no is None:
         raise WorkflowNotFoundError(f"published Workflow {workflow_id!r} does not exist")
     page_rows = rows[:limit]
+    for row in page_rows:
+        validate_persisted_workflow_identity(
+            row["content_workflow_id"],
+            expected_workflow_id=row["workflow_id"],
+            source="published Workflow revision",
+        )
     return WorkflowRevisionSummaryPage(
         items=tuple(
             WorkflowRevisionSummary(
-                workflow_id=row.workflow_key,
-                revision_no=row.revision_no,
-                content_hash=row.content_hash,
-                provenance=WorkflowProvenance(row.provenance),
+                workflow_id=row["workflow_id"],
+                revision_no=row["revision_no"],
+                content_hash=row["content_hash"],
+                provenance=WorkflowProvenance(row["provenance"]),
             )
             for row in page_rows
-            if row.provenance is not None
         ),
-        next_revision_no=page_rows[-1].revision_no if len(rows) > limit else None,
+        next_revision_no=page_rows[-1]["revision_no"] if len(rows) > limit else None,
     )
 
 
 def _published_revision(row: WorkflowRevisionModel) -> PublishedWorkflowRevision:
     if row.provenance is None:  # pragma: no cover - target query invariant
         raise RuntimeError("target Workflow revision has no provenance")
-    workflow = NormalizedWorkflow.model_validate(row.content_json)
+    workflow = read_persisted_workflow(
+        row.content_json,
+        expected_workflow_id=row.workflow_key,
+        source="published Workflow",
+    )
     return PublishedWorkflowRevision(
         workflow_id=row.workflow_key,
         revision_no=row.revision_no,
@@ -213,6 +270,16 @@ def _published_revision(row: WorkflowRevisionModel) -> PublishedWorkflowRevision
 
 def _target_revision_query() -> Select[tuple[WorkflowRevisionModel]]:
     return select(WorkflowRevisionModel).where(WorkflowRevisionModel.provenance.is_not(None))
+
+
+def _workflow_revision_summary_query() -> Select[Any]:
+    return select(
+        WorkflowRevisionModel.workflow_key.label("workflow_id"),
+        WorkflowRevisionModel.revision_no.label("revision_no"),
+        WorkflowRevisionModel.content_hash.label("content_hash"),
+        WorkflowRevisionModel.provenance.label("provenance"),
+        WorkflowRevisionModel.content_json["id"].as_string().label("content_workflow_id"),
+    ).where(WorkflowRevisionModel.provenance.is_not(None))
 
 
 def _workflow_library_query(
@@ -234,6 +301,10 @@ def _workflow_library_query(
             WorkflowDefinitionModel.current_revision_no.label("published_revision_no"),
             WorkflowRevisionModel.provenance.label("published_provenance"),
             WorkflowDraftModel.draft_id.is_not(None).label("has_active_draft"),
+            WorkflowDraftModel.content_json["id"].as_string().label("draft_content_workflow_id"),
+            WorkflowRevisionModel.content_json["id"]
+            .as_string()
+            .label("published_content_workflow_id"),
         )
         .outerjoin(
             WorkflowDraftModel,
@@ -262,6 +333,27 @@ def _workflow_library_query(
     if workflow_id is not None:
         statement = statement.where(library_ids.c.workflow_id == workflow_id)
     return statement
+
+
+def _workflow_catalog_query(*, workflow_id: str) -> Select[Any]:
+    history_revision = aliased(
+        WorkflowRevisionModel,
+        name="workflow_catalog_history_revision",
+    )
+    maximum_revision_no = (
+        select(func.max(history_revision.revision_no))
+        .where(
+            history_revision.workflow_key == workflow_id,
+            history_revision.provenance.is_not(None),
+        )
+        .scalar_subquery()
+    )
+    return _workflow_library_query(workflow_id=workflow_id).add_columns(
+        WorkflowDraftModel.draft_id.label("draft_id"),
+        WorkflowDraftModel.base_revision_no.label("draft_base_revision_no"),
+        WorkflowDraftModel.etag.label("draft_etag"),
+        maximum_revision_no.label("maximum_revision_no"),
+    )
 
 
 def _workflow_detail_query(
@@ -307,6 +399,8 @@ def _workflow_detail_query(
             WorkflowDefinitionModel.current_revision_no.label("published_revision_no"),
             current_revision.provenance.label("published_provenance"),
             WorkflowDraftModel.draft_id.is_not(None).label("has_active_draft"),
+            WorkflowDraftModel.content_json["id"].as_string().label("draft_content_workflow_id"),
+            current_revision.content_json["id"].as_string().label("published_content_workflow_id"),
             WorkflowDraftModel.draft_id.label("draft_id"),
             WorkflowDraftModel.base_revision_no.label("draft_base_revision_no"),
             WorkflowDraftModel.etag.label("draft_etag"),
@@ -374,7 +468,11 @@ def _workflow_detail_snapshot(row: RowMapping) -> WorkflowDetailSnapshot:
             workflow_id=summary.workflow_id,
             base_revision_no=row["draft_base_revision_no"],
             etag=draft_etag,
-            workflow=NormalizedWorkflow.model_validate(draft_content),
+            workflow=read_persisted_workflow(
+                draft_content,
+                expected_workflow_id=summary.workflow_id,
+                source="Workflow draft",
+            ),
         )
 
     selected_revision_no = row["selected_revision_no"]
@@ -393,7 +491,11 @@ def _workflow_detail_snapshot(row: RowMapping) -> WorkflowDetailSnapshot:
             workflow_id=summary.workflow_id,
             revision_no=selected_revision_no,
             content_hash=selected_content_hash,
-            workflow=NormalizedWorkflow.model_validate(row["selected_content_json"]),
+            workflow=read_persisted_workflow(
+                row["selected_content_json"],
+                expected_workflow_id=summary.workflow_id,
+                source="published Workflow",
+            ),
         )
 
     maximum_revision_no = row["maximum_revision_no"]
@@ -402,6 +504,32 @@ def _workflow_detail_snapshot(row: RowMapping) -> WorkflowDetailSnapshot:
     return WorkflowDetailSnapshot(
         summary=summary,
         selected_published_revision=selected_published_revision,
+        active_draft=active_draft,
+        maximum_revision_no=maximum_revision_no,
+    )
+
+
+def _workflow_catalog_snapshot(row: RowMapping) -> WorkflowCatalogSnapshot:
+    summary = _workflow_summary(row)
+    draft_id = row["draft_id"]
+    if draft_id is None:
+        active_draft = None
+    else:
+        draft_etag = row["draft_etag"]
+        if not isinstance(draft_id, str) or not isinstance(draft_etag, str):
+            raise RuntimeError(f"Workflow {summary.workflow_id!r} has an invalid active draft")
+        active_draft = WorkflowDraftSnapshot(
+            workflow_id=summary.workflow_id,
+            draft_id=draft_id,
+            base_revision_no=row["draft_base_revision_no"],
+            etag=draft_etag,
+        )
+
+    maximum_revision_no = row["maximum_revision_no"]
+    if maximum_revision_no is not None and not isinstance(maximum_revision_no, int):
+        raise RuntimeError(f"Workflow {summary.workflow_id!r} has invalid revision history")
+    return WorkflowCatalogSnapshot(
+        summary=summary,
         active_draft=active_draft,
         maximum_revision_no=maximum_revision_no,
     )
@@ -419,6 +547,19 @@ def _workflow_summary(row: RowMapping) -> WorkflowSummary:
         raise RuntimeError(f"Workflow {workflow_id!r} has no controller update time")
     if published_revision_no is not None and not isinstance(published_revision_no, int):
         raise RuntimeError(f"Workflow {workflow_id!r} has an invalid current revision")
+    has_active_draft = bool(row["has_active_draft"])
+    if has_active_draft:
+        validate_persisted_workflow_identity(
+            row["draft_content_workflow_id"],
+            expected_workflow_id=workflow_id,
+            source="Workflow draft",
+        )
+    if published_revision_no is not None:
+        validate_persisted_workflow_identity(
+            row["published_content_workflow_id"],
+            expected_workflow_id=workflow_id,
+            source="published Workflow",
+        )
     if published_revision_no is None:
         provenance = WorkflowProvenance.USER
     elif isinstance(published_provenance, str):
@@ -431,18 +572,21 @@ def _workflow_summary(row: RowMapping) -> WorkflowSummary:
         updated_at=updated_at,
         provenance=provenance,
         published_revision_no=published_revision_no,
-        has_active_draft=bool(row["has_active_draft"]),
+        has_active_draft=has_active_draft,
     )
 
 
 __all__ = [
+    "WorkflowCatalogSnapshot",
     "WorkflowDetailSnapshot",
+    "WorkflowDraftSnapshot",
     "WorkflowRevisionSummaryPage",
     "WorkflowSummaryPage",
     "list_workflow_revisions",
     "read_current_published_workflow",
     "read_current_workflow_provenance",
     "read_published_workflow_revision",
+    "read_workflow_catalog_snapshot",
     "read_workflow_detail_snapshot",
     "search_workflows",
 ]

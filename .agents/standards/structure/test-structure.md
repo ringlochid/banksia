@@ -17,9 +17,9 @@ Use this guide when adding tests, reorganizing test trees, or deciding what coun
 - `make test-backend-integration-local`: compatibility alias for the same local integration lane
 - `make test-backend-db`: specialized Docker/Postgres-backed integration behavior using shipped schema/setup paths
 - `make test-backend-e2e-bounded|reviewed|staged`: progressive end-to-end behavior
-- `make console-test`: frontend unit and component behavior under `apps/console/tests/unit` and `apps/console/tests/component`
-- `make console-test-integration`: MSW-backed frontend flow behavior under `apps/console/tests/integration`
-- `make console-e2e`: browser end-to-end behavior under `apps/console/tests/e2e`
+- `make console-test`: frontend unit and component behavior under `console/tests/unit` and `console/tests/component`
+- `make console-test-integration`: MSW-backed frontend flow behavior under `console/tests/integration`
+- `make console-e2e`: browser end-to-end behavior under `console/tests/e2e`
 - `make console-openapi-check`: generated frontend API type drift against the current FastAPI OpenAPI schema
 
 ## Placement rules
@@ -28,12 +28,12 @@ Use this guide when adding tests, reorganizing test trees, or deciding what coun
 - put local integration flows in `tests/integration/**`
 - put end-to-end workflow and public-surface behavior in `tests/e2e/**`
 - keep reusable helpers under `tests/helpers/**` and keep them support-only
-- put frontend mapper, reducer, API helper, and small state-machine tests in `apps/console/tests/unit/**`
-- put frontend primitive and feature component tests in `apps/console/tests/component/**`
-- put MSW-backed browser-flow tests in `apps/console/tests/integration/**`
-- put Playwright page-flow and accessibility checks in `apps/console/tests/e2e/**`
-- put screenshot/parity fixtures and visual audit helpers in `apps/console/tests/visual/**`
-- put reusable API-shaped frontend fixtures in `apps/console/tests/fixtures/**`
+- put frontend mapper, reducer, API helper, and small state-machine tests in `console/tests/unit/**`
+- put frontend primitive and feature component tests in `console/tests/component/**`
+- put MSW-backed browser-flow tests in `console/tests/integration/**`
+- put Playwright page-flow and accessibility checks in `console/tests/e2e/**`
+- put screenshot/parity fixtures and visual audit helpers in `console/tests/visual/**`
+- put reusable API-shaped frontend fixtures in `console/tests/fixtures/**`
 
 ## Steady-state test tree
 
@@ -69,7 +69,7 @@ tests/
 For console frontend tests, use app-local proof lanes:
 
 ```text
-apps/console/tests/
+console/tests/
   unit/
     api/
     mappers/

@@ -7,51 +7,34 @@ from fastapi import FastAPI
 
 from banksia.interfaces.http.router import api_router
 from banksia.interfaces.http.support import create_support_app
+from banksia.runtime.product.paths import build_product_api_path
 
 type OpenApiSurface = Literal["product", "support"]
 
-PRODUCT_PATHS = frozenset(
-    {
-        "/workflows",
-        "/workflows/authoring-options",
-        "/workflows/{workflow_id}",
-        "/workflow-drafts",
-        "/workflow-drafts/{draft_id}",
-        "/workflow-drafts/{draft_id}/validate",
-        "/workflow-drafts/{draft_id}/undo",
-        "/workflow-drafts/{draft_id}/publish",
-        "/tasks",
-        "/tasks/{task_id}",
-        "/tasks/{task_id}/controls/{action_id}",
-        "/tasks/{task_id}/activities",
-        "/tasks/{task_id}/activities/stream",
-        "/tasks/{task_id}/human-requests/{request_id}",
-        "/tasks/{task_id}/human-requests/{request_id}/responses",
-        "/tasks/{task_id}/command-runs/{command_id}",
-        "/tasks/{task_id}/command-runs/{command_id}/output",
-        "/tasks/{task_id}/command-runs/{command_id}/cancel",
-    }
-)
-PRODUCT_ROUTE_METHODS = {
-    "/workflows": frozenset({"get"}),
-    "/workflows/authoring-options": frozenset({"get"}),
-    "/workflows/{workflow_id}": frozenset({"get"}),
-    "/workflow-drafts": frozenset({"post"}),
-    "/workflow-drafts/{draft_id}": frozenset({"get", "patch", "delete"}),
-    "/workflow-drafts/{draft_id}/validate": frozenset({"post"}),
-    "/workflow-drafts/{draft_id}/undo": frozenset({"post"}),
-    "/workflow-drafts/{draft_id}/publish": frozenset({"post"}),
-    "/tasks": frozenset({"get", "post"}),
-    "/tasks/{task_id}": frozenset({"get"}),
-    "/tasks/{task_id}/controls/{action_id}": frozenset({"post"}),
-    "/tasks/{task_id}/activities": frozenset({"get"}),
-    "/tasks/{task_id}/activities/stream": frozenset({"get"}),
-    "/tasks/{task_id}/human-requests/{request_id}": frozenset({"get"}),
-    "/tasks/{task_id}/human-requests/{request_id}/responses": frozenset({"post"}),
-    "/tasks/{task_id}/command-runs/{command_id}": frozenset({"get"}),
-    "/tasks/{task_id}/command-runs/{command_id}/output": frozenset({"get"}),
-    "/tasks/{task_id}/command-runs/{command_id}/cancel": frozenset({"post"}),
+PRODUCT_ROUTE_METHODS: dict[str, frozenset[str]] = {
+    build_product_api_path(path): methods
+    for path, methods in {
+        "/workflows": frozenset({"get"}),
+        "/workflows/authoring-options": frozenset({"get"}),
+        "/workflows/{workflow_id}": frozenset({"get"}),
+        "/workflow-drafts": frozenset({"post"}),
+        "/workflow-drafts/{draft_id}": frozenset({"get", "patch", "delete"}),
+        "/workflow-drafts/{draft_id}/validate": frozenset({"post"}),
+        "/workflow-drafts/{draft_id}/undo": frozenset({"post"}),
+        "/workflow-drafts/{draft_id}/publish": frozenset({"post"}),
+        "/tasks": frozenset({"get", "post"}),
+        "/tasks/{task_id}": frozenset({"get"}),
+        "/tasks/{task_id}/controls/{action_id}": frozenset({"post"}),
+        "/tasks/{task_id}/activities": frozenset({"get"}),
+        "/tasks/{task_id}/activities/stream": frozenset({"get"}),
+        "/tasks/{task_id}/human-requests/{request_id}": frozenset({"get"}),
+        "/tasks/{task_id}/human-requests/{request_id}/responses": frozenset({"post"}),
+        "/tasks/{task_id}/command-runs/{command_id}": frozenset({"get"}),
+        "/tasks/{task_id}/command-runs/{command_id}/output": frozenset({"get"}),
+        "/tasks/{task_id}/command-runs/{command_id}/cancel": frozenset({"post"}),
+    }.items()
 }
+PRODUCT_PATHS = frozenset(PRODUCT_ROUTE_METHODS)
 SUPPORT_PATHS = frozenset(
     {
         "/support/openapi.json",

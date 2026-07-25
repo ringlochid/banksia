@@ -61,7 +61,7 @@ async def test_human_request_mutations_share_typed_action_guard_and_receipt(
                 publisher=publisher,
             ) as client:
                 response = await client.post(
-                    f"/tasks/{ids.task_id}/human-requests/{request_id}/responses",
+                    f"/api/tasks/{ids.task_id}/human-requests/{request_id}/responses",
                     json={"action_id": action.id, "input": input_payload},
                 )
             assert response.status_code == 200, response.text

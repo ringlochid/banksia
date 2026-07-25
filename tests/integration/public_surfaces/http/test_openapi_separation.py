@@ -23,6 +23,7 @@ def test_product_and_support_openapi_are_exact_and_graph_isolated() -> None:
 
     validate_openapi_separation(product, support)
     assert set(product["paths"]) == PRODUCT_PATHS
+    assert all(path.startswith("/api/") for path in product["paths"])
     assert set(support["paths"]) == SUPPORT_PATHS
     assert not set(product["paths"]) & set(support["paths"])
     assert {
@@ -71,7 +72,7 @@ def test_product_openapi_guard_rejects_reachable_technical_model_mutation() -> N
         "type": "object",
         "properties": {"label": {"type": "string"}},
     }
-    mutated["paths"]["/tasks"]["get"]["responses"]["200"]["content"]["application/json"][
+    mutated["paths"]["/api/tasks"]["get"]["responses"]["200"]["content"]["application/json"][
         "schema"
     ] = {"$ref": "#/components/schemas/TechnicalRuntimeRecord"}
 

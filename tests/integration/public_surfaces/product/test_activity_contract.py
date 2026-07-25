@@ -262,15 +262,15 @@ async def test_activity_cursor_reset_bounded_page_and_sse_reconnect_contract(
         different_cursor = encode_task_event_cursor(corrupt.event_id)
         async with product_http_client(session_factory, tmp_path=tmp_path) as client:
             reset_page = await client.get(
-                f"/tasks/{ids.task_id}/activities",
+                f"/api/tasks/{ids.task_id}/activities",
                 params={"cursor": reset_cursor},
             )
             reset_stream = await client.get(
-                f"/tasks/{ids.task_id}/activities/stream",
+                f"/api/tasks/{ids.task_id}/activities/stream",
                 params={"cursor": reset_cursor},
             )
             conflict = await client.get(
-                f"/tasks/{ids.task_id}/activities/stream",
+                f"/api/tasks/{ids.task_id}/activities/stream",
                 params={"cursor": previous_cursor},
                 headers={"Last-Event-ID": different_cursor},
             )

@@ -48,6 +48,7 @@ def test_banksia_package_uses_src_modules_only() -> None:
     packaged_http = importlib.import_module("banksia.interfaces.http")
     packaged_cli_owner = importlib.import_module("banksia.interfaces.cli")
     packaged_mcp_owner = importlib.import_module("banksia.interfaces.mcp")
+    packaged_web_console = importlib.import_module("banksia.interfaces.web_console")
     packaged_main_module = importlib.import_module("banksia.main")
     packaged_persistence = importlib.import_module("banksia.persistence")
     packaged_runtime_contracts = importlib.import_module("banksia.runtime.contracts")
@@ -57,7 +58,6 @@ def test_banksia_package_uses_src_modules_only() -> None:
     assert list(banksia.__path__) == [str(BANKSIA_PACKAGE_ROOT)]
     assert importlib.util.find_spec("banksia.cli") is None
     assert importlib.util.find_spec("banksia.definitions") is None
-    assert importlib.util.find_spec("banksia.interfaces.web_console") is None
     assert packaged_workflows.__file__ is not None
     assert (
         Path(packaged_workflows.__file__).resolve()
@@ -82,6 +82,11 @@ def test_banksia_package_uses_src_modules_only() -> None:
     assert (
         Path(packaged_mcp_owner.__file__).resolve()
         == BANKSIA_PACKAGE_ROOT / "interfaces" / "mcp" / "__init__.py"
+    )
+    assert packaged_web_console.__file__ is not None
+    assert (
+        Path(packaged_web_console.__file__).resolve()
+        == BANKSIA_PACKAGE_ROOT / "interfaces" / "web_console" / "__init__.py"
     )
     assert packaged_main_module.__file__ is not None
     assert Path(packaged_main_module.__file__).resolve() == BANKSIA_PACKAGE_ROOT / "main.py"
@@ -135,6 +140,8 @@ def test_pyproject_ships_canonical_packages_only() -> None:
     assert "autoclaw" not in scripts
     assert "banksia" in package_data
     assert package_data["banksia"] == [
+        "interfaces/web_console/assets/index.html",
+        "interfaces/web_console/assets/assets/*",
         "workflows/resources/starter_workflows/*.yaml",
         "platform/managed_services/resources/systemd/*.service",
         "runtime/prompt/assets/shared/*.txt",
@@ -186,6 +193,7 @@ def test_fresh_interpreter_can_import_canonical_package_roots() -> None:
                 "import banksia.workflows; "
                 "import banksia.persistence; "
                 "import banksia.runtime.contracts; "
+                "import banksia.interfaces.web_console; "
                 "import banksia.platform.managed_services.resources; "
                 "import banksia.runtime.prompt.assets; "
                 "from importlib.util import find_spec; "
@@ -196,7 +204,7 @@ def test_fresh_interpreter_can_import_canonical_package_roots() -> None:
                 "assert workflow_root.joinpath('reviewed-delivery.yaml').is_file(); "
                 "assert service_root.name == 'resources'; "
                 "assert prompt_root.name == 'assets'; "
-                "assert find_spec('banksia.interfaces.web_console') is None"
+                "assert find_spec('banksia.interfaces.web_console') is not None"
             ),
         ],
         cwd=REPO_ROOT,

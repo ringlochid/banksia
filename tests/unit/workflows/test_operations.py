@@ -6,10 +6,12 @@ import pytest
 
 from banksia.workflows import (
     AddMemberOperation,
+    NewMember,
     NormalizedWorkflow,
     RemoveMemberOperation,
     UpdateMemberOperation,
     WorkflowInputError,
+    build_new_workflow,
     edit_normalized_workflow,
     parse_workflow,
 )
@@ -52,6 +54,31 @@ def test_add_member_allocates_stable_ids_in_preorder() -> None:
     assert added.id == "member-1"
     assert added.children is not None
     assert added.children[0].id == "member-2"
+
+
+def test_build_new_workflow_allocates_the_complete_initial_tree_in_preorder() -> None:
+    workflow = build_new_workflow(
+        workflow_id="new-workflow",
+        description="Controller-created Workflow.",
+        lead=NewMember.model_validate(
+            {
+                "title": "Lead",
+                "children": [
+                    {"title": "First child"},
+                    {
+                        "title": "Second child",
+                        "children": [{"title": "Grandchild"}],
+                    },
+                ],
+            }
+        ),
+    )
+
+    assert workflow.lead.id == "member-1"
+    assert workflow.lead.children is not None
+    assert tuple(child.id for child in workflow.lead.children) == ("member-2", "member-3")
+    assert workflow.lead.children[1].children is not None
+    assert workflow.lead.children[1].children[0].id == "member-4"
 
 
 def test_update_member_null_clears_optional_fields() -> None:

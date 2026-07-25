@@ -5,6 +5,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from banksia.config import Settings, get_settings
 from banksia.interfaces.http.contracts.operation_failure import ProductFailureCode
 from banksia.interfaces.http.contracts.workflows import (
     WorkflowPreconditionRequiredResponse,
@@ -15,11 +16,13 @@ from banksia.interfaces.http.errors import operation_failure, runtime_exception_
 from banksia.persistence.session import get_db_session
 from banksia.persistence.session_operations import write_session_operation
 from banksia.runtime.errors import RuntimeOperationError
+from banksia.runtime.product.paths import build_product_api_path
 from banksia.workflows import DRAFT_OPERATION_ADAPTER, DraftOperation, WorkflowInputError
 from banksia.workflows.authoring import (
-    create_workflow_draft,
+    build_workflow_authoring_options,
     discard_workflow_draft,
     edit_workflow_draft,
+    open_workflow_draft,
     publish_workflow_draft,
     read_workflow_catalog_entry,
     read_workflow_draft,
@@ -28,10 +31,12 @@ from banksia.workflows.authoring import (
     validate_workflow_draft,
 )
 from banksia.workflows.authoring_contracts import (
-    AUTHORING_OPTIONS,
+    WORKFLOW_DRAFT_OPEN_REQUEST_ADAPTER,
     WorkflowAuthoringOptions,
     WorkflowDraftDiscardResult,
     WorkflowDraftMutationResult,
+    WorkflowDraftOpenRequest,
+    WorkflowDraftOpenResult,
     WorkflowDraftReadback,
     WorkflowDraftValidationResult,
     WorkflowGetResponse,
@@ -39,8 +44,6 @@ from banksia.workflows.authoring_contracts import (
     WorkflowSearchResponse,
     map_workflow_published_readback,
 )
-from banksia.workflows.contracts import NormalizedWorkflow
-from banksia.workflows.ingest import normalize_workflow_object
 from banksia.workflows.service_errors import (
     WorkflowDraftConflictError,
     WorkflowNotFoundError,
@@ -50,11 +53,34 @@ from banksia.workflows.service_errors import (
 
 router = APIRouter(tags=["workflows"])
 type DBSession = Annotated[AsyncSession, Depends(get_db_session)]
+type ControllerSettings = Annotated[Settings, Depends(get_settings)]
 type IfMatch = Annotated[str | None, Header(alias="If-Match")]
 
 _DRAFT_MUTATION_RESPONSES: dict[int | str, dict[str, Any]] = {
     status.HTTP_412_PRECONDITION_FAILED: {"model": WorkflowStaleDraftResponse},
     status.HTTP_428_PRECONDITION_REQUIRED: {"model": WorkflowPreconditionRequiredResponse},
+}
+_DRAFT_ETAG_HEADER = {
+    "description": "Opaque version of the returned draft.",
+    "schema": {"type": "string"},
+}
+_DRAFT_OPEN_RESPONSES: dict[int | str, dict[str, Any]] = {
+    status.HTTP_200_OK: {
+        "model": WorkflowDraftOpenResult,
+        "description": "The existing active draft was reused.",
+        "headers": {"ETag": _DRAFT_ETAG_HEADER},
+    },
+    status.HTTP_201_CREATED: {
+        "model": WorkflowDraftOpenResult,
+        "description": "A new active draft was created.",
+        "headers": {
+            "ETag": _DRAFT_ETAG_HEADER,
+            "Location": {
+                "description": "Canonical path of the newly created draft.",
+                "schema": {"type": "string"},
+            },
+        },
+    },
 }
 
 
@@ -80,8 +106,10 @@ async def get_workflows(
     "/workflows/authoring-options",
     response_model=WorkflowAuthoringOptions,
 )
-async def get_workflow_authoring_options() -> WorkflowAuthoringOptions:
-    return AUTHORING_OPTIONS
+async def get_workflow_authoring_options(
+    settings: ControllerSettings,
+) -> WorkflowAuthoringOptions:
+    return build_workflow_authoring_options(settings)
 
 
 @router.get("/workflows/{workflow_id}", response_model=WorkflowGetResponse)
@@ -112,24 +140,31 @@ async def get_workflow(
 
 @router.post(
     "/workflow-drafts",
-    response_model=WorkflowDraftReadback,
-    status_code=status.HTTP_201_CREATED,
+    response_model=WorkflowDraftOpenResult,
+    responses=_DRAFT_OPEN_RESPONSES,
 )
 async def post_workflow_draft(
-    workflow: NormalizedWorkflow,
+    draft_request: WorkflowDraftOpenRequest,
     request: Request,
     response: Response,
     session: DBSession,
-) -> WorkflowDraftReadback:
+) -> WorkflowDraftOpenResult:
     try:
         _require_json(request)
-        normalized = normalize_workflow_object(workflow.model_dump(mode="json", exclude_none=True))
-        draft = await write_session_operation(
-            lambda db: create_workflow_draft(db, workflow=normalized),
+        result = await write_session_operation(
+            lambda db: open_workflow_draft(
+                db,
+                request=WORKFLOW_DRAFT_OPEN_REQUEST_ADAPTER.validate_python(draft_request),
+            ),
             session=session,
         )
-        response.headers["ETag"] = draft.etag
-        return draft
+        response.headers["ETag"] = result.draft.etag
+        if result.is_created:
+            response.status_code = status.HTTP_201_CREATED
+            response.headers["Location"] = build_product_api_path(
+                f"/workflow-drafts/{result.draft.draft_id}"
+            )
+        return result
     except Exception as exc:
         raise _http_error(exc) from exc
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from datetime import datetime
 from enum import StrEnum
 from typing import Annotated, Any, Literal
 
@@ -242,9 +243,11 @@ class PublishedWorkflowRevision(_WorkflowModel):
 
 class WorkflowSummary(_WorkflowModel):
     workflow_id: Identifier
-    revision_no: Annotated[int, Field(ge=1)]
     description: str
+    updated_at: datetime
     provenance: WorkflowProvenance
+    published_revision_no: Annotated[int, Field(ge=1)] | None = None
+    has_active_draft: bool
 
 
 class WorkflowRevisionSummary(_WorkflowModel):

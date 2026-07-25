@@ -38,6 +38,7 @@ from banksia.runtime.human_request.service import (
 )
 from banksia.runtime.post_commit import RuntimeEffectPublisher
 from banksia.runtime.product.action_ids import product_action_id, select_action_kind
+from banksia.runtime.product.paths import build_product_api_path
 from banksia.runtime.product.presenters import (
     read_source_member_reference,
     read_source_member_references,
@@ -294,7 +295,9 @@ def _human_action(source: HumanRequestModel, *, kind: str) -> ProductAction:
         id=_human_action_id(source, kind),
         kind=kind,
         label="Cancel request" if is_cancel else "Submit answer",
-        href=(f"/tasks/{source.task_id}/human-requests/{source.request_id}/responses"),
+        href=build_product_api_path(
+            f"/tasks/{source.task_id}/human-requests/{source.request_id}/responses"
+        ),
         confirmation=ProductActionConfirmation(
             is_required=is_cancel,
             title="Cancel this request?" if is_cancel else "Submit this answer?",

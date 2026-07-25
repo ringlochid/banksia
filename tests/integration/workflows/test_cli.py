@@ -152,12 +152,54 @@ def test_task_start_cli_machine_mode_posts_strict_json_and_prints_receipt(
     payload = json.loads(machine.output)
     assert payload["status"] == "accepted"
     assert payload["task_id"] == "t_01234567"
-    assert captured[0][0:2] == ("POST", "/tasks")
+    assert captured[0][0:2] == ("POST", "/api/tasks")
     assert captured[0][2]["json"] == {
         "workflow": "reviewed-delivery",
         "prompt": "Complete the requested work.",
         "workspace": str(tmp_path),
         "files": [],
+    }
+
+
+class _PagedCatalogClient:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, str, dict[str, object]]] = []
+
+    async def request(
+        self,
+        method: str,
+        path: str,
+        **kwargs: Any,
+    ) -> httpx.Response:
+        self.calls.append((method, path, kwargs))
+        if kwargs == {}:
+            body = {
+                "items": [_workflow_search_item("draft-only", is_published=False)],
+                "next_cursor": "published-page",
+            }
+        else:
+            assert kwargs == {"params": {"cursor": "published-page"}}
+            body = {"items": [_workflow_search_item("reviewed-delivery", is_published=True)]}
+        return httpx.Response(
+            200,
+            request=httpx.Request(method, f"http://127.0.0.1{path}"),
+            json=body,
+        )
+
+
+def _workflow_search_item(workflow_id: str, *, is_published: bool) -> dict[str, object]:
+    return {
+        "workflow_id": workflow_id,
+        "description": (
+            "Review and refine a bounded delivery."
+            if is_published
+            else "A draft cannot start work."
+        ),
+        "state": "published" if is_published else "draft",
+        "updated_at": "2026-07-25T00:00:00Z",
+        "published_revision_no": 1 if is_published else None,
+        "provenance": "starter_seed" if is_published else "user",
+        "available_actions": ["edit", "start_run"] if is_published else ["edit"],
     }
 
 
@@ -169,29 +211,6 @@ async def test_task_start_cli_interactive_mode_uses_workflow_choice_and_editor(
         @staticmethod
         def isatty() -> bool:
             return True
-
-    class CatalogClient:
-        async def request(
-            self,
-            method: str,
-            path: str,
-            **kwargs: Any,
-        ) -> httpx.Response:
-            assert (method, path, kwargs) == ("GET", "/workflows", {})
-            return httpx.Response(
-                200,
-                request=httpx.Request(method, f"http://127.0.0.1{path}"),
-                json={
-                    "items": [
-                        {
-                            "workflow_id": "reviewed-delivery",
-                            "description": "Review and refine a bounded delivery.",
-                            "published_revision_no": 1,
-                            "provenance": "starter_seed",
-                        }
-                    ]
-                },
-            )
 
     choices: list[tuple[str, tuple[str, ...]]] = []
 
@@ -215,11 +234,16 @@ async def test_task_start_cli_interactive_mode_uses_workflow_choice_and_editor(
 
     monkeypatch.setattr(task_command_module.click, "edit", edit)
 
+    catalog_client = _PagedCatalogClient()
     request = await task_command_module.prompt_for_task_start_request(
-        CatalogClient(),  # type: ignore[arg-type]
+        catalog_client,  # type: ignore[arg-type]
         invocation_cwd=tmp_path,
     )
 
+    assert catalog_client.calls == [
+        ("GET", "/api/workflows", {}),
+        ("GET", "/api/workflows", {"params": {"cursor": "published-page"}}),
+    ]
     assert choices == [("Workflow", ("reviewed-delivery",))]
     assert editor_calls == [(("",), {"require_save": True, "extension": ".md"})]
     assert request.model_dump(mode="json") == {
@@ -257,8 +281,11 @@ async def test_task_start_cli_interactive_abort_or_blank_never_builds_request(
                         {
                             "workflow_id": "reviewed-delivery",
                             "description": "Review and refine a bounded delivery.",
+                            "state": "published",
+                            "updated_at": "2026-07-25T00:00:00Z",
                             "published_revision_no": 1,
                             "provenance": "starter_seed",
+                            "available_actions": ["edit", "start_run"],
                         }
                     ]
                 },

@@ -24,6 +24,7 @@ from banksia.workflows.operations import (
     UpdateMemberOperation,
     UpdateWorkflowOperation,
     WorkflowPatch,
+    build_new_workflow,
     edit_normalized_workflow,
 )
 
@@ -47,6 +48,7 @@ __all__ = [
     "WorkflowRevisionSummary",
     "WorkflowSummary",
     "WorkflowValidationIssue",
+    "build_new_workflow",
     "canonical_workflow_bytes",
     "edit_normalized_workflow",
     "normalize_workflow_object",

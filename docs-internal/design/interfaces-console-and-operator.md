@@ -22,7 +22,19 @@ Opaque resource IDs, URLs, ETags, SSE cursors, and request correlation tokens ma
 
 ## Frozen HTTP and service boundary
 
-The product and support planes are separate FastAPI applications over the same domain services. The product application remains at the root HTTP origin. The support application is mounted at `/support`; mounted support routes and schemas never enter the product OpenAPI document.
+The product and support planes are separate FastAPI applications over the same domain services. Human-facing Console routes remain at the root HTTP origin, while every product JSON route is namespaced under `/api`. The support application is mounted at `/support`; mounted support routes and schemas never enter the product OpenAPI document.
+
+The root browser surface is deliberately explicit:
+
+```text
+/                         -> redirect to /workflows
+/workflows                -> Workflow library
+/workflows/{workflow_id}  -> Workflow Studio
+/runs                     -> Run library
+/assets/*                 -> packaged Console assets
+```
+
+There is no root catch-all, content-negotiated HTML/JSON route, hash-routing fallback, or dual legacy API. Unknown `/api/*`, `/assets/*`, and browser paths remain `404`. Health/readiness, support, Operator, node, and managed internal mounts keep their separately owned root paths.
 
 The outer local admission boundary applies to both applications: direct loopback peer, exact configured loopback `Host`, and exact allowed `Origin` for ordinary unsafe browser requests. Support adds a second boundary:
 
@@ -48,27 +60,27 @@ Every product mutation returns controller truth plus an opaque receipt or curren
 
 | HTTP method and path | Domain operation | Response owner | Consumers |
 | --- | --- | --- | --- |
-| `GET /workflows` | Search the published Workflow catalog. | `WorkflowSearchResponse` | Console, Operator `workflow_search` |
-| `GET /workflows/authoring-options` | Read supported provider, sandbox, model/effort, and built-in capability authoring choices. | `WorkflowAuthoringOptions` | Console, Operator `workflow_authoring_options` |
-| `GET /workflows/{workflow_id}` | Read current published Workflow, bounded immutable history, and active draft/ETag when present. | `WorkflowGetResponse` | Console, Operator `workflow_get` |
-| `POST /workflow-drafts` | Create one structured JSON draft. | `WorkflowDraftReadback` | Console, Operator `workflow_draft_create` |
-| `GET /workflow-drafts/{draft_id}` | Read one mutable draft and ETag. | `WorkflowDraftReadback` | Console |
-| `PATCH /workflow-drafts/{draft_id}` | Apply one closed typed metadata, note, Member, provider, or capability edit. | `WorkflowDraftMutationResult` | Console, Operator `workflow_draft_edit` |
-| `POST /workflow-drafts/{draft_id}/validate` | Validate the complete normalized candidate without publishing it. | `WorkflowDraftValidationResult` | Console, Operator `workflow_draft_validate` |
-| `POST /workflow-drafts/{draft_id}/undo` | Consume one controller-issued single-use Undo receipt. | `WorkflowDraftReadback` | Console, Operator `workflow_draft_undo` |
-| `DELETE /workflow-drafts/{draft_id}` | Discard only the mutable draft. | `WorkflowDraftDiscardResult` | Console, Operator `workflow_draft_discard` |
-| `POST /workflow-drafts/{draft_id}/publish` | Publish the exact ETag-selected draft as an immutable revision. | `WorkflowPublishedReadback` | Console, Operator `workflow_draft_publish` |
-| `GET /tasks` | Search Tasks through semantic status and presentation fields. | `TaskSearchResponse` | Console, Operator `task_search` |
-| `POST /tasks` | Start a Task from one published Workflow and one exact prompt. | `TaskStartReceipt` | Console, Operator `task_start` |
-| `GET /tasks/{task_id}` | Read canonical `TaskView`, including current team, plan, attention, legal actions, bounded Activity, Command summaries, and exact Result. | `TaskView` | Console, Operator `task_get` |
-| `POST /tasks/{task_id}/controls/{action_id}` | Execute one returned pause, resume, or cancel action with its typed input and confirmation. | `TaskControlReceipt` | Console, Operator `task_control` |
-| `GET /tasks/{task_id}/activities` | Page semantic Activity from an opaque cursor. | `TaskActivityPage` | Console |
-| `GET /tasks/{task_id}/activities/stream` | Stream semantic Activity plus payload-minimal `task_changed` hints with cursor reset. | SSE `TaskActivity` or `task_changed` | Console |
-| `GET /tasks/{task_id}/human-requests/{request_id}` | Read one product-safe Human Request and its current legal response action. | `HumanRequestView` | Console; included by Operator `task_get` |
-| `POST /tasks/{task_id}/human-requests/{request_id}/responses` | Commit one typed answer or cancellation against a returned action ID. | `HumanRequestResponseReceipt` | Console, Operator `human_request_respond` |
-| `GET /tasks/{task_id}/command-runs/{command_id}` | Read one product-safe managed Action state and current legal cancellation action. | `CommandRunView` | Console, Operator `command_run_get` |
-| `GET /tasks/{task_id}/command-runs/{command_id}/output` | Read one sanitized bounded output range/tail with cursor and completeness facts. | `CommandRunOutputPage` | Console, Operator `command_run_output_read` |
-| `POST /tasks/{task_id}/command-runs/{command_id}/cancel` | Request cancellation against the returned Command Run action ID. | `CommandRunCancelReceipt` | Console, Operator `command_run_cancel` |
+| `GET /api/workflows` | Search the unified Workflow library across published Workflows and active drafts. | `WorkflowSearchResponse` | Console, Operator `workflow_search` |
+| `GET /api/workflows/authoring-options` | Read supported provider, sandbox, model/effort, and built-in capability authoring choices. | `WorkflowAuthoringOptions` | Console, Operator `workflow_authoring_options` |
+| `GET /api/workflows/{workflow_id}` | Read current published Workflow when present, bounded immutable history, and active draft/ETag when present. At least one of published or draft truth must exist. | `WorkflowGetResponse` | Console, Operator `workflow_get` |
+| `POST /api/workflow-drafts` | Create a new minimal draft or atomically open an existing Workflow for editing. Return `201 Created` with `Location` only when a draft is created and `200 OK` when the existing active draft is returned. | `WorkflowDraftOpenResult` | Console, Operator `workflow_draft_create` |
+| `GET /api/workflow-drafts/{draft_id}` | Read one mutable draft and ETag. | `WorkflowDraftReadback` | Console |
+| `PATCH /api/workflow-drafts/{draft_id}` | Apply one closed typed metadata, note, Member, provider, or capability edit. | `WorkflowDraftMutationResult` | Console, Operator `workflow_draft_edit` |
+| `POST /api/workflow-drafts/{draft_id}/validate` | Validate the complete normalized candidate without publishing it. | `WorkflowDraftValidationResult` | Console, Operator `workflow_draft_validate` |
+| `POST /api/workflow-drafts/{draft_id}/undo` | Consume one controller-issued single-use Undo receipt. | `WorkflowDraftReadback` | Console, Operator `workflow_draft_undo` |
+| `DELETE /api/workflow-drafts/{draft_id}` | Discard only the mutable draft. | `WorkflowDraftDiscardResult` | Console, Operator `workflow_draft_discard` |
+| `POST /api/workflow-drafts/{draft_id}/publish` | Publish the exact ETag-selected draft as an immutable revision. | `WorkflowPublishedReadback` | Console, Operator `workflow_draft_publish` |
+| `GET /api/tasks` | Search Tasks through semantic status and presentation fields. | `TaskSearchResponse` | Console, Operator `task_search` |
+| `POST /api/tasks` | Start a Task from one published Workflow and one exact prompt. | `TaskStartReceipt` | Console, Operator `task_start` |
+| `GET /api/tasks/{task_id}` | Read canonical `TaskView`, including current team, plan, attention, legal actions, bounded Activity, Command summaries, and exact Result. | `TaskView` | Console, Operator `task_get` |
+| `POST /api/tasks/{task_id}/controls/{action_id}` | Execute one returned pause, resume, or cancel action with its typed input and confirmation. | `TaskControlReceipt` | Console, Operator `task_control` |
+| `GET /api/tasks/{task_id}/activities` | Page semantic Activity from an opaque cursor. | `TaskActivityPage` | Console |
+| `GET /api/tasks/{task_id}/activities/stream` | Stream semantic Activity plus payload-minimal `task_changed` hints with cursor reset. | SSE `TaskActivity` or `task_changed` | Console |
+| `GET /api/tasks/{task_id}/human-requests/{request_id}` | Read one product-safe Human Request and its current legal response action. | `HumanRequestView` | Console; included by Operator `task_get` |
+| `POST /api/tasks/{task_id}/human-requests/{request_id}/responses` | Commit one typed answer or cancellation against a returned action ID. | `HumanRequestResponseReceipt` | Console, Operator `human_request_respond` |
+| `GET /api/tasks/{task_id}/command-runs/{command_id}` | Read one product-safe managed Action state and current legal cancellation action. | `CommandRunView` | Console, Operator `command_run_get` |
+| `GET /api/tasks/{task_id}/command-runs/{command_id}/output` | Read one sanitized bounded output range/tail with cursor and completeness facts. | `CommandRunOutputPage` | Console, Operator `command_run_output_read` |
+| `POST /api/tasks/{task_id}/command-runs/{command_id}/cancel` | Request cancellation against the returned Command Run action ID. | `CommandRunCancelReceipt` | Console, Operator `command_run_cancel` |
 
 There is no separate product Result route: `TaskView.result` is the singular exact root Result. There is no Task file index, generic file route, Artifact route, raw event route, trace route, runtime snapshot route, provider setup route, or execute-anything route. A later scoped browser read of current referenced-file bytes is optional and requires a separate canon addition; it must not be inferred from the Command output route.
 
@@ -111,7 +123,7 @@ The required repeatable evaluator is an independent review agent that did not im
 
 The product API is Workflow-specific. It exposes:
 
-- list/search published Workflows;
+- list/search the unified Workflow library, including active drafts;
 - read one Workflow and immutable revision history;
 - create/read/update/discard a mutable Workflow draft;
 - structured tree add/update/remove operations;
@@ -123,6 +135,12 @@ Browser requests and responses use structured JSON. They contain no generic Defi
 
 ### Draft concurrency and identity
 
+- The Workflow library is controller truth for all editable Workflows. A row is `draft`, `published`, or `published_with_draft`; it includes the current human description, last controller update time, provenance, optional published revision number, and the closed currently legal action set `edit | start_run`. A draft-only Workflow remains discoverable after browser refresh, navigation, and controller restart.
+- Library `updated_at` is the later durable change to the Workflow's current-publication selection or its active draft. Opening, editing, publishing, discarding a published Workflow's draft, and reselecting an immutable revision therefore never make the visible time regress to an older revision's creation time.
+- Creating a new Workflow draft accepts its stable Workflow ID, required description, and optional initial-lead prose/settings without a Member ID. The controller allocates the first Member ID and returns the complete draft.
+- Opening a Workflow for editing is idempotent: return its active draft when one exists; otherwise clone the current published revision and pin its base revision in the same transaction. It never performs a browser read-copy-write or silently replaces an active draft.
+- A Workflow detail response is one coherent controller snapshot. Its semantic state, current description, current published revision, active draft, update time, provenance, actions, and bounded history cannot combine facts from incompatible read snapshots or return a spurious not-found result while Workflow truth existed continuously.
+- HTTP and Operator project the same discriminated create/open request and `WorkflowDraftOpenResult`; Operator does not retain a full-definition draft-create shortcut. Full JSON/YAML ingestion remains an explicit import boundary.
 - Draft reads carry an opaque HTTP ETag.
 - Mutations send `If-Match`; a stale client receives a conflict plus current draft readback, never last-write-wins guessing.
 - The ordinary UI does not expose revision tokens.
@@ -133,6 +151,8 @@ Browser requests and responses use structured JSON. They contain no generic Defi
 - Publish is explicit and creates an immutable revision. Autosave never publishes.
 
 The UI and Operator call the same structured services. Neither maintains a parallel local Workflow truth.
+
+`WorkflowAuthoringOptions` includes the nonsecret configured default-provider selection when one exists: kind, optional model/effort, and managed sandbox pair. Omission is rendered honestly as no configured default. This is passive readback only; credentials, provider health, and provider mutation remain outside Workflow Studio.
 
 ## Task start API
 
@@ -294,7 +314,7 @@ Selecting a card opens one context drawer with human fields in this order:
 
 The capability controls say what they permit in human language. They do not show Policy, generic tools, MCP, allow/deny rule expressions, or system-prompt prose. Child controls always begin from that child's explicit grants; the UI never implies inheritance from the selected parent.
 
-ID is visible only when support/import needs it and is never editable. Removal states the full subtree consequence. Changes autosave through structured JSON with ETag conflict handling, receipts, and controller-issued single-use Undo; publish is explicit. Discard applies only to the mutable draft; published Workflow revisions cannot be deleted.
+ID is visible only when support/import needs it and is never editable. Removal states the full subtree consequence. After accepted removal, selection and focus move to the removed Member's surviving direct parent; the browser derives that destination from the pre-mutation accepted tree and confirms it still exists in returned controller truth. Changes autosave through structured JSON with ETag conflict handling, receipts, and controller-issued single-use Undo; publish is explicit. Discard applies only to the mutable draft; published Workflow revisions cannot be deleted.
 
 ### Canvas and drawer
 

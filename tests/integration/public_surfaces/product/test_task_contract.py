@@ -72,8 +72,8 @@ async def test_http_and_operator_share_one_product_task_read(
             lambda: session_factory,
         )
         async with product_http_client(session_factory, tmp_path=tmp_path) as client:
-            response = await client.get(f"/tasks/{ids.task_id}")
-            search = await client.get("/tasks", params={"q": "root assignment"})
+            response = await client.get(f"/api/tasks/{ids.task_id}")
+            search = await client.get("/api/tasks", params={"q": "root assignment"})
         operator = await create_operator_mcp_server().call_tool(
             "task_get",
             {"task_id": ids.task_id},
@@ -129,7 +129,7 @@ async def test_task_pause_uses_current_action_id_and_returns_receipt(
             ) as client:
                 response = await client.post(pause_action.href, json={"confirmed": False})
                 stale = await client.post(
-                    f"/tasks/{ids.task_id}/controls/action.stale",
+                    f"/api/tasks/{ids.task_id}/controls/action.stale",
                     json={"confirmed": False},
                 )
             assert response.status_code == 200, response.text
@@ -376,7 +376,7 @@ async def test_task_view_keeps_older_open_request_before_bounded_terminal_histor
     assert len(view.human_requests) == 21
     assert view.human_requests[0].id == open_request_id
     assert view.human_requests[0].status == "open"
-    assert view.activities_href == f"/tasks/{ids.task_id}/activities"
+    assert view.activities_href == f"/api/tasks/{ids.task_id}/activities"
 
 
 async def _open_older_human_request(

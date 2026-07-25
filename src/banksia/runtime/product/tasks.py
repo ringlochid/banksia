@@ -43,6 +43,7 @@ from banksia.runtime.product.action_ids import product_action_id, select_action_
 from banksia.runtime.product.activities import list_recent_task_activities
 from banksia.runtime.product.command_runs import list_product_command_runs
 from banksia.runtime.product.human_requests import list_product_human_requests
+from banksia.runtime.product.paths import build_product_api_path
 from banksia.runtime.product.task_projection import (
     build_task_attention,
     product_task_result,
@@ -261,7 +262,7 @@ async def read_product_task(session: AsyncSession, task_id: str) -> TaskView:
         actions=actions,
         result=result,
         activities=activities.items,
-        activities_href=f"/tasks/{task_id}/activities",
+        activities_href=build_product_api_path(f"/tasks/{task_id}/activities"),
         is_activity_history_truncated=activities.is_truncated,
         human_requests=human_requests.items,
         human_request_count=human_requests.total_count,
@@ -522,7 +523,7 @@ def _task_control_action(task: ControllerTaskState, *, kind: str) -> ProductActi
         id=action_id,
         kind=kind,
         label=labels[kind],
-        href=f"/tasks/{task.task_id}/controls/{action_id}",
+        href=build_product_api_path(f"/tasks/{task.task_id}/controls/{action_id}"),
         confirmation=ProductActionConfirmation(
             is_required=kind == "cancel",
             title=f"{labels[kind]}?",

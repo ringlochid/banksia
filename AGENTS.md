@@ -196,7 +196,8 @@ Rules:
 - `make test-backend-db` runs the Docker/Postgres-backed integration groups only
 - `make test-backend-e2e-bounded`, `make test-backend-e2e-reviewed`, and `make test-backend-e2e-staged` are the progressive e2e lanes
 - `make console-format-check`, `make console-lint`, `make console-typecheck`, `make console-openapi-check`, `make console-test`, `make console-test-integration`, and `make console-build` are the console proof lanes
-- `make console-e2e` runs browser e2e when Playwright browser dependencies are available
+- `make console-e2e` runs route-controlled browser interaction, responsive, visual, and accessibility proof when Playwright browser dependencies are available
+- `make console-e2e-real` runs the serialized disposable-controller browser persistence lane; route interception must not replace controller truth in this lane
 - `make check-console` runs the non-browser console gate: format check, lint, typecheck, generated OpenAPI drift check, unit/component tests, MSW-backed integration tests, and production build
 - grouped runners must preserve the full coverage of the target they replace and expose readable progress
 
@@ -222,7 +223,7 @@ For touched backend behavior under `src/banksia/**` or `tests/**`, run every app
 
 Prefer focused pytest selection while iterating, but do not claim completion until the applicable command matrix for the touched surface is green.
 
-For touched frontend behavior under `apps/console/**`, run every applicable lane before claiming completion:
+For touched frontend behavior under `console/**`, run every applicable lane before claiming completion:
 
 - `make console-format-check`
 - `make console-lint`
@@ -232,6 +233,7 @@ For touched frontend behavior under `apps/console/**`, run every applicable lane
 - `make console-test-integration` when the touched slice owns API-backed flows, SSE handling, request resolution, command-run actions, definition authoring, or task start
 - `make console-build`
 - `make console-e2e` when the touched slice changes navigation, page-level flows, browser-only behavior, visual parity, or accessibility-critical interaction and the local browser dependencies are available
+- `make console-e2e-real` when the touched slice claims browser-visible persistence, restart/readback, optimistic-concurrency recovery, or another shipped controller boundary
 
 ## Repo-native quality gates
 

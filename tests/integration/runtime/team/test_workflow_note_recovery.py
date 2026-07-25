@@ -16,7 +16,7 @@ from banksia.runtime.workspace.admission import (
     TASK_INITIALIZATION_MARKER,
     recover_task_workspace_admissions,
 )
-from banksia.workflows.authoring import create_workflow_draft, publish_workflow_draft
+from banksia.workflows.authoring import import_workflow_draft, publish_workflow_draft
 from banksia.workflows.catalog import read_current_published_workflow
 from tests.helpers.workflow_runtime import initialized_workflow_database
 
@@ -143,10 +143,14 @@ async def _publish_workflow_without_note(session: AsyncSession) -> None:
         session,
         workflow_id="reviewed-delivery",
     )
-    draft = await create_workflow_draft(
-        session,
-        workflow=current.workflow.model_copy(update={"id": "workflow-without-note", "note": None}),
-    )
+    draft = (
+        await import_workflow_draft(
+            session,
+            workflow=current.workflow.model_copy(
+                update={"id": "workflow-without-note", "note": None}
+            ),
+        )
+    ).draft
     await publish_workflow_draft(
         session,
         draft_id=draft.draft_id,

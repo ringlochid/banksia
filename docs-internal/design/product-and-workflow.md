@@ -190,6 +190,25 @@ There is no generic `DefinitionKind`, Role/Policy lookup, runtime definition sea
 
 A temporary internal anti-corruption adapter may feed the legacy launch records during migration, but it is deletion-tracked and never a second public schema.
 
+Browser and Operator creation use one controller-owned draft-opening boundary:
+
+```text
+create new
+  -> Workflow ID + required description + optional ID-less lead settings
+  -> controller allocates the lead Member ID
+  -> complete active draft readback
+
+open for editing
+  -> Workflow ID
+  -> return the existing active draft, or atomically clone the current
+     published revision and pin its base revision
+  -> complete active draft readback
+```
+
+The unified Workflow library includes draft-only, published-only, and published-with-draft entries. Draft-only truth must not depend on a retained browser URL, local storage, or an Operator transcript. Library and detail readbacks expose semantic state, last controller update time, and the closed currently legal action set. Full JSON/YAML CLI import remains a separate ingestion path that may carry authored stable Member IDs through the complete Workflow definition.
+
+The draft-opening response distinguishes creation from idempotent reuse: creation returns HTTP `201 Created` with the draft resource location, while returning an already-active draft uses `200 OK`. HTTP and Operator use the same discriminated request and domain operation. Workflow detail is assembled from one coherent controller snapshot so concurrent open, edit, publish, or discard cannot produce a state/draft/publication combination that never existed.
+
 ### Reference examples and packaged Starter Workflows
 
 The maintained [Workflow examples](appendices/workflow-examples/README.md) are documentation and validation fixtures. They demonstrate the full authoring language, including optional provider, sandbox/network, model/effort, and capability settings. They are never package seeds and are never automatically installed, published, or selected for a user.

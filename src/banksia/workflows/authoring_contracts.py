@@ -1,8 +1,10 @@
 from __future__ import annotations
 
-from typing import Annotated
+from datetime import datetime
+from enum import StrEnum
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
 from banksia.workflows.contracts import (
     Identifier,
@@ -13,6 +15,7 @@ from banksia.workflows.contracts import (
     WorkflowRevisionSummary,
 )
 from banksia.workflows.errors import WorkflowValidationIssue
+from banksia.workflows.operations import NewMember
 
 
 class _AuthoringModel(BaseModel):
@@ -38,10 +41,44 @@ class WorkflowDraftImportResult(_AuthoringModel):
     undo_receipt: str | None = None
 
 
+class CreateWorkflowDraftRequest(_AuthoringModel):
+    kind: Literal["create"]
+    workflow_id: Identifier
+    description: Annotated[str, Field(min_length=1, max_length=1024, pattern=r"\S")]
+    note: Annotated[str, Field(max_length=8192)] | None = None
+    lead: NewMember | None = None
+
+
+class OpenWorkflowDraftRequest(_AuthoringModel):
+    kind: Literal["open"]
+    workflow_id: Identifier
+
+
+WorkflowDraftOpenRequest = Annotated[
+    CreateWorkflowDraftRequest | OpenWorkflowDraftRequest,
+    Field(discriminator="kind"),
+]
+WORKFLOW_DRAFT_OPEN_REQUEST_ADAPTER: TypeAdapter[WorkflowDraftOpenRequest] = TypeAdapter(
+    WorkflowDraftOpenRequest
+)
+
+
+class WorkflowDraftOpenResult(_AuthoringModel):
+    draft: WorkflowDraftReadback
+    is_created: bool
+
+
 class WorkflowDraftValidationResult(_AuthoringModel):
     is_valid: bool
     issues: tuple[WorkflowValidationIssue, ...] = ()
     draft: WorkflowDraftReadback
+
+
+class WorkflowDefaultProviderReadback(_AuthoringModel):
+    kind: Literal["codex", "claude", "openclaw"]
+    model: str | None = None
+    effort: str | None = None
+    sandbox: ProviderSandbox | None = None
 
 
 class WorkflowAuthoringOptions(_AuthoringModel):
@@ -53,13 +90,28 @@ class WorkflowAuthoringOptions(_AuthoringModel):
     managed_sandbox_options: tuple[ProviderSandbox, ...]
     human_request_kinds: tuple[str, ...]
     command_run_values: tuple[str, ...]
+    default_provider: WorkflowDefaultProviderReadback | None = None
+
+
+class WorkflowLibraryState(StrEnum):
+    DRAFT = "draft"
+    PUBLISHED = "published"
+    PUBLISHED_WITH_DRAFT = "published_with_draft"
+
+
+class WorkflowLibraryAction(StrEnum):
+    EDIT = "edit"
+    START_RUN = "start_run"
 
 
 class WorkflowSearchItem(_AuthoringModel):
     workflow_id: Identifier
     description: str
-    published_revision_no: Annotated[int, Field(ge=1)]
+    state: WorkflowLibraryState
+    updated_at: datetime
     provenance: WorkflowProvenance
+    published_revision_no: Annotated[int, Field(ge=1)] | None = None
+    available_actions: tuple[WorkflowLibraryAction, ...]
 
 
 class WorkflowSearchResponse(_AuthoringModel):
@@ -81,10 +133,62 @@ class WorkflowRevisionReadback(_AuthoringModel):
 
 class WorkflowGetResponse(_AuthoringModel):
     workflow_id: Identifier
-    published: WorkflowPublishedReadback
+    description: str
+    state: WorkflowLibraryState
+    updated_at: datetime
+    provenance: WorkflowProvenance
+    published_revision_no: Annotated[int, Field(ge=1)] | None = None
+    available_actions: tuple[WorkflowLibraryAction, ...]
+    published: WorkflowPublishedReadback | None = None
     revisions: tuple[WorkflowRevisionReadback, ...] = ()
     revisions_next_cursor: str | None = None
     active_draft: WorkflowDraftReadback | None = None
+
+    @model_validator(mode="after")
+    def require_controller_truth(self) -> WorkflowGetResponse:
+        if self.published is None and self.active_draft is None:
+            raise ValueError("Workflow detail requires published truth or an active draft")
+        has_published_workflow = self.published_revision_no is not None
+        has_active_draft = self.active_draft is not None
+        expected_state = (
+            WorkflowLibraryState.PUBLISHED_WITH_DRAFT
+            if has_published_workflow and has_active_draft
+            else (
+                WorkflowLibraryState.PUBLISHED
+                if has_published_workflow
+                else WorkflowLibraryState.DRAFT
+            )
+        )
+        if self.state is not expected_state:
+            raise ValueError("Workflow detail state contradicts controller truth")
+        if (self.published is not None) is not has_published_workflow:
+            raise ValueError("Workflow detail publication contradicts its current revision")
+        expected_actions = (
+            (WorkflowLibraryAction.EDIT, WorkflowLibraryAction.START_RUN)
+            if has_published_workflow
+            else (WorkflowLibraryAction.EDIT,)
+        )
+        if self.available_actions != expected_actions:
+            raise ValueError("Workflow detail actions contradict its current publication")
+        if self.published is not None and self.published.workflow_id != self.workflow_id:
+            raise ValueError("Workflow detail selected publication has the wrong identity")
+        if self.active_draft is not None:
+            if self.active_draft.workflow_id != self.workflow_id:
+                raise ValueError("Workflow detail active draft has the wrong identity")
+            if self.active_draft.workflow.description != self.description:
+                raise ValueError("Workflow detail description contradicts its active draft")
+        elif (
+            self.published is not None
+            and self.published.revision_no == self.published_revision_no
+            and self.published.workflow.description != self.description
+        ):
+            raise ValueError("Workflow detail description contradicts its current publication")
+        if not has_published_workflow:
+            if self.provenance is not WorkflowProvenance.USER:
+                raise ValueError("A draft-only Workflow must have user provenance")
+            if self.revisions or self.revisions_next_cursor is not None:
+                raise ValueError("A draft-only Workflow cannot expose publication history")
+        return self
 
 
 class WorkflowDraftDiscardResult(_AuthoringModel):
@@ -131,13 +235,21 @@ def map_workflow_revision_readback(
 
 __all__ = [
     "AUTHORING_OPTIONS",
+    "WORKFLOW_DRAFT_OPEN_REQUEST_ADAPTER",
+    "CreateWorkflowDraftRequest",
+    "OpenWorkflowDraftRequest",
     "WorkflowAuthoringOptions",
+    "WorkflowDefaultProviderReadback",
     "WorkflowDraftDiscardResult",
     "WorkflowDraftImportResult",
     "WorkflowDraftMutationResult",
+    "WorkflowDraftOpenRequest",
+    "WorkflowDraftOpenResult",
     "WorkflowDraftReadback",
     "WorkflowDraftValidationResult",
     "WorkflowGetResponse",
+    "WorkflowLibraryAction",
+    "WorkflowLibraryState",
     "WorkflowPublishedReadback",
     "WorkflowRevisionReadback",
     "WorkflowSearchItem",

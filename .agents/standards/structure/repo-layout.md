@@ -96,10 +96,10 @@ Extended guidance: [Naming](../code/naming.md)
 
 - treat `apps/console/**` as frozen migration evidence except for minimum compatibility needed by earlier packages; the Workflow Studio package creates a fresh independently authored root `console/**` and the cleanup package deletes the legacy app after replacement proof
 - keep package manager, Vite, TypeScript, ESLint, Prettier, Vitest, Playwright, and Tailwind config app-local unless a second JS app later proves a shared workspace is needed
-- keep generated OpenAPI output under `apps/console/src/api/generated/**` and treat it as generated contract input, not authored source
-- keep API/SSE wiring under `apps/console/src/api/**` and keep feature components behind view-model mappers instead of direct raw-payload rendering
-- keep reusable primitives under `apps/console/src/components/ui/**` and layout shells under `apps/console/src/components/layout/**`
-- keep product-owned feature folders under `apps/console/src/features/**`; prefer `tasks`, `task-detail`, `human-requests`, `command-runs`, `definitions`, `definition-editor`, and `task-start`
+- keep generated OpenAPI output under `console/src/api/generated/**` and treat it as generated contract input, not authored source
+- keep API wiring under `console/src/api/**` and keep feature components behind view-model mappers instead of direct raw-payload rendering
+- keep reusable primitives under `console/src/components/ui/**` and layout shells under `console/src/components/layout/**`
+- keep product-owned feature folders under `console/src/features/**`; prefer `workflows`, `workflow-studio`, and `runs`
 - avoid stale feature folders such as `approvals`, `flows`, `registry`, or `observability` unless a later controller-backed page contract reintroduces that exact user-facing owner
 - keep test fixtures and MSW data API-shaped and visibly fake; do not let browser fixtures become shadow controller truth
 

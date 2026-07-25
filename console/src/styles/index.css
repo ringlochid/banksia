@@ -1,0 +1,85 @@
+@import "tailwindcss";
+@import "./tokens.css";
+
+* {
+    box-sizing: border-box;
+}
+
+html {
+    min-width: 20rem;
+    background: var(--banksia-paper);
+    color: var(--banksia-ink-950);
+    font-family: var(--banksia-font);
+    line-height: 1.5;
+}
+
+body {
+    min-height: 100vh;
+    margin: 0;
+    background:
+        radial-gradient(
+            circle at 88% 0%,
+            rgb(217 163 33 / 10%),
+            transparent 25rem
+        ),
+        var(--banksia-paper);
+}
+
+button,
+input,
+select,
+textarea {
+    font: inherit;
+}
+
+button,
+a,
+input,
+select,
+textarea,
+summary {
+    outline: none;
+}
+
+:focus-visible {
+    outline: 0.1875rem solid var(--banksia-focus);
+    outline-offset: 0.1875rem;
+}
+
+a {
+    color: inherit;
+}
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.page-frame {
+    width: min(100% - 2rem, var(--banksia-content));
+    margin-inline: auto;
+}
+
+@media (max-width: 40rem) {
+    .page-frame {
+        width: min(100% - 1.25rem, var(--banksia-content));
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+    }
+}

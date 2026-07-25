@@ -82,6 +82,26 @@ DraftOperation = Annotated[
 DRAFT_OPERATION_ADAPTER: TypeAdapter[DraftOperation] = TypeAdapter(DraftOperation)
 
 
+def build_new_workflow(
+    *,
+    workflow_id: str,
+    description: str,
+    note: str | None = None,
+    lead: NewMember | None = None,
+    member_id_allocator: Callable[[], str] | None = None,
+) -> NormalizedWorkflow:
+    allocate_id = member_id_allocator or _new_workflow_member_id_allocator()
+    payload: dict[str, object] = {
+        "kind": "workflow",
+        "id": workflow_id,
+        "description": description,
+        "lead": _new_member_payload(lead or NewMember(), allocate_id=allocate_id),
+    }
+    if note is not None:
+        payload["note"] = note
+    return normalize_workflow_object(payload)
+
+
 def edit_normalized_workflow(
     workflow: NormalizedWorkflow,
     operation: DraftOperation,
@@ -200,6 +220,18 @@ def _default_member_id_allocator(root: object) -> Callable[[], str]:
     return allocate_id
 
 
+def _new_workflow_member_id_allocator() -> Callable[[], str]:
+    next_member_number = 1
+
+    def allocate_id() -> str:
+        nonlocal next_member_number
+        allocated = f"member-{next_member_number}"
+        next_member_number += 1
+        return allocated
+
+    return allocate_id
+
+
 def _missing_member(member_id: str) -> WorkflowInputError:
     return workflow_input_error(
         source="operation.member_id",
@@ -218,5 +250,6 @@ __all__ = [
     "UpdateMemberOperation",
     "UpdateWorkflowOperation",
     "WorkflowPatch",
+    "build_new_workflow",
     "edit_normalized_workflow",
 ]

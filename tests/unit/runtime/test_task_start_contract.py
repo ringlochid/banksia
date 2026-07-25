@@ -4,10 +4,8 @@ import asyncio
 from pathlib import Path
 
 import pytest
-from fastapi import FastAPI
 from pydantic import ValidationError
 
-from banksia.interfaces.http.router import api_router
 from banksia.runtime.contracts import (
     AssignmentBody,
     CheckpointRequest,
@@ -125,19 +123,6 @@ def test_file_reference_is_only_normalized_path_and_optional_description() -> No
     ):
         with pytest.raises((ValidationError, ValueError)):
             FileReference(path=path)
-
-
-def test_task_start_http_contract_has_no_compose_or_preview_route() -> None:
-    app = FastAPI()
-    app.include_router(api_router)
-    openapi = app.openapi()
-
-    assert "/tasks" in openapi["paths"]
-    assert "TaskStartRequest" in openapi["components"]["schemas"]
-    assert "TaskStartReceipt" in openapi["components"]["schemas"]
-    serialized = str(openapi).casefold()
-    assert "task-compose" not in serialized
-    assert "taskcompose" not in serialized
 
 
 async def test_workspace_admission_coordinator_serializes_only_the_same_workspace(

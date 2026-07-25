@@ -64,6 +64,8 @@ namespaces = false
 
 [tool.setuptools.package-data]
 banksia = [
+  "interfaces/web_console/assets/index.html",
+  "interfaces/web_console/assets/assets/*",
   "workflows/resources/starter_workflows/*.yaml",
   "platform/managed_services/resources/systemd/*.service",
   "runtime/prompt/assets/shared/*.txt",

@@ -11,6 +11,7 @@ import pytest
 from mcp.types import CallToolResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import banksia.interfaces.mcp.operator.workflow_tools as workflow_tools_module
 import banksia.persistence.session_operations as session_operations
 import banksia.runtime.task_start as task_start_module
 from banksia.config import CodexSettings, RuntimeSettings, Settings
@@ -23,6 +24,7 @@ from banksia.persistence.session import get_db_session
 from banksia.providers import ProviderKind
 from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
 from banksia.runtime.post_commit import CapturedRuntimeEffectPublisher
+from banksia.workflows.authoring import build_workflow_authoring_options
 from banksia.workflows.cursors import (
     encode_workflow_revision_cursor,
     encode_workflow_search_cursor,
@@ -31,57 +33,32 @@ from tests.helpers.product_surface import operator_payload
 from tests.helpers.workflow_runtime import initialized_workflow_database
 
 
-async def test_http_catalog_hides_draft_only_workflows(tmp_path: Path) -> None:
-    async with initialized_workflow_database(tmp_path) as session_factory:
-        async with _http_client(session_factory) as client:
-            created = await client.post(
-                "/workflow-drafts",
-                json={
-                    "kind": "workflow",
-                    "id": "http-draft-rediscovery",
-                    "description": "Draft rediscovery proof.",
-                    "lead": {"id": "lead"},
-                },
-            )
-            catalog = await client.get("/workflows")
-            detail = await client.get("/workflows/http-draft-rediscovery")
-            draft_detail = await client.get(f"/workflow-drafts/{created.json()['draft_id']}")
-
-    assert created.status_code == 201, created.text
-    assert catalog.status_code == 200, catalog.text
-    assert "http-draft-rediscovery" not in {item["workflow_id"] for item in catalog.json()["items"]}
-    assert detail.status_code == 404, detail.text
-    assert detail.json()["code"] == "not_found"
-    assert draft_detail.status_code == 200, draft_detail.text
-    assert draft_detail.headers["etag"] == created.json()["etag"]
-
-
 async def test_workflow_catalog_and_history_are_bounded_and_share_cursors(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     async with initialized_workflow_database(tmp_path) as session_factory:
         async with _http_client(session_factory) as client:
-            current = await client.get("/workflows/reviewed-delivery")
+            current = await client.get("/api/workflows/reviewed-delivery")
             active_draft = await _publish_history_and_create_active_draft(client)
             hidden_search = await client.get(
-                "/workflows",
+                "/api/workflows",
                 params={"q": "Hidden active draft mutation"},
             )
-            http_search_first = await client.get("/workflows", params={"limit": 1})
+            http_search_first = await client.get("/api/workflows", params={"limit": 1})
             http_search_second = await client.get(
-                "/workflows",
+                "/api/workflows",
                 params={
                     "limit": 1,
                     "cursor": http_search_first.json()["next_cursor"],
                 },
             )
             http_history_first = await client.get(
-                "/workflows/reviewed-delivery",
+                "/api/workflows/reviewed-delivery",
                 params={"revision_limit": 1},
             )
             http_history_second = await client.get(
-                "/workflows/reviewed-delivery",
+                "/api/workflows/reviewed-delivery",
                 params={
                     "revision_limit": 1,
                     "revision_cursor": http_history_first.json()["revisions_next_cursor"],
@@ -112,9 +89,11 @@ async def test_workflow_catalog_and_history_are_bounded_and_share_cursors(
         )
 
     assert current.status_code == 200, current.text
-    assert active_draft.status_code == 201, active_draft.text
+    assert active_draft.status_code == 200, active_draft.text
     assert hidden_search.status_code == 200, hidden_search.text
-    assert hidden_search.json()["items"] == []
+    assert tuple(item["workflow_id"] for item in hidden_search.json()["items"]) == (
+        "reviewed-delivery",
+    )
     assert http_search_first.status_code == 200, http_search_first.text
     assert http_search_first.json()["next_cursor"] is not None
     assert http_search_second.status_code == 200, http_search_second.text
@@ -143,13 +122,13 @@ async def test_workflow_cursor_failures_preserve_http_operator_parity(
     async with initialized_workflow_database(tmp_path) as session_factory:
         async with _http_client(session_factory) as client:
             http_results = (
-                await client.get("/workflows", params={"cursor": "malformed"}),
+                await client.get("/api/workflows", params={"cursor": "malformed"}),
                 await client.get(
-                    "/workflows",
+                    "/api/workflows",
                     params={"q": "second query", "cursor": query_mismatched_cursor},
                 ),
                 await client.get(
-                    "/workflows/evidence-research",
+                    "/api/workflows/evidence-research",
                     params={"revision_cursor": cross_workflow_cursor},
                 ),
             )
@@ -182,29 +161,47 @@ async def test_workflow_cursor_failures_preserve_http_operator_parity(
 async def _publish_history_and_create_active_draft(
     client: httpx.AsyncClient,
 ) -> httpx.Response:
-    workflow = {
-        "kind": "workflow",
-        "id": "reviewed-delivery",
-        "description": "",
-        "lead": {"id": "lead"},
-    }
     for description in ("Published revision two.", "Published revision three."):
-        workflow["description"] = description
-        draft = await client.post("/workflow-drafts", json=workflow)
-        assert draft.status_code == 201, draft.text
+        opened = await client.post(
+            "/api/workflow-drafts",
+            json={"kind": "open", "workflow_id": "reviewed-delivery"},
+        )
+        assert opened.status_code == 201, opened.text
+        draft = opened.json()["draft"]
+        edited = await client.patch(
+            f"/api/workflow-drafts/{draft['draft_id']}",
+            headers={"If-Match": draft["etag"]},
+            json={
+                "kind": "update_workflow",
+                "patch": {"description": description},
+            },
+        )
+        assert edited.status_code == 200, edited.text
         published = await client.post(
-            f"/workflow-drafts/{draft.json()['draft_id']}/publish",
-            headers={"If-Match": draft.json()["etag"]},
+            f"/api/workflow-drafts/{draft['draft_id']}/publish",
+            headers={"If-Match": edited.json()["draft"]["etag"]},
         )
         assert published.status_code == 200, published.text
-    workflow["description"] = "Hidden active draft mutation."
-    return await client.post("/workflow-drafts", json=workflow)
+    opened = await client.post(
+        "/api/workflow-drafts",
+        json={"kind": "open", "workflow_id": "reviewed-delivery"},
+    )
+    assert opened.status_code == 201, opened.text
+    draft = opened.json()["draft"]
+    return await client.patch(
+        f"/api/workflow-drafts/{draft['draft_id']}",
+        headers={"If-Match": draft["etag"]},
+        json={
+            "kind": "update_workflow",
+            "patch": {"description": "Hidden active draft mutation."},
+        },
+    )
 
 
 async def test_http_workflow_readbacks_never_expose_integrity_hashes(tmp_path: Path) -> None:
     async with initialized_workflow_database(tmp_path) as session_factory:
         async with _http_client(session_factory) as client:
-            detail = await client.get("/workflows/reviewed-delivery")
+            detail = await client.get("/api/workflows/reviewed-delivery")
 
     assert detail.status_code == 200, detail.text
     assert "content_hash" not in detail.text
@@ -226,17 +223,74 @@ async def test_operator_workflow_get_never_exposes_integrity_hashes(
     assert "content_hash" not in json.dumps(result[1], sort_keys=True)
 
 
+async def test_operator_uses_shared_draft_opening_service_and_dynamic_options(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    settings = Settings(
+        runtime=RuntimeSettings(default_provider=ProviderKind.CODEX),
+        codex=CodexSettings(enabled=True, model="operator-config", effort="high"),
+    )
+    async with initialized_workflow_database(tmp_path) as session_factory:
+        monkeypatch.setattr(session_operations, "get_session_factory", lambda: session_factory)
+        monkeypatch.setattr(workflow_tools_module, "get_settings", lambda: settings)
+        server = create_operator_mcp_server()
+        created = await server.call_tool(
+            "workflow_draft_create",
+            {
+                "request": {
+                    "kind": "create",
+                    "workflow_id": "operator-created",
+                    "description": "Created through the shared product service.",
+                }
+            },
+        )
+        opened = await server.call_tool(
+            "workflow_draft_create",
+            {"request": {"kind": "open", "workflow_id": "reviewed-delivery"}},
+        )
+        reopened = await server.call_tool(
+            "workflow_draft_create",
+            {"request": {"kind": "open", "workflow_id": "reviewed-delivery"}},
+        )
+        options = await server.call_tool("workflow_authoring_options", {})
+        rejected_import = await server.call_tool(
+            "workflow_draft_create",
+            {
+                "request": {
+                    "kind": "workflow",
+                    "id": "operator-full-import",
+                    "description": "Full definition import is not an Operator shortcut.",
+                    "lead": {"id": "operator-lead"},
+                }
+            },
+        )
+
+    created_payload = cast(dict[str, object], operator_payload(created))
+    opened_payload = cast(dict[str, object], operator_payload(opened))
+    reopened_payload = cast(dict[str, object], operator_payload(reopened))
+    assert created_payload["is_created"] is True
+    assert opened_payload["is_created"] is True
+    assert reopened_payload["is_created"] is False
+    assert reopened_payload["draft"] == opened_payload["draft"]
+    assert operator_payload(options) == build_workflow_authoring_options(settings).model_dump(
+        mode="json"
+    )
+    assert isinstance(rejected_import, CallToolResult)
+    assert rejected_import.isError is True
+
+
 async def test_http_task_start_commits_current_workflow_and_maps_unknown_to_404(
     tmp_path: Path,
 ) -> None:
     async with initialized_workflow_database(tmp_path) as session_factory:
         async with _http_client(session_factory) as client:
             started = await client.post(
-                "/tasks",
+                "/api/tasks",
                 json=_task_start_payload(tmp_path),
             )
             missing = await client.post(
-                "/tasks",
+                "/api/tasks",
                 json=_task_start_payload(
                     tmp_path,
                     workflow_id="missing-workflow",

@@ -1,0 +1,107 @@
+.shell__skip {
+    position: fixed;
+    z-index: 200;
+    top: 0.75rem;
+    left: 0.75rem;
+    padding: 0.65rem 0.9rem;
+    border-radius: var(--banksia-radius-small);
+    background: var(--banksia-ink-950);
+    color: white;
+    transform: translateY(-200%);
+}
+
+.shell__skip:focus {
+    transform: translateY(0);
+}
+
+.shell__header {
+    position: sticky;
+    z-index: 30;
+    top: 0;
+    border-bottom: 1px solid var(--banksia-line);
+    background: rgb(255 253 248 / 92%);
+    backdrop-filter: blur(1rem);
+}
+
+.shell__header-inner {
+    display: flex;
+    min-width: 0;
+    min-height: 4rem;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+}
+
+.shell__brand {
+    display: inline-flex;
+    min-width: 0;
+    min-height: 2.75rem;
+    align-items: center;
+    gap: 0.65rem;
+    color: var(--banksia-ink-950);
+    font-size: 1.12rem;
+    font-weight: 850;
+    letter-spacing: -0.02em;
+    text-decoration: none;
+}
+
+.shell__brand-mark {
+    display: grid;
+    width: 2rem;
+    height: 2rem;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--banksia-flower);
+    color: var(--banksia-ink-950);
+}
+
+.shell__nav {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.shell__nav-link {
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    padding: 0.55rem 0.85rem;
+    border-radius: var(--banksia-radius-small);
+    color: var(--banksia-ink-650);
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.shell__nav-link:hover,
+.shell__nav-link.is-active {
+    background: var(--banksia-leaf-soft);
+    color: var(--banksia-leaf-hover);
+}
+
+.shell__main {
+    min-height: calc(100vh - 4rem);
+}
+
+@media (max-width: 30rem) {
+    .shell__header-inner {
+        min-height: auto;
+        align-items: stretch;
+        flex-direction: column;
+        gap: 0;
+        padding-block: 0.35rem;
+    }
+
+    .shell__brand {
+        align-self: flex-start;
+    }
+
+    .shell__nav {
+        width: 100%;
+    }
+
+    .shell__nav-link {
+        flex: 1 1 0;
+        justify-content: center;
+    }
+}

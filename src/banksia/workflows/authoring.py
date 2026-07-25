@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from datetime import UTC, datetime
 from secrets import token_urlsafe
 from typing import Any, cast
 
@@ -11,42 +12,40 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnElement
 
 from banksia.persistence.models import (
+    WorkflowDefinitionModel,
     WorkflowDraftModel,
     WorkflowUndoReceiptModel,
 )
-from banksia.runtime.errors import invalid_request_shape_error
 from banksia.workflows.authoring_contracts import (
+    CreateWorkflowDraftRequest,
     WorkflowDraftImportResult,
     WorkflowDraftMutationResult,
+    WorkflowDraftOpenRequest,
+    WorkflowDraftOpenResult,
     WorkflowDraftReadback,
     WorkflowDraftValidationResult,
-    WorkflowGetResponse,
-    WorkflowSearchItem,
-    WorkflowSearchResponse,
-    map_workflow_published_readback,
-    map_workflow_revision_readback,
 )
 from banksia.workflows.canonical import canonical_workflow_hash
-from banksia.workflows.catalog import (
-    list_workflow_revisions,
-    read_current_published_workflow,
-    read_published_workflow_revision,
-    search_workflows,
-)
+from banksia.workflows.catalog import read_published_workflow_revision
 from banksia.workflows.contracts import (
     NormalizedWorkflow,
     PublishedWorkflowRevision,
     WorkflowProvenance,
 )
-from banksia.workflows.cursors import (
-    decode_workflow_revision_cursor,
-    decode_workflow_search_cursor,
-    encode_workflow_revision_cursor,
-    encode_workflow_search_cursor,
-)
 from banksia.workflows.ingest import normalize_workflow_object
-from banksia.workflows.operations import DraftOperation, edit_normalized_workflow
-from banksia.workflows.publication import publish_workflow_revision
+from banksia.workflows.library import (
+    build_workflow_authoring_options,
+    map_workflow_draft_readback,
+    read_workflow_catalog_entry,
+    read_workflow_draft,
+    search_workflow_catalog,
+)
+from banksia.workflows.operations import (
+    DraftOperation,
+    build_new_workflow,
+    edit_normalized_workflow,
+)
+from banksia.workflows.publication import acquire_workflow_owner, publish_workflow_revision
 from banksia.workflows.service_errors import (
     WorkflowDraftConflictError,
     WorkflowNotFoundError,
@@ -56,12 +55,26 @@ from banksia.workflows.service_errors import (
 )
 
 
-async def create_workflow_draft(
+async def open_workflow_draft(
     session: AsyncSession,
     *,
-    workflow: NormalizedWorkflow,
-) -> WorkflowDraftReadback:
-    return await _create_workflow_draft(session, workflow=workflow)
+    request: WorkflowDraftOpenRequest,
+) -> WorkflowDraftOpenResult:
+    if isinstance(request, CreateWorkflowDraftRequest):
+        workflow = build_new_workflow(
+            workflow_id=request.workflow_id,
+            description=request.description,
+            note=request.note,
+            lead=request.lead,
+        )
+        return WorkflowDraftOpenResult(
+            draft=await _create_new_workflow_draft(session, workflow=workflow),
+            is_created=True,
+        )
+    return await _open_existing_workflow_draft(
+        session,
+        workflow_id=request.workflow_id,
+    )
 
 
 async def import_workflow_draft(
@@ -81,143 +94,18 @@ async def import_workflow_draft(
             f"Workflow {workflow.id!r} already has a draft; its current ETag is required"
         )
     if existing.etag != expected_etag:
-        raise WorkflowStaleDraftError(_draft_readback(existing))
+        raise WorkflowStaleDraftError(map_workflow_draft_readback(existing))
     if existing.content_hash == canonical_workflow_hash(workflow):
-        return WorkflowDraftImportResult(draft=_draft_readback(existing), is_created=False)
+        return WorkflowDraftImportResult(
+            draft=map_workflow_draft_readback(existing),
+            is_created=False,
+        )
     receipt = await _replace_draft_content(session, row=existing, workflow=workflow)
     return WorkflowDraftImportResult(
-        draft=await _read_workflow_draft(session, draft_id=existing.draft_id),
+        draft=await read_workflow_draft(session, draft_id=existing.draft_id),
         is_created=False,
         undo_receipt=receipt,
     )
-
-
-async def search_workflow_catalog(
-    session: AsyncSession,
-    *,
-    query: str | None = None,
-    cursor: str | None = None,
-    limit: int = 50,
-) -> WorkflowSearchResponse:
-    normalized_query = (query or "").casefold().strip()
-    after_workflow_id = decode_workflow_search_cursor(
-        cursor,
-        normalized_query=normalized_query,
-    )
-    page = await search_workflows(
-        session,
-        query=normalized_query or None,
-        after_workflow_id=after_workflow_id,
-        limit=limit,
-    )
-    return WorkflowSearchResponse(
-        items=tuple(
-            WorkflowSearchItem(
-                workflow_id=item.workflow_id,
-                description=item.description,
-                published_revision_no=item.revision_no,
-                provenance=item.provenance,
-            )
-            for item in page.items
-        ),
-        next_cursor=(
-            encode_workflow_search_cursor(
-                page.next_workflow_id,
-                normalized_query=normalized_query,
-            )
-            if page.next_workflow_id is not None
-            else None
-        ),
-    )
-
-
-async def read_workflow_catalog_entry(
-    session: AsyncSession,
-    *,
-    workflow_id: str,
-    revision_no: int | None = None,
-    should_include_revisions: bool = True,
-    revision_cursor: str | None = None,
-    revision_limit: int = 20,
-) -> WorkflowGetResponse:
-    if revision_no is not None:
-        published = await read_published_workflow_revision(
-            session,
-            workflow_id=workflow_id,
-            revision_no=revision_no,
-        )
-    else:
-        published = await read_current_published_workflow(
-            session,
-            workflow_id=workflow_id,
-        )
-    draft = await read_active_workflow_draft(session, workflow_id=workflow_id)
-    before_revision_no = decode_workflow_revision_cursor(
-        revision_cursor,
-        workflow_id=workflow_id,
-    )
-    if not should_include_revisions and revision_cursor is not None:
-        raise invalid_request_shape_error(
-            "A Workflow revision cursor requires revision history to be included."
-        )
-    revision_page = (
-        await list_workflow_revisions(
-            session,
-            workflow_id=workflow_id,
-            before_revision_no=before_revision_no,
-            limit=revision_limit,
-        )
-        if should_include_revisions
-        else None
-    )
-    return WorkflowGetResponse(
-        workflow_id=workflow_id,
-        published=map_workflow_published_readback(published),
-        revisions=tuple(map_workflow_revision_readback(item) for item in revision_page.items)
-        if revision_page is not None
-        else (),
-        revisions_next_cursor=(
-            encode_workflow_revision_cursor(
-                revision_page.next_revision_no,
-                workflow_id=workflow_id,
-            )
-            if revision_page is not None and revision_page.next_revision_no is not None
-            else None
-        ),
-        active_draft=draft,
-    )
-
-
-async def read_workflow_draft(
-    session: AsyncSession,
-    *,
-    draft_id: str,
-) -> WorkflowDraftReadback:
-    return await _read_workflow_draft(session, draft_id=draft_id)
-
-
-async def read_active_workflow_draft(
-    session: AsyncSession,
-    *,
-    workflow_id: str,
-) -> WorkflowDraftReadback | None:
-    row = await session.scalar(
-        select(WorkflowDraftModel).where(WorkflowDraftModel.workflow_key == workflow_id)
-    )
-    return _draft_readback(row) if row is not None else None
-
-
-async def list_active_workflow_drafts(
-    session: AsyncSession,
-) -> tuple[WorkflowDraftReadback, ...]:
-    rows = tuple(
-        (
-            await session.scalars(
-                select(WorkflowDraftModel).order_by(WorkflowDraftModel.workflow_key.asc())
-            )
-        ).all()
-    )
-    return tuple(_draft_readback(row) for row in rows)
 
 
 async def edit_workflow_draft(
@@ -249,7 +137,7 @@ async def edit_workflow_draft(
         next_member_sequence=next_member_sequence,
     )
     return WorkflowDraftMutationResult(
-        draft=await _read_workflow_draft(session, draft_id=draft_id),
+        draft=await read_workflow_draft(session, draft_id=draft_id),
         undo_receipt=receipt,
     )
 
@@ -259,7 +147,7 @@ async def validate_workflow_draft(
     *,
     draft_id: str,
 ) -> WorkflowDraftValidationResult:
-    draft = await _read_workflow_draft(session, draft_id=draft_id)
+    draft = await read_workflow_draft(session, draft_id=draft_id)
     normalize_workflow_object(draft.workflow.model_dump(mode="json", exclude_none=True))
     return WorkflowDraftValidationResult(is_valid=True, draft=draft)
 
@@ -281,7 +169,7 @@ async def undo_workflow_draft(
     if receipt is None or receipt.consumed:
         raise WorkflowUndoReceiptError("Undo receipt is missing or has already been used")
     if receipt.expected_etag != row.etag:
-        raise WorkflowStaleDraftError(_draft_readback(row))
+        raise WorkflowStaleDraftError(map_workflow_draft_readback(row))
     new_etag = _etag()
     consumed = await session.execute(
         update(WorkflowUndoReceiptModel)
@@ -310,7 +198,7 @@ async def undo_workflow_draft(
         current = await session.get(WorkflowDraftModel, draft_id)
         if current is None:
             raise WorkflowNotFoundError(f"Workflow draft {draft_id!r} does not exist")
-        raise WorkflowStaleDraftError(_draft_readback(current))
+        raise WorkflowStaleDraftError(map_workflow_draft_readback(current))
     return await _reload_draft(session, draft_id=draft_id)
 
 
@@ -320,18 +208,31 @@ async def discard_workflow_draft(
     draft_id: str,
     expected_etag: str,
 ) -> None:
-    await _current_draft_row(session, draft_id=draft_id, expected_etag=expected_etag)
+    row = await _current_draft_row(
+        session,
+        draft_id=draft_id,
+        expected_etag=expected_etag,
+    )
     deleted = await session.execute(
         delete(WorkflowDraftModel).where(
             WorkflowDraftModel.draft_id == draft_id,
             WorkflowDraftModel.etag == expected_etag,
         )
     )
-    if cast(CursorResult[Any], deleted).rowcount != 1:
-        current = await session.get(WorkflowDraftModel, draft_id)
-        if current is None:
-            raise WorkflowNotFoundError(f"Workflow draft {draft_id!r} does not exist")
-        raise WorkflowStaleDraftError(_draft_readback(current))
+    if cast(CursorResult[Any], deleted).rowcount == 1:
+        await session.execute(
+            update(WorkflowDefinitionModel)
+            .where(
+                WorkflowDefinitionModel.workflow_key == row.workflow_key,
+                WorkflowDefinitionModel.current_revision_no.is_not(None),
+            )
+            .values(updated_at=datetime.now(UTC))
+        )
+        return
+    current = await session.get(WorkflowDraftModel, draft_id)
+    if current is None:
+        raise WorkflowNotFoundError(f"Workflow draft {draft_id!r} does not exist")
+    raise WorkflowStaleDraftError(map_workflow_draft_readback(current))
 
 
 async def publish_workflow_draft(
@@ -389,7 +290,7 @@ async def _replace_draft_content(
         current = await session.get(WorkflowDraftModel, row.draft_id)
         if current is None:
             raise WorkflowNotFoundError(f"Workflow draft {row.draft_id!r} does not exist")
-        raise WorkflowStaleDraftError(_draft_readback(current))
+        raise WorkflowStaleDraftError(map_workflow_draft_readback(current))
     session.add(
         WorkflowUndoReceiptModel(
             receipt_id=receipt_id,
@@ -411,11 +312,79 @@ async def _create_workflow_draft(
     existing = await _active_draft_row_for_update(session, workflow_id=workflow.id)
     if existing is not None:
         raise WorkflowDraftConflictError(f"Workflow {workflow.id!r} already has an active draft")
-    try:
-        current = await read_current_published_workflow(session, workflow_id=workflow.id)
-        base_revision_no = current.revision_no
-    except WorkflowNotFoundError:
-        base_revision_no = None
+    owner = await acquire_workflow_owner(session, workflow_id=workflow.id)
+    existing = await _active_draft_row_for_update(session, workflow_id=workflow.id)
+    if existing is not None:
+        raise WorkflowDraftConflictError(f"Workflow {workflow.id!r} already has an active draft")
+    return await _insert_workflow_draft(
+        session,
+        workflow=workflow,
+        base_revision_no=owner.current_revision_no,
+    )
+
+
+async def _create_new_workflow_draft(
+    session: AsyncSession,
+    *,
+    workflow: NormalizedWorkflow,
+) -> WorkflowDraftReadback:
+    existing = await _active_draft_row_for_update(session, workflow_id=workflow.id)
+    if existing is not None:
+        raise WorkflowDraftConflictError(f"Workflow {workflow.id!r} already has an active draft")
+    owner = await acquire_workflow_owner(session, workflow_id=workflow.id)
+    existing = await _active_draft_row_for_update(session, workflow_id=workflow.id)
+    if existing is not None:
+        raise WorkflowDraftConflictError(f"Workflow {workflow.id!r} already has an active draft")
+    if owner.current_revision_no is not None:
+        raise WorkflowDraftConflictError(f"Workflow {workflow.id!r} is already published")
+    return await _insert_workflow_draft(
+        session,
+        workflow=workflow,
+        base_revision_no=None,
+    )
+
+
+async def _open_existing_workflow_draft(
+    session: AsyncSession,
+    *,
+    workflow_id: str,
+) -> WorkflowDraftOpenResult:
+    existing = await _active_draft_row_for_update(session, workflow_id=workflow_id)
+    if existing is not None:
+        return WorkflowDraftOpenResult(
+            draft=map_workflow_draft_readback(existing),
+            is_created=False,
+        )
+    owner = await acquire_workflow_owner(session, workflow_id=workflow_id)
+    existing = await _active_draft_row_for_update(session, workflow_id=workflow_id)
+    if existing is not None:
+        return WorkflowDraftOpenResult(
+            draft=map_workflow_draft_readback(existing),
+            is_created=False,
+        )
+    if owner.current_revision_no is None:
+        raise WorkflowNotFoundError(f"published Workflow {workflow_id!r} does not exist")
+    published = await read_published_workflow_revision(
+        session,
+        workflow_id=workflow_id,
+        revision_no=owner.current_revision_no,
+    )
+    return WorkflowDraftOpenResult(
+        draft=await _insert_workflow_draft(
+            session,
+            workflow=published.workflow,
+            base_revision_no=published.revision_no,
+        ),
+        is_created=True,
+    )
+
+
+async def _insert_workflow_draft(
+    session: AsyncSession,
+    *,
+    workflow: NormalizedWorkflow,
+    base_revision_no: int | None,
+) -> WorkflowDraftReadback:
     row = WorkflowDraftModel(
         draft_id=_opaque_id("workflow-draft"),
         workflow_key=workflow.id,
@@ -438,7 +407,7 @@ async def _create_workflow_draft(
         raise WorkflowDraftConflictError(
             f"Workflow {workflow.id!r} already has an active draft"
         ) from None
-    return _draft_readback(row)
+    return map_workflow_draft_readback(row)
 
 
 async def _delete_draft_with_etag(
@@ -459,18 +428,7 @@ async def _delete_draft_with_etag(
     current = await session.get(WorkflowDraftModel, row.draft_id)
     if current is None:
         raise WorkflowNotFoundError(f"Workflow draft {row.draft_id!r} does not exist")
-    raise WorkflowStaleDraftError(_draft_readback(current))
-
-
-async def _read_workflow_draft(
-    session: AsyncSession,
-    *,
-    draft_id: str,
-) -> WorkflowDraftReadback:
-    row = await session.get(WorkflowDraftModel, draft_id)
-    if row is None:
-        raise WorkflowNotFoundError(f"Workflow draft {draft_id!r} does not exist")
-    return _draft_readback(row)
+    raise WorkflowStaleDraftError(map_workflow_draft_readback(current))
 
 
 async def _current_draft_row(
@@ -483,7 +441,7 @@ async def _current_draft_row(
     if row is None:
         raise WorkflowNotFoundError(f"Workflow draft {draft_id!r} does not exist")
     if row.etag != expected_etag:
-        raise WorkflowStaleDraftError(_draft_readback(row))
+        raise WorkflowStaleDraftError(map_workflow_draft_readback(row))
     return row
 
 
@@ -541,17 +499,7 @@ async def _reload_draft(session: AsyncSession, *, draft_id: str) -> WorkflowDraf
     if row is None:  # pragma: no cover - caller owns the row
         raise WorkflowNotFoundError(f"Workflow draft {draft_id!r} does not exist")
     await session.refresh(row)
-    return _draft_readback(row)
-
-
-def _draft_readback(row: WorkflowDraftModel) -> WorkflowDraftReadback:
-    return WorkflowDraftReadback(
-        draft_id=row.draft_id,
-        workflow_id=row.workflow_key,
-        base_revision_no=row.base_revision_no,
-        etag=row.etag,
-        workflow=NormalizedWorkflow.model_validate(row.content_json),
-    )
+    return map_workflow_draft_readback(row)
 
 
 def _etag() -> str:
@@ -582,13 +530,12 @@ def _next_member_sequence(workflow: NormalizedWorkflow) -> int:
 
 
 __all__ = [
-    "create_workflow_draft",
+    "build_workflow_authoring_options",
     "discard_workflow_draft",
     "edit_workflow_draft",
     "import_workflow_draft",
-    "list_active_workflow_drafts",
+    "open_workflow_draft",
     "publish_workflow_draft",
-    "read_active_workflow_draft",
     "read_workflow_catalog_entry",
     "read_workflow_draft",
     "search_workflow_catalog",

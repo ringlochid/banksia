@@ -20,6 +20,7 @@ from banksia.interfaces.http.errors import (
 )
 from banksia.interfaces.http.local_admission import add_local_control_plane_middleware
 from banksia.interfaces.http.router import api_router
+from banksia.interfaces.http.routers.health import router as health_router
 from banksia.interfaces.http.support import create_support_app
 from banksia.interfaces.mcp.node.server import create_node_mcp_apps
 from banksia.interfaces.mcp.operator.server import (
@@ -27,6 +28,7 @@ from banksia.interfaces.mcp.operator.server import (
     create_operator_mcp_app,
 )
 from banksia.interfaces.mcp.transport import node_mcp_transport_policy
+from banksia.interfaces.web_console import register_web_console_routes
 from banksia.persistence.session import (
     dispose_db_engine,
     ensure_database_schema,
@@ -165,10 +167,12 @@ def create_app(
     _store_application_runtime(app, runtime)
     add_local_control_plane_middleware(app, settings)
     _register_exception_handlers(app)
+    app.include_router(health_router)
     app.include_router(api_router)
     _mount_support_app(app, settings=settings)
     if should_enable_mcp_mounts:
         _mount_mcp_apps(app, settings=settings, runtime=runtime)
+    register_web_console_routes(app)
     return app
 
 

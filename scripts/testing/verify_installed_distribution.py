@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import signal
 import socket
 import subprocess
@@ -14,6 +15,7 @@ import time
 import zipfile
 from collections.abc import Callable
 from dataclasses import dataclass
+from http.client import HTTPConnection
 from pathlib import Path, PurePosixPath
 from typing import Any
 from urllib.error import URLError
@@ -22,6 +24,7 @@ from urllib.request import urlopen
 REQUIRED_PACKAGE_MEMBERS = (
     "banksia/config.py",
     "banksia/main.py",
+    "banksia/interfaces/web_console/assets/index.html",
     "banksia/workflows/resources/starter_workflows/reviewed-delivery.yaml",
     "banksia/platform/managed_services/resources/systemd/banksia.service",
     "banksia/runtime/prompt/assets/shared/core.txt",
@@ -34,7 +37,6 @@ FORBIDDEN_MEMBER_FRAGMENTS = (
     "prompt.md",
     "session_key",
     "autoclaw",
-    "interfaces/web_console",
 )
 REMOVED_ROOT_COMMANDS = ("onboard", "configure", "doctor", "openclaw")
 COMMAND_TIMEOUT_SECONDS = 60.0
@@ -183,12 +185,14 @@ def inspect_sdist(sdist_path: Path) -> tuple[str, ...]:
     members = tuple(remove_sdist_root(member) for member in raw_members)
     required = (*REQUIRED_PACKAGE_MEMBERS, "LICENSE", "README.md", "pyproject.toml")
     verify_required_suffixes(members, required)
+    verify_console_asset_members(members)
     verify_forbidden_members(members)
     return raw_members
 
 
 def verify_package_members(members: tuple[str, ...]) -> None:
     verify_required_suffixes(members, REQUIRED_PACKAGE_MEMBERS)
+    verify_console_asset_members(members)
     if any(member.startswith("src/banksia/") for member in members):
         raise AssertionError("wheel retained a source-tree package prefix")
 
@@ -199,6 +203,15 @@ def verify_required_suffixes(members: tuple[str, ...], required: tuple[str, ...]
     ]
     if missing:
         raise AssertionError(f"distribution is missing required members: {missing}")
+
+
+def verify_console_asset_members(members: tuple[str, ...]) -> None:
+    console_assets = tuple(
+        member for member in members if "banksia/interfaces/web_console/assets/" in member
+    )
+    for suffix in (".js", ".css"):
+        if not any(member.endswith(suffix) for member in console_assets):
+            raise AssertionError(f"distribution is missing a built Console {suffix} asset")
 
 
 def verify_forbidden_members(members: tuple[str, ...]) -> None:
@@ -270,7 +283,7 @@ def verify_installed_runtime(
     removed_executable = venv_executable(venv_path, "autoclaw")
     if removed_executable.exists():
         raise AssertionError("installed wheel retained the removed legacy executable")
-    assert_removed_imports_are_unavailable(venv_path=venv_path, cwd=non_repo_cwd, env=env)
+    assert_installed_import_contract(venv_path=venv_path, cwd=non_repo_cwd, env=env)
     legacy_state = create_legacy_state_oracle(
         config_home=home / "config",
         data_home=home / "data",
@@ -330,6 +343,7 @@ def verify_installed_runtime(
         port=port,
         cwd=non_repo_cwd,
         env=env,
+        while_running=lambda: verify_installed_console(port),
     )
     database_result = verify_installed_database_commands(
         executable=executable,
@@ -371,7 +385,7 @@ def verify_installed_runtime(
     }
 
 
-def assert_removed_imports_are_unavailable(
+def assert_installed_import_contract(
     *,
     venv_path: Path,
     cwd: Path,
@@ -384,7 +398,7 @@ def assert_removed_imports_are_unavailable(
             (
                 "from importlib.util import find_spec; "
                 "assert find_spec('autoclaw') is None; "
-                "assert find_spec('banksia.interfaces.web_console') is None"
+                "assert find_spec('banksia.interfaces.web_console') is not None"
             ),
         ),
         cwd=cwd,
@@ -421,7 +435,8 @@ assert files("banksia.workflows.resources.starter_workflows").joinpath(
     "reviewed-delivery.yaml"
 ).is_file()
 assert get_systemd_service_template().is_file()
-assert find_spec("banksia.interfaces.web_console") is None
+assert find_spec("banksia.interfaces.web_console") is not None
+assert files("banksia.interfaces.web_console").joinpath("assets", "index.html").is_file()
 assert load_instruction_asset(InstructionAsset.CORE).strip()
 assert load_settings().postgres_schema == "banksia"
 
@@ -475,7 +490,7 @@ def run_installed_server_smoke(
                 while_running_result = while_running()
             if task_id is not None:
                 health_payloads["task"] = read_loopback_json(
-                    f"http://127.0.0.1:{port}/tasks/{task_id}"
+                    f"http://127.0.0.1:{port}/api/tasks/{task_id}"
                 )
         except Exception as exc:
             failure = exc
@@ -537,6 +552,72 @@ def wait_for_server_health(
     raise TimeoutError(
         f"server health checks exceeded {SERVER_START_TIMEOUT_SECONDS:.0f}s: {last_error}"
     )
+
+
+def verify_installed_console(port: int) -> dict[str, object]:
+    root_status, root_headers, _ = read_loopback_response(port, "/")
+    if root_status != 307 or root_headers.get("location") != "/workflows":
+        raise AssertionError(
+            f"installed Console root did not redirect to Workflows: {root_status}, {root_headers}"
+        )
+    page_bodies: dict[str, str] = {}
+    for path in ("/workflows", "/workflows/reviewed-delivery", "/runs"):
+        status_code, headers, body = read_loopback_response(port, path)
+        if (
+            status_code != 200
+            or "text/html" not in headers.get("content-type", "")
+            or "<title>Banksia</title>" not in body
+        ):
+            raise AssertionError(f"installed Console route {path} did not return the packaged app")
+        page_bodies[path] = body
+    asset_paths = tuple(
+        sorted(
+            {
+                match
+                for match in re.findall(
+                    r'(?:src|href)="(/assets/[^"]+)"',
+                    page_bodies["/workflows"],
+                )
+            }
+        )
+    )
+    if not asset_paths:
+        raise AssertionError("installed Console HTML did not reference packaged assets")
+    for asset_path in asset_paths:
+        status_code, _, body = read_loopback_response(port, asset_path)
+        if status_code != 200 or body == "":
+            raise AssertionError(f"installed Console asset was unavailable: {asset_path}")
+    for path in (
+        "/not-a-console-route",
+        "/assets/not-a-real-asset.js",
+        "/api/not-a-product-route",
+    ):
+        status_code, _, _ = read_loopback_response(port, path)
+        if status_code != 404:
+            raise AssertionError(f"installed Console rewrote unknown path {path}: {status_code}")
+    return {"routes": tuple(page_bodies), "assets": asset_paths}
+
+
+def read_loopback_response(
+    port: int,
+    path: str,
+) -> tuple[int, dict[str, str], str]:
+    connection = HTTPConnection(
+        "127.0.0.1",
+        port,
+        timeout=SERVER_REQUEST_TIMEOUT_SECONDS,
+    )
+    try:
+        connection.request("GET", path)
+        response = connection.getresponse()
+        headers = {key.casefold(): value for key, value in response.getheaders()}
+        return (
+            response.status,
+            headers,
+            response.read().decode("utf-8"),
+        )
+    finally:
+        connection.close()
 
 
 def read_loopback_json(url: str) -> dict[str, object]:
@@ -878,7 +959,7 @@ def verify_installed_task_view(task: dict[str, object], *, task_id: str) -> None
         or task.get("status") not in TASK_PRODUCT_STATUSES
         or not isinstance(task.get("status_message"), str)
         or not task["status_message"]
-        or task.get("activities_href") != f"/tasks/{task_id}/activities"
+        or task.get("activities_href") != f"/api/tasks/{task_id}/activities"
         or not isinstance(workflow, dict)
         or set(workflow) != {"id", "description"}
         or workflow.get("id") != "reviewed-delivery"

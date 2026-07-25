@@ -1,0 +1,198 @@
+import { useId, useRef, useState, type FormEvent } from "react";
+
+import type { WorkflowApi } from "../../api/client";
+import { Button, Dialog, FormField, Notice } from "../../components/ui";
+
+export interface CreateWorkflowDialogProps {
+    readonly api: WorkflowApi;
+    readonly isOpen: boolean;
+    readonly onClose: () => void;
+    readonly onCreated: (workflowId: string) => void;
+}
+
+const WORKFLOW_ID = /^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$/;
+
+export function CreateWorkflowDialog({
+    api,
+    isOpen,
+    onClose,
+    onCreated,
+}: CreateWorkflowDialogProps) {
+    const idPrefix = useId();
+    const {
+        description,
+        descriptionError,
+        error,
+        idError,
+        isCreating,
+        setDescription,
+        setWorkflowId,
+        submit,
+        workflowId,
+        workflowIdRef,
+    } = useWorkflowDraftCreation(api, onCreated);
+
+    return (
+        <Dialog
+            closeDisabled={isCreating}
+            initialFocusRef={workflowIdRef}
+            isOpen={isOpen}
+            onClose={onClose}
+            title="Create a Workflow"
+        >
+            <CreateWorkflowIntroduction error={error} />
+            <form
+                className="workflow-dialog__form"
+                onSubmit={(event) => void submit(event)}
+            >
+                <FormField
+                    error={idError}
+                    hint="This stable name is used in links and commands. It cannot be renamed later."
+                    id={`${idPrefix}-workflow-id`}
+                    label="Workflow ID"
+                >
+                    <input
+                        autoComplete="off"
+                        disabled={isCreating}
+                        maxLength={128}
+                        onChange={(event) => setWorkflowId(event.target.value)}
+                        placeholder="research-review"
+                        ref={workflowIdRef}
+                        required
+                        value={workflowId}
+                    />
+                </FormField>
+                <FormField
+                    error={descriptionError}
+                    hint="A plain-language sentence helps people choose the right team."
+                    id={`${idPrefix}-workflow-description`}
+                    label="Use this team when…"
+                >
+                    <textarea
+                        disabled={isCreating}
+                        maxLength={1024}
+                        onChange={(event) => setDescription(event.target.value)}
+                        required
+                        value={description}
+                    />
+                </FormField>
+                <CreateWorkflowActions
+                    canCreate={
+                        WORKFLOW_ID.test(workflowId) &&
+                        description.trim() !== ""
+                    }
+                    isCreating={isCreating}
+                    onClose={onClose}
+                />
+            </form>
+        </Dialog>
+    );
+}
+
+function CreateWorkflowIntroduction({
+    error,
+}: {
+    readonly error: string | null;
+}) {
+    return (
+        <>
+            <p className="workflow-dialog__intro">
+                A Workflow is a reusable AI team for a kind of complex work.
+                Banksia creates its lead Member for you.
+            </p>
+            {error === null ? null : (
+                <Notice tone="danger" urgent>
+                    {error}
+                </Notice>
+            )}
+        </>
+    );
+}
+
+interface CreateWorkflowActionsProps {
+    readonly canCreate: boolean;
+    readonly isCreating: boolean;
+    readonly onClose: () => void;
+}
+
+function CreateWorkflowActions({
+    canCreate,
+    isCreating,
+    onClose,
+}: CreateWorkflowActionsProps) {
+    return (
+        <div className="workflow-dialog__actions">
+            <Button disabled={isCreating} onClick={onClose} tone="quiet">
+                Cancel
+            </Button>
+            <Button
+                disabled={isCreating || !canCreate}
+                tone="primary"
+                type="submit"
+            >
+                {isCreating ? "Creating…" : "Create Workflow"}
+            </Button>
+        </div>
+    );
+}
+
+function useWorkflowDraftCreation(
+    api: WorkflowApi,
+    onCreated: (workflowId: string) => void,
+) {
+    const [workflowId, setWorkflowId] = useState("");
+    const [description, setDescription] = useState("");
+    const [error, setError] = useState<string | null>(null);
+    const [isCreating, setIsCreating] = useState(false);
+    const workflowIdRef = useRef<HTMLInputElement>(null);
+    const idError =
+        workflowId !== "" && !WORKFLOW_ID.test(workflowId)
+            ? "Use lowercase letters and numbers, joined by hyphens or underscores."
+            : null;
+    const descriptionError =
+        description !== "" && description.trim() === ""
+            ? "Describe when this team should be used."
+            : null;
+
+    const submit = async (event: FormEvent) => {
+        event.preventDefault();
+        if (
+            !WORKFLOW_ID.test(workflowId) ||
+            description.trim() === "" ||
+            isCreating
+        ) {
+            return;
+        }
+        setIsCreating(true);
+        setError(null);
+        try {
+            const { body } = await api.createWorkflow({
+                kind: "create",
+                workflow_id: workflowId,
+                description,
+            });
+            onCreated(body.draft.workflow_id);
+        } catch (caught) {
+            setError(
+                caught instanceof Error
+                    ? caught.message
+                    : "The Workflow could not be created.",
+            );
+        } finally {
+            setIsCreating(false);
+        }
+    };
+
+    return {
+        description,
+        descriptionError,
+        error,
+        idError,
+        isCreating,
+        setDescription,
+        setWorkflowId,
+        submit,
+        workflowId,
+        workflowIdRef,
+    };
+}

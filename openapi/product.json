@@ -312,6 +312,59 @@
         "title": "CommandRunView",
         "type": "object"
       },
+      "CreateWorkflowDraftRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Description",
+            "type": "string"
+          },
+          "kind": {
+            "const": "create",
+            "title": "Kind",
+            "type": "string"
+          },
+          "lead": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NewMember"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 8192,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "workflow_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+            "title": "Workflow Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "workflow_id",
+          "description"
+        ],
+        "title": "CreateWorkflowDraftRequest",
+        "type": "object"
+      },
       "FileReference": {
         "additionalProperties": false,
         "description": "An ordered navigation value to one ordinary workspace file.",
@@ -988,7 +1041,7 @@
         "title": "NewMember",
         "type": "object"
       },
-      "NormalizedMember-Input": {
+      "NormalizedMember": {
         "additionalProperties": false,
         "properties": {
           "capabilities": {
@@ -997,7 +1050,7 @@
           },
           "children": {
             "items": {
-              "$ref": "#/components/schemas/NormalizedMember-Input"
+              "$ref": "#/components/schemas/NormalizedMember"
             },
             "title": "Children",
             "type": "array"
@@ -1074,93 +1127,7 @@
         "title": "NormalizedMember",
         "type": "object"
       },
-      "NormalizedMember-Output": {
-        "additionalProperties": false,
-        "properties": {
-          "capabilities": {
-            "$ref": "#/components/schemas/MemberCapabilities",
-            "title": "Capabilities"
-          },
-          "children": {
-            "items": {
-              "$ref": "#/components/schemas/NormalizedMember-Output"
-            },
-            "title": "Children",
-            "type": "array"
-          },
-          "description": {
-            "anyOf": [
-              {
-                "maxLength": 16384,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description"
-          },
-          "id": {
-            "maxLength": 128,
-            "minLength": 1,
-            "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
-            "title": "Id",
-            "type": "string"
-          },
-          "instruction": {
-            "anyOf": [
-              {
-                "maxLength": 16384,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Instruction"
-          },
-          "provider": {
-            "discriminator": {
-              "mapping": {
-                "claude": "#/components/schemas/ClaudeProviderSelection",
-                "codex": "#/components/schemas/CodexProviderSelection",
-                "openclaw": "#/components/schemas/OpenClawProviderSelection"
-              },
-              "propertyName": "kind"
-            },
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/CodexProviderSelection"
-              },
-              {
-                "$ref": "#/components/schemas/ClaudeProviderSelection"
-              },
-              {
-                "$ref": "#/components/schemas/OpenClawProviderSelection"
-              }
-            ],
-            "title": "Provider"
-          },
-          "title": {
-            "anyOf": [
-              {
-                "maxLength": 16384,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Title"
-          }
-        },
-        "required": [
-          "id"
-        ],
-        "title": "NormalizedMember",
-        "type": "object"
-      },
-      "NormalizedWorkflow-Input": {
+      "NormalizedWorkflow": {
         "additionalProperties": false,
         "properties": {
           "description": {
@@ -1183,54 +1150,7 @@
             "type": "string"
           },
           "lead": {
-            "$ref": "#/components/schemas/NormalizedMember-Input"
-          },
-          "note": {
-            "anyOf": [
-              {
-                "maxLength": 8192,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Note"
-          }
-        },
-        "required": [
-          "kind",
-          "id",
-          "description",
-          "lead"
-        ],
-        "title": "NormalizedWorkflow",
-        "type": "object"
-      },
-      "NormalizedWorkflow-Output": {
-        "additionalProperties": false,
-        "properties": {
-          "description": {
-            "maxLength": 1024,
-            "minLength": 1,
-            "pattern": "\\S",
-            "title": "Description",
-            "type": "string"
-          },
-          "id": {
-            "maxLength": 128,
-            "minLength": 1,
-            "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
-            "title": "Id",
-            "type": "string"
-          },
-          "kind": {
-            "const": "workflow",
-            "title": "Kind",
-            "type": "string"
-          },
-          "lead": {
-            "$ref": "#/components/schemas/NormalizedMember-Output"
+            "$ref": "#/components/schemas/NormalizedMember"
           },
           "note": {
             "anyOf": [
@@ -1267,6 +1187,29 @@
           "kind"
         ],
         "title": "OpenClawProviderSelection",
+        "type": "object"
+      },
+      "OpenWorkflowDraftRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "open",
+            "title": "Kind",
+            "type": "string"
+          },
+          "workflow_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+            "title": "Workflow Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "workflow_id"
+        ],
+        "title": "OpenWorkflowDraftRequest",
         "type": "object"
       },
       "OperationFailure": {
@@ -2410,6 +2353,16 @@
             "title": "Command Run Values",
             "type": "array"
           },
+          "default_provider": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorkflowDefaultProviderReadback"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "human_request_kinds": {
             "items": {
               "type": "string"
@@ -2459,6 +2412,57 @@
         "title": "WorkflowAuthoringOptions",
         "type": "object"
       },
+      "WorkflowDefaultProviderReadback": {
+        "additionalProperties": false,
+        "properties": {
+          "effort": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effort"
+          },
+          "kind": {
+            "enum": [
+              "codex",
+              "claude",
+              "openclaw"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "sandbox": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProviderSandbox"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "WorkflowDefaultProviderReadback",
+        "type": "object"
+      },
       "WorkflowDraftDiscardResult": {
         "additionalProperties": false,
         "properties": {
@@ -2496,6 +2500,24 @@
         "title": "WorkflowDraftMutationResult",
         "type": "object"
       },
+      "WorkflowDraftOpenResult": {
+        "additionalProperties": false,
+        "properties": {
+          "draft": {
+            "$ref": "#/components/schemas/WorkflowDraftReadback"
+          },
+          "is_created": {
+            "title": "Is Created",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "draft",
+          "is_created"
+        ],
+        "title": "WorkflowDraftOpenResult",
+        "type": "object"
+      },
       "WorkflowDraftReadback": {
         "additionalProperties": false,
         "properties": {
@@ -2520,7 +2542,7 @@
             "type": "string"
           },
           "workflow": {
-            "$ref": "#/components/schemas/NormalizedWorkflow-Output"
+            "$ref": "#/components/schemas/NormalizedWorkflow"
           },
           "workflow_id": {
             "maxLength": 128,
@@ -2578,8 +2600,41 @@
               }
             ]
           },
+          "available_actions": {
+            "items": {
+              "$ref": "#/components/schemas/WorkflowLibraryAction"
+            },
+            "title": "Available Actions",
+            "type": "array"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/WorkflowProvenance"
+          },
           "published": {
-            "$ref": "#/components/schemas/WorkflowPublishedReadback"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorkflowPublishedReadback"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "published_revision_no": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published Revision No"
           },
           "revisions": {
             "default": [],
@@ -2600,6 +2655,14 @@
             ],
             "title": "Revisions Next Cursor"
           },
+          "state": {
+            "$ref": "#/components/schemas/WorkflowLibraryState"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
           "workflow_id": {
             "maxLength": 128,
             "minLength": 1,
@@ -2610,10 +2673,31 @@
         },
         "required": [
           "workflow_id",
-          "published"
+          "description",
+          "state",
+          "updated_at",
+          "provenance",
+          "available_actions"
         ],
         "title": "WorkflowGetResponse",
         "type": "object"
+      },
+      "WorkflowLibraryAction": {
+        "enum": [
+          "edit",
+          "start_run"
+        ],
+        "title": "WorkflowLibraryAction",
+        "type": "string"
+      },
+      "WorkflowLibraryState": {
+        "enum": [
+          "draft",
+          "published",
+          "published_with_draft"
+        ],
+        "title": "WorkflowLibraryState",
+        "type": "string"
       },
       "WorkflowPatch": {
         "additionalProperties": false,
@@ -2692,7 +2776,7 @@
             "type": "integer"
           },
           "workflow": {
-            "$ref": "#/components/schemas/NormalizedWorkflow-Output"
+            "$ref": "#/components/schemas/NormalizedWorkflow"
           },
           "workflow_id": {
             "maxLength": 128,
@@ -2740,6 +2824,13 @@
       "WorkflowSearchItem": {
         "additionalProperties": false,
         "properties": {
+          "available_actions": {
+            "items": {
+              "$ref": "#/components/schemas/WorkflowLibraryAction"
+            },
+            "title": "Available Actions",
+            "type": "array"
+          },
           "description": {
             "title": "Description",
             "type": "string"
@@ -2748,9 +2839,24 @@
             "$ref": "#/components/schemas/WorkflowProvenance"
           },
           "published_revision_no": {
-            "minimum": 1.0,
-            "title": "Published Revision No",
-            "type": "integer"
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published Revision No"
+          },
+          "state": {
+            "$ref": "#/components/schemas/WorkflowLibraryState"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
           },
           "workflow_id": {
             "maxLength": 128,
@@ -2763,8 +2869,10 @@
         "required": [
           "workflow_id",
           "description",
-          "published_revision_no",
-          "provenance"
+          "state",
+          "updated_at",
+          "provenance",
+          "available_actions"
         ],
         "title": "WorkflowSearchItem",
         "type": "object"
@@ -2877,9 +2985,9 @@
   },
   "openapi": "3.1.0",
   "paths": {
-    "/tasks": {
+    "/api/tasks": {
       "get": {
-        "operationId": "get_tasks_tasks_get",
+        "operationId": "get_tasks_api_tasks_get",
         "parameters": [
           {
             "in": "query",
@@ -3015,7 +3123,7 @@
         ]
       },
       "post": {
-        "operationId": "post_task_tasks_post",
+        "operationId": "post_task_api_tasks_post",
         "requestBody": {
           "content": {
             "application/json": {
@@ -3104,9 +3212,9 @@
         ]
       }
     },
-    "/tasks/{task_id}": {
+    "/api/tasks/{task_id}": {
       "get": {
-        "operationId": "get_task_tasks__task_id__get",
+        "operationId": "get_task_api_tasks__task_id__get",
         "parameters": [
           {
             "in": "path",
@@ -3196,9 +3304,9 @@
         ]
       }
     },
-    "/tasks/{task_id}/activities": {
+    "/api/tasks/{task_id}/activities": {
       "get": {
-        "operationId": "get_task_activities_tasks__task_id__activities_get",
+        "operationId": "get_task_activities_api_tasks__task_id__activities_get",
         "parameters": [
           {
             "in": "path",
@@ -3327,9 +3435,9 @@
         ]
       }
     },
-    "/tasks/{task_id}/activities/stream": {
+    "/api/tasks/{task_id}/activities/stream": {
       "get": {
-        "operationId": "stream_task_activities_tasks__task_id__activities_stream_get",
+        "operationId": "stream_task_activities_api_tasks__task_id__activities_stream_get",
         "parameters": [
           {
             "in": "path",
@@ -3461,9 +3569,9 @@
         ]
       }
     },
-    "/tasks/{task_id}/command-runs/{command_id}": {
+    "/api/tasks/{task_id}/command-runs/{command_id}": {
       "get": {
-        "operationId": "get_command_run_tasks__task_id__command_runs__command_id__get",
+        "operationId": "get_command_run_api_tasks__task_id__command_runs__command_id__get",
         "parameters": [
           {
             "in": "path",
@@ -3562,9 +3670,9 @@
         ]
       }
     },
-    "/tasks/{task_id}/command-runs/{command_id}/cancel": {
+    "/api/tasks/{task_id}/command-runs/{command_id}/cancel": {
       "post": {
-        "operationId": "post_command_run_cancel_tasks__task_id__command_runs__command_id__cancel_post",
+        "operationId": "post_command_run_cancel_api_tasks__task_id__command_runs__command_id__cancel_post",
         "parameters": [
           {
             "in": "path",
@@ -3673,9 +3781,9 @@
         ]
       }
     },
-    "/tasks/{task_id}/command-runs/{command_id}/output": {
+    "/api/tasks/{task_id}/command-runs/{command_id}/output": {
       "get": {
-        "operationId": "get_command_run_output_tasks__task_id__command_runs__command_id__output_get",
+        "operationId": "get_command_run_output_api_tasks__task_id__command_runs__command_id__output_get",
         "parameters": [
           {
             "in": "path",
@@ -3803,9 +3911,9 @@
         ]
       }
     },
-    "/tasks/{task_id}/controls/{action_id}": {
+    "/api/tasks/{task_id}/controls/{action_id}": {
       "post": {
-        "operationId": "post_task_control_tasks__task_id__controls__action_id__post",
+        "operationId": "post_task_control_api_tasks__task_id__controls__action_id__post",
         "parameters": [
           {
             "in": "path",
@@ -3914,9 +4022,9 @@
         ]
       }
     },
-    "/tasks/{task_id}/human-requests/{request_id}": {
+    "/api/tasks/{task_id}/human-requests/{request_id}": {
       "get": {
-        "operationId": "get_human_request_tasks__task_id__human_requests__request_id__get",
+        "operationId": "get_human_request_api_tasks__task_id__human_requests__request_id__get",
         "parameters": [
           {
             "in": "path",
@@ -4015,9 +4123,9 @@
         ]
       }
     },
-    "/tasks/{task_id}/human-requests/{request_id}/responses": {
+    "/api/tasks/{task_id}/human-requests/{request_id}/responses": {
       "post": {
-        "operationId": "post_human_request_response_tasks__task_id__human_requests__request_id__responses_post",
+        "operationId": "post_human_request_response_api_tasks__task_id__human_requests__request_id__responses_post",
         "parameters": [
           {
             "in": "path",
@@ -4126,29 +4234,76 @@
         ]
       }
     },
-    "/workflow-drafts": {
+    "/api/workflow-drafts": {
       "post": {
-        "operationId": "post_workflow_draft_workflow_drafts_post",
+        "operationId": "post_workflow_draft_api_workflow_drafts_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/NormalizedWorkflow-Input"
+                "discriminator": {
+                  "mapping": {
+                    "create": "#/components/schemas/CreateWorkflowDraftRequest",
+                    "open": "#/components/schemas/OpenWorkflowDraftRequest"
+                  },
+                  "propertyName": "kind"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/CreateWorkflowDraftRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/OpenWorkflowDraftRequest"
+                  }
+                ],
+                "title": "Draft Request"
               }
             }
           },
           "required": true
         },
         "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowDraftOpenResult"
+                }
+              }
+            },
+            "description": "The existing active draft was reused.",
+            "headers": {
+              "ETag": {
+                "description": "Opaque version of the returned draft.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "201": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/WorkflowDraftReadback"
+                  "$ref": "#/components/schemas/WorkflowDraftOpenResult"
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "A new active draft was created.",
+            "headers": {
+              "ETag": {
+                "description": "Opaque version of the returned draft.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Location": {
+                "description": "Canonical path of the newly created draft.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "400": {
             "content": {
@@ -4217,9 +4372,9 @@
         ]
       }
     },
-    "/workflow-drafts/{draft_id}": {
+    "/api/workflow-drafts/{draft_id}": {
       "delete": {
-        "operationId": "delete_workflow_draft_workflow_drafts__draft_id__delete",
+        "operationId": "delete_workflow_draft_api_workflow_drafts__draft_id__delete",
         "parameters": [
           {
             "in": "path",
@@ -4345,7 +4500,7 @@
         ]
       },
       "get": {
-        "operationId": "get_workflow_draft_workflow_drafts__draft_id__get",
+        "operationId": "get_workflow_draft_api_workflow_drafts__draft_id__get",
         "parameters": [
           {
             "in": "path",
@@ -4435,7 +4590,7 @@
         ]
       },
       "patch": {
-        "operationId": "patch_workflow_draft_workflow_drafts__draft_id__patch",
+        "operationId": "patch_workflow_draft_api_workflow_drafts__draft_id__patch",
         "parameters": [
           {
             "in": "path",
@@ -4594,9 +4749,9 @@
         ]
       }
     },
-    "/workflow-drafts/{draft_id}/publish": {
+    "/api/workflow-drafts/{draft_id}/publish": {
       "post": {
-        "operationId": "post_workflow_draft_publish_workflow_drafts__draft_id__publish_post",
+        "operationId": "post_workflow_draft_publish_api_workflow_drafts__draft_id__publish_post",
         "parameters": [
           {
             "in": "path",
@@ -4722,9 +4877,9 @@
         ]
       }
     },
-    "/workflow-drafts/{draft_id}/undo": {
+    "/api/workflow-drafts/{draft_id}/undo": {
       "post": {
-        "operationId": "post_workflow_draft_undo_workflow_drafts__draft_id__undo_post",
+        "operationId": "post_workflow_draft_undo_api_workflow_drafts__draft_id__undo_post",
         "parameters": [
           {
             "in": "path",
@@ -4860,9 +5015,9 @@
         ]
       }
     },
-    "/workflow-drafts/{draft_id}/validate": {
+    "/api/workflow-drafts/{draft_id}/validate": {
       "post": {
-        "operationId": "post_workflow_draft_validate_workflow_drafts__draft_id__validate_post",
+        "operationId": "post_workflow_draft_validate_api_workflow_drafts__draft_id__validate_post",
         "parameters": [
           {
             "in": "path",
@@ -4952,9 +5107,9 @@
         ]
       }
     },
-    "/workflows": {
+    "/api/workflows": {
       "get": {
-        "operationId": "get_workflows_workflows_get",
+        "operationId": "get_workflows_api_workflows_get",
         "parameters": [
           {
             "in": "query",
@@ -5079,9 +5234,9 @@
         ]
       }
     },
-    "/workflows/authoring-options": {
+    "/api/workflows/authoring-options": {
       "get": {
-        "operationId": "get_workflow_authoring_options_workflows_authoring_options_get",
+        "operationId": "get_workflow_authoring_options_api_workflows_authoring_options_get",
         "responses": {
           "200": {
             "content": {
@@ -5160,9 +5315,9 @@
         ]
       }
     },
-    "/workflows/{workflow_id}": {
+    "/api/workflows/{workflow_id}": {
       "get": {
-        "operationId": "get_workflow_workflows__workflow_id__get",
+        "operationId": "get_workflow_api_workflows__workflow_id__get",
         "parameters": [
           {
             "in": "path",

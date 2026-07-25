@@ -67,7 +67,7 @@ async def test_http_task_start_injects_dispatch_dependencies_and_default_workspa
         base_url="http://127.0.0.1:18125",
     ) as client:
         response = await client.post(
-            "/tasks",
+            "/api/tasks",
             json={"workflow": "reviewed-delivery", "prompt": "Do the work."},
         )
 
@@ -122,7 +122,7 @@ async def test_http_task_start_uses_workspace_written_by_init(
             base_url="http://127.0.0.1:18125",
         ) as client:
             response = await client.post(
-                "/tasks",
+                "/api/tasks",
                 json={"workflow": "reviewed-delivery", "prompt": "Do the work."},
             )
 
@@ -140,7 +140,7 @@ async def test_http_task_start_without_request_or_configured_workspace_returns_4
         base_url="http://127.0.0.1:18125",
     ) as client:
         response = await client.post(
-            "/tasks",
+            "/api/tasks",
             json={"workflow": "reviewed-delivery", "prompt": "Do the work."},
         )
 
@@ -191,7 +191,7 @@ async def test_http_task_start_wrong_types_return_typed_request_failure(
         transport=httpx.ASGITransport(app=app, client=("127.0.0.1", 43125)),
         base_url="http://127.0.0.1:18125",
     ) as client:
-        response = await client.post("/tasks", json=payload)
+        response = await client.post("/api/tasks", json=payload)
 
     assert response.status_code == 400
     assert response.json() == {

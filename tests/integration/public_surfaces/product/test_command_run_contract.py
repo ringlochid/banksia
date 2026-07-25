@@ -76,7 +76,7 @@ async def test_command_run_view_output_and_cancel_use_product_contract(
                 publisher=publisher,
             ) as client:
                 response = await client.post(
-                    f"/tasks/{ids.task_id}/command-runs/{command_id}/cancel",
+                    f"/api/tasks/{ids.task_id}/command-runs/{command_id}/cancel",
                     json={"action_id": cancel_action.id, "confirmed": True},
                 )
             assert response.status_code == 200, response.text

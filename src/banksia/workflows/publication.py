@@ -28,7 +28,7 @@ async def publish_workflow_revision(
     current_provenance_guard: WorkflowProvenance | None = None,
 ) -> PublishedWorkflowRevision:
     content_hash = canonical_workflow_hash(workflow)
-    owner = await _acquire_workflow_owner(session, workflow_id=workflow.id)
+    owner = await acquire_workflow_owner(session, workflow_id=workflow.id)
     should_select_revision = await _should_select_revision(
         session,
         owner=owner,
@@ -86,6 +86,44 @@ async def publish_workflow_revision(
     raise RuntimeError(f"could not allocate an immutable revision for Workflow {workflow.id!r}")
 
 
+async def acquire_workflow_owner(
+    session: AsyncSession,
+    *,
+    workflow_id: str,
+) -> WorkflowDefinitionModel:
+    if session.get_bind().dialect.name == "sqlite":
+        table = cast(Table, WorkflowDefinitionModel.__table__)
+        await session.execute(
+            update(table)
+            .where(table.c.workflow_key == workflow_id)
+            .values(workflow_key=table.c.workflow_key, updated_at=table.c.updated_at)
+        )
+    existing: WorkflowDefinitionModel | None = await session.scalar(
+        select(WorkflowDefinitionModel)
+        .where(WorkflowDefinitionModel.workflow_key == workflow_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if existing is not None:
+        return existing
+    created = WorkflowDefinitionModel(workflow_key=workflow_id)
+    try:
+        async with session.begin_nested():
+            session.add(created)
+            await session.flush()
+    except IntegrityError:
+        existing = await session.scalar(
+            select(WorkflowDefinitionModel)
+            .where(WorkflowDefinitionModel.workflow_key == workflow_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        if existing is None:
+            raise
+        return existing
+    return created
+
+
 async def _should_select_revision(
     session: AsyncSession,
     *,
@@ -129,42 +167,6 @@ async def _matching_revision(
     )
 
 
-async def _acquire_workflow_owner(
-    session: AsyncSession,
-    *,
-    workflow_id: str,
-) -> WorkflowDefinitionModel:
-    if session.get_bind().dialect.name == "sqlite":
-        table = cast(Table, WorkflowDefinitionModel.__table__)
-        await session.execute(
-            update(table)
-            .where(table.c.workflow_key == workflow_id)
-            .values(workflow_key=table.c.workflow_key, updated_at=table.c.updated_at)
-        )
-    existing: WorkflowDefinitionModel | None = await session.scalar(
-        select(WorkflowDefinitionModel)
-        .where(WorkflowDefinitionModel.workflow_key == workflow_id)
-        .with_for_update()
-    )
-    if existing is not None:
-        return existing
-    created = WorkflowDefinitionModel(workflow_key=workflow_id)
-    try:
-        async with session.begin_nested():
-            session.add(created)
-            await session.flush()
-    except IntegrityError:
-        existing = await session.scalar(
-            select(WorkflowDefinitionModel)
-            .where(WorkflowDefinitionModel.workflow_key == workflow_id)
-            .with_for_update()
-        )
-        if existing is None:
-            raise
-        return existing
-    return created
-
-
 def _workflow_revision_id(workflow_id: str, revision_no: int) -> str:
     return f"workflow-revision.{workflow_id}.{revision_no:03d}"
 
@@ -191,4 +193,4 @@ async def _set_current(
     )
 
 
-__all__ = ["publish_workflow_revision"]
+__all__ = ["acquire_workflow_owner", "publish_workflow_revision"]

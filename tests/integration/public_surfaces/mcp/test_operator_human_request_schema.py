@@ -185,9 +185,22 @@ async def test_workflow_operator_tools_are_closed_structured_contracts() -> None
 
     create_schema = cast(dict[str, object], tools_by_name["workflow_draft_create"].inputSchema)
     create_properties = cast(dict[str, object], create_schema["properties"])
-    assert tuple(create_properties) == ("workflow",)
+    assert tuple(create_properties) == ("request",)
+    request_schema = cast(dict[str, object], create_properties["request"])
+    assert request_schema["discriminator"] == {
+        "mapping": {
+            "create": "#/$defs/CreateWorkflowDraftRequest",
+            "open": "#/$defs/OpenWorkflowDraftRequest",
+        },
+        "propertyName": "kind",
+    }
+    assert request_schema["oneOf"] == [
+        {"$ref": "#/$defs/CreateWorkflowDraftRequest"},
+        {"$ref": "#/$defs/OpenWorkflowDraftRequest"},
+    ]
     assert "path" not in str(create_schema).casefold()
     assert "yaml" not in str(create_schema).casefold()
+    assert "NormalizedWorkflow" not in str(create_schema)
 
     edit_schema = cast(dict[str, object], tools_by_name["workflow_draft_edit"].inputSchema)
     edit_defs = cast(dict[str, object], edit_schema["$defs"])
@@ -207,3 +220,15 @@ async def test_workflow_operator_tools_are_closed_structured_contracts() -> None
         ),
     )
     assert rejected.isError is True
+
+
+async def test_workflow_operator_teaching_describes_one_library_and_create_open_entry() -> None:
+    tools = await create_operator_mcp_server().list_tools()
+    tools_by_name = {tool.name: tool for tool in tools}
+    search_description = (tools_by_name["workflow_search"].description or "").casefold()
+    create_description = (tools_by_name["workflow_draft_create"].description or "").casefold()
+
+    assert "published workflow catalog" not in search_description
+    assert "library" in search_description
+    assert "draft" in search_description
+    assert "create or open" in create_description

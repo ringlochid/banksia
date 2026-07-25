@@ -3,17 +3,21 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Any, Protocol
 
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from banksia.config import CodexSettings, RuntimeSettings, Settings
+from banksia.config import CodexSettings, RuntimeSettings, Settings, get_settings
 from banksia.main import create_app
 from banksia.persistence.session import get_db_session
 from banksia.providers import ProviderKind
 from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
 from banksia.runtime.post_commit import CapturedRuntimeEffectPublisher
-from tests.helpers.executor_harness import AsyncSessionFactory
+
+
+class AsyncSessionFactory(Protocol):
+    def __call__(self, **local_kw: Any) -> AsyncSession: ...
 
 
 @asynccontextmanager
@@ -33,9 +37,10 @@ async def product_http_client(
             yield session
 
     app.dependency_overrides[get_db_session] = session_dependency
+    settings = get_settings()
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app, client=("127.0.0.1", 43125)),
-        base_url="http://127.0.0.1:18125",
+        base_url=f"http://127.0.0.1:{settings.api_port}",
     ) as client:
         yield client
 

@@ -67,6 +67,15 @@ A successful final-package completion records **go**. An explicit **no-go** is s
 
 ## Workflow schema and authoring
 
+### HTTP and Console route isolation
+
+- Every product JSON route is served only under `/api`; no product route has a root compatibility alias.
+- Direct navigation to `/`, `/workflows`, `/workflows/{workflow_id}`, and `/runs` returns the packaged Console, while `/assets/*` returns only packaged static assets.
+- Unknown `/api/*`, `/assets/*`, and browser paths return `404`; no catch-all rewrites API or missing-asset requests to HTML.
+- Health/readiness, support, Operator, node, and managed internal mounts retain their separately owned paths and schemas.
+- The generated product OpenAPI document and Console client use `/api` paths, and a created Workflow draft returns an `/api/workflow-drafts/{draft_id}` `Location`.
+- Source-tree development proves the API without requiring staged Console assets; installed wheel/sdist proof includes the exact production bundle and direct-navigation behavior.
+
 ### Mechanical schema proof
 
 - Parse the maintained YAML schema.
@@ -100,6 +109,14 @@ A successful final-package completion records **go**. An explicit **no-go** is s
 ### Authoring lifecycle proof
 
 - Structured JSON draft mutations, ETag conflicts, validation, Undo, explicit publish, immutable revision history, and current-published selection work through real persistence.
+- The Workflow library and Workflow-ID detail readback cover draft-only, published-only, and published-with-draft truth. A draft-only Workflow is searchable and reopenable after navigation, browser refresh, controller restart, and pagination without browser-local catalog state.
+- New browser/Operator draft creation accepts no authored lead Member ID; the controller allocates it and returns complete accepted truth. Open-for-editing returns an existing draft idempotently or clones the exact current published revision and pins its base in one transaction.
+- Draft opening returns `201 Created` plus `Location` only for a newly created draft and `200 OK` for idempotent reuse; HTTP and Operator share the exact request/result service contract.
+- Barrier-driven SQLite/PostgreSQL tests prove Workflow detail is always one coherent before-or-after snapshot across concurrent open, edit, publish, and discard, never an impossible hybrid or spurious not-found result. File-backed restart proof rediscovers draft-only truth without browser-held state.
+- SQLite/PostgreSQL library tests prove `updated_at` is the latest durable current-publication or active-draft change across seed refresh, draft discard, and old-revision reselection; exact non-ASCII query text is preserved while `%` and `_` remain literal.
+- Interactive Task start traverses the complete unified Workflow-library cursor before filtering to startable published Workflows; draft-only pages cannot hide a later published choice.
+- A concurrent publish/open race either clones and pins one exact current revision or returns current accepted draft truth; it never labels stale client-copied content as based on a later revision.
+- Library rows expose semantic draft/published state, last controller update, provenance, optional published revision, and only currently legal `edit | start_run` actions. Authoring options expose nonsecret configured default-provider selection or explicit absence without exposing credentials or adding browser provider mutation.
 - YAML/JSON CLI import feeds the same service as browser JSON; exports round-trip semantics without promising comments/formatting.
 - Task start pins the exact published revision read inside its transaction; later publication changes do not rewrite a running Task.
 - Empty/reset bootstrap transactionally installs the complete Starter Workflow seed set with package-owned provenance. Identical reseeding is idempotent; a changed package-owned seed may advance a package-owned current revision but never replaces a user-authored current revision.
@@ -302,12 +319,14 @@ The required usability oracle is an independent no-doc evaluator that did not im
 - Fresh/reset library state shows exactly the packaged Starter Workflow inventory with human “use when” descriptions, no installed reference-example IDs, and no provider/capability claim where those fields are omitted.
 - New Workflow starts with one selected lead, one right-side add control, and no type picker.
 - Repeated accepted clicks append siblings and move the same control; selecting a child relocates it and creates a nested Member on add.
+- Accepted subtree removal selects and restores focus to the removed Member's surviving direct parent rather than unexpectedly returning to the lead.
 - Pending, accepted, conflict, validation, failure, Undo, autosave, and publish states reconcile to controller draft truth.
 - Horizontal broad/deep/collapsed/error/localized trees remain readable and connectors never imply execution flow. Deep-tree geometry is compared with the curated `add-child-sibling-branch.png` reference after interpreting every block as a Member and removing all n8n node/port meaning.
 - Tidy changes view positions only; Fit changes viewport only; neither creates draft/runtime/audit changes.
 - Overlay drawer/bottom sheet preserves focus and selected-card visibility.
 - Capability controls default off, edit only the selected Member, communicate no inheritance, and cover all four Human Request kinds plus managed Command Run without exposing generic tool/policy concepts.
 - Keyboard and narrow-screen outline can select, edit, add, remove, publish, and start equivalently.
+- Route-mocked browser tests prove controlled error and responsive states but never stand in for persistence proof. A repeatable disposable-controller browser lane proves create, edit, accepted add, reload, second-client ETag conflict and recovery, publish, and reopen against controller readback.
 - An independent no-doc evaluator given only “create a small research team with two members” can create, understand, revise, publish, and recover from one rejected edit without docs or runtime terminology; observation records ambiguity, hesitation, wrong turns, and the correction.
 
 ### Run Studio
@@ -357,7 +376,7 @@ The final Makefile/CI must expose and pass, at minimum:
 - real SQLite/integration tests;
 - real PostgreSQL schema/runtime tests;
 - bounded/reviewed/staged end-to-end runtime scenarios as applicable;
-- Console format, lint, typecheck, generated OpenAPI drift, unit/component, API/SSE integration, production build, and browser e2e;
+- Console format, lint, typecheck, generated OpenAPI drift, unit/component, API/SSE integration, production build, route-controlled browser e2e, and disposable real-controller browser e2e;
 - keyboard/screen-reader/zoom/reflow and critical visual-state checks;
 - documentation format/contract/link/prompt/generated-output/tests;
 - provider adapter exact-request and native-workspace integration;

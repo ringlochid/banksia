@@ -19,8 +19,8 @@ from banksia.workflows import (
     parse_workflow,
 )
 from banksia.workflows.authoring import (
-    create_workflow_draft,
     edit_workflow_draft,
+    import_workflow_draft,
     publish_workflow_draft,
     read_workflow_draft,
     undo_workflow_draft,
@@ -34,8 +34,8 @@ from banksia.workflows.catalog import (
 )
 from banksia.workflows.publication import publish_workflow_revision
 from banksia.workflows.service_errors import (
-    WorkflowDraftConflictError,
     WorkflowNotFoundError,
+    WorkflowPreconditionRequiredError,
     WorkflowStaleDraftError,
     WorkflowUndoReceiptError,
 )
@@ -82,12 +82,12 @@ lead:
     )
     async with initialized_workflow_database(tmp_path) as session_factory:
         async with session_factory() as session:
-            draft = await create_workflow_draft(session, workflow=workflow)
+            draft = (await import_workflow_draft(session, workflow=workflow)).draft
             await session.commit()
 
         async with session_factory() as session:
-            with pytest.raises(WorkflowDraftConflictError):
-                await create_workflow_draft(session, workflow=workflow)
+            with pytest.raises(WorkflowPreconditionRequiredError):
+                await import_workflow_draft(session, workflow=workflow)
             await session.rollback()
 
         async with session_factory() as session:
@@ -212,7 +212,7 @@ lead: {id: lead}
     )
     async with initialized_workflow_database(tmp_path) as session_factory:
         async with session_factory() as session:
-            draft = await create_workflow_draft(session, workflow=workflow)
+            draft = (await import_workflow_draft(session, workflow=workflow)).draft
             first_add = await edit_workflow_draft(
                 session,
                 draft_id=draft.draft_id,
@@ -259,7 +259,7 @@ lead: {id: lead}
     )
     async with initialized_workflow_database(tmp_path) as session_factory:
         async with session_factory() as session:
-            draft = await create_workflow_draft(session, workflow=workflow)
+            draft = (await import_workflow_draft(session, workflow=workflow)).draft
             await session.commit()
 
         async with session_factory() as session:
@@ -294,25 +294,24 @@ async def test_http_draft_routes_enforce_etag_and_return_current_on_stale(
             base_url="http://127.0.0.1:8123",
         ) as client:
             created = await client.post(
-                "/workflow-drafts",
+                "/api/workflow-drafts",
                 json={
-                    "kind": "workflow",
-                    "id": "http-authoring",
+                    "kind": "create",
+                    "workflow_id": "http-authoring",
                     "description": "HTTP authoring proof.",
-                    "lead": {"id": "lead"},
                 },
             )
             assert created.status_code == 201, created.text
-            draft = created.json()
+            draft = created.json()["draft"]
             missing_precondition = await client.patch(
-                f"/workflow-drafts/{draft['draft_id']}",
+                f"/api/workflow-drafts/{draft['draft_id']}",
                 json={
                     "kind": "update_workflow",
                     "patch": {"description": "Missing precondition."},
                 },
             )
             edited = await client.patch(
-                f"/workflow-drafts/{draft['draft_id']}",
+                f"/api/workflow-drafts/{draft['draft_id']}",
                 headers={"If-Match": created.headers["etag"]},
                 json={
                     "kind": "update_workflow",
@@ -320,7 +319,7 @@ async def test_http_draft_routes_enforce_etag_and_return_current_on_stale(
                 },
             )
             stale = await client.patch(
-                f"/workflow-drafts/{draft['draft_id']}",
+                f"/api/workflow-drafts/{draft['draft_id']}",
                 headers={"If-Match": created.headers["etag"]},
                 json={
                     "kind": "update_workflow",
@@ -328,7 +327,7 @@ async def test_http_draft_routes_enforce_etag_and_return_current_on_stale(
                 },
             )
             published = await client.post(
-                f"/workflow-drafts/{draft['draft_id']}/publish",
+                f"/api/workflow-drafts/{draft['draft_id']}/publish",
                 headers={"If-Match": edited.headers["etag"]},
             )
 

@@ -29,6 +29,7 @@ from banksia.runtime.contracts.task import (
 from banksia.runtime.errors import RuntimeOperationError, missing_resource_error
 from banksia.runtime.post_commit import RuntimeEffectPublisher
 from banksia.runtime.product.action_ids import product_action_id
+from banksia.runtime.product.paths import build_product_api_path
 from banksia.runtime.product.presenters import (
     read_source_member_reference,
     read_source_member_references,
@@ -262,7 +263,9 @@ def _present_command_run(
         ended_at=source.ended_at,
         elapsed_seconds=_elapsed_seconds(source, observed_at=observed_at),
         outcome_summary=source.terminal_summary,
-        output_href=f"/tasks/{source.task_id}/command-runs/{source.run_id}/output",
+        output_href=build_product_api_path(
+            f"/tasks/{source.task_id}/command-runs/{source.run_id}/output"
+        ),
         is_output_complete=source.output_complete,
         cancel_action=cancel_action,
     )
@@ -421,7 +424,7 @@ def _command_cancel_action(source: CommandRunModel) -> ProductAction:
         id=_command_cancel_action_id(source),
         kind="cancel",
         label="Cancel action",
-        href=f"/tasks/{source.task_id}/command-runs/{source.run_id}/cancel",
+        href=build_product_api_path(f"/tasks/{source.task_id}/command-runs/{source.run_id}/cancel"),
         confirmation=ProductActionConfirmation(
             is_required=True,
             title="Cancel this action?",

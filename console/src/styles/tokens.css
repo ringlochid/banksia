@@ -1,0 +1,31 @@
+:root {
+    color-scheme: light;
+    --banksia-ink-950: #17251d;
+    --banksia-ink-800: #2f4135;
+    --banksia-ink-650: #526457;
+    --banksia-ink-500: #718176;
+    --banksia-paper: #f7f5ee;
+    --banksia-surface: #fffdf8;
+    --banksia-surface-muted: #efede5;
+    --banksia-line: #d7d4c9;
+    --banksia-line-strong: #a9b2a8;
+    --banksia-leaf: #2f6a48;
+    --banksia-leaf-hover: #24573a;
+    --banksia-leaf-soft: #e4efe6;
+    --banksia-flower: #d9a321;
+    --banksia-flower-soft: #fff1c7;
+    --banksia-danger: #a63d38;
+    --banksia-danger-soft: #fae7e3;
+    --banksia-info: #315b76;
+    --banksia-info-soft: #e5eff6;
+    --banksia-focus: #0b69a3;
+    --banksia-shadow: 0 16px 48px rgb(23 37 29 / 10%);
+    --banksia-shadow-small: 0 5px 18px rgb(23 37 29 / 8%);
+    --banksia-radius-small: 0.5rem;
+    --banksia-radius: 0.85rem;
+    --banksia-radius-large: 1.25rem;
+    --banksia-content: 80rem;
+    --banksia-font:
+        Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+        "Segoe UI", sans-serif;
+}

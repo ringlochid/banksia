@@ -6,19 +6,20 @@ PYTEST := $(VENV)/bin/pytest
 RUFF := $(VENV)/bin/ruff
 MYPY := $(VENV)/bin/mypy
 NPM := npm
-CONSOLE_DIR := $(CURDIR)/apps/console
+CONSOLE_DIR := $(CURDIR)/console
+CONSOLE_ASSET_DIR := $(CURDIR)/src/banksia/interfaces/web_console/assets
 COMPOSE := docker compose
 TEST_COMPOSE := COMPOSE_PROJECT_NAME=banksia-test-db $(COMPOSE)
 TREE_IGNORE := .git|.venv|node_modules|dist|build|tmp|.pytest_cache|.mypy_cache|.ruff_cache|.coverage|coverage|htmlcov|__pycache__|*.egg-info|*.pyc
 
-.PHONY: tree clean-local backend-install backend-dev test-backend test-backend-unit test-backend-integration test-backend-integration-local test-backend-db test-backend-e2e-bounded test-backend-e2e-reviewed test-backend-e2e-staged docker-up docker-down docker-logs lint-backend format-backend typecheck-backend pyright-backend check-backend backend-openapi-generate backend-openapi-check console-install console-dev console-format console-format-check console-lint console-typecheck console-openapi-generate console-openapi-check console-test console-test-integration console-e2e console-build check-console docs-format docs-format-check docs-contract-check docs-inventory docs-prompt-generate docs-prompt-check prompt-behavior-eval test-docs check-docs install-user-service
+.PHONY: tree clean-local backend-install backend-dev test-backend test-backend-unit test-backend-integration test-backend-integration-local test-backend-db test-backend-e2e-bounded test-backend-e2e-reviewed test-backend-e2e-staged docker-up docker-down docker-logs lint-backend format-backend typecheck-backend pyright-backend check-backend backend-openapi-generate backend-openapi-check console-install console-dev console-format console-format-check console-lint console-typecheck console-openapi-generate console-openapi-check console-test console-test-integration console-e2e console-e2e-real console-build console-package-assets check-console package-build package-verify docs-format docs-format-check docs-contract-check docs-inventory docs-prompt-generate docs-prompt-check prompt-behavior-eval test-docs check-docs install-user-service
 
 tree:
 	@tree -a -L 6 --dirsfirst --prune --gitignore -I '$(TREE_IGNORE)'
 
 clean-local:
 	rm -rf .openclaw-run-logs tmp .pytest_cache .mypy_cache .ruff_cache
-	rm -rf apps/console/dist apps/console/node_modules
+	rm -rf console/dist console/node_modules $(CONSOLE_ASSET_DIR)
 
 $(PYTHON):
 	python3 -m venv .venv
@@ -106,7 +107,7 @@ backend-openapi-check: $(PYTHON)
 	diff -u openapi/support.json "$$support_file"
 
 console-install:
-	$(NPM) --prefix $(CONSOLE_DIR) install
+	$(NPM) --prefix $(CONSOLE_DIR) ci
 
 console-dev:
 	$(NPM) --prefix $(CONSOLE_DIR) run dev
@@ -123,20 +124,14 @@ console-lint:
 console-typecheck:
 	$(NPM) --prefix $(CONSOLE_DIR) run typecheck
 
-console-openapi-generate: $(PYTHON)
-	@schema_file=$$(mktemp); \
-	cleanup() { rm -f "$$schema_file"; }; \
-	trap cleanup EXIT INT TERM; \
-	PYTHONPATH=$(CURDIR)/src:$(CURDIR) $(PYTHON) scripts/console/export_openapi.py > "$$schema_file"; \
-	$(NPM) --prefix $(CONSOLE_DIR) run openapi:generate -- "$$schema_file" -o src/api/generated/openapi.ts
+console-openapi-generate:
+	$(NPM) --prefix $(CONSOLE_DIR) run openapi:generate
 
-console-openapi-check: $(PYTHON)
-	@schema_file=$$(mktemp); \
-	types_file=$$(mktemp); \
-	cleanup() { rm -f "$$schema_file" "$$types_file"; }; \
+console-openapi-check:
+	@types_file=$$(mktemp); \
+	cleanup() { rm -f "$$types_file"; }; \
 	trap cleanup EXIT INT TERM; \
-	PYTHONPATH=$(CURDIR)/src:$(CURDIR) $(PYTHON) scripts/console/export_openapi.py > "$$schema_file"; \
-	$(NPM) --prefix $(CONSOLE_DIR) run openapi:generate -- "$$schema_file" -o "$$types_file" >/dev/null; \
+	$(NPM) --prefix $(CONSOLE_DIR) exec -- openapi-typescript $(CURDIR)/openapi/product.json -o "$$types_file" >/dev/null; \
 	diff -u $(CONSOLE_DIR)/src/api/generated/openapi.ts "$$types_file"
 
 console-test:
@@ -148,10 +143,18 @@ console-test-integration:
 console-e2e:
 	$(NPM) --prefix $(CONSOLE_DIR) run test:e2e
 
+console-e2e-real: console-package-assets
+	$(NPM) --prefix $(CONSOLE_DIR) run test:e2e:real
+
 console-build:
 	$(NPM) --prefix $(CONSOLE_DIR) run build
 
-check-console: $(PYTHON)
+console-package-assets: console-build
+	rm -rf $(CONSOLE_ASSET_DIR)
+	mkdir -p $(CONSOLE_ASSET_DIR)
+	cp -R $(CONSOLE_DIR)/dist/. $(CONSOLE_ASSET_DIR)/
+
+check-console:
 	$(MAKE) console-format-check
 	$(MAKE) console-lint
 	$(MAKE) console-typecheck
@@ -159,6 +162,17 @@ check-console: $(PYTHON)
 	$(MAKE) console-test
 	$(MAKE) console-test-integration
 	$(MAKE) console-build
+	$(MAKE) console-package-assets
+
+package-build: $(PYTHON) console-package-assets
+	rm -rf $(CURDIR)/dist
+	$(PYTHON) -m build
+
+package-verify: package-build
+	rm -rf $(CURDIR)/tmp/installed-distribution-proof
+	PYTHONPATH=$(CURDIR)/src $(PYTHON) scripts/testing/verify_installed_distribution.py \
+		--dist-dir $(CURDIR)/dist \
+		--workspace $(CURDIR)/tmp/installed-distribution-proof
 
 docs-format: $(PYTHON)
 	$(PYTHON) -m scripts.docs.format_markdown --write

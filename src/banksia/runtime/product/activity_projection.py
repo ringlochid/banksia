@@ -28,6 +28,7 @@ from banksia.runtime.contracts.task import (
     TaskMemberReference,
 )
 from banksia.runtime.contracts.task_events import TaskEventRecord
+from banksia.runtime.product.paths import build_product_api_path
 from banksia.runtime.product.presenters import read_source_member_references
 from banksia.runtime.task_events import encode_task_event_cursor, task_event_record_from_model
 
@@ -264,7 +265,9 @@ def _project_human_activity(
             member=member,
             action=TaskActivityLink(
                 label="Respond",
-                href=f"/tasks/{event.task_id}/human-requests/{human.request_id}",
+                href=build_product_api_path(
+                    f"/tasks/{event.task_id}/human-requests/{human.request_id}"
+                ),
             ),
         )
     mapping: dict[TaskEventType, tuple[TaskActivityKind, str, TaskActivityOutcome]] = {
@@ -316,7 +319,9 @@ def _project_command_activity(
             member=member,
             action=TaskActivityLink(
                 label="View action",
-                href=f"/tasks/{event.task_id}/command-runs/{command.run_id}",
+                href=build_product_api_path(
+                    f"/tasks/{event.task_id}/command-runs/{command.run_id}"
+                ),
             ),
         )
     mapping: dict[TaskEventType, tuple[TaskActivityKind, str, TaskActivityOutcome]] = {
@@ -356,7 +361,9 @@ def _project_command_activity(
         outcome=outcome,
         action=TaskActivityLink(
             label="View output",
-            href=f"/tasks/{event.task_id}/command-runs/{command.run_id}/output",
+            href=build_product_api_path(
+                f"/tasks/{event.task_id}/command-runs/{command.run_id}/output"
+            ),
         ),
     )
 

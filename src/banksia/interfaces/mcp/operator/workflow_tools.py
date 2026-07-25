@@ -4,6 +4,7 @@ from mcp.server.fastmcp import FastMCP
 from mcp.types import ToolAnnotations
 
 import banksia.persistence.session_operations as session_operations
+from banksia.config import get_settings
 from banksia.interfaces.mcp.mcp_operation_failures import ContractFastMCP
 from banksia.interfaces.mcp.tool_teaching import (
     ToolTeaching,
@@ -11,9 +12,10 @@ from banksia.interfaces.mcp.tool_teaching import (
     read_only_tool_teaching,
 )
 from banksia.workflows.authoring import (
-    create_workflow_draft,
+    build_workflow_authoring_options,
     discard_workflow_draft,
     edit_workflow_draft,
+    open_workflow_draft,
     publish_workflow_draft,
     read_workflow_catalog_entry,
     search_workflow_catalog,
@@ -21,10 +23,12 @@ from banksia.workflows.authoring import (
     validate_workflow_draft,
 )
 from banksia.workflows.authoring_contracts import (
-    AUTHORING_OPTIONS,
+    WORKFLOW_DRAFT_OPEN_REQUEST_ADAPTER,
     WorkflowAuthoringOptions,
     WorkflowDraftDiscardResult,
     WorkflowDraftMutationResult,
+    WorkflowDraftOpenRequest,
+    WorkflowDraftOpenResult,
     WorkflowDraftReadback,
     WorkflowDraftValidationResult,
     WorkflowGetResponse,
@@ -32,8 +36,6 @@ from banksia.workflows.authoring_contracts import (
     WorkflowSearchResponse,
     map_workflow_published_readback,
 )
-from banksia.workflows.contracts import NormalizedWorkflow
-from banksia.workflows.ingest import normalize_workflow_object
 from banksia.workflows.operations import DraftOperation
 
 WORKFLOW_OPERATOR_TOOL_NAMES: tuple[str, ...] = (
@@ -66,8 +68,11 @@ def register_workflow_tools(server: FastMCP) -> None:
 def _register_workflow_search(server: FastMCP) -> None:
     search_teaching = read_only_tool_teaching(
         name="workflow_search",
-        summary="Search the published Workflow catalog.",
-        details=("Use workflow_get for the selected Workflow and bounded revision history.",),
+        summary="Search the controller-owned Workflow library, including active drafts.",
+        details=(
+            "Use workflow_get for the selected Workflow, its active draft, and bounded "
+            "immutable revision history.",
+        ),
     )
 
     @server.tool(
@@ -142,14 +147,18 @@ def _register_workflow_authoring_options(server: FastMCP) -> None:
         annotations=_annotations(options_teaching, is_idempotent=True),
     )
     async def workflow_authoring_options() -> WorkflowAuthoringOptions:
-        return AUTHORING_OPTIONS
+        return build_workflow_authoring_options(get_settings())
 
 
 def _register_workflow_draft_create(server: FastMCP) -> None:
     create_teaching = mutating_tool_teaching(
         name="workflow_draft_create",
-        summary="Create the single active draft for one complete normalized Workflow.",
-        details=("This does not publish or start runtime work.",),
+        summary="Create or open the single active draft for one Workflow.",
+        details=(
+            "Use kind=create for a new Workflow or kind=open for a published Workflow. "
+            "Full-definition import remains a CLI/import surface. This does not publish "
+            "or start runtime work.",
+        ),
     )
 
     @server.tool(
@@ -158,10 +167,14 @@ def _register_workflow_draft_create(server: FastMCP) -> None:
         description=create_teaching.description,
         annotations=_annotations(create_teaching),
     )
-    async def workflow_draft_create(workflow: NormalizedWorkflow) -> WorkflowDraftReadback:
-        normalized = normalize_workflow_object(workflow.model_dump(mode="json", exclude_none=True))
+    async def workflow_draft_create(
+        request: WorkflowDraftOpenRequest,
+    ) -> WorkflowDraftOpenResult:
         return await session_operations.write_session_operation(
-            lambda session: create_workflow_draft(session, workflow=normalized)
+            lambda session: open_workflow_draft(
+                session,
+                request=WORKFLOW_DRAFT_OPEN_REQUEST_ADAPTER.validate_python(request),
+            )
         )
 
 

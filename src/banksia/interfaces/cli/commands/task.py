@@ -14,6 +14,7 @@ from banksia.config import format_loopback_authority, get_settings
 from banksia.interfaces.cli.support import coerce_path, command_env, print_json
 from banksia.runtime.contracts import TaskStartRequest
 from banksia.runtime.contracts.task import TaskStartReceipt
+from banksia.runtime.product.paths import build_product_api_path
 from banksia.workflows.authoring_contracts import WorkflowSearchItem, WorkflowSearchResponse
 
 
@@ -137,16 +138,36 @@ async def prompt_for_task_start_request(
 async def _get_published_workflows(
     client: httpx.AsyncClient,
 ) -> tuple[WorkflowSearchItem, ...]:
-    response = await _request(client, "GET", "/workflows")
-    try:
-        catalog = WorkflowSearchResponse.model_validate(response.json())
-    except (ValueError, ValidationError) as exc:
-        raise TaskStartCliError(
-            "Controller returned an invalid Workflow catalog",
-            kind="controller_response_invalid",
-            hint="Check the Banksia controller version and logs.",
-        ) from exc
-    return tuple(item for item in catalog.items if item.published_revision_no is not None)
+    published: list[WorkflowSearchItem] = []
+    cursor: str | None = None
+    seen_cursors: set[str] = set()
+    while True:
+        request_options = {"params": {"cursor": cursor}} if cursor is not None else {}
+        response = await _request(
+            client,
+            "GET",
+            build_product_api_path("/workflows"),
+            **request_options,
+        )
+        try:
+            catalog = WorkflowSearchResponse.model_validate(response.json())
+        except (ValueError, ValidationError) as exc:
+            raise TaskStartCliError(
+                "Controller returned an invalid Workflow catalog",
+                kind="controller_response_invalid",
+                hint="Check the Banksia controller version and logs.",
+            ) from exc
+        published.extend(item for item in catalog.items if item.published_revision_no is not None)
+        cursor = catalog.next_cursor
+        if cursor is None:
+            return tuple(published)
+        if cursor in seen_cursors:
+            raise TaskStartCliError(
+                "Controller returned a repeating Workflow catalog cursor",
+                kind="controller_response_invalid",
+                hint="Check the Banksia controller version and logs.",
+            )
+        seen_cursors.add(cursor)
 
 
 async def _post_task_start(
@@ -156,7 +177,7 @@ async def _post_task_start(
     response = await _request(
         client,
         "POST",
-        "/tasks",
+        build_product_api_path("/tasks"),
         json=request.model_dump(mode="json", exclude_none=True),
     )
     try:

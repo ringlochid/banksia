@@ -30,6 +30,12 @@ from banksia.operator.provider import (
     UnavailableOperatorTurnRunner,
 )
 from banksia.operator.service import OperatorConversationService
+from banksia.operator.tools import (
+    OperatorTool,
+    OperatorToolName,
+    OperatorToolResult,
+    build_operator_tools,
+)
 
 __all__ = [
     "OPERATOR_PROVIDER_RESULT_ADAPTER",
@@ -51,11 +57,15 @@ __all__ = [
     "OperatorQuestionSetNotFoundError",
     "OperatorRunnerStatus",
     "OperatorStatusResponse",
+    "OperatorTool",
+    "OperatorToolName",
+    "OperatorToolResult",
     "OperatorTurnInProgressError",
     "OperatorTurnOutcome",
     "OperatorTurnRequest",
     "OperatorTurnRunner",
     "OperatorUnavailableError",
     "UnavailableOperatorTurnRunner",
+    "build_operator_tools",
     "read_operator_system_prompt",
 ]

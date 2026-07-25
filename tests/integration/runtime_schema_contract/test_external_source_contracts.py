@@ -59,7 +59,7 @@ def test_human_request_open_and_answer_shapes_are_database_validated(
                     },
                     resolution_summary="Approved by the local operator.",
                     resolved_by_actor_ref="operator.local",
-                    resolved_by_surface="control_ui",
+                    resolved_by_surface="operator",
                     resolved_at=NOW + timedelta(minutes=1),
                 )
             )
@@ -152,14 +152,14 @@ def test_command_run_lifecycle_requires_complete_terminal_provenance(
                     state="succeeded",
                     terminal_summary="Command completed.",
                     terminal_exit_code=0,
-                    terminal_event_source="process_owner",
+                    terminal_event_source="operator",
                     ended_at=NOW + timedelta(seconds=2),
                 )
             )
         with engine.connect() as connection:
             run = connection.execute(select(RuntimeBase.metadata.tables["command_runs"])).one()
         assert run.state == "succeeded"
-        assert run.terminal_event_source == "process_owner"
+        assert run.terminal_event_source == "operator"
     finally:
         engine.dispose()
 

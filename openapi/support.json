@@ -910,7 +910,7 @@
         "enum": [
           "control_api",
           "control_ui",
-          "operator_mcp",
+          "operator",
           "controller"
         ],
         "title": "HumanRequestResolutionSurface",
@@ -1719,7 +1719,7 @@
         "enum": [
           "controller",
           "control_api",
-          "operator_mcp",
+          "operator",
           "node"
         ],
         "title": "TaskEventSource",

@@ -53,7 +53,7 @@ class HumanRequestResolutionKind(StrEnum):
 class HumanRequestResolutionSurface(StrEnum):
     CONTROL_API = "control_api"
     CONTROL_UI = "control_ui"
-    OPERATOR_MCP = "operator_mcp"
+    OPERATOR = "operator"
     CONTROLLER = "controller"
 
 
@@ -71,14 +71,14 @@ class CommandRunState(StrEnum):
 class CommandRunTerminalSource(StrEnum):
     CONTROLLER = "controller"
     CONTROL_API = "control_api"
-    OPERATOR_MCP = "operator_mcp"
+    OPERATOR = "operator"
     PROCESS_OWNER = "process_owner"
 
 
 class TaskEventSource(StrEnum):
     CONTROLLER = "controller"
     CONTROL_API = "control_api"
-    OPERATOR_MCP = "operator_mcp"
+    OPERATOR = "operator"
     NODE = "node"
 
 

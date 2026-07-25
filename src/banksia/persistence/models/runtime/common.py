@@ -78,7 +78,7 @@ HUMAN_REQUEST_RESOLUTION_KIND_VALUES = ("answered", "timed_out", "cancelled")
 HUMAN_REQUEST_RESOLUTION_SURFACE_VALUES = (
     "control_api",
     "control_ui",
-    "operator_mcp",
+    "operator",
     "controller",
 )
 COMMAND_RUN_STATE_VALUES = (
@@ -101,10 +101,10 @@ COMMAND_RUN_TERMINAL_STATE_VALUES = (
 COMMAND_RUN_TERMINAL_SOURCE_VALUES = (
     "controller",
     "control_api",
-    "operator_mcp",
+    "operator",
     "process_owner",
 )
-TASK_EVENT_SOURCE_VALUES = ("controller", "control_api", "operator_mcp", "node")
+TASK_EVENT_SOURCE_VALUES = ("controller", "control_api", "operator", "node")
 TASK_EVENT_TYPE_VALUES = (
     "task_started",
     "dispatch_opened",

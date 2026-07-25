@@ -16,6 +16,7 @@ from banksia.runtime.command_run.service import (
     read_command_run_log,
 )
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
+from banksia.runtime.contracts.primitives import TaskEventSource
 from banksia.runtime.contracts.task import (
     CommandRunCancelReceipt,
     CommandRunCancelRequest,
@@ -185,6 +186,7 @@ async def cancel_product_command_run(
     command_id: str,
     request: CommandRunCancelRequest,
     actor_ref: str | None,
+    event_source: TaskEventSource = TaskEventSource.CONTROL_API,
     runtime_effect_publisher: RuntimeEffectPublisher | None = None,
 ) -> CommandRunCancelReceipt:
     source = await session.scalar(
@@ -203,6 +205,7 @@ async def cancel_product_command_run(
         task_id=task_id,
         run_id=command_id,
         actor_ref=actor_ref,
+        event_source=event_source,
         runtime_effect_publisher=runtime_effect_publisher,
     )
     current = await read_product_command_run(

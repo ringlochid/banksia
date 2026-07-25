@@ -40,7 +40,7 @@ from tests.helpers.sqlite_runtime import (
 )
 
 NOW = datetime(2026, 7, 18, tzinfo=UTC)
-CANONICAL_SOURCES = {"controller", "control_api", "operator_mcp", "node"}
+CANONICAL_SOURCES = {"controller", "control_api", "operator", "node"}
 CANONICAL_TYPES = {
     "task_started",
     "dispatch_opened",

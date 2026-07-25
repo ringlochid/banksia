@@ -307,8 +307,8 @@ def _human_request_conflict(summary: str) -> RuntimeOperationError:
 def _event_source_for_resolution_surface(
     surface: HumanRequestResolutionSurface,
 ) -> str:
-    if surface == HumanRequestResolutionSurface.OPERATOR_MCP:
-        return "operator_mcp"
+    if surface == HumanRequestResolutionSurface.OPERATOR:
+        return "operator"
     if surface == HumanRequestResolutionSurface.CONTROLLER:
         return "controller"
     return "control_api"

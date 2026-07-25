@@ -391,8 +391,8 @@ async def _request_waiting_command_cancellation(
 
 
 def _human_resolution_surface(event_source: TaskEventSource) -> HumanRequestResolutionSurface:
-    if event_source == TaskEventSource.OPERATOR_MCP:
-        return HumanRequestResolutionSurface.OPERATOR_MCP
+    if event_source == TaskEventSource.OPERATOR:
+        return HumanRequestResolutionSurface.OPERATOR
     if event_source == TaskEventSource.CONTROL_API:
         return HumanRequestResolutionSurface.CONTROL_API
     return HumanRequestResolutionSurface.CONTROLLER

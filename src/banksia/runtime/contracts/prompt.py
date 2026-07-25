@@ -70,7 +70,7 @@ class PromptCommandOutcome(StrEnum):
 class PromptCommandTerminalSource(StrEnum):
     CONTROLLER = "controller"
     CONTROL_API = "control_api"
-    OPERATOR_MCP = "operator_mcp"
+    OPERATOR = "operator"
     PROCESS_OWNER = "process_owner"
 
 

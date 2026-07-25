@@ -34,10 +34,6 @@ TARGET_TABLES = {
     "member_configurations",
     "members",
     "node_invocations",
-    "operator_conversation_entries",
-    "operator_conversations",
-    "operator_effects",
-    "operator_invocations",
     "replan_transitions",
     "task_events",
     "task_event_stream_heads",
@@ -153,21 +149,6 @@ def test_team_root_selection_marker_ddl_is_stored_and_portable() -> None:
     for dialect in (sqlite.dialect(), postgresql.dialect()):
         ddl = str(
             CreateTable(RuntimeBase.metadata.tables["team_revision_members"]).compile(
-                dialect=dialect
-            )
-        )
-        assert "GENERATED ALWAYS AS" in ddl
-        assert "STORED" in ddl
-
-
-def test_operator_active_invocation_marker_is_stored_and_portable() -> None:
-    marker = RuntimeBase.metadata.tables["operator_invocations"].c.active_claim_marker
-    assert marker.computed is not None
-    assert marker.computed.persisted is True
-
-    for dialect in (sqlite.dialect(), postgresql.dialect()):
-        ddl = str(
-            CreateTable(RuntimeBase.metadata.tables["operator_invocations"]).compile(
                 dialect=dialect
             )
         )

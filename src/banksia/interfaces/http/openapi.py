@@ -32,17 +32,6 @@ PRODUCT_ROUTE_METHODS: dict[str, frozenset[str]] = {
         "/tasks/{task_id}/command-runs/{command_id}": frozenset({"get"}),
         "/tasks/{task_id}/command-runs/{command_id}/output": frozenset({"get"}),
         "/tasks/{task_id}/command-runs/{command_id}/cancel": frozenset({"post"}),
-        "/operator/status": frozenset({"get"}),
-        "/operator/conversations": frozenset({"get", "post"}),
-        "/operator/conversations/{conversation_id}": frozenset({"get"}),
-        "/operator/conversations/{conversation_id}/messages": frozenset({"post"}),
-        (
-            "/operator/conversations/{conversation_id}/question-sets/{question_set_id}/answers"
-        ): frozenset({"post"}),
-        ("/operator/conversations/{conversation_id}/confirmations/{confirmation_id}"): frozenset(
-            {"post"}
-        ),
-        "/operator/conversations/{conversation_id}/retries": frozenset({"post"}),
     }.items()
 }
 PRODUCT_PATHS = frozenset(PRODUCT_ROUTE_METHODS)

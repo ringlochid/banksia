@@ -4,7 +4,6 @@ from typing import cast
 
 from fastapi import Request
 
-from banksia.operator.service import OperatorConversationService
 from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
 from banksia.runtime.post_commit import RuntimeEffectPublisher
 
@@ -28,10 +27,3 @@ async def read_dispatch_opening_dependencies(request: Request) -> DispatchOpenin
     if not isinstance(dependencies, DispatchOpeningDependencies):
         raise RuntimeError("dispatch opening dependencies are unavailable")
     return dependencies
-
-
-async def read_operator_conversation_service(request: Request) -> OperatorConversationService:
-    service = getattr(request.app.state, "operator_conversation_service", None)
-    if not isinstance(service, OperatorConversationService):
-        raise RuntimeError("Operator conversation service is unavailable")
-    return service

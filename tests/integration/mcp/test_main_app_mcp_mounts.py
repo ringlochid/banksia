@@ -98,18 +98,6 @@ def _install_lifespan_mocks(
     async def dispose_engine() -> None:
         startup_calls.append("dispose")
 
-    async def enter_operator_coordinator(_self: object) -> object:
-        startup_calls.append("operator_recovery")
-        return _self
-
-    async def exit_operator_coordinator(
-        _self: object,
-        _exc_type: object,
-        _exc: object,
-        _traceback: object,
-    ) -> None:
-        return None
-
     monkeypatch.setattr(main_module, "ensure_database_schema", ensure_schema)
     monkeypatch.setattr(
         main_module,
@@ -119,16 +107,6 @@ def _install_lifespan_mocks(
     monkeypatch.setattr(main_module, "audit_startup_runtime_effects", audit_runtime)
     monkeypatch.setattr(main_module, "audit_startup_support_projections", audit_projections)
     monkeypatch.setattr(main_module, "dispose_db_engine", dispose_engine)
-    monkeypatch.setattr(
-        main_module.OperatorInvocationCoordinator,
-        "__aenter__",
-        enter_operator_coordinator,
-    )
-    monkeypatch.setattr(
-        main_module.OperatorInvocationCoordinator,
-        "__aexit__",
-        exit_operator_coordinator,
-    )
 
 
 async def test_main_app_mounts_one_managed_and_one_compatibility_node_mcp_app(
@@ -160,7 +138,6 @@ async def test_main_app_mounts_one_managed_and_one_compatibility_node_mcp_app(
         assert startup_calls == [
             "schema",
             "workspace_recovery",
-            "operator_recovery",
             "runtime_audit",
             "projection_audit",
         ]
@@ -184,7 +161,6 @@ async def test_main_app_mounts_one_managed_and_one_compatibility_node_mcp_app(
     assert startup_calls == [
         "schema",
         "workspace_recovery",
-        "operator_recovery",
         "runtime_audit",
         "projection_audit",
         "dispose",
@@ -248,7 +224,7 @@ async def test_ipv6_loopback_mount_keeps_managed_node_authority_private(
     assert managed.status_code == 200
 
 
-async def test_main_app_openapi_and_http_routes_exclude_private_mcp_and_callback_lanes() -> None:
+async def test_main_app_openapi_excludes_operator_private_mcp_and_callback_lanes() -> None:
     app = create_app(should_enable_mcp_mounts=True)
 
     openapi = app.openapi()
@@ -256,8 +232,6 @@ async def test_main_app_openapi_and_http_routes_exclude_private_mcp_and_callback
     route_paths = {getattr(route, "path", "") for route in app.routes}
 
     assert {
-        "/api/operator/status",
-        "/api/operator/conversations",
         "/api/tasks",
         "/api/tasks/{task_id}",
         "/api/tasks/{task_id}/activities",
@@ -267,6 +241,7 @@ async def test_main_app_openapi_and_http_routes_exclude_private_mcp_and_callback
     assert not any(
         path.startswith("/control") or path.startswith("/runtime") for path in openapi_paths
     )
+    assert not any(path.startswith("/api/operator") for path in openapi_paths)
     assert not any(path.startswith("/support") for path in openapi_paths)
     assert "/authoring/task-compose/preview" not in openapi_paths
     assert "/_internal/node/mcp" not in openapi_paths

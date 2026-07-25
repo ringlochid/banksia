@@ -80,14 +80,12 @@ async def start_product_task(
     dependencies: DispatchOpeningDependencies,
     session: AsyncSession | None = None,
     default_workspace: Path | None = None,
-    expected_workflow_revision: int | None = None,
 ) -> TaskStartReceipt:
     accepted = await start_task(
         request,
         session=session,
         dependencies=dependencies,
         default_workspace=default_workspace,
-        expected_workflow_revision=expected_workflow_revision,
     )
     return TaskStartReceipt(
         receipt_id=f"receipt.{token_urlsafe(24)}",

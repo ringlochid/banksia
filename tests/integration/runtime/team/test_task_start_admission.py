@@ -79,32 +79,6 @@ async def test_task_start_preserves_long_prompt_and_file_values(
     ] == [{"path": file_path, "description": file_description}]
 
 
-async def test_internal_expected_workflow_revision_rejects_stale_task_admission(
-    tmp_path: Path,
-) -> None:
-    workspace = tmp_path / "workspace"
-    workspace.mkdir()
-    assert "expected_workflow_revision" not in TaskStartRequest.model_fields
-
-    async with initialized_workflow_database(tmp_path) as session_factory:
-        async with session_factory() as session:
-            with pytest.raises(
-                RuntimeOperationError,
-                match="confirmed Workflow revision is no longer",
-            ) as stale:
-                await start_task(
-                    _request(workspace),
-                    session=session,
-                    dependencies=_dependencies(workspace),
-                    expected_workflow_revision=999,
-                )
-            task_count = await _task_count(session)
-
-    assert stale.value.status_code_override == 409
-    assert task_count == 0
-    _assert_no_task_directory(workspace)
-
-
 async def test_concurrent_task_starts_share_one_workspace_admission_lane(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

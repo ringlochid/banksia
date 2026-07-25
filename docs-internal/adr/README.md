@@ -19,3 +19,4 @@ This surface owns durable accepted decisions for Banksia and its imported AutoCl
 - [ADR-0011 provider routing, defaults, and capability resolution](ADR-0011-provider-routing-defaults-and-capability-resolution.md)
 - [ADR-0012 loopback control plane without an operator API key](ADR-0012-loopback-control-plane-without-operator-api-key.md)
 - [ADR-0013 Banksia target and clean break](ADR-0013-banksia-target-and-clean-break.md)
+- [ADR-0014 Operator tool isolation and effect authority](ADR-0014-operator-tool-isolation-and-effect-authority.md)

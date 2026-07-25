@@ -66,6 +66,12 @@ LOCAL_AUTHORITY_NEGATION_PATTERN = re.compile(
     re.IGNORECASE,
 )
 N8N_REFERENCE_PROTOCOL_PATH = Path("docs-internal/design/appendices/n8n-reference-protocol.md")
+REFERENCE_APPENDIX_PATHS = frozenset(
+    {
+        Path("docs-internal/design/appendices/baseline-and-removal-ledger.md"),
+        N8N_REFERENCE_PROTOCOL_PATH,
+    }
+)
 N8N_PROTOCOL_ALLOWED_IGNORED_PREFIXES = (
     "tmp/codex/references/n8n-source/",
     "tmp/codex/references/n8n-ui/",
@@ -155,8 +161,12 @@ def allowed_statuses_for_path(*, root: Path, path: Path) -> tuple[str, ...] | No
         return ("Reference",)
     if relative_path in FROZEN_LEGACY_FRONT_DOOR_REQUIREMENTS:
         return ("Reference",)
-    if parts[:3] == ("docs-internal", "design", "appendices"):
+    if parts[:4] == ("docs-internal", "design", "appendices", "generated"):
         return ("Reference",)
+    if parts[:3] == ("docs-internal", "design", "appendices"):
+        if path.name == "README.md" or relative_path in REFERENCE_APPENDIX_PATHS:
+            return ("Reference",)
+        return ("Target",)
     if len(parts) == 3 and parts[:2] == ("docs-internal", "design"):
         return ("Target",)
     if is_frozen_legacy_version_path(relative_path, family="design"):

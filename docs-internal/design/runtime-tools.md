@@ -340,6 +340,10 @@ There is no `artifact_get` or generic `file_get`. `task_get` returns loose `File
 
 The complete Operator catalog has seventeen operations after this removal: three Workflow reads, six draft actions, four Task actions, one Human Request action, and three Command Run actions.
 
+The provider receives those operations through a fresh invocation-scoped binding. The binding checks conversation, invocation, claim generation, operation name, and provider call ID before calling the shared `OperatorOperationExecutor`. Claude Agent SDK removes every built-in tool and loads no external settings, Skills, or Plugins. The baseline exposes no public Operator MCP mount. Codex Operator remains unavailable until its SDK can enforce the same exact model-visible ceiling.
+
+Read operations and reversible Workflow draft create/open/edit operations may execute immediately. `workflow_draft_undo`, `workflow_draft_discard`, `workflow_draft_publish`, `task_start`, `task_control`, `human_request_respond`, and `command_run_cancel` create controller-owned proposals instead. Their model-visible schemas contain no `confirmed` field. Only the separate exact confirmation boundary can consume and execute the stored payload and ETag/action guard.
+
 ## Explicitly absent tools
 
 Do not add:
@@ -380,7 +384,7 @@ The temporary WP-03-to-WP-07 catalog is an implementation bridge, not public tar
 - Contributor, Manager, capability-granted, denied, stale, and post-replan discovery/call matrices are correct;
 - every transfer operation commits authority loss before success returns and duplicate/stale calls cannot mutate a successor;
 - nested parallel Attempt bindings cannot cross Task, Attempt, Dispatch, tool ceiling, or provider-start generation;
-- provider allowlists and Claude/Codex prefixed names match the catalog exactly;
+- the Claude provider allowlist matches the exact catalog and exposes no native tools, settings, Skills, or Plugins; Codex selection fails closed with the documented unsupported-isolation problem until equivalent enforcement exists;
 - no MCP protocol Task, elicitation, resource, prompt, or dynamic external-MCP behavior becomes runtime authority;
 - native filesystem conformance passes before file-tool removal;
 - loose `FileReference` values preserve exact path/description order across project files, notes, artifacts, and command logs but create no generic file ID, body copy, digest, version, current pointer, or Operator content tool; the physical `artifacts/` convention never becomes an Artifact resource; and

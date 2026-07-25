@@ -31,6 +31,8 @@ The root browser surface is deliberately explicit:
 /workflows                -> Workflow library
 /workflows/{workflow_id}  -> Workflow Studio
 /runs                     -> Run library
+/runs/new                 -> Start a Run
+/runs/{task_id}           -> Run Studio
 /assets/*                 -> packaged Console assets
 ```
 
@@ -81,8 +83,18 @@ Every product mutation returns controller truth plus an opaque receipt or curren
 | `GET /api/tasks/{task_id}/command-runs/{command_id}` | Read one product-safe managed Action state and current legal cancellation action. | `CommandRunView` | Console, Operator `command_run_get` |
 | `GET /api/tasks/{task_id}/command-runs/{command_id}/output` | Read one sanitized bounded output range/tail with cursor and completeness facts. | `CommandRunOutputPage` | Console, Operator `command_run_output_read` |
 | `POST /api/tasks/{task_id}/command-runs/{command_id}/cancel` | Request cancellation against the returned Command Run action ID. | `CommandRunCancelReceipt` | Console, Operator `command_run_cancel` |
+| `GET /api/operator/status` | Read configured Operator availability and a human-safe setup or unsupported explanation. | `OperatorStatusResponse` | Console |
+| `GET /api/operator/conversations` | Page durable Operator conversation summaries. | `OperatorConversationPage` | Console |
+| `POST /api/operator/conversations` | Create one empty ready conversation pinned to the configured Operator provider. | `OperatorConversationView` | Console |
+| `GET /api/operator/conversations/{conversation_id}` | Read one bounded semantic transcript and current legal actions. | `OperatorConversationView` | Console |
+| `POST /api/operator/conversations/{conversation_id}/messages` | Commit one user message and queue one provider invocation. | `OperatorConversationView` | Console |
+| `POST /api/operator/conversations/{conversation_id}/question-sets/{question_set_id}/answers` | Commit one complete answer receipt and queue a fresh provider invocation. | `OperatorConversationView` | Console |
+| `POST /api/operator/conversations/{conversation_id}/confirmations/{confirmation_id}` | Consume one exact confirmation and execute its stored effect. | `OperatorConversationView` | Console |
+| `POST /api/operator/conversations/{conversation_id}/retries` | Queue one safe retry of the latest failed invocation. | `OperatorConversationView` | Console |
 
 There is no separate product Result route: `TaskView.result` is the singular exact root Result. There is no Task file index, generic file route, Artifact route, raw event route, trace route, runtime snapshot route, provider setup route, or execute-anything route. A later scoped browser read of current referenced-file bytes is optional and requires a separate canon addition; it must not be inferred from the Command output route.
+
+Every Operator `POST` requires an idempotency key. Message, answer, and retry submission returns `202` only after the input and queued provider invocation commit. Confirmation returns `200` after the stored controller effect reaches a durable receipt, failure, or indeterminate outcome. Operator readback is the baseline convergence path; Operator SSE is deferred.
 
 ### Support route matrix
 
@@ -362,11 +374,11 @@ Task-start file entries are labeled **Referenced files**, live under Advanced, a
 
 ## Operator agent
 
-Operator is a separate control-plane agent configured with a Codex or Claude SDK provider. It is not a Workflow member, Task/Attempt/Dispatch, second Banksia runtime, or LangGraph graph.
+Operator is a separate control-plane agent. The baseline uses Claude Agent SDK because it can remove every provider-native tool and expose only Banksia's closed operation catalog. It is not a Workflow member, Task/Attempt/Dispatch, second Banksia runtime, or LangGraph graph.
 
-The controller owns the selected Operator provider and adapter configuration. If neither supported provider is configured and authenticated, Operator shows an unavailable state with a concrete setup action; it never silently falls back or borrows a Task Member's provider choice.
+The controller owns the selected Operator provider and adapter configuration; it never silently falls back or borrows a Task Member's provider choice. Missing or unavailable Claude configuration produces a concrete setup action. Selecting Codex produces the stable unavailable problem `operator_codex_tool_isolation_unsupported`: pinned Codex SDK 0.144.4 cannot enforce the exact tool ceiling, so Banksia starts no Codex Operator work.
 
-Operator receives Banksia’s built-in, controller-authorized Operator tools (which may use MCP as transport). External user-authored MCP integration remains deferred. Workflow drafting is a primary job, but Operator may perform every Task/Workflow action currently legal in its user scope.
+Operator receives Banksia's built-in, controller-authorized Operator tools through an invocation-scoped in-process MCP binding. The browser uses product HTTP only; the baseline exposes no public Operator MCP mount. External user-authored MCP integration remains deferred. Workflow drafting is a primary job, but Operator may perform every Task/Workflow action currently legal in its user scope.
 
 ### Complete product-operation coverage
 
@@ -422,7 +434,7 @@ OperatorConversation
 
 Do not reproduce Assignment, Attempt, Dispatch, Wave, Checkpoint, or raw tool event families for Operator chat. Controller mutations remain canonical in their owning services; chat retains human messages and receipts/links.
 
-Conversation create/list/read, message submit, question answer, confirmation, and retry are durable product-service boundaries shared by HTTP and the UI. One conditional controller claim permits at most one active provider turn per conversation. Duplicate submits, answers, confirmations, and reconnects return the committed turn/receipt or a typed conflict; they never start a second turn.
+Conversation create/list/read, message submit, question answer, confirmation, and retry are durable product-service boundaries shared by HTTP and the UI. One conditional controller claim permits at most one active provider turn or confirmed effect execution per conversation. Duplicate submits, answers, confirmations, and reconnects return the committed turn/receipt or a typed conflict; they never start a second turn or product effect. The exact route, record, transaction, and recovery contract lives in the [Operator conversation appendix](appendices/operator-conversation-contract.md).
 
 If the SDK reports that the opaque provider thread no longer exists or cannot be resumed, Banksia records `provider_thread_lost`, preserves every visible turn and controller receipt, and offers an explicit new-conversation action. It does not silently fork the thread, replay committed tool effects, or claim continuity from transcript text.
 
@@ -456,10 +468,10 @@ Provider-native question events may later adapt to the same product contract, bu
 These general rules belong to the Operator's controller-owned system prompt and tool teaching. They are never inserted into Workflow `note` or Member `instruction`.
 
 - If a material user choice is missing, Operator asks rather than guessing. Prefer one question and ask none when the request is already specific.
-- An explicit request to create or edit a Workflow authorizes reversible draft mutations. Each mutation returns a human receipt and Undo; no redundant Apply confirmation is needed.
+- An explicit request to create or edit a Workflow authorizes reversible draft create/open/edit mutations. Each accepted mutation returns a human receipt and Undo when available; no redundant Apply confirmation is needed.
 - “Create a workflow for me” authorizes drafting, not publishing or starting a Run.
-- Publish, Run/start, runtime controls, and destructive or unrequested actions require explicit current-turn instruction or clear confirmation.
-- Confirmation is a durable, opaque, single-use controller receipt bound to conversation, exact action payload, and current ETag/action guard. Payload or controller-truth change expires it; the client never reconstructs authority.
+- Workflow Undo/discard/publish, Run start/control, Human Request response/cancel, and managed Action cancellation always become a proposal when requested by the model. Free-form model interpretation and a model-authored `confirmed` field are never authority.
+- Confirmation is a durable, opaque, single-use controller receipt bound to conversation, stored action payload, and current ETag/action guard. Payload or controller-truth change expires it; the client never reconstructs authority or resumes a provider turn to execute it.
 - Operator never claims a mutation succeeded without the controller tool result and never renders model-invented Workflow/Task state; the client refetches controller truth after receipts/SSE.
 - Product UI shows meaningful messages, questions, changes, and receipts—not chain-of-thought or raw tool-call internals.
 

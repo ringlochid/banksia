@@ -114,6 +114,16 @@ def test_front_door_discovery_keeps_appendices_inside_versionless_design(
         ("docs-internal/design/runtime.md", ("Target",), "Reference"),
         ("docs-internal/design/appendices/README.md", ("Reference",), "Target"),
         (
+            "docs-internal/design/appendices/operator-conversation-contract.md",
+            ("Target",),
+            "Reference",
+        ),
+        (
+            "docs-internal/design/appendices/n8n-reference-protocol.md",
+            ("Reference",),
+            "Target",
+        ),
+        (
             "docs-internal/design/appendices/generated/readback.md",
             ("Reference",),
             "Target",

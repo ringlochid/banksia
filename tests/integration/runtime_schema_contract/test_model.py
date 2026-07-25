@@ -34,6 +34,8 @@ TARGET_TABLES = {
     "member_configurations",
     "members",
     "node_invocations",
+    "operator_conversation_entries",
+    "operator_conversations",
     "replan_transitions",
     "task_events",
     "task_event_stream_heads",

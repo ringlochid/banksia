@@ -55,6 +55,7 @@ list_suite() {
       describe_group "runtime" tests/integration/runtime
       describe_group "mcp" tests/integration/mcp
       describe_group "public-surfaces" tests/integration/public_surfaces
+      describe_group "operator" tests/integration/operator
       describe_group "workflow-authoring" tests/integration/workflows
       ;;
     e2e-bounded)
@@ -95,6 +96,7 @@ run_integration_groups() {
   run_group "runtime" tests/integration/runtime
   run_group "mcp" tests/integration/mcp
   run_group "public-surfaces" tests/integration/public_surfaces
+  run_group "operator" tests/integration/operator
   run_group "workflow-authoring" tests/integration/workflows
 }
 

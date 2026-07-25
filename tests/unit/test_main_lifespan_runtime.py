@@ -35,6 +35,15 @@ class RecordingAsyncOwner:
         return True
 
 
+class RecordingOperatorService:
+    def __init__(self, events: list[str]) -> None:
+        self._events = events
+
+    async def repair_stranded_turns(self) -> int:
+        self._events.append("operator_repair")
+        return 2
+
+
 async def test_lifespan_keeps_publishers_alive_until_runtime_owners_stop(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -48,6 +57,7 @@ async def test_lifespan_keeps_publishers_alive_until_runtime_owners_stop(
     app.state.support_projection_owner = projection
     app.state.deadline_scheduler = scheduler
     app.state.command_process_owner = command_owner
+    app.state.operator_conversation_service = RecordingOperatorService(events)
 
     async def ensure_schema() -> None:
         events.append("schema")
@@ -96,6 +106,7 @@ async def test_lifespan_keeps_publishers_alive_until_runtime_owners_stop(
 
     assert events == [
         "schema",
+        "operator_repair",
         "task_workspace_recovery",
         "enter:command",
         "enter:projection",
@@ -110,6 +121,7 @@ async def test_lifespan_keeps_publishers_alive_until_runtime_owners_stop(
         "exit:command",
         "dispose",
     ]
+    assert app.state.operator_startup_repair_count == 2
 
 
 __all__ = []

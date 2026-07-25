@@ -17,6 +17,14 @@ PRODUCT_ROUTE_METHODS: dict[str, frozenset[str]] = {
         "/workflows": frozenset({"get"}),
         "/workflows/authoring-options": frozenset({"get"}),
         "/workflows/{workflow_id}": frozenset({"get"}),
+        "/operator/status": frozenset({"get"}),
+        "/operator/conversations": frozenset({"get", "post"}),
+        "/operator/conversations/{conversation_id}": frozenset({"get"}),
+        "/operator/conversations/{conversation_id}/messages": frozenset({"post"}),
+        (
+            "/operator/conversations/{conversation_id}/question-sets/"
+            "{question_set_id}/answers"
+        ): frozenset({"post"}),
         "/workflow-drafts": frozenset({"post"}),
         "/workflow-drafts/{draft_id}": frozenset({"get", "patch", "delete"}),
         "/workflow-drafts/{draft_id}/validate": frozenset({"post"}),

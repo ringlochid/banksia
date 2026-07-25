@@ -117,6 +117,8 @@ def test_db_reset_recreates_seeded_sqlite_database_on_packaged_cli_path(
         "team_revisions",
         "team_revision_members",
         "tasks",
+        "operator_conversations",
+        "operator_conversation_entries",
     }.issubset(table_names)
     assert workflow_count == 3
     assert starter_workflow_ids == (

@@ -1,3 +1,7 @@
+from banksia.persistence.models.operator import (
+    OperatorConversationEntryModel,
+    OperatorConversationModel,
+)
 from banksia.persistence.models.registry import (
     WorkflowDefinitionModel,
     WorkflowDraftModel,
@@ -58,6 +62,8 @@ __all__ = [
     "MemberConfigurationModel",
     "MemberModel",
     "NodeInvocationModel",
+    "OperatorConversationEntryModel",
+    "OperatorConversationModel",
     "ReplanTransitionModel",
     "TaskEventModel",
     "TaskEventStreamHeadModel",

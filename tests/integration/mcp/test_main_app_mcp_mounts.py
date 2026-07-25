@@ -80,6 +80,10 @@ def _install_lifespan_mocks(
         startup_calls.append("workspace_recovery")
         return ()
 
+    async def repair_operator_turns() -> int:
+        startup_calls.append("operator_repair")
+        return 0
+
     async def audit_runtime(**kwargs: object) -> dict[str, object]:
         del kwargs
         assert isinstance(app.state.runtime_effect_router, RuntimeEffectRouter)
@@ -99,6 +103,11 @@ def _install_lifespan_mocks(
         startup_calls.append("dispose")
 
     monkeypatch.setattr(main_module, "ensure_database_schema", ensure_schema)
+    monkeypatch.setattr(
+        app.state.operator_conversation_service,
+        "repair_stranded_turns",
+        repair_operator_turns,
+    )
     monkeypatch.setattr(
         main_module,
         "recover_task_workspace_admissions",
@@ -137,6 +146,7 @@ async def test_main_app_mounts_one_managed_and_one_compatibility_node_mcp_app(
     async with app.router.lifespan_context(app):
         assert startup_calls == [
             "schema",
+            "operator_repair",
             "workspace_recovery",
             "runtime_audit",
             "projection_audit",
@@ -160,6 +170,7 @@ async def test_main_app_mounts_one_managed_and_one_compatibility_node_mcp_app(
 
     assert startup_calls == [
         "schema",
+        "operator_repair",
         "workspace_recovery",
         "runtime_audit",
         "projection_audit",
@@ -241,7 +252,13 @@ async def test_main_app_openapi_excludes_operator_private_mcp_and_callback_lanes
     assert not any(
         path.startswith("/control") or path.startswith("/runtime") for path in openapi_paths
     )
-    assert not any(path.startswith("/api/operator") for path in openapi_paths)
+    assert {path for path in openapi_paths if path.startswith("/api/operator")} == {
+        "/api/operator/status",
+        "/api/operator/conversations",
+        "/api/operator/conversations/{conversation_id}",
+        "/api/operator/conversations/{conversation_id}/messages",
+        ("/api/operator/conversations/{conversation_id}/question-sets/{question_set_id}/answers"),
+    }
     assert not any(path.startswith("/support") for path in openapi_paths)
     assert "/authoring/task-compose/preview" not in openapi_paths
     assert "/_internal/node/mcp" not in openapi_paths

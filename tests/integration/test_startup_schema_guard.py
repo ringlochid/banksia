@@ -124,4 +124,6 @@ async def test_lifespan_creates_schema_only_for_genuinely_empty_database(
         "workflow_definitions",
         "members",
         "team_revisions",
+        "operator_conversations",
+        "operator_conversation_entries",
     }.issubset(table_names)

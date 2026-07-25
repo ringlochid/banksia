@@ -25,6 +25,10 @@ from banksia.interfaces.http.support import create_support_app
 from banksia.interfaces.mcp.node.server import create_node_mcp_apps
 from banksia.interfaces.mcp.transport import node_mcp_transport_policy
 from banksia.interfaces.web_console import register_web_console_routes
+from banksia.operator import (
+    OperatorConversationService,
+    UnavailableOperatorTurnRunner,
+)
 from banksia.persistence.session import (
     dispose_db_engine,
     ensure_database_schema,
@@ -111,6 +115,7 @@ class _ApplicationRuntime:
     support_projection_owner: SupportProjectionOwner
     node_operation_executor: NodeOperationExecutor
     dispatch_starter: DispatchStarter
+    operator_conversation_service: OperatorConversationService
 
 
 def _package_version() -> str:
@@ -227,6 +232,10 @@ def _build_application_runtime(settings: Settings) -> _ApplicationRuntime:
         managed_node_mcp_url=_node_mcp_url(settings, path="/_internal/node/mcp"),
         compatibility_node_mcp_url=_node_mcp_url(settings, path="/node/mcp"),
     )
+    operator_conversation_service = OperatorConversationService(
+        session_factory=_runtime_session_context,
+        runner=UnavailableOperatorTurnRunner(),
+    )
     return _ApplicationRuntime(
         binding_registry=binding_registry,
         provider_adapter_registry=provider_adapter_registry,
@@ -237,6 +246,7 @@ def _build_application_runtime(settings: Settings) -> _ApplicationRuntime:
         support_projection_owner=support_projection_owner,
         node_operation_executor=node_operation_executor,
         dispatch_starter=dispatch_starter,
+        operator_conversation_service=operator_conversation_service,
     )
 
 
@@ -251,6 +261,7 @@ def _store_application_runtime(app: FastAPI, runtime: _ApplicationRuntime) -> No
     app.state.provider_adapter_registry = runtime.provider_adapter_registry
     app.state.node_operation_executor = runtime.node_operation_executor
     app.state.dispatch_starter = runtime.dispatch_starter
+    app.state.operator_conversation_service = runtime.operator_conversation_service
     app.state.mcp_lifespan_apps = ()
 
 
@@ -307,6 +318,12 @@ def _mount_mcp_apps(
 async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     try:
         await ensure_database_schema()
+        operator_conversation_service: OperatorConversationService = (
+            app.state.operator_conversation_service
+        )
+        app.state.operator_startup_repair_count = (
+            await operator_conversation_service.repair_stranded_turns()
+        )
         settings = get_settings()
         async with _runtime_session_context() as recovery_session:
             app.state.task_workspace_recovery = await recover_task_workspace_admissions(

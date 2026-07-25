@@ -1263,6 +1263,759 @@
         "title": "OperationFailure",
         "type": "object"
       },
+      "OperatorAnswerQuestionSetAction": {
+        "additionalProperties": false,
+        "properties": {
+          "href": {
+            "title": "Href",
+            "type": "string"
+          },
+          "kind": {
+            "const": "answer_question_set",
+            "default": "answer_question_set",
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "const": "Continue",
+            "default": "Continue",
+            "title": "Label",
+            "type": "string"
+          },
+          "method": {
+            "const": "POST",
+            "default": "POST",
+            "title": "Method",
+            "type": "string"
+          },
+          "question_set_id": {
+            "title": "Question Set Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "href",
+          "question_set_id"
+        ],
+        "title": "OperatorAnswerQuestionSetAction",
+        "type": "object"
+      },
+      "OperatorAnswerValue": {
+        "discriminator": {
+          "mapping": {
+            "custom": "#/components/schemas/OperatorCustomAnswer",
+            "option": "#/components/schemas/OperatorOptionAnswer",
+            "skip": "#/components/schemas/OperatorSkipAnswer"
+          },
+          "propertyName": "kind"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/OperatorOptionAnswer"
+          },
+          {
+            "$ref": "#/components/schemas/OperatorCustomAnswer"
+          },
+          {
+            "$ref": "#/components/schemas/OperatorSkipAnswer"
+          }
+        ]
+      },
+      "OperatorAssistantMessageEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "const": "assistant_message",
+            "title": "Kind",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "text",
+          "created_at"
+        ],
+        "title": "OperatorAssistantMessageEntry",
+        "type": "object"
+      },
+      "OperatorAssistantQuestionSetEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "explanation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Explanation"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "const": "assistant_question_set",
+            "title": "Kind",
+            "type": "string"
+          },
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/OperatorQuestion"
+            },
+            "maxItems": 3,
+            "minItems": 1,
+            "title": "Questions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "questions",
+          "created_at"
+        ],
+        "title": "OperatorAssistantQuestionSetEntry",
+        "type": "object"
+      },
+      "OperatorAvailability": {
+        "enum": [
+          "available",
+          "unconfigured",
+          "unavailable"
+        ],
+        "type": "string"
+      },
+      "OperatorConversationAction": {
+        "discriminator": {
+          "mapping": {
+            "answer_question_set": "#/components/schemas/OperatorAnswerQuestionSetAction",
+            "create_new_conversation": "#/components/schemas/OperatorCreateNewConversationAction",
+            "send_message": "#/components/schemas/OperatorSendMessageAction"
+          },
+          "propertyName": "kind"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/OperatorSendMessageAction"
+          },
+          {
+            "$ref": "#/components/schemas/OperatorAnswerQuestionSetAction"
+          },
+          {
+            "$ref": "#/components/schemas/OperatorCreateNewConversationAction"
+          }
+        ]
+      },
+      "OperatorConversationEntry": {
+        "discriminator": {
+          "mapping": {
+            "assistant_message": "#/components/schemas/OperatorAssistantMessageEntry",
+            "assistant_question_set": "#/components/schemas/OperatorAssistantQuestionSetEntry",
+            "turn_interrupted": "#/components/schemas/OperatorTurnInterruptedEntry",
+            "user_message": "#/components/schemas/OperatorUserMessageEntry",
+            "user_question_answers": "#/components/schemas/OperatorUserQuestionAnswersEntry"
+          },
+          "propertyName": "kind"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/OperatorUserMessageEntry"
+          },
+          {
+            "$ref": "#/components/schemas/OperatorUserQuestionAnswersEntry"
+          },
+          {
+            "$ref": "#/components/schemas/OperatorAssistantMessageEntry"
+          },
+          {
+            "$ref": "#/components/schemas/OperatorAssistantQuestionSetEntry"
+          },
+          {
+            "$ref": "#/components/schemas/OperatorTurnInterruptedEntry"
+          }
+        ]
+      },
+      "OperatorConversationPage": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/OperatorConversationSummary"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "OperatorConversationPage",
+        "type": "object"
+      },
+      "OperatorConversationState": {
+        "enum": [
+          "ready",
+          "running",
+          "awaiting_answer",
+          "interrupted",
+          "closed"
+        ],
+        "type": "string"
+      },
+      "OperatorConversationSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "preview": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preview"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/OperatorConversationState"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "state",
+          "provider",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "OperatorConversationSummary",
+        "type": "object"
+      },
+      "OperatorConversationView": {
+        "additionalProperties": false,
+        "properties": {
+          "actions": {
+            "items": {
+              "$ref": "#/components/schemas/OperatorConversationAction"
+            },
+            "title": "Actions",
+            "type": "array"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "effort": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effort"
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/OperatorConversationEntry"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "older_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Older Cursor"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/OperatorConversationState"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "state",
+          "provider",
+          "entries",
+          "actions",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "OperatorConversationView",
+        "type": "object"
+      },
+      "OperatorCreateNewConversationAction": {
+        "additionalProperties": false,
+        "properties": {
+          "href": {
+            "title": "Href",
+            "type": "string"
+          },
+          "kind": {
+            "const": "create_new_conversation",
+            "default": "create_new_conversation",
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "const": "Start new conversation",
+            "default": "Start new conversation",
+            "title": "Label",
+            "type": "string"
+          },
+          "method": {
+            "const": "POST",
+            "default": "POST",
+            "title": "Method",
+            "type": "string"
+          }
+        },
+        "required": [
+          "href"
+        ],
+        "title": "OperatorCreateNewConversationAction",
+        "type": "object"
+      },
+      "OperatorCustomAnswer": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "custom",
+            "title": "Kind",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "text"
+        ],
+        "title": "OperatorCustomAnswer",
+        "type": "object"
+      },
+      "OperatorEmptyRequest": {
+        "additionalProperties": false,
+        "properties": {},
+        "title": "OperatorEmptyRequest",
+        "type": "object"
+      },
+      "OperatorMessageRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "OperatorMessageRequest",
+        "type": "object"
+      },
+      "OperatorOptionAnswer": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "option",
+            "title": "Kind",
+            "type": "string"
+          },
+          "option_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Option Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "option_id"
+        ],
+        "title": "OperatorOptionAnswer",
+        "type": "object"
+      },
+      "OperatorQuestion": {
+        "additionalProperties": false,
+        "properties": {
+          "allow_skip": {
+            "default": false,
+            "title": "Allow Skip",
+            "type": "boolean"
+          },
+          "header": {
+            "title": "Header",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/OperatorQuestionOption"
+            },
+            "maxItems": 3,
+            "minItems": 2,
+            "title": "Options",
+            "type": "array"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "header",
+          "question",
+          "options"
+        ],
+        "title": "OperatorQuestion",
+        "type": "object"
+      },
+      "OperatorQuestionAnswer": {
+        "additionalProperties": false,
+        "properties": {
+          "answer": {
+            "$ref": "#/components/schemas/OperatorAnswerValue"
+          },
+          "question_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Question Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question_id",
+          "answer"
+        ],
+        "title": "OperatorQuestionAnswer",
+        "type": "object"
+      },
+      "OperatorQuestionAnswersRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "answers": {
+            "items": {
+              "$ref": "#/components/schemas/OperatorQuestionAnswer"
+            },
+            "maxItems": 3,
+            "minItems": 1,
+            "title": "Answers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "answers"
+        ],
+        "title": "OperatorQuestionAnswersRequest",
+        "type": "object"
+      },
+      "OperatorQuestionOption": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "description"
+        ],
+        "title": "OperatorQuestionOption",
+        "type": "object"
+      },
+      "OperatorSendMessageAction": {
+        "additionalProperties": false,
+        "properties": {
+          "href": {
+            "title": "Href",
+            "type": "string"
+          },
+          "kind": {
+            "const": "send_message",
+            "default": "send_message",
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "const": "Send message",
+            "default": "Send message",
+            "title": "Label",
+            "type": "string"
+          },
+          "method": {
+            "const": "POST",
+            "default": "POST",
+            "title": "Method",
+            "type": "string"
+          }
+        },
+        "required": [
+          "href"
+        ],
+        "title": "OperatorSendMessageAction",
+        "type": "object"
+      },
+      "OperatorSkipAnswer": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "skip",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "OperatorSkipAnswer",
+        "type": "object"
+      },
+      "OperatorStatusResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "availability": {
+            "$ref": "#/components/schemas/OperatorAvailability"
+          },
+          "configured_provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Configured Provider"
+          },
+          "explanation": {
+            "title": "Explanation",
+            "type": "string"
+          },
+          "setup_action": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Setup Action"
+          }
+        },
+        "required": [
+          "availability",
+          "explanation"
+        ],
+        "title": "OperatorStatusResponse",
+        "type": "object"
+      },
+      "OperatorTurnInterruptedEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "explanation": {
+            "title": "Explanation",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "const": "turn_interrupted",
+            "title": "Kind",
+            "type": "string"
+          },
+          "next_step": {
+            "title": "Next Step",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "explanation",
+          "next_step",
+          "created_at"
+        ],
+        "title": "OperatorTurnInterruptedEntry",
+        "type": "object"
+      },
+      "OperatorUserMessageEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "const": "user_message",
+            "title": "Kind",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "text",
+          "created_at"
+        ],
+        "title": "OperatorUserMessageEntry",
+        "type": "object"
+      },
+      "OperatorUserQuestionAnswersEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "answers": {
+            "items": {
+              "$ref": "#/components/schemas/OperatorQuestionAnswer"
+            },
+            "maxItems": 3,
+            "minItems": 1,
+            "title": "Answers",
+            "type": "array"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "const": "user_question_answers",
+            "title": "Kind",
+            "type": "string"
+          },
+          "question_set_id": {
+            "title": "Question Set Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "question_set_id",
+          "answers",
+          "created_at"
+        ],
+        "title": "OperatorUserQuestionAnswersEntry",
+        "type": "object"
+      },
       "ProductAction": {
         "additionalProperties": false,
         "properties": {
@@ -2985,6 +3738,665 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/operator/conversations": {
+      "get": {
+        "operationId": "get_operator_conversations_api_operator_conversations_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperatorConversationPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Get Operator Conversations",
+        "tags": [
+          "operator"
+        ]
+      },
+      "post": {
+        "operationId": "post_operator_conversation_api_operator_conversations_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 200,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OperatorEmptyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperatorConversationView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Post Operator Conversation",
+        "tags": [
+          "operator"
+        ]
+      }
+    },
+    "/api/operator/conversations/{conversation_id}": {
+      "get": {
+        "operationId": "get_operator_conversation_api_operator_conversations__conversation_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conversation_id",
+            "required": true,
+            "schema": {
+              "title": "Conversation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperatorConversationView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Get Operator Conversation",
+        "tags": [
+          "operator"
+        ]
+      }
+    },
+    "/api/operator/conversations/{conversation_id}/messages": {
+      "post": {
+        "operationId": "post_operator_message_api_operator_conversations__conversation_id__messages_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conversation_id",
+            "required": true,
+            "schema": {
+              "title": "Conversation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 200,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OperatorMessageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperatorConversationView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Post Operator Message",
+        "tags": [
+          "operator"
+        ]
+      }
+    },
+    "/api/operator/conversations/{conversation_id}/question-sets/{question_set_id}/answers": {
+      "post": {
+        "operationId": "post_operator_question_answers_api_operator_conversations__conversation_id__question_sets__question_set_id__answers_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conversation_id",
+            "required": true,
+            "schema": {
+              "title": "Conversation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "question_set_id",
+            "required": true,
+            "schema": {
+              "title": "Question Set Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 200,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OperatorQuestionAnswersRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperatorConversationView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Post Operator Question Answers",
+        "tags": [
+          "operator"
+        ]
+      }
+    },
+    "/api/operator/status": {
+      "get": {
+        "operationId": "get_operator_status_api_operator_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperatorStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Get Operator Status",
+        "tags": [
+          "operator"
+        ]
+      }
+    },
     "/api/tasks": {
       "get": {
         "operationId": "get_tasks_api_tasks_get",

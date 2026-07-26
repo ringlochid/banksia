@@ -18,6 +18,7 @@ from banksia.runtime.workspace.admission import (
 )
 from banksia.workflows.authoring import import_workflow_draft, publish_workflow_draft
 from banksia.workflows.catalog import read_current_published_workflow
+from tests.helpers.generic_workflow import GENERIC_WORKFLOW_ID, publish_generic_workflow
 from tests.helpers.workflow_runtime import initialized_workflow_database
 
 
@@ -32,6 +33,7 @@ async def test_workflow_note_recovery_restores_pinned_projection(
     outside.write_text("outside", encoding="utf-8")
 
     async with initialized_workflow_database(tmp_path) as session_factory:
+        await publish_generic_workflow(session_factory)
         async with session_factory() as session:
             response = await start_task(
                 _request(workspace),
@@ -40,7 +42,7 @@ async def test_workflow_note_recovery_restores_pinned_projection(
             )
             workflow = await read_current_published_workflow(
                 session,
-                workflow_id="reviewed-code-change",
+                workflow_id=GENERIC_WORKFLOW_ID,
             )
             expected_note = workflow.workflow.note
             assert expected_note is not None
@@ -79,6 +81,7 @@ async def test_recovery_removes_unconfigured_workflow_note(
     outside.write_text("outside", encoding="utf-8")
 
     async with initialized_workflow_database(tmp_path) as session_factory:
+        await publish_generic_workflow(session_factory)
         async with session_factory() as session:
             await _publish_workflow_without_note(session)
             response = await start_task(
@@ -116,6 +119,7 @@ async def test_recovery_rejects_reserved_workflow_note_directory(
     workspace.mkdir()
 
     async with initialized_workflow_database(tmp_path) as session_factory:
+        await publish_generic_workflow(session_factory)
         async with session_factory() as session:
             await _publish_workflow_without_note(session)
             response = await start_task(
@@ -141,7 +145,7 @@ async def test_recovery_rejects_reserved_workflow_note_directory(
 async def _publish_workflow_without_note(session: AsyncSession) -> None:
     current = await read_current_published_workflow(
         session,
-        workflow_id="reviewed-code-change",
+        workflow_id=GENERIC_WORKFLOW_ID,
     )
     draft = (
         await import_workflow_draft(
@@ -169,7 +173,7 @@ def _write_initialization_marker(task_root: Path, task_id: str) -> None:
 def _request(
     workspace: Path,
     *,
-    workflow: str = "reviewed-code-change",
+    workflow: str = GENERIC_WORKFLOW_ID,
 ) -> TaskStartRequest:
     return TaskStartRequest(
         workflow=workflow,

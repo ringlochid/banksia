@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from contextlib import AbstractAsyncContextManager
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 from xml.etree import ElementTree
@@ -42,6 +43,20 @@ from tests.helpers.sqlite_runtime import (
     SyncSessionAdapter,
     create_runtime_schema_engine,
 )
+
+
+@dataclass(frozen=True, slots=True)
+class _RootOpeningObservation:
+    dispatch: DispatchTurnModel | None
+    request: DispatchRequestModel | None
+    capabilities: DispatchCapabilitySetModel | None
+    source: TaskStartSourceModel | None
+    task: TaskModel | None
+    attempt: AttemptModel | None
+    task_start_page: Any
+    dispatch_start_page: Any
+    trace: Any
+    published_signal_count: int
 
 
 @pytest.mark.parametrize(
@@ -112,17 +127,19 @@ async def test_root_start_persists_then_commits_one_starting_dispatch(
         engine.dispose()
 
     _assert_root_opening_result(
-        dispatch=dispatch,
-        dispatch_request=dispatch_request,
-        capabilities=capabilities,
-        source=source,
-        task=task,
+        observation=_RootOpeningObservation(
+            dispatch=dispatch,
+            request=dispatch_request,
+            capabilities=capabilities,
+            source=source,
+            task=task,
+            attempt=attempt,
+            task_start_page=root_page,
+            dispatch_start_page=starting_page,
+            trace=trace,
+            published_signal_count=len(publisher.signals),
+        ),
         task_id=bootstrap_input.task_id,
-        attempt=attempt,
-        root_page=root_page,
-        starting_page=starting_page,
-        trace=trace,
-        publisher=publisher,
         tmp_path=tmp_path,
         network_access=network_access,
         expected_native_access=expected_native_access,
@@ -177,32 +194,50 @@ async def test_root_start_route_failure_pauses_without_consuming_source(
 
 def _assert_root_opening_result(
     *,
-    dispatch: DispatchTurnModel | None,
-    dispatch_request: DispatchRequestModel | None,
-    capabilities: DispatchCapabilitySetModel | None,
-    source: TaskStartSourceModel | None,
-    task: TaskModel | None,
+    observation: _RootOpeningObservation,
     task_id: str,
-    attempt: AttemptModel | None,
-    root_page: Any,
-    starting_page: Any,
-    trace: Any,
-    publisher: CapturedRuntimeEffectPublisher,
     tmp_path: Path,
     network_access: NetworkAccess | None,
     expected_native_access: str,
     expected_native_source: str,
 ) -> None:
+    dispatch = observation.dispatch
     assert dispatch is not None and dispatch.status == "starting"
+    _assert_dispatch_provider_snapshot(
+        dispatch,
+        observation,
+        network_access=network_access,
+        expected_native_access=expected_native_access,
+        expected_native_source=expected_native_source,
+    )
+    _assert_controller_startup_snapshot(observation, task_id=task_id)
+    _assert_prompt_and_support_snapshot(
+        observation,
+        task_id=task_id,
+        tmp_path=tmp_path,
+        expected_native_access=expected_native_access,
+    )
+
+
+def _assert_dispatch_provider_snapshot(
+    dispatch: DispatchTurnModel,
+    observation: _RootOpeningObservation,
+    *,
+    network_access: NetworkAccess | None,
+    expected_native_access: str,
+    expected_native_source: str,
+) -> None:
     assert dispatch.opened_reason == "root"
     assert dispatch.provider_selection_basis == "explicit"
     assert dispatch.model_source == "provider_configuration"
     assert dispatch.effort_source == "provider_configuration"
     assert dispatch.gateway_profile_source is None
     assert dispatch.provider_start_retry_kind == "initial"
-    assert dispatch_request is not None
-    assert dispatch_request.instructions.endswith("\n")
-    assert "\r" not in dispatch_request.instructions
+    request = observation.request
+    assert request is not None
+    assert request.instructions.endswith("\n")
+    assert "\r" not in request.instructions
+    capabilities = observation.capabilities
     assert capabilities is not None
     assert capabilities.provider_kind == "codex"
     assert capabilities.provider_native_access == expected_native_access
@@ -219,18 +254,42 @@ def _assert_root_opening_result(
         capabilities.human_review_source,
     } == {"default"}
     assert capabilities.requested_command_run_source == "default"
-    assert source is not None and source.successor_dispatch_id == dispatch.dispatch_id
-    assert task is not None and task.status == "running"
-    assert attempt is not None and attempt.current_dispatch_id == dispatch.dispatch_id
-    assert root_page.sources == (TaskStartCommitted(task_id),)
+
+
+def _assert_controller_startup_snapshot(
+    observation: _RootOpeningObservation,
+    *,
+    task_id: str,
+) -> None:
+    dispatch = observation.dispatch
+    assert dispatch is not None
+    assert observation.source is not None
+    assert observation.source.successor_dispatch_id == dispatch.dispatch_id
+    assert observation.task is not None and observation.task.status == "running"
+    assert observation.attempt is not None
+    assert observation.attempt.current_dispatch_id == dispatch.dispatch_id
+    assert observation.task_start_page.sources == (TaskStartCommitted(task_id),)
     assert dispatch.next_provider_start_at is not None
-    assert starting_page.sources == (
+    assert observation.dispatch_start_page.sources == (
         DispatchStartDue(
             dispatch.dispatch_id,
             dispatch.provider_start_revision,
             dispatch.next_provider_start_at,
         ),
     )
+
+
+def _assert_prompt_and_support_snapshot(
+    observation: _RootOpeningObservation,
+    *,
+    task_id: str,
+    tmp_path: Path,
+    expected_native_access: str,
+) -> None:
+    dispatch = observation.dispatch
+    request = observation.request
+    assert dispatch is not None and request is not None
+    trace = observation.trace
     assert len(trace.entries) == 1
     trace_dispatch = trace.entries[0]
     assert trace_dispatch.kind == "dispatch"
@@ -244,7 +303,7 @@ def _assert_root_opening_result(
     assert trace.team_members[0].is_task_lead is True
     assert trace.team_members[0].behavior == "contributor"
     assert trace.current_paths[0].path == f".banksia/{task_id}/manifest.md"
-    request_text = dispatch_request.input
+    request_text = request.input
     assert "\r" not in request_text
     request_root = ElementTree.fromstring(request_text)
     assert request_root.tag == "banksia_dispatch_request"
@@ -258,7 +317,7 @@ def _assert_root_opening_result(
         "add_child",
     )
     assert not (tmp_path / "task-root" / "_runtime" / "dispatch").exists()
-    assert publisher.signals == ()
+    assert observation.published_signal_count == 0
 
 
 def _opening_dependencies(

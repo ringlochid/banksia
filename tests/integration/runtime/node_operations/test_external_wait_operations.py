@@ -408,37 +408,7 @@ async def test_human_request_answer_tags_are_checked_against_original_items(
                 dispatch_id=ids.current_dispatch_id,
             ),
             operation_name="open_human_request",
-            arguments={
-                "request": {
-                    "kind": "direction",
-                    "summary": "Choose the bounded responses.",
-                    "items": [
-                        {
-                            "id": "direction",
-                            "prompt": "Which direction?",
-                            "options": [
-                                {"id": "a", "title": "A"},
-                                {"id": "b", "title": "B"},
-                            ],
-                        },
-                        {
-                            "id": "detail",
-                            "prompt": "Choose or explain another detail.",
-                            "options": [
-                                {"id": "brief", "title": "Brief"},
-                                {"id": "full", "title": "Full"},
-                            ],
-                            "allow_other": True,
-                        },
-                        {
-                            "id": "optional",
-                            "prompt": "Optionally provide context.",
-                            "response_schema": {"type": "string"},
-                            "allow_skip": True,
-                        },
-                    ],
-                }
-            },
+            arguments=_tagged_human_request_arguments(),
         )
         request_id = cast(str, opened.model_dump()["request_id"])
         rejected_answers = (
@@ -490,6 +460,40 @@ async def test_human_request_answer_tags_are_checked_against_original_items(
 
     assert response.resolution.model_dump(mode="json")["item_responses"] == accepted_answers
     assert source is not None and source.item_responses_json == accepted_answers
+
+
+def _tagged_human_request_arguments() -> dict[str, object]:
+    return {
+        "request": {
+            "kind": "direction",
+            "summary": "Choose the bounded responses.",
+            "items": [
+                {
+                    "id": "direction",
+                    "prompt": "Which direction?",
+                    "options": [
+                        {"id": "a", "title": "A"},
+                        {"id": "b", "title": "B"},
+                    ],
+                },
+                {
+                    "id": "detail",
+                    "prompt": "Choose or explain another detail.",
+                    "options": [
+                        {"id": "brief", "title": "Brief"},
+                        {"id": "full", "title": "Full"},
+                    ],
+                    "allow_other": True,
+                },
+                {
+                    "id": "optional",
+                    "prompt": "Optionally provide context.",
+                    "response_schema": {"type": "string"},
+                    "allow_skip": True,
+                },
+            ],
+        }
+    }
 
 
 @pytest.mark.parametrize(

@@ -96,14 +96,7 @@ async def seeded_executor(
     ]
 ]:
     sync_engine: Engine = create_runtime_schema_engine(tmp_path, name=f"{suffix}.sqlite")
-    workspace = seeded_task_workspace(tmp_path, suffix)
-    task_root = seeded_task_root(tmp_path, suffix)
-    for path in (
-        task_root / "notes",
-        task_root / "artifacts",
-        task_root / "command-runs",
-    ):
-        path.mkdir(parents=True, exist_ok=True)
+    workspace, task_root = _prepare_runtime_paths(tmp_path, suffix)
     try:
         with sync_engine.begin() as connection:
             seed_catalog(connection)
@@ -178,62 +171,14 @@ async def seeded_async_executor(
 ]:
     """Seed one real aiosqlite runtime with a separate session per contender."""
 
-    database_path = tmp_path / f"{suffix}.sqlite"
-    engine: AsyncEngine = create_async_engine(
-        f"sqlite+aiosqlite:///{database_path}",
-        connect_args={"timeout": 5},
-    )
-    install_sqlite_transaction_control(engine.sync_engine)
-
-    @event.listens_for(engine.sync_engine, "connect")
-    def _configure_sqlite(
-        dbapi_connection: SQLiteConnection,
-        connection_record: object,
-    ) -> None:
-        del connection_record
-        cursor = dbapi_connection.cursor()
-        cursor.execute("PRAGMA foreign_keys=ON")
-        cursor.execute("PRAGMA busy_timeout=5000")
-        cursor.execute("PRAGMA journal_mode=WAL")
-        cursor.close()
-
-    workspace = seeded_task_workspace(tmp_path, suffix)
-    task_root = seeded_task_root(tmp_path, suffix)
-    for path in (
-        task_root / "notes",
-        task_root / "artifacts",
-        task_root / "command-runs",
-    ):
-        path.mkdir(parents=True, exist_ok=True)
-
-    session_factory = async_sessionmaker(
-        engine,
-        class_=RuntimeAsyncSession,
-        expire_on_commit=False,
-        autoflush=False,
-    )
+    engine, session_factory = _create_async_sqlite_runtime(tmp_path, suffix)
     signals: list[NodeActivitySignal] = []
 
     async def publish(signal: NodeActivitySignal) -> None:
         signals.append(signal)
 
     try:
-        async with engine.begin() as connection:
-            await connection.run_sync(RuntimeBase.metadata.create_all)
-            await connection.run_sync(seed_catalog)
-            ids = await connection.run_sync(partial(seed_runtime_scope, suffix=suffix))
-        async with session_factory() as session:
-            await session.execute(
-                update(TaskModel)
-                .where(TaskModel.task_id == ids.task_id)
-                .values(task_root_path=str(task_root))
-            )
-            await session.execute(
-                update(WorkspaceBindingModel)
-                .where(WorkspaceBindingModel.task_id == ids.task_id)
-                .values(normalized_root_path=str(workspace))
-            )
-            await session.commit()
+        ids = await _seed_async_runtime(engine, session_factory, tmp_path, suffix)
         with patch.object(
             executor_module,
             "get_session_factory",
@@ -256,6 +201,78 @@ async def seeded_async_executor(
             )
     finally:
         await engine.dispose()
+
+
+def _prepare_runtime_paths(tmp_path: Path, suffix: str) -> tuple[Path, Path]:
+    workspace = seeded_task_workspace(tmp_path, suffix)
+    task_root = seeded_task_root(tmp_path, suffix)
+    for path in (
+        task_root / "notes",
+        task_root / "artifacts",
+        task_root / "command-runs",
+    ):
+        path.mkdir(parents=True, exist_ok=True)
+    return workspace, task_root
+
+
+def _create_async_sqlite_runtime(
+    tmp_path: Path,
+    suffix: str,
+) -> tuple[AsyncEngine, AsyncSessionFactory]:
+    database_path = tmp_path / f"{suffix}.sqlite"
+    engine = create_async_engine(
+        f"sqlite+aiosqlite:///{database_path}",
+        connect_args={"timeout": 5},
+    )
+    install_sqlite_transaction_control(engine.sync_engine)
+    event.listen(engine.sync_engine, "connect", _configure_async_sqlite_connection)
+    return (
+        engine,
+        async_sessionmaker(
+            engine,
+            class_=RuntimeAsyncSession,
+            expire_on_commit=False,
+            autoflush=False,
+        ),
+    )
+
+
+def _configure_async_sqlite_connection(
+    dbapi_connection: SQLiteConnection,
+    connection_record: object,
+) -> None:
+    del connection_record
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.execute("PRAGMA busy_timeout=5000")
+    cursor.execute("PRAGMA journal_mode=WAL")
+    cursor.close()
+
+
+async def _seed_async_runtime(
+    engine: AsyncEngine,
+    session_factory: AsyncSessionFactory,
+    tmp_path: Path,
+    suffix: str,
+) -> RuntimeIds:
+    workspace, task_root = _prepare_runtime_paths(tmp_path, suffix)
+    async with engine.begin() as connection:
+        await connection.run_sync(RuntimeBase.metadata.create_all)
+        await connection.run_sync(seed_catalog)
+        ids = await connection.run_sync(partial(seed_runtime_scope, suffix=suffix))
+    async with session_factory() as session:
+        await session.execute(
+            update(TaskModel)
+            .where(TaskModel.task_id == ids.task_id)
+            .values(task_root_path=str(task_root))
+        )
+        await session.execute(
+            update(WorkspaceBindingModel)
+            .where(WorkspaceBindingModel.task_id == ids.task_id)
+            .values(normalized_root_path=str(workspace))
+        )
+        await session.commit()
+    return ids
 
 
 def seeded_task_workspace(tmp_path: Path, suffix: str) -> Path:

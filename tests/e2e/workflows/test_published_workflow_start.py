@@ -6,7 +6,6 @@ from unittest.mock import patch
 
 import pytest
 from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 import banksia.runtime.node_operations.executor as executor_module
 from banksia.config import CodexSettings, RuntimeSettings, Settings
@@ -15,7 +14,6 @@ from banksia.persistence.models import (
     AssignmentModel,
     AttemptModel,
     AttemptWaitModel,
-    DelegationWaveMemberModel,
     DelegationWaveModel,
     DispatchTurnModel,
     TaskModel,
@@ -25,24 +23,22 @@ from banksia.providers import ProviderKind
 from banksia.runtime import RuntimeLaunchInput
 from banksia.runtime.checkpoint.reads import read_task_result
 from banksia.runtime.contracts import AssignmentBody
-from banksia.runtime.contracts.prompt import DelegationWaveSettledTrigger
-from banksia.runtime.delegation import (
-    open_delegation_wave_successor,
-    settle_delegation_wave,
-)
-from banksia.runtime.delegation.continuation import (
-    read_delegation_wave_continuation_basis,
-)
 from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
 from banksia.runtime.launch.continuation import open_root_dispatch
 from banksia.runtime.launch.service import launch_task_runtime
 from banksia.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
 from banksia.runtime.post_commit import (
     CapturedRuntimeEffectPublisher,
-    DelegationWaveSettled,
     TaskStartCommitted,
 )
 from banksia.workflows.catalog import read_current_published_workflow
+from tests.helpers.delegation_wave_e2e import (
+    DelegationAssignment,
+    OpenedDelegationWave,
+    delegate_direct_team_for_e2e,
+    open_delegation_wave_successor_for_e2e,
+    settle_delegation_wave_for_e2e,
+)
 from tests.helpers.workflow_runtime import (
     AsyncSessionFactory,
     initialized_workflow_database,
@@ -65,12 +61,6 @@ class _CompletionCase:
     @property
     def task_id(self) -> str:
         return f"task.catalog-completion.{self.workflow_id}"
-
-
-@dataclass(frozen=True, slots=True)
-class _OpenedWave:
-    wave_id: str
-    child_dispatches: dict[str, str]
 
 
 _COMPLETION_CASES = (
@@ -230,7 +220,7 @@ async def _complete_member(
                 session_factory,
                 task_id=task_id,
                 node=child,
-                dispatch_id=wave.child_dispatches[child.member_id],
+                dispatch_id=wave.dispatch_for(child.member_id),
                 dependencies=dependencies,
             )
         current_dispatch_id = await _join_local_wave(
@@ -260,104 +250,55 @@ async def _delegate_direct_team(
     task_id: str,
     parent_dispatch_id: str,
     children: tuple[_WorkNode, ...],
-) -> _OpenedWave:
-    response = await executor.execute(
-        scope=NodeOperationScope(
-            task_id=task_id,
-            dispatch_id=parent_dispatch_id,
+) -> OpenedDelegationWave:
+    wave = await delegate_direct_team_for_e2e(
+        executor,
+        session_factory,
+        task_id=task_id,
+        parent_dispatch_id=parent_dispatch_id,
+        assignments=tuple(
+            DelegationAssignment(
+                child_id=child.member_id,
+                prompt=(
+                    f"Own the {child.member_id} contribution for this exact Task and "
+                    "return a scoped, evidence-bearing Checkpoint."
+                ),
+            )
+            for child in children
         ),
-        operation_name="delegate",
-        arguments={
-            "assignments": [
-                {
-                    "child_id": child.member_id,
-                    "prompt": (
-                        f"Own the {child.member_id} contribution for this exact Task and "
-                        "return a scoped, evidence-bearing Checkpoint."
-                    ),
-                }
-                for child in children
-            ]
-        },
     )
-    values = response.model_dump()
-    assert values["must_stop"] is True
-
-    async with session_factory() as session:
-        wave = await session.scalar(
-            select(DelegationWaveModel).where(
-                DelegationWaveModel.source_dispatch_id == parent_dispatch_id
-            )
-        )
-        assert wave is not None
-        members = tuple(
-            await session.scalars(
-                select(DelegationWaveMemberModel)
-                .where(DelegationWaveMemberModel.delegation_wave_id == wave.delegation_wave_id)
-                .order_by(DelegationWaveMemberModel.order_index)
-            )
-        )
-        wait = await session.scalar(
-            select(AttemptWaitModel).where(
-                AttemptWaitModel.delegation_wave_id == wave.delegation_wave_id
-            )
-        )
-        dispatches = {
-            member.child_member_id: await _current_assignment_dispatch(
-                session,
-                member.child_assignment_id,
-            )
-            for member in members
-        }
-
-    assert tuple(member.child_member_id for member in members) == tuple(
+    assert wave.response_must_stop
+    assert tuple(member.child_id for member in wave.members) == tuple(
         child.member_id for child in children
     )
-    assert wait is not None
-    return _OpenedWave(wave.delegation_wave_id, dispatches)
+    assert wave.parent_wait_id is not None
+    return wave
 
 
 async def _join_local_wave(
     session_factory: AsyncSessionFactory,
-    wave: _OpenedWave,
+    wave: OpenedDelegationWave,
     *,
     children: tuple[_WorkNode, ...],
     dependencies: DispatchOpeningDependencies,
 ) -> str:
-    async with session_factory() as session:
-        assert await settle_delegation_wave(
-            session,
-            delegation_wave_id=wave.wave_id,
-            settled_at=dependencies.clock(),
-        )
-    async with session_factory() as session:
-        basis = await read_delegation_wave_continuation_basis(session, wave.wave_id)
-    assert basis is not None
-    assert isinstance(basis.trigger, DelegationWaveSettledTrigger)
-    assert tuple(
-        (member.child_id, member.checkpoint.summary) for member in basis.trigger.result.members
-    ) == tuple((child.member_id, child.summary) for child in children)
-
-    async with session_factory() as session:
-        opened = await open_delegation_wave_successor(
-            session,
-            signal=DelegationWaveSettled(wave.wave_id),
-            dependencies=dependencies,
-        )
+    settlement = await settle_delegation_wave_for_e2e(
+        session_factory,
+        wave_id=wave.wave_id,
+        dependencies=dependencies,
+    )
+    assert settlement.did_settle
+    assert settlement.member_results == tuple(
+        (child.member_id, child.summary) for child in children
+    )
+    opened = await open_delegation_wave_successor_for_e2e(
+        session_factory,
+        wave_id=wave.wave_id,
+        dependencies=dependencies,
+    )
     assert opened.outcome == "opened"
     assert opened.dispatch_id is not None
     return opened.dispatch_id
-
-
-async def _current_assignment_dispatch(
-    session: AsyncSession,
-    assignment_id: str,
-) -> str:
-    assignment = await session.get(AssignmentModel, assignment_id)
-    assert assignment is not None and assignment.current_attempt_id is not None
-    attempt = await session.get(AttemptModel, assignment.current_attempt_id)
-    assert attempt is not None and attempt.current_dispatch_id is not None
-    return attempt.current_dispatch_id
 
 
 async def _assert_materialized_tree(

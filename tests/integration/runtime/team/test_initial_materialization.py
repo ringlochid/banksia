@@ -22,20 +22,37 @@ from banksia.runtime.team import (
     TeamMaterializationError,
     materialize_initial_task_team,
 )
-from banksia.workflows.catalog import read_current_published_workflow
 from banksia.workflows.contracts import PublishedWorkflowRevision
+from tests.helpers.generic_workflow import (
+    GENERIC_BRANCHING_WORKFLOW_ID,
+    publish_generic_branching_workflow,
+)
 from tests.helpers.workflow_runtime import initialized_workflow_database
+
+_EXPECTED_BRANCHING_MEMBER_IDS = (
+    "coordinator",
+    "branch-coordinator",
+    "first-contributor",
+    "second-contributor",
+    "peer-reviewer",
+)
+_EXPECTED_BRANCHING_PARENT_IDS = (
+    None,
+    "coordinator",
+    "branch-coordinator",
+    "branch-coordinator",
+    "coordinator",
+)
+_EXPECTED_BRANCHING_PREORDER = (0, 1, 2, 3, 4)
+_EXPECTED_BRANCHING_SIBLING_ORDER = (0, 0, 0, 1, 1)
 
 
 async def test_initial_team_materialization_pins_one_exact_complete_ordered_snapshot(
     tmp_path: Path,
 ) -> None:
     async with initialized_workflow_database(tmp_path) as session_factory:
+        published = await publish_generic_branching_workflow(session_factory)
         async with session_factory() as session:
-            published = await read_current_published_workflow(
-                session,
-                workflow_id="reviewed-code-change",
-            )
             _stage_task(session, published=published, tmp_path=tmp_path)
             await session.flush()
 
@@ -109,11 +126,8 @@ async def test_initial_team_materialization_rejects_wrong_workflow_before_writes
     tmp_path: Path,
 ) -> None:
     async with initialized_workflow_database(tmp_path) as session_factory:
+        published = await publish_generic_branching_workflow(session_factory)
         async with session_factory() as session:
-            published = await read_current_published_workflow(
-                session,
-                workflow_id="reviewed-code-change",
-            )
             _stage_task(session, published=published, tmp_path=tmp_path, task_id="task.wrong-pin")
             await session.commit()
 
@@ -145,11 +159,8 @@ async def test_initial_team_materialization_failure_rolls_back_claim_and_partial
     tmp_path: Path,
 ) -> None:
     async with initialized_workflow_database(tmp_path) as session_factory:
+        published = await publish_generic_branching_workflow(session_factory)
         async with session_factory() as session:
-            published = await read_current_published_workflow(
-                session,
-                workflow_id="reviewed-code-change",
-            )
             _stage_task(session, published=published, tmp_path=tmp_path, task_id="task.rollback")
             session.add(MemberModel(task_id="task.rollback", member_id=published.workflow.lead.id))
             await session.commit()
@@ -185,11 +196,8 @@ async def test_concurrent_initial_team_materializers_commit_one_winner(
     tmp_path: Path,
 ) -> None:
     async with initialized_workflow_database(tmp_path) as session_factory:
+        published = await publish_generic_branching_workflow(session_factory)
         async with session_factory() as session:
-            published = await read_current_published_workflow(
-                session,
-                workflow_id="reviewed-code-change",
-            )
             _stage_task(session, published=published, tmp_path=tmp_path, task_id="task.race")
             await session.commit()
 
@@ -272,27 +280,40 @@ def _assert_materialized_team(
     assert team_revision.workflow_revision_no == published.revision_no
     assert team_revision.workflow_content_hash == published.content_hash
 
-    expected_preorder = (
-        "change-lead",
-        "implementation-manager",
-        "code-owner",
-        "test-owner",
-        "independent-reviewer",
+    assert published.workflow_id == GENERIC_BRANCHING_WORKFLOW_ID
+    assert published.workflow.id == GENERIC_BRANCHING_WORKFLOW_ID
+    assert published.workflow.lead.id == _EXPECTED_BRANCHING_MEMBER_IDS[0]
+    direct_children = published.workflow.lead.children
+    assert published.workflow.note
+    assert direct_children is not None and len(direct_children) == 2
+    nested_children = direct_children[0].children
+    assert nested_children is not None and len(nested_children) == 2
+    assert direct_children[1].children is None
+    authored_members = (
+        published.workflow.lead,
+        direct_children[0],
+        *nested_children,
+        direct_children[1],
     )
-    assert tuple(row.member_id for row in selection) == expected_preorder
-    assert tuple(row.preorder_index for row in selection) == (0, 1, 2, 3, 4)
-    assert tuple(row.sibling_order for row in selection) == (0, 0, 0, 1, 1)
-    assert tuple(row.parent_member_id for row in selection) == (
-        None,
-        "change-lead",
-        "implementation-manager",
-        "implementation-manager",
-        "change-lead",
-    )
+    assert tuple(member.id for member in authored_members) == _EXPECTED_BRANCHING_MEMBER_IDS
+    assert all(member.provider is None for member in authored_members)
+    assert all(member.capabilities is None for member in authored_members)
 
-    assert tuple(row.member_id for row in members) == tuple(sorted(expected_preorder))
-    assert tuple(row.member_id for row in configurations) == tuple(sorted(expected_preorder))
-    assert tuple(row.member_id for row in branch_bases) == tuple(sorted(expected_preorder))
+    assert result.root_member_id == _EXPECTED_BRANCHING_MEMBER_IDS[0]
+    assert tuple(row.member_id for row in result.members) == _EXPECTED_BRANCHING_MEMBER_IDS
+    assert tuple(row.parent_member_id for row in result.members) == _EXPECTED_BRANCHING_PARENT_IDS
+    assert tuple(row.preorder_index for row in result.members) == _EXPECTED_BRANCHING_PREORDER
+    assert tuple(row.sibling_order for row in result.members) == _EXPECTED_BRANCHING_SIBLING_ORDER
+
+    assert tuple(row.member_id for row in selection) == _EXPECTED_BRANCHING_MEMBER_IDS
+    assert tuple(row.parent_member_id for row in selection) == _EXPECTED_BRANCHING_PARENT_IDS
+    assert tuple(row.preorder_index for row in selection) == _EXPECTED_BRANCHING_PREORDER
+    assert tuple(row.sibling_order for row in selection) == _EXPECTED_BRANCHING_SIBLING_ORDER
+
+    expected_sorted_ids = tuple(sorted(_EXPECTED_BRANCHING_MEMBER_IDS))
+    assert tuple(row.member_id for row in members) == expected_sorted_ids
+    assert tuple(row.member_id for row in configurations) == expected_sorted_ids
+    assert tuple(row.member_id for row in branch_bases) == expected_sorted_ids
     assert all(row.predecessor_member_configuration_id is None for row in configurations)
     assert all(row.requested_capabilities_json is None for row in configurations)
     assert all(row.requested_provider_json is None for row in configurations)

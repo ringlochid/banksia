@@ -6,6 +6,7 @@ import httpx
 from fastapi import FastAPI
 
 from banksia.interfaces.web_console import register_web_console_routes
+from tests.helpers.generic_workflow import GENERIC_WORKFLOW_ID
 
 
 async def test_explicit_console_routes_serve_only_packaged_pages_and_assets(
@@ -33,7 +34,7 @@ async def test_explicit_console_routes_serve_only_packaged_pages_and_assets(
     ) as client:
         root = await client.get("/")
         library = await client.get("/workflows")
-        studio = await client.get("/workflows/reviewed-code-change")
+        studio = await client.get(f"/workflows/{GENERIC_WORKFLOW_ID}")
         runs = await client.get("/runs")
         start_run = await client.get("/runs/new")
         run_studio = await client.get("/runs/t_7m4k2d9x")

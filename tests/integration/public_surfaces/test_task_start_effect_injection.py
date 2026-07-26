@@ -24,6 +24,7 @@ from banksia.runtime.contracts.task import TaskStartReceipt
 from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
 from banksia.runtime.errors import RuntimeOperationError
 from banksia.runtime.post_commit import CapturedRuntimeEffectPublisher
+from tests.helpers.generic_workflow import GENERIC_WORKFLOW_ID
 
 
 async def _fake_session() -> AsyncIterator[AsyncSession]:
@@ -62,7 +63,7 @@ async def test_http_task_start_injects_dispatch_dependencies_and_default_workspa
     ) as client:
         response = await client.post(
             "/api/tasks",
-            json={"workflow": "reviewed-code-change", "prompt": "Do the work."},
+            json={"workflow": GENERIC_WORKFLOW_ID, "prompt": "Do the work."},
         )
 
     assert response.status_code == 202, response.text
@@ -117,7 +118,7 @@ async def test_http_task_start_uses_workspace_written_by_init(
         ) as client:
             response = await client.post(
                 "/api/tasks",
-                json={"workflow": "reviewed-code-change", "prompt": "Do the work."},
+                json={"workflow": GENERIC_WORKFLOW_ID, "prompt": "Do the work."},
             )
 
     assert response.status_code == 202, response.text
@@ -135,7 +136,7 @@ async def test_http_task_start_without_request_or_configured_workspace_returns_4
     ) as client:
         response = await client.post(
             "/api/tasks",
-            json={"workflow": "reviewed-code-change", "prompt": "Do the work."},
+            json={"workflow": GENERIC_WORKFLOW_ID, "prompt": "Do the work."},
         )
 
     assert response.status_code == 422
@@ -154,10 +155,10 @@ async def test_http_task_start_without_request_or_configured_workspace_returns_4
 @pytest.mark.parametrize(
     ("payload", "field_path"),
     [
-        ({"workflow": "reviewed-code-change", "prompt": 7}, "prompt"),
+        ({"workflow": GENERIC_WORKFLOW_ID, "prompt": 7}, "prompt"),
         (
             {
-                "workflow": "reviewed-code-change",
+                "workflow": GENERIC_WORKFLOW_ID,
                 "prompt": "Do the work.",
                 "files": [{"path": 7}],
             },
@@ -165,7 +166,7 @@ async def test_http_task_start_without_request_or_configured_workspace_returns_4
         ),
         (
             {
-                "workflow": "reviewed-code-change",
+                "workflow": GENERIC_WORKFLOW_ID,
                 "prompt": "Do the work.",
                 "files": [{"path": "brief.md", "description": 7}],
             },
@@ -239,7 +240,7 @@ def _receipt(task_id: str, workspace: Path) -> TaskStartReceipt:
     return TaskStartReceipt(
         receipt_id=f"receipt.{task_id}",
         task_id=task_id,
-        workflow_id="reviewed-code-change",
+        workflow_id=GENERIC_WORKFLOW_ID,
         workflow_revision=1,
         workspace=str(workspace),
         manifest=str(Path(".banksia") / task_id / "manifest.md"),

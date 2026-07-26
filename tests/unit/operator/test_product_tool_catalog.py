@@ -45,6 +45,7 @@ from banksia.workflows.authoring_contracts import (
 from banksia.workflows.contracts import WorkflowProvenance
 from banksia.workflows.errors import WorkflowInputError, WorkflowValidationIssue
 from banksia.workflows.ingest import normalize_workflow_object
+from tests.helpers.generic_workflow import GENERIC_WORKFLOW_ID
 from tests.helpers.product_surface import product_dispatch_dependencies
 
 EXPECTED_OPERATOR_TOOL_NAMES = (
@@ -147,7 +148,7 @@ def test_workflow_get_requires_one_closed_source_pinned_selection(tmp_path: Path
 
     catalog = WorkflowGetInput.model_validate(
         {
-            "workflow_id": "reviewed-code-change",
+            "workflow_id": GENERIC_WORKFLOW_ID,
             "selection": {
                 "kind": "catalog",
                 "revision_limit": 10,
@@ -156,7 +157,7 @@ def test_workflow_get_requires_one_closed_source_pinned_selection(tmp_path: Path
     )
     published = WorkflowGetInput.model_validate(
         {
-            "workflow_id": "reviewed-code-change",
+            "workflow_id": GENERIC_WORKFLOW_ID,
             "selection": {
                 "kind": "published",
                 "revision_no": 1,
@@ -166,7 +167,7 @@ def test_workflow_get_requires_one_closed_source_pinned_selection(tmp_path: Path
     )
     draft = WorkflowGetInput.model_validate(
         {
-            "workflow_id": "reviewed-code-change",
+            "workflow_id": GENERIC_WORKFLOW_ID,
             "selection": {
                 "kind": "draft",
                 "draft_id": "workflow-draft.one",
@@ -180,24 +181,24 @@ def test_workflow_get_requires_one_closed_source_pinned_selection(tmp_path: Path
     assert published.selection.kind == "published"
     assert draft.selection.kind == "draft"
     for invalid in (
-        {"workflow_id": "reviewed-code-change"},
+        {"workflow_id": GENERIC_WORKFLOW_ID},
         {
-            "workflow_id": "reviewed-code-change",
+            "workflow_id": GENERIC_WORKFLOW_ID,
             "revision_no": 1,
         },
         {
-            "workflow_id": "reviewed-code-change",
+            "workflow_id": GENERIC_WORKFLOW_ID,
             "selection": {"kind": "published"},
         },
         {
-            "workflow_id": "reviewed-code-change",
+            "workflow_id": GENERIC_WORKFLOW_ID,
             "selection": {
                 "kind": "draft",
                 "draft_id": "workflow-draft.one",
             },
         },
         {
-            "workflow_id": "reviewed-code-change",
+            "workflow_id": GENERIC_WORKFLOW_ID,
             "selection": {
                 "kind": "catalog",
                 "should_include_revisions": False,
@@ -352,7 +353,7 @@ def test_full_json_workflow_schema_is_definition_usable(tmp_path: Path) -> None:
         {
             "workflow": {
                 "kind": "workflow",
-                "id": "reviewed-code-change",
+                "id": GENERIC_WORKFLOW_ID,
                 "description": "Deliver and independently review a bounded change.",
                 "lead": {
                     "id": "lead",

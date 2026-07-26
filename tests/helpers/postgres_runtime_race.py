@@ -2,17 +2,18 @@ from __future__ import annotations
 
 import asyncio
 import threading
-from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
+from collections.abc import AsyncIterator, Awaitable, Callable, Coroutine, Iterator
 from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Any, TypeVar
 from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import event, update
+from sqlalchemy import event, select, update
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -35,6 +36,8 @@ from tests.helpers.lineage_seed import RuntimeIds, seed_runtime_scope
 
 type SessionFactory = async_sessionmaker[AsyncSession]
 type ActivityPublisher = Callable[[NodeActivitySignal], Awaitable[None]]
+
+_ContenderResult = TypeVar("_ContenderResult")
 
 
 @dataclass(frozen=True, slots=True)
@@ -196,6 +199,44 @@ async def wait_for_thread_event(signal: threading.Event) -> None:
     assert observed
 
 
+async def run_two_contenders_at_task_update_barrier(
+    harness: PostgresRuntimeHarness,
+    *,
+    task_id: str,
+    contender: Callable[[], Coroutine[Any, Any, _ContenderResult]],
+) -> tuple[_ContenderResult, _ContenderResult]:
+    """Release two contenders only after both attempt the same Task UPDATE."""
+
+    async with harness.session_factory() as blocker:
+        locked_task_id = await blocker.scalar(
+            select(TaskModel.task_id).where(TaskModel.task_id == task_id).with_for_update()
+        )
+        assert locked_task_id == task_id
+        with observe_update_order(harness.engine, table_name="tasks") as task_updates:
+            contenders: tuple[
+                asyncio.Task[_ContenderResult],
+                asyncio.Task[_ContenderResult],
+            ] = (
+                asyncio.create_task(contender()),
+                asyncio.create_task(contender()),
+            )
+            try:
+                await wait_for_thread_event(task_updates.first_update_started)
+                await wait_for_thread_event(task_updates.second_update_started)
+                await blocker.rollback()
+                first, second = await asyncio.wait_for(
+                    asyncio.gather(*contenders),
+                    timeout=20,
+                )
+            except BaseException:
+                await blocker.rollback()
+                for pending_contender in contenders:
+                    pending_contender.cancel()
+                await asyncio.gather(*contenders, return_exceptions=True)
+                raise
+    return first, second
+
+
 def _normalized_statement(statement: str) -> str:
     return statement.casefold().replace('"', "")
 
@@ -224,5 +265,6 @@ __all__ = [
     "observe_update_order",
     "observe_update_started",
     "postgres_runtime_harness",
+    "run_two_contenders_at_task_update_barrier",
     "wait_for_thread_event",
 ]

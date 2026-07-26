@@ -13,6 +13,7 @@ from banksia.config import get_settings
 from banksia.interfaces.http.openapi import build_product_openapi_document
 from banksia.main import create_app
 from banksia.persistence.session import dispose_test_db_engine
+from tests.helpers.generic_workflow import GENERIC_WORKFLOW_ID, publish_generic_workflow
 from tests.helpers.product_surface import product_http_client
 from tests.helpers.workflow_runtime import initialized_workflow_database
 
@@ -49,6 +50,7 @@ async def test_create_allocates_nested_member_ids_and_never_reuses_them(
     tmp_path: Path,
 ) -> None:
     async with initialized_workflow_database(tmp_path) as session_factory:
+        await publish_generic_workflow(session_factory)
         async with product_http_client(session_factory, tmp_path=tmp_path) as client:
             created = await client.post(
                 "/api/workflow-drafts",
@@ -79,7 +81,7 @@ async def test_create_allocates_nested_member_ids_and_never_reuses_them(
                 "/api/workflow-drafts",
                 json={
                     "kind": "create",
-                    "workflow_id": "reviewed-code-change",
+                    "workflow_id": GENERIC_WORKFLOW_ID,
                     "description": "Published replacement must reject.",
                 },
             )
@@ -127,15 +129,16 @@ async def test_open_is_idempotent_and_clones_the_exact_current_publication(
     tmp_path: Path,
 ) -> None:
     async with initialized_workflow_database(tmp_path) as session_factory:
+        await publish_generic_workflow(session_factory)
         async with product_http_client(session_factory, tmp_path=tmp_path) as client:
-            published = await client.get("/api/workflows/reviewed-code-change")
+            published = await client.get(f"/api/workflows/{GENERIC_WORKFLOW_ID}")
             opened = await client.post(
                 "/api/workflow-drafts",
-                json={"kind": "open", "workflow_id": "reviewed-code-change"},
+                json={"kind": "open", "workflow_id": GENERIC_WORKFLOW_ID},
             )
             reopened = await client.post(
                 "/api/workflow-drafts",
-                json={"kind": "open", "workflow_id": "reviewed-code-change"},
+                json={"kind": "open", "workflow_id": GENERIC_WORKFLOW_ID},
             )
             unknown = await client.post(
                 "/api/workflow-drafts",

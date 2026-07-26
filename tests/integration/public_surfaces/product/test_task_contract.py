@@ -37,6 +37,7 @@ from tests.helpers.executor_harness import (
     seeded_async_executor,
     seeded_task_workspace,
 )
+from tests.helpers.generic_workflow import GENERIC_WORKFLOW_ID, publish_generic_workflow
 from tests.helpers.lineage_seed import RuntimeIds
 from tests.helpers.product_surface import (
     product_dispatch_dependencies,
@@ -124,12 +125,13 @@ async def test_task_view_embeds_the_most_recent_twenty_activities(
     publisher = CapturedRuntimeEffectPublisher()
     dependencies = product_dispatch_dependencies(tmp_path)
     async with initialized_workflow_database(tmp_path) as session_factory:
+        await publish_generic_workflow(session_factory)
         workspace = tmp_path / "recent-activity-workspace"
         workspace.mkdir()
         async with session_factory() as session:
             started = await start_product_task(
                 TaskStartRequest(
-                    workflow="reviewed-code-change",
+                    workflow=GENERIC_WORKFLOW_ID,
                     prompt="Exercise recent Activity projection.",
                     workspace=workspace,
                 ),
@@ -233,6 +235,7 @@ async def test_task_search_uses_stable_keyset_and_one_summary_query(
     tmp_path: Path,
 ) -> None:
     async with initialized_workflow_database(tmp_path) as session_factory:
+        await publish_generic_workflow(session_factory)
         original_ids: list[str] = []
         for index in range(5):
             workspace = tmp_path / f"search-workspace-{index}"
@@ -240,7 +243,7 @@ async def test_task_search_uses_stable_keyset_and_one_summary_query(
             async with session_factory() as session:
                 receipt = await start_product_task(
                     TaskStartRequest(
-                        workflow="reviewed-code-change",
+                        workflow=GENERIC_WORKFLOW_ID,
                         prompt=f"Searchable work {index}",
                         workspace=workspace,
                     ),
@@ -287,7 +290,7 @@ async def test_task_search_uses_stable_keyset_and_one_summary_query(
         async with session_factory() as session:
             concurrent = await start_product_task(
                 TaskStartRequest(
-                    workflow="reviewed-code-change",
+                    workflow=GENERIC_WORKFLOW_ID,
                     prompt="Concurrent newer work",
                     workspace=new_workspace,
                 ),

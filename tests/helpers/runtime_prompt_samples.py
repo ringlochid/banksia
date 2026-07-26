@@ -31,6 +31,7 @@ from banksia.runtime.contracts.team_read import (
     ResolvedSandboxRead,
 )
 from banksia.runtime.work_plan import WorkPlanStepRead, WorkPlanStepStatus, WorkPlanView
+from tests.helpers.generic_workflow import GENERIC_WORKFLOW_ID
 
 type HumanRequestKindValue = Literal["input", "direction", "approval", "review"]
 type CommandRunCapability = Literal["allow", "deny"]
@@ -52,7 +53,7 @@ def sample_dynamic_input(
     )
     direct_team = _sample_direct_team(manager)
     return PromptDynamicInput(
-        task=PromptTask(id="t_7m4k2d9x", workflow_id="reviewed-code-change"),
+        task=PromptTask(id="t_7m4k2d9x", workflow_id=GENERIC_WORKFLOW_ID),
         dispatch=PromptDispatch(
             id="dsp_123",
             attempt_id="att_123",

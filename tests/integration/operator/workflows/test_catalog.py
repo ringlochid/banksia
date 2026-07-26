@@ -10,6 +10,7 @@ from banksia.operator.tools import OperatorTool, OperatorToolName, build_operato
 from banksia.operator.tools.workflow_projection import OperatorWorkflowDraftStaleError
 from banksia.runtime.errors import RuntimeOperationError
 from banksia.workflows.service_errors import WorkflowNotFoundError
+from tests.helpers.generic_workflow import GENERIC_WORKFLOW_ID, publish_generic_workflow
 from tests.helpers.product_surface import product_dispatch_dependencies
 from tests.helpers.workflow_runtime import AsyncSessionFactory, initialized_workflow_database
 
@@ -175,6 +176,7 @@ async def test_workflow_catalog_reads_metadata_only_and_keeps_cursor_source_cohe
 ) -> None:
     workflow_id = "operator-history"
     async with initialized_workflow_database(tmp_path) as session_factory:
+        await publish_generic_workflow(session_factory)
         tools = _build_tools(tmp_path, session_factory)
         for revision_no in range(1, 4):
             published = await _publish_complete_workflow(
@@ -211,7 +213,7 @@ async def test_workflow_catalog_reads_metadata_only_and_keeps_cursor_source_cohe
         with pytest.raises(RuntimeOperationError):
             await _tool(tools, OperatorToolName.WORKFLOW_GET).call(
                 {
-                    "workflow_id": "reviewed-code-change",
+                    "workflow_id": GENERIC_WORKFLOW_ID,
                     "selection": {
                         "kind": "catalog",
                         "revision_cursor": first_page["revisions_next_cursor"],
@@ -317,18 +319,19 @@ async def test_workflow_reads_fail_closed_for_missing_and_cross_source_identity(
     tmp_path: Path,
 ) -> None:
     async with initialized_workflow_database(tmp_path) as session_factory:
+        await publish_generic_workflow(session_factory)
         tools = _build_tools(tmp_path, session_factory)
         created = await _create_draft(tools, _workflow_payload("identity-owner"))
         failures = (
             {
-                "workflow_id": "reviewed-code-change",
+                "workflow_id": GENERIC_WORKFLOW_ID,
                 "selection": {
                     "kind": "published",
                     "revision_no": 999,
                 },
             },
             {
-                "workflow_id": "reviewed-code-change",
+                "workflow_id": GENERIC_WORKFLOW_ID,
                 "selection": {
                     "kind": "draft",
                     "draft_id": "workflow-draft.missing",
@@ -336,7 +339,7 @@ async def test_workflow_reads_fail_closed_for_missing_and_cross_source_identity(
                 },
             },
             {
-                "workflow_id": "reviewed-code-change",
+                "workflow_id": GENERIC_WORKFLOW_ID,
                 "selection": {
                     "kind": "published",
                     "revision_no": 1,
@@ -344,7 +347,7 @@ async def test_workflow_reads_fail_closed_for_missing_and_cross_source_identity(
                 },
             },
             {
-                "workflow_id": "reviewed-code-change",
+                "workflow_id": GENERIC_WORKFLOW_ID,
                 "selection": {
                     "kind": "draft",
                     "draft_id": created["draft"]["draft_id"],

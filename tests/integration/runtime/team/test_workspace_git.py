@@ -18,6 +18,7 @@ from banksia.runtime.errors import RuntimeOperationError
 from banksia.runtime.post_commit import CapturedRuntimeEffectPublisher
 from banksia.runtime.task_start import start_task
 from banksia.runtime.workspace.git_exclusion import prepare_workspace_git_exclusion
+from tests.helpers.generic_workflow import GENERIC_WORKFLOW_ID, publish_generic_workflow
 from tests.helpers.workflow_runtime import initialized_workflow_database
 
 
@@ -303,10 +304,11 @@ async def test_task_start_prepares_git_exclusion_before_task_tree(
     workspace = _initialize_repository(tmp_path / "repository")
 
     async with initialized_workflow_database(tmp_path) as session_factory:
+        await publish_generic_workflow(session_factory)
         async with session_factory() as session:
             response = await start_task(
                 TaskStartRequest(
-                    workflow="reviewed-code-change",
+                    workflow=GENERIC_WORKFLOW_ID,
                     prompt="Verify the Git admission bridge.",
                     workspace=workspace,
                 ),
@@ -349,11 +351,12 @@ async def test_task_start_rejects_workspace_identity_substitution_before_mutatio
     )
 
     async with initialized_workflow_database(tmp_path) as session_factory:
+        await publish_generic_workflow(session_factory)
         async with session_factory() as session:
             with pytest.raises(RuntimeError, match="changed identity"):
                 await start_task(
                     TaskStartRequest(
-                        workflow="reviewed-code-change",
+                        workflow=GENERIC_WORKFLOW_ID,
                         prompt="Reject a substituted workspace.",
                         workspace=workspace,
                     ),

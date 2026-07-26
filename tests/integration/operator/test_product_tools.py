@@ -24,6 +24,7 @@ from tests.helpers.executor_harness import (
     seeded_async_executor,
     seeded_task_workspace,
 )
+from tests.helpers.generic_workflow import GENERIC_WORKFLOW_ID, publish_generic_workflow
 from tests.helpers.lineage_seed import RuntimeIds
 from tests.helpers.product_surface import product_dispatch_dependencies
 from tests.helpers.workflow_runtime import initialized_workflow_database
@@ -67,6 +68,7 @@ async def test_task_tools_use_current_actions_and_operator_event_provenance(
     dependencies = product_dispatch_dependencies(tmp_path)
     publisher = _captured_publisher(dependencies)
     async with initialized_workflow_database(tmp_path) as session_factory:
+        await publish_generic_workflow(session_factory)
         tools = build_operator_tools(
             settings=dependencies.settings,
             session_factory=session_factory,
@@ -74,7 +76,7 @@ async def test_task_tools_use_current_actions_and_operator_event_provenance(
         )
         started = await _tool(tools, OperatorToolName.TASK_START).call(
             {
-                "workflow": "reviewed-code-change",
+                "workflow": GENERIC_WORKFLOW_ID,
                 "prompt": "Prepare a bounded reviewable delivery.",
             }
         )

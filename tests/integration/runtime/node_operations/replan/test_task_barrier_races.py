@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Any, Literal
 
 import pytest
 from sqlalchemy import func, select
@@ -16,19 +17,35 @@ from banksia.persistence.models import (
 )
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
 from banksia.runtime.errors import RuntimeOperationError
-from banksia.runtime.node_operations import NodeActivitySignal, NodeOperationScope
+from banksia.runtime.node_operations import (
+    NodeActivitySignal,
+    NodeOperationExecutor,
+    NodeOperationScope,
+)
 from banksia.runtime.task_control.service import (
     cancel_runtime_task,
     pause_runtime_task,
 )
 from tests.helpers.executor_harness import (
+    AsyncSessionFactory,
     make_seed_child_terminal,
     seeded_async_executor,
     seeded_executor,
     synchronized_transition_claims,
 )
+from tests.helpers.lineage_seed import RuntimeIds
 
 type _BarrierCompetitor = Literal["pause", "cancel", "terminal_checkpoint"]
+
+
+@dataclass(frozen=True, slots=True)
+class _TaskControlRaceObservation:
+    task_status: str
+    control_revision: int
+    team_revision_id: str | None
+    source_closed_reason: str | None
+    transition_count: int
+    team_revision_count: int
 
 
 @pytest.mark.parametrize(
@@ -55,6 +72,38 @@ async def _assert_task_control_wins_before_replan_commit(
     competitor: Literal["pause", "cancel"],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    async with seeded_async_executor(
+        tmp_path,
+        suffix=f"task-first-{competitor}",
+    ) as (executor, session_factory, ids, _signals):
+        replan_error = await _run_replan_after_control_transition(
+            executor,
+            session_factory,
+            ids,
+            competitor,
+            monkeypatch,
+        )
+        assert replan_error.code in {
+            OperationFailureCode.CONFLICT,
+            OperationFailureCode.STALE_DISPATCH,
+        }
+        observed = await _read_task_control_race(session_factory, ids)
+
+    assert observed.task_status == ("paused" if competitor == "pause" else "cancelled")
+    assert observed.control_revision == 1
+    assert observed.team_revision_id == ids.team_revision_id
+    assert observed.source_closed_reason == ("paused" if competitor == "pause" else "cancelled")
+    assert observed.transition_count == 0
+    assert observed.team_revision_count == 1
+
+
+async def _run_replan_after_control_transition(
+    executor: NodeOperationExecutor,
+    session_factory: AsyncSessionFactory,
+    ids: RuntimeIds,
+    competitor: Literal["pause", "cancel"],
+    monkeypatch: pytest.MonkeyPatch,
+) -> RuntimeOperationError:
     activity_admitted = asyncio.Event()
     release_replan = asyncio.Event()
 
@@ -63,80 +112,63 @@ async def _assert_task_control_wins_before_replan_commit(
         activity_admitted.set()
         await release_replan.wait()
 
-    async with seeded_async_executor(
-        tmp_path,
-        suffix=f"task-first-{competitor}",
-    ) as (executor, session_factory, ids, _signals):
-        monkeypatch.setattr(
-            executor,
-            "_publish_activity_signal",
-            hold_after_activity_admission,
+    monkeypatch.setattr(
+        executor,
+        "_publish_activity_signal",
+        hold_after_activity_admission,
+    )
+    replan = asyncio.create_task(
+        executor.execute(
+            scope=NodeOperationScope(
+                task_id=ids.task_id,
+                dispatch_id=ids.current_dispatch_id,
+            ),
+            operation_name="add_child",
+            arguments={"child": {"title": "Late reviewer"}},
         )
-        replan_task = asyncio.create_task(
-            executor.execute(
-                scope=NodeOperationScope(
-                    task_id=ids.task_id,
-                    dispatch_id=ids.current_dispatch_id,
-                ),
-                operation_name="add_child",
-                arguments={"child": {"title": "Late reviewer"}},
+    )
+    await asyncio.wait_for(activity_admitted.wait(), timeout=5)
+    try:
+        async with session_factory() as control_session:
+            task = await control_session.get(TaskModel, ids.task_id)
+            assert task is not None and task.current_team_revision_id is not None
+            transition = pause_runtime_task if competitor == "pause" else cancel_runtime_task
+            await transition(
+                control_session,
+                ids.task_id,
+                expected_team_revision_id=task.current_team_revision_id,
+                expected_control_revision=task.control_revision,
             )
+    finally:
+        release_replan.set()
+    result = (
+        await asyncio.wait_for(
+            asyncio.gather(replan, return_exceptions=True),
+            timeout=5,
         )
-        await asyncio.wait_for(activity_admitted.wait(), timeout=5)
-        try:
-            async with session_factory() as control_session:
-                task = await control_session.get(TaskModel, ids.task_id)
-                assert task is not None
-                if competitor == "pause":
-                    await pause_runtime_task(
-                        control_session,
-                        ids.task_id,
-                        expected_team_revision_id=cast(
-                            str,
-                            task.current_team_revision_id,
-                        ),
-                        expected_control_revision=task.control_revision,
-                    )
-                else:
-                    await cancel_runtime_task(
-                        control_session,
-                        ids.task_id,
-                        expected_team_revision_id=cast(
-                            str,
-                            task.current_team_revision_id,
-                        ),
-                        expected_control_revision=task.control_revision,
-                    )
-        finally:
-            release_replan.set()
-        replan_result = (
-            await asyncio.wait_for(
-                asyncio.gather(replan_task, return_exceptions=True),
-                timeout=5,
-            )
-        )[0]
+    )[0]
+    assert isinstance(result, RuntimeOperationError)
+    return result
 
-        assert isinstance(replan_result, RuntimeOperationError)
-        assert replan_result.code in {
-            OperationFailureCode.CONFLICT,
-            OperationFailureCode.STALE_DISPATCH,
-        }
-        async with session_factory() as session:
-            task = await session.get(TaskModel, ids.task_id)
-            source = await session.get(
-                DispatchTurnModel,
-                ids.current_dispatch_id,
-            )
-            transition_count = await _count(session, ReplanTransitionModel)
-            team_revision_count = await _count(session, TeamRevisionModel)
 
+async def _read_task_control_race(
+    session_factory: AsyncSessionFactory,
+    ids: RuntimeIds,
+) -> _TaskControlRaceObservation:
+    async with session_factory() as session:
+        task = await session.get(TaskModel, ids.task_id)
+        source = await session.get(DispatchTurnModel, ids.current_dispatch_id)
+        transition_count = await _count(session, ReplanTransitionModel)
+        team_revision_count = await _count(session, TeamRevisionModel)
     assert task is not None and source is not None
-    assert task.status == ("paused" if competitor == "pause" else "cancelled")
-    assert task.control_revision == 1
-    assert task.current_team_revision_id == ids.team_revision_id
-    assert source.closed_reason == ("paused" if competitor == "pause" else "cancelled")
-    assert transition_count == 0
-    assert team_revision_count == 1
+    return _TaskControlRaceObservation(
+        task_status=task.status,
+        control_revision=task.control_revision,
+        team_revision_id=task.current_team_revision_id,
+        source_closed_reason=source.closed_reason,
+        transition_count=transition_count,
+        team_revision_count=team_revision_count,
+    )
 
 
 async def _assert_replan_or_terminal_checkpoint_wins(tmp_path: Path) -> None:

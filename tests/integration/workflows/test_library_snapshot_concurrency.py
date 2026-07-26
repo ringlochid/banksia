@@ -17,6 +17,7 @@ from banksia.workflows.authoring import (
 from banksia.workflows.authoring_contracts import OpenWorkflowDraftRequest, WorkflowGetResponse
 from banksia.workflows.contracts import WorkflowProvenance
 from banksia.workflows.publication import publish_workflow_revision
+from tests.helpers.generic_workflow import GENERIC_WORKFLOW_ID, publish_generic_workflow
 from tests.helpers.workflow_concurrency import (
     ControlledGate,
     DatabaseBackend,
@@ -99,10 +100,11 @@ async def _prepare_detail_race(
     workflow_id: str,
     mutation_name: str,
 ) -> WorkflowGetResponse:
+    await publish_generic_workflow(session_factory)
     async with session_factory() as session:
         source = await read_workflow_catalog_entry(
             session,
-            workflow_id="reviewed-code-change",
+            workflow_id=GENERIC_WORKFLOW_ID,
             should_include_revisions=False,
         )
         assert source.published is not None

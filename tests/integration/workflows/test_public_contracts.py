@@ -19,6 +19,7 @@ from banksia.workflows.cursors import (
     encode_workflow_revision_cursor,
     encode_workflow_search_cursor,
 )
+from tests.helpers.generic_workflow import GENERIC_WORKFLOW_ID, publish_generic_workflow
 from tests.helpers.workflow_runtime import initialized_workflow_database
 
 
@@ -26,8 +27,9 @@ async def test_http_workflow_catalog_and_history_are_bounded_and_share_cursors(
     tmp_path: Path,
 ) -> None:
     async with initialized_workflow_database(tmp_path) as session_factory:
+        await publish_generic_workflow(session_factory)
         async with _http_client(session_factory) as client:
-            current = await client.get("/api/workflows/reviewed-code-change")
+            current = await client.get(f"/api/workflows/{GENERIC_WORKFLOW_ID}")
             active_draft = await _publish_history_and_create_active_draft(client)
             hidden_search = await client.get(
                 "/api/workflows",
@@ -42,11 +44,11 @@ async def test_http_workflow_catalog_and_history_are_bounded_and_share_cursors(
                 },
             )
             http_history_first = await client.get(
-                "/api/workflows/reviewed-code-change",
+                f"/api/workflows/{GENERIC_WORKFLOW_ID}",
                 params={"revision_limit": 1},
             )
             http_history_second = await client.get(
-                "/api/workflows/reviewed-code-change",
+                f"/api/workflows/{GENERIC_WORKFLOW_ID}",
                 params={
                     "revision_limit": 1,
                     "revision_cursor": http_history_first.json()["revisions_next_cursor"],
@@ -56,8 +58,9 @@ async def test_http_workflow_catalog_and_history_are_bounded_and_share_cursors(
     assert active_draft.status_code == 200, active_draft.text
     assert hidden_search.status_code == 200, hidden_search.text
     assert tuple(item["workflow_id"] for item in hidden_search.json()["items"]) == (
-        "reviewed-code-change",
+        GENERIC_WORKFLOW_ID,
     )
+    assert current.json()["provenance"] == "user"
     assert http_search_first.status_code == 200, http_search_first.text
     assert http_search_first.json()["next_cursor"] is not None
     assert http_search_second.status_code == 200, http_search_second.text
@@ -71,14 +74,15 @@ async def test_http_workflow_cursor_failures_use_product_error_contract(
     tmp_path: Path,
 ) -> None:
     query_mismatched_cursor = encode_workflow_search_cursor(
-        "reviewed-code-change",
+        GENERIC_WORKFLOW_ID,
         normalized_query="first query",
     )
     cross_workflow_cursor = encode_workflow_revision_cursor(
         2,
-        workflow_id="reviewed-code-change",
+        workflow_id="cursor-source-workflow",
     )
     async with initialized_workflow_database(tmp_path) as session_factory:
+        await publish_generic_workflow(session_factory)
         async with _http_client(session_factory) as client:
             http_results = (
                 await client.get("/api/workflows", params={"cursor": "malformed"}),
@@ -87,7 +91,7 @@ async def test_http_workflow_cursor_failures_use_product_error_contract(
                     params={"q": "second query", "cursor": query_mismatched_cursor},
                 ),
                 await client.get(
-                    "/api/workflows/evidence-synthesis",
+                    f"/api/workflows/{GENERIC_WORKFLOW_ID}",
                     params={"revision_cursor": cross_workflow_cursor},
                 ),
             )
@@ -102,7 +106,7 @@ async def _publish_history_and_create_active_draft(
     for description in ("Published revision two.", "Published revision three."):
         opened = await client.post(
             "/api/workflow-drafts",
-            json={"kind": "open", "workflow_id": "reviewed-code-change"},
+            json={"kind": "open", "workflow_id": GENERIC_WORKFLOW_ID},
         )
         assert opened.status_code == 201, opened.text
         draft = opened.json()["draft"]
@@ -122,7 +126,7 @@ async def _publish_history_and_create_active_draft(
         assert published.status_code == 200, published.text
     opened = await client.post(
         "/api/workflow-drafts",
-        json={"kind": "open", "workflow_id": "reviewed-code-change"},
+        json={"kind": "open", "workflow_id": GENERIC_WORKFLOW_ID},
     )
     assert opened.status_code == 201, opened.text
     draft = opened.json()["draft"]
@@ -138,8 +142,9 @@ async def _publish_history_and_create_active_draft(
 
 async def test_http_workflow_readbacks_never_expose_integrity_hashes(tmp_path: Path) -> None:
     async with initialized_workflow_database(tmp_path) as session_factory:
+        await publish_generic_workflow(session_factory)
         async with _http_client(session_factory) as client:
-            detail = await client.get("/api/workflows/reviewed-code-change")
+            detail = await client.get(f"/api/workflows/{GENERIC_WORKFLOW_ID}")
 
     assert detail.status_code == 200, detail.text
     assert "content_hash" not in detail.text
@@ -149,6 +154,7 @@ async def test_http_task_start_commits_current_workflow_and_maps_unknown_to_404(
     tmp_path: Path,
 ) -> None:
     async with initialized_workflow_database(tmp_path) as session_factory:
+        await publish_generic_workflow(session_factory)
         async with _http_client(session_factory) as client:
             started = await client.post(
                 "/api/tasks",
@@ -243,7 +249,7 @@ def _contains_schema_keyword(
 def _task_start_payload(
     workspace: Path,
     *,
-    workflow_id: str = "reviewed-code-change",
+    workflow_id: str = GENERIC_WORKFLOW_ID,
 ) -> dict[str, object]:
     return {
         "workflow": workflow_id,

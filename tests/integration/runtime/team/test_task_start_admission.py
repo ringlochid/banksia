@@ -26,6 +26,7 @@ from banksia.runtime.workspace.admission import (
     TASK_INITIALIZATION_MARKER,
     recover_task_workspace_admissions,
 )
+from tests.helpers.generic_workflow import GENERIC_WORKFLOW_ID, publish_generic_workflow
 from tests.helpers.workflow_runtime import initialized_workflow_database
 
 
@@ -39,13 +40,14 @@ async def test_task_start_preserves_long_prompt_and_file_values(
     (workspace / file_path).write_text("source brief", encoding="utf-8")
     prompt = f"  {'x' * 8_193}\r\nKeep the trailing space.  "
     request = TaskStartRequest(
-        workflow="reviewed-code-change",
+        workflow=GENERIC_WORKFLOW_ID,
         prompt=prompt,
         workspace=workspace,
         files=(FileReference(path=file_path, description=file_description),),
     )
 
     async with initialized_workflow_database(tmp_path) as session_factory:
+        await publish_generic_workflow(session_factory)
         async with session_factory() as session:
             response = await start_task(
                 request,
@@ -103,6 +105,7 @@ async def test_concurrent_task_starts_share_one_workspace_admission_lane(
 
     monkeypatch.setattr(task_start_module, "launch_task_runtime", observed_launch)
     async with initialized_workflow_database(tmp_path) as session_factory:
+        await publish_generic_workflow(session_factory)
         async with session_factory() as first_session, session_factory() as second_session:
             dependencies = _dependencies(workspace)
             first_start = asyncio.create_task(
@@ -149,6 +152,7 @@ async def test_task_start_commit_acknowledgement_failure_retains_marked_workspac
     publisher = CapturedRuntimeEffectPublisher()
 
     async with initialized_workflow_database(tmp_path) as session_factory:
+        await publish_generic_workflow(session_factory)
         async with session_factory() as session:
             real_commit = session.commit
 
@@ -184,6 +188,7 @@ async def test_task_start_rejections_and_exclusive_collision_leave_clean_admissi
     workspace.mkdir()
 
     async with initialized_workflow_database(tmp_path) as session_factory:
+        await publish_generic_workflow(session_factory)
         async with session_factory() as session:
             publisher = CapturedRuntimeEffectPublisher()
             with pytest.raises(
@@ -192,7 +197,7 @@ async def test_task_start_rejections_and_exclusive_collision_leave_clean_admissi
             ) as missing_file:
                 await start_task(
                     TaskStartRequest(
-                        workflow="reviewed-code-change",
+                        workflow=GENERIC_WORKFLOW_ID,
                         prompt="Read the missing input.",
                         workspace=workspace,
                         files=(FileReference(path="missing.md"),),
@@ -277,6 +282,7 @@ async def test_task_start_recovery_repairs_committed_marker_and_removes_stale_ma
         fail_marker_acceptance,
     )
     async with initialized_workflow_database(tmp_path) as session_factory:
+        await publish_generic_workflow(session_factory)
         async with session_factory() as session:
             response = await start_task(
                 _request(workspace),
@@ -318,7 +324,7 @@ async def test_task_start_recovery_repairs_committed_marker_and_removes_stale_ma
 
 def _request(workspace: Path) -> TaskStartRequest:
     return TaskStartRequest(
-        workflow="reviewed-code-change",
+        workflow=GENERIC_WORKFLOW_ID,
         prompt="Complete the requested work.",
         workspace=workspace,
     )

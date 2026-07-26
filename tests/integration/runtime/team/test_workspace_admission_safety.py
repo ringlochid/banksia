@@ -15,6 +15,7 @@ from banksia.runtime.workspace.admission import (
 )
 from banksia.runtime.workspace.storage import replace_task_text
 from banksia.workflows.catalog import read_current_published_workflow
+from tests.helpers.generic_workflow import GENERIC_WORKFLOW_ID, publish_generic_workflow
 from tests.helpers.workflow_runtime import initialized_workflow_database
 
 
@@ -24,10 +25,11 @@ async def test_task_workspace_has_private_target_layout(tmp_path: Path) -> None:
     task_id = "t_01234567"
 
     async with initialized_workflow_database(tmp_path) as session_factory:
+        await publish_generic_workflow(session_factory)
         async with session_factory() as session:
             workflow = await read_current_published_workflow(
                 session,
-                workflow_id="reviewed-code-change",
+                workflow_id=GENERIC_WORKFLOW_ID,
             )
     admission = stage_task_workspace(
         workspace=workspace,
@@ -74,10 +76,11 @@ async def test_stage_rejects_unsafe_banksia_root_without_touching_target(
         banksia_root.write_text("not a directory", encoding="utf-8")
 
     async with initialized_workflow_database(tmp_path) as session_factory:
+        await publish_generic_workflow(session_factory)
         async with session_factory() as session:
             workflow = await read_current_published_workflow(
                 session,
-                workflow_id="reviewed-code-change",
+                workflow_id=GENERIC_WORKFLOW_ID,
             )
 
     with pytest.raises(OSError):

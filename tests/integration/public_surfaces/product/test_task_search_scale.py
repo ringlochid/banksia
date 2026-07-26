@@ -12,6 +12,7 @@ from banksia.runtime.task_control.presentation import (
     TASK_SUMMARY_MAX_CHARACTERS,
     task_prompt_excerpt,
 )
+from tests.helpers.generic_workflow import GENERIC_WORKFLOW_ID, publish_generic_workflow
 from tests.helpers.postgres_runtime_race import postgres_runtime_harness
 from tests.helpers.product_surface import product_dispatch_dependencies
 from tests.helpers.workflow_runtime import initialized_workflow_database
@@ -25,6 +26,7 @@ async def test_task_search_bounds_maximum_page_prompt_projection_to_one_query(
     whitespace_edge_id: str | None = None
     whitespace_edge_prompt: str | None = None
     async with initialized_workflow_database(tmp_path) as session_factory:
+        await publish_generic_workflow(session_factory)
         for index in range(100):
             workspace = tmp_path / f"max-search-workspace-{index:03d}"
             workspace.mkdir()
@@ -32,7 +34,7 @@ async def test_task_search_bounds_maximum_page_prompt_projection_to_one_query(
             async with session_factory() as session:
                 receipt = await start_product_task(
                     TaskStartRequest(
-                        workflow="reviewed-code-change",
+                        workflow=GENERIC_WORKFLOW_ID,
                         prompt=prompt,
                         workspace=workspace,
                     ),

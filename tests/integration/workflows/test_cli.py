@@ -15,6 +15,7 @@ import banksia.interfaces.cli.commands.task as task_command_module
 from banksia.interfaces.cli import build_parser
 from banksia.interfaces.cli import main as cli_main
 from banksia.interfaces.cli.commands.task import TaskStartCliError
+from tests.helpers.generic_workflow import GENERIC_WORKFLOW_ID
 
 
 def test_workflow_cli_imports_draft_and_exports_normalized_published_truth(
@@ -122,7 +123,7 @@ def test_task_start_cli_machine_mode_posts_strict_json_and_prints_receipt(
                     "receipt_id": "receipt.task-start",
                     "status": "accepted",
                     "task_id": "t_01234567",
-                    "workflow_id": "reviewed-code-change",
+                    "workflow_id": GENERIC_WORKFLOW_ID,
                     "workflow_revision": 1,
                     "workspace": str(tmp_path),
                     "manifest": ".banksia/t_01234567/manifest.md",
@@ -140,7 +141,7 @@ def test_task_start_cli_machine_mode_posts_strict_json_and_prints_receipt(
             "--json",
             json.dumps(
                 {
-                    "workflow": "reviewed-code-change",
+                    "workflow": GENERIC_WORKFLOW_ID,
                     "prompt": "Complete the requested work.",
                     "workspace": str(tmp_path),
                 }
@@ -154,7 +155,7 @@ def test_task_start_cli_machine_mode_posts_strict_json_and_prints_receipt(
     assert payload["task_id"] == "t_01234567"
     assert captured[0][0:2] == ("POST", "/api/tasks")
     assert captured[0][2]["json"] == {
-        "workflow": "reviewed-code-change",
+        "workflow": GENERIC_WORKFLOW_ID,
         "prompt": "Complete the requested work.",
         "workspace": str(tmp_path),
         "files": [],
@@ -179,7 +180,7 @@ class _PagedCatalogClient:
             }
         else:
             assert kwargs == {"params": {"cursor": "published-page"}}
-            body = {"items": [_workflow_search_item("reviewed-code-change", is_published=True)]}
+            body = {"items": [_workflow_search_item(GENERIC_WORKFLOW_ID, is_published=True)]}
         return httpx.Response(
             200,
             request=httpx.Request(method, f"http://127.0.0.1{path}"),
@@ -198,7 +199,7 @@ def _workflow_search_item(workflow_id: str, *, is_published: bool) -> dict[str, 
         "state": "published" if is_published else "draft",
         "updated_at": "2026-07-25T00:00:00Z",
         "published_revision_no": 1 if is_published else None,
-        "provenance": "starter_seed" if is_published else "user",
+        "provenance": "user",
         "available_actions": ["edit", "start_run"] if is_published else ["edit"],
     }
 
@@ -222,7 +223,7 @@ async def test_task_start_cli_interactive_mode_uses_workflow_choice_and_editor(
     ) -> str:
         assert show_choices is True
         choices.append((label, tuple(type.choices)))
-        return "reviewed-code-change"
+        return GENERIC_WORKFLOW_ID
 
     monkeypatch.setattr(task_command_module.sys, "stdin", InteractiveInput())
     monkeypatch.setattr(task_command_module.click, "prompt", choose)
@@ -244,10 +245,10 @@ async def test_task_start_cli_interactive_mode_uses_workflow_choice_and_editor(
         ("GET", "/api/workflows", {}),
         ("GET", "/api/workflows", {"params": {"cursor": "published-page"}}),
     ]
-    assert choices == [("Workflow", ("reviewed-code-change",))]
+    assert choices == [("Workflow", (GENERIC_WORKFLOW_ID,))]
     assert editor_calls == [(("",), {"require_save": True, "extension": ".md"})]
     assert request.model_dump(mode="json") == {
-        "workflow": "reviewed-code-change",
+        "workflow": GENERIC_WORKFLOW_ID,
         "prompt": "Complete  this request.\nPreserve detail.\n",
         "workspace": str(tmp_path),
         "files": [],
@@ -279,12 +280,12 @@ async def test_task_start_cli_interactive_abort_or_blank_never_builds_request(
                 json={
                     "items": [
                         {
-                            "workflow_id": "reviewed-code-change",
+                            "workflow_id": GENERIC_WORKFLOW_ID,
                             "description": "Review and refine a bounded delivery.",
                             "state": "published",
                             "updated_at": "2026-07-25T00:00:00Z",
                             "published_revision_no": 1,
-                            "provenance": "starter_seed",
+                            "provenance": "user",
                             "available_actions": ["edit", "start_run"],
                         }
                     ]
@@ -293,7 +294,7 @@ async def test_task_start_cli_interactive_abort_or_blank_never_builds_request(
 
     monkeypatch.setattr(task_command_module.sys, "stdin", InteractiveInput())
     monkeypatch.setattr(
-        task_command_module.click, "prompt", lambda *args, **kwargs: "reviewed-code-change"
+        task_command_module.click, "prompt", lambda *args, **kwargs: GENERIC_WORKFLOW_ID
     )
     monkeypatch.setattr(task_command_module.click, "edit", lambda *args, **kwargs: editor_result)
 
@@ -307,8 +308,11 @@ async def test_task_start_cli_interactive_abort_or_blank_never_builds_request(
 @pytest.mark.parametrize(
     ("source_kind", "source_text"),
     [
-        ("inline", '{"workflow":"reviewed-code-change","workflow":"duplicate","prompt":"x"}'),
-        ("inline", '{"workflow":"reviewed-code-change","prompt":"x","value":NaN}'),
+        (
+            "inline",
+            f'{{"workflow":"{GENERIC_WORKFLOW_ID}","workflow":"duplicate","prompt":"x"}}',
+        ),
+        ("inline", f'{{"workflow":"{GENERIC_WORKFLOW_ID}","prompt":"x","value":NaN}}'),
         ("file", '{"workflow":'),
         ("stdin", "[]"),
         ("malformed_at", ""),
@@ -351,10 +355,10 @@ def test_task_start_machine_json_failures_use_one_stable_error_kind(
 @pytest.mark.parametrize(
     ("payload", "field_path"),
     [
-        ({"workflow": "reviewed-code-change", "prompt": 7}, "prompt"),
+        ({"workflow": GENERIC_WORKFLOW_ID, "prompt": 7}, "prompt"),
         (
             {
-                "workflow": "reviewed-code-change",
+                "workflow": GENERIC_WORKFLOW_ID,
                 "prompt": "Do the work.",
                 "files": [{"path": 7}],
             },
@@ -362,7 +366,7 @@ def test_task_start_machine_json_failures_use_one_stable_error_kind(
         ),
         (
             {
-                "workflow": "reviewed-code-change",
+                "workflow": GENERIC_WORKFLOW_ID,
                 "prompt": "Do the work.",
                 "files": [{"path": "brief.md", "description": 7}],
             },
@@ -399,7 +403,7 @@ def test_task_start_machine_json_failure_uses_public_json_envelope(
             "--config",
             str(config_path),
             "--json",
-            '{"workflow":"reviewed-code-change","workflow":"duplicate","prompt":"x"}',
+            (f'{{"workflow":"{GENERIC_WORKFLOW_ID}","workflow":"duplicate","prompt":"x"}}'),
         ]
     )
 
@@ -420,7 +424,7 @@ def test_task_start_machine_json_null_workspace_resolves_to_invocation_cwd(
     tmp_path: Path,
 ) -> None:
     request = task_command_module.parse_task_start_json_request(
-        '{"workflow":"reviewed-code-change","prompt":"Exact prompt.","workspace":null}',
+        (f'{{"workflow":"{GENERIC_WORKFLOW_ID}","prompt":"Exact prompt.","workspace":null}}'),
         invocation_cwd=tmp_path,
     )
 

@@ -90,6 +90,7 @@ def test_build_audit_settings_exposes_root_backend_wrapper_and_direction_scopes(
 
     expected_roots = {
         Path("scripts/docs"),
+        Path("scripts/testing"),
         Path("src/banksia"),
         Path("tests/e2e"),
         Path("tests/helpers"),
@@ -121,15 +122,20 @@ def test_build_audit_settings_exposes_root_backend_wrapper_and_direction_scopes(
         path.relative_to(settings.root) for path in settings.app_shell_direct_owner_modules
     }
     assert app_shell_direct_owner_modules == set()
+
+
+def test_build_audit_settings_exposes_exact_public_naming_exceptions() -> None:
+    audit = load_style_audit_namespace()
+    settings = audit.config.build_audit_settings()
+
     public_naming_roots = {
         path.relative_to(settings.root) for path in settings.public_naming_scan_roots
     }
     assert public_naming_roots == {Path("src/banksia")}
     assert settings.public_naming_extra_modules == frozenset()
-    module_shape_roots = {
-        path.relative_to(settings.root) for path in settings.module_shape_scan_roots
+    assert {path.relative_to(settings.root) for path in settings.module_shape_scan_roots} == {
+        Path("src/banksia")
     }
-    assert module_shape_roots == {Path("src/banksia")}
     public_naming_exceptions = {
         (path.relative_to(settings.root), name)
         for path, name in settings.approved_public_naming_exceptions
@@ -137,10 +143,23 @@ def test_build_audit_settings_exposes_root_backend_wrapper_and_direction_scopes(
     assert public_naming_exceptions == {
         (Path("src/banksia/config.py"), "enabled"),
         (Path("src/banksia/config.py"), "value_is_complex"),
+        (Path("src/banksia/operator/contracts.py"), "allow_skip"),
         (
             Path("src/banksia/integrations/openclaw/gateway/adapter.py"),
             "check",
         ),
+        (Path("src/banksia/persistence/datetimes.py"), "cache_ok"),
+        (Path("src/banksia/persistence/datetimes.py"), "process_bind_param"),
+        (Path("src/banksia/persistence/datetimes.py"), "process_result_value"),
+        (Path("src/banksia/runtime/contracts/checkpoint.py"), "must_stop"),
+        (Path("src/banksia/runtime/contracts/checkpoint.py"), "terminal"),
+        (Path("src/banksia/runtime/contracts/command_runs.py"), "must_stop"),
+        (Path("src/banksia/runtime/contracts/command_runs.py"), "output_complete"),
+        (Path("src/banksia/runtime/contracts/delegation.py"), "accepted"),
+        (Path("src/banksia/runtime/contracts/delegation.py"), "must_stop"),
+        (Path("src/banksia/runtime/contracts/human_requests.py"), "allow_other"),
+        (Path("src/banksia/runtime/contracts/human_requests.py"), "allow_skip"),
+        (Path("src/banksia/runtime/contracts/human_requests.py"), "must_stop"),
         (
             Path("src/banksia/runtime/contracts/operation_failure.py"),
             "ok",
@@ -148,6 +167,12 @@ def test_build_audit_settings_exposes_root_backend_wrapper_and_direction_scopes(
         (
             Path("src/banksia/runtime/contracts/operation_failure.py"),
             "retryable",
+        ),
+        (Path("src/banksia/runtime/contracts/prompt.py"), "output_complete"),
+        (Path("src/banksia/runtime/contracts/replan.py"), "must_stop"),
+        (
+            Path("src/banksia/runtime/contracts/task_event_payloads.py"),
+            "output_complete",
         ),
         (Path("src/banksia/runtime/work_plan/contracts.py"), "changed"),
     }

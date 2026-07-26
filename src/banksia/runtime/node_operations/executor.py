@@ -39,6 +39,9 @@ from banksia.runtime.node_operations.follow_on import (
     SupportProjectionPublisher,
     committed_node_operation_follow_on,
 )
+from banksia.runtime.node_operations.operation_router import (
+    execute_controller_node_operation,
+)
 from banksia.runtime.node_operations.replan_replay import (
     read_committed_replan_replay,
 )
@@ -210,10 +213,6 @@ class NodeOperationExecutor:
             dispatch_opening_dependencies=self._dispatch_opening_dependencies,
         )
         if result is None:
-            from banksia.runtime.node_operations.domain_handlers import (
-                execute_controller_node_operation,
-            )
-
             result = await execute_controller_node_operation(
                 session,
                 authority,
@@ -354,7 +353,7 @@ def _authorize(
     authority: NodeOperationAuthority,
     request: BaseModel,
 ) -> None:
-    if descriptor.requires_direct_team and not authority.has_direct_team:
+    if descriptor.is_direct_team_required and not authority.has_direct_team:
         raise RuntimeOperationError(
             code=OperationFailureCode.ILLEGAL_CALLER,
             summary=f"current Member has no direct team for {descriptor.name.value}",

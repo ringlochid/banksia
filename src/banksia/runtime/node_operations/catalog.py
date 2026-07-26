@@ -31,7 +31,7 @@ from banksia.runtime.work_plan import SetWorkPlanRequest, SetWorkPlanResponse
 
 _descriptor = partial(
     NodeOperationDescriptor,
-    requires_direct_team=False,
+    is_direct_team_required=False,
     required_capability=None,
     mutation_kind=NodeOperationMutationKind.MUTATION,
 )
@@ -68,7 +68,7 @@ NODE_OPERATION_CATALOG: tuple[NodeOperationDescriptor, ...] = (
         NodeOperationName.DELEGATE,
         DelegateRequest,
         DelegateSuccess,
-        requires_direct_team=True,
+        is_direct_team_required=True,
         title="Delegate",
         description=(
             "Atomically start one to eight fresh Assignments for unique available direct "
@@ -93,7 +93,7 @@ NODE_OPERATION_CATALOG: tuple[NodeOperationDescriptor, ...] = (
         NodeOperationName.UPDATE_CHILD,
         UpdateChildRequest,
         ReplanSuccess,
-        requires_direct_team=True,
+        is_direct_team_required=True,
         title="Update child",
         description=(
             "Update one current descendant and recursively upsert its direct descendants "
@@ -105,7 +105,7 @@ NODE_OPERATION_CATALOG: tuple[NodeOperationDescriptor, ...] = (
         NodeOperationName.REMOVE_CHILD,
         RemoveChildRequest,
         ReplanSuccess,
-        requires_direct_team=True,
+        is_direct_team_required=True,
         title="Remove child",
         description=(
             "Remove one current descendant subtree without erasing history. Success closes "
@@ -173,7 +173,7 @@ def select_node_operation_descriptors(
     return tuple(
         descriptor
         for descriptor in NODE_OPERATION_CATALOG
-        if (not descriptor.requires_direct_team or selection.has_direct_team)
+        if (not descriptor.is_direct_team_required or selection.has_direct_team)
         and (legal_operations is None or descriptor.name in legal_operations)
         and _selection_allows_capability(descriptor, selection)
     )

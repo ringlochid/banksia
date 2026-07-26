@@ -27,7 +27,7 @@ from banksia.runtime.errors import RuntimeOperationError
 from banksia.runtime.node_operations import NodeOperationScope
 from banksia.runtime.node_operations.catalog import get_node_operation_descriptor
 from banksia.runtime.node_operations.contracts import NodeOperationDescriptor, NodeOperationName
-from banksia.runtime.node_operations.domain_handlers import (
+from banksia.runtime.node_operations.operation_router import (
     execute_controller_node_operation,
 )
 from tests.helpers.executor_harness import (

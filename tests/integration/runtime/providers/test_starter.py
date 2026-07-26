@@ -34,15 +34,15 @@ from banksia.runtime.providers import (
     ProviderStopOutcome,
 )
 from banksia.runtime.providers.starter import DispatchStarter
-from tests.helpers.sqlite_runtime import (
-    SyncSessionAdapter,
-)
-from tests.integration.runtime_schema_contract.test_provider_start_acceptance import (
+from tests.helpers.provider_start import (
     ACCEPTED_AT,
     PROVIDER_START_REVISION,
     START_DUE_AT,
     StartingDispatchDatabase,
     starting_dispatch_database,
+)
+from tests.helpers.sqlite_runtime import (
+    SyncSessionAdapter,
 )
 
 

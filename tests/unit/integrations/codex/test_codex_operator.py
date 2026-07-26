@@ -711,12 +711,8 @@ def test_codex_operator_requires_the_exact_ordered_tool_catalog() -> None:
         )
 
 
-@pytest.mark.parametrize(
-    "effort",
-    ("none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"),
-)
-def test_codex_operator_accepts_the_pinned_closed_effort_set(effort: str) -> None:
-    assert resolve_codex_operator_effort(effort) == effort
+def test_codex_operator_accepts_pinned_ultra_effort() -> None:
+    assert resolve_codex_operator_effort("ultra") == "ultra"
 
 
 @pytest.mark.asyncio

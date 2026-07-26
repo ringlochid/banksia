@@ -145,7 +145,7 @@ async def test_command_activity_follows_real_terminal_transition(
                 failure_code="process_failed",
                 output_observed_bytes=0,
                 output_written_bytes=0,
-                output_complete=True,
+                is_output_complete=True,
             )
             assert won is True
 

@@ -257,7 +257,7 @@ class CommandProcessOwner:
             should_match_due_at=result.terminal_state == CommandRunState.TIMED_OUT,
             output_observed_bytes=(output.observed_bytes if output is not None else None),
             output_written_bytes=(output.written_bytes if output is not None else None),
-            output_complete=(output.is_complete if output is not None else None),
+            is_output_complete=(output.is_complete if output is not None else None),
         )
         self._owned.pop(signal.run_id, None)
         if won:

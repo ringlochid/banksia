@@ -222,7 +222,7 @@ async def _terminalize_command_run(
             exit_code=0,
             output_observed_bytes=21,
             output_written_bytes=21,
-            output_complete=True,
+            is_output_complete=True,
         )
     assert won is True
 

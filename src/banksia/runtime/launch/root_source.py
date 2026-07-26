@@ -74,6 +74,16 @@ class _RootRuntimeContext:
     attempt: AttemptModel
 
 
+@dataclass(frozen=True, slots=True)
+class _RootPromptInputs:
+    work_plan: WorkPlanRead | None
+    assignment_files: tuple[FileReference, ...]
+    provider: ProviderResolution
+    capabilities: EffectiveCapabilitySet
+    paths: TaskRootPaths
+    direct_team: tuple[DirectTeamMemberRead, ...]
+
+
 async def read_root_opening_snapshot(
     session: AsyncSession,
     *,
@@ -96,47 +106,10 @@ async def read_root_opening_snapshot(
     if state is None:
         return None
     context = await _read_root_runtime_context(session, state)
-    children = tuple(
-        await session.scalars(
-            select(TeamRevisionMemberModel)
-            .options(raiseload("*"))
-            .where(
-                TeamRevisionMemberModel.task_id == task_id,
-                TeamRevisionMemberModel.team_revision_id == context.selection.team_revision_id,
-                TeamRevisionMemberModel.parent_member_id == context.selection.member_id,
-            )
-            .order_by(TeamRevisionMemberModel.sibling_order)
-        )
-    )
-    work_plan = await read_assignment_work_plan(
-        session,
-        assignment_id=context.assignment.assignment_id,
-    )
-    assignment_files = await read_assignment_file_references(
-        session,
-        assignment_id=context.assignment.assignment_id,
-    )
-    capabilities = await resolve_effective_capabilities_for_member_configuration(
+    inputs = await _read_root_prompt_inputs(
         session,
         task_id=task_id,
-        member_configuration_id=context.selection.member_configuration_id,
-    )
-    provider = await resolve_member_provider_route(
-        session,
-        task_id=task_id,
-        member_configuration_id=context.selection.member_configuration_id,
-        settings=dependencies.settings,
-        available_adapter_kinds=dependencies.available_adapter_kinds,
-    )
-    capabilities = narrow_provider_capabilities(
-        route=provider.route,
-        sandbox=provider.sandbox,
-        capabilities=capabilities,
-    )
-    paths = await read_task_root_paths(session, task_id)
-    direct_team = await read_direct_team_members(
-        session,
-        children=children,
+        context=context,
         dependencies=dependencies,
     )
     trigger, opened_reason = _root_trigger(state.task, expected_task_status)
@@ -144,12 +117,7 @@ async def read_root_opening_snapshot(
         state.task,
         context,
         dispatch_id=dispatch_id,
-        work_plan=work_plan,
-        capabilities=capabilities,
-        provider=provider,
-        direct_team=direct_team,
-        paths=paths,
-        assignment_files=assignment_files,
+        inputs=inputs,
     )
     return RootOpeningSnapshot(
         source_committed_at=state.source.committed_at,
@@ -158,9 +126,9 @@ async def read_root_opening_snapshot(
         workspace_root_path=context.workspace.normalized_root_path,
         assignment_work_plan_revision=context.assignment.work_plan_revision,
         prompt=prompt,
-        provider=provider,
-        capabilities=capabilities,
-        paths=paths,
+        provider=inputs.provider,
+        capabilities=inputs.capabilities,
+        paths=inputs.paths,
         expected_task_status=expected_task_status,
         expected_pause_reason=state.task.pause_reason,
         opened_reason=opened_reason,
@@ -207,6 +175,66 @@ def root_context_is_current(snapshot: RootOpeningSnapshot) -> ColumnElement[bool
             WorkspaceBindingModel.task_id == prompt.task_id,
             WorkspaceBindingModel.normalized_root_path == snapshot.workspace_root_path,
         )
+    )
+
+
+async def _read_root_prompt_inputs(
+    session: AsyncSession,
+    *,
+    task_id: str,
+    context: _RootRuntimeContext,
+    dependencies: DispatchOpeningDependencies,
+) -> _RootPromptInputs:
+    children = tuple(
+        await session.scalars(
+            select(TeamRevisionMemberModel)
+            .options(raiseload("*"))
+            .where(
+                TeamRevisionMemberModel.task_id == task_id,
+                TeamRevisionMemberModel.team_revision_id == context.selection.team_revision_id,
+                TeamRevisionMemberModel.parent_member_id == context.selection.member_id,
+            )
+            .order_by(TeamRevisionMemberModel.sibling_order)
+        )
+    )
+    work_plan = await read_assignment_work_plan(
+        session,
+        assignment_id=context.assignment.assignment_id,
+    )
+    assignment_files = await read_assignment_file_references(
+        session,
+        assignment_id=context.assignment.assignment_id,
+    )
+    capabilities = await resolve_effective_capabilities_for_member_configuration(
+        session,
+        task_id=task_id,
+        member_configuration_id=context.selection.member_configuration_id,
+    )
+    provider = await resolve_member_provider_route(
+        session,
+        task_id=task_id,
+        member_configuration_id=context.selection.member_configuration_id,
+        settings=dependencies.settings,
+        available_adapter_kinds=dependencies.available_adapter_kinds,
+    )
+    capabilities = narrow_provider_capabilities(
+        route=provider.route,
+        sandbox=provider.sandbox,
+        capabilities=capabilities,
+    )
+    paths = await read_task_root_paths(session, task_id)
+    direct_team = await read_direct_team_members(
+        session,
+        children=children,
+        dependencies=dependencies,
+    )
+    return _RootPromptInputs(
+        work_plan=work_plan,
+        assignment_files=assignment_files,
+        provider=provider,
+        capabilities=capabilities,
+        paths=paths,
+        direct_team=direct_team,
     )
 
 
@@ -320,12 +348,7 @@ def _build_root_prompt_snapshot(
     context: _RootRuntimeContext,
     *,
     dispatch_id: str,
-    work_plan: WorkPlanRead | None,
-    capabilities: EffectiveCapabilitySet,
-    provider: ProviderResolution,
-    direct_team: tuple[DirectTeamMemberRead, ...],
-    paths: TaskRootPaths,
-    assignment_files: tuple[FileReference, ...],
+    inputs: _RootPromptInputs,
 ) -> RootPromptSnapshot:
     workflow_note = context.workflow.content_json.get("note")
     if workflow_note is not None and not isinstance(workflow_note, str):
@@ -350,12 +373,12 @@ def _build_root_prompt_snapshot(
         member_instruction=configuration.instruction,
         workflow_note=workflow_note,
         assignment_prompt=assignment.prompt,
-        assignment_files=assignment_files,
-        work_plan=work_plan,
-        capabilities=capabilities,
-        provider=provider,
-        direct_team=direct_team,
-        paths=paths,
+        assignment_files=inputs.assignment_files,
+        work_plan=inputs.work_plan,
+        capabilities=inputs.capabilities,
+        provider=inputs.provider,
+        direct_team=inputs.direct_team,
+        paths=inputs.paths,
     )
 
 

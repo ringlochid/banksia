@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 from .style_audit_test_support import (
@@ -87,6 +88,30 @@ def test_style_audit_flags_non_fact_shaped_public_boolean_parameters(tmp_path: P
     assert len(findings) == 1
     assert findings[0].name == "ready_flag"
     assert findings[0].kind == "function-parameter"
+
+
+def test_public_naming_exceptions_require_exact_path_and_symbol(tmp_path: Path) -> None:
+    banksia_root = tmp_path / "banksia"
+    allowed_path = banksia_root / "allowed.py"
+    other_path = banksia_root / "other.py"
+    settings = replace(
+        build_style_audit_settings(tmp_path, scan_roots=(banksia_root,)),
+        approved_public_naming_exceptions=frozenset({(allowed_path, "ready_flag")}),
+    )
+    audit = load_style_audit_namespace()
+
+    write_python_module(
+        allowed_path,
+        "ready_flag: bool = False\nother_flag: bool = False\n",
+    )
+    write_python_module(other_path, "ready_flag: bool = False\n")
+
+    findings = audit.scan.run_style_audit(settings).public_naming_findings
+
+    assert [(finding.path, finding.name) for finding in findings] == [
+        (allowed_path, "other_flag"),
+        (other_path, "ready_flag"),
+    ]
 
 
 def test_style_audit_flags_non_fact_shaped_public_boolean_fields_and_methods(

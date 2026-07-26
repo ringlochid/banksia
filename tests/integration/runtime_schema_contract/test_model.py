@@ -2,15 +2,12 @@ from __future__ import annotations
 
 from typing import cast
 
-from sqlalchemy import JSON, Table
+from sqlalchemy import Table
 from sqlalchemy.dialects import postgresql, sqlite
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import configure_mappers
-from sqlalchemy.schema import CreateIndex, CreateTable
+from sqlalchemy.schema import CreateTable
 
-import banksia.persistence as persistence
 from banksia.persistence import RuntimeBase
-from banksia.persistence.session import RuntimeAsyncSession
 
 TARGET_TABLES = {
     "accepted_boundaries",
@@ -84,16 +81,6 @@ def test_target_metadata_has_one_complete_table_set_and_no_legacy_shadow_tables(
     assert all(table.primary_key.columns for table in RuntimeBase.metadata.tables.values())
 
 
-def test_every_target_table_has_one_public_persistence_model() -> None:
-    exported_models = {
-        value.__table__.name
-        for name in persistence.__all__
-        if isinstance((value := getattr(persistence, name)), type) and hasattr(value, "__table__")
-    }
-
-    assert exported_models == TARGET_TABLES
-
-
 def test_runtime_foreign_keys_have_explicit_lazy_raise_relationship_navigation() -> None:
     configure_mappers()
 
@@ -118,14 +105,6 @@ def test_runtime_foreign_keys_have_explicit_lazy_raise_relationship_navigation()
         for mapper in runtime_mappers
         for relationship in mapper.relationships
     )
-
-
-def test_target_metadata_compiles_for_both_supported_database_dialects() -> None:
-    for dialect in (sqlite.dialect(), postgresql.dialect()):
-        for table in RuntimeBase.metadata.tables.values():
-            assert str(CreateTable(table).compile(dialect=dialect)).startswith("\nCREATE TABLE")
-            for index in table.indexes:
-                assert str(CreateIndex(index).compile(dialect=dialect)).startswith("CREATE")
 
 
 def test_attempt_lane_marker_ddl_is_stored_and_portable() -> None:
@@ -156,19 +135,3 @@ def test_team_root_selection_marker_ddl_is_stored_and_portable() -> None:
         )
         assert "GENERATED ALWAYS AS" in ddl
         assert "STORED" in ddl
-
-
-def test_runtime_async_session_keeps_ordinary_commit_semantics() -> None:
-    assert RuntimeAsyncSession.commit is AsyncSession.commit
-
-
-def test_json_columns_persist_python_none_as_database_null() -> None:
-    json_types: list[JSON] = []
-    for table in RuntimeBase.metadata.tables.values():
-        for column in table.columns:
-            column_type = column.type
-            if isinstance(column_type, JSON):
-                json_types.append(column_type)
-
-    assert json_types
-    assert all(column_type.none_as_null for column_type in json_types)

@@ -98,7 +98,7 @@ class NodeOperationDescriptor:
     name: NodeOperationName
     request_model: type[BaseModel]
     success_model: type[BaseModel]
-    requires_direct_team: bool
+    is_direct_team_required: bool
     required_capability: NodeOperationCapability | None
     mutation_kind: NodeOperationMutationKind
     title: str

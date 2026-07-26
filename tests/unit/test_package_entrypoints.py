@@ -19,7 +19,7 @@ from banksia.interfaces.cli.main import main
 from banksia.main import app, create_app
 from banksia.platform.managed_services.resources import get_managed_service_resources_root
 from banksia.workflows.bootstrap import STARTER_WORKFLOW_FILENAMES
-from scripts.testing.verify_installed_distribution import validate_external_workspace
+from scripts.testing.installed_distribution.processes import validate_external_workspace
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPO_ROOT / "src"

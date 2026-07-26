@@ -47,6 +47,26 @@ class CommandRunRunningResult:
     due_at: datetime | None
 
 
+@dataclass(frozen=True, slots=True)
+class _CommandOutputTerminalFacts:
+    observed_bytes: int
+    written_bytes: int
+    is_complete: bool
+    should_persist: bool
+
+
+@dataclass(frozen=True, slots=True)
+class _CommandTerminalTransition:
+    state: CommandRunState
+    event_type: TaskEventType
+    summary: str
+    ended_at: datetime
+    exit_code: int | None
+    failure_code: str | None
+    actor_ref: str | None
+    output: _CommandOutputTerminalFacts
+
+
 async def claim_command_run_launch(
     session: AsyncSession,
     *,
@@ -183,7 +203,7 @@ async def terminalize_command_run(
     actor_ref: str | None = None,
     output_observed_bytes: int | None = None,
     output_written_bytes: int | None = None,
-    output_complete: bool | None = None,
+    is_output_complete: bool | None = None,
 ) -> bool:
     """Commit one exact terminal winner and clear only its matching Attempt wait."""
 
@@ -198,22 +218,30 @@ async def terminalize_command_run(
     if source is None or (should_match_due_at and source.due_at != expected_due_at):
         return False
     source_state = CommandRunState(source.state)
+    output = _resolve_terminal_output_facts(
+        source,
+        output_observed_bytes=output_observed_bytes,
+        output_written_bytes=output_written_bytes,
+        is_output_complete=is_output_complete,
+    )
+    transition = _CommandTerminalTransition(
+        state=terminal_state,
+        event_type=event_type,
+        summary=summary,
+        ended_at=ended_at,
+        exit_code=exit_code,
+        failure_code=failure_code,
+        actor_ref=actor_ref,
+        output=output,
+    )
     if not await _persist_terminal_state(
         session,
         source=source,
         expected_ownership_revision=expected_ownership_revision,
         expected_states=expected_states,
-        terminal_state=terminal_state,
-        summary=summary,
-        ended_at=ended_at,
-        exit_code=exit_code,
-        failure_code=failure_code,
         expected_due_at=expected_due_at,
         should_match_due_at=should_match_due_at,
-        actor_ref=actor_ref,
-        output_observed_bytes=output_observed_bytes,
-        output_written_bytes=output_written_bytes,
-        output_complete=output_complete,
+        transition=transition,
     ):
         await session.rollback()
         return False
@@ -231,22 +259,9 @@ async def terminalize_command_run(
     await _append_terminal_event(
         session,
         source=source,
-        event_type=event_type,
         event_source=event_source,
-        terminal_state=terminal_state,
-        summary=summary,
-        ended_at=ended_at,
-        exit_code=exit_code,
-        failure_code=failure_code,
         expected_ownership_revision=expected_ownership_revision,
-        actor_ref=actor_ref,
-        output_observed_bytes=(
-            source.output_observed_bytes if output_observed_bytes is None else output_observed_bytes
-        ),
-        output_written_bytes=(
-            source.output_written_bytes if output_written_bytes is None else output_written_bytes
-        ),
-        output_complete=(source.output_complete if output_complete is None else output_complete),
+        transition=transition,
     )
     await session.commit()
     return True
@@ -304,17 +319,9 @@ async def _persist_terminal_state(
     source: CommandRunModel,
     expected_ownership_revision: int,
     expected_states: tuple[CommandRunState, ...],
-    terminal_state: CommandRunState,
-    summary: str,
-    ended_at: datetime,
-    exit_code: int | None,
-    failure_code: str | None,
     expected_due_at: datetime | None,
     should_match_due_at: bool,
-    actor_ref: str | None,
-    output_observed_bytes: int | None,
-    output_written_bytes: int | None,
-    output_complete: bool | None,
+    transition: _CommandTerminalTransition,
 ) -> bool:
     predicates = [
         CommandRunModel.task_id == source.task_id,
@@ -324,39 +331,65 @@ async def _persist_terminal_state(
     ]
     if should_match_due_at:
         predicates.append(CommandRunModel.due_at == expected_due_at)
-    output_values: dict[str, object] = {}
-    if output_observed_bytes is not None:
-        if output_written_bytes is None or output_complete is None:
-            raise ValueError("command output terminal facts must be supplied together")
-        if output_written_bytes > output_observed_bytes:
-            raise ValueError("command output written bytes cannot exceed observed bytes")
-        if output_complete and output_written_bytes != output_observed_bytes:
-            raise ValueError("complete command output requires every observed byte to be written")
-        output_values = {
-            "output_observed_bytes": output_observed_bytes,
-            "output_written_bytes": output_written_bytes,
-            "output_complete": output_complete,
-        }
-    elif output_written_bytes is not None or output_complete is not None:
-        raise ValueError("command output terminal facts must be supplied together")
-
     won_run_id = await session.scalar(
         update(CommandRunModel)
         .where(*predicates)
         .values(
-            state=terminal_state.value,
-            ended_at=ended_at,
-            terminal_summary=summary,
-            terminal_exit_code=exit_code,
-            terminal_failure_code=failure_code,
+            state=transition.state.value,
+            ended_at=transition.ended_at,
+            terminal_summary=transition.summary,
+            terminal_exit_code=transition.exit_code,
+            terminal_failure_code=transition.failure_code,
             terminal_event_source="process_owner",
-            terminal_actor_ref=actor_ref,
+            terminal_actor_ref=transition.actor_ref,
             process_metadata_json=None,
-            **output_values,
+            **_terminal_output_values(transition.output),
         )
         .returning(CommandRunModel.run_id)
     )
     return won_run_id is not None
+
+
+def _resolve_terminal_output_facts(
+    source: CommandRunModel,
+    *,
+    output_observed_bytes: int | None,
+    output_written_bytes: int | None,
+    is_output_complete: bool | None,
+) -> _CommandOutputTerminalFacts:
+    if (
+        output_observed_bytes is None
+        and output_written_bytes is None
+        and is_output_complete is None
+    ):
+        return _CommandOutputTerminalFacts(
+            observed_bytes=source.output_observed_bytes,
+            written_bytes=source.output_written_bytes,
+            is_complete=source.output_complete,
+            should_persist=False,
+        )
+    if output_observed_bytes is None or output_written_bytes is None or is_output_complete is None:
+        raise ValueError("command output terminal facts must be supplied together")
+    if output_written_bytes > output_observed_bytes:
+        raise ValueError("command output written bytes cannot exceed observed bytes")
+    if is_output_complete and output_written_bytes != output_observed_bytes:
+        raise ValueError("complete command output requires every observed byte to be written")
+    return _CommandOutputTerminalFacts(
+        observed_bytes=output_observed_bytes,
+        written_bytes=output_written_bytes,
+        is_complete=is_output_complete,
+        should_persist=True,
+    )
+
+
+def _terminal_output_values(output: _CommandOutputTerminalFacts) -> dict[str, object]:
+    if not output.should_persist:
+        return {}
+    return {
+        "output_observed_bytes": output.observed_bytes,
+        "output_written_bytes": output.written_bytes,
+        "output_complete": output.is_complete,
+    }
 
 
 async def _clear_matching_attempt_wait(
@@ -462,42 +495,33 @@ async def _append_terminal_event(
     session: AsyncSession,
     *,
     source: CommandRunModel,
-    event_type: TaskEventType,
     event_source: TaskEventSource,
-    terminal_state: CommandRunState,
-    summary: str,
-    ended_at: datetime,
-    exit_code: int | None,
-    failure_code: str | None,
     expected_ownership_revision: int,
-    actor_ref: str | None,
-    output_observed_bytes: int,
-    output_written_bytes: int,
-    output_complete: bool,
+    transition: _CommandTerminalTransition,
 ) -> None:
     await append_task_event(
         session,
         task_id=source.task_id,
-        event_type=event_type,
+        event_type=transition.event_type,
         event_source=event_source,
-        occurred_at=ended_at,
+        occurred_at=transition.ended_at,
         dispatch_id=source.source_dispatch_id,
         attempt_id=source.attempt_id,
-        actor_ref=actor_ref,
+        actor_ref=transition.actor_ref,
         payload={
             "run_id": source.run_id,
             "source_dispatch_id": source.source_dispatch_id,
-            "state": terminal_state.value,
-            "summary": summary,
+            "state": transition.state.value,
+            "summary": transition.summary,
             "started_at": source.started_at,
-            "ended_at": ended_at,
-            "exit_code": exit_code,
-            "failure_code": failure_code,
+            "ended_at": transition.ended_at,
+            "exit_code": transition.exit_code,
+            "failure_code": transition.failure_code,
             "ownership_revision": expected_ownership_revision,
             "output_path": source.output_path,
-            "output_observed_bytes": output_observed_bytes,
-            "output_written_bytes": output_written_bytes,
-            "output_complete": output_complete,
+            "output_observed_bytes": transition.output.observed_bytes,
+            "output_written_bytes": transition.output.written_bytes,
+            "output_complete": transition.output.is_complete,
         },
     )
 

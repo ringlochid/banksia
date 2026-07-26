@@ -66,60 +66,33 @@ async def commit_checkpoint(
     outcome = request.outcome.value if request.outcome is not None else None
     if outcome == "green":
         await _require_current_direct_child_participation(session, authority)
-
-    now = utc_now()
+    recorded_at = utc_now()
     checkpoint_id = f"checkpoint.{authority.task_id}.{uuid4().hex}"
     boundary_id = f"accepted-boundary.{authority.dispatch_id}"
-    prepared_retry: PreparedSemanticRetry | None = None
-    if outcome == "retry":
-        if dispatch_opening_dependencies is None:
-            raise RuntimeOperationError(
-                code=OperationFailureCode.INTERNAL_ERROR,
-                summary="semantic retry requires Dispatch opening dependencies",
-                is_retryable=False,
-            )
-        _require_retry_budget(authority)
-        retry_attempt_id = f"attempt.{authority.task_id}.{authority.member_id}.{uuid4().hex}"
-        retry_dispatch_id = f"dispatch.{uuid4().hex}"
-        try:
-            prepared_retry = await prepare_semantic_retry(
-                session,
-                authority,
-                request,
-                files=files,
-                checkpoint_id=checkpoint_id,
-                accepted_boundary_id=boundary_id,
-                retry_attempt_id=retry_attempt_id,
-                retry_dispatch_id=retry_dispatch_id,
-                dependencies=dispatch_opening_dependencies,
-            )
-        except (ProviderResolutionError, ValueError, OSError) as exc:
-            raise RuntimeOperationError(
-                code=OperationFailureCode.ILLEGAL_STATE,
-                summary="semantic retry Dispatch preparation failed",
-                is_retryable=False,
-                suggested_next_step=(
-                    "Repair the current provider route or workflow configuration, "
-                    "then retry the Checkpoint."
-                ),
-            ) from exc
-    checkpoint = AttemptCheckpointModel(
-        checkpoint_id=checkpoint_id,
-        task_id=authority.task_id,
-        assignment_id=authority.assignment_id,
-        attempt_id=authority.attempt_id,
-        authoring_dispatch_id=authority.dispatch_id,
-        outcome=outcome,
-        summary=request.summary,
-        details=request.details,
-        recorded_at=now,
-    )
-    session.add(checkpoint)
-    _stage_file_references(
+    semantic_retry = await _prepare_checkpoint_semantic_retry(
         session,
-        checkpoint_id=checkpoint_id,
+        authority,
+        request,
         files=files,
+        checkpoint_id=checkpoint_id,
+        boundary_id=boundary_id,
+        outcome=outcome,
+        dispatch_opening_dependencies=dispatch_opening_dependencies,
     )
+    session.add(
+        AttemptCheckpointModel(
+            checkpoint_id=checkpoint_id,
+            task_id=authority.task_id,
+            assignment_id=authority.assignment_id,
+            attempt_id=authority.attempt_id,
+            authoring_dispatch_id=authority.dispatch_id,
+            outcome=outcome,
+            summary=request.summary,
+            details=request.details,
+            recorded_at=recorded_at,
+        )
+    )
+    _stage_file_references(session, checkpoint_id=checkpoint_id, files=files)
     await _advance_latest_checkpoint(
         session,
         authority,
@@ -132,42 +105,102 @@ async def commit_checkpoint(
         checkpoint_id=checkpoint_id,
         request=request,
         files=files,
-        occurred_at=now,
+        occurred_at=recorded_at,
     )
-
-    terminal = outcome is not None
-    settled_wave_id: str | None = None
-    if terminal:
-        assert outcome is not None
-        settled_wave_id = await _commit_terminal_boundary(
+    settled_wave_id = None
+    if outcome is not None:
+        settled_wave_id = await _stage_terminal_boundary(
             session,
             authority,
             checkpoint_id=checkpoint_id,
             boundary_id=boundary_id,
             outcome=outcome,
-            transitioned_at=now,
-            prepared_retry=prepared_retry,
+            transitioned_at=recorded_at,
+            prepared_retry=semantic_retry,
         )
     try:
         await session.commit()
     except IntegrityError as exc:
         await session.rollback()
         raise _checkpoint_conflict("another operation won the exact Checkpoint transition") from exc
+    return _checkpoint_commit_result(
+        request,
+        recorded_at=recorded_at,
+        terminal=outcome is not None,
+        semantic_retry=semantic_retry,
+        settled_wave_id=settled_wave_id,
+    )
+
+
+async def _prepare_checkpoint_semantic_retry(
+    session: AsyncSession,
+    authority: NodeOperationAuthority,
+    request: CheckpointRequest,
+    *,
+    files: tuple[FileReference, ...],
+    checkpoint_id: str,
+    boundary_id: str,
+    outcome: str | None,
+    dispatch_opening_dependencies: DispatchOpeningDependencies | None,
+) -> PreparedSemanticRetry | None:
+    if outcome != "retry":
+        return None
+    if dispatch_opening_dependencies is None:
+        raise RuntimeOperationError(
+            code=OperationFailureCode.INTERNAL_ERROR,
+            summary="semantic retry requires Dispatch opening dependencies",
+            is_retryable=False,
+        )
+    _require_retry_budget(authority)
+    retry_attempt_id = f"attempt.{authority.task_id}.{authority.member_id}.{uuid4().hex}"
+    retry_dispatch_id = f"dispatch.{uuid4().hex}"
+    try:
+        return await prepare_semantic_retry(
+            session,
+            authority,
+            request,
+            files=files,
+            checkpoint_id=checkpoint_id,
+            accepted_boundary_id=boundary_id,
+            retry_attempt_id=retry_attempt_id,
+            retry_dispatch_id=retry_dispatch_id,
+            dependencies=dispatch_opening_dependencies,
+        )
+    except (ProviderResolutionError, ValueError, OSError) as exc:
+        raise RuntimeOperationError(
+            code=OperationFailureCode.ILLEGAL_STATE,
+            summary="semantic retry Dispatch preparation failed",
+            is_retryable=False,
+            suggested_next_step=(
+                "Repair the current provider route or workflow configuration, "
+                "then retry the Checkpoint."
+            ),
+        ) from exc
+
+
+def _checkpoint_commit_result(
+    request: CheckpointRequest,
+    *,
+    recorded_at: datetime,
+    terminal: bool,
+    semantic_retry: PreparedSemanticRetry | None,
+    settled_wave_id: str | None,
+) -> CheckpointResponse | CommittedNodeOperationResult:
     response = CheckpointResponse(
         checkpoint=request,
-        recorded_at=now,
+        recorded_at=recorded_at,
         terminal=terminal,
         must_stop=terminal,
     )
-    if prepared_retry is None and settled_wave_id is None:
+    if semantic_retry is None and settled_wave_id is None:
         return response
     runtime_signals: tuple[RuntimeEffectSignal, ...]
-    if prepared_retry is not None:
+    if semantic_retry is not None:
         runtime_signals = (
             DispatchStartDue(
-                dispatch_id=prepared_retry.request.dispatch_id,
+                dispatch_id=semantic_retry.request.dispatch_id,
                 provider_start_revision=0,
-                due_at=prepared_retry.request.due_at,
+                due_at=semantic_retry.request.due_at,
             ),
         )
     else:
@@ -270,7 +303,7 @@ async def _require_current_direct_child_participation(
         )
 
 
-async def _commit_terminal_boundary(
+async def _stage_terminal_boundary(
     session: AsyncSession,
     authority: NodeOperationAuthority,
     *,
@@ -327,6 +360,24 @@ async def _commit_terminal_boundary(
             basis=prepared_retry.basis,
             prepared=prepared_retry.request,
         )
+    await _append_boundary_accepted_event(
+        session,
+        authority,
+        checkpoint_id=checkpoint_id,
+        outcome=outcome,
+        transitioned_at=transitioned_at,
+    )
+    return settled_wave_id
+
+
+async def _append_boundary_accepted_event(
+    session: AsyncSession,
+    authority: NodeOperationAuthority,
+    *,
+    checkpoint_id: str,
+    outcome: str,
+    transitioned_at: datetime,
+) -> None:
     resulting_task_status = await session.scalar(
         select(TaskModel.status).where(TaskModel.task_id == authority.task_id)
     )
@@ -351,7 +402,6 @@ async def _commit_terminal_boundary(
             "resulting_task_status": resulting_task_status,
         },
     )
-    return settled_wave_id
 
 
 async def _append_checkpoint_event(

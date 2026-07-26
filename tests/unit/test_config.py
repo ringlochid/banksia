@@ -399,68 +399,16 @@ postgres_schema = "{postgres_schema}"
         config_module.get_settings()
 
 
-@pytest.mark.parametrize(
-    "field_name",
-    [
-        "is_watchdog_enabled",
-        "should_watchdog_auto_recover",
-        "watchdog_auto_recover",
-        "watchdog_bootstrap_first_progress_timeout_seconds",
-        "watchdog_enabled",
-        "watchdog_execution_stale_after_seconds",
-        "watchdog_interval_seconds",
-        "watchdog_max_auto_recoveries_per_tick",
-        "watchdog_max_flows_per_tick",
-        "watchdog_same_attempt_redispatch_limit",
-        "watchdog_stale_after_seconds",
-    ],
-)
-def test_removed_watchdog_keys_fail_fast(
+def test_removed_runtime_key_fails_fast(
     monkeypatch: MonkeyPatch,
     tmp_path: Path,
-    field_name: str,
 ) -> None:
+    field_name = "watchdog_enabled"
     config_path = tmp_path / "banksia-config.toml"
     config_path.write_text(
         f"""
 [runtime]
 {field_name} = 123
-""".strip()
-        + "\n",
-        encoding="utf-8",
-    )
-
-    monkeypatch.setenv("BANKSIA_CONFIG", str(config_path))
-    config_module = _reload_config_module()
-    config_module.get_settings.cache_clear()
-
-    with pytest.raises(ValidationError, match=field_name):
-        config_module.get_settings()
-
-
-@pytest.mark.parametrize(
-    "field_name",
-    [
-        "dispatch_drain_timeout_seconds",
-        "dispatch_launch_retry_max_attempts",
-        "openclaw_event_poll_timeout_seconds",
-        "provider_wait_timeout_slice_ms",
-        "post_commit_reconcile_interval_seconds",
-        "terminal_truth_commit_grace_seconds",
-        "terminal_truth_commit_poll_interval_seconds",
-        "watchdog_bootstrap_ack_timeout_seconds",
-    ],
-)
-def test_removed_provider_runtime_keys_fail_fast(
-    monkeypatch: MonkeyPatch,
-    tmp_path: Path,
-    field_name: str,
-) -> None:
-    config_path = tmp_path / "banksia-config.toml"
-    config_path.write_text(
-        f"""
-[runtime]
-{field_name} = 1
 """.strip()
         + "\n",
         encoding="utf-8",

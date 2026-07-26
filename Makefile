@@ -169,7 +169,7 @@ check-console:
 package-build: $(PYTHON) console-package-assets
 	rm -rf $(CURDIR)/dist
 	$(PYTHON) -m build
-	PYTHONPATH=$(CURDIR)/src $(PYTHON) scripts/testing/verify_installed_distribution.py \
+	PYTHONPATH=$(CURDIR)/src $(PYTHON) -m scripts.testing.verify_installed_distribution \
 		--dist-dir $(CURDIR)/dist \
 		--artifacts-only
 
@@ -178,7 +178,7 @@ package-verify: package-build
 	workspace=$$(mktemp -d); \
 	cleanup() { rm -rf "$$workspace"; }; \
 	trap cleanup EXIT INT TERM; \
-	PYTHONPATH=$(CURDIR)/src $(PYTHON) scripts/testing/verify_installed_distribution.py \
+	PYTHONPATH=$(CURDIR)/src $(PYTHON) -m scripts.testing.verify_installed_distribution \
 		--dist-dir $(CURDIR)/dist \
 		--workspace "$$workspace"
 

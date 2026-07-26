@@ -231,7 +231,7 @@ async def test_live_elapsed_ignores_cancellation_time_and_failed_attention_links
                 failure_code="process_failed",
                 output_observed_bytes=0,
                 output_written_bytes=0,
-                output_complete=True,
+                is_output_complete=True,
             )
             assert won is True
         async with session_factory() as session:

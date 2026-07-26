@@ -1,0 +1,1 @@
+"""Installed-distribution verification responsibilities."""

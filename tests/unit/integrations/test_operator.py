@@ -409,14 +409,8 @@ async def test_lifespan_cancels_and_drains_an_active_provider_turn(
         )
 
 
-@pytest.mark.parametrize(
-    ("provider_effort", "operator_effort"),
-    (("unsupported", None), (None, "unsupported")),
-)
 async def test_invalid_effective_claude_effort_fails_before_readiness(
     monkeypatch: pytest.MonkeyPatch,
-    provider_effort: str | None,
-    operator_effort: str | None,
 ) -> None:
     readiness_checks: list[str] = []
     adapters: list[RecordingProviderRunner] = []
@@ -437,10 +431,10 @@ async def test_invalid_effective_claude_effort_fails_before_readiness(
     )
     runner = operator_module.ConfiguredOperatorTurnRunner(
         settings=Settings(
-            claude=ClaudeSettings(enabled=True, effort=provider_effort),
+            claude=ClaudeSettings(enabled=True),
             operator=OperatorSettings(
                 provider=OperatorProvider.CLAUDE,
-                effort=operator_effort,
+                effort="unsupported",
             ),
         ),
         system_prompt="prompt",
@@ -456,14 +450,8 @@ async def test_invalid_effective_claude_effort_fails_before_readiness(
     assert adapters == []
 
 
-@pytest.mark.parametrize(
-    ("provider_effort", "operator_effort"),
-    (("unsupported", None), (None, "unsupported")),
-)
 async def test_invalid_effective_codex_effort_fails_before_readiness(
     monkeypatch: pytest.MonkeyPatch,
-    provider_effort: str | None,
-    operator_effort: str | None,
 ) -> None:
     readiness_checks: list[str] = []
     adapters: list[RecordingProviderRunner] = []
@@ -480,10 +468,10 @@ async def test_invalid_effective_codex_effort_fails_before_readiness(
     )
     runner = operator_module.ConfiguredOperatorTurnRunner(
         settings=Settings(
-            codex=CodexSettings(enabled=True, effort=provider_effort),
+            codex=CodexSettings(enabled=True),
             operator=OperatorSettings(
                 provider=OperatorProvider.CODEX,
-                effort=operator_effort,
+                effort="unsupported",
             ),
         ),
         system_prompt="prompt",

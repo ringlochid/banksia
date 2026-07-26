@@ -1,43 +1,28 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import contextmanager
-from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC
 from pathlib import Path
 from threading import Barrier
 from typing import cast
 
-from sqlalchemy import Connection, Engine, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Session, sessionmaker
 
 from banksia.persistence import RuntimeBase
 from banksia.runtime.dispatch import (
     ProviderStartAcceptanceResult,
     accept_provider_start_if_current,
 )
-from tests.helpers.catalog_seed import seed_catalog
-from tests.helpers.lineage_seed import RuntimeIds, seed_runtime_scope
-from tests.helpers.sqlite_runtime import (
-    SyncSessionAdapter,
-    create_runtime_schema_engine,
+from tests.helpers.provider_start import (
+    ACCEPTED_AT,
+    PROVIDER_START_REVISION,
+    START_DUE_AT,
+    StartingDispatchDatabase,
+    starting_dispatch_database,
 )
-
-START_DUE_AT = datetime(2026, 7, 18, 1, tzinfo=UTC)
-ACCEPTED_AT = START_DUE_AT + timedelta(seconds=3)
-PROVIDER_START_REVISION = 7
-
-type SyncSessionFactory = sessionmaker[Session]
-
-
-@dataclass(frozen=True)
-class StartingDispatchDatabase:
-    engine: Engine
-    session_factory: SyncSessionFactory
-    ids: RuntimeIds
+from tests.helpers.sqlite_runtime import SyncSessionAdapter
 
 
 async def test_exact_current_provider_acceptance_opens_once_and_clears_retry_state(
@@ -157,46 +142,6 @@ async def test_boundary_close_before_late_acceptance_wins_without_reopen(
     assert dispatch.closed_reason == "boundary"
     assert dispatch.adapter_started_at is None
     assert attempt_current_dispatch_id is None
-
-
-@contextmanager
-def starting_dispatch_database(
-    tmp_path: Path,
-    *,
-    suffix: str,
-) -> Iterator[StartingDispatchDatabase]:
-    engine = create_runtime_schema_engine(tmp_path, name=f"{suffix}.sqlite")
-    session_factory = sessionmaker(engine, expire_on_commit=False)
-    try:
-        with engine.begin() as connection:
-            seed_catalog(connection)
-            ids = seed_runtime_scope(connection, suffix=suffix)
-            _prepare_starting_dispatch(connection, ids)
-        yield StartingDispatchDatabase(
-            engine=engine,
-            session_factory=session_factory,
-            ids=ids,
-        )
-    finally:
-        engine.dispose()
-
-
-def _prepare_starting_dispatch(connection: Connection, ids: RuntimeIds) -> None:
-    dispatches = RuntimeBase.metadata.tables["dispatch_turns"]
-    connection.execute(
-        dispatches.update()
-        .where(dispatches.c.dispatch_id == ids.current_dispatch_id)
-        .values(
-            status="starting",
-            provider_start_revision=PROVIDER_START_REVISION,
-            provider_start_attempt_count=3,
-            next_provider_start_at=START_DUE_AT,
-            provider_start_retry_kind="uncertain_acceptance",
-            provider_start_last_error_code="provider_timeout",
-            adapter_started_at=None,
-            last_node_activity_at=None,
-        )
-    )
 
 
 async def _accept_start(

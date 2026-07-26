@@ -9,13 +9,11 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any, cast
 
-from openai_codex import CodexConfig, InvalidRequestError
+from openai_codex import InvalidRequestError
 from openai_codex.client import CodexClient
 from openai_codex.generated.v2_all import (
     AgentMessageThreadItem,
-    ConfigReadResponse,
     ItemCompletedNotification,
-    ListMcpServerStatusResponse,
     MessagePhase,
     ThreadItem,
     TurnCompletedNotification,
@@ -25,6 +23,16 @@ from openai_codex.models import JsonObject
 from pydantic import ValidationError
 
 from banksia.integrations.codex.dynamic_tools import CodexDynamicToolBridge
+from banksia.integrations.codex.isolation import (
+    CodexIsolationError,
+    CodexOperatorThreadResponse,
+    CodexServerRequestHandler,
+    build_codex_client,
+    build_codex_operator_isolation_config,
+    read_codex_ambient_state,
+    require_codex_inert_mcp_isolation,
+    require_codex_operator_thread_isolation,
+)
 from banksia.operator.contracts import OPERATOR_PROVIDER_RESULT_ADAPTER
 from banksia.operator.provider import (
     OperatorMessageTurnInput,
@@ -36,33 +44,19 @@ from banksia.operator.provider import (
     OperatorTurnRequest,
 )
 from banksia.operator.tools import OperatorTool, OperatorToolName
-from banksia.platform.provider_environment import provider_subprocess_environment_overrides
 
 PINNED_CODEX_VERSION = "0.144.4"
-_CONFIG_READ_METHOD = "config/read"
-_MCP_STATUS_METHOD = "mcpServerStatus/list"
 _THREAD_UNAVAILABLE_MARKERS = (
     "invalid thread id:",
     "no rollout found for thread id",
     "thread not found:",
-)
-_DISABLED_CODEX_FEATURES = frozenset(
-    """
-    apps artifact auth_elicitation code_mode code_mode_host current_time_reminder
-    code_mode_only default_mode_request_user_input deferred_executor enable_mcp_apps
-    goals hooks image_generation memories multi_agent multi_agent_v2 plugins
-    request_permissions_tool shell_tool skill_mcp_dependency_install
-    standalone_web_search token_budget tool_call_mcp_elicitation tool_suggest
-    unified_exec web_search_cached web_search_request
-    """.split()
 )
 # Named values in the pinned Rust protocol; its generated Python enum is open-ended.
 _CODEX_OPERATOR_EFFORTS = frozenset(
     {"none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"}
 )
 
-type _ServerRequestHandler = Callable[[str, JsonObject | None], JsonObject]
-type _CodexClientFactory = Callable[[_ServerRequestHandler], CodexClient]
+type _CodexClientFactory = Callable[[CodexServerRequestHandler], CodexClient]
 
 
 class _CodexTurnIdentity:
@@ -104,7 +98,7 @@ class CodexOperatorTurnRunner:
         self._system_prompt = system_prompt
         self._tools = operator_tools
         self._configured_status = status
-        self._client_factory = client_factory or _build_codex_client
+        self._client_factory = client_factory or build_codex_client
         self._installed_versions = _installed_codex_versions()
 
     @property
@@ -161,6 +155,8 @@ class CodexOperatorTurnRunner:
             raise
         except (OperatorProviderThreadUnavailableError, OperatorProviderUnavailableError):
             raise
+        except CodexIsolationError as exc:
+            raise OperatorProviderUnavailableError(str(exc)) from exc
         except Exception as exc:
             raise OperatorProviderUnavailableError(
                 "Codex could not complete the Operator turn"
@@ -196,7 +192,11 @@ class CodexOperatorTurnRunner:
 
         with tempfile.TemporaryDirectory(prefix="banksia-operator-codex-") as directory:
             working_directory = Path(directory)
-            isolation_config = _build_isolation_config(client, working_directory)
+            ambient = read_codex_ambient_state(client, working_directory)
+            isolation_config = build_codex_operator_isolation_config(
+                ambient,
+                workspace=working_directory,
+            )
             thread_id, thread_response = self._start_or_resume_thread(
                 client,
                 request=request,
@@ -204,11 +204,12 @@ class CodexOperatorTurnRunner:
                 isolation_config=isolation_config,
             )
             turn_identity.set_thread_id(thread_id)
-            if getattr(thread_response, "instruction_sources", None):
-                raise OperatorProviderUnavailableError(
-                    "Codex loaded an external Operator instruction source"
-                )
-            _require_inert_mcp_surface(client, thread_id)
+            require_codex_operator_thread_isolation(
+                thread_response,
+                expected_model=request.model,
+                workspace=working_directory,
+            )
+            require_codex_inert_mcp_isolation(client, thread_id=thread_id)
 
             turn_params: JsonObject = {
                 "approvalPolicy": "never",
@@ -237,7 +238,7 @@ class CodexOperatorTurnRunner:
         request: OperatorTurnRequest,
         working_directory: Path,
         isolation_config: JsonObject,
-    ) -> tuple[str, object]:
+    ) -> tuple[str, CodexOperatorThreadResponse]:
         common: JsonObject = {
             "approvalPolicy": "never",
             "approvalsReviewer": "user",
@@ -259,7 +260,11 @@ class CodexOperatorTurnRunner:
                 "ephemeral": False,
                 "selectedCapabilityRoots": [],
             }
-            start_response = client.thread_start(start_params)
+            start_response = client.request(
+                "thread/start",
+                start_params,
+                response_model=CodexOperatorThreadResponse,
+            )
             thread_id = start_response.thread.id
             if not isinstance(thread_id, str) or not thread_id.strip():
                 raise OperatorProviderUnavailableError("Codex returned no Operator thread identity")
@@ -268,9 +273,14 @@ class CodexOperatorTurnRunner:
         resume_params: JsonObject = {
             **common,
             "excludeTurns": True,
+            "threadId": request.provider_thread_id,
         }
         try:
-            resume_response = client.thread_resume(request.provider_thread_id, resume_params)
+            resume_response = client.request(
+                "thread/resume",
+                resume_params,
+                response_model=CodexOperatorThreadResponse,
+            )
         except InvalidRequestError as exc:
             if _reports_thread_unavailable(exc):
                 raise OperatorProviderThreadUnavailableError() from exc
@@ -287,77 +297,6 @@ def resolve_codex_operator_effort(value: str | None) -> str | None:
     if value not in _CODEX_OPERATOR_EFFORTS:
         raise OperatorProviderUnavailableError("Codex Operator effort is not supported")
     return value
-
-
-def _build_isolation_config(
-    client: CodexClient,
-    working_directory: Path,
-) -> JsonObject:
-    response = client.request(
-        _CONFIG_READ_METHOD,
-        {"cwd": str(working_directory), "includeLayers": False},
-        response_model=ConfigReadResponse,
-    )
-    effective = response.config.model_dump(mode="json", by_alias=True, exclude_none=True)
-    configured_mcp = effective.get("mcp_servers", {})
-    if not isinstance(configured_mcp, dict) or not all(
-        isinstance(name, str) and name for name in configured_mcp
-    ):
-        raise OperatorProviderUnavailableError("Codex returned an invalid MCP configuration")
-
-    return {
-        "allow_login_shell": False,
-        "apps": {"_default": {"enabled": False}},
-        "check_for_update_on_startup": False,
-        "features": {feature: False for feature in _DISABLED_CODEX_FEATURES},
-        "include_apps_instructions": False,
-        "include_collaboration_mode_instructions": False,
-        "include_environment_context": False,
-        "include_permissions_instructions": False,
-        "mcp_servers": {name: {"enabled": False} for name in configured_mcp},
-        "notify": [],
-        "orchestrator": {
-            "mcp": {"enabled": False},
-            "skills": {"enabled": False},
-        },
-        "skills": {"include_instructions": False},
-        "tools": {"experimental_request_user_input": {"enabled": False}},
-        "web_search": "disabled",
-    }
-
-
-def _require_inert_mcp_surface(client: CodexClient, thread_id: str) -> None:
-    cursor: str | None = None
-    seen_cursors: set[str] = set()
-    while True:
-        params: JsonObject = {
-            "detail": "full",
-            "limit": 100,
-            "threadId": thread_id,
-        }
-        if cursor is not None:
-            params["cursor"] = cursor
-        response = client.request(
-            _MCP_STATUS_METHOD,
-            params,
-            response_model=ListMcpServerStatusResponse,
-        )
-        for server in response.data:
-            if (
-                server.tools
-                or server.resources
-                or server.resource_templates
-                or server.server_info is not None
-            ):
-                raise OperatorProviderUnavailableError(
-                    "Codex exposed an external MCP surface to Operator"
-                )
-        cursor = response.next_cursor
-        if cursor is None:
-            return
-        if cursor in seen_cursors:
-            raise OperatorProviderUnavailableError("Codex returned an invalid MCP status page")
-        seen_cursors.add(cursor)
 
 
 def _read_terminal_result(
@@ -544,16 +483,6 @@ async def _drain_background_task(
     except BaseException:
         pass
     return cancellation
-
-
-def _build_codex_client(handler: _ServerRequestHandler) -> CodexClient:
-    return CodexClient(
-        CodexConfig(
-            env=provider_subprocess_environment_overrides(),
-            experimental_api=True,
-        ),
-        approval_handler=handler,
-    )
 
 
 def _installed_codex_versions() -> tuple[str | None, str | None]:

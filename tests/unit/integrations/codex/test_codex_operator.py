@@ -1,26 +1,10 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Callable
-from pathlib import Path
-from types import SimpleNamespace
-from typing import Any, NotRequired, TypedDict, Unpack, cast
+from typing import Any, cast
 
 import pytest
 from openai_codex import InvalidRequestError
-from openai_codex.client import CodexClient
-from openai_codex.generated.v2_all import (
-    AgentMessageThreadItem,
-    ConfigReadResponse,
-    ItemCompletedNotification,
-    MessagePhase,
-    ThreadItem,
-    Turn,
-    TurnCompletedNotification,
-    TurnStatus,
-)
-from openai_codex.models import JsonObject, Notification
-from pydantic import BaseModel, ConfigDict
 
 from banksia.integrations.codex import operator as codex_operator
 from banksia.integrations.codex.operator import (
@@ -28,264 +12,31 @@ from banksia.integrations.codex.operator import (
     CodexOperatorTurnRunner,
     resolve_codex_operator_effort,
 )
-from banksia.operator.contracts import (
-    MAX_OPERATOR_TEXT_BYTES,
-    OperatorAvailability,
-)
+from banksia.operator.contracts import MAX_OPERATOR_TEXT_BYTES
 from banksia.operator.provider import (
     OperatorAcceptedCustomAnswer,
     OperatorAcceptedOptionAnswer,
     OperatorAnsweredQuestion,
-    OperatorMessageTurnInput,
     OperatorProviderThreadUnavailableError,
     OperatorProviderUnavailableError,
     OperatorQuestionAnswersTurnInput,
-    OperatorRunnerStatus,
-    OperatorTurnRequest,
 )
-from banksia.operator.tools import OperatorTool, OperatorToolName
-from banksia.operator.tools.contracts import MAX_OPERATOR_TOOL_RESULT_UTF16_CODE_UNITS
-
-
-class _ToolInput(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    value: str
-
-
-class _ToolResult(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    echo: str
-
-
-class _FakeClientOptions(TypedDict):
-    output: NotRequired[object]
-    thread_id: NotRequired[str]
-    resumed_thread_id: NotRequired[str | None]
-    configured_mcp: NotRequired[tuple[str, ...]]
-    active_mcp: NotRequired[tuple[object, ...]]
-    server_requests: NotRequired[tuple[tuple[str, JsonObject | None], ...]]
-    resume_error: NotRequired[Exception | None]
-
-
-class _FakeCodexClient:
-    def __init__(
-        self,
-        handler: Callable[[str, JsonObject | None], JsonObject],
-        *,
-        output: object = None,
-        thread_id: str = "codex-thread-1",
-        resumed_thread_id: str | None = None,
-        configured_mcp: tuple[str, ...] = ("external_docs",),
-        active_mcp: tuple[object, ...] = (),
-        server_requests: tuple[tuple[str, JsonObject | None], ...] = (),
-        resume_error: Exception | None = None,
-    ) -> None:
-        self.handler = handler
-        self.output = output if output is not None else {"kind": "message", "text": "Done."}
-        self.thread_id = thread_id
-        self.resumed_thread_id = resumed_thread_id or thread_id
-        self.configured_mcp = configured_mcp
-        self.active_mcp = active_mcp
-        self.server_requests = server_requests
-        self.resume_error = resume_error
-        self.server_results: list[JsonObject] = []
-        self.thread_start_params: list[JsonObject] = []
-        self.thread_resume_params: list[tuple[str, JsonObject]] = []
-        self.turn_start_calls: list[tuple[str, str, JsonObject]] = []
-        self.unregistered_turns: list[str] = []
-        self.was_started = False
-        self.was_initialized = False
-        self.was_closed = False
-        self.cwd_existed_at_start = False
-        self.notifications: list[Notification] = []
-
-    def start(self) -> None:
-        self.was_started = True
-
-    def initialize(self) -> object:
-        self.was_initialized = True
-        return object()
-
-    def request(
-        self,
-        method: str,
-        params: JsonObject | None,
-        *,
-        response_model: type[BaseModel],
-    ) -> Any:
-        del response_model
-        if method == "config/read":
-            return ConfigReadResponse.model_validate(
-                {
-                    "config": {
-                        "mcp_servers": {name: {"enabled": True} for name in self.configured_mcp}
-                    },
-                    "origins": {},
-                }
-            )
-        if method == "mcpServerStatus/list":
-            return SimpleNamespace(data=list(self.active_mcp), next_cursor=None)
-        raise AssertionError(f"unexpected request method: {method}")
-
-    def thread_start(self, params: JsonObject) -> object:
-        self.thread_start_params.append(params)
-        cwd = params.get("cwd")
-        self.cwd_existed_at_start = isinstance(cwd, str) and Path(cwd).is_dir()
-        return SimpleNamespace(thread=SimpleNamespace(id=self.thread_id), instruction_sources=[])
-
-    def thread_resume(self, thread_id: str, params: JsonObject) -> object:
-        self.thread_resume_params.append((thread_id, params))
-        if self.resume_error is not None:
-            raise self.resume_error
-        return SimpleNamespace(
-            thread=SimpleNamespace(id=self.resumed_thread_id), instruction_sources=[]
-        )
-
-    def turn_start(
-        self,
-        thread_id: str,
-        input_items: str,
-        params: JsonObject,
-    ) -> object:
-        self.turn_start_calls.append((thread_id, input_items, params))
-        for method, request_params in self.server_requests:
-            self.server_results.append(self.handler(method, request_params))
-        turn_id = "codex-turn-1"
-        self.notifications = _terminal_notifications(
-            thread_id=thread_id,
-            turn_id=turn_id,
-            output=self.output,
-        )
-        return SimpleNamespace(turn=SimpleNamespace(id=turn_id))
-
-    def next_turn_notification(self, turn_id: str) -> Notification:
-        if not self.notifications:
-            raise AssertionError(f"no notification available for {turn_id}")
-        return self.notifications.pop(0)
-
-    def unregister_turn_notifications(self, turn_id: str) -> None:
-        self.unregistered_turns.append(turn_id)
-
-    def close(self) -> None:
-        self.was_closed = True
-
-
-class _ClientFactory:
-    def __init__(self, **client_options: Unpack[_FakeClientOptions]) -> None:
-        self.client_options = client_options
-        self.clients: list[_FakeCodexClient] = []
-
-    def __call__(
-        self,
-        handler: Callable[[str, JsonObject | None], JsonObject],
-    ) -> CodexClient:
-        client = _FakeCodexClient(handler, **self.client_options)
-        self.clients.append(client)
-        return cast(CodexClient, client)
-
-
-def _terminal_notifications(
-    *,
-    thread_id: str,
-    turn_id: str,
-    output: object,
-) -> list[Notification]:
-    rendered = (
-        output if isinstance(output, str) else json.dumps({"result": output}, separators=(",", ":"))
-    )
-    item = ThreadItem(
-        root=AgentMessageThreadItem(
-            id="agent-message-1",
-            type="agentMessage",
-            phase=MessagePhase.final_answer,
-            text=rendered,
-        )
-    )
-    return [
-        Notification(
-            method="item/completed",
-            payload=ItemCompletedNotification(
-                completed_at_ms=1,
-                item=item,
-                thread_id=thread_id,
-                turn_id=turn_id,
-            ),
-        ),
-        Notification(
-            method="turn/completed",
-            payload=TurnCompletedNotification(
-                thread_id=thread_id,
-                turn=Turn(id=turn_id, items=[], status=TurnStatus.completed),
-            ),
-        ),
-    ]
-
-
-def _status(*, availability: OperatorAvailability = "available") -> OperatorRunnerStatus:
-    return OperatorRunnerStatus(
-        availability=availability,
-        configured_provider="codex",
-        explanation="Operator is available through Codex.",
-        model="gpt-5.3-codex",
-        effort="high",
-    )
-
-
-def _tools(
-    calls: list[tuple[OperatorToolName, str]] | None = None,
-) -> tuple[OperatorTool, ...]:
-    def build_handler(tool_name: OperatorToolName) -> Callable[[BaseModel], Any]:
-        async def handle(request: BaseModel) -> BaseModel:
-            typed_request = _ToolInput.model_validate(request)
-            if calls is not None:
-                calls.append((tool_name, typed_request.value))
-            if typed_request.value == "raise-secret":
-                raise RuntimeError("private tool failure")
-            if typed_request.value == "oversize":
-                return _ToolResult(echo="x" * (MAX_OPERATOR_TOOL_RESULT_UTF16_CODE_UNITS + 1))
-            return _ToolResult(echo=typed_request.value)
-
-        return handle
-
-    return tuple(
-        OperatorTool(
-            name=tool_name,
-            description=f"Use the Banksia {tool_name.value} operation.",
-            input_model=_ToolInput,
-            handler=build_handler(tool_name),
-        )
-        for tool_name in OperatorToolName
-    )
-
-
-def _request(
-    *,
-    provider_thread_id: str | None = None,
-    turn_input: OperatorMessageTurnInput | OperatorQuestionAnswersTurnInput | None = None,
-    effort: str | None = "high",
-) -> OperatorTurnRequest:
-    return OperatorTurnRequest(
-        provider="codex",
-        model="gpt-5.3-codex",
-        effort=effort,
-        provider_thread_id=provider_thread_id,
-        input=turn_input or OperatorMessageTurnInput(text="Create a research workflow."),
-    )
-
-
-def _runner(
-    factory: _ClientFactory,
-    *,
-    tools: tuple[OperatorTool, ...] | None = None,
-) -> CodexOperatorTurnRunner:
-    return CodexOperatorTurnRunner(
-        system_prompt="Exact prompt.\nPreserve this whitespace.\n",
-        tools=tools or _tools(),
-        status=_status(),
-        client_factory=factory,
-    )
+from banksia.operator.tools import OperatorToolName
+from tests.unit.integrations.codex.operator_test_support import (
+    ClientFactory as _ClientFactory,
+)
+from tests.unit.integrations.codex.operator_test_support import (
+    request as _request,
+)
+from tests.unit.integrations.codex.operator_test_support import (
+    runner as _runner,
+)
+from tests.unit.integrations.codex.operator_test_support import (
+    status as _status,
+)
+from tests.unit.integrations.codex.operator_test_support import (
+    tools as _tools,
+)
 
 
 @pytest.mark.asyncio
@@ -324,7 +75,16 @@ async def test_codex_operator_uses_pinned_native_envelope_and_isolated_exact_too
     assert all(enabled is False for enabled in isolation["features"].values())
     assert isolation["features"]["code_mode_only"] is False
     assert isolation["features"]["deferred_executor"] is False
-    assert isolation["skills"] == {"include_instructions": False}
+    assert isolation["features"]["remote_plugin"] is False
+    assert isolation["features"]["shell_tool"] is False
+    assert isolation["features"]["unified_exec"] is False
+    assert isolation["project_doc_max_bytes"] == 0
+    assert isolation["projects"] == {cast(str, start["cwd"]): {"trust_level": "untrusted"}}
+    assert isolation["skills"] == {
+        "bundled": {"enabled": False},
+        "config": [{"enabled": False, "path": "/opt/codex/skills/ambient/SKILL.md"}],
+        "include_instructions": False,
+    }
     assert isolation["orchestrator"] == {
         "mcp": {"enabled": False},
         "skills": {"enabled": False},
@@ -399,6 +159,7 @@ async def test_codex_operator_resumes_exact_thread_with_typed_answer_and_ask_res
     assert resume["baseInstructions"] == "Exact prompt.\nPreserve this whitespace.\n"
     assert resume["developerInstructions"] == ""
     assert resume["excludeTurns"] is True
+    assert resume["runtimeWorkspaceRoots"] == []
     assert "dynamicTools" not in resume
     assert client.turn_start_calls[0][2]["environments"] == []
     assert json.loads(client.turn_start_calls[0][1]) == answers.model_dump(mode="json")
@@ -436,7 +197,7 @@ async def test_codex_dynamic_tools_call_one_leaf_once_and_redact_every_failure()
         )
     )
 
-    await _runner(factory, tools=_tools(calls)).execute_turn(_request())
+    await _runner(factory, operator_tools=_tools(calls)).execute_turn(_request())
 
     accepted, invalid, unknown, oversized, failed, approval = factory.clients[0].server_results
     assert calls == [
@@ -460,9 +221,7 @@ async def test_codex_dynamic_tools_call_one_leaf_once_and_redact_every_failure()
 
 @pytest.mark.asyncio
 async def test_codex_operator_fails_closed_on_unknown_server_request() -> None:
-    factory = _ClientFactory(
-        server_requests=(("future/authority/request", {}),),
-    )
+    factory = _ClientFactory(server_requests=(("future/authority/request", {}),))
 
     with pytest.raises(
         OperatorProviderUnavailableError,
@@ -503,29 +262,6 @@ async def test_codex_operator_maps_missing_resume_to_thread_unavailable() -> Non
 
     with pytest.raises(OperatorProviderThreadUnavailableError):
         await _runner(factory).execute_turn(_request(provider_thread_id=thread_id))
-
-    assert factory.clients[0].turn_start_calls == []
-    assert factory.clients[0].was_closed is True
-
-
-@pytest.mark.asyncio
-async def test_codex_operator_fails_before_model_turn_on_external_mcp_surface() -> None:
-    factory = _ClientFactory(
-        active_mcp=(
-            SimpleNamespace(
-                tools={"external": object()},
-                resources=[],
-                resource_templates=[],
-                server_info=object(),
-            ),
-        )
-    )
-
-    with pytest.raises(
-        OperatorProviderUnavailableError,
-        match="external MCP surface",
-    ):
-        await _runner(factory).execute_turn(_request())
 
     assert factory.clients[0].turn_start_calls == []
     assert factory.clients[0].was_closed is True

@@ -33,7 +33,7 @@ _SKILLS_LIST_METHOD = "skills/list"
 
 # These features can add instructions, tools, agents, remote extensions, or
 # provider-owned continuity. Native shell and unified exec intentionally remain.
-_TASK_DISABLED_CODEX_FEATURES = frozenset(
+_MANAGED_DISABLED_CODEX_FEATURES = frozenset(
     """
     apps artifact auth_elicitation browser_use browser_use_external
     browser_use_full_cdp_access chronicle code_mode code_mode_host code_mode_only
@@ -62,7 +62,7 @@ _INSTRUCTION_CONFIG_KEYS = frozenset(
         "model_instructions_file",
     }
 )
-_TASK_PROCESS_SCALAR_OVERRIDES = (
+_PROCESS_ISOLATION_SCALAR_OVERRIDES = (
     "allow_login_shell=false",
     "apps._default.enabled=false",
     "check_for_update_on_startup=false",
@@ -85,8 +85,8 @@ class CodexIsolationError(RuntimeError):
     """The adapter could not prove the required invocation-local surface."""
 
 
-class CodexTaskThreadStartResponse(BaseModel):
-    """Experimental thread/start fields required for pre-turn verification."""
+class _CodexThreadIsolationResponse(BaseModel):
+    """Experimental thread fields required for pre-turn verification."""
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -97,6 +97,14 @@ class CodexTaskThreadStartResponse(BaseModel):
     runtime_workspace_roots: list[AbsolutePathBuf] = Field(alias="runtimeWorkspaceRoots")
     sandbox: SandboxPolicy
     thread: Thread
+
+
+class CodexTaskThreadStartResponse(_CodexThreadIsolationResponse):
+    """Task thread/start readback required for pre-turn verification."""
+
+
+class CodexOperatorThreadResponse(_CodexThreadIsolationResponse):
+    """Operator thread start/resume readback required for pre-turn verification."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -110,7 +118,7 @@ def build_codex_client(handler: CodexServerRequestHandler) -> CodexClient:
 
     return CodexClient(
         CodexConfig(
-            config_overrides=codex_task_process_overrides(),
+            config_overrides=codex_process_isolation_overrides(),
             env=provider_subprocess_environment_overrides(),
             experimental_api=True,
         ),
@@ -118,14 +126,14 @@ def build_codex_client(handler: CodexServerRequestHandler) -> CodexClient:
     )
 
 
-def codex_task_process_overrides() -> tuple[str, ...]:
+def codex_process_isolation_overrides() -> tuple[str, ...]:
     """Return fixed process-start isolation that precedes effective-config readback."""
 
     feature_overrides = (
-        *(f"features.{feature}=false" for feature in sorted(_TASK_DISABLED_CODEX_FEATURES)),
+        *(f"features.{feature}=false" for feature in sorted(_MANAGED_DISABLED_CODEX_FEATURES)),
         *(f"features.{feature}=true" for feature in sorted(_TASK_ENABLED_CODEX_FEATURES)),
     )
-    return (*_TASK_PROCESS_SCALAR_OVERRIDES, *feature_overrides)
+    return (*_PROCESS_ISOLATION_SCALAR_OVERRIDES, *feature_overrides)
 
 
 def read_codex_ambient_state(
@@ -184,7 +192,13 @@ def build_codex_task_isolation_config(
     sandbox_mode: ManagedSandboxMode,
     workspace: Path,
 ) -> JsonObject:
-    mcp_servers: dict[str, object] = {name: {"enabled": False} for name in ambient.mcp_server_names}
+    config = _build_codex_isolation_config(
+        ambient,
+        disabled_features=_MANAGED_DISABLED_CODEX_FEATURES,
+        enabled_features=_TASK_ENABLED_CODEX_FEATURES,
+        workspace=workspace,
+    )
+    mcp_servers = cast(dict[str, object], config["mcp_servers"])
     mcp_servers[MANAGED_NODE_MCP_SERVER_NAME] = {
         "default_tools_approval_mode": "approve",
         "enabled": True,
@@ -193,17 +207,47 @@ def build_codex_task_isolation_config(
         "required": True,
         "url": connection.url,
     }
-    config: dict[str, object] = {
+    if sandbox_mode is ManagedSandboxMode.WORKSPACE_WRITE:
+        config["sandbox_workspace_write"] = {
+            "network_access": network_access is NetworkAccess.ALLOW
+        }
+    return cast(JsonObject, config)
+
+
+def build_codex_operator_isolation_config(
+    ambient: CodexAmbientState,
+    *,
+    workspace: Path,
+) -> JsonObject:
+    config = _build_codex_isolation_config(
+        ambient,
+        disabled_features=_MANAGED_DISABLED_CODEX_FEATURES | _TASK_ENABLED_CODEX_FEATURES,
+        enabled_features=frozenset(),
+        workspace=workspace,
+    )
+    config["include_environment_context"] = False
+    config["include_permissions_instructions"] = False
+    return cast(JsonObject, config)
+
+
+def _build_codex_isolation_config(
+    ambient: CodexAmbientState,
+    *,
+    disabled_features: frozenset[str],
+    enabled_features: frozenset[str],
+    workspace: Path,
+) -> dict[str, object]:
+    return {
         "allow_login_shell": False,
         "apps": {"_default": {"enabled": False}},
         "check_for_update_on_startup": False,
         "features": {
-            **{feature: False for feature in _TASK_DISABLED_CODEX_FEATURES},
-            **{feature: True for feature in _TASK_ENABLED_CODEX_FEATURES},
+            **{feature: False for feature in disabled_features},
+            **{feature: True for feature in enabled_features},
         },
         "include_apps_instructions": False,
         "include_collaboration_mode_instructions": False,
-        "mcp_servers": mcp_servers,
+        "mcp_servers": {name: {"enabled": False} for name in ambient.mcp_server_names},
         "notify": [],
         "orchestrator": {
             "mcp": {"enabled": False},
@@ -219,11 +263,6 @@ def build_codex_task_isolation_config(
         "tools": {"experimental_request_user_input": {"enabled": False}},
         "web_search": "disabled",
     }
-    if sandbox_mode is ManagedSandboxMode.WORKSPACE_WRITE:
-        config["sandbox_workspace_write"] = {
-            "network_access": network_access is NetworkAccess.ALLOW
-        }
-    return cast(JsonObject, config)
 
 
 def require_codex_task_thread_isolation(
@@ -234,34 +273,71 @@ def require_codex_task_thread_isolation(
     sandbox_mode: ManagedSandboxMode,
     workspace: Path,
 ) -> None:
-    if response.instruction_sources:
-        raise CodexIsolationError("Codex loaded an external instruction source")
-    if _canonical_path(response.cwd) != workspace:
-        raise CodexIsolationError("Codex changed the Task working directory")
-    if _canonical_path(response.thread.cwd) != workspace:
-        raise CodexIsolationError("Codex changed the thread working directory")
-    if tuple(_canonical_path(path) for path in response.runtime_workspace_roots) != (workspace,):
-        raise CodexIsolationError("Codex changed the runtime workspace roots")
-    if not response.thread.ephemeral:
-        raise CodexIsolationError("Codex created a persistent Task thread")
-    approval = getattr(response.approval_policy.root, "value", response.approval_policy.root)
-    if approval != "never":
-        raise CodexIsolationError("Codex changed the approval policy")
-    if expected_model is not None and response.model != expected_model:
-        raise CodexIsolationError("Codex changed the requested model")
-
-    sandbox = response.sandbox.root
     expected_type = {
         ManagedSandboxMode.READ_ONLY: "readOnly",
         ManagedSandboxMode.WORKSPACE_WRITE: "workspaceWrite",
         ManagedSandboxMode.FULL_ACCESS: "dangerFullAccess",
     }[sandbox_mode]
-    if getattr(sandbox, "type", None) != expected_type:
-        raise CodexIsolationError("Codex changed the requested sandbox")
+    _require_codex_thread_isolation(
+        response,
+        expected_ephemeral=True,
+        expected_model=expected_model,
+        expected_runtime_roots=(workspace,),
+        expected_sandbox=expected_type,
+        workspace=workspace,
+    )
     if sandbox_mode is ManagedSandboxMode.WORKSPACE_WRITE:
+        sandbox = response.sandbox.root
         expected_network = network_access is NetworkAccess.ALLOW
         if getattr(sandbox, "network_access", None) is not expected_network:
             raise CodexIsolationError("Codex changed workspace network access")
+
+
+def require_codex_operator_thread_isolation(
+    response: CodexOperatorThreadResponse,
+    *,
+    expected_model: str | None,
+    workspace: Path,
+) -> None:
+    _require_codex_thread_isolation(
+        response,
+        expected_ephemeral=False,
+        expected_model=expected_model,
+        expected_runtime_roots=(),
+        expected_sandbox="readOnly",
+        workspace=workspace,
+    )
+
+
+def _require_codex_thread_isolation(
+    response: _CodexThreadIsolationResponse,
+    *,
+    expected_ephemeral: bool,
+    expected_model: str | None,
+    expected_runtime_roots: tuple[Path, ...],
+    expected_sandbox: str,
+    workspace: Path,
+) -> None:
+    if response.instruction_sources:
+        raise CodexIsolationError("Codex loaded an external instruction source")
+    if _canonical_path(response.cwd) != workspace:
+        raise CodexIsolationError("Codex changed the working directory")
+    if _canonical_path(response.thread.cwd) != workspace:
+        raise CodexIsolationError("Codex changed the thread working directory")
+    if (
+        tuple(_canonical_path(path) for path in response.runtime_workspace_roots)
+        != expected_runtime_roots
+    ):
+        raise CodexIsolationError("Codex changed the runtime workspace roots")
+    if response.thread.ephemeral is not expected_ephemeral:
+        raise CodexIsolationError("Codex changed thread persistence")
+    approval = getattr(response.approval_policy.root, "value", response.approval_policy.root)
+    if approval != "never":
+        raise CodexIsolationError("Codex changed the approval policy")
+    if expected_model is not None and response.model != expected_model:
+        raise CodexIsolationError("Codex changed the requested model")
+    if getattr(response.sandbox.root, "type", None) != expected_sandbox:
+        raise CodexIsolationError("Codex changed the requested sandbox")
 
 
 def require_codex_task_mcp_isolation(
@@ -270,6 +346,36 @@ def require_codex_task_mcp_isolation(
     enabled_tools: tuple[str, ...],
     thread_id: str,
 ) -> None:
+    servers = _read_codex_mcp_servers(client, thread_id)
+    active = {name for name, server in servers.items() if _codex_mcp_server_is_active(server)}
+    if active != {MANAGED_NODE_MCP_SERVER_NAME}:
+        raise CodexIsolationError("Codex exposed an inexact MCP server surface")
+    node = servers[MANAGED_NODE_MCP_SERVER_NAME]
+    if (
+        node.server_info is None
+        or set(node.tools) != set(enabled_tools)
+        or node.resources
+        or node.resource_templates
+    ):
+        raise CodexIsolationError("Codex exposed an inexact Banksia Node surface")
+
+
+def require_codex_inert_mcp_isolation(
+    client: CodexClient,
+    *,
+    thread_id: str,
+) -> None:
+    if any(
+        _codex_mcp_server_is_active(server)
+        for server in _read_codex_mcp_servers(client, thread_id).values()
+    ):
+        raise CodexIsolationError("Codex exposed an external MCP surface to Operator")
+
+
+def _read_codex_mcp_servers(
+    client: CodexClient,
+    thread_id: str,
+) -> dict[str, Any]:
     cursor: str | None = None
     seen_cursors: set[str] = set()
     servers: dict[str, Any] = {}
@@ -296,27 +402,16 @@ def require_codex_task_mcp_isolation(
         if cursor in seen_cursors:
             raise CodexIsolationError("Codex returned an invalid MCP status page")
         seen_cursors.add(cursor)
+    return servers
 
-    active = {
-        name
-        for name, server in servers.items()
-        if (
-            server.tools
-            or server.resources
-            or server.resource_templates
-            or server.server_info is not None
-        )
-    }
-    if active != {MANAGED_NODE_MCP_SERVER_NAME}:
-        raise CodexIsolationError("Codex exposed an inexact MCP server surface")
-    node = servers[MANAGED_NODE_MCP_SERVER_NAME]
-    if (
-        node.server_info is None
-        or set(node.tools) != set(enabled_tools)
-        or node.resources
-        or node.resource_templates
-    ):
-        raise CodexIsolationError("Codex exposed an inexact Banksia Node surface")
+
+def _codex_mcp_server_is_active(server: Any) -> bool:
+    return bool(
+        server.tools
+        or server.resources
+        or server.resource_templates
+        or server.server_info is not None
+    )
 
 
 def deny_codex_task_server_request(
@@ -354,13 +449,17 @@ def _path_value(value: object) -> Path:
 __all__ = [
     "CodexAmbientState",
     "CodexIsolationError",
+    "CodexOperatorThreadResponse",
     "CodexServerRequestHandler",
     "CodexTaskThreadStartResponse",
     "build_codex_client",
+    "build_codex_operator_isolation_config",
     "build_codex_task_isolation_config",
-    "codex_task_process_overrides",
+    "codex_process_isolation_overrides",
     "deny_codex_task_server_request",
     "read_codex_ambient_state",
+    "require_codex_inert_mcp_isolation",
+    "require_codex_operator_thread_isolation",
     "require_codex_task_mcp_isolation",
     "require_codex_task_thread_isolation",
 ]

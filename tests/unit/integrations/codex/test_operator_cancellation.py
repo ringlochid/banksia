@@ -80,19 +80,40 @@ class _CancellationCodexClient:
         *,
         response_model: type[BaseModel],
     ) -> Any:
-        del params, response_model
+        del response_model
         if method == "config/read":
             return ConfigReadResponse.model_validate({"config": {"mcp_servers": {}}, "origins": {}})
+        if method == "skills/list":
+            assert params is not None
+            cwd = cast(list[str], params["cwds"])[0]
+            return SimpleNamespace(
+                data=[
+                    SimpleNamespace(
+                        cwd=SimpleNamespace(root=cwd),
+                        errors=[],
+                        skills=[],
+                    )
+                ]
+            )
+        if method == "thread/start":
+            assert params is not None
+            cwd = cast(str, params["cwd"])
+            return SimpleNamespace(
+                approval_policy=SimpleNamespace(root="never"),
+                cwd=SimpleNamespace(root=cwd),
+                instruction_sources=[],
+                model=params["model"],
+                runtime_workspace_roots=[],
+                sandbox=SimpleNamespace(root=SimpleNamespace(type="readOnly")),
+                thread=SimpleNamespace(
+                    cwd=SimpleNamespace(root=cwd),
+                    ephemeral=False,
+                    id="codex-thread-1",
+                ),
+            )
         if method == "mcpServerStatus/list":
             return SimpleNamespace(data=[], next_cursor=None)
         raise AssertionError(f"unexpected request method: {method}")
-
-    def thread_start(self, params: JsonObject) -> object:
-        del params
-        return SimpleNamespace(
-            thread=SimpleNamespace(id="codex-thread-1"),
-            instruction_sources=[],
-        )
 
     def turn_start(
         self,

@@ -10,7 +10,7 @@ from openai_codex.models import JsonObject
 import banksia.integrations.codex.isolation as isolation_module
 
 
-def test_codex_task_client_applies_process_isolation_before_start(
+def test_codex_client_applies_process_isolation_before_start(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     captured: list[tuple[CodexConfig, object]] = []

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from collections.abc import AsyncIterator, Callable
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, cast
 
@@ -36,6 +36,10 @@ from banksia.operator.tools import OperatorTool, OperatorToolName
 from banksia.operator.tools.contracts import (
     MAX_OPERATOR_TOOL_RESULT_UTF16_CODE_UNITS,
 )
+from tests.unit.integrations.claude.operator_sdk_test_support import (
+    FakeClaudeOperatorClient,
+    FakeClaudeOperatorClientFactory,
+)
 
 
 class _ToolInput(BaseModel):
@@ -48,75 +52,6 @@ class _ToolResult(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     echo: str
-
-
-class _FakeClaudeClient:
-    def __init__(
-        self,
-        options: ClaudeAgentOptions,
-        *,
-        messages: tuple[object, ...],
-        should_block_response: bool = False,
-        response_error: Exception | None = None,
-    ) -> None:
-        self.options = options
-        self.messages = messages
-        self.should_block_response = should_block_response
-        self.response_error = response_error
-        self.query_input: str | None = None
-        self.was_connected = False
-        self.was_interrupted = False
-        self.was_disconnected = False
-        self.response_started = asyncio.Event()
-        self.response_release = asyncio.Event()
-
-    async def connect(self) -> None:
-        self.was_connected = True
-
-    async def query(self, prompt: str) -> None:
-        self.query_input = prompt
-
-    async def receive_response(self) -> AsyncIterator[object]:
-        self.response_started.set()
-        if self.should_block_response:
-            await self.response_release.wait()
-        if self.response_error is not None:
-            raise self.response_error
-        for message in self.messages:
-            yield message
-
-    async def interrupt(self) -> None:
-        self.was_interrupted = True
-        self.response_release.set()
-
-    async def disconnect(self) -> None:
-        self.was_disconnected = True
-
-
-class _ClientFactory:
-    def __init__(
-        self,
-        messages: tuple[object, ...],
-        *,
-        should_block_response: bool = False,
-        response_error: Exception | None = None,
-    ) -> None:
-        self.messages = messages
-        self.should_block_response = should_block_response
-        self.response_error = response_error
-        self.clients: list[_FakeClaudeClient] = []
-        self.client_created = asyncio.Event()
-
-    def __call__(self, options: ClaudeAgentOptions) -> ClaudeSDKClient:
-        client = _FakeClaudeClient(
-            options,
-            messages=self.messages,
-            should_block_response=self.should_block_response,
-            response_error=self.response_error,
-        )
-        self.clients.append(client)
-        self.client_created.set()
-        return cast(ClaudeSDKClient, client)
 
 
 def _status(*, availability: OperatorAvailability = "available") -> OperatorRunnerStatus:
@@ -192,7 +127,7 @@ def _request(
 
 
 def _runner(
-    factory: _ClientFactory,
+    factory: FakeClaudeOperatorClientFactory,
     *,
     working_directory: Path | None = None,
 ) -> ClaudeOperatorTurnRunner:
@@ -228,51 +163,8 @@ def _message_output(text: str) -> dict[str, object]:
     return _structured_output({"kind": "message", "text": text})
 
 
-@pytest.mark.asyncio
-async def test_claude_operator_turn_uses_only_exact_private_tools_and_native_output(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setenv("OPENCLAW_GATEWAY_TOKEN", "must-not-reach-claude")
-    factory = _ClientFactory(
-        (_result(structured_output=_message_output("The workflow draft is ready for review.")),)
-    )
-    runner = _runner(factory, working_directory=tmp_path)
-
-    outcome = await runner.execute_turn(_request())
-
-    client = factory.clients[0]
-    options = client.options
-    expected_tools = [
-        f"mcp__{CLAUDE_OPERATOR_MCP_SERVER_NAME}__{name.value}" for name in OperatorToolName
-    ]
-    assert outcome.provider_thread_id == "claude-thread-1"
-    assert outcome.result.kind == "message"
-    assert client.query_input == "Build an accountable research team."
-    assert client.was_connected is True
-    assert client.was_disconnected is True
-    assert options.tools == []
-    assert options.allowed_tools == expected_tools
-    assert options.system_prompt == "Exact prompt.\nPreserve this whitespace.\n"
-    assert tuple(cast(dict[str, object], options.mcp_servers)) == (CLAUDE_OPERATOR_MCP_SERVER_NAME,)
-    assert options.strict_mcp_config is True
-    assert options.permission_mode == "dontAsk"
-    assert options.resume is None
-    assert options.continue_conversation is False
-    assert options.fork_session is False
-    assert options.model == "claude-sonnet-4-5"
-    assert options.fallback_model is None
-    assert options.effort == "high"
-    assert options.cwd == tmp_path
-    assert options.add_dirs == []
-    assert options.setting_sources == []
-    assert options.skills == []
-    assert options.plugins == []
-    assert options.agents == {}
-    assert options.hooks is None
-    assert options.sandbox is None
-    assert options.env["OPENCLAW_GATEWAY_TOKEN"] == ""
-    output_format = cast(dict[str, Any], options.output_format)
+def _assert_native_output_schema(output_format_value: object) -> None:
+    output_format = cast(dict[str, Any], output_format_value)
     assert output_format["type"] == "json_schema"
     output_schema = cast(dict[str, Any], output_format["schema"])
     controller_schema = OPERATOR_PROVIDER_RESULT_ADAPTER.json_schema()
@@ -324,9 +216,56 @@ async def test_claude_operator_turn_uses_only_exact_private_tools_and_native_out
 
 
 @pytest.mark.asyncio
+async def test_claude_operator_turn_uses_only_exact_private_tools_and_native_output(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPENCLAW_GATEWAY_TOKEN", "must-not-reach-claude")
+    factory = FakeClaudeOperatorClientFactory(
+        (_result(structured_output=_message_output("The workflow draft is ready for review.")),)
+    )
+    runner = _runner(factory, working_directory=tmp_path)
+
+    outcome = await runner.execute_turn(_request())
+
+    client = factory.clients[0]
+    options = client.options
+    expected_tools = [
+        f"mcp__{CLAUDE_OPERATOR_MCP_SERVER_NAME}__{name.value}" for name in OperatorToolName
+    ]
+    assert outcome.provider_thread_id == "claude-thread-1"
+    assert outcome.result.kind == "message"
+    assert client.query_input == "Build an accountable research team."
+    assert client.was_connected is True
+    assert client.was_disconnected is True
+    assert options.tools == []
+    assert options.allowed_tools == expected_tools
+    assert options.system_prompt == "Exact prompt.\nPreserve this whitespace.\n"
+    assert tuple(cast(dict[str, object], options.mcp_servers)) == (CLAUDE_OPERATOR_MCP_SERVER_NAME,)
+    assert options.strict_mcp_config is True
+    assert options.permission_mode == "dontAsk"
+    assert options.resume is None
+    assert options.continue_conversation is False
+    assert options.fork_session is False
+    assert options.model == "claude-sonnet-4-5"
+    assert options.fallback_model is None
+    assert options.effort == "high"
+    assert options.cwd == tmp_path
+    assert options.add_dirs == []
+    assert options.setting_sources == []
+    assert options.skills == []
+    assert options.plugins == []
+    assert options.agents == {}
+    assert options.hooks is None
+    assert options.sandbox is None
+    assert options.env["OPENCLAW_GATEWAY_TOKEN"] == ""
+    _assert_native_output_schema(options.output_format)
+
+
+@pytest.mark.asyncio
 async def test_claude_operator_continues_exact_thread_with_typed_answers() -> None:
     thread_id = "opaque-Claude-thread"
-    factory = _ClientFactory(
+    factory = FakeClaudeOperatorClientFactory(
         (
             _result(
                 session_id=thread_id,
@@ -383,7 +322,9 @@ async def test_claude_operator_continues_exact_thread_with_typed_answers() -> No
 @pytest.mark.asyncio
 async def test_claude_private_mcp_tool_calls_one_leaf_and_redacts_failures() -> None:
     calls: list[tuple[OperatorToolName, str]] = []
-    factory = _ClientFactory((_result(structured_output=_message_output("Done.")),))
+    factory = FakeClaudeOperatorClientFactory(
+        (_result(structured_output=_message_output("Done.")),)
+    )
     runner = ClaudeOperatorTurnRunner(
         system_prompt="Exact prompt.",
         tools=_tools(calls),
@@ -464,7 +405,7 @@ async def test_claude_private_mcp_tool_calls_one_leaf_and_redacts_failures() -> 
 async def test_claude_operator_rejects_missing_invalid_or_unwrapped_structured_output(
     structured_output: object,
 ) -> None:
-    factory = _ClientFactory((_result(structured_output=structured_output),))
+    factory = FakeClaudeOperatorClientFactory((_result(structured_output=structured_output),))
 
     with pytest.raises(OperatorProviderUnavailableError):
         await _runner(factory).execute_turn(_request())
@@ -490,7 +431,7 @@ async def test_claude_operator_rejects_missing_invalid_or_unwrapped_structured_o
 async def test_claude_operator_maps_lost_or_changed_resume_to_thread_unavailable(
     result: ResultMessage,
 ) -> None:
-    factory = _ClientFactory((result,))
+    factory = FakeClaudeOperatorClientFactory((result,))
 
     with pytest.raises(OperatorProviderThreadUnavailableError):
         await _runner(factory).execute_turn(_request(provider_thread_id="thread-1"))
@@ -500,7 +441,7 @@ async def test_claude_operator_maps_lost_or_changed_resume_to_thread_unavailable
 
 @pytest.mark.asyncio
 async def test_claude_operator_maps_sdk_resume_failure_to_thread_unavailable() -> None:
-    factory = _ClientFactory(
+    factory = FakeClaudeOperatorClientFactory(
         (),
         response_error=ProcessError(
             "Claude process failed",
@@ -517,7 +458,7 @@ async def test_claude_operator_maps_sdk_resume_failure_to_thread_unavailable() -
 
 @pytest.mark.asyncio
 async def test_claude_operator_cancellation_interrupts_and_disconnects_provider() -> None:
-    factory = _ClientFactory((), should_block_response=True)
+    factory = FakeClaudeOperatorClientFactory((), should_block_response=True)
     turn = asyncio.create_task(_runner(factory).execute_turn(_request()))
     await factory.client_created.wait()
     client = factory.clients[0]
@@ -536,9 +477,9 @@ async def test_repeated_cancellation_cannot_interrupt_claude_disconnect() -> Non
     disconnect_started = asyncio.Event()
     disconnect_release = asyncio.Event()
     client_created = asyncio.Event()
-    clients: list[_FakeClaudeClient] = []
+    clients: list[FakeClaudeOperatorClient] = []
 
-    class BlockingDisconnectClient(_FakeClaudeClient):
+    class BlockingDisconnectClient(FakeClaudeOperatorClient):
         async def disconnect(self) -> None:
             disconnect_started.set()
             await disconnect_release.wait()
@@ -589,9 +530,9 @@ async def test_repeated_cancellation_waits_for_claude_connect_cleanup() -> None:
     connect_started = asyncio.Event()
     connect_cleanup_started = asyncio.Event()
     connect_cleanup_release = asyncio.Event()
-    clients: list[_FakeClaudeClient] = []
+    clients: list[FakeClaudeOperatorClient] = []
 
-    class BlockingConnectClient(_FakeClaudeClient):
+    class BlockingConnectClient(FakeClaudeOperatorClient):
         async def connect(self) -> None:
             connect_started.set()
             try:
@@ -634,7 +575,7 @@ async def test_repeated_cancellation_waits_for_claude_connect_cleanup() -> None:
 
 
 def test_claude_operator_requires_the_exact_ordered_tool_catalog() -> None:
-    factory = _ClientFactory(())
+    factory = FakeClaudeOperatorClientFactory(())
 
     with pytest.raises(ValueError, match="exact ordered"):
         ClaudeOperatorTurnRunner(

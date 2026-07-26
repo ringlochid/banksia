@@ -76,6 +76,10 @@ enabled = true
 gateway_url = "wss://gateway.example.test/banksia"
 gateway_profile = "tested-local"
 
+[operator]
+provider = "claude"
+model = "claude-operator"
+
 [runtime]
 default_provider = "openclaw"
 dispatch_launch_retry_initial_backoff_seconds = 0.25
@@ -113,6 +117,9 @@ watchdog_same_attempt_replacement_limit = 3
     assert settings.openclaw.enabled is True
     assert settings.openclaw.gateway_url == "wss://gateway.example.test/banksia"
     assert settings.openclaw.gateway_profile == "tested-local"
+    assert settings.operator.provider == "claude"
+    assert settings.operator.model == "claude-operator"
+    assert settings.operator.effort is None
     assert settings.runtime.default_provider == "openclaw"
     assert settings.runtime.dispatch_launch_retry_initial_backoff_seconds == 0.25
     assert settings.runtime.dispatch_launch_retry_max_backoff_seconds == 3.5
@@ -190,6 +197,9 @@ watchdog_inactivity_timeout_seconds = 1200
     monkeypatch.setenv("BANKSIA_API_PORT", "9001")
     monkeypatch.setenv("BANKSIA_OPENCLAW__GATEWAY_URL", "wss://gateway.example.test")
     monkeypatch.setenv("BANKSIA_OPENCLAW__GATEWAY_PROFILE", "environment-profile")
+    monkeypatch.setenv("BANKSIA_OPERATOR__PROVIDER", "codex")
+    monkeypatch.setenv("BANKSIA_OPERATOR__MODEL", "gpt-operator")
+    monkeypatch.setenv("BANKSIA_OPERATOR__EFFORT", "medium")
     monkeypatch.setenv("BANKSIA_RUNTIME__WATCHDOG_INACTIVITY_TIMEOUT_SECONDS", "99")
     monkeypatch.setenv("BANKSIA_RUNTIME__WATCHDOG_SAME_ATTEMPT_REPLACEMENT_LIMIT", "4")
     monkeypatch.setenv(
@@ -213,6 +223,9 @@ watchdog_inactivity_timeout_seconds = 1200
     assert settings.controller_workspace == environment_workspace.resolve()
     assert settings.openclaw.gateway_url == "wss://gateway.example.test"
     assert settings.openclaw.gateway_profile == "environment-profile"
+    assert settings.operator.provider == "codex"
+    assert settings.operator.model == "gpt-operator"
+    assert settings.operator.effort == "medium"
     assert settings.runtime.dispatch_launch_retry_initial_backoff_seconds == 0.3
     assert settings.runtime.dispatch_launch_retry_max_backoff_seconds == 4.5
     assert settings.runtime.watchdog_inactivity_timeout_seconds == 99
@@ -461,7 +474,7 @@ def test_removed_provider_runtime_keys_fail_fast(
         config_module.get_settings()
 
 
-@pytest.mark.parametrize("section_name", ["codex", "claude", "openclaw", "runtime"])
+@pytest.mark.parametrize("section_name", ["codex", "claude", "openclaw", "operator", "runtime"])
 def test_structured_config_sections_reject_non_table_values(
     monkeypatch: MonkeyPatch,
     tmp_path: Path,
@@ -482,6 +495,27 @@ def test_structured_config_sections_reject_non_table_values(
 
     with pytest.raises(ValidationError, match=section_name):
         config_module.get_settings()
+
+
+@pytest.mark.parametrize(
+    "operator",
+    (
+        {"provider": "openclaw"},
+        {"provider": "claude", "model": " "},
+        {"provider": "codex", "effort": ""},
+        {"provider": "codex", "model": "x" * 256},
+        {"model": "gpt-operator"},
+        {"effort": "high"},
+        {"provider": "claude", "unknown": True},
+    ),
+)
+def test_operator_settings_reject_invalid_or_dangling_values(
+    operator: dict[str, object],
+) -> None:
+    config_module = _reload_config_module()
+
+    with pytest.raises(ValidationError):
+        config_module.Settings.model_validate({"operator": operator})
 
 
 def test_runtime_deadline_defaults_match_target_contract() -> None:

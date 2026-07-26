@@ -462,7 +462,7 @@ The model does not generate Other, persistent question IDs, or option IDs. `allo
 
 The user answers through QuestionCard and presses Continue. Banksia commits one structured user turn, marks the previous card as a receipt, and invokes the same provider thread/session for a fresh turn carrying the exact question and answer. Refresh, navigation, restart, and browser closure therefore do not lose the boundary.
 
-Claude uses native structured output. Codex uses `outputSchema` and `dynamicTools`. The Codex SDK may retain an inert provider-native `update_plan`; it has no Banksia or host authority. The contract therefore fixes the seventeen Banksia operations without claiming a literal global model-visible tool count.
+Claude uses native structured output. Codex uses `outputSchema` and `dynamicTools`. When pinned model metadata requires code mode, isolated provider-native `exec` and `wait` may compose only the seventeen Banksia operations plus inert `update_plan`; they receive no execution environment, host bindings, filesystem, shell, network, external MCP, module imports, Skills, or Plugins. They are adapter transport rather than product tools or authorable capabilities. The contract therefore fixes the seventeen Banksia operations without claiming a literal global model-visible tool count.
 
 ### Intent and currentness
 

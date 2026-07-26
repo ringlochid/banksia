@@ -118,6 +118,7 @@ def config_sections_to_text(payload: ConfigSections) -> str:
         "codex",
         "claude",
         "openclaw",
+        "operator",
         "runtime",
     )
     ordered_sections = [section for section in section_order if section in payload]
@@ -126,8 +127,16 @@ def config_sections_to_text(payload: ConfigSections) -> str:
     lines: list[str] = []
     for section in ordered_sections:
         values = payload[section]
+        ordered_keys = list(values)
+        if section == "operator":
+            ordered_keys = [
+                *(key for key in ("provider", "model", "effort") if key in values),
+                *(key for key in values if key not in {"provider", "model", "effort"}),
+            ]
         rendered_values = [
-            (key, value) for key, value in values.items() if value is not None and value != ""
+            (key, values[key])
+            for key in ordered_keys
+            if values[key] is not None and values[key] != ""
         ]
         if not rendered_values:
             continue

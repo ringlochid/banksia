@@ -113,6 +113,48 @@ def test_failed_configuration_preserves_previous_bytes_and_default(tmp_path: Pat
     assert tomllib.loads(previous_bytes.decode())["runtime"]["default_provider"] == "codex"
 
 
+def test_provider_mutation_preserves_independent_operator_configuration(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "config.toml"
+    config_path.write_text(
+        '[operator]\neffort = "high"\nmodel = "gpt-operator"\nprovider = "codex"\n',
+        encoding="utf-8",
+    )
+
+    configure_provider(
+        config_path,
+        ProviderConfigurationRequest(provider=ProviderKind.CODEX, model="gpt-task"),
+    )
+
+    rendered = config_path.read_text(encoding="utf-8")
+    payload = tomllib.loads(rendered)
+    assert payload["operator"] == {
+        "provider": "codex",
+        "model": "gpt-operator",
+        "effort": "high",
+    }
+    assert rendered.index("[codex]") < rendered.index("[operator]") < rendered.index("[runtime]")
+    assert rendered.index('provider = "codex"') < rendered.index('model = "gpt-operator"')
+    assert rendered.index('model = "gpt-operator"') < rendered.index('effort = "high"')
+
+
+def test_provider_mutation_rejects_invalid_operator_config_without_rewrite(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "config.toml"
+    config_path.write_text('[operator]\nmodel = "dangling"\n', encoding="utf-8")
+    previous_bytes = config_path.read_bytes()
+
+    with pytest.raises(ValueError, match="Operator provider"):
+        configure_provider(
+            config_path,
+            ProviderConfigurationRequest(provider=ProviderKind.CLAUDE),
+        )
+
+    assert config_path.read_bytes() == previous_bytes
+
+
 def test_concurrent_first_configuration_has_one_stable_default(tmp_path: Path) -> None:
     config_path = tmp_path / "config.toml"
     barrier_calls = (

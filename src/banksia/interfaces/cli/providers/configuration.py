@@ -10,6 +10,7 @@ from banksia.config import (
     CodexSettings,
     OpenClawGatewayAuthMode,
     OpenClawSettings,
+    OperatorSettings,
     RuntimeSettings,
     Settings,
 )
@@ -177,6 +178,7 @@ def settings_from_config_sections(payload: ConfigSections) -> Settings:
             "codex": CodexSettings.model_validate(payload.get("codex", {})),
             "claude": ClaudeSettings.model_validate(payload.get("claude", {})),
             "openclaw": OpenClawSettings.model_validate(payload.get("openclaw", {})),
+            "operator": OperatorSettings.model_validate(payload.get("operator", {})),
             "runtime": RuntimeSettings.model_validate(payload.get("runtime", {})),
         }
     )

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
+import asyncio
+from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import asynccontextmanager
 from types import TracebackType
 from typing import Self, cast
 
@@ -8,6 +10,7 @@ import pytest
 
 import banksia.main as main_module
 from banksia.main import create_app
+from banksia.operator import OperatorRunnerStatus
 from banksia.runtime.clock import utc_now
 from banksia.runtime.post_commit import DispatchStartDue, RuntimeEffectSignal
 
@@ -16,8 +19,11 @@ class RecordingAsyncOwner:
     def __init__(self, name: str, events: list[str]) -> None:
         self._name = name
         self._events = events
+        self._is_active = False
+        self._product_call_started = asyncio.Event()
 
     async def __aenter__(self) -> Self:
+        self._is_active = True
         self._events.append(f"enter:{self._name}")
         return self
 
@@ -28,11 +34,26 @@ class RecordingAsyncOwner:
         traceback: TracebackType | None,
     ) -> None:
         del exc_type, exc_value, traceback
+        self._is_active = False
         self._events.append(f"exit:{self._name}")
 
     async def publish_startup(self, signal: RuntimeEffectSignal) -> bool:
         del signal
         return True
+
+    async def run_product_tool_call(self) -> None:
+        assert self._is_active
+        self._events.append(f"product-call-started:{self._name}")
+        self._product_call_started.set()
+        try:
+            await asyncio.Future[None]()
+        except asyncio.CancelledError:
+            assert self._is_active
+            self._events.append(f"product-call-cancelled:{self._name}")
+            raise
+
+    async def wait_for_product_call(self) -> None:
+        await self._product_call_started.wait()
 
 
 class RecordingOperatorService:
@@ -44,7 +65,74 @@ class RecordingOperatorService:
         return 2
 
 
-async def test_lifespan_keeps_publishers_alive_until_runtime_owners_stop(
+class RecordingOperatorRunner:
+    def __init__(
+        self,
+        events: list[str],
+        *,
+        product_dependency: RecordingAsyncOwner | None = None,
+    ) -> None:
+        self._events = events
+        self._product_dependency = product_dependency
+        self._active_turn: asyncio.Task[None] | None = None
+        self.status = OperatorRunnerStatus(
+            availability="available",
+            configured_provider="codex",
+            explanation="Operator is ready.",
+        )
+
+    async def start_product_tool_call(self) -> None:
+        assert self._product_dependency is not None
+        self._active_turn = asyncio.create_task(self._product_dependency.run_product_tool_call())
+        await self._product_dependency.wait_for_product_call()
+
+    @asynccontextmanager
+    async def lifespan(self) -> AsyncIterator[None]:
+        self._events.append("enter:operator")
+        try:
+            yield
+        finally:
+            if self._active_turn is not None:
+                self._active_turn.cancel()
+                outcomes = await asyncio.gather(
+                    self._active_turn,
+                    return_exceptions=True,
+                )
+                assert isinstance(outcomes[0], asyncio.CancelledError)
+            self._events.append("exit:operator")
+
+
+def test_app_composes_one_operator_prompt_tool_catalog_and_runner(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[str] = []
+    runner = RecordingOperatorRunner(events)
+    tools = (object(),)
+    calls: list[dict[str, object]] = []
+
+    monkeypatch.setattr(main_module, "read_operator_system_prompt", lambda: "operator prompt")
+    monkeypatch.setattr(main_module, "build_operator_tools", lambda **_kwargs: tools)
+
+    def build_runner(**kwargs: object) -> RecordingOperatorRunner:
+        calls.append(kwargs)
+        return runner
+
+    monkeypatch.setattr(main_module, "build_operator_turn_runner", build_runner)
+
+    app = create_app(should_enable_mcp_mounts=False)
+
+    assert app.state.operator_turn_runner is runner
+    assert app.state.operator_conversation_service.read_status().availability == "available"
+    assert calls == [
+        {
+            "settings": main_module.get_settings(),
+            "system_prompt": "operator prompt",
+            "tools": tools,
+        }
+    ]
+
+
+async def test_lifespan_drains_operator_turn_before_product_dependencies_stop(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     events: list[str] = []
@@ -58,6 +146,11 @@ async def test_lifespan_keeps_publishers_alive_until_runtime_owners_stop(
     app.state.deadline_scheduler = scheduler
     app.state.command_process_owner = command_owner
     app.state.operator_conversation_service = RecordingOperatorService(events)
+    operator_runner = RecordingOperatorRunner(
+        events,
+        product_dependency=router,
+    )
+    app.state.operator_turn_runner = operator_runner
 
     async def ensure_schema() -> None:
         events.append("schema")
@@ -102,6 +195,7 @@ async def test_lifespan_keeps_publishers_alive_until_runtime_owners_stop(
     monkeypatch.setattr(main_module, "dispose_db_engine", dispose_engine)
 
     async with app.router.lifespan_context(app):
+        await operator_runner.start_product_tool_call()
         events.append("serving")
 
     assert events == [
@@ -112,9 +206,13 @@ async def test_lifespan_keeps_publishers_alive_until_runtime_owners_stop(
         "enter:projection",
         "enter:router",
         "enter:scheduler",
+        "enter:operator",
         "runtime_audit",
         "projection_audit",
+        "product-call-started:router",
         "serving",
+        "product-call-cancelled:router",
+        "exit:operator",
         "exit:scheduler",
         "exit:router",
         "exit:projection",

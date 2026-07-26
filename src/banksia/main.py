@@ -13,6 +13,10 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from banksia.config import Environment, Settings, format_loopback_authority, get_settings
+from banksia.integrations.operator import (
+    ConfiguredOperatorTurnRunner,
+    build_operator_turn_runner,
+)
 from banksia.integrations.provider_registry import build_provider_adapter_registry
 from banksia.interfaces.http.errors import (
     operation_failure_from_http_exception,
@@ -25,10 +29,9 @@ from banksia.interfaces.http.support import create_support_app
 from banksia.interfaces.mcp.node.server import create_node_mcp_apps
 from banksia.interfaces.mcp.transport import node_mcp_transport_policy
 from banksia.interfaces.web_console import register_web_console_routes
-from banksia.operator import (
-    OperatorConversationService,
-    UnavailableOperatorTurnRunner,
-)
+from banksia.operator import OperatorConversationService
+from banksia.operator.prompt import read_operator_system_prompt
+from banksia.operator.tools import build_operator_tools
 from banksia.persistence.session import (
     dispose_db_engine,
     ensure_database_schema,
@@ -115,6 +118,7 @@ class _ApplicationRuntime:
     support_projection_owner: SupportProjectionOwner
     node_operation_executor: NodeOperationExecutor
     dispatch_starter: DispatchStarter
+    operator_turn_runner: ConfiguredOperatorTurnRunner
     operator_conversation_service: OperatorConversationService
 
 
@@ -232,9 +236,18 @@ def _build_application_runtime(settings: Settings) -> _ApplicationRuntime:
         managed_node_mcp_url=_node_mcp_url(settings, path="/_internal/node/mcp"),
         compatibility_node_mcp_url=_node_mcp_url(settings, path="/node/mcp"),
     )
+    operator_turn_runner = build_operator_turn_runner(
+        settings=settings,
+        system_prompt=read_operator_system_prompt(),
+        tools=build_operator_tools(
+            settings=settings,
+            session_factory=_runtime_session_context,
+            dispatch_dependencies=dispatch_opening_dependencies,
+        ),
+    )
     operator_conversation_service = OperatorConversationService(
         session_factory=_runtime_session_context,
-        runner=UnavailableOperatorTurnRunner(),
+        runner=operator_turn_runner,
     )
     return _ApplicationRuntime(
         binding_registry=binding_registry,
@@ -246,6 +259,7 @@ def _build_application_runtime(settings: Settings) -> _ApplicationRuntime:
         support_projection_owner=support_projection_owner,
         node_operation_executor=node_operation_executor,
         dispatch_starter=dispatch_starter,
+        operator_turn_runner=operator_turn_runner,
         operator_conversation_service=operator_conversation_service,
     )
 
@@ -261,6 +275,7 @@ def _store_application_runtime(app: FastAPI, runtime: _ApplicationRuntime) -> No
     app.state.provider_adapter_registry = runtime.provider_adapter_registry
     app.state.node_operation_executor = runtime.node_operation_executor
     app.state.dispatch_starter = runtime.dispatch_starter
+    app.state.operator_turn_runner = runtime.operator_turn_runner
     app.state.operator_conversation_service = runtime.operator_conversation_service
     app.state.mcp_lifespan_apps = ()
 
@@ -339,6 +354,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         command_process_owner: CommandProcessOwner = app.state.command_process_owner
         support_projection_owner: SupportProjectionOwner = app.state.support_projection_owner
         provider_adapter_registry: ProviderAdapterRegistry = app.state.provider_adapter_registry
+        operator_turn_runner: ConfiguredOperatorTurnRunner = app.state.operator_turn_runner
         dispatch_starter: DispatchStarter = app.state.dispatch_starter
         binding_registry: DispatchMcpBindingRegistry = app.state.dispatch_mcp_binding_registry
 
@@ -356,6 +372,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
             await stack.enter_async_context(deadline_scheduler)
             for mcp_app in getattr(app.state, "mcp_lifespan_apps", ()):
                 await stack.enter_async_context(mcp_app.router.lifespan_context(mcp_app))
+            await stack.enter_async_context(operator_turn_runner.lifespan())
             app.state.runtime_startup_audit = await audit_startup_runtime_effects(
                 session_factory=_runtime_session_context,
                 publish=publish_startup,

@@ -33,6 +33,10 @@ SUPPORT_BEARER_TOKEN_ENV_VAR = "BANKSIA_SUPPORT_BEARER_TOKEN"
 DEFAULT_LOG_LEVEL = "WARNING"
 DEFAULT_API_PORT = 18125
 ConfigText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+OperatorConfigText = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, min_length=1, max_length=255),
+]
 ProviderConfigText = Annotated[str, StringConstraints(strip_whitespace=True)]
 _POSTGRES_SCHEMA_PATTERN = re.compile(r"[a-z_][a-z0-9_$]{0,62}\Z")
 _CONTROLLER_WORKSPACE_REQUIREMENT = (
@@ -54,6 +58,25 @@ class ClaudeSettings(BaseModel):
     enabled: bool = False
     model: ProviderConfigText | None = None
     effort: ProviderConfigText | None = None
+
+
+class OperatorProvider(StrEnum):
+    CLAUDE = "claude"
+    CODEX = "codex"
+
+
+class OperatorSettings(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    provider: OperatorProvider | None = None
+    model: OperatorConfigText | None = None
+    effort: OperatorConfigText | None = None
+
+    @model_validator(mode="after")
+    def validate_provider_overrides(self) -> OperatorSettings:
+        if self.provider is None and (self.model is not None or self.effort is not None):
+            raise ValueError("Operator model and effort require an Operator provider")
+        return self
 
 
 class OpenClawGatewayAuthMode(StrEnum):
@@ -145,6 +168,7 @@ class Settings(BaseSettings):
     codex: CodexSettings = Field(default_factory=CodexSettings)
     claude: ClaudeSettings = Field(default_factory=ClaudeSettings)
     openclaw: OpenClawSettings = Field(default_factory=OpenClawSettings)
+    operator: OperatorSettings = Field(default_factory=OperatorSettings)
     runtime: RuntimeSettings = Field(default_factory=RuntimeSettings)
 
     @field_validator("postgres_schema")
@@ -369,6 +393,8 @@ def _load_toml_settings() -> dict[str, Any]:
     for provider in ("codex", "claude", "openclaw"):
         if provider in payload:
             loaded[provider] = payload[provider]
+    if "operator" in payload:
+        loaded["operator"] = payload["operator"]
     if "runtime" in payload:
         loaded["runtime"] = payload["runtime"]
     return loaded
@@ -385,6 +411,8 @@ __all__ = [
     "Environment",
     "OpenClawGatewayAuthMode",
     "OpenClawSettings",
+    "OperatorProvider",
+    "OperatorSettings",
     "RuntimeSettings",
     "Settings",
     "TomlConfigSettingsSource",

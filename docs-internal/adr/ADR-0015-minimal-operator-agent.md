@@ -14,7 +14,7 @@ The contract in ADR-0014 tried to create recoverable execution and effect author
 
 Operator needs a much smaller boundary. It helps a person author and operate Banksia through already-authoritative Workflow, Task, Human Request, and Command Run services. Those services already own ETags, Undo receipts, opaque legal-action IDs, validation, and accepted results.
 
-The pinned Claude and Codex SDKs both support typed turn results and controller-supplied product operations. Codex may retain an inert provider-native planning surface; that surface has no Banksia or host authority. Banksia therefore freezes its own seventeen-operation catalog without claiming a literal global model-visible tool count.
+The pinned Claude and Codex SDKs both support typed turn results and controller-supplied product operations. Current pinned Codex model metadata can require code mode without exposing a public Direct-mode override. Banksia therefore permits provider-native `exec` and `wait` only as isolated adapter-private transport over the exact seventeen Banksia operations plus inert `update_plan`. The code runtime receives no execution environment, host bindings, filesystem, shell, network, external MCP, module imports, Skills, or Plugins. These surfaces add no Banksia or host authority. Banksia freezes its own seventeen-operation catalog without claiming a literal global model-visible tool count.
 
 ## Decision
 
@@ -27,6 +27,7 @@ The pinned Claude and Codex SDKs both support typed turn results and controller-
 - Controller configuration selects `claude` or `codex`, with optional provider-specific model and effort. Operator never inherits a Workflow Member provider and never silently falls back.
 - Every turn returns one provider-native structured variant: a human-facing message or a small `ask_user` question set. `ask_user` is a result variant, not a tool. The provider invocation ends before the user answers.
 - Claude uses its native structured-output path. Codex uses `outputSchema` and `dynamicTools`. A private in-process MCP projection is permitted only when an adapter needs that transport; it is not public, static, authorable, or externally configurable.
+- When Codex model metadata requires code mode, `exec` and `wait` may compose only the exact seventeen Banksia operations plus inert `update_plan`. Operator supplies an empty execution-environment list, empty runtime workspace roots, a temporary cwd, and no host or extension surface. A wider nested registry or any filesystem, shell, network, external MCP, module, Skill, or Plugin access fails Operator availability.
 - The Banksia catalog remains exactly seventeen typed leaf operations over existing product services. `workflow_draft_create` accepts one complete structured JSON Workflow candidate and creates or opens its mutable draft through the existing authoring services. No import or generic execution tool is added.
 - Explicit user text or a committed typed answer supplies intent for the action it clearly requests. Product-service ETags, Undo receipts, current opaque legal-action IDs, and validation own currentness and acceptance. Operator does not create a parallel proposal or effect authority.
 - Conversation durability uses only `OperatorConversation` and ordered `OperatorConversationEntry` records. A nullable active-turn identity is the sole turn-exclusion compare-and-swap.

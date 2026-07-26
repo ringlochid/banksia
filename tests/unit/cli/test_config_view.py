@@ -4,7 +4,12 @@ from pathlib import Path
 
 import pytest
 
-from banksia.config import OpenClawSettings, Settings
+from banksia.config import (
+    OpenClawSettings,
+    OperatorProvider,
+    OperatorSettings,
+    Settings,
+)
 from banksia.interfaces.cli.commands.config_view import REDACTED_VALUE, build_settings_payload
 
 
@@ -57,3 +62,22 @@ def test_config_readback_redacts_database_password(tmp_path: Path) -> None:
 
     assert payload["database"]["url"] == ("postgresql+asyncpg://operator:***@localhost/banksia")
     assert "secret" not in str(payload)
+
+
+def test_config_readback_includes_nonsecret_operator_selection(tmp_path: Path) -> None:
+    payload = build_settings_payload(
+        Settings(
+            operator=OperatorSettings(
+                provider=OperatorProvider.CODEX,
+                model="gpt-operator",
+                effort="high",
+            )
+        ),
+        tmp_path / "config.toml",
+    )
+
+    assert payload["operator"] == {
+        "provider": "codex",
+        "model": "gpt-operator",
+        "effort": "high",
+    }

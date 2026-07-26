@@ -1,0 +1,702 @@
+from __future__ import annotations
+
+import asyncio
+import json
+import tempfile
+import threading
+from collections.abc import Callable, Sequence
+from concurrent.futures import Future
+from importlib.metadata import PackageNotFoundError, version
+from pathlib import Path
+from typing import Any, cast
+
+from openai_codex import CodexConfig, InvalidRequestError
+from openai_codex.client import CodexClient
+from openai_codex.generated.v2_all import (
+    AgentMessageThreadItem,
+    ConfigReadResponse,
+    ItemCompletedNotification,
+    ListMcpServerStatusResponse,
+    MessagePhase,
+    ThreadItem,
+    TurnCompletedNotification,
+    TurnStatus,
+)
+from openai_codex.models import JsonObject
+from pydantic import ValidationError
+
+from banksia.operator.contracts import OPERATOR_PROVIDER_RESULT_ADAPTER
+from banksia.operator.provider import (
+    OperatorMessageTurnInput,
+    OperatorProviderThreadUnavailableError,
+    OperatorProviderUnavailableError,
+    OperatorQuestionAnswersTurnInput,
+    OperatorRunnerStatus,
+    OperatorTurnOutcome,
+    OperatorTurnRequest,
+)
+from banksia.operator.tools import OperatorTool, OperatorToolName
+from banksia.platform.provider_environment import provider_subprocess_environment_overrides
+
+PINNED_CODEX_VERSION = "0.144.4"
+_DYNAMIC_TOOL_METHOD = "item/tool/call"
+_CONFIG_READ_METHOD = "config/read"
+_MCP_STATUS_METHOD = "mcpServerStatus/list"
+_THREAD_UNAVAILABLE_MARKERS = (
+    "invalid thread id:",
+    "no rollout found for thread id",
+    "thread not found:",
+)
+_TOOL_FAILURE_RESULT = json.dumps(
+    {
+        "error": "operator_operation_outcome_uncertain",
+        "message": (
+            "The Banksia operation did not return an accepted result. "
+            "Do not repeat it automatically; refetch current product truth."
+        ),
+    },
+    separators=(",", ":"),
+)
+_DISABLED_CODEX_FEATURES = frozenset(
+    """
+    apps artifact auth_elicitation code_mode code_mode_host current_time_reminder
+    code_mode_only default_mode_request_user_input deferred_executor enable_mcp_apps
+    goals hooks image_generation memories multi_agent multi_agent_v2 plugins
+    request_permissions_tool shell_tool skill_mcp_dependency_install
+    standalone_web_search token_budget tool_call_mcp_elicitation tool_suggest
+    unified_exec web_search_cached web_search_request
+    """.split()
+)
+# Named values in the pinned Rust protocol; its generated Python enum is open-ended.
+_CODEX_OPERATOR_EFFORTS = frozenset(
+    {"none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"}
+)
+
+type _ServerRequestHandler = Callable[[str, JsonObject | None], JsonObject]
+type _CodexClientFactory = Callable[[_ServerRequestHandler], CodexClient]
+
+
+class CodexOperatorTurnRunner:
+    def __init__(
+        self,
+        *,
+        system_prompt: str,
+        tools: Sequence[OperatorTool],
+        status: OperatorRunnerStatus,
+        client_factory: _CodexClientFactory | None = None,
+    ) -> None:
+        if not system_prompt.strip():
+            raise ValueError("Codex Operator system prompt must not be blank")
+        if status.configured_provider != "codex":
+            raise ValueError("Codex Operator status must select the Codex provider")
+        operator_tools = tuple(tools)
+        if tuple(tool.name for tool in operator_tools) != tuple(OperatorToolName):
+            raise ValueError("Codex Operator requires the exact ordered product-tool catalog")
+
+        self._system_prompt = system_prompt
+        self._tools = operator_tools
+        self._configured_status = status
+        self._client_factory = client_factory or _build_codex_client
+        self._installed_versions = _installed_codex_versions()
+
+    @property
+    def status(self) -> OperatorRunnerStatus:
+        if self._configured_status.availability != "available":
+            return self._configured_status
+        if self._installed_versions == (PINNED_CODEX_VERSION, PINNED_CODEX_VERSION):
+            return self._configured_status
+        return OperatorRunnerStatus(
+            availability="unavailable",
+            configured_provider="codex",
+            explanation=(
+                f"Operator requires the pinned Codex SDK and runtime {PINNED_CODEX_VERSION}."
+            ),
+            setup_action=(f"Install openai-codex=={PINNED_CODEX_VERSION} and restart Banksia."),
+            model=self._configured_status.model,
+            effort=self._configured_status.effort,
+        )
+
+    async def execute_turn(self, request: OperatorTurnRequest) -> OperatorTurnOutcome:
+        status = self.status
+        if status.availability != "available":
+            raise OperatorProviderUnavailableError(status.explanation)
+        if request.provider != "codex":
+            raise OperatorProviderUnavailableError("Codex cannot run this Operator conversation")
+
+        effort = resolve_codex_operator_effort(request.effort)
+        loop = asyncio.get_running_loop()
+        bridge = _DynamicToolBridge(loop=loop, tools=self._tools)
+        client = self._client_factory(bridge)
+        client_start_finished = threading.Event()
+        turn_identity = _CodexTurnIdentity()
+        worker = asyncio.create_task(
+            asyncio.to_thread(
+                self._execute_blocking_turn,
+                client,
+                request,
+                effort,
+                client_start_finished,
+                turn_identity,
+            )
+        )
+
+        try:
+            thread_id, provider_result = await asyncio.shield(worker)
+        except asyncio.CancelledError:
+            await _cancel_codex_turn(
+                client,
+                bridge=bridge,
+                client_start_finished=client_start_finished,
+                turn_identity=turn_identity,
+                worker=worker,
+            )
+            raise
+        except (OperatorProviderThreadUnavailableError, OperatorProviderUnavailableError):
+            raise
+        except Exception as exc:
+            raise OperatorProviderUnavailableError(
+                "Codex could not complete the Operator turn"
+            ) from exc
+        finally:
+            bridge_cleanup = asyncio.create_task(bridge.deactivate())
+            cancellation = await _drain_background_task(bridge_cleanup)
+            try:
+                await _close_client(client)
+            except asyncio.CancelledError as exc:
+                cancellation = cancellation or exc
+            if cancellation is not None:
+                raise cancellation
+
+        return OperatorTurnOutcome(
+            provider_thread_id=thread_id,
+            result=provider_result,
+        )
+
+    def _execute_blocking_turn(
+        self,
+        client: CodexClient,
+        request: OperatorTurnRequest,
+        effort: str | None,
+        client_start_finished: threading.Event,
+        turn_identity: _CodexTurnIdentity,
+    ) -> tuple[str, Any]:
+        try:
+            client.start()
+        finally:
+            client_start_finished.set()
+        client.initialize()
+
+        with tempfile.TemporaryDirectory(prefix="banksia-operator-codex-") as directory:
+            working_directory = Path(directory)
+            isolation_config = _build_isolation_config(client, working_directory)
+            thread_id, thread_response = self._start_or_resume_thread(
+                client,
+                request=request,
+                working_directory=working_directory,
+                isolation_config=isolation_config,
+            )
+            turn_identity.set_thread_id(thread_id)
+            if getattr(thread_response, "instruction_sources", None):
+                raise OperatorProviderUnavailableError(
+                    "Codex loaded an external Operator instruction source"
+                )
+            _require_inert_mcp_surface(client, thread_id)
+
+            turn_params: JsonObject = {
+                "approvalPolicy": "never",
+                "environments": [],
+                "outputSchema": cast(Any, _build_codex_output_schema()),
+            }
+            if request.model is not None:
+                turn_params["model"] = request.model
+            if effort is not None:
+                turn_params["effort"] = effort
+            turn_response = client.turn_start(
+                thread_id,
+                _render_codex_operator_input(request),
+                turn_params,
+            )
+            turn_id = turn_response.turn.id
+            turn_identity.set_turn_id(turn_id)
+            provider_result = _read_terminal_result(client, turn_id)
+
+        return thread_id, provider_result
+
+    def _start_or_resume_thread(
+        self,
+        client: CodexClient,
+        *,
+        request: OperatorTurnRequest,
+        working_directory: Path,
+        isolation_config: JsonObject,
+    ) -> tuple[str, object]:
+        common: JsonObject = {
+            "approvalPolicy": "never",
+            "approvalsReviewer": "user",
+            "baseInstructions": self._system_prompt,
+            "config": isolation_config,
+            "cwd": str(working_directory),
+            "developerInstructions": "",
+            "model": request.model,
+            "personality": "none",
+            "runtimeWorkspaceRoots": [],
+            "sandbox": "read-only",
+        }
+        if request.provider_thread_id is None:
+            start_params: JsonObject = {
+                **common,
+                "allowProviderModelFallback": False,
+                "dynamicTools": cast(Any, _dynamic_tool_specs(self._tools)),
+                "environments": [],
+                "ephemeral": False,
+                "selectedCapabilityRoots": [],
+            }
+            start_response = client.thread_start(start_params)
+            thread_id = start_response.thread.id
+            if not isinstance(thread_id, str) or not thread_id.strip():
+                raise OperatorProviderUnavailableError("Codex returned no Operator thread identity")
+            return thread_id, start_response
+
+        resume_params: JsonObject = {
+            **common,
+            "excludeTurns": True,
+        }
+        try:
+            resume_response = client.thread_resume(request.provider_thread_id, resume_params)
+        except InvalidRequestError as exc:
+            if _reports_thread_unavailable(exc):
+                raise OperatorProviderThreadUnavailableError() from exc
+            raise
+        thread_id = resume_response.thread.id
+        if thread_id != request.provider_thread_id:
+            raise OperatorProviderThreadUnavailableError()
+        return thread_id, resume_response
+
+
+class _CodexTurnIdentity:
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._thread_id: str | None = None
+        self._turn_id: str | None = None
+
+    def set_thread_id(self, thread_id: str) -> None:
+        with self._lock:
+            self._thread_id = thread_id
+
+    def set_turn_id(self, turn_id: str) -> None:
+        with self._lock:
+            self._turn_id = turn_id
+
+    def snapshot(self) -> tuple[str | None, str | None]:
+        with self._lock:
+            return self._thread_id, self._turn_id
+
+
+class _DynamicToolBridge:
+    """Bridge sync SDK callbacks while retaining the real async task for cleanup."""
+
+    def __init__(
+        self,
+        *,
+        loop: asyncio.AbstractEventLoop,
+        tools: Sequence[OperatorTool],
+    ) -> None:
+        self._loop = loop
+        self._tools = {tool.name.value: tool for tool in tools}
+        self._pending_tasks: set[asyncio.Task[JsonObject]] = set()
+        self._lock = threading.Lock()
+        self._is_active = True
+
+    def __call__(self, method: str, params: JsonObject | None) -> JsonObject:
+        if method != _DYNAMIC_TOOL_METHOD:
+            return _deny_server_request(method)
+        result: Future[JsonObject] = Future()
+        with self._lock:
+            if not self._is_active:
+                return _tool_failure_response()
+            try:
+                self._loop.call_soon_threadsafe(self._start_tool_call, params, result)
+            except RuntimeError:
+                return _tool_failure_response()
+        try:
+            return result.result()
+        except BaseException:
+            return _tool_failure_response()
+
+    def _start_tool_call(
+        self,
+        params: JsonObject | None,
+        result: Future[JsonObject],
+    ) -> None:
+        with self._lock:
+            if not self._is_active:
+                result.set_result(_tool_failure_response())
+                return
+            task = self._loop.create_task(self._call_tool(params))
+            self._pending_tasks.add(task)
+        task.add_done_callback(lambda completed: self._finish_tool_call(completed, result))
+
+    def _finish_tool_call(
+        self,
+        task: asyncio.Task[JsonObject],
+        result: Future[JsonObject],
+    ) -> None:
+        with self._lock:
+            self._pending_tasks.discard(task)
+        try:
+            response = task.result()
+        except BaseException:
+            response = _tool_failure_response()
+        result.set_result(response)
+
+    async def _call_tool(self, params: JsonObject | None) -> JsonObject:
+        if params is None or params.get("namespace") is not None:
+            return _tool_failure_response()
+        tool_name = params.get("tool")
+        if not isinstance(tool_name, str):
+            return _tool_failure_response()
+        tool = self._tools.get(tool_name)
+        if tool is None:
+            return _tool_failure_response()
+        try:
+            result = await tool.call(params.get("arguments"))
+            rendered = json.dumps(
+                result,
+                ensure_ascii=False,
+                separators=(",", ":"),
+            )
+        except Exception:
+            return _tool_failure_response()
+        return {
+            "contentItems": [{"type": "inputText", "text": rendered}],
+            "success": True,
+        }
+
+    async def deactivate(self) -> None:
+        with self._lock:
+            self._is_active = False
+            pending = tuple(self._pending_tasks)
+        for task in pending:
+            task.cancel()
+        if pending:
+            await asyncio.gather(*pending, return_exceptions=True)
+
+
+def _build_isolation_config(
+    client: CodexClient,
+    working_directory: Path,
+) -> JsonObject:
+    response = client.request(
+        _CONFIG_READ_METHOD,
+        {"cwd": str(working_directory), "includeLayers": False},
+        response_model=ConfigReadResponse,
+    )
+    effective = response.config.model_dump(mode="json", by_alias=True, exclude_none=True)
+    configured_mcp = effective.get("mcp_servers", {})
+    if not isinstance(configured_mcp, dict) or not all(
+        isinstance(name, str) and name for name in configured_mcp
+    ):
+        raise OperatorProviderUnavailableError("Codex returned an invalid MCP configuration")
+
+    return {
+        "allow_login_shell": False,
+        "apps": {"_default": {"enabled": False}},
+        "check_for_update_on_startup": False,
+        "features": {feature: False for feature in _DISABLED_CODEX_FEATURES},
+        "include_apps_instructions": False,
+        "include_collaboration_mode_instructions": False,
+        "include_environment_context": False,
+        "include_permissions_instructions": False,
+        "mcp_servers": {name: {"enabled": False} for name in configured_mcp},
+        "notify": [],
+        "orchestrator": {
+            "mcp": {"enabled": False},
+            "skills": {"enabled": False},
+        },
+        "skills": {"include_instructions": False},
+        "tools": {"experimental_request_user_input": {"enabled": False}},
+        "web_search": "disabled",
+    }
+
+
+def _require_inert_mcp_surface(client: CodexClient, thread_id: str) -> None:
+    cursor: str | None = None
+    seen_cursors: set[str] = set()
+    while True:
+        params: JsonObject = {
+            "detail": "full",
+            "limit": 100,
+            "threadId": thread_id,
+        }
+        if cursor is not None:
+            params["cursor"] = cursor
+        response = client.request(
+            _MCP_STATUS_METHOD,
+            params,
+            response_model=ListMcpServerStatusResponse,
+        )
+        for server in response.data:
+            if (
+                server.tools
+                or server.resources
+                or server.resource_templates
+                or server.server_info is not None
+            ):
+                raise OperatorProviderUnavailableError(
+                    "Codex exposed an external MCP surface to Operator"
+                )
+        cursor = response.next_cursor
+        if cursor is None:
+            return
+        if cursor in seen_cursors:
+            raise OperatorProviderUnavailableError("Codex returned an invalid MCP status page")
+        seen_cursors.add(cursor)
+
+
+def _read_terminal_result(
+    client: CodexClient,
+    turn_id: str,
+) -> Any:
+    items: dict[str, ThreadItem] = {}
+    try:
+        while True:
+            notification = client.next_turn_notification(turn_id)
+            payload = notification.payload
+            if isinstance(payload, ItemCompletedNotification) and payload.turn_id == turn_id:
+                items[_thread_item_id(payload.item)] = payload.item
+                continue
+            if not isinstance(payload, TurnCompletedNotification) or payload.turn.id != turn_id:
+                continue
+            for item in payload.turn.items:
+                items[_thread_item_id(item)] = item
+            if payload.turn.status is not TurnStatus.completed:
+                raise OperatorProviderUnavailableError("Codex did not complete the Operator turn")
+            break
+    finally:
+        client.unregister_turn_notifications(turn_id)
+
+    final_response = _final_agent_response(tuple(items.values()))
+    if final_response is None:
+        raise OperatorProviderUnavailableError("Codex returned no structured Operator result")
+    try:
+        payload = json.loads(final_response)
+        return OPERATOR_PROVIDER_RESULT_ADAPTER.validate_python(_unwrap_codex_output(payload))
+    except (json.JSONDecodeError, TypeError, ValueError, ValidationError) as exc:
+        raise OperatorProviderUnavailableError(
+            "Codex returned an invalid structured Operator result"
+        ) from exc
+
+
+def _thread_item_id(item: ThreadItem) -> str:
+    value = item.root
+    return getattr(value, "id", f"anonymous-{id(value)}")
+
+
+def _final_agent_response(items: Sequence[ThreadItem]) -> str | None:
+    final_answers: list[str] = []
+    unphased_answers: list[str] = []
+    for item in items:
+        value = item.root
+        if not isinstance(value, AgentMessageThreadItem):
+            continue
+        if value.phase is MessagePhase.final_answer:
+            final_answers.append(value.text)
+        elif value.phase is None:
+            unphased_answers.append(value.text)
+    candidates = final_answers or unphased_answers
+    return candidates[0] if len(candidates) == 1 else None
+
+
+def _dynamic_tool_specs(tools: Sequence[OperatorTool]) -> list[JsonObject]:
+    return [
+        {
+            "type": "function",
+            "name": tool.name.value,
+            "description": tool.description,
+            "inputSchema": cast(Any, tool.input_schema),
+        }
+        for tool in tools
+    ]
+
+
+def _build_codex_output_schema() -> dict[str, Any]:
+    """Wrap Banksia's union in the strict root object required by Responses."""
+
+    controller_schema = OPERATOR_PROVIDER_RESULT_ADAPTER.json_schema()
+    definitions = controller_schema.get("$defs")
+    variants = controller_schema.get("oneOf")
+    if not isinstance(definitions, dict) or not isinstance(variants, list):
+        raise RuntimeError("Operator result schema no longer has the expected union shape")
+
+    return {
+        "$defs": _strict_codex_schema_value(definitions),
+        "type": "object",
+        "properties": {
+            "result": {
+                "anyOf": _strict_codex_schema_value(variants),
+            }
+        },
+        "required": ["result"],
+        "additionalProperties": False,
+    }
+
+
+def _strict_codex_schema_value(value: object) -> object:
+    if isinstance(value, list):
+        return [_strict_codex_schema_value(item) for item in value]
+    if not isinstance(value, dict):
+        return value
+
+    transformed: dict[str, object] = {}
+    for key, child in value.items():
+        if key in {"default", "discriminator", "title"}:
+            continue
+        if key == "oneOf":
+            transformed["anyOf"] = _strict_codex_schema_value(child)
+            continue
+        if key == "const":
+            transformed["enum"] = [_strict_codex_schema_value(child)]
+            continue
+        transformed[key] = _strict_codex_schema_value(child)
+
+    properties = transformed.get("properties")
+    if transformed.get("type") == "object" and isinstance(properties, dict):
+        transformed["additionalProperties"] = False
+        transformed["required"] = list(properties)
+    return transformed
+
+
+def _unwrap_codex_output(payload: object) -> object:
+    if not isinstance(payload, dict) or set(payload) != {"result"}:
+        raise ValueError("Codex structured output has an invalid root")
+    return payload["result"]
+
+
+def _render_codex_operator_input(request: OperatorTurnRequest) -> str:
+    match request.input:
+        case OperatorMessageTurnInput(text=text):
+            return text
+        case OperatorQuestionAnswersTurnInput() as answers:
+            return json.dumps(
+                answers.model_dump(mode="json"),
+                ensure_ascii=False,
+                separators=(",", ":"),
+            )
+
+
+def resolve_codex_operator_effort(value: str | None) -> str | None:
+    if value is None:
+        return None
+    if value not in _CODEX_OPERATOR_EFFORTS:
+        raise OperatorProviderUnavailableError("Codex Operator effort is not supported")
+    return value
+
+
+def _reports_thread_unavailable(exc: InvalidRequestError) -> bool:
+    normalized = exc.message.casefold()
+    return any(marker in normalized for marker in _THREAD_UNAVAILABLE_MARKERS)
+
+
+def _deny_server_request(method: str) -> JsonObject:
+    if method in {
+        "applyPatchApproval",
+        "execCommandApproval",
+        "item/commandExecution/requestApproval",
+        "item/fileChange/requestApproval",
+    }:
+        return {"decision": "cancel"}
+    if method == "item/permissions/requestApproval":
+        return {"permissions": {}}
+    if method == "item/tool/requestUserInput":
+        return {"answers": {}}
+    if method == "mcpServer/elicitation/request":
+        return {"action": "cancel"}
+    raise OperatorProviderUnavailableError("Codex requested an unsupported Operator capability")
+
+
+def _tool_failure_response() -> JsonObject:
+    return {
+        "contentItems": [{"type": "inputText", "text": _TOOL_FAILURE_RESULT}],
+        "success": False,
+    }
+
+
+async def _cancel_codex_turn(
+    client: CodexClient,
+    *,
+    bridge: _DynamicToolBridge,
+    client_start_finished: threading.Event,
+    turn_identity: _CodexTurnIdentity,
+    worker: asyncio.Task[tuple[str, Any]],
+) -> None:
+    bridge_cleanup = asyncio.create_task(bridge.deactivate())
+    await _drain_background_task(bridge_cleanup)
+    start_waiter = asyncio.create_task(asyncio.to_thread(client_start_finished.wait))
+    await _drain_background_task(start_waiter)
+
+    thread_id, turn_id = turn_identity.snapshot()
+    cleanup_tasks: list[asyncio.Task[Any]] = []
+    if thread_id is not None and turn_id is not None:
+        cleanup_tasks.append(
+            asyncio.create_task(asyncio.to_thread(client.turn_interrupt, thread_id, turn_id))
+        )
+    cleanup_tasks.append(asyncio.create_task(asyncio.to_thread(client.close)))
+    for cleanup_task in cleanup_tasks:
+        await _drain_background_task(cleanup_task)
+    await _drain_background_task(worker)
+
+
+async def _close_client(client: CodexClient) -> None:
+    close_task = asyncio.create_task(asyncio.to_thread(client.close))
+    cancellation = await _drain_background_task(close_task)
+    if cancellation is not None:
+        raise cancellation
+
+
+async def _drain_background_task(
+    task: asyncio.Task[Any],
+) -> asyncio.CancelledError | None:
+    cancellation: asyncio.CancelledError | None = None
+    while not task.done():
+        try:
+            await asyncio.shield(task)
+        except asyncio.CancelledError as exc:
+            cancellation = cancellation or exc
+        except BaseException:
+            pass
+    try:
+        task.result()
+    except BaseException:
+        pass
+    return cancellation
+
+
+def _build_codex_client(handler: _ServerRequestHandler) -> CodexClient:
+    return CodexClient(
+        CodexConfig(
+            env=provider_subprocess_environment_overrides(),
+            experimental_api=True,
+        ),
+        approval_handler=handler,
+    )
+
+
+def _installed_codex_versions() -> tuple[str | None, str | None]:
+    return (
+        _package_version("openai-codex"),
+        _package_version("openai-codex-cli-bin"),
+    )
+
+
+def _package_version(distribution: str) -> str | None:
+    try:
+        return version(distribution)
+    except PackageNotFoundError:
+        return None
+
+
+__all__ = [
+    "PINNED_CODEX_VERSION",
+    "CodexOperatorTurnRunner",
+    "resolve_codex_operator_effort",
+]

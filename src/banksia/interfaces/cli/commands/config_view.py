@@ -61,6 +61,7 @@ def build_settings_payload(settings: Any, config_path: Path) -> dict[str, Any]:
         "codex": settings.codex.model_dump(mode="json"),
         "claude": settings.claude.model_dump(mode="json"),
         "openclaw": settings.openclaw.model_dump(mode="json"),
+        "operator": settings.operator.model_dump(mode="json"),
         "runtime": settings.runtime.model_dump(mode="json"),
     }
     return _redact_config_payload(payload)

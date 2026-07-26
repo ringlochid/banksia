@@ -35,19 +35,23 @@ async def test_explicit_console_routes_serve_only_packaged_pages_and_assets(
         library = await client.get("/workflows")
         studio = await client.get("/workflows/reviewed-code-change")
         runs = await client.get("/runs")
+        start_run = await client.get("/runs/new")
+        run_studio = await client.get("/runs/t_7m4k2d9x")
         asset = await client.get("/assets/app.js")
         unknown_browser = await client.get("/not-a-console-route")
+        unknown_run_route = await client.get("/runs/t_7m4k2d9x/unknown")
         unknown_asset = await client.get("/assets/missing.js")
         unknown_api = await client.get("/api/not-a-product-route")
 
     assert root.status_code == 307
     assert root.headers["location"] == "/workflows"
-    for response in (library, studio, runs):
+    for response in (library, studio, runs, start_run, run_studio):
         assert response.status_code == 200
         assert "Banksia Console" in response.text
     assert asset.status_code == 200
     assert "dataset.ready" in asset.text
     assert unknown_browser.status_code == 404
+    assert unknown_run_route.status_code == 404
     assert unknown_asset.status_code == 404
     assert unknown_api.status_code == 404
 

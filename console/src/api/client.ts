@@ -19,6 +19,23 @@ export interface ControllerResponse<T> {
     readonly status: number;
 }
 
+export interface ProductEventSource {
+    addEventListener(
+        type: string,
+        listener: EventListenerOrEventListenerObject,
+    ): void;
+    removeEventListener(
+        type: string,
+        listener: EventListenerOrEventListenerObject,
+    ): void;
+    close(): void;
+}
+
+export type ProductEventSourceFactory = (url: string) => ProductEventSource;
+
+export const browserEventSourceFactory: ProductEventSourceFactory = (url) =>
+    new EventSource(url);
+
 export class ApiResponseError extends Error {
     public constructor(
         public readonly status: number,
@@ -300,7 +317,7 @@ function isObject(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null;
 }
 
-function resolveProductApiUrl(apiRoot: string, path: string): string {
+export function resolveProductApiUrl(apiRoot: string, path: string): string {
     const normalizedRoot = apiRoot.endsWith("/")
         ? apiRoot.slice(0, -1)
         : apiRoot;

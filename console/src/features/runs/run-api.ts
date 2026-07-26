@@ -1,5 +1,12 @@
 import type { components } from "../../api/generated/openapi";
-import { requestProductApi, type ControllerResponse } from "../../api/client";
+import {
+    browserEventSourceFactory,
+    requestProductApi,
+    resolveProductApiUrl,
+    type ControllerResponse,
+    type ProductEventSource,
+    type ProductEventSourceFactory,
+} from "../../api/client";
 
 export type CommandRunCancelReceipt =
     components["schemas"]["CommandRunCancelReceipt"];
@@ -17,6 +24,7 @@ export type HumanRequestView = components["schemas"]["HumanRequestView"];
 export type ProductAction = components["schemas"]["ProductAction"];
 export type TaskControlReceipt = components["schemas"]["TaskControlReceipt"];
 export type TaskActivity = components["schemas"]["TaskActivity"];
+export type TaskActivityPage = components["schemas"]["TaskActivityPage"];
 export type TaskMemberView = components["schemas"]["TaskMemberView"];
 export type TaskPlanView = components["schemas"]["TaskPlanView"];
 export type TaskResultView = components["schemas"]["TaskResultView"];
@@ -44,6 +52,15 @@ export interface RunApi {
         taskId: string,
         signal?: AbortSignal,
     ): Promise<ControllerResponse<TaskView>>;
+    getRunActivities(
+        taskId: string,
+        cursor?: string | null,
+        signal?: AbortSignal,
+    ): Promise<ControllerResponse<TaskActivityPage>>;
+    openRunActivityStream(
+        taskId: string,
+        cursor?: string | null,
+    ): ProductEventSource;
     controlRun(
         taskId: string,
         actionId: string,
@@ -68,7 +85,10 @@ export interface RunApi {
 }
 
 export class RunApiClient implements RunApi {
-    public constructor(private readonly apiRoot = "/api") {}
+    public constructor(
+        private readonly apiRoot = "/api",
+        private readonly eventSourceFactory: ProductEventSourceFactory = browserEventSourceFactory,
+    ) {}
 
     public searchRuns(
         query = "",
@@ -117,6 +137,36 @@ export class RunApiClient implements RunApi {
             this.apiRoot,
             `/tasks/${encodeURIComponent(taskId)}`,
             signal === undefined ? {} : { signal },
+        );
+    }
+
+    public getRunActivities(
+        taskId: string,
+        cursor: string | null = null,
+        signal?: AbortSignal,
+    ): Promise<ControllerResponse<TaskActivityPage>> {
+        const parameters = new URLSearchParams({ limit: "200" });
+        if (cursor !== null) {
+            parameters.set("cursor", cursor);
+        }
+        return requestProductApi(
+            this.apiRoot,
+            `/tasks/${encodeURIComponent(taskId)}/activities?${parameters.toString()}`,
+            signal === undefined ? {} : { signal },
+        );
+    }
+
+    public openRunActivityStream(
+        taskId: string,
+        cursor: string | null = null,
+    ): ProductEventSource {
+        const parameters = new URLSearchParams();
+        if (cursor !== null) {
+            parameters.set("cursor", cursor);
+        }
+        const path = `/tasks/${encodeURIComponent(taskId)}/activities/stream${querySuffix(parameters)}`;
+        return this.eventSourceFactory(
+            resolveProductApiUrl(this.apiRoot, path),
         );
     }
 

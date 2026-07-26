@@ -1,8 +1,12 @@
-import type { ControllerResponse } from "../../src/api/client";
+import type {
+    ControllerResponse,
+    ProductEventSource,
+} from "../../src/api/client";
 import type {
     CommandRunOutputPage,
     HumanRequestResponseReceipt,
     RunApi,
+    TaskActivityPage,
     TaskSearchResponse,
     TaskStartReceipt,
     TaskView,
@@ -297,6 +301,10 @@ export function response<T>(body: T, status = 200): ControllerResponse<T> {
     return { body, etag: null, status };
 }
 
+export function activityPageFixture(): TaskActivityPage {
+    return { items: [], next_cursor: null };
+}
+
 export function runApiStub(overrides: Partial<RunApi>): RunApi {
     const unavailable = (): never => {
         throw new Error("Unexpected Run API call");
@@ -306,10 +314,21 @@ export function runApiStub(overrides: Partial<RunApi>): RunApi {
         searchWorkflows: unavailable,
         startRun: unavailable,
         getRun: unavailable,
+        getRunActivities: () =>
+            Promise.resolve(response(activityPageFixture())),
+        openRunActivityStream: () => inactiveEventSource(),
         controlRun: unavailable,
         respondToHumanRequest: unavailable,
         cancelCommandRun: unavailable,
         getCommandOutput: unavailable,
         ...overrides,
+    };
+}
+
+function inactiveEventSource(): ProductEventSource {
+    return {
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+        close: () => undefined,
     };
 }

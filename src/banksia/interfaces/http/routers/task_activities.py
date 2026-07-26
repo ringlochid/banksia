@@ -13,11 +13,9 @@ from banksia.interfaces.http.contracts.operation_failure import OperationFailure
 from banksia.interfaces.http.errors import raise_runtime_exception
 from banksia.persistence.session import get_db_session, get_session_factory
 from banksia.runtime.contracts.task import TaskActivity, TaskActivityPage
-from banksia.runtime.errors import invalid_request_shape_error
 from banksia.runtime.product.activities import list_task_activities, project_task_events
 from banksia.runtime.task_control.service import runtime_task_read
 from banksia.runtime.task_events import (
-    decode_task_event_cursor,
     encode_task_event_cursor,
     latest_task_event,
     list_task_events,
@@ -58,7 +56,17 @@ async def get_task_activities(
 
 @router.get(
     "/tasks/{task_id}/activities/stream",
-    responses={410: {"model": OperationFailure}},
+    response_class=StreamingResponse,
+    responses={
+        200: {
+            "content": {
+                "text/event-stream": {
+                    "schema": {"type": "string"},
+                }
+            }
+        },
+        410: {"model": OperationFailure},
+    },
 )
 async def stream_task_activities(
     task_id: str,
@@ -125,15 +133,7 @@ def _resolve_stream_cursor(
     query_cursor: str | None,
     last_event_id: str | None,
 ) -> str | None:
-    if query_cursor is None:
-        return last_event_id
-    if last_event_id is None:
-        return query_cursor
-    if decode_task_event_cursor(query_cursor) != decode_task_event_cursor(last_event_id):
-        raise invalid_request_shape_error(
-            "The cursor and Last-Event-ID refer to different update positions."
-        )
-    return query_cursor
+    return last_event_id if last_event_id is not None else query_cursor
 
 
 async def _validated_stream_cursor(

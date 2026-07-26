@@ -165,7 +165,6 @@ check-console:
 	$(MAKE) console-test
 	$(MAKE) console-test-integration
 	$(MAKE) console-build
-	$(MAKE) console-package-assets
 
 package-build: $(PYTHON) console-package-assets
 	rm -rf $(CURDIR)/dist

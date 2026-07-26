@@ -1,11 +1,23 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import {
+    act,
+    fireEvent,
+    render,
+    screen,
+    waitFor,
+    within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { Link, MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
+import type {
+    ControllerResponse,
+    ProductEventSource,
+} from "../../src/api/client";
 import { RunListPage } from "../../src/features/runs/RunListPage";
 import { RunStudioPage } from "../../src/features/runs/RunStudioPage";
 import { StartRunPage } from "../../src/features/runs/StartRunPage";
+import type { TaskControlReceipt } from "../../src/features/runs/run-api";
 import {
     commandOutputFixture,
     humanResponseReceiptFixture,
@@ -108,7 +120,30 @@ describe("temporary Run Studio", () => {
     });
 
     it("answers a Human Request and opens bounded Action output from controller truth", async () => {
-        const getRun = vi.fn(() => Promise.resolve(response(taskFixture())));
+        const initialTask = taskFixture();
+        const getRun = vi
+            .fn()
+            .mockResolvedValueOnce(response(initialTask))
+            .mockResolvedValue(
+                response(
+                    taskFixture({
+                        activities: [
+                            ...initialTask.activities,
+                            {
+                                id: "activity-two",
+                                kind: "input_received",
+                                occurred_at: "2026-07-26T01:11:00Z",
+                                title: "Response received",
+                                summary: "The team can continue.",
+                                member: null,
+                                outcome: null,
+                                files: [],
+                                action: null,
+                            },
+                        ],
+                    }),
+                ),
+            );
         const respondToHumanRequest = vi.fn(() =>
             Promise.resolve(response(humanResponseReceiptFixture())),
         );
@@ -135,7 +170,7 @@ describe("temporary Run Studio", () => {
             screen.getByRole("button", { name: "Submit response" }),
         );
 
-        expect(await screen.findByText("Response received")).toBeVisible();
+        expect(await screen.findAllByText("Response received")).toHaveLength(2);
         expect(respondToHumanRequest).toHaveBeenCalledWith(
             "t_7m4k2d9x",
             "request-one",
@@ -166,6 +201,173 @@ describe("temporary Run Studio", () => {
         ).toBeVisible();
         expect(document.body).not.toHaveTextContent("c_q3m8y1ka");
     });
+
+    it("keeps current content through a delayed live reconnect and clears the notice on recovery", async () => {
+        const sources: FakeEventSource[] = [];
+        const api = runApiStub({
+            getRun: () => Promise.resolve(response(taskFixture())),
+            openRunActivityStream: () => {
+                const source = new FakeEventSource();
+                sources.push(source);
+                return source;
+            },
+        });
+
+        renderRun(api);
+
+        expect(
+            await screen.findByRole("heading", {
+                name: "Compare the release candidates and recommend one.",
+            }),
+        ).toBeVisible();
+        expect(sources).toHaveLength(1);
+
+        vi.useFakeTimers();
+        try {
+            act(() => sources[0]?.emit("error"));
+            expect(
+                screen.queryByText("Live updates are delayed.", {
+                    exact: false,
+                }),
+            ).toBeNull();
+
+            await act(() => vi.advanceTimersByTimeAsync(5_000));
+
+            expect(
+                screen.getByText("Live updates are delayed.", {
+                    exact: false,
+                }),
+            ).toBeVisible();
+            expect(
+                screen.getByRole("heading", {
+                    name: "Compare the release candidates and recommend one.",
+                }),
+            ).toBeVisible();
+            expect(sources[0]?.close).toHaveBeenCalledOnce();
+
+            fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+            await act(() => vi.advanceTimersByTimeAsync(0));
+            const recovered = sources.at(-1);
+            expect(recovered).toBeDefined();
+            act(() => recovered?.emit("open"));
+
+            expect(
+                screen.queryByText("Live updates are delayed.", {
+                    exact: false,
+                }),
+            ).toBeNull();
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it("starts live recovery after an initial read succeeds on retry", async () => {
+        const sources: FakeEventSource[] = [];
+        const getRun = vi
+            .fn()
+            .mockRejectedValueOnce(new Error("Controller is unavailable."))
+            .mockResolvedValue(response(taskFixture()));
+        const api = runApiStub({
+            getRun,
+            openRunActivityStream: () => {
+                const source = new FakeEventSource();
+                sources.push(source);
+                return source;
+            },
+        });
+        const user = userEvent.setup();
+
+        renderRun(api);
+
+        expect(
+            await screen.findByText("Controller is unavailable.", {
+                exact: false,
+            }),
+        ).toBeVisible();
+        await user.click(screen.getByRole("button", { name: "Try again" }));
+
+        expect(
+            await screen.findByRole("heading", {
+                name: "Compare the release candidates and recommend one.",
+            }),
+        ).toBeVisible();
+        await waitFor(() => expect(sources).toHaveLength(1));
+        expect(screen.getByText("Run started")).toBeVisible();
+    });
+
+    it("does not apply a stale control response after switching Runs", async () => {
+        let resolveControl:
+            | ((receipt: ControllerResponse<TaskControlReceipt>) => void)
+            | undefined;
+        const controlRun = vi.fn(
+            () =>
+                new Promise<ControllerResponse<TaskControlReceipt>>(
+                    (resolve) => {
+                        resolveControl = resolve;
+                    },
+                ),
+        );
+        const getRun = vi.fn((taskId: string) =>
+            Promise.resolve(
+                response(
+                    taskFixture({
+                        id: taskId,
+                        prompt_excerpt:
+                            taskId === "task-a" ? "Task A" : "Task B",
+                    }),
+                ),
+            ),
+        );
+        const api = runApiStub({ controlRun, getRun });
+        const user = userEvent.setup();
+
+        render(
+            <MemoryRouter initialEntries={["/runs/task-a"]}>
+                <Routes>
+                    <Route
+                        element={
+                            <>
+                                <Link to="/runs/task-b">Switch Run</Link>
+                                <RunStudioPage api={api} />
+                            </>
+                        }
+                        path="/runs/:taskId"
+                    />
+                </Routes>
+            </MemoryRouter>,
+        );
+
+        expect(
+            await screen.findByRole("heading", { name: "Task A" }),
+        ).toBeVisible();
+        await user.click(screen.getByRole("button", { name: "Pause Run" }));
+        await user.click(screen.getByRole("link", { name: "Switch Run" }));
+        expect(
+            await screen.findByRole("heading", { name: "Task B" }),
+        ).toBeVisible();
+
+        act(() =>
+            resolveControl?.(
+                response({
+                    receipt_id: "receipt-task-a",
+                    action: "pause",
+                    status_message: "Task A was paused.",
+                    task: taskFixture({
+                        id: "task-a",
+                        prompt_excerpt: "Task A",
+                        status: "paused",
+                    }),
+                }),
+            ),
+        );
+
+        await waitFor(() => expect(controlRun).toHaveBeenCalledOnce());
+        expect(screen.getByRole("heading", { name: "Task B" })).toBeVisible();
+        expect(screen.queryByText("Task A was paused.")).toBeNull();
+        expect(document.querySelector(".run-status")).not.toHaveTextContent(
+            "Paused",
+        );
+    });
 });
 
 function renderRun(api: Parameters<typeof RunStudioPage>[0]["api"]) {
@@ -179,4 +381,39 @@ function renderRun(api: Parameters<typeof RunStudioPage>[0]["api"]) {
             </Routes>
         </MemoryRouter>,
     );
+}
+
+class FakeEventSource implements ProductEventSource {
+    private readonly listeners = new Map<
+        string,
+        Set<EventListenerOrEventListenerObject>
+    >();
+
+    public readonly close = vi.fn();
+
+    public addEventListener(
+        type: string,
+        listener: EventListenerOrEventListenerObject,
+    ): void {
+        const listeners = this.listeners.get(type) ?? new Set();
+        listeners.add(listener);
+        this.listeners.set(type, listeners);
+    }
+
+    public removeEventListener(
+        type: string,
+        listener: EventListenerOrEventListenerObject,
+    ): void {
+        this.listeners.get(type)?.delete(listener);
+    }
+
+    public emit(type: string, event: Event = new Event(type)): void {
+        for (const listener of this.listeners.get(type) ?? []) {
+            if (typeof listener === "function") {
+                listener(event);
+            } else {
+                listener.handleEvent(event);
+            }
+        }
+    }
 }

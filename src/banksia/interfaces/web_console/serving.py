@@ -32,6 +32,13 @@ def register_web_console_routes(
     async def run_library() -> FileResponse:
         return FileResponse(index_path)
 
+    async def run_start() -> FileResponse:
+        return FileResponse(index_path)
+
+    async def run_studio(task_id: str) -> FileResponse:
+        del task_id
+        return FileResponse(index_path)
+
     async def console_root() -> RedirectResponse:
         return RedirectResponse("/workflows")
 
@@ -62,6 +69,20 @@ def register_web_console_routes(
         methods=["GET"],
         include_in_schema=False,
         name="console-run-library",
+    )
+    app.add_api_route(
+        "/runs/new",
+        run_start,
+        methods=["GET"],
+        include_in_schema=False,
+        name="console-run-start",
+    )
+    app.add_api_route(
+        "/runs/{task_id}",
+        run_studio,
+        methods=["GET"],
+        include_in_schema=False,
+        name="console-run-studio",
     )
     app.mount(
         "/assets",

@@ -1,5 +1,5 @@
 import { ArrowLeft, Pause, Play, RefreshCw, Square } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 
 import { Button, Card, Dialog, Notice } from "../../components/ui";
@@ -22,8 +22,8 @@ import type {
     HumanRequestResponseInput,
     ProductAction,
     RunApi,
-    TaskView,
 } from "./run-api";
+import { useRunLive } from "./use-run-live";
 
 export interface RunStudioPageProps {
     readonly api: RunApi;
@@ -33,66 +33,72 @@ interface RunLocationState {
     readonly startMessage?: string;
 }
 
+interface RunStudioTaskProps extends RunStudioPageProps {
+    readonly startMessage: string | undefined;
+    readonly taskId: string;
+}
+
 export function RunStudioPage({ api }: RunStudioPageProps) {
     const { taskId } = useParams();
     const location = useLocation();
     const startMessage = (location.state as RunLocationState | null)
         ?.startMessage;
-    const [task, setTask] = useState<TaskView | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+
+    if (taskId === undefined) {
+        return (
+            <section className="page-frame run-studio">
+                <Notice tone="danger">This Run link is incomplete.</Notice>
+            </section>
+        );
+    }
+    return (
+        <RunStudioTask
+            api={api}
+            key={taskId}
+            startMessage={startMessage}
+            taskId={taskId}
+        />
+    );
+}
+
+function RunStudioTask({ api, startMessage, taskId }: RunStudioTaskProps) {
+    const {
+        activities,
+        error: readError,
+        liveDelayed,
+        loading,
+        refresh,
+        refreshing,
+        replaceTask,
+        retryLive,
+        task,
+    } = useRunLive(api, taskId);
+    const [operationError, setOperationError] = useState<string | null>(null);
     const [receipt, setReceipt] = useState<string | null>(startMessage ?? null);
-    const [reloadKey, setReloadKey] = useState(0);
     const [pendingControl, setPendingControl] = useState<ProductAction | null>(
         null,
     );
     const [controlSubmitting, setControlSubmitting] = useState(false);
+    const error = operationError ?? readError;
 
-    useEffect(() => {
-        if (taskId === undefined) {
-            return;
-        }
-        const controller = new AbortController();
-        void api
-            .getRun(taskId, controller.signal)
-            .then(({ body }) => setTask(body))
-            .catch((reason: unknown) => {
-                if (!controller.signal.aborted) {
-                    setError(errorMessage(reason));
-                }
-            })
-            .finally(() => {
-                if (!controller.signal.aborted) {
-                    setLoading(false);
-                    setRefreshing(false);
-                }
-            });
-        return () => controller.abort();
-    }, [api, reloadKey, taskId]);
-
-    function refresh(message?: string): void {
+    function refreshRun(message?: string): void {
         if (message !== undefined) {
             setReceipt(message);
         }
-        setRefreshing(true);
-        setError(null);
-        setReloadKey((key) => key + 1);
+        setOperationError(null);
+        refresh();
     }
 
     async function handleControl(action: ProductAction): Promise<void> {
-        if (taskId === undefined) {
-            return;
-        }
         setControlSubmitting(true);
-        setError(null);
+        setOperationError(null);
         try {
             const response = await api.controlRun(taskId, action.id, true);
-            setTask(response.body.task);
+            replaceTask(response.body.task);
             setReceipt(response.body.status_message);
             setPendingControl(null);
         } catch (reason) {
-            setError(errorMessage(reason));
+            setOperationError(errorMessage(reason));
         } finally {
             setControlSubmitting(false);
         }
@@ -103,16 +109,13 @@ export function RunStudioPage({ api }: RunStudioPageProps) {
         action: ProductAction,
         input: HumanRequestResponseInput,
     ): Promise<string> {
-        if (taskId === undefined) {
-            throw new Error("This Run link is incomplete.");
-        }
         const response = await api.respondToHumanRequest(
             taskId,
             requestId,
             action.id,
             input,
         );
-        refresh();
+        refreshRun();
         return response.body.status_message;
     }
 
@@ -120,25 +123,15 @@ export function RunStudioPage({ api }: RunStudioPageProps) {
         command: CommandRunView,
         action: ProductAction,
     ): Promise<string> {
-        if (taskId === undefined) {
-            throw new Error("This Run link is incomplete.");
-        }
         const response = await api.cancelCommandRun(
             taskId,
             command.id,
             action.id,
         );
-        refresh();
+        refreshRun();
         return response.body.status_message;
     }
 
-    if (taskId === undefined) {
-        return (
-            <section className="page-frame run-studio">
-                <Notice tone="danger">This Run link is incomplete.</Notice>
-            </section>
-        );
-    }
     if (loading) {
         return (
             <section className="page-frame run-studio">
@@ -160,15 +153,9 @@ export function RunStudioPage({ api }: RunStudioPageProps) {
                         {error ??
                             "Banksia could not find controller truth for this Run."}
                     </p>
-                    <Button
-                        onClick={() => {
-                            setLoading(true);
-                            setError(null);
-                            setReloadKey((key) => key + 1);
-                        }}
-                    >
+                    <Button disabled={refreshing} onClick={() => refreshRun()}>
                         <RefreshCw aria-hidden="true" size={16} />
-                        Try again
+                        {refreshing ? "Trying again…" : "Try again"}
                     </Button>
                 </Notice>
             </section>
@@ -208,7 +195,7 @@ export function RunStudioPage({ api }: RunStudioPageProps) {
                     <Button
                         aria-label="Refresh Run"
                         disabled={refreshing}
-                        onClick={() => refresh()}
+                        onClick={() => refreshRun()}
                     >
                         <RefreshCw
                             aria-hidden="true"
@@ -241,6 +228,18 @@ export function RunStudioPage({ api }: RunStudioPageProps) {
             </header>
 
             {receipt === null ? null : <Notice tone="info">{receipt}</Notice>}
+            {liveDelayed ? (
+                <Notice tone="info">
+                    <p>
+                        Live updates are delayed. This Run may be slightly out
+                        of date.
+                    </p>
+                    <Button onClick={retryLive}>
+                        <RefreshCw aria-hidden="true" size={16} />
+                        Retry
+                    </Button>
+                </Notice>
+            ) : null}
             {error === null ? null : (
                 <Notice tone="danger" urgent>
                     {error} Refresh to read current Run state.
@@ -303,7 +302,7 @@ export function RunStudioPage({ api }: RunStudioPageProps) {
                 </div>
                 <div>
                     <ActivitySection
-                        activities={task.activities}
+                        activities={activities}
                         isTruncated={task.activities_truncated}
                     />
                     {task.command_runs.length === 0 ? null : (

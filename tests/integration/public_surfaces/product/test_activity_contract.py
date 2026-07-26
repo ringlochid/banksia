@@ -269,20 +269,12 @@ async def test_activity_cursor_reset_bounded_page_and_sse_reconnect_contract(
                 f"/api/tasks/{ids.task_id}/activities/stream",
                 params={"cursor": reset_cursor},
             )
-            conflict = await client.get(
-                f"/api/tasks/{ids.task_id}/activities/stream",
-                params={"cursor": previous_cursor},
-                headers={"Last-Event-ID": different_cursor},
-            )
 
         assert first.items
         assert first.next_cursor is not None
         for response in (reset_page, reset_stream):
             assert response.status_code == 410
             assert response.json()["code"] == "cursor_reset_required"
-        assert conflict.status_code == 400
-        assert conflict.json()["code"] == "invalid_request"
-        assert "dispatch" not in conflict.text.casefold()
 
         live = activity_router_module.stream_task_activity_records(
             task_id=ids.task_id,
@@ -292,6 +284,17 @@ async def test_activity_cursor_reset_bounded_page_and_sse_reconnect_contract(
         await cast(AsyncGenerator[str, None], live).aclose()
         assert "event: task_changed" in frame
         assert "payload" not in frame
+
+        reconnect = await activity_router_module.stream_task_activities(
+            ids.task_id,
+            cursor=previous_cursor,
+            last_event_id=different_cursor,
+        )
+        reconnect_body = cast(AsyncGenerator[str, None], reconnect.body_iterator)
+        reconnect_frame = await anext(reconnect_body)
+        await reconnect_body.aclose()
+        assert "event: activity" in reconnect_frame
+        assert "input_cancelled" in reconnect_frame
 
 
 async def _resolve_human_request_with_duplicate_opened_hints(

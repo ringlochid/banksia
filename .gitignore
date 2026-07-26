@@ -25,6 +25,7 @@ test-results/
 build/
 dist/
 tmp/
+docs-internal/verification/
 
 # OS noise
 .DS_Store

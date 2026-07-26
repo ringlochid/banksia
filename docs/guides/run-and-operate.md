@@ -18,7 +18,7 @@ Automation uses one strict JSON object:
 
 ```bash
 banksia task start --json \
-  '{"workflow":"reviewed-delivery","prompt":"Review and improve the import error path."}'
+  '{"workflow":"reviewed-code-change","prompt":"Review and improve the import error path."}'
 ```
 
 Read from a file or standard input:
@@ -32,7 +32,7 @@ The complete request shape is:
 
 ```json
 {
-  "workflow": "reviewed-delivery",
+  "workflow": "reviewed-code-change",
   "prompt": "Review and improve the import error path.",
   "workspace": "/absolute/path/to/project",
   "files": [

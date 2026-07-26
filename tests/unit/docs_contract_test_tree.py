@@ -7,15 +7,18 @@ from pathlib import Path
 from typing import Any
 
 WORKFLOW_EXAMPLE_FILES = (
-    "full.yaml",
-    "minimal.yaml",
-    "omx-autopilot.yaml",
-    "omx-best-practice-research.yaml",
+    "advanced-cross-layer-delivery.yaml",
+    "advanced-reviewed-code-change.yaml",
+    "advanced-technical-decision.yaml",
 )
 WORKFLOW_SEED_FILES = (
-    "autonomous-delivery.yaml",
-    "evidence-research.yaml",
-    "reviewed-delivery.yaml",
+    "bounded-maintenance-batch.yaml",
+    "cross-layer-feature.yaml",
+    "debug-and-verify.yaml",
+    "evidence-synthesis.yaml",
+    "reproducible-study.yaml",
+    "reviewed-code-change.yaml",
+    "technical-decision.yaml",
 )
 
 
@@ -113,10 +116,9 @@ def _write_root_and_public_docs(root: Path) -> None:
         root,
         "examples/workflows/README.md",
         "# Workflow examples\n\n"
-        "[Full](full.yaml)\n"
-        "[Minimal](minimal.yaml)\n"
-        "[Autopilot](omx-autopilot.yaml)\n"
-        "[Research](omx-best-practice-research.yaml)\n",
+        "[Cross-layer](advanced-cross-layer-delivery.yaml)\n"
+        "[Reviewed change](advanced-reviewed-code-change.yaml)\n"
+        "[Technical decision](advanced-technical-decision.yaml)\n",
     )
     copy_workflow_fixtures(root)
 

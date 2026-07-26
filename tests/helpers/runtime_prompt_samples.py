@@ -52,7 +52,7 @@ def sample_dynamic_input(
     )
     direct_team = _sample_direct_team(manager)
     return PromptDynamicInput(
-        task=PromptTask(id="t_7m4k2d9x", workflow_id="reviewed-delivery"),
+        task=PromptTask(id="t_7m4k2d9x", workflow_id="reviewed-code-change"),
         dispatch=PromptDispatch(
             id="dsp_123",
             attempt_id="att_123",

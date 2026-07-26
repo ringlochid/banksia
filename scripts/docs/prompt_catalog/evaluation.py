@@ -7,6 +7,9 @@ from dataclasses import dataclass
 from importlib import metadata
 from pathlib import Path
 from typing import cast
+from xml.etree import ElementTree
+
+from pydantic import BaseModel, ConfigDict
 
 from banksia.platform.provider_environment import (
     ANTHROPIC_API_KEY,
@@ -20,6 +23,7 @@ from banksia.runtime.contracts.prompt import (
     PromptDynamicInput,
     PromptTask,
     PromptWorkspace,
+    RenderedDispatchRequest,
 )
 from banksia.runtime.contracts.team_read import (
     CurrentMemberRead,
@@ -31,9 +35,11 @@ from banksia.runtime.contracts.team_read import (
     ResolvedSandboxRead,
 )
 from banksia.runtime.prompt import render_dispatch_request
-from pydantic import BaseModel, ConfigDict
-
 from scripts.docs.prompt_catalog import behavior_scenarios as scenario_catalog
+from scripts.docs.prompt_catalog.validation import (
+    load_scenario_team,
+    validate_evaluation_scenarios,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
@@ -53,6 +59,12 @@ class ProviderObservation:
     provider_metadata: dict[str, object]
 
 
+@dataclass(frozen=True, slots=True)
+class PreparedScenario:
+    scenario: scenario_catalog.EvaluationScenario
+    request: RenderedDispatchRequest
+
+
 def render_scenario_request(
     scenario: scenario_catalog.EvaluationScenario,
     *,
@@ -61,34 +73,35 @@ def render_scenario_request(
     effort: str,
     workspace: Path,
 ) -> DispatchRequestRenderInput:
+    team = load_scenario_team(scenario)
     assignment_id = f"asn_eval_{scenario.id.replace('-', '_')}"
     direct_team = tuple(
         DirectTeamMemberRead(
-            id=child_id,
-            title=child_id.replace("-", " ").title(),
-            description="Own the bounded contribution named by the Manager Assignment.",
-            instruction="Return a scoped result with useful evidence and material limits.",
+            id=member.id,
+            title=member.title,
+            description=member.description,
+            instruction=member.instruction,
             provider=ResolvedProviderRead(kind=provider, model=model),
             capabilities=EffectiveCapabilitiesRead(),
             participation=scenario.participation,
             availability=MemberAvailability.AVAILABLE,
         )
-        for child_id in scenario.direct_team_ids
+        for member in team.direct_team
     )
     return DispatchRequestRenderInput(
         dynamic_input=PromptDynamicInput(
-            task=PromptTask(id="t_prompt_eval", workflow_id="prompt-evaluation"),
+            task=PromptTask(id="t_prompt_eval", workflow_id=team.workflow.id),
             dispatch=PromptDispatch(
                 id=f"dsp_eval_{scenario.id.replace('-', '_')}",
                 attempt_id=f"att_eval_{scenario.id.replace('-', '_')}",
                 assignment_id=assignment_id,
             ),
             current_member=CurrentMemberRead(
-                id="compatibility-lead",
-                title="Compatibility lead",
-                description="Own the integrated compatibility judgment.",
-                instruction=None,
-                position=None,
+                id=team.current_member.id,
+                title=team.current_member.title,
+                description=team.current_member.description,
+                instruction=team.current_member.instruction,
+                position=("task_lead" if team.current_member.id == team.workflow.lead.id else None),
                 behavior=MemberBehavior.MANAGER,
                 provider=ResolvedProviderRead(
                     kind=provider,
@@ -114,11 +127,18 @@ def render_scenario_request(
                 root=str(workspace),
                 task_directory=".banksia/t_prompt_eval",
                 manifest=".banksia/t_prompt_eval/manifest.md",
+                workflow_note=(
+                    ".banksia/t_prompt_eval/workflow-note.md"
+                    if team.workflow.note is not None
+                    else None
+                ),
                 notes=".banksia/t_prompt_eval/notes",
                 artifacts=".banksia/t_prompt_eval/artifacts",
                 command_runs=".banksia/t_prompt_eval/command-runs",
             ),
-        )
+        ),
+        member_instruction=team.current_member.instruction,
+        workflow_note=team.workflow.note,
     )
 
 
@@ -143,94 +163,45 @@ def score_response(
     }
 
 
-async def run_evaluation(args: argparse.Namespace) -> int:
-    output_directory, workspace = prepare_output_directory(Path(args.output_dir))
-    scenarios = scenario_catalog.evaluation_scenarios()
-    started = {
-        "provider": args.provider,
-        "model": args.model,
-        "effort": args.effort,
-        "settings": {
-            "provider_tools": "disabled",
-            "workspace_access": (
-                "read_only sandbox" if args.provider == "codex" else "none; tools disabled"
-            ),
-            "provider_session": (
-                "ephemeral thread" if args.provider == "codex" else "fresh unresumed SDK query"
-            ),
-            "scoring": (
-                "exact structured good-or-bad decision and stop flag; rationale retained "
-                "for human audit without substring scoring"
-            ),
-        },
-        "versions": provider_versions(args.provider),
-    }
+def prepare_scenarios(
+    *,
+    provider: str,
+    model: str,
+    effort: str,
+    workspace: Path,
+) -> tuple[PreparedScenario, ...]:
+    errors = validate_evaluation_scenarios()
+    if errors:
+        raise ValueError("invalid prompt behavior scenarios: " + "; ".join(errors))
 
-    if args.provider == "codex":
-        observations = await run_codex_scenarios(
-            scenarios,
-            model=args.model,
-            effort=args.effort,
-            workspace=workspace,
-        )
-    else:
-        observations = await run_claude_scenarios(
-            scenarios,
-            model=args.model,
-            effort=args.effort,
-            max_budget_usd=args.max_budget_usd,
-            workspace=workspace,
-        )
-
-    results: list[dict[str, object]] = []
-    for scenario, observation in zip(scenarios, observations, strict=True):
-        scenario_path = output_directory / f"{scenario.id}.json"
-        try:
-            response = parse_provider_response(observation)
-            score = score_response(scenario, response)
-            scenario_result: dict[str, object] = {
-                "scenario": scenario.id,
-                "response": response.model_dump(mode="json"),
-                **score,
-            }
-        except Exception as error:
-            scenario_result = {
-                "scenario": scenario.id,
-                "passed": False,
-                "error": f"{type(error).__name__}: {error}",
-            }
-
-        rendered = render_dispatch_request(
+    prepared: list[PreparedScenario] = []
+    for scenario in scenario_catalog.evaluation_scenarios():
+        request = render_dispatch_request(
             render_scenario_request(
                 scenario,
-                provider=args.provider,
-                model=args.model,
-                effort=args.effort,
+                provider=provider,
+                model=model,
+                effort=effort,
                 workspace=workspace,
             )
         )
-        write_json(
-            scenario_path,
-            {
-                **scenario_result,
-                "provider_metadata": observation.provider_metadata,
-                "raw_response": observation.raw_response,
-                "structured_response": observation.structured_response,
-                "request": {
-                    "instructions": rendered.instructions_text,
-                    "input": rendered.input_text,
-                },
-            },
-        )
-        results.append(scenario_result)
-        print(
-            f"{scenario.id}: "
-            f"{scenario_result.get('score', 0)}/{scenario_result.get('maximum_score', 2)} "
-            f"{'PASS' if scenario_result['passed'] else 'FAIL'}"
-        )
+        _require_definition_backed_request(scenario, request)
+        prepared.append(PreparedScenario(scenario=scenario, request=request))
+    return tuple(prepared)
 
+
+async def run_evaluation(args: argparse.Namespace) -> int:
+    output_directory, workspace = prepare_output_directory(Path(args.output_dir))
+    prepared = prepare_scenarios(
+        provider=args.provider,
+        model=args.model,
+        effort=args.effort,
+        workspace=workspace,
+    )
+    observations = await _run_provider(args, prepared, workspace=workspace)
+    results = _record_results(output_directory, prepared, observations)
     summary = {
-        **started,
+        **_evaluation_metadata(args),
         "scenarios": results,
         "passed": all(bool(result["passed"]) for result in results),
     }
@@ -239,8 +210,30 @@ async def run_evaluation(args: argparse.Namespace) -> int:
     return 0 if summary["passed"] else 1
 
 
+async def _run_provider(
+    args: argparse.Namespace,
+    prepared: tuple[PreparedScenario, ...],
+    *,
+    workspace: Path,
+) -> tuple[ProviderObservation, ...]:
+    if args.provider == "codex":
+        return await run_codex_scenarios(
+            prepared,
+            model=args.model,
+            effort=args.effort,
+            workspace=workspace,
+        )
+    return await run_claude_scenarios(
+        prepared,
+        model=args.model,
+        effort=args.effort,
+        max_budget_usd=args.max_budget_usd,
+        workspace=workspace,
+    )
+
+
 async def run_codex_scenarios(
-    scenarios: tuple[scenario_catalog.EvaluationScenario, ...],
+    prepared: tuple[PreparedScenario, ...],
     *,
     model: str,
     effort: str,
@@ -256,26 +249,17 @@ async def run_codex_scenarios(
 
     observations: list[ProviderObservation] = []
     async with AsyncCodex(CodexConfig(env=provider_subprocess_environment_overrides())) as codex:
-        for scenario in scenarios:
-            rendered = render_dispatch_request(
-                render_scenario_request(
-                    scenario,
-                    provider="codex",
-                    model=model,
-                    effort=effort,
-                    workspace=workspace,
-                )
-            )
+        for item in prepared:
             thread = await codex.thread_start(
                 approval_mode=ApprovalMode.deny_all,
                 cwd=str(workspace),
-                developer_instructions=rendered.instructions_text,
+                developer_instructions=item.request.instructions_text,
                 ephemeral=True,
                 model=model,
                 sandbox=Sandbox.read_only,
             )
             turn = await thread.turn(
-                rendered.input_text,
+                item.request.input_text,
                 effort=resolved_effort,
                 output_schema=scenario_catalog.OUTPUT_SCHEMA,
             )
@@ -296,7 +280,7 @@ async def run_codex_scenarios(
 
 
 async def run_claude_scenarios(
-    scenarios: tuple[scenario_catalog.EvaluationScenario, ...],
+    prepared: tuple[PreparedScenario, ...],
     *,
     model: str,
     effort: str,
@@ -310,23 +294,14 @@ async def run_claude_scenarios(
         raise ValueError(f"Claude does not support effort '{effort}'")
 
     observations: list[ProviderObservation] = []
-    for scenario in scenarios:
-        rendered = render_dispatch_request(
-            render_scenario_request(
-                scenario,
-                provider="claude",
-                model=model,
-                effort=effort,
-                workspace=workspace,
-            )
-        )
+    for item in prepared:
         options = ClaudeAgentOptions(
             tools=[],
             allowed_tools=[],
             system_prompt={
                 "type": "preset",
                 "preset": "claude_code",
-                "append": rendered.instructions_text,
+                "append": item.request.instructions_text,
             },
             mcp_servers={},
             strict_mcp_config=True,
@@ -347,7 +322,7 @@ async def run_claude_scenarios(
             ),
         )
         result_message: ResultMessage | None = None
-        async for message in query(prompt=rendered.input_text, options=options):
+        async for message in query(prompt=item.request.input_text, options=options):
             if isinstance(message, ResultMessage):
                 result_message = message
         if result_message is None:
@@ -370,6 +345,130 @@ async def run_claude_scenarios(
             )
         )
     return tuple(observations)
+
+
+def _require_definition_backed_request(
+    scenario: scenario_catalog.EvaluationScenario,
+    request: RenderedDispatchRequest,
+) -> None:
+    team = load_scenario_team(scenario)
+    instructions = ElementTree.fromstring(request.instructions_text)
+    dynamic = ElementTree.fromstring(request.input_text)
+
+    expected_direct = tuple((member.id, member.instruction or "") for member in team.direct_team)
+    rendered_direct = tuple(
+        (member.findtext("id", ""), member.findtext("instruction", ""))
+        for member in dynamic.findall("./direct_team/member")
+    )
+    checks = {
+        "Workflow id": (
+            dynamic.findtext("./task/workflow_id"),
+            team.workflow.id,
+        ),
+        "current Member id": (
+            dynamic.findtext("./current_member/id"),
+            team.current_member.id,
+        ),
+        "current Member dynamic instruction": (
+            dynamic.findtext("./current_member/instruction"),
+            team.current_member.instruction,
+        ),
+        "current Member system instruction": (
+            instructions.findtext("./member_instruction"),
+            team.current_member.instruction,
+        ),
+        "Workflow note": (
+            instructions.findtext("./workflow_note"),
+            team.workflow.note,
+        ),
+        "direct-team definitions": (rendered_direct, expected_direct),
+    }
+    mismatches = [label for label, (actual, expected) in checks.items() if actual != expected]
+    if mismatches:
+        raise ValueError(
+            f"scenario {scenario.id!r} is not definition-backed for " + ", ".join(mismatches)
+        )
+
+
+def _record_results(
+    output_directory: Path,
+    prepared: tuple[PreparedScenario, ...],
+    observations: tuple[ProviderObservation, ...],
+) -> list[dict[str, object]]:
+    results: list[dict[str, object]] = []
+    for item, observation in zip(prepared, observations, strict=True):
+        scenario_result = _score_observation(item.scenario, observation)
+        write_json(
+            output_directory / f"{item.scenario.id}.json",
+            {
+                **scenario_result,
+                "definition_binding": {
+                    "workflow_id": item.scenario.workflow_id,
+                    "current_member_id": item.scenario.current_member_id,
+                    "story": item.scenario.story,
+                },
+                "provider_metadata": observation.provider_metadata,
+                "raw_response": observation.raw_response,
+                "structured_response": observation.structured_response,
+                "request": {
+                    "instructions": item.request.instructions_text,
+                    "input": item.request.input_text,
+                },
+            },
+        )
+        results.append(scenario_result)
+        print(
+            f"{item.scenario.id}: "
+            f"{scenario_result.get('score', 0)}/"
+            f"{scenario_result.get('maximum_score', 2)} "
+            f"{'PASS' if scenario_result['passed'] else 'FAIL'}"
+        )
+    return results
+
+
+def _score_observation(
+    scenario: scenario_catalog.EvaluationScenario,
+    observation: ProviderObservation,
+) -> dict[str, object]:
+    try:
+        response = parse_provider_response(observation)
+        return {
+            "scenario": scenario.id,
+            "response": response.model_dump(mode="json"),
+            **score_response(scenario, response),
+        }
+    except Exception as error:
+        return {
+            "scenario": scenario.id,
+            "passed": False,
+            "error": f"{type(error).__name__}: {error}",
+        }
+
+
+def _evaluation_metadata(args: argparse.Namespace) -> dict[str, object]:
+    return {
+        "provider": args.provider,
+        "model": args.model,
+        "effort": args.effort,
+        "settings": {
+            "provider_tools": "disabled",
+            "workspace_access": (
+                "read_only sandbox" if args.provider == "codex" else "none; tools disabled"
+            ),
+            "provider_session": (
+                "ephemeral thread" if args.provider == "codex" else "fresh unresumed SDK query"
+            ),
+            "scenario_source": (
+                "packaged Starter parsed through the shipped Workflow parser and initial-team "
+                "planner"
+            ),
+            "scoring": (
+                "exact structured good-or-bad decision and stop flag; rationale retained "
+                "for human audit without substring scoring"
+            ),
+        },
+        "versions": provider_versions(args.provider),
+    }
 
 
 def parse_provider_response(observation: ProviderObservation) -> EvaluationResponse:

@@ -74,7 +74,7 @@ async def test_task_tools_use_current_actions_and_operator_event_provenance(
         )
         started = await _tool(tools, OperatorToolName.TASK_START).call(
             {
-                "workflow": "reviewed-delivery",
+                "workflow": "reviewed-code-change",
                 "prompt": "Prepare a bounded reviewable delivery.",
             }
         )

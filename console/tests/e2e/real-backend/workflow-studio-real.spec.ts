@@ -13,6 +13,15 @@ import type {
 } from "../../../src/api/types";
 
 const WORKFLOW_ID = "browser-research-team";
+const STARTER_WORKFLOW_IDS = [
+    "bounded-maintenance-batch",
+    "cross-layer-feature",
+    "debug-and-verify",
+    "evidence-synthesis",
+    "reproducible-study",
+    "reviewed-code-change",
+    "technical-decision",
+] as const;
 const INITIAL_PURPOSE =
     "Investigate a complex question with accountable evidence review.";
 const FINAL_PURPOSE =
@@ -46,17 +55,19 @@ async function proveSeededLibraryReadback(
     const response = await request.get("/api/workflows");
     expect(response.status()).toBe(200);
     const library = (await response.json()) as WorkflowSearchResponse;
-    expect(library.items.length).toBeGreaterThan(0);
+    expect(library.items.map((item) => item.workflow_id)).toEqual(
+        STARTER_WORKFLOW_IDS,
+    );
 
     await page.goto("/workflows");
     await expect(
         page.getByRole("heading", { name: "Workflows", exact: true }),
     ).toBeVisible();
-    await expect(
-        page.getByRole("heading", {
-            name: library.items[0]!.workflow_id,
-        }),
-    ).toBeVisible();
+    for (const workflowId of STARTER_WORKFLOW_IDS) {
+        await expect(
+            page.getByRole("heading", { name: workflowId }),
+        ).toBeVisible();
+    }
 }
 
 async function createWorkflowThroughBrowser(page: Page): Promise<void> {

@@ -32,7 +32,7 @@ async def test_task_search_bounds_maximum_page_prompt_projection_to_one_query(
             async with session_factory() as session:
                 receipt = await start_product_task(
                     TaskStartRequest(
-                        workflow="reviewed-delivery",
+                        workflow="reviewed-code-change",
                         prompt=prompt,
                         workspace=workspace,
                     ),

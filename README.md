@@ -42,7 +42,7 @@ uv run banksia serve
 Import a Workflow written as YAML or JSON into a draft:
 
 ```bash
-banksia workflow import --file examples/workflows/minimal.yaml
+banksia workflow import --file examples/workflows/advanced-reviewed-code-change.yaml
 ```
 
 Review and publish that draft in the Console before using it. Packaged installations also bootstrap provider-neutral starter Workflows. Start a Task interactively:
@@ -55,7 +55,7 @@ For automation, pass strict JSON inline, from `@file`, or through standard input
 
 ```bash
 banksia task start --json \
-  '{"workflow":"reviewed-delivery","prompt":"Review this repository and propose the safest cleanup."}'
+  '{"workflow":"reviewed-code-change","prompt":"Implement a bounded refactor of Workflow input validation without changing public behavior; add focused regression proof, independently review the integrated change, fix accepted findings, and return the verified result."}'
 ```
 
 ## Current scope

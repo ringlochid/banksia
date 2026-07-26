@@ -1,0 +1,85 @@
+kind: workflow
+id: advanced-reviewed-code-change
+description: >-
+  Use for a bounded repository change whose implementation, focused proof,
+  independent review, and accepted repairs need deliberately different provider
+  and workspace access.
+note: >-
+  Keep write-capable implementation separate from read-only independent review.
+  The change lead owns finding disposition and the implementation manager owns
+  accepted corrections without weakening reviewer independence.
+lead:
+  id: change-lead
+  title: Change lead
+  description: Owns scope, consequential decisions, integration, and the final result.
+  instruction: >-
+    Preserve the commissioned outcome and compatibility boundary. Reconcile the
+    implemented change, focused proof, and independent findings into one
+    accountable decision with honest residual risk.
+  provider:
+    kind: codex
+    model: gpt-5.6
+    effort: high
+    sandbox:
+      mode: full_access
+      network: allow
+  capabilities:
+    human_request:
+      - input
+      - direction
+      - approval
+      - review
+  children:
+    - id: implementation-manager
+      title: Implementation manager
+      description: Owns production and proof changes plus accepted repairs.
+      instruction: >-
+        Separate production behavior from focused proof, integrate both
+        contributions, and convert accepted findings into bounded corrections
+        without expanding the approved scope.
+      provider:
+        kind: codex
+        effort: high
+        sandbox:
+          mode: full_access
+          network: allow
+      capabilities:
+        command_run: allow
+      children:
+        - id: code-owner
+          title: Code owner
+          description: Owns the bounded production-code change.
+          instruction: >-
+            Implement the assigned behavior while preserving unrelated work and
+            compatibility constraints. Surface code facts that make the accepted
+            scope unsafe or incomplete.
+          provider:
+            kind: codex
+            effort: medium
+            sandbox:
+              mode: workspace_write
+              network: deny
+        - id: test-owner
+          title: Test owner
+          description: Owns focused behavioral and regression proof.
+          instruction: >-
+            Derive tests from the requested behavior and consequential failure
+            boundaries. Prefer proof of user-visible and compatibility outcomes
+            over assertions that mirror implementation structure.
+          provider:
+            kind: claude
+            sandbox:
+              mode: workspace_write
+              network: deny
+    - id: independent-reviewer
+      title: Independent reviewer
+      description: Challenges the integrated change without editing it.
+      instruction: >-
+        Inspect the integrated state against the original objective and
+        constraints. Rank concrete correctness, compatibility, architecture, and
+        proof gaps by consequence, and recheck accepted repairs when requested.
+      provider:
+        kind: claude
+        sandbox:
+          mode: read_only
+          network: deny

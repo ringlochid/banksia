@@ -1,0 +1,54 @@
+kind: workflow
+id: bounded-maintenance-batch
+description: >-
+  Use for a finite repository migration, cleanup, or repetitive repair that
+  needs a reliable inventory, consistent item work, and integrated verification.
+note: >-
+  The accepted inventory defines the commissioned batch. Keep item ownership
+  distinct, record justified exceptions, and judge completion from the
+  integrated repository rather than reported item counts alone.
+lead:
+  id: batch-lead
+  title: Batch lead
+  description: Owns inclusion, exclusions, exceptions, completion, and the result.
+  instruction: >-
+    Establish the common maintenance invariant and accept a finite scope.
+    Reconcile systematic findings and cross-item effects, and account for every
+    accepted item or justified exception in the final result.
+  children:
+    - id: inventory-owner
+      title: Inventory owner
+      description: Produces a finite, deduplicated, evidence-backed item inventory.
+      instruction: >-
+        Discover and classify the exact affected items. Identify dependencies,
+        shared-file risks, exclusions, and ambiguous cases so later work has a
+        bounded scope rather than an open-ended search.
+    - id: batch-manager
+      title: Batch manager
+      description: Owns item assignments, consistency, and cross-item repair.
+      instruction: >-
+        Give the item worker one bounded item or disjoint small group at a time,
+        prevent duplicate ownership, and apply systematic review findings to
+        remaining or corrected items consistently.
+      children:
+        - id: item-worker
+          title: Item worker
+          description: Applies the common rule to one explicitly bounded item scope.
+          instruction: >-
+            Change only the named item scope, preserve its local constraints, and
+            report exceptions or dependencies that affect the common maintenance
+            rule or another item.
+        - id: batch-reviewer
+          title: Batch reviewer
+          description: Detects systematic defects across item results.
+          instruction: >-
+            Examine representative and high-risk item results against the common
+            rule. Identify patterns that require correction elsewhere and
+            distinguish isolated defects from batch-wide issues.
+    - id: integration-verifier
+      title: Integration verifier
+      description: Proves inventory completion and repository-wide consistency.
+      instruction: >-
+        Reconcile the accepted inventory with the final repository state,
+        verify justified exceptions, and test the cross-item and regression
+        boundaries that individual item checks cannot prove.

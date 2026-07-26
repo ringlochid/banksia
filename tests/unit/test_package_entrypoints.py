@@ -18,6 +18,7 @@ import banksia
 from banksia.interfaces.cli.main import main
 from banksia.main import app, create_app
 from banksia.platform.managed_services.resources import get_managed_service_resources_root
+from banksia.workflows.bootstrap import STARTER_WORKFLOW_FILENAMES
 from scripts.testing.verify_installed_distribution import validate_external_workspace
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -204,7 +205,8 @@ def test_fresh_interpreter_can_import_canonical_package_roots() -> None:
                 "'banksia.workflows.resources.starter_workflows'); "
                 "service_root = resources.files('banksia.platform.managed_services.resources'); "
                 "prompt_root = resources.files('banksia.runtime.prompt.assets'); "
-                "assert workflow_root.joinpath('reviewed-delivery.yaml').is_file(); "
+                f"assert tuple(sorted(entry.name for entry in workflow_root.iterdir() "
+                f"if entry.name.endswith('.yaml'))) == {STARTER_WORKFLOW_FILENAMES!r}; "
                 "assert service_root.name == 'resources'; "
                 "assert prompt_root.name == 'assets'; "
                 "assert find_spec('banksia.interfaces.web_console') is not None"
@@ -257,7 +259,12 @@ def test_resource_owner_helpers_point_to_canonical_package_paths() -> None:
     workflow_root = resources.files("banksia.workflows.resources.starter_workflows")
     service_root = get_managed_service_resources_root()
 
-    assert workflow_root.joinpath("reviewed-delivery.yaml").is_file()
+    assert (
+        tuple(
+            sorted(entry.name for entry in workflow_root.iterdir() if entry.name.endswith(".yaml"))
+        )
+        == STARTER_WORKFLOW_FILENAMES
+    )
     assert service_root.name == "resources"
     assert service_root.joinpath("systemd", "banksia.service").is_file()
 

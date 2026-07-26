@@ -27,7 +27,7 @@ async def test_task_workspace_has_private_target_layout(tmp_path: Path) -> None:
         async with session_factory() as session:
             workflow = await read_current_published_workflow(
                 session,
-                workflow_id="reviewed-delivery",
+                workflow_id="reviewed-code-change",
             )
     admission = stage_task_workspace(
         workspace=workspace,
@@ -77,7 +77,7 @@ async def test_stage_rejects_unsafe_banksia_root_without_touching_target(
         async with session_factory() as session:
             workflow = await read_current_published_workflow(
                 session,
-                workflow_id="reviewed-delivery",
+                workflow_id="reviewed-code-change",
             )
 
     with pytest.raises(OSError):

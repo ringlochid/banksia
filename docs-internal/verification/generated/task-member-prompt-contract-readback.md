@@ -43,3 +43,22 @@ This page is generated from the shipped Banksia prompt contracts and controller-
 - controller-owned fixed element names with escaped values as element text
 - stable field order and omission of absent optional sections
 - UTF-8-compatible Unicode, LF line endings, and exactly one final newline
+
+## Definition-backed behavior evaluation
+
+Every scenario loads the named packaged Starter through the shipped Workflow parser and initial-team planner. The rendered system and dynamic inputs must contain that exact current Member, its authored instruction, the Workflow note, and every direct-team instruction before a provider run is admitted.
+
+| Scenario | Starter Workflow | Current Member | Behavior under evaluation |
+| --- | --- | --- | --- |
+| `anti-relay` | `reviewed-code-change` | `change-lead` | A Manager must add interpretation, scope, inspection, and integration. |
+| `child-says-done` | `reviewed-code-change` | `implementation-manager` | A green child claim requires evidence inspection before acceptance. |
+| `review-and-rework` | `reviewed-code-change` | `change-lead` | Review findings become a fresh, feedback-bearing repair Assignment. |
+| `debug-before-repair` | `debug-and-verify` | `debug-lead` | Reproduction and cause evidence precede a cause-based repair. |
+| `sequential-dependency` | `reviewed-code-change` | `change-lead` | A dependent review receives a fresh Assignment shaped by the first return. |
+| `unsettled-contract` | `cross-layer-feature` | `feature-lead` | Settle shared assumptions before parallel disjoint implementation. |
+| `item-specific-batch` | `bounded-maintenance-batch` | `batch-lead` | A finite inventory becomes item-specific work plus integrated verification. |
+| `lead-synthesis` | `evidence-synthesis` | `research-lead` | The lead reconciles provenance and conflict instead of concatenating summaries. |
+| `evidence-based-decision` | `technical-decision` | `decision-lead` | The lead resolves disagreement from common evidence, not a vote. |
+| `failed-replication` | `reproducible-study` | `study-lead` | Failed replication narrows the reported claim and exposes uncertainty. |
+| `nested-wave` | `technical-decision` | `decision-lead` | A Manager consumes ordered direct returns only after nested local joins. |
+| `stop-after-transfer` | `reviewed-code-change` | `change-lead` | A successful transfer closes the current provider response. |

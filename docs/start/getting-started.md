@@ -84,7 +84,7 @@ For automation:
 
 ```bash
 banksia task start --json \
-  '{"workflow":"reviewed-delivery","prompt":"Review this repository change and report the consequential findings."}'
+  '{"workflow":"reviewed-code-change","prompt":"Review this repository change and report the consequential findings."}'
 ```
 
 ## 6. Try a reference Workflow
@@ -92,9 +92,9 @@ banksia task start --json \
 Importing a YAML or JSON definition creates a draft:
 
 ```bash
-banksia workflow import --file examples/workflows/minimal.yaml
+banksia workflow import --file examples/workflows/advanced-reviewed-code-change.yaml
 ```
 
-Open that draft in the Console, validate it, and publish it before Task start. The maintained [Workflow examples](../../examples/workflows/README.md) range from one sparse lead to deep delivery and research teams.
+Open that draft in the Console, validate it, and publish it before Task start. The maintained [Workflow examples](../../examples/workflows/README.md) demonstrate advanced provider, sandbox, network, Human Request, and Command Run choices for developer and researcher teams.
 
 Next, read [Workflows and teams](../concepts/workflows-and-teams.md) or [Run and operate Tasks](../guides/run-and-operate.md).

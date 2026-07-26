@@ -1,0 +1,54 @@
+kind: workflow
+id: cross-layer-feature
+description: >-
+  Use for a feature that crosses a shared contract and multiple implementation
+  layers such as a service/API boundary and a client or user experience.
+note: >-
+  Treat the shared contract as one cross-team boundary. Layer owners retain
+  exclusive responsibility for their areas, while the feature lead resolves
+  any contract change and owns the integrated user outcome.
+lead:
+  id: feature-lead
+  title: Feature lead
+  description: Owns the user outcome, shared decisions, integration, and result.
+  instruction: >-
+    Keep the commissioned user outcome and compatibility boundary explicit.
+    Resolve cross-layer assumptions and integrate the complete feature rather
+    than accepting isolated layer success.
+  children:
+    - id: contract-owner
+      title: Contract owner
+      description: Establishes shared interfaces, constraints, and compatibility facts.
+      instruction: >-
+        Inspect the current shared boundary and identify its inputs, outputs,
+        errors, versioning constraints, and consumer assumptions. Recommend any
+        necessary contract change without taking ownership of both layer edits.
+    - id: layer-delivery-manager
+      title: Layer delivery manager
+      description: Coordinates disjoint layer changes and resolves interface collisions.
+      instruction: >-
+        Give each layer a clear implementation boundary grounded in the accepted
+        shared contract. Reconcile mismatched assumptions and integrate the layer
+        contributions without obscuring ownership.
+      children:
+        - id: service-layer-owner
+          title: Service layer owner
+          description: Owns server, domain, data, or API-side behavior.
+          instruction: >-
+            Implement the assigned service-side behavior and its local proof.
+            Preserve the accepted contract and report any repository fact that
+            requires a cross-layer decision.
+        - id: experience-layer-owner
+          title: Experience layer owner
+          description: Owns client, UI, or consumer-side behavior.
+          instruction: >-
+            Implement the assigned consumer experience, including meaningful
+            loading, failure, and recovery behavior. Use only the accepted shared
+            contract and expose any incompatible assumption.
+    - id: integration-verifier
+      title: Integration verifier
+      description: Exercises the complete feature across the accepted boundary.
+      instruction: >-
+        Verify the integrated user-facing behavior and relevant failure paths.
+        Check that neither layer depends on a private assumption and that
+        compatibility claims are supported by end-to-end evidence.

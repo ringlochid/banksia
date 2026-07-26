@@ -88,7 +88,7 @@ async def test_concurrent_product_opens_converge_on_one_exact_draft(
     monkeypatch: pytest.MonkeyPatch,
     database_backend: DatabaseBackend,
 ) -> None:
-    workflow_id = "reviewed-delivery"
+    workflow_id = "reviewed-code-change"
     request = OpenWorkflowDraftRequest(kind="open", workflow_id=workflow_id)
 
     async with workflow_database(tmp_path, backend=database_backend) as session_factory:

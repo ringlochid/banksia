@@ -39,7 +39,7 @@ async def test_task_start_preserves_long_prompt_and_file_values(
     (workspace / file_path).write_text("source brief", encoding="utf-8")
     prompt = f"  {'x' * 8_193}\r\nKeep the trailing space.  "
     request = TaskStartRequest(
-        workflow="reviewed-delivery",
+        workflow="reviewed-code-change",
         prompt=prompt,
         workspace=workspace,
         files=(FileReference(path=file_path, description=file_description),),
@@ -192,7 +192,7 @@ async def test_task_start_rejections_and_exclusive_collision_leave_clean_admissi
             ) as missing_file:
                 await start_task(
                     TaskStartRequest(
-                        workflow="reviewed-delivery",
+                        workflow="reviewed-code-change",
                         prompt="Read the missing input.",
                         workspace=workspace,
                         files=(FileReference(path="missing.md"),),
@@ -318,7 +318,7 @@ async def test_task_start_recovery_repairs_committed_marker_and_removes_stale_ma
 
 def _request(workspace: Path) -> TaskStartRequest:
     return TaskStartRequest(
-        workflow="reviewed-delivery",
+        workflow="reviewed-code-change",
         prompt="Complete the requested work.",
         workspace=workspace,
     )

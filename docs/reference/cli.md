@@ -81,7 +81,7 @@ banksia task start
 Strict JSON inline, through standard input, or from a file:
 
 ```bash
-banksia task start --json '{"workflow":"reviewed-delivery","prompt":"Review the change."}'
+banksia task start --json '{"workflow":"reviewed-code-change","prompt":"Review the change."}'
 banksia task start --json - < task.json
 banksia task start --json @task.json
 ```

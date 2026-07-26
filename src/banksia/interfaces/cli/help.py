@@ -3,7 +3,7 @@ from __future__ import annotations
 ROOT_HELP_EPILOG = """Examples:
   banksia init --json
   banksia service status
-  banksia workflow import --file ./reviewed-delivery.yaml
+  banksia workflow import --file ./advanced-reviewed-code-change.yaml
 """
 
 

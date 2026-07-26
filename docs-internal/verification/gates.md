@@ -87,7 +87,7 @@ A successful final-package completion records **go**. An explicit **no-go** is s
 - Prove examples contain only Workflow authoring fields. The narrow `capabilities` block authorizes Human Request and Command Run; the actual requests, delegate, replan, Checkpoint, and file references remain runtime behavior.
 - Prove Workflow `note` and Member `instruction` contain no generic Banksia orchestration, tool-use, wait, note/file-reference, anti-relay, or Checkpoint teaching; those rules have one owner in the system-prompt assets.
 - Prove reference examples and packaged seeds are distinct inventories: no reference-example path or ID is enumerated by bootstrap, and package contents include only the seed inventory as bootstrap input.
-- Walk every Member in every packaged seed and prove `provider` and `capabilities` are absent. Search seed prose for OMC/OMX-specific product, phase, tool, agent-name, and memory-file dependencies while retaining the documented structural inspiration.
+- Walk every Member in every packaged seed and prove `provider` and `capabilities` are absent. Search seed prose for source-product-specific names, phases, tools, agent names, and memory-file dependencies.
 - Resolve every internal `$ref` and reject broken or unused schema fragments.
 - Prove all maintained local links resolve.
 
@@ -317,7 +317,7 @@ The required usability oracle is an independent no-doc evaluator that did not im
 ### Workflow Studio
 
 - Before implementation, each delegated slice verifies the pinned n8n commit, reads its assigned source packet and screenshots, and returns an adopt/adapt/reject record tied to Banksia contracts. Source reading without this decision record is not proof.
-- Fresh/reset library state shows exactly the packaged Starter Workflow inventory with human “use when” descriptions, no installed reference-example IDs, and no provider/capability claim where those fields are omitted.
+- Fresh/reset library state shows exactly `bounded-maintenance-batch`, `cross-layer-feature`, `debug-and-verify`, `evidence-synthesis`, `reproducible-study`, `reviewed-code-change`, and `technical-decision`, with human “use when” descriptions and no provider/capability claim where those fields are omitted. The three `advanced-*` reference examples remain absent from installed content.
 - New Workflow starts with one selected lead, one right-side add control, and no type picker.
 - Repeated accepted clicks append siblings and move the same control; selecting a child relocates it and creates a nested Member on add.
 - Accepted subtree removal selects and restores focus to the removed Member's surviving direct parent rather than unexpectedly returning to the lead.

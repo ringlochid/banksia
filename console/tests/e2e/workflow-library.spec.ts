@@ -6,7 +6,7 @@ import type { WorkflowDraftReadback } from "../../src/api/types";
 const workflowLibrary = {
     items: [
         {
-            workflow_id: "evidence-research",
+            workflow_id: "evidence-synthesis",
             description:
                 "Research a question with independent evidence review.",
             state: "published",
@@ -20,12 +20,12 @@ const workflowLibrary = {
 };
 const draft: WorkflowDraftReadback = {
     draft_id: "workflow-draft.test",
-    workflow_id: "evidence-research",
+    workflow_id: "evidence-synthesis",
     base_revision_no: 1,
     etag: '"wd-one"',
     workflow: {
         kind: "workflow",
-        id: "evidence-research",
+        id: "evidence-synthesis",
         description: "Research a question with independent evidence review.",
         lead: {
             id: "member-1",
@@ -42,13 +42,13 @@ const draft: WorkflowDraftReadback = {
 const workflowDetail = {
     ...workflowLibrary.items[0],
     published: {
-        workflow_id: "evidence-research",
+        workflow_id: "evidence-synthesis",
         revision_no: 1,
         workflow: draft.workflow,
     },
     revisions: [
         {
-            workflow_id: "evidence-research",
+            workflow_id: "evidence-synthesis",
             revision_no: 1,
             provenance: "starter_seed",
         },
@@ -80,7 +80,7 @@ test.beforeEach(async ({ page }) => {
     await page.route("**/api/workflows/authoring-options", async (route) => {
         await route.fulfill({ json: authoringOptions });
     });
-    await page.route("**/api/workflows/evidence-research", async (route) => {
+    await page.route("**/api/workflows/evidence-synthesis", async (route) => {
         await route.fulfill({ json: workflowDetail });
     });
 });
@@ -94,12 +94,12 @@ test("the Workflow library is operable and accessible at page level", async ({
         page.getByRole("heading", { name: "Workflows", exact: true }),
     ).toBeVisible();
     await expect(
-        page.getByRole("heading", { name: "evidence-research" }),
+        page.getByRole("heading", { name: "evidence-synthesis" }),
     ).toBeVisible();
     await expect(page.getByText("Starter")).toBeVisible();
     await expect(page.getByText("Published", { exact: true })).toBeVisible();
     await expect(
-        page.getByRole("link", { name: "Open evidence-research" }),
+        page.getByRole("link", { name: "Open evidence-synthesis" }),
     ).toBeVisible();
 
     const createButton = page.getByRole("button", {
@@ -136,7 +136,7 @@ test("the library and Studio reflow at 320 CSS px with usable targets", async ({
     expect(searchBox).not.toBeNull();
     expect(searchBox?.height ?? 0).toBeGreaterThanOrEqual(44);
 
-    await page.goto("/workflows/evidence-research");
+    await page.goto("/workflows/evidence-synthesis");
     await expect(
         page.getByRole("region", { name: "Team hierarchy canvas" }),
     ).toBeVisible();
@@ -188,7 +188,7 @@ test("the Studio exposes one moving add control and an accessible hierarchy", as
             },
         },
     };
-    await page.route("**/api/workflows/evidence-research", async (route) => {
+    await page.route("**/api/workflows/evidence-synthesis", async (route) => {
         await route.fulfill({
             json: {
                 ...workflowDetail,
@@ -196,7 +196,7 @@ test("the Studio exposes one moving add control and an accessible hierarchy", as
             },
         });
     });
-    await page.goto("/workflows/evidence-research");
+    await page.goto("/workflows/evidence-synthesis");
     const addControl = page.getByRole("button", {
         name: /^Add child to /,
     });
@@ -270,7 +270,7 @@ test("accepted add, edit, and subtree removal update the one Workflow team", asy
     );
     let currentDraft: WorkflowDraftReadback = structuredClone(draft);
     let nextEtag = 2;
-    await page.route("**/api/workflows/evidence-research", async (route) => {
+    await page.route("**/api/workflows/evidence-synthesis", async (route) => {
         await route.fulfill({
             json: {
                 ...workflowDetail,
@@ -308,7 +308,7 @@ test("accepted add, edit, and subtree removal update the one Workflow team", asy
         },
     );
 
-    await page.goto("/workflows/evidence-research");
+    await page.goto("/workflows/evidence-synthesis");
     await page
         .getByRole("button", { name: "Add child to Research lead" })
         .click();
@@ -406,13 +406,13 @@ test("the moving add control avoids every card in mixed deep peer branches", asy
         "The desktop hierarchy owns geometric layout proof.",
     );
     const mixedDraft = mixedDeepPeerDraft();
-    await page.route("**/api/workflows/evidence-research", async (route) => {
+    await page.route("**/api/workflows/evidence-synthesis", async (route) => {
         await route.fulfill({
             json: { ...workflowDetail, active_draft: mixedDraft },
         });
     });
 
-    await page.goto("/workflows/evidence-research");
+    await page.goto("/workflows/evidence-synthesis");
     await page.getByText("Team outline", { exact: true }).first().click();
     await page
         .getByRole("treeitem", { name: /Evidence manager A.*Manager/ })
@@ -485,7 +485,7 @@ test("discarding a draft-only Workflow returns to a library without it", async (
                   },
         });
     });
-    await page.route("**/api/workflows/evidence-research", async (route) => {
+    await page.route("**/api/workflows/evidence-synthesis", async (route) => {
         await route.fulfill({ json: draftOnlyDetail });
     });
     await page.route(
@@ -505,7 +505,7 @@ test("discarding a draft-only Workflow returns to a library without it", async (
         },
     );
 
-    await page.goto("/workflows/evidence-research");
+    await page.goto("/workflows/evidence-synthesis");
     await page.getByRole("button", { name: "Discard draft" }).click();
     const dialog = page.getByRole("dialog", {
         name: "Discard this draft?",
@@ -534,7 +534,7 @@ test("an uncommitted discard is reconciled with one safe truth read", async ({
     let discardAttempted = false;
     let reconciliationReads = 0;
     let deletes = 0;
-    await page.route("**/api/workflows/evidence-research", async (route) => {
+    await page.route("**/api/workflows/evidence-synthesis", async (route) => {
         if (discardAttempted) {
             reconciliationReads += 1;
         }
@@ -553,7 +553,7 @@ test("an uncommitted discard is reconciled with one safe truth read", async ({
         },
     );
 
-    await page.goto("/workflows/evidence-research");
+    await page.goto("/workflows/evidence-synthesis");
     await page.getByRole("button", { name: "Discard draft" }).click();
     const dialog = page.getByRole("dialog", {
         name: "Discard this draft?",
@@ -600,7 +600,7 @@ test("a lost accepted discard response resolves from absence without replay", as
                 : workflowLibrary,
         });
     });
-    await page.route("**/api/workflows/evidence-research", async (route) => {
+    await page.route("**/api/workflows/evidence-synthesis", async (route) => {
         if (isRemoved) {
             reconciliationReads += 1;
             await route.fulfill({
@@ -624,7 +624,7 @@ test("a lost accepted discard response resolves from absence without replay", as
         },
     );
 
-    await page.goto("/workflows/evidence-research");
+    await page.goto("/workflows/evidence-synthesis");
     await page.getByRole("button", { name: "Discard draft" }).click();
     const dialog = page.getByRole("dialog", {
         name: "Discard this draft?",

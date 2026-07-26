@@ -8,7 +8,7 @@ The smallest valid definition is:
 
 ```yaml
 kind: workflow
-id: direct-work
+id: one-member-work
 description: Complete a task with one accountable lead.
 lead:
     id: lead
@@ -109,4 +109,4 @@ Standard output requires an explicit format:
 banksia workflow export reviewed-change --format json
 ```
 
-See the maintained [examples](../../examples/workflows/README.md) for sparse and fully configured teams.
+See the maintained [examples](../../examples/workflows/README.md) for advanced teams with explicit provider, sandbox, network, and capability choices.

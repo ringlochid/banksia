@@ -45,13 +45,13 @@ describe("Workflow library", () => {
         );
         release?.();
         expect(
-            await screen.findByRole("heading", { name: "evidence-research" }),
+            await screen.findByRole("heading", { name: "evidence-synthesis" }),
         ).toBeVisible();
         expect(screen.getByText("Starter")).toBeVisible();
         expect(screen.getByText("Published")).toBeVisible();
         expect(
-            screen.getByRole("link", { name: "Open evidence-research" }),
-        ).toHaveAttribute("href", "/workflows/evidence-research");
+            screen.getByRole("link", { name: "Open evidence-synthesis" }),
+        ).toHaveAttribute("href", "/workflows/evidence-synthesis");
         expect(screen.queryByText("start_run")).not.toBeInTheDocument();
     });
 
@@ -74,9 +74,9 @@ describe("Workflow library", () => {
 
         expect(
             await screen.findByRole("link", {
-                name: "Open evidence-research",
+                name: "Open evidence-synthesis",
             }),
-        ).toHaveAttribute("href", "/workflows/evidence-research");
+        ).toHaveAttribute("href", "/workflows/evidence-synthesis");
         expect(screen.queryByText("Start run")).not.toBeInTheDocument();
     });
 
@@ -122,7 +122,7 @@ describe("Workflow library", () => {
                             : {
                                   items: [
                                       searchItemFixture({
-                                          workflow_id: "reviewed-delivery",
+                                          workflow_id: "reviewed-code-change",
                                       }),
                                   ],
                                   next_cursor: null,
@@ -134,14 +134,14 @@ describe("Workflow library", () => {
         const user = userEvent.setup();
 
         renderLibrary(api);
-        await screen.findByRole("heading", { name: "evidence-research" });
+        await screen.findByRole("heading", { name: "evidence-synthesis" });
         await user.click(
             screen.getByRole("button", { name: "Show more Workflows" }),
         );
 
         expect(
             await screen.findByRole("heading", {
-                name: "reviewed-delivery",
+                name: "reviewed-code-change",
             }),
         ).toBeVisible();
         expect(cursors).toEqual([null, "opaque-next-page"]);
@@ -225,7 +225,7 @@ describe("Workflow library", () => {
         const user = userEvent.setup();
 
         renderLibrary(api);
-        await screen.findByRole("heading", { name: "evidence-research" });
+        await screen.findByRole("heading", { name: "evidence-synthesis" });
         await user.click(
             screen.getByRole("button", { name: "Create Workflow" }),
         );

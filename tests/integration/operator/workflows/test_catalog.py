@@ -211,7 +211,7 @@ async def test_workflow_catalog_reads_metadata_only_and_keeps_cursor_source_cohe
         with pytest.raises(RuntimeOperationError):
             await _tool(tools, OperatorToolName.WORKFLOW_GET).call(
                 {
-                    "workflow_id": "reviewed-delivery",
+                    "workflow_id": "reviewed-code-change",
                     "selection": {
                         "kind": "catalog",
                         "revision_cursor": first_page["revisions_next_cursor"],
@@ -321,14 +321,14 @@ async def test_workflow_reads_fail_closed_for_missing_and_cross_source_identity(
         created = await _create_draft(tools, _workflow_payload("identity-owner"))
         failures = (
             {
-                "workflow_id": "reviewed-delivery",
+                "workflow_id": "reviewed-code-change",
                 "selection": {
                     "kind": "published",
                     "revision_no": 999,
                 },
             },
             {
-                "workflow_id": "reviewed-delivery",
+                "workflow_id": "reviewed-code-change",
                 "selection": {
                     "kind": "draft",
                     "draft_id": "workflow-draft.missing",
@@ -336,7 +336,7 @@ async def test_workflow_reads_fail_closed_for_missing_and_cross_source_identity(
                 },
             },
             {
-                "workflow_id": "reviewed-delivery",
+                "workflow_id": "reviewed-code-change",
                 "selection": {
                     "kind": "published",
                     "revision_no": 1,
@@ -344,7 +344,7 @@ async def test_workflow_reads_fail_closed_for_missing_and_cross_source_identity(
                 },
             },
             {
-                "workflow_id": "reviewed-delivery",
+                "workflow_id": "reviewed-code-change",
                 "selection": {
                     "kind": "draft",
                     "draft_id": created["draft"]["draft_id"],

@@ -19,7 +19,7 @@ async def test_runtime_launch_consumes_one_real_published_workflow_revision(
         async with session_factory() as session:
             workflow_revision = await read_current_published_workflow(
                 session,
-                workflow_id="reviewed-delivery",
+                workflow_id="reviewed-code-change",
             )
             staged = await launch_task_runtime(
                 session,
@@ -29,7 +29,7 @@ async def test_runtime_launch_consumes_one_real_published_workflow_revision(
                     workspace=tmp_path,
                     workflow_revision=workflow_revision,
                     assignment=AssignmentBody(
-                        prompt="Launch exact reviewed-delivery truth.",
+                        prompt="Launch exact reviewed-code-change truth.",
                     ),
                 ),
             )
@@ -55,7 +55,7 @@ async def test_runtime_launch_consumes_one_real_published_workflow_revision(
                 ).all()
             )
 
-    assert task.workflow_key == "reviewed-delivery"
+    assert task.workflow_key == "reviewed-code-change"
     assert task.workflow_revision_no == 1
     assert len(task.workflow_content_hash) == 64
     assert task.current_team_revision_id is not None
@@ -63,13 +63,15 @@ async def test_runtime_launch_consumes_one_real_published_workflow_revision(
     assert task.max_retries_per_assignment == 1
     assert task.max_wave_members == 8
     assert assignment is not None
-    assert assignment.member_id == "lead"
+    assert assignment.member_id == "change-lead"
     assert assignment.child_assignment_limit == 20
     assert assignment.retry_limit == 1
     assert tuple(member.member_id for member in members) == (
-        "lead",
-        "delivery",
-        "independent-review",
+        "change-lead",
+        "implementation-manager",
+        "code-owner",
+        "test-owner",
+        "independent-reviewer",
     )
     assert all(member.team_revision_id == task.current_team_revision_id for member in members)
-    assert staged.bootstrap.assignment.prompt == "Launch exact reviewed-delivery truth."
+    assert staged.bootstrap.assignment.prompt == "Launch exact reviewed-code-change truth."

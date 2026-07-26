@@ -10,6 +10,7 @@ from banksia.runtime.prompt import (
     INSTRUCTION_ASSETS,
     instruction_asset_path,
 )
+from scripts.docs.prompt_catalog.behavior_scenarios import evaluation_scenarios
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 PROMPT_CONTRACT_READBACK_PATH = (
@@ -65,7 +66,24 @@ def render_prompt_contract_readback() -> str:
             "- controller-owned fixed element names with escaped values as element text",
             "- stable field order and omission of absent optional sections",
             "- UTF-8-compatible Unicode, LF line endings, and exactly one final newline",
+            "",
+            "## Definition-backed behavior evaluation",
+            "",
+            "Every scenario loads the named packaged Starter through the shipped Workflow "
+            "parser and initial-team planner. The rendered system and dynamic inputs must "
+            "contain that exact current Member, its authored instruction, the Workflow note, "
+            "and every direct-team instruction before a provider run is admitted.",
+            "",
+            "| Scenario | Starter Workflow | Current Member | Behavior under evaluation |",
+            "| --- | --- | --- | --- |",
         ]
+    )
+    lines.extend(
+        (
+            f"| `{scenario.id}` | `{scenario.workflow_id}` | "
+            f"`{scenario.current_member_id}` | {scenario.focus} |"
+        )
+        for scenario in evaluation_scenarios()
     )
     return "\n".join(lines) + "\n"
 

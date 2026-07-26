@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+from importlib.resources import files
+from pathlib import PurePath
+
 from banksia.runtime.contracts.prompt import (
     PROMPT_DYNAMIC_INPUT_KEYS,
     PROMPT_TRIGGER_KINDS,
@@ -10,6 +14,16 @@ from banksia.runtime.prompt import (
     instruction_asset_path,
     load_instruction_asset,
 )
+from banksia.runtime.team.materialization import plan_initial_task_team
+from banksia.workflows.bootstrap import STARTER_WORKFLOW_FILENAMES
+from banksia.workflows.canonical import canonical_workflow_hash
+from banksia.workflows.contracts import (
+    NormalizedMember,
+    NormalizedWorkflow,
+    PublishedWorkflowRevision,
+)
+from banksia.workflows.ingest import parse_workflow
+from scripts.docs.prompt_catalog import behavior_scenarios as scenario_catalog
 from scripts.docs.prompt_catalog.render import (
     PROMPT_CONTRACT_READBACK_PATH,
     render_prompt_contract_readback,
@@ -28,6 +42,21 @@ EXPECTED_ASSET_PATHS = (
     "situations/continuation.txt",
 )
 STABLE_TARGET_ASSET_PATHS = EXPECTED_ASSET_PATHS
+_REQUIRED_RETURN_SHAPES = {
+    "child-says-done": ("code-owner",),
+    "nested-wave": (
+        "local-fit-analyst",
+        "option-council",
+        "decision-reviewer",
+    ),
+}
+
+
+@dataclass(frozen=True, slots=True)
+class ScenarioTeam:
+    workflow: NormalizedWorkflow
+    current_member: NormalizedMember
+    direct_team: tuple[NormalizedMember, ...]
 
 
 def validate_prompt_contract(*, should_check_generated_readback: bool = True) -> tuple[str, ...]:
@@ -46,6 +75,7 @@ def validate_prompt_contract(*, should_check_generated_readback: bool = True) ->
             errors.append(f"instruction asset is empty: {instruction_asset_path(asset)}")
 
     errors.extend(validate_stable_asset_bodies())
+    errors.extend(validate_evaluation_scenarios())
 
     if tuple(PromptDynamicInput.model_fields) != PROMPT_DYNAMIC_INPUT_KEYS:
         errors.append("dynamic prompt input does not expose the canonical ordered sections")
@@ -62,6 +92,63 @@ def validate_prompt_contract(*, should_check_generated_readback: bool = True) ->
         ):
             errors.append("generated Task-member prompt contract readback is stale")
 
+    return tuple(errors)
+
+
+def load_scenario_team(
+    scenario: scenario_catalog.EvaluationScenario,
+) -> ScenarioTeam:
+    workflow = _load_starter_workflow(scenario.workflow_id)
+    revision = PublishedWorkflowRevision(
+        workflow_id=workflow.id,
+        revision_no=1,
+        content_hash=canonical_workflow_hash(workflow),
+        workflow=workflow,
+    )
+    plan = plan_initial_task_team(revision, f"t_eval_{scenario.workflow_id}")
+    selected = next(
+        (member for member in plan.members if member.member_id == scenario.current_member_id),
+        None,
+    )
+    if selected is None:
+        raise ValueError(
+            f"scenario {scenario.id!r} selects missing Member "
+            f"{scenario.current_member_id!r} from {scenario.workflow_id!r}"
+        )
+    direct_team = tuple(
+        member.member for member in plan.members if member.parent_member_id == selected.member_id
+    )
+    return ScenarioTeam(
+        workflow=workflow,
+        current_member=selected.member,
+        direct_team=direct_team,
+    )
+
+
+def validate_evaluation_scenarios() -> tuple[str, ...]:
+    errors = list(scenario_catalog.validate_scenario_inventory())
+    for scenario in scenario_catalog.evaluation_scenarios():
+        try:
+            team = load_scenario_team(scenario)
+        except (OSError, UnicodeDecodeError, ValueError) as error:
+            errors.append(f"{scenario.id}: {error}")
+            continue
+        if not team.direct_team:
+            errors.append(f"{scenario.id}: selected current Member is not a Manager")
+        if not team.current_member.instruction:
+            errors.append(f"{scenario.id}: current Member instruction is blank")
+        if any(not member.instruction for member in team.direct_team):
+            errors.append(f"{scenario.id}: a direct-team instruction is blank")
+
+        direct_ids = {member.id for member in team.direct_team}
+        returned_ids = _returned_child_ids(scenario)
+        if not set(returned_ids) <= direct_ids:
+            errors.append(f"{scenario.id}: Wave return contains a non-direct child")
+        expected_return_ids = _REQUIRED_RETURN_SHAPES.get(scenario.id)
+        if expected_return_ids is not None and returned_ids != expected_return_ids:
+            errors.append(f"{scenario.id}: required direct-team return shape changed")
+        if scenario.id == "sequential-dependency" and scenario.wave_return is not None:
+            errors.append("sequential-dependency must evaluate planning before the first return")
     return tuple(errors)
 
 
@@ -103,10 +190,39 @@ def _extract_exact_source_body(contract: str, *, path: str) -> str | None:
     return "\n".join(lines[opening_index + 1 : closing_index]) + "\n"
 
 
+def _load_starter_workflow(workflow_id: str) -> NormalizedWorkflow:
+    filename = next(
+        (
+            candidate
+            for candidate in STARTER_WORKFLOW_FILENAMES
+            if PurePath(candidate).stem == workflow_id
+        ),
+        None,
+    )
+    if filename is None:
+        raise ValueError(f"unknown packaged Starter Workflow {workflow_id!r}")
+    resource = files("banksia.workflows.resources.starter_workflows").joinpath(filename)
+    workflow = parse_workflow(resource.read_bytes(), source_format="yaml")
+    if workflow.id != workflow_id:
+        raise ValueError(f"packaged Starter {filename!r} declares unexpected id {workflow.id!r}")
+    return workflow
+
+
+def _returned_child_ids(
+    scenario: scenario_catalog.EvaluationScenario,
+) -> tuple[str, ...]:
+    if scenario.wave_return is None:
+        return ()
+    return tuple(member.child_id for member in scenario.wave_return.result.members)
+
+
 __all__ = [
     "EXPECTED_ASSET_PATHS",
     "PROMPT_CONTRACT_PATH",
     "STABLE_TARGET_ASSET_PATHS",
+    "ScenarioTeam",
+    "load_scenario_team",
+    "validate_evaluation_scenarios",
     "validate_prompt_contract",
     "validate_stable_asset_bodies",
 ]

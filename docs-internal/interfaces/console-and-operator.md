@@ -279,7 +279,9 @@ Top-level navigation is intentionally small:
 
 Settings needed for controller/provider configuration may be contextual but do not become a third authoring model.
 
-An empty/reset installation shows the three packaged Starter Workflows in the Workflow library as ordinary published teams with a quiet **Starter** label and a plain-language “use when” description. It never shows the maintained OMC/OMX reference-example IDs as installed content. Because Starter Workflows omit provider and capability configuration, their cards make no provider or tool availability promise; they use the installation's configured default until a user explicitly customizes a draft.
+An empty/reset installation shows exactly seven packaged Starter Workflows in the Workflow library as ordinary published teams with a quiet **Starter** label and a plain-language “use when” description: `reviewed-code-change`, `debug-and-verify`, `cross-layer-feature`, `bounded-maintenance-batch`, `evidence-synthesis`, `technical-decision`, and `reproducible-study`.
+
+It never installs the maintained `advanced-*` reference examples. Because Starter Workflows omit provider and capability configuration, their cards make no provider or tool availability promise; they use the installation's configured default until a user explicitly customizes a draft.
 
 ## Workflow Studio
 

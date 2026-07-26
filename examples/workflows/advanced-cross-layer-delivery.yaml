@@ -1,0 +1,96 @@
+kind: workflow
+id: advanced-cross-layer-delivery
+description: >-
+  Use for a feature that crosses a shared contract, service-side behavior, and a
+  user-facing layer whose owners need different providers and workspace access.
+note: >-
+  The contract owner establishes one shared boundary but does not take over
+  layer implementation. Layer owners retain disjoint write scopes, and the
+  feature lead resolves every material contract change before accepting the
+  integrated user outcome.
+lead:
+  id: feature-lead
+  title: Feature lead
+  description: Owns product intent, shared decisions, integration, and the result.
+  instruction: >-
+    Keep the commissioned user outcome and compatibility obligations explicit.
+    Resolve cross-layer assumptions and integrate the complete feature rather
+    than accepting isolated layer success.
+  provider:
+    kind: codex
+    model: gpt-5.6
+    effort: high
+    sandbox:
+      mode: full_access
+      network: allow
+  capabilities:
+    human_request:
+      - direction
+      - approval
+      - review
+  children:
+    - id: contract-owner
+      title: Contract owner
+      description: Establishes shared interfaces, constraints, and compatibility facts.
+      instruction: >-
+        Inspect the current cross-layer boundary and identify inputs, outputs,
+        errors, versioning constraints, and consumer assumptions. Recommend any
+        necessary contract change without editing implementation layers.
+      provider:
+        kind: claude
+        sandbox:
+          mode: read_only
+          network: deny
+    - id: layer-delivery-manager
+      title: Layer delivery manager
+      description: Coordinates disjoint layer changes and resolves interface collisions.
+      instruction: >-
+        Give each layer a clear ownership boundary grounded in the accepted
+        contract. Reconcile mismatched assumptions and integrate both layer
+        contributions without obscuring responsibility.
+      provider:
+        kind: codex
+        model: gpt-5.6
+        effort: high
+        sandbox:
+          mode: full_access
+          network: allow
+      capabilities:
+        command_run: allow
+      children:
+        - id: service-layer-owner
+          title: Service layer owner
+          description: Owns server, domain, data, or API-side behavior.
+          instruction: >-
+            Implement the assigned service-side behavior and its local proof.
+            Preserve the accepted shared contract and report any repository fact
+            that requires a cross-layer decision.
+          provider:
+            kind: codex
+            sandbox:
+              mode: workspace_write
+              network: deny
+        - id: experience-layer-owner
+          title: Experience layer owner
+          description: Owns client, UI, or consumer-side behavior.
+          instruction: >-
+            Implement the assigned consumer experience, including meaningful
+            failure and recovery behavior. Use the accepted contract and expose
+            incompatible assumptions or external dependency constraints.
+          provider:
+            kind: claude
+            sandbox:
+              mode: workspace_write
+              network: allow
+    - id: integration-reviewer
+      title: Integration reviewer
+      description: Independently exercises the complete accepted feature boundary.
+      instruction: >-
+        Test the integrated user-facing behavior and material failure paths.
+        Identify private cross-layer assumptions, compatibility gaps, and
+        unsupported end-to-end claims without editing the implementation.
+      provider:
+        kind: claude
+        sandbox:
+          mode: read_only
+          network: deny

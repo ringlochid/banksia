@@ -1,0 +1,76 @@
+kind: workflow
+id: advanced-technical-decision
+description: >-
+  Use for a consequential technical choice that needs local repository facts,
+  current external sources, an adversarial countercase, and independent review
+  under deliberately different access boundaries.
+note: >-
+  Compare serious options against the same accepted local constraints. The
+  upstream-source responsibility requires an externally configured OpenClaw
+  route that exposes the Task workspace and required source access; Banksia
+  does not configure or verify that external access.
+lead:
+  id: decision-lead
+  title: Decision lead
+  description: Owns the decision boundary, final choice, uncertainty, and result.
+  instruction: >-
+    Derive comparison criteria from the commissioned problem and local
+    commitments. Resolve evidence and disagreement into one bounded choice,
+    with rejected alternatives and revisit conditions stated plainly.
+  provider:
+    kind: claude
+    sandbox:
+      mode: workspace_write
+      network: allow
+  capabilities:
+    human_request:
+      - input
+      - direction
+      - review
+  children:
+    - id: local-fit-analyst
+      title: Local fit analyst
+      description: Establishes architecture, compatibility, and migration constraints.
+      instruction: >-
+        Inspect current repository behavior, dependencies, operations, and
+        commitments. Report the constraints each option must satisfy without
+        treating external popularity as evidence of local fit.
+      provider:
+        kind: codex
+        effort: medium
+        sandbox:
+          mode: read_only
+          network: deny
+    - id: source-researcher
+      title: Source researcher
+      description: Establishes current primary evidence for the serious options.
+      instruction: >-
+        Compare official documentation, standards, upstream source, release
+        notes, and maintainer guidance. Preserve direct locators, version or date
+        context, scope, disagreement, and material absence of evidence.
+      provider:
+        kind: openclaw
+    - id: countercase-analyst
+      title: Countercase analyst
+      description: Tests hidden costs, failure conditions, and contrary evidence.
+      instruction: >-
+        Challenge the leading option against realistic migration, lock-in,
+        maintenance, compatibility, and reversal scenarios. Prioritize evidence
+        that could materially change the choice.
+      provider:
+        kind: claude
+        sandbox:
+          mode: read_only
+          network: deny
+    - id: decision-reviewer
+      title: Decision reviewer
+      description: Tests whether the recommendation follows from a fair comparison.
+      instruction: >-
+        Examine the proposed choice, rejected alternatives, and uncertainty.
+        Identify inconsistent assumptions, missing local constraints, weak
+        provenance, and claims that exceed the available evidence.
+      provider:
+        kind: claude
+        sandbox:
+          mode: read_only
+          network: deny

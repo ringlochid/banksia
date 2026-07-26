@@ -120,11 +120,15 @@ def test_db_reset_recreates_seeded_sqlite_database_on_packaged_cli_path(
         "operator_conversations",
         "operator_conversation_entries",
     }.issubset(table_names)
-    assert workflow_count == 3
+    assert workflow_count == 7
     assert starter_workflow_ids == (
-        "autonomous-delivery",
-        "evidence-research",
-        "reviewed-delivery",
+        "bounded-maintenance-batch",
+        "cross-layer-feature",
+        "debug-and-verify",
+        "evidence-synthesis",
+        "reproducible-study",
+        "reviewed-code-change",
+        "technical-decision",
     )
     assert {path: path.read_bytes() for path in legacy_files} == legacy_files
 
@@ -415,7 +419,7 @@ async def test_postgres_reset_recreates_only_dedicated_schema_and_seeds(
     assert {"tasks", "workflow_definitions", "members", "team_revisions"}.issubset(
         readback.dedicated_schema_table_names
     )
-    assert readback.workflow_definition_count == 3
+    assert readback.workflow_definition_count == 7
     assert "banksia_reset_sentinel" in readback.public_schema_table_names
 
 
@@ -454,12 +458,12 @@ async def _insert_postgres_reset_task(task_root: Path) -> None:
                     updated_at
                 ) VALUES (
                     'task.postgres',
-                    'autonomous-delivery',
+                    'cross-layer-feature',
                     1,
                     (
                         SELECT content_hash
                         FROM banksia.workflow_revisions
-                        WHERE workflow_key = 'autonomous-delivery' AND revision_no = 1
+                        WHERE workflow_key = 'cross-layer-feature' AND revision_no = 1
                     ),
                     :task_root_path,
                     CURRENT_TIMESTAMP,
@@ -510,12 +514,12 @@ def _insert_task(database_path: Path, *, task_root: Path) -> None:
         workflow_content_hash = connection.execute(
             "SELECT content_hash FROM workflow_revisions "
             "WHERE workflow_key = ? AND revision_no = ?",
-            ("autonomous-delivery", 1),
+            ("cross-layer-feature", 1),
         ).fetchone()
         assert workflow_content_hash is not None
         provided_values: dict[str, object] = {
             "task_id": "task.alpha",
-            "workflow_key": "autonomous-delivery",
+            "workflow_key": "cross-layer-feature",
             "workflow_revision_no": 1,
             "workflow_content_hash": workflow_content_hash[0],
             "task_root_path": str(task_root),

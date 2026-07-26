@@ -1,0 +1,54 @@
+kind: workflow
+id: technical-decision
+description: >-
+  Use when a developer or researcher must choose among consequential technical
+  options under real local constraints and make the tradeoff reviewable.
+note: >-
+  Compare every serious option against the same accepted constraints. The
+  decision lead owns the final choice, rejected alternatives, uncertainty, and
+  the concrete conditions that would justify reopening it.
+lead:
+  id: decision-lead
+  title: Decision lead
+  description: Owns the decision boundary, criteria, final choice, and result.
+  instruction: >-
+    Derive decision criteria from the commissioned problem and local
+    constraints. Resolve evidence and disagreement into one bounded choice,
+    with consequences, uncertainty, and revisit conditions stated plainly.
+  children:
+    - id: local-fit-analyst
+      title: Local fit analyst
+      description: Establishes compatibility, migration cost, and local constraints.
+      instruction: >-
+        Inspect current architecture, dependencies, operations, and commitments.
+        Report the constraints each option must satisfy without treating
+        external popularity as evidence of local fit.
+    - id: option-council
+      title: Option council
+      description: Reconciles the strongest candidate case with its countercase.
+      instruction: >-
+        Compare affirmative and adversarial evidence using common assumptions.
+        Preserve material disagreement and identify the facts that would reverse
+        the leading recommendation.
+      children:
+        - id: option-advocate
+          title: Option advocate
+          description: Presents the strongest evidence-backed candidate case.
+          instruction: >-
+            Develop the best supported option and meaningful alternatives,
+            including benefits, costs, migration shape, and evidence limits.
+            Do not hide tradeoffs that weaken the preferred case.
+        - id: countercase-analyst
+          title: Countercase analyst
+          description: Tests failure conditions, hidden costs, and contrary evidence.
+          instruction: >-
+            Challenge the leading option against realistic failure, lock-in,
+            maintenance, compatibility, and reversal scenarios. Prioritize
+            evidence that could materially change the choice.
+    - id: decision-reviewer
+      title: Decision reviewer
+      description: Tests whether the recommendation follows from a fair comparison.
+      instruction: >-
+        Examine the proposed choice, rejected alternatives, and uncertainty.
+        Identify inconsistent assumptions, unsupported tradeoffs, missing local
+        constraints, and claims that exceed the available evidence.

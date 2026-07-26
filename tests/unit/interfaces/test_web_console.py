@@ -33,7 +33,7 @@ async def test_explicit_console_routes_serve_only_packaged_pages_and_assets(
     ) as client:
         root = await client.get("/")
         library = await client.get("/workflows")
-        studio = await client.get("/workflows/reviewed-delivery")
+        studio = await client.get("/workflows/reviewed-code-change")
         runs = await client.get("/runs")
         asset = await client.get("/assets/app.js")
         unknown_browser = await client.get("/not-a-console-route")

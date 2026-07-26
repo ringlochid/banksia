@@ -24,11 +24,27 @@ from urllib.request import urlopen
 
 EXPECTED_DISTRIBUTION_NAME = "banksia-ai"
 EXPECTED_DISTRIBUTION_VERSION = "0.1.0"
+STARTER_WORKFLOW_IDS = (
+    "bounded-maintenance-batch",
+    "cross-layer-feature",
+    "debug-and-verify",
+    "evidence-synthesis",
+    "reproducible-study",
+    "reviewed-code-change",
+    "technical-decision",
+)
+STARTER_WORKFLOW_FILENAMES = tuple(f"{workflow_id}.yaml" for workflow_id in STARTER_WORKFLOW_IDS)
+ADVANCED_REFERENCE_WORKFLOW_IDS = (
+    "advanced-cross-layer-delivery",
+    "advanced-reviewed-code-change",
+    "advanced-technical-decision",
+)
+STARTER_RESOURCE_PREFIX = "banksia/workflows/resources/starter_workflows/"
 REQUIRED_PACKAGE_MEMBERS = (
     "banksia/config.py",
     "banksia/main.py",
     "banksia/interfaces/web_console/assets/index.html",
-    "banksia/workflows/resources/starter_workflows/reviewed-delivery.yaml",
+    *(f"{STARTER_RESOURCE_PREFIX}{filename}" for filename in STARTER_WORKFLOW_FILENAMES),
     "banksia/platform/managed_services/resources/systemd/banksia.service",
     "banksia/runtime/prompt/assets/shared/core.txt",
     "banksia/runtime/prompt/assets/behaviors/contributor.txt",
@@ -247,6 +263,7 @@ def inspect_sdist(sdist_path: Path) -> tuple[str, ...]:
     members = tuple(remove_sdist_root(member) for member in raw_members)
     required = (*REQUIRED_PACKAGE_MEMBERS, "LICENSE", "README.md", "pyproject.toml")
     verify_required_suffixes(members, required)
+    verify_starter_workflow_members(members)
     verify_console_asset_members(members)
     verify_forbidden_members(members)
     return raw_members
@@ -279,9 +296,24 @@ def verify_core_metadata(metadata: str, *, source: str) -> None:
 
 def verify_package_members(members: tuple[str, ...]) -> None:
     verify_required_suffixes(members, REQUIRED_PACKAGE_MEMBERS)
+    verify_starter_workflow_members(members)
     verify_console_asset_members(members)
     if any(member.startswith("src/banksia/") for member in members):
         raise AssertionError("wheel retained a source-tree package prefix")
+
+
+def verify_starter_workflow_members(members: tuple[str, ...]) -> None:
+    actual = tuple(
+        sorted(
+            member.split(STARTER_RESOURCE_PREFIX, maxsplit=1)[1]
+            for member in members
+            if STARTER_RESOURCE_PREFIX in member and member.endswith(".yaml")
+        )
+    )
+    if actual != STARTER_WORKFLOW_FILENAMES:
+        raise AssertionError(
+            f"distribution Starter Workflow resources do not match the exact catalog: {actual}"
+        )
 
 
 def verify_required_suffixes(members: tuple[str, ...], required: tuple[str, ...]) -> None:
@@ -502,7 +534,7 @@ def run_installed_lifespan_smoke(
     env: dict[str, str],
     repo_root: Path,
 ) -> subprocess.CompletedProcess[str]:
-    script = """
+    script = f"""
 import asyncio
 import os
 from pathlib import Path
@@ -520,9 +552,11 @@ venv_path = Path(os.environ["BANKSIA_ORACLE_VENV"]).resolve()
 repo_root = Path(os.environ["BANKSIA_ORACLE_REPO_ROOT"]).resolve()
 assert package_path.is_relative_to(venv_path)
 assert not package_path.is_relative_to(repo_root / "src")
-assert files("banksia.workflows.resources.starter_workflows").joinpath(
-    "reviewed-delivery.yaml"
-).is_file()
+starter_root = files("banksia.workflows.resources.starter_workflows")
+actual_starters = tuple(sorted(
+    entry.name for entry in starter_root.iterdir() if entry.name.endswith(".yaml")
+))
+assert actual_starters == {STARTER_WORKFLOW_FILENAMES!r}
 assert get_systemd_service_template().is_file()
 assert find_spec("banksia.interfaces.web_console") is not None
 assert files("banksia.interfaces.web_console").joinpath("assets", "index.html").is_file()
@@ -650,7 +684,7 @@ def verify_installed_console(port: int) -> dict[str, object]:
             f"installed Console root did not redirect to Workflows: {root_status}, {root_headers}"
         )
     page_bodies: dict[str, str] = {}
-    for path in ("/workflows", "/workflows/reviewed-delivery", "/runs"):
+    for path in ("/workflows", "/workflows/reviewed-code-change", "/runs"):
         status_code, headers, body = read_loopback_response(port, path)
         if (
             status_code != 200
@@ -659,6 +693,23 @@ def verify_installed_console(port: int) -> dict[str, object]:
         ):
             raise AssertionError(f"installed Console route {path} did not return the packaged app")
         page_bodies[path] = body
+    workflow_library = read_loopback_json(f"http://127.0.0.1:{port}/api/workflows")
+    workflow_items = workflow_library.get("items")
+    if not isinstance(workflow_items, list):
+        raise AssertionError(
+            f"installed Workflow library returned an unexpected shape: {workflow_library}"
+        )
+    workflow_ids = tuple(
+        item.get("workflow_id") for item in workflow_items if isinstance(item, dict)
+    )
+    if workflow_ids != STARTER_WORKFLOW_IDS:
+        raise AssertionError(
+            f"installed Workflow library does not match the exact Starter catalog: {workflow_ids}"
+        )
+    if set(workflow_ids) & set(ADVANCED_REFERENCE_WORKFLOW_IDS):
+        raise AssertionError(
+            "installed Workflow library exposed maintained advanced reference examples"
+        )
     asset_paths = tuple(
         sorted(
             {
@@ -684,7 +735,11 @@ def verify_installed_console(port: int) -> dict[str, object]:
         status_code, _, _ = read_loopback_response(port, path)
         if status_code != 404:
             raise AssertionError(f"installed Console rewrote unknown path {path}: {status_code}")
-    return {"routes": tuple(page_bodies), "assets": asset_paths}
+    return {
+        "routes": tuple(page_bodies),
+        "assets": asset_paths,
+        "starter_workflows": workflow_ids,
+    }
 
 
 def read_loopback_response(
@@ -847,7 +902,7 @@ def verify_installed_workflow_import(
                 (
                     "from importlib.resources import files; "
                     "print(files('banksia.workflows.resources.starter_workflows') / "
-                    "'reviewed-delivery.yaml')"
+                    "'reviewed-code-change.yaml')"
                 ),
             ),
             cwd=cwd,
@@ -862,8 +917,8 @@ def verify_installed_workflow_import(
     import_path = cwd / "installed_oracle_workflow.yaml"
     source_text = source_path.read_text(encoding="utf-8")
     imported_text = source_text.replace(
-        "id: reviewed-delivery\n",
-        "id: installed-oracle-reviewed-delivery\n",
+        "id: reviewed-code-change\n",
+        "id: installed-oracle-reviewed-code-change\n",
         1,
     )
     if imported_text == source_text:
@@ -885,7 +940,7 @@ def verify_installed_workflow_import(
     )
     draft = payload.get("draft")
     if not isinstance(draft, dict) or draft.get("workflow_id") != (
-        "installed-oracle-reviewed-delivery"
+        "installed-oracle-reviewed-code-change"
     ):
         raise AssertionError(f"installed Workflow import returned an unexpected shape: {payload}")
     return payload
@@ -931,7 +986,7 @@ def write_installed_task_request(cwd: Path) -> Path:
     request_path.write_text(
         json.dumps(
             {
-                "workflow": "reviewed-delivery",
+                "workflow": "reviewed-code-change",
                 "prompt": INSTALLED_TASK_PROMPT,
             }
         ),
@@ -996,7 +1051,7 @@ def verify_installed_task_start_receipt(
     if not isinstance(task_id, str) or len(task_id) != 10 or not task_id.startswith("t_"):
         raise AssertionError(f"installed Task start returned an unexpected task id: {started}")
     expected_receipt = {
-        "workflow_id": "reviewed-delivery",
+        "workflow_id": "reviewed-code-change",
         "workspace": str(cwd.resolve()),
         "manifest": f".banksia/{task_id}/manifest.md",
         "status": "accepted",
@@ -1051,7 +1106,7 @@ def verify_installed_task_view(task: dict[str, object], *, task_id: str) -> None
         or task.get("activities_href") != f"/api/tasks/{task_id}/activities"
         or not isinstance(workflow, dict)
         or set(workflow) != {"id", "description"}
-        or workflow.get("id") != "reviewed-delivery"
+        or workflow.get("id") != "reviewed-code-change"
         or not isinstance(workflow.get("description"), str)
         or not workflow["description"]
         or not isinstance(team, dict)

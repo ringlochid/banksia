@@ -22,15 +22,18 @@ WORKFLOW_EXAMPLE_ROOT = Path("examples/workflows")
 WORKFLOW_SEED_ROOT = Path("src/banksia/workflows/resources/starter_workflows")
 WORKFLOW_EXAMPLE_README_PATH = WORKFLOW_EXAMPLE_ROOT / "README.md"
 EXPECTED_WORKFLOW_EXAMPLE_FILES = (
-    "full.yaml",
-    "minimal.yaml",
-    "omx-autopilot.yaml",
-    "omx-best-practice-research.yaml",
+    "advanced-cross-layer-delivery.yaml",
+    "advanced-reviewed-code-change.yaml",
+    "advanced-technical-decision.yaml",
 )
 EXPECTED_WORKFLOW_SEED_FILES = (
-    "autonomous-delivery.yaml",
-    "evidence-research.yaml",
-    "reviewed-delivery.yaml",
+    "bounded-maintenance-batch.yaml",
+    "cross-layer-feature.yaml",
+    "debug-and-verify.yaml",
+    "evidence-synthesis.yaml",
+    "reproducible-study.yaml",
+    "reviewed-code-change.yaml",
+    "technical-decision.yaml",
 )
 DRAFT_2020_12_SCHEMA_URI = "https://json-schema.org/draft/2020-12/schema"
 
@@ -156,6 +159,17 @@ def workflow_document_findings(
         )
     workflow_id = fixture.get("id")
     if isinstance(workflow_id, str):
+        if path.stem != workflow_id:
+            findings.append(
+                workflow_finding(
+                    root=root,
+                    path=path,
+                    message=(
+                        f"Workflow fixture filename stem {path.stem!r} "
+                        f"must equal Workflow id {workflow_id!r}"
+                    ),
+                )
+            )
         first_path = workflow_id_locations.setdefault(workflow_id, path)
         if first_path != path:
             findings.append(

@@ -32,7 +32,7 @@ Draft mutations use opaque ETags for optimistic concurrency. A stale client must
 
 ```json
 {
-  "workflow": "reviewed-delivery",
+  "workflow": "reviewed-code-change",
   "prompt": "Implement and independently review the requested change.",
   "workspace": "/absolute/path/to/project",
   "files": [

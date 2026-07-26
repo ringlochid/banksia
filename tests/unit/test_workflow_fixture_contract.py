@@ -20,9 +20,9 @@ from .docs_contract_test_tree import (
 SCHEMA_PATH = Path("docs/reference/workflows/workflow-definition.schema.yaml")
 EXAMPLE_ROOT = Path("examples/workflows")
 SEED_ROOT = Path("src/banksia/workflows/resources/starter_workflows")
-MINIMAL_PATH = EXAMPLE_ROOT / "minimal.yaml"
+REFERENCE_PATH = EXAMPLE_ROOT / "advanced-reviewed-code-change.yaml"
 EXAMPLE_README_PATH = EXAMPLE_ROOT / "README.md"
-SEED_PATH = SEED_ROOT / "reviewed-delivery.yaml"
+SEED_PATH = SEED_ROOT / "reviewed-code-change.yaml"
 
 
 def workflow_modules() -> tuple[Any, Any]:
@@ -56,7 +56,7 @@ def test_workflow_fixture_inventory_and_schema_are_validated(tmp_path: Path) -> 
     example_root = tmp_path / EXAMPLE_ROOT
     for unexpected_name in ("unexpected.yaml", "alternate.yml"):
         (example_root / unexpected_name).write_text(
-            (example_root / "minimal.yaml").read_text(encoding="utf-8"),
+            (example_root / "advanced-reviewed-code-change.yaml").read_text(encoding="utf-8"),
             encoding="utf-8",
         )
     (example_root / "unexpected.json").write_text(
@@ -86,62 +86,69 @@ def test_workflow_semantics_enforce_tree_and_cross_family_identity(
 ) -> None:
     validator, _ = contract_modules()
     build_valid_contract_tree(tmp_path)
-    minimal_path = tmp_path / MINIMAL_PATH
-    minimal_path.write_text(
-        minimal_path.read_text(encoding="utf-8") + "    children:\n        - id: lead\n",
-        encoding="utf-8",
-    )
+    reference_path = tmp_path / REFERENCE_PATH
+    reference = read_yaml_mapping(reference_path)
+    reference["lead"]["children"].append({"id": reference["lead"]["id"]})
+    write_yaml_mapping(reference_path, reference)
+
     seed_path = tmp_path / SEED_PATH
-    seed_path.write_text(
-        seed_path.read_text(encoding="utf-8")
-        .replace("id: reviewed-delivery\n", "id: direct-work\n", 1)
-        .replace("  id: lead\n", "  id: lead\n  provider:\n    kind: codex\n", 1),
-        encoding="utf-8",
-    )
+    seed = read_yaml_mapping(seed_path)
+    seed["id"] = reference["id"]
+    seed["lead"]["provider"] = {"kind": "codex"}
+    write_yaml_mapping(seed_path, seed)
 
     messages = workflow_finding_messages(validator.build_contract_report(tmp_path))
 
-    assert any("duplicate Member id 'lead'" in message for message in messages)
+    assert any("duplicate Member id 'change-lead'" in message for message in messages)
     assert any(
-        "packaged seed Member 'lead' must omit 'provider'" in message for message in messages
+        "packaged seed Member 'change-lead' must omit 'provider'" in message for message in messages
     )
-    assert any("Workflow id 'direct-work' must be distinct" in message for message in messages)
+    assert any(
+        "Workflow id 'advanced-reviewed-code-change' must be distinct" in message
+        for message in messages
+    )
+    assert any(
+        "filename stem 'reviewed-code-change' must equal Workflow id "
+        "'advanced-reviewed-code-change'" in message
+        for message in messages
+    )
 
 
 @pytest.mark.parametrize(
     ("yaml_text", "expected_message"),
     (
         (
-            "kind: workflow\nid: direct-work\nid: duplicate\n"
+            "kind: workflow\nid: one-member-work\nid: duplicate\n"
             "description: Complete a task.\nlead:\n    id: lead\n",
             "duplicate YAML mapping key 'id'",
         ),
         (
-            "kind: workflow\nid: direct-work\ndescription: Complete a task.\n"
+            "kind: workflow\nid: one-member-work\ndescription: Complete a task.\n"
             "lead: &lead\n    id: lead\ncopy: *lead\n",
             "YAML aliases are not allowed",
         ),
         (
-            "kind: workflow\nid: direct-work\ndescription: Complete a task.\n"
+            "kind: workflow\nid: one-member-work\ndescription: Complete a task.\n"
             "lead:\n    <<: {id: lead}\n",
             "YAML merge keys are not allowed",
         ),
         (
-            "kind: workflow\nid: direct-work\n"
+            "kind: workflow\nid: one-member-work\n"
             "description: !product Complete a task.\nlead:\n    id: lead\n",
             "could not determine a constructor for the tag '!product'",
         ),
         (
-            "kind: workflow\nid: direct-work\ndescription: Complete a task.\n"
+            "kind: workflow\nid: one-member-work\ndescription: Complete a task.\n"
             "lead:\n    id: lead\n---\nkind: workflow\n",
             "expected a single document in the stream",
         ),
         (
-            "kind: workflow\nid: direct-work\ndescription: Complete a task.\nlead:\n    1: lead\n",
+            "kind: workflow\nid: one-member-work\ndescription: Complete a task.\n"
+            "lead:\n    1: lead\n",
             "YAML mapping keys must be strings",
         ),
         (
-            "kind: workflow\nid: direct-work\ndescription: Complete a task.\n"
+            "kind: workflow\nid: one-member-work\ndescription: Complete a task.\n"
             "lead:\n    id: lead\n    title: .nan\n",
             "$.lead.title contains a non-finite number",
         ),
@@ -154,13 +161,13 @@ def test_workflow_fixture_loader_rejects_nonportable_yaml_with_diagnostics(
 ) -> None:
     validator, _ = contract_modules()
     build_valid_contract_tree(tmp_path)
-    (tmp_path / MINIMAL_PATH).write_text(yaml_text, encoding="utf-8")
+    (tmp_path / REFERENCE_PATH).write_text(yaml_text, encoding="utf-8")
 
     report = validator.build_contract_report(tmp_path)
-    findings = workflow_findings(report, path=MINIMAL_PATH)
+    findings = workflow_findings(report, path=REFERENCE_PATH)
 
     assert any(expected_message in finding.message for finding in findings)
-    assert all(finding.path == MINIMAL_PATH and finding.line >= 1 for finding in findings)
+    assert all(finding.path == REFERENCE_PATH and finding.line >= 1 for finding in findings)
 
 
 def test_workflow_readme_inventory_must_match_validated_fixtures(tmp_path: Path) -> None:
@@ -169,8 +176,8 @@ def test_workflow_readme_inventory_must_match_validated_fixtures(tmp_path: Path)
     readme_path = tmp_path / EXAMPLE_README_PATH
     readme_path.write_text(
         readme_path.read_text(encoding="utf-8").replace(
-            "[Full](full.yaml)",
-            "[Full](minimal.yaml)",
+            "[Reviewed change](advanced-reviewed-code-change.yaml)",
+            "[Reviewed change](advanced-cross-layer-delivery.yaml)",
         ),
         encoding="utf-8",
     )
@@ -179,8 +186,8 @@ def test_workflow_readme_inventory_must_match_validated_fixtures(tmp_path: Path)
 
     assert any(
         "reference-example Workflow README inventory mismatch" in message
-        and "missing: full.yaml" in message
-        and "duplicate: minimal.yaml" in message
+        and "missing: advanced-reviewed-code-change.yaml" in message
+        and "duplicate: advanced-cross-layer-delivery.yaml" in message
         for message in messages
     )
 
@@ -193,13 +200,13 @@ def test_workflow_example_and_seed_paths_must_remain_distinct(
     monkeypatch.setattr(
         fixtures,
         "EXPECTED_WORKFLOW_SEED_FILES",
-        (*fixtures.EXPECTED_WORKFLOW_SEED_FILES, "minimal.yaml"),
+        (*fixtures.EXPECTED_WORKFLOW_SEED_FILES, "advanced-reviewed-code-change.yaml"),
     )
 
     findings = fixtures.distinct_inventory_findings(tmp_path)
 
     assert len(findings) == 1
-    assert "overlap: minimal.yaml" in findings[0].message
+    assert "overlap: advanced-reviewed-code-change.yaml" in findings[0].message
 
 
 def test_recursive_local_schema_reference_graph_is_valid(tmp_path: Path) -> None:
@@ -408,6 +415,8 @@ def test_json_round_trip_detects_nonfinite_and_changed_values(
         ("note", "Wait for children before continuing.", "runtime wait"),
         ("instruction", "Write a shared note under notes/.", "note or file-reference teaching"),
         ("note", "Do not simply relay a child's result.", "anti-relay teaching"),
+        ("instruction", "Ask the user for direction when uncertain.", "Human Request teaching"),
+        ("note", "Use a managed Command Run for long tests.", "Command Run teaching"),
     ),
 )
 def test_generic_orchestration_teaching_is_rejected_from_authored_workflows(
@@ -418,13 +427,13 @@ def test_generic_orchestration_teaching_is_rejected_from_authored_workflows(
 ) -> None:
     validator, _ = contract_modules()
     build_valid_contract_tree(tmp_path)
-    minimal_path = tmp_path / MINIMAL_PATH
-    fixture = read_yaml_mapping(minimal_path)
+    reference_path = tmp_path / REFERENCE_PATH
+    fixture = read_yaml_mapping(reference_path)
     if field == "note":
         fixture["note"] = prose
     else:
         fixture["lead"][field] = prose
-    write_yaml_mapping(minimal_path, fixture)
+    write_yaml_mapping(reference_path, fixture)
 
     messages = workflow_finding_messages(validator.build_contract_report(tmp_path))
 
@@ -455,14 +464,3 @@ def test_packaged_seeds_reject_omc_omx_runtime_dependencies(
     messages = workflow_finding_messages(validator.build_contract_report(tmp_path))
 
     assert any(f"depends on {label}" in message for message in messages)
-
-
-def test_omc_omx_structural_inspiration_remains_allowed_in_reference_examples(
-    tmp_path: Path,
-) -> None:
-    validator, _ = contract_modules()
-    build_valid_contract_tree(tmp_path)
-
-    report = validator.build_contract_report(tmp_path)
-
-    assert workflow_findings(report) == []

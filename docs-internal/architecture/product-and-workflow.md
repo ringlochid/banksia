@@ -211,7 +211,19 @@ The draft-opening response distinguishes creation from idempotent reuse: creatio
 
 The maintained [Workflow examples](../../examples/workflows/README.md) are documentation and validation fixtures. They demonstrate the full authoring language, including optional provider, sandbox/network, model/effort, and capability settings. They are never package seeds and are never automatically installed, published, or selected for a user.
 
-The separate packaged Starter Workflow resources define the Workflows installed during bootstrap. They retain useful OMC/OMX responsibility patterns in ordinary Banksia language, but every seeded Member omits `provider` and `capabilities`. The active installation therefore resolves its own default provider, and users explicitly add any locally permitted capability grant later.
+The separate packaged Starter Workflow resources define the seven Workflows installed during bootstrap:
+
+- `reviewed-code-change`
+- `debug-and-verify`
+- `cross-layer-feature`
+- `bounded-maintenance-batch`
+- `evidence-synthesis`
+- `technical-decision`
+- `reproducible-study`
+
+They upgrade common developer and researcher subagent practices through distinct responsibility and verification boundaries. Every seeded Member omits `provider` and `capabilities`, so the active installation resolves its own default provider and users explicitly add any locally permitted capability grant later.
+
+The maintained advanced reference inventory is separate: `advanced-reviewed-code-change`, `advanced-cross-layer-delivery`, and `advanced-technical-decision`. Those files may demonstrate justified provider, sandbox, network, Human Request, and Command Run choices, but bootstrap never installs them.
 
 On first initialization or reset, seed bootstrap validates normalized content and transactionally creates immutable published revisions with package-owned provenance. Repeating identical seed content is idempotent. A changed packaged seed advances currentness only while the current revision remains package-owned; it must not replace a user-authored current revision. After bootstrap, the controller catalog is authority and Tasks pin exact revisions; runtime never rereads packaged YAML.
 

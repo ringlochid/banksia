@@ -8,6 +8,7 @@ import httpx
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import banksia.workflows.bootstrap as workflow_bootstrap
 from banksia.main import create_app
 from banksia.persistence.session import get_db_session
 from banksia.workflows import (
@@ -48,9 +49,13 @@ async def test_bootstrap_exposes_exact_portable_starter_workflow_set(tmp_path: P
             workflows = await search_workflows(session)
 
     assert tuple(item.workflow_id for item in workflows.items) == (
-        "autonomous-delivery",
-        "evidence-research",
-        "reviewed-delivery",
+        "bounded-maintenance-batch",
+        "cross-layer-feature",
+        "debug-and-verify",
+        "evidence-synthesis",
+        "reproducible-study",
+        "reviewed-code-change",
+        "technical-decision",
     )
     assert all(item.provenance is WorkflowProvenance.STARTER_SEED for item in workflows.items)
 
@@ -62,6 +67,38 @@ async def test_bootstrap_exposes_exact_portable_starter_workflow_set(tmp_path: P
         packaged_json = packaged.model_dump_json(exclude_none=True)
         assert "provider" not in packaged_json
         assert "capabilities" not in packaged_json
+
+
+async def test_bootstrap_rejects_filename_and_workflow_id_drift(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async with initialized_workflow_database(tmp_path) as session_factory:
+        seed_root = tmp_path / "mismatched-starter"
+        seed_root.mkdir()
+        seed_root.joinpath("wrong-name.yaml").write_text(
+            """
+kind: workflow
+id: actual-name
+description: Filename identity mismatch proof.
+lead:
+  id: lead
+""".lstrip(),
+            encoding="utf-8",
+        )
+        monkeypatch.setattr(workflow_bootstrap, "files", lambda _package: seed_root)
+        monkeypatch.setattr(
+            workflow_bootstrap,
+            "STARTER_WORKFLOW_FILENAMES",
+            ("wrong-name.yaml",),
+        )
+
+        async with session_factory() as session:
+            with pytest.raises(
+                ValueError,
+                match="filename stem 'wrong-name' must equal Workflow id 'actual-name'",
+            ):
+                await workflow_bootstrap.seed_starter_workflows(session)
 
 
 async def test_draft_edit_requires_cas_and_undo_is_single_use(tmp_path: Path) -> None:
@@ -139,7 +176,7 @@ async def test_publish_is_immutable_and_seed_refresh_never_replaces_user_current
         async with session_factory() as session:
             seed = await read_current_published_workflow(
                 session,
-                workflow_id="reviewed-delivery",
+                workflow_id="reviewed-code-change",
             )
             user_workflow = seed.workflow.model_copy(
                 update={"description": "User-owned reviewed delivery."}
@@ -161,7 +198,7 @@ async def test_publish_is_immutable_and_seed_refresh_never_replaces_user_current
                 workflow=changed_seed,
                 provenance=WorkflowProvenance.STARTER_SEED,
                 should_update_current=False,
-                source_path="seed://test/reviewed-delivery.yaml",
+                source_path="seed://test/reviewed-code-change.yaml",
             )
             await session.commit()
 
@@ -171,20 +208,20 @@ async def test_publish_is_immutable_and_seed_refresh_never_replaces_user_current
                 workflow=changed_seed,
                 provenance=WorkflowProvenance.STARTER_SEED,
                 should_update_current=False,
-                source_path="seed://test/reviewed-delivery.yaml",
+                source_path="seed://test/reviewed-code-change.yaml",
             )
             await session.commit()
             current = await read_current_published_workflow(
                 session,
-                workflow_id="reviewed-delivery",
+                workflow_id="reviewed-code-change",
             )
             history = await list_workflow_revisions(
                 session,
-                workflow_id="reviewed-delivery",
+                workflow_id="reviewed-code-change",
             )
             current_provenance = await read_current_workflow_provenance(
                 session,
-                workflow_id="reviewed-delivery",
+                workflow_id="reviewed-code-change",
             )
 
     assert user_revision.revision_no == 2

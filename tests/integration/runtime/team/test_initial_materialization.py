@@ -34,7 +34,7 @@ async def test_initial_team_materialization_pins_one_exact_complete_ordered_snap
         async with session_factory() as session:
             published = await read_current_published_workflow(
                 session,
-                workflow_id="reviewed-delivery",
+                workflow_id="reviewed-code-change",
             )
             _stage_task(session, published=published, tmp_path=tmp_path)
             await session.flush()
@@ -112,7 +112,7 @@ async def test_initial_team_materialization_rejects_wrong_workflow_before_writes
         async with session_factory() as session:
             published = await read_current_published_workflow(
                 session,
-                workflow_id="reviewed-delivery",
+                workflow_id="reviewed-code-change",
             )
             _stage_task(session, published=published, tmp_path=tmp_path, task_id="task.wrong-pin")
             await session.commit()
@@ -148,7 +148,7 @@ async def test_initial_team_materialization_failure_rolls_back_claim_and_partial
         async with session_factory() as session:
             published = await read_current_published_workflow(
                 session,
-                workflow_id="reviewed-delivery",
+                workflow_id="reviewed-code-change",
             )
             _stage_task(session, published=published, tmp_path=tmp_path, task_id="task.rollback")
             session.add(MemberModel(task_id="task.rollback", member_id=published.workflow.lead.id))
@@ -188,7 +188,7 @@ async def test_concurrent_initial_team_materializers_commit_one_winner(
         async with session_factory() as session:
             published = await read_current_published_workflow(
                 session,
-                workflow_id="reviewed-delivery",
+                workflow_id="reviewed-code-change",
             )
             _stage_task(session, published=published, tmp_path=tmp_path, task_id="task.race")
             await session.commit()
@@ -272,11 +272,23 @@ def _assert_materialized_team(
     assert team_revision.workflow_revision_no == published.revision_no
     assert team_revision.workflow_content_hash == published.content_hash
 
-    expected_preorder = ("lead", "delivery", "independent-review")
+    expected_preorder = (
+        "change-lead",
+        "implementation-manager",
+        "code-owner",
+        "test-owner",
+        "independent-reviewer",
+    )
     assert tuple(row.member_id for row in selection) == expected_preorder
-    assert tuple(row.preorder_index for row in selection) == (0, 1, 2)
-    assert tuple(row.sibling_order for row in selection) == (0, 0, 1)
-    assert tuple(row.parent_member_id for row in selection) == (None, "lead", "lead")
+    assert tuple(row.preorder_index for row in selection) == (0, 1, 2, 3, 4)
+    assert tuple(row.sibling_order for row in selection) == (0, 0, 0, 1, 1)
+    assert tuple(row.parent_member_id for row in selection) == (
+        None,
+        "change-lead",
+        "implementation-manager",
+        "implementation-manager",
+        "change-lead",
+    )
 
     assert tuple(row.member_id for row in members) == tuple(sorted(expected_preorder))
     assert tuple(row.member_id for row in configurations) == tuple(sorted(expected_preorder))

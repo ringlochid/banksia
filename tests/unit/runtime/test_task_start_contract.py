@@ -30,7 +30,7 @@ def test_task_start_has_one_strict_transient_contract() -> None:
     with pytest.raises(ValidationError):
         TaskStartRequest.model_validate(
             {
-                "workflow": "reviewed-delivery",
+                "workflow": "reviewed-code-change",
                 "prompt": "Do the work.",
                 "title": "Deleted Task prose",
             }
@@ -39,7 +39,7 @@ def test_task_start_has_one_strict_transient_contract() -> None:
 
 def test_task_and_assignment_prompts_preserve_exact_text_after_newline_normalization() -> None:
     request = TaskStartRequest(
-        workflow="reviewed-delivery",
+        workflow="reviewed-code-change",
         prompt="  First.\r\nSecond.\r  ",
     )
 
@@ -57,11 +57,11 @@ def test_task_and_assignment_prompts_preserve_exact_text_after_newline_normaliza
 def test_task_start_rejects_blank_illegal_oversized_and_duplicate_values() -> None:
     for prompt in (" \r\n ", "bad\x00text", "bad\ud800text", "x" * (64 * 1024 + 1)):
         with pytest.raises((ValidationError, ValueError)):
-            TaskStartRequest(workflow="reviewed-delivery", prompt=prompt)
+            TaskStartRequest(workflow="reviewed-code-change", prompt=prompt)
 
     with pytest.raises((ValidationError, ValueError)):
         TaskStartRequest(
-            workflow="reviewed-delivery",
+            workflow="reviewed-code-change",
             prompt="Do the work.",
             files=(
                 FileReference(path="./brief.md"),
@@ -83,7 +83,7 @@ def test_file_reference_limit_is_hidden_but_controller_enforced() -> None:
     files = tuple(FileReference(path=f"input-{index}.md") for index in range(33))
     with pytest.raises(ValidationError, match="controller entry limit"):
         TaskStartRequest(
-            workflow="reviewed-delivery",
+            workflow="reviewed-code-change",
             prompt="Do the work.",
             files=files,
         )

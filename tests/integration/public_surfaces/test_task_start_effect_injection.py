@@ -62,7 +62,7 @@ async def test_http_task_start_injects_dispatch_dependencies_and_default_workspa
     ) as client:
         response = await client.post(
             "/api/tasks",
-            json={"workflow": "reviewed-delivery", "prompt": "Do the work."},
+            json={"workflow": "reviewed-code-change", "prompt": "Do the work."},
         )
 
     assert response.status_code == 202, response.text
@@ -117,7 +117,7 @@ async def test_http_task_start_uses_workspace_written_by_init(
         ) as client:
             response = await client.post(
                 "/api/tasks",
-                json={"workflow": "reviewed-delivery", "prompt": "Do the work."},
+                json={"workflow": "reviewed-code-change", "prompt": "Do the work."},
             )
 
     assert response.status_code == 202, response.text
@@ -135,7 +135,7 @@ async def test_http_task_start_without_request_or_configured_workspace_returns_4
     ) as client:
         response = await client.post(
             "/api/tasks",
-            json={"workflow": "reviewed-delivery", "prompt": "Do the work."},
+            json={"workflow": "reviewed-code-change", "prompt": "Do the work."},
         )
 
     assert response.status_code == 422
@@ -154,10 +154,10 @@ async def test_http_task_start_without_request_or_configured_workspace_returns_4
 @pytest.mark.parametrize(
     ("payload", "field_path"),
     [
-        ({"workflow": "reviewed-delivery", "prompt": 7}, "prompt"),
+        ({"workflow": "reviewed-code-change", "prompt": 7}, "prompt"),
         (
             {
-                "workflow": "reviewed-delivery",
+                "workflow": "reviewed-code-change",
                 "prompt": "Do the work.",
                 "files": [{"path": 7}],
             },
@@ -165,7 +165,7 @@ async def test_http_task_start_without_request_or_configured_workspace_returns_4
         ),
         (
             {
-                "workflow": "reviewed-delivery",
+                "workflow": "reviewed-code-change",
                 "prompt": "Do the work.",
                 "files": [{"path": "brief.md", "description": 7}],
             },
@@ -239,7 +239,7 @@ def _receipt(task_id: str, workspace: Path) -> TaskStartReceipt:
     return TaskStartReceipt(
         receipt_id=f"receipt.{task_id}",
         task_id=task_id,
-        workflow_id="reviewed-delivery",
+        workflow_id="reviewed-code-change",
         workflow_revision=1,
         workspace=str(workspace),
         manifest=str(Path(".banksia") / task_id / "manifest.md"),

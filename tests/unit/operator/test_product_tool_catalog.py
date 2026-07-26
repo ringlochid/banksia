@@ -147,7 +147,7 @@ def test_workflow_get_requires_one_closed_source_pinned_selection(tmp_path: Path
 
     catalog = WorkflowGetInput.model_validate(
         {
-            "workflow_id": "reviewed-delivery",
+            "workflow_id": "reviewed-code-change",
             "selection": {
                 "kind": "catalog",
                 "revision_limit": 10,
@@ -156,7 +156,7 @@ def test_workflow_get_requires_one_closed_source_pinned_selection(tmp_path: Path
     )
     published = WorkflowGetInput.model_validate(
         {
-            "workflow_id": "reviewed-delivery",
+            "workflow_id": "reviewed-code-change",
             "selection": {
                 "kind": "published",
                 "revision_no": 1,
@@ -166,7 +166,7 @@ def test_workflow_get_requires_one_closed_source_pinned_selection(tmp_path: Path
     )
     draft = WorkflowGetInput.model_validate(
         {
-            "workflow_id": "reviewed-delivery",
+            "workflow_id": "reviewed-code-change",
             "selection": {
                 "kind": "draft",
                 "draft_id": "workflow-draft.one",
@@ -180,24 +180,24 @@ def test_workflow_get_requires_one_closed_source_pinned_selection(tmp_path: Path
     assert published.selection.kind == "published"
     assert draft.selection.kind == "draft"
     for invalid in (
-        {"workflow_id": "reviewed-delivery"},
+        {"workflow_id": "reviewed-code-change"},
         {
-            "workflow_id": "reviewed-delivery",
+            "workflow_id": "reviewed-code-change",
             "revision_no": 1,
         },
         {
-            "workflow_id": "reviewed-delivery",
+            "workflow_id": "reviewed-code-change",
             "selection": {"kind": "published"},
         },
         {
-            "workflow_id": "reviewed-delivery",
+            "workflow_id": "reviewed-code-change",
             "selection": {
                 "kind": "draft",
                 "draft_id": "workflow-draft.one",
             },
         },
         {
-            "workflow_id": "reviewed-delivery",
+            "workflow_id": "reviewed-code-change",
             "selection": {
                 "kind": "catalog",
                 "should_include_revisions": False,
@@ -352,7 +352,7 @@ def test_full_json_workflow_schema_is_definition_usable(tmp_path: Path) -> None:
         {
             "workflow": {
                 "kind": "workflow",
-                "id": "reviewed-delivery",
+                "id": "reviewed-code-change",
                 "description": "Deliver and independently review a bounded change.",
                 "lead": {
                     "id": "lead",

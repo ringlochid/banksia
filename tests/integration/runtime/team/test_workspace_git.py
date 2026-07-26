@@ -306,7 +306,7 @@ async def test_task_start_prepares_git_exclusion_before_task_tree(
         async with session_factory() as session:
             response = await start_task(
                 TaskStartRequest(
-                    workflow="reviewed-delivery",
+                    workflow="reviewed-code-change",
                     prompt="Verify the Git admission bridge.",
                     workspace=workspace,
                 ),
@@ -353,7 +353,7 @@ async def test_task_start_rejects_workspace_identity_substitution_before_mutatio
             with pytest.raises(RuntimeError, match="changed identity"):
                 await start_task(
                     TaskStartRequest(
-                        workflow="reviewed-delivery",
+                        workflow="reviewed-code-change",
                         prompt="Reject a substituted workspace.",
                         workspace=workspace,
                     ),

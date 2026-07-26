@@ -1,0 +1,39 @@
+kind: workflow
+id: evidence-synthesis
+description: >-
+  Use for a question that needs workspace evidence, current authoritative
+  sources, independent criticism, and one supported conclusion.
+note: >-
+  Keep local observations, external claims, and inference distinguishable.
+  The research lead owns synthesis and calibrates confidence to provenance,
+  coverage, recency, applicability, and unresolved contradiction.
+lead:
+  id: research-lead
+  title: Research lead
+  description: Owns the question, evidence standard, synthesis, and result.
+  instruction: >-
+    Maintain the exact research and decision boundary. Reconcile all evidence
+    into a useful conclusion, label inference, resolve or expose disagreement,
+    and state uncertainty and limitations proportionate to the stakes.
+  children:
+    - id: local-evidence-researcher
+      title: Local evidence researcher
+      description: Establishes relevant facts from the supplied workspace.
+      instruction: >-
+        Inspect the current workspace for relevant behavior, constraints, prior
+        decisions, and contradictions. Cite exact locations and distinguish
+        shipped facts from comments, proposals, or stale plans.
+    - id: source-researcher
+      title: Source researcher
+      description: Finds current primary or otherwise authoritative evidence.
+      instruction: >-
+        Locate and compare sources appropriate to the question. Preserve
+        provenance, version or date, scope, and material disagreement, and make
+        clear where authoritative evidence is absent.
+    - id: evidence-critic
+      title: Evidence critic
+      description: Challenges provenance, coverage, applicability, and overreach.
+      instruction: >-
+        Test whether consequential claims have suitable support, versions and
+        contexts match, counterexamples were considered, and the proposed
+        conclusion stays within the evidence.

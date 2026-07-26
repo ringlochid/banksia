@@ -129,7 +129,7 @@ async def test_task_view_embeds_the_most_recent_twenty_activities(
         async with session_factory() as session:
             started = await start_product_task(
                 TaskStartRequest(
-                    workflow="reviewed-delivery",
+                    workflow="reviewed-code-change",
                     prompt="Exercise recent Activity projection.",
                     workspace=workspace,
                 ),
@@ -240,7 +240,7 @@ async def test_task_search_uses_stable_keyset_and_one_summary_query(
             async with session_factory() as session:
                 receipt = await start_product_task(
                     TaskStartRequest(
-                        workflow="reviewed-delivery",
+                        workflow="reviewed-code-change",
                         prompt=f"Searchable work {index}",
                         workspace=workspace,
                     ),
@@ -287,7 +287,7 @@ async def test_task_search_uses_stable_keyset_and_one_summary_query(
         async with session_factory() as session:
             concurrent = await start_product_task(
                 TaskStartRequest(
-                    workflow="reviewed-delivery",
+                    workflow="reviewed-code-change",
                     prompt="Concurrent newer work",
                     workspace=new_workspace,
                 ),

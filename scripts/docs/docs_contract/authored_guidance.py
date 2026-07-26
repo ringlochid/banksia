@@ -7,8 +7,26 @@ GENERIC_GUIDANCE_PATTERNS = (
     (
         "controller operation",
         re.compile(
-            r"\b(?:add_child|update_child|remove_child|delegate_children|"
+            r"\b(?:add_child|update_child|remove_child|delegate|"
             r"open_human_request|start_command_run|get_current_context|set_work_plan)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "Human Request teaching",
+        re.compile(
+            r"\b(?:ask|contact|request|seek)\b[^.!?\n]{0,40}"
+            r"\b(?:the user|a human|human input|human direction|human approval|"
+            r"user input|user direction|user approval)\b|"
+            r"\bhuman requests?\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "Command Run teaching",
+        re.compile(
+            r"\b(?:managed )?command runs?\b|"
+            r"\b(?:start|use)\b[^.!?\n]{0,30}\b(?:managed|long-running) command\b",
             re.IGNORECASE,
         ),
     ),

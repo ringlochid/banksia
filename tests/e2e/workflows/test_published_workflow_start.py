@@ -1,211 +1,458 @@
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
+from unittest.mock import patch
 
-from sqlalchemy import select
+import pytest
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
+import banksia.runtime.node_operations.executor as executor_module
 from banksia.config import CodexSettings, RuntimeSettings, Settings
 from banksia.persistence.models import (
+    AcceptedBoundaryModel,
     AssignmentModel,
-    DispatchCapabilitySetModel,
+    AttemptModel,
+    AttemptWaitModel,
+    DelegationWaveMemberModel,
+    DelegationWaveModel,
     DispatchTurnModel,
     TaskModel,
+    TeamRevisionMemberModel,
 )
 from banksia.providers import ProviderKind
 from banksia.runtime import RuntimeLaunchInput
+from banksia.runtime.checkpoint.reads import read_task_result
 from banksia.runtime.contracts import AssignmentBody
+from banksia.runtime.contracts.prompt import DelegationWaveSettledTrigger
+from banksia.runtime.delegation import (
+    open_delegation_wave_successor,
+    settle_delegation_wave,
+)
+from banksia.runtime.delegation.continuation import (
+    read_delegation_wave_continuation_basis,
+)
 from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
 from banksia.runtime.launch.continuation import open_root_dispatch
 from banksia.runtime.launch.service import launch_task_runtime
-from banksia.runtime.node_mcp import DispatchMcpBindingRegistry
-from banksia.runtime.node_operations import NodeOperationExecutor, NodeOperationName
-from banksia.runtime.node_operations.catalog import get_node_operation_descriptor
+from banksia.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
 from banksia.runtime.post_commit import (
     CapturedRuntimeEffectPublisher,
-    DeadlineScheduler,
-    DispatchStartDue,
+    DelegationWaveSettled,
     TaskStartCommitted,
 )
-from banksia.runtime.providers import (
-    DispatchStartRequest,
-    ProviderAdapterRegistry,
-    ProviderCheckResult,
-    ProviderCheckStatus,
-    ProviderStartAccepted,
-    ProviderStopOutcome,
-)
-from banksia.runtime.providers.starter import DispatchStarter
 from banksia.workflows.catalog import read_current_published_workflow
-from tests.helpers.workflow_runtime import initialized_workflow_database
+from tests.helpers.workflow_runtime import (
+    AsyncSessionFactory,
+    initialized_workflow_database,
+)
 
 
-class _AcceptedCodexAdapter:
-    kind = ProviderKind.CODEX
-
-    def __init__(self) -> None:
-        self.requests: list[DispatchStartRequest] = []
-
-    async def start(self, request: DispatchStartRequest) -> ProviderStartAccepted:
-        self.requests.append(request)
-        return ProviderStartAccepted()
-
-    async def stop(self, dispatch_id: str) -> ProviderStopOutcome:
-        del dispatch_id
-        return ProviderStopOutcome.NOT_RUNNING
-
-    async def read_availability(self) -> ProviderCheckResult:
-        return ProviderCheckResult(
-            kind=self.kind,
-            status=ProviderCheckStatus.AVAILABLE,
-            code="e2e_available",
-        )
-
-    @asynccontextmanager
-    async def lifespan(self) -> AsyncIterator[None]:
-        yield
+@dataclass(frozen=True, slots=True)
+class _WorkNode:
+    member_id: str
+    summary: str
+    children: tuple[_WorkNode, ...] = ()
 
 
-class _OperationLister:
-    async def list_operations(self, scope: object) -> tuple[object, ...]:
-        del scope
-        return (get_node_operation_descriptor(NodeOperationName.GET_CURRENT_CONTEXT),)
+@dataclass(frozen=True, slots=True)
+class _CompletionCase:
+    workflow_id: str
+    task_prompt: str
+    root: _WorkNode
+
+    @property
+    def task_id(self) -> str:
+        return f"task.catalog-completion.{self.workflow_id}"
 
 
-class _CapturedScheduler:
-    def __init__(self) -> None:
-        self.signals: list[DispatchStartDue] = []
-
-    def register(self, signal: DispatchStartDue) -> bool:
-        self.signals.append(signal)
-        return True
+@dataclass(frozen=True, slots=True)
+class _OpenedWave:
+    wave_id: str
+    child_dispatches: dict[str, str]
 
 
-async def test_published_workflow_materializes_exact_team_and_starts_provider(
-    tmp_path: Path,
-) -> None:
-    publisher = CapturedRuntimeEffectPublisher()
-    adapter = _AcceptedCodexAdapter()
-    binding_registry = DispatchMcpBindingRegistry()
-
-    async with initialized_workflow_database(tmp_path) as session_factory:
-        async with session_factory() as session:
-            workflow_revision = await read_current_published_workflow(
-                session,
-                workflow_id="reviewed-delivery",
-            )
-            await launch_task_runtime(
-                session,
-                RuntimeLaunchInput(
-                    task_id="task.published-workflow-start",
-                    task_root=tmp_path / "task.published-workflow-start",
-                    workspace=tmp_path,
-                    workflow_revision=workflow_revision,
-                    assignment=AssignmentBody(
-                        prompt="Prove exact Team and provider start truth.",
+_COMPLETION_CASES = (
+    _CompletionCase(
+        workflow_id="reviewed-code-change",
+        task_prompt=(
+            "Implement the bounded cancellation repair, prove it with focused regression "
+            "coverage, and independently review the integrated change."
+        ),
+        root=_WorkNode(
+            member_id="change-lead",
+            summary="The bounded cancellation repair is implemented, verified, and reviewed.",
+            children=(
+                _WorkNode(
+                    member_id="implementation-manager",
+                    summary="Production and regression contributions are integrated.",
+                    children=(
+                        _WorkNode(
+                            member_id="code-owner",
+                            summary="The bounded production repair is complete.",
+                        ),
+                        _WorkNode(
+                            member_id="test-owner",
+                            summary="Focused regression proof is complete.",
+                        ),
                     ),
                 ),
-            )
-            await session.commit()
-            task = await session.scalar(
-                select(TaskModel).where(TaskModel.task_id == "task.published-workflow-start")
-            )
-            assert task is not None
-            opened = await open_root_dispatch(
-                session,
-                signal=TaskStartCommitted(task.task_id),
-                dependencies=_opening_dependencies(publisher),
-            )
-            assert opened.dispatch_id is not None
-            dispatch_id = opened.dispatch_id
+                _WorkNode(
+                    member_id="independent-reviewer",
+                    summary="Independent review found no remaining fix-now defect.",
+                ),
+            ),
+        ),
+    ),
+    _CompletionCase(
+        workflow_id="evidence-synthesis",
+        task_prompt=(
+            "Determine whether the proposed dependency upgrade is safe for this repository "
+            "using local evidence, current authoritative sources, and independent criticism."
+        ),
+        root=_WorkNode(
+            member_id="research-lead",
+            summary="The upgrade is supported within the stated compatibility boundary.",
+            children=(
+                _WorkNode(
+                    member_id="local-evidence-researcher",
+                    summary="Relevant repository constraints and contradictions are recorded.",
+                ),
+                _WorkNode(
+                    member_id="source-researcher",
+                    summary="Current authoritative guidance and its scope are recorded.",
+                ),
+                _WorkNode(
+                    member_id="evidence-critic",
+                    summary="The supported conclusion and material evidence limits are checked.",
+                ),
+            ),
+        ),
+    ),
+)
 
-        start_signal = next(
-            signal for signal in publisher.signals if isinstance(signal, DispatchStartDue)
+
+@pytest.mark.parametrize(
+    "case",
+    _COMPLETION_CASES,
+    ids=lambda case: case.workflow_id,
+)
+async def test_packaged_starter_completes_through_shipped_controller(
+    tmp_path: Path,
+    case: _CompletionCase,
+) -> None:
+    publisher = CapturedRuntimeEffectPublisher()
+    dependencies = _opening_dependencies(publisher)
+    executor = NodeOperationExecutor(
+        runtime_effect_publisher=publisher,
+        dispatch_opening_dependencies=dependencies,
+    )
+
+    async with initialized_workflow_database(tmp_path) as session_factory:
+        root_dispatch_id = await _launch_packaged_workflow(
+            session_factory,
+            case,
+            workspace=tmp_path,
+            dependencies=dependencies,
         )
-        scheduler = _CapturedScheduler()
-        starter = DispatchStarter(
-            adapters=ProviderAdapterRegistry((adapter,)),
-            binding_registry=binding_registry,
-            operation_executor=cast(NodeOperationExecutor, _OperationLister()),
-            scheduler=cast(DeadlineScheduler, scheduler),
-            runtime_effect_publisher=publisher,
-            runtime_settings=RuntimeSettings(),
-            session_factory=session_factory,
-            managed_node_mcp_url="http://127.0.0.1:18125/_internal/node/mcp",
-            compatibility_node_mcp_url="http://127.0.0.1:18125/node/mcp",
+        await _assert_materialized_tree(session_factory, case)
+        with patch.object(
+            executor_module,
+            "get_session_factory",
+            return_value=session_factory,
+        ):
+            await _complete_member(
+                executor,
+                session_factory,
+                task_id=case.task_id,
+                node=case.root,
+                dispatch_id=root_dispatch_id,
+                dependencies=dependencies,
+            )
+        await _assert_exact_completed_result(session_factory, case)
+
+
+async def _launch_packaged_workflow(
+    session_factory: AsyncSessionFactory,
+    case: _CompletionCase,
+    *,
+    workspace: Path,
+    dependencies: DispatchOpeningDependencies,
+) -> str:
+    async with session_factory() as session:
+        revision = await read_current_published_workflow(
+            session,
+            workflow_id=case.workflow_id,
         )
-        async with session_factory() as session:
-            await starter.schedule_or_start_dispatch(session, start_signal)
-        async with session_factory() as session:
-            task = await session.get(TaskModel, "task.published-workflow-start")
-            assignment = await session.scalar(
-                select(AssignmentModel).where(
-                    AssignmentModel.task_id == "task.published-workflow-start",
-                    AssignmentModel.member_id == "lead",
+        await launch_task_runtime(
+            session,
+            RuntimeLaunchInput(
+                task_id=case.task_id,
+                task_root=workspace / ".banksia" / case.task_id,
+                workspace=workspace,
+                workflow_revision=revision,
+                assignment=AssignmentBody(prompt=case.task_prompt),
+            ),
+        )
+        await session.commit()
+        opened = await open_root_dispatch(
+            session,
+            signal=TaskStartCommitted(case.task_id),
+            dependencies=dependencies,
+        )
+    assert opened.outcome == "opened"
+    assert opened.dispatch_id is not None
+    return opened.dispatch_id
+
+
+async def _complete_member(
+    executor: NodeOperationExecutor,
+    session_factory: AsyncSessionFactory,
+    *,
+    task_id: str,
+    node: _WorkNode,
+    dispatch_id: str,
+    dependencies: DispatchOpeningDependencies,
+) -> None:
+    current_dispatch_id = dispatch_id
+    if node.children:
+        wave = await _delegate_direct_team(
+            executor,
+            session_factory,
+            task_id=task_id,
+            parent_dispatch_id=current_dispatch_id,
+            children=node.children,
+        )
+        for child in node.children:
+            await _complete_member(
+                executor,
+                session_factory,
+                task_id=task_id,
+                node=child,
+                dispatch_id=wave.child_dispatches[child.member_id],
+                dependencies=dependencies,
+            )
+        current_dispatch_id = await _join_local_wave(
+            session_factory,
+            wave,
+            children=node.children,
+            dependencies=dependencies,
+        )
+
+    response = await executor.execute(
+        scope=NodeOperationScope(
+            task_id=task_id,
+            dispatch_id=current_dispatch_id,
+        ),
+        operation_name="checkpoint",
+        arguments={"summary": node.summary, "outcome": "green"},
+    )
+    values = response.model_dump()
+    assert values["terminal"] is True
+    assert values["must_stop"] is True
+
+
+async def _delegate_direct_team(
+    executor: NodeOperationExecutor,
+    session_factory: AsyncSessionFactory,
+    *,
+    task_id: str,
+    parent_dispatch_id: str,
+    children: tuple[_WorkNode, ...],
+) -> _OpenedWave:
+    response = await executor.execute(
+        scope=NodeOperationScope(
+            task_id=task_id,
+            dispatch_id=parent_dispatch_id,
+        ),
+        operation_name="delegate",
+        arguments={
+            "assignments": [
+                {
+                    "child_id": child.member_id,
+                    "prompt": (
+                        f"Own the {child.member_id} contribution for this exact Task and "
+                        "return a scoped, evidence-bearing Checkpoint."
+                    ),
+                }
+                for child in children
+            ]
+        },
+    )
+    values = response.model_dump()
+    assert values["must_stop"] is True
+
+    async with session_factory() as session:
+        wave = await session.scalar(
+            select(DelegationWaveModel).where(
+                DelegationWaveModel.source_dispatch_id == parent_dispatch_id
+            )
+        )
+        assert wave is not None
+        members = tuple(
+            await session.scalars(
+                select(DelegationWaveMemberModel)
+                .where(DelegationWaveMemberModel.delegation_wave_id == wave.delegation_wave_id)
+                .order_by(DelegationWaveMemberModel.order_index)
+            )
+        )
+        wait = await session.scalar(
+            select(AttemptWaitModel).where(
+                AttemptWaitModel.delegation_wave_id == wave.delegation_wave_id
+            )
+        )
+        dispatches = {
+            member.child_member_id: await _current_assignment_dispatch(
+                session,
+                member.child_assignment_id,
+            )
+            for member in members
+        }
+
+    assert tuple(member.child_member_id for member in members) == tuple(
+        child.member_id for child in children
+    )
+    assert wait is not None
+    return _OpenedWave(wave.delegation_wave_id, dispatches)
+
+
+async def _join_local_wave(
+    session_factory: AsyncSessionFactory,
+    wave: _OpenedWave,
+    *,
+    children: tuple[_WorkNode, ...],
+    dependencies: DispatchOpeningDependencies,
+) -> str:
+    async with session_factory() as session:
+        assert await settle_delegation_wave(
+            session,
+            delegation_wave_id=wave.wave_id,
+            settled_at=dependencies.clock(),
+        )
+    async with session_factory() as session:
+        basis = await read_delegation_wave_continuation_basis(session, wave.wave_id)
+    assert basis is not None
+    assert isinstance(basis.trigger, DelegationWaveSettledTrigger)
+    assert tuple(
+        (member.child_id, member.checkpoint.summary) for member in basis.trigger.result.members
+    ) == tuple((child.member_id, child.summary) for child in children)
+
+    async with session_factory() as session:
+        opened = await open_delegation_wave_successor(
+            session,
+            signal=DelegationWaveSettled(wave.wave_id),
+            dependencies=dependencies,
+        )
+    assert opened.outcome == "opened"
+    assert opened.dispatch_id is not None
+    return opened.dispatch_id
+
+
+async def _current_assignment_dispatch(
+    session: AsyncSession,
+    assignment_id: str,
+) -> str:
+    assignment = await session.get(AssignmentModel, assignment_id)
+    assert assignment is not None and assignment.current_attempt_id is not None
+    attempt = await session.get(AttemptModel, assignment.current_attempt_id)
+    assert attempt is not None and attempt.current_dispatch_id is not None
+    return attempt.current_dispatch_id
+
+
+async def _assert_materialized_tree(
+    session_factory: AsyncSessionFactory,
+    case: _CompletionCase,
+) -> None:
+    expected = tuple(_preorder(case.root))
+    async with session_factory() as session:
+        task = await session.get(TaskModel, case.task_id)
+        assert task is not None and task.current_team_revision_id is not None
+        members = tuple(
+            await session.scalars(
+                select(TeamRevisionMemberModel)
+                .where(
+                    TeamRevisionMemberModel.task_id == case.task_id,
+                    TeamRevisionMemberModel.team_revision_id == task.current_team_revision_id,
+                )
+                .order_by(TeamRevisionMemberModel.preorder_index)
+            )
+        )
+    assert task.workflow_key == case.workflow_id
+    assert tuple((member.member_id, member.parent_member_id) for member in members) == expected
+
+
+async def _assert_exact_completed_result(
+    session_factory: AsyncSessionFactory,
+    case: _CompletionCase,
+) -> None:
+    expected_assignment_count = sum(1 for _entry in _preorder(case.root))
+    async with session_factory() as session:
+        task = await session.get(TaskModel, case.task_id)
+        assert task is not None and task.root_assignment_id is not None
+        result = await read_task_result(session, task_id=case.task_id)
+        root_boundaries = tuple(
+            await session.scalars(
+                select(AcceptedBoundaryModel).where(
+                    AcceptedBoundaryModel.task_id == case.task_id,
+                    AcceptedBoundaryModel.assignment_id == task.root_assignment_id,
                 )
             )
-            dispatch = await session.get(DispatchTurnModel, dispatch_id)
-            capabilities = await session.get(
-                DispatchCapabilitySetModel,
-                dispatch_id,
+        )
+        assignment_count = await session.scalar(
+            select(func.count())
+            .select_from(AssignmentModel)
+            .where(AssignmentModel.task_id == case.task_id)
+        )
+        live_attempts = await session.scalar(
+            select(func.count())
+            .select_from(AttemptModel)
+            .where(
+                AttemptModel.task_id == case.task_id,
+                AttemptModel.status.in_(("pending", "running")),
             )
+        )
+        live_dispatches = await session.scalar(
+            select(func.count())
+            .select_from(DispatchTurnModel)
+            .where(
+                DispatchTurnModel.task_id == case.task_id,
+                DispatchTurnModel.status == "open",
+            )
+        )
+        live_waves = await session.scalar(
+            select(func.count())
+            .select_from(DelegationWaveModel)
+            .where(
+                DelegationWaveModel.task_id == case.task_id,
+                DelegationWaveModel.status == "open",
+            )
+        )
+        live_waits = await session.scalar(
+            select(func.count())
+            .select_from(AttemptWaitModel)
+            .where(AttemptWaitModel.task_id == case.task_id)
+        )
 
-    _assert_exact_runtime_truth(task, assignment, dispatch, capabilities)
-    _assert_provider_acceptance(
-        adapter,
-        binding_registry,
-        scheduler,
-        dispatch_id=dispatch_id,
-    )
-
-
-def _assert_exact_runtime_truth(
-    task: TaskModel | None,
-    assignment: AssignmentModel | None,
-    dispatch: DispatchTurnModel | None,
-    capabilities: DispatchCapabilitySetModel | None,
-) -> None:
-    assert task is not None and task.current_team_revision_id is not None
-    assert task.workflow_key == "reviewed-delivery" and task.workflow_revision_no == 1
-    assert task.max_wave_members == 8
-    assert assignment is not None
-    assert assignment.member_id == "lead"
-    assert assignment.child_assignment_limit == 20 and assignment.retry_limit == 1
-    assert dispatch is not None and dispatch.status == "open"
-    assert dispatch.team_revision_id == task.current_team_revision_id
-    assert dispatch.member_id == assignment.member_id
-    assert dispatch.member_configuration_id
-    assert dispatch.member_branch_basis_id
-    assert dispatch.requested_provider == dispatch.resolved_provider == "codex"
-    assert dispatch.provider_selection_basis == "default"
-    assert capabilities is not None
-    assert capabilities.requested_human_direction == "deny"
-    assert capabilities.human_direction == "deny"
-    assert capabilities.requested_command_run == "deny"
-    assert capabilities.command_run == "deny"
+    assert task.status == "completed"
+    assert result is not None
+    assert result.outcome == "green"
+    assert result.summary == case.root.summary
+    assert result.files == ()
+    assert len(root_boundaries) == 1
+    assert task.result_boundary_id == root_boundaries[0].accepted_boundary_id
+    assert assignment_count == expected_assignment_count
+    assert live_attempts == live_dispatches == live_waves == live_waits == 0
 
 
-def _assert_provider_acceptance(
-    adapter: _AcceptedCodexAdapter,
-    binding_registry: DispatchMcpBindingRegistry,
-    scheduler: _CapturedScheduler,
-    *,
-    dispatch_id: str,
-) -> None:
-    assert len(adapter.requests) == 1
-    request = adapter.requests[0]
-    assert request.dispatch_id == dispatch_id
-    assert request.provider_route.kind is ProviderKind.CODEX
-    assert request.instructions and request.input
-    assert request.managed_node_mcp is not None
-    assert request.managed_node_mcp.enabled_tools == ("get_current_context",)
-    assert (
-        binding_registry.authenticate(request.managed_node_mcp.bearer_token.get_secret_value())
-        is not None
-    )
-    assert scheduler.signals == []
+def _preorder(
+    node: _WorkNode,
+    parent_id: str | None = None,
+) -> tuple[tuple[str, str | None], ...]:
+    entries = [(node.member_id, parent_id)]
+    for child in node.children:
+        entries.extend(_preorder(child, node.member_id))
+    return tuple(entries)
 
 
 def _opening_dependencies(
@@ -216,6 +463,6 @@ def _opening_dependencies(
             runtime=RuntimeSettings(default_provider=ProviderKind.CODEX),
             codex=CodexSettings(enabled=True),
         ),
-        available_adapter_kinds={ProviderKind.CODEX},
+        available_adapter_kinds=(ProviderKind.CODEX,),
         post_commit_publisher=publisher,
     )

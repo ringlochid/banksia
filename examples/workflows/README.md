@@ -1,25 +1,40 @@
 # Workflow examples
 
-These definitions are maintained references for authoring and review:
+These advanced definitions are maintained authoring and review references:
 
-- [`minimal.yaml`](minimal.yaml) — the smallest valid one-member team.
-- [`full.yaml`](full.yaml) — a complete delivery team with nested members, provider settings, Human Requests, and Command Runs.
-- [`omx-autopilot.yaml`](omx-autopilot.yaml) — a deep product-delivery team adapted from the OMX Autopilot responsibility pattern.
-- [`omx-best-practice-research.yaml`](omx-best-practice-research.yaml) — a research team separating repository facts, upstream evidence, criticism, and synthesis.
+- [`advanced-cross-layer-delivery.yaml`](advanced-cross-layer-delivery.yaml) —
+  a deeper service-and-experience team whose shared contract, layer ownership,
+  integration, and provider access stay explicit.
+- [`advanced-reviewed-code-change.yaml`](advanced-reviewed-code-change.yaml) —
+  a code-change team with write-capable implementation, read-only review,
+  focused proof, Human Request grants, and managed Command Run access.
+- [`advanced-technical-decision.yaml`](advanced-technical-decision.yaml) — a
+  source-backed decision team separating local inspection, externally managed
+  upstream research, counterargument, and independent review.
 
-These are reference examples, not controller seeds. A packaged installation owns its provider-neutral starter Workflows separately. Import an example explicitly when you want to use it:
+These are reference examples, not controller seeds. They demonstrate optional
+provider, sandbox, network, Human Request, and Command Run configuration that
+may not fit every installation. Banksia separately bootstraps seven portable
+Starter Workflows without provider or capability choices.
+
+Import an advanced example explicitly when its access choices match your
+installation:
 
 ```bash
-banksia workflow import --file examples/workflows/minimal.yaml
+banksia workflow import --file \
+  examples/workflows/advanced-reviewed-code-change.yaml
 ```
 
-YAML is convenient in an editor. The Console and HTTP API use the same model as JSON. The definition describes responsibilities rather than a scheduled list of steps; the running lead decides which members should work sequentially, in parallel, iteratively, in batches, or with a hybrid plan.
+YAML is convenient in an editor. The Console and HTTP API use the same model as
+JSON. A definition describes stable responsibilities, not a scheduled list of
+steps. The running lead decides how the team should work from the Task and
+current evidence.
 
-Task inputs and file references are intentionally separate from the reusable Workflow. For example:
+Task inputs and file references remain separate from the reusable Workflow:
 
 ```json
 {
-  "workflow": "omx-best-practice-research",
+  "workflow": "advanced-technical-decision",
   "prompt": "Compare the two migration approaches and recommend one.",
   "files": [
     {
@@ -30,4 +45,5 @@ Task inputs and file references are intentionally separate from the reusable Wor
 }
 ```
 
-The file entry is a loose path plus an optional short description. It does not create an additional controller resource.
+The file entry is a loose path plus an optional short description. It does not
+create an additional controller resource.

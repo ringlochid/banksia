@@ -40,7 +40,7 @@ async def test_workflow_note_recovery_restores_pinned_projection(
             )
             workflow = await read_current_published_workflow(
                 session,
-                workflow_id="reviewed-delivery",
+                workflow_id="reviewed-code-change",
             )
             expected_note = workflow.workflow.note
             assert expected_note is not None
@@ -141,7 +141,7 @@ async def test_recovery_rejects_reserved_workflow_note_directory(
 async def _publish_workflow_without_note(session: AsyncSession) -> None:
     current = await read_current_published_workflow(
         session,
-        workflow_id="reviewed-delivery",
+        workflow_id="reviewed-code-change",
     )
     draft = (
         await import_workflow_draft(
@@ -169,7 +169,7 @@ def _write_initialization_marker(task_root: Path, task_id: str) -> None:
 def _request(
     workspace: Path,
     *,
-    workflow: str = "reviewed-delivery",
+    workflow: str = "reviewed-code-change",
 ) -> TaskStartRequest:
     return TaskStartRequest(
         workflow=workflow,

@@ -79,7 +79,7 @@ async def test_create_allocates_nested_member_ids_and_never_reuses_them(
                 "/api/workflow-drafts",
                 json={
                     "kind": "create",
-                    "workflow_id": "reviewed-delivery",
+                    "workflow_id": "reviewed-code-change",
                     "description": "Published replacement must reject.",
                 },
             )
@@ -128,14 +128,14 @@ async def test_open_is_idempotent_and_clones_the_exact_current_publication(
 ) -> None:
     async with initialized_workflow_database(tmp_path) as session_factory:
         async with product_http_client(session_factory, tmp_path=tmp_path) as client:
-            published = await client.get("/api/workflows/reviewed-delivery")
+            published = await client.get("/api/workflows/reviewed-code-change")
             opened = await client.post(
                 "/api/workflow-drafts",
-                json={"kind": "open", "workflow_id": "reviewed-delivery"},
+                json={"kind": "open", "workflow_id": "reviewed-code-change"},
             )
             reopened = await client.post(
                 "/api/workflow-drafts",
-                json={"kind": "open", "workflow_id": "reviewed-delivery"},
+                json={"kind": "open", "workflow_id": "reviewed-code-change"},
             )
             unknown = await client.post(
                 "/api/workflow-drafts",

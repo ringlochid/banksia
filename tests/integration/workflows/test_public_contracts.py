@@ -27,7 +27,7 @@ async def test_http_workflow_catalog_and_history_are_bounded_and_share_cursors(
 ) -> None:
     async with initialized_workflow_database(tmp_path) as session_factory:
         async with _http_client(session_factory) as client:
-            current = await client.get("/api/workflows/reviewed-delivery")
+            current = await client.get("/api/workflows/reviewed-code-change")
             active_draft = await _publish_history_and_create_active_draft(client)
             hidden_search = await client.get(
                 "/api/workflows",
@@ -42,11 +42,11 @@ async def test_http_workflow_catalog_and_history_are_bounded_and_share_cursors(
                 },
             )
             http_history_first = await client.get(
-                "/api/workflows/reviewed-delivery",
+                "/api/workflows/reviewed-code-change",
                 params={"revision_limit": 1},
             )
             http_history_second = await client.get(
-                "/api/workflows/reviewed-delivery",
+                "/api/workflows/reviewed-code-change",
                 params={
                     "revision_limit": 1,
                     "revision_cursor": http_history_first.json()["revisions_next_cursor"],
@@ -56,7 +56,7 @@ async def test_http_workflow_catalog_and_history_are_bounded_and_share_cursors(
     assert active_draft.status_code == 200, active_draft.text
     assert hidden_search.status_code == 200, hidden_search.text
     assert tuple(item["workflow_id"] for item in hidden_search.json()["items"]) == (
-        "reviewed-delivery",
+        "reviewed-code-change",
     )
     assert http_search_first.status_code == 200, http_search_first.text
     assert http_search_first.json()["next_cursor"] is not None
@@ -71,12 +71,12 @@ async def test_http_workflow_cursor_failures_use_product_error_contract(
     tmp_path: Path,
 ) -> None:
     query_mismatched_cursor = encode_workflow_search_cursor(
-        "reviewed-delivery",
+        "reviewed-code-change",
         normalized_query="first query",
     )
     cross_workflow_cursor = encode_workflow_revision_cursor(
         2,
-        workflow_id="reviewed-delivery",
+        workflow_id="reviewed-code-change",
     )
     async with initialized_workflow_database(tmp_path) as session_factory:
         async with _http_client(session_factory) as client:
@@ -87,7 +87,7 @@ async def test_http_workflow_cursor_failures_use_product_error_contract(
                     params={"q": "second query", "cursor": query_mismatched_cursor},
                 ),
                 await client.get(
-                    "/api/workflows/evidence-research",
+                    "/api/workflows/evidence-synthesis",
                     params={"revision_cursor": cross_workflow_cursor},
                 ),
             )
@@ -102,7 +102,7 @@ async def _publish_history_and_create_active_draft(
     for description in ("Published revision two.", "Published revision three."):
         opened = await client.post(
             "/api/workflow-drafts",
-            json={"kind": "open", "workflow_id": "reviewed-delivery"},
+            json={"kind": "open", "workflow_id": "reviewed-code-change"},
         )
         assert opened.status_code == 201, opened.text
         draft = opened.json()["draft"]
@@ -122,7 +122,7 @@ async def _publish_history_and_create_active_draft(
         assert published.status_code == 200, published.text
     opened = await client.post(
         "/api/workflow-drafts",
-        json={"kind": "open", "workflow_id": "reviewed-delivery"},
+        json={"kind": "open", "workflow_id": "reviewed-code-change"},
     )
     assert opened.status_code == 201, opened.text
     draft = opened.json()["draft"]
@@ -139,7 +139,7 @@ async def _publish_history_and_create_active_draft(
 async def test_http_workflow_readbacks_never_expose_integrity_hashes(tmp_path: Path) -> None:
     async with initialized_workflow_database(tmp_path) as session_factory:
         async with _http_client(session_factory) as client:
-            detail = await client.get("/api/workflows/reviewed-delivery")
+            detail = await client.get("/api/workflows/reviewed-code-change")
 
     assert detail.status_code == 200, detail.text
     assert "content_hash" not in detail.text
@@ -243,7 +243,7 @@ def _contains_schema_keyword(
 def _task_start_payload(
     workspace: Path,
     *,
-    workflow_id: str = "reviewed-delivery",
+    workflow_id: str = "reviewed-code-change",
 ) -> dict[str, object]:
     return {
         "workflow": workflow_id,

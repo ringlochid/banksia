@@ -66,7 +66,7 @@ lead: {id: lead}
         [
             "workflow",
             "export",
-            "reviewed-delivery",
+            "reviewed-code-change",
             "--config",
             str(config_path),
             "--format",
@@ -75,7 +75,7 @@ lead: {id: lead}
     )
     assert exported.exit_code == 0, exported.output
     exported_payload = yaml.safe_load(exported.output)
-    assert exported_payload["id"] == "reviewed-delivery"
+    assert exported_payload["id"] == "reviewed-code-change"
     assert exported_payload["kind"] == "workflow"
 
 
@@ -122,7 +122,7 @@ def test_task_start_cli_machine_mode_posts_strict_json_and_prints_receipt(
                     "receipt_id": "receipt.task-start",
                     "status": "accepted",
                     "task_id": "t_01234567",
-                    "workflow_id": "reviewed-delivery",
+                    "workflow_id": "reviewed-code-change",
                     "workflow_revision": 1,
                     "workspace": str(tmp_path),
                     "manifest": ".banksia/t_01234567/manifest.md",
@@ -140,7 +140,7 @@ def test_task_start_cli_machine_mode_posts_strict_json_and_prints_receipt(
             "--json",
             json.dumps(
                 {
-                    "workflow": "reviewed-delivery",
+                    "workflow": "reviewed-code-change",
                     "prompt": "Complete the requested work.",
                     "workspace": str(tmp_path),
                 }
@@ -154,7 +154,7 @@ def test_task_start_cli_machine_mode_posts_strict_json_and_prints_receipt(
     assert payload["task_id"] == "t_01234567"
     assert captured[0][0:2] == ("POST", "/api/tasks")
     assert captured[0][2]["json"] == {
-        "workflow": "reviewed-delivery",
+        "workflow": "reviewed-code-change",
         "prompt": "Complete the requested work.",
         "workspace": str(tmp_path),
         "files": [],
@@ -179,7 +179,7 @@ class _PagedCatalogClient:
             }
         else:
             assert kwargs == {"params": {"cursor": "published-page"}}
-            body = {"items": [_workflow_search_item("reviewed-delivery", is_published=True)]}
+            body = {"items": [_workflow_search_item("reviewed-code-change", is_published=True)]}
         return httpx.Response(
             200,
             request=httpx.Request(method, f"http://127.0.0.1{path}"),
@@ -222,7 +222,7 @@ async def test_task_start_cli_interactive_mode_uses_workflow_choice_and_editor(
     ) -> str:
         assert show_choices is True
         choices.append((label, tuple(type.choices)))
-        return "reviewed-delivery"
+        return "reviewed-code-change"
 
     monkeypatch.setattr(task_command_module.sys, "stdin", InteractiveInput())
     monkeypatch.setattr(task_command_module.click, "prompt", choose)
@@ -244,10 +244,10 @@ async def test_task_start_cli_interactive_mode_uses_workflow_choice_and_editor(
         ("GET", "/api/workflows", {}),
         ("GET", "/api/workflows", {"params": {"cursor": "published-page"}}),
     ]
-    assert choices == [("Workflow", ("reviewed-delivery",))]
+    assert choices == [("Workflow", ("reviewed-code-change",))]
     assert editor_calls == [(("",), {"require_save": True, "extension": ".md"})]
     assert request.model_dump(mode="json") == {
-        "workflow": "reviewed-delivery",
+        "workflow": "reviewed-code-change",
         "prompt": "Complete  this request.\nPreserve detail.\n",
         "workspace": str(tmp_path),
         "files": [],
@@ -279,7 +279,7 @@ async def test_task_start_cli_interactive_abort_or_blank_never_builds_request(
                 json={
                     "items": [
                         {
-                            "workflow_id": "reviewed-delivery",
+                            "workflow_id": "reviewed-code-change",
                             "description": "Review and refine a bounded delivery.",
                             "state": "published",
                             "updated_at": "2026-07-25T00:00:00Z",
@@ -293,7 +293,7 @@ async def test_task_start_cli_interactive_abort_or_blank_never_builds_request(
 
     monkeypatch.setattr(task_command_module.sys, "stdin", InteractiveInput())
     monkeypatch.setattr(
-        task_command_module.click, "prompt", lambda *args, **kwargs: "reviewed-delivery"
+        task_command_module.click, "prompt", lambda *args, **kwargs: "reviewed-code-change"
     )
     monkeypatch.setattr(task_command_module.click, "edit", lambda *args, **kwargs: editor_result)
 
@@ -307,8 +307,8 @@ async def test_task_start_cli_interactive_abort_or_blank_never_builds_request(
 @pytest.mark.parametrize(
     ("source_kind", "source_text"),
     [
-        ("inline", '{"workflow":"reviewed-delivery","workflow":"duplicate","prompt":"x"}'),
-        ("inline", '{"workflow":"reviewed-delivery","prompt":"x","value":NaN}'),
+        ("inline", '{"workflow":"reviewed-code-change","workflow":"duplicate","prompt":"x"}'),
+        ("inline", '{"workflow":"reviewed-code-change","prompt":"x","value":NaN}'),
         ("file", '{"workflow":'),
         ("stdin", "[]"),
         ("malformed_at", ""),
@@ -351,10 +351,10 @@ def test_task_start_machine_json_failures_use_one_stable_error_kind(
 @pytest.mark.parametrize(
     ("payload", "field_path"),
     [
-        ({"workflow": "reviewed-delivery", "prompt": 7}, "prompt"),
+        ({"workflow": "reviewed-code-change", "prompt": 7}, "prompt"),
         (
             {
-                "workflow": "reviewed-delivery",
+                "workflow": "reviewed-code-change",
                 "prompt": "Do the work.",
                 "files": [{"path": 7}],
             },
@@ -362,7 +362,7 @@ def test_task_start_machine_json_failures_use_one_stable_error_kind(
         ),
         (
             {
-                "workflow": "reviewed-delivery",
+                "workflow": "reviewed-code-change",
                 "prompt": "Do the work.",
                 "files": [{"path": "brief.md", "description": 7}],
             },
@@ -399,7 +399,7 @@ def test_task_start_machine_json_failure_uses_public_json_envelope(
             "--config",
             str(config_path),
             "--json",
-            '{"workflow":"reviewed-delivery","workflow":"duplicate","prompt":"x"}',
+            '{"workflow":"reviewed-code-change","workflow":"duplicate","prompt":"x"}',
         ]
     )
 
@@ -420,7 +420,7 @@ def test_task_start_machine_json_null_workspace_resolves_to_invocation_cwd(
     tmp_path: Path,
 ) -> None:
     request = task_command_module.parse_task_start_json_request(
-        '{"workflow":"reviewed-delivery","prompt":"Exact prompt.","workspace":null}',
+        '{"workflow":"reviewed-code-change","prompt":"Exact prompt.","workspace":null}',
         invocation_cwd=tmp_path,
     )
 

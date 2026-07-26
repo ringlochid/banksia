@@ -102,7 +102,7 @@ async def _prepare_detail_race(
     async with session_factory() as session:
         source = await read_workflow_catalog_entry(
             session,
-            workflow_id="reviewed-delivery",
+            workflow_id="reviewed-code-change",
             should_include_revisions=False,
         )
         assert source.published is not None

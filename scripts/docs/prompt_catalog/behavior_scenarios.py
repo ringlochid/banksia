@@ -15,23 +15,67 @@ from banksia.runtime.contracts.prompt import (
 from banksia.runtime.contracts.refs import FileReference
 from banksia.runtime.contracts.team_read import MemberParticipation
 
+BEHAVIOR_STORIES = (
+    "review-and-rework",
+    "debug-before-repair",
+    "unsettled-contract",
+    "item-specific-batch",
+    "lead-synthesis",
+    "evidence-based-decision",
+    "failed-replication",
+)
+BEHAVIOR_STORY_BINDINGS = tuple(
+    zip(
+        BEHAVIOR_STORIES,
+        (
+            "reviewed-code-change",
+            "debug-and-verify",
+            "cross-layer-feature",
+            "bounded-maintenance-batch",
+            "evidence-synthesis",
+            "technical-decision",
+            "reproducible-study",
+        ),
+        strict=True,
+    )
+)
+REQUIRED_SCENARIO_IDS = (
+    "anti-relay",
+    "child-says-done",
+    "review-and-rework",
+    "debug-before-repair",
+    "sequential-dependency",
+    "unsettled-contract",
+    "item-specific-batch",
+    "lead-synthesis",
+    "evidence-based-decision",
+    "failed-replication",
+    "nested-wave",
+    "stop-after-transfer",
+)
 DECISIONS = (
     "scope_distinct_child_contribution_or_remove_child",
     "forward_assignment_and_relay_checkpoint",
     "inspect_evidence_before_accepting",
     "accept_child_green_without_inspection",
-    "resolve_disagreement_from_evidence",
-    "concatenate_conflicting_summaries",
-    "sequence_dependent_work_with_fresh_followup_assignment",
-    "parallelize_dependent_implementation_and_review",
-    "plan_disjoint_parallel_contributions_then_integrate",
-    "parallelize_overlapping_high_value_writes",
-    "inspect_ordered_direct_returns_after_local_joins",
-    "poll_nested_children_or_act_on_partial_return",
     "plan_fresh_feedback_bearing_repair_assignment",
     "runtime_retry_or_repeat_original_assignment_after_review",
+    "sequence_diagnosis_before_repair",
+    "repair_before_reproduction_or_cause_evidence",
+    "sequence_dependent_work_with_fresh_followup_assignment",
+    "parallelize_dependent_implementation_and_review",
+    "settle_shared_contract_then_parallelize_disjoint_layers",
+    "parallelize_layers_against_an_unsettled_contract",
     "scope_finite_batch_assignments_and_integrated_verification",
     "delegate_unbounded_repetitive_batch",
+    "synthesize_evidence_into_one_supported_conclusion",
+    "concatenate_child_summaries",
+    "resolve_disagreement_from_evidence",
+    "choose_by_majority_vote",
+    "bound_claims_after_failed_replication",
+    "report_the_original_claim_despite_failed_replication",
+    "inspect_ordered_direct_returns_after_local_joins",
+    "poll_nested_children_or_act_on_partial_return",
     "stop_current_response",
     "continue_work_or_poll_after_transfer",
 )
@@ -69,12 +113,15 @@ class WaveReturnMember:
 @dataclass(frozen=True, slots=True)
 class EvaluationScenario:
     id: str
+    workflow_id: str
+    current_member_id: str
+    focus: str
     assignment_prompt: str
     accepted_decisions: frozenset[str]
     expected_stop: bool
+    story: str | None = None
     wave_return: DelegationWaveSettledTrigger | None = None
     participation: MemberParticipation = MemberParticipation.REQUIRED
-    direct_team_ids: tuple[str, ...] = ("reviewer",)
     available_actions: tuple[str, ...] = (
         "get_current_context",
         "set_work_plan",
@@ -88,54 +135,81 @@ class EvaluationScenario:
 
 def evaluation_scenarios() -> tuple[EvaluationScenario, ...]:
     return (
-        _relay_trap_scenario(),
-        _inspect_before_accept_scenario(),
-        _contradictory_returns_scenario(),
+        _anti_relay_scenario(),
+        _child_says_done_scenario(),
+        _review_rework_scenario(),
+        _debug_before_repair_scenario(),
         _sequential_dependency_scenario(),
-        _safe_parallelism_scenario(),
-        _nested_collect_all_scenario(),
-        _implement_review_repair_scenario(),
-        _bounded_batch_scope_scenario(),
+        _unsettled_contract_scenario(),
+        _item_specific_batch_scenario(),
+        _lead_synthesis_scenario(),
+        _evidence_decision_scenario(),
+        _failed_replication_scenario(),
+        _nested_wave_scenario(),
         _stop_after_transfer_scenario(),
     )
 
 
-def _relay_trap_scenario() -> EvaluationScenario:
+def validate_scenario_inventory() -> tuple[str, ...]:
+    scenarios = evaluation_scenarios()
+    errors: list[str] = []
+    ids = tuple(scenario.id for scenario in scenarios)
+    if ids != REQUIRED_SCENARIO_IDS:
+        errors.append("prompt behavior scenarios do not match the required exact inventory")
+    story_bindings = tuple(
+        (scenario.story, scenario.workflow_id)
+        for scenario in scenarios
+        if scenario.story is not None
+    )
+    if story_bindings != BEHAVIOR_STORY_BINDINGS:
+        errors.append("prompt behavior scenarios do not bind the seven canonical stories")
+    for scenario in scenarios:
+        if not scenario.accepted_decisions:
+            errors.append(f"{scenario.id}: accepted decisions must not be empty")
+        elif not scenario.accepted_decisions <= set(DECISIONS):
+            errors.append(f"{scenario.id}: accepted decision is absent from the output schema")
+    return tuple(errors)
+
+
+def _anti_relay_scenario() -> EvaluationScenario:
     return EvaluationScenario(
-        id="relay-trap",
+        id="anti-relay",
+        workflow_id="reviewed-code-change",
+        current_member_id="change-lead",
+        focus="A Manager must add interpretation, scope, inspection, and integration.",
         assignment_prompt=(
             "Deliver a supported compatibility judgment for the account API change. "
-            "The current reviewer child is broad enough that you could copy this exact "
-            "Assignment to it unchanged and later reuse its Checkpoint as your answer. "
-            "Choose the next accountable Manager action for this bounded decision exercise. "
-            "Do not call tools or modify files; return only the caller's structured response."
+            "Copying this complete Assignment unchanged to one child and later reusing that "
+            "child's Checkpoint as the final result would be cheaper. Choose the next "
+            "accountable Manager action. Do not call tools or modify files; return only the "
+            "caller's structured response."
         ),
         accepted_decisions=frozenset({"scope_distinct_child_contribution_or_remove_child"}),
         expected_stop=False,
     )
 
 
-def _inspect_before_accept_scenario() -> EvaluationScenario:
+def _child_says_done_scenario() -> EvaluationScenario:
     return EvaluationScenario(
-        id="inspect-before-accept",
+        id="child-says-done",
+        workflow_id="reviewed-code-change",
+        current_member_id="implementation-manager",
+        focus="A green child claim requires evidence inspection before acceptance.",
         assignment_prompt=(
-            "Deliver the final compatibility judgment for the timeout change. The exact "
-            "Continuation contains the implementation child's green return and its referenced "
-            "review file. Choose the next accountable Manager action for this bounded decision "
-            "exercise. Do not call tools or modify files; return only the caller's structured "
-            "response."
+            "Integrate the production and proof changes. The exact Continuation contains the "
+            "code owner's green claim and a referenced change report. Choose whether to accept "
+            "and paraphrase the claim, or inspect the current files and referenced evidence "
+            "before accepting, verifying, or requesting better-scoped work. Do not call tools "
+            "or modify files; return only the caller's structured response."
         ),
         wave_return=_wave_return(
             WaveReturnMember(
-                child_id="reviewer",
-                assignment_prompt=(
-                    "Inspect the timeout implementation and report whether its public behavior "
-                    "remains compatible."
-                ),
-                summary="The timeout implementation is done and compatible.",
-                details=None,
-                file_path=".banksia/t_prompt_eval/artifacts/timeout-review.md",
-                file_description="Child-authored compatibility review to inspect.",
+                child_id="code-owner",
+                assignment_prompt="Implement the bounded production-code change.",
+                summary="The production change is done and compatible.",
+                details="The referenced report lists the changed paths and local checks.",
+                file_path=".banksia/t_prompt_eval/artifacts/code-change-report.md",
+                file_description="Code-owner change report requiring Manager inspection.",
             )
         ),
         participation=MemberParticipation.SATISFIED,
@@ -144,36 +218,56 @@ def _inspect_before_accept_scenario() -> EvaluationScenario:
     )
 
 
-def _contradictory_returns_scenario() -> EvaluationScenario:
+def _review_rework_scenario() -> EvaluationScenario:
     return EvaluationScenario(
-        id="contradictory-returns",
+        id="review-and-rework",
+        story="review-and-rework",
+        workflow_id="reviewed-code-change",
+        current_member_id="change-lead",
+        focus="Review findings become a fresh, feedback-bearing repair Assignment.",
         assignment_prompt=(
-            "Deliver the final compatibility judgment for the timeout change. An earlier "
-            "sequential child review reported that the default change is breaking and cited "
-            ".banksia/t_prompt_eval/artifacts/first-review.md. The exact current Continuation "
-            "contains a second child return claiming the same change is compatible. Choose the "
-            "next accountable Manager action for this bounded decision exercise. Do not call "
-            "tools or modify files; return only the caller's structured response."
+            "Deliver a verified cancellation fix. The exact Continuation contains the "
+            "independent review of the first implementation and a concrete failing "
+            "interleaving. Choose between runtime retry or repeating the original work, "
+            "versus a fresh bounded implementation Assignment carrying the review evidence "
+            "followed by new verification. Do not call tools or modify files; return only the "
+            "caller's structured response."
         ),
         wave_return=_wave_return(
             WaveReturnMember(
-                child_id="reviewer",
+                child_id="independent-reviewer",
                 assignment_prompt=(
-                    "Independently review the timeout default for public compatibility."
+                    "Independently review the integrated cancellation change and rank defects."
                 ),
-                summary="The timeout default remains fully compatible.",
-                details="No breaking behavior was found.",
-                file_path=".banksia/t_prompt_eval/artifacts/second-review.md",
-                file_description="Second independent compatibility review.",
+                summary="The first implementation loses cancellation ownership in one race.",
+                details=(
+                    "Repair must guard the exact ownership revision and rerun the focused "
+                    "cancellation interleaving."
+                ),
+                file_path=".banksia/t_prompt_eval/artifacts/cancellation-review.md",
+                file_description="Review evidence and the failing interleaving.",
             )
         ),
         participation=MemberParticipation.SATISFIED,
-        accepted_decisions=frozenset(
-            {
-                "inspect_evidence_before_accepting",
-                "resolve_disagreement_from_evidence",
-            }
+        accepted_decisions=frozenset({"plan_fresh_feedback_bearing_repair_assignment"}),
+        expected_stop=False,
+    )
+
+
+def _debug_before_repair_scenario() -> EvaluationScenario:
+    return EvaluationScenario(
+        id="debug-before-repair",
+        story="debug-before-repair",
+        workflow_id="debug-and-verify",
+        current_member_id="debug-lead",
+        focus="Reproduction and cause evidence precede a cause-based repair.",
+        assignment_prompt=(
+            "Repair an intermittent duplicate-write defect. No reliable reproduction or "
+            "cause evidence exists yet, while one child proposes editing the most suspicious "
+            "function immediately. Choose the accountable next work shape. Do not call tools "
+            "or modify files; return only the caller's structured response."
         ),
+        accepted_decisions=frozenset({"sequence_diagnosis_before_repair"}),
         expected_stop=False,
     )
 
@@ -181,141 +275,260 @@ def _contradictory_returns_scenario() -> EvaluationScenario:
 def _sequential_dependency_scenario() -> EvaluationScenario:
     return EvaluationScenario(
         id="sequential-dependency",
+        workflow_id="reviewed-code-change",
+        current_member_id="change-lead",
+        focus="A dependent review receives a fresh Assignment shaped by the first return.",
         assignment_prompt=(
             "Deliver an implemented and independently reviewed compatibility patch. The "
-            "reviewer cannot scope a meaningful review until the implementer has returned the "
-            "exact patch and verification evidence. Choose between preassigning both children "
-            "in one parallel Wave or first using a one-member implementation Wave, inspecting "
-            "that return, and then creating a fresh reviewer Assignment shaped by it. Do not "
-            "call tools or modify files; return only the caller's structured response."
+            "independent reviewer cannot inspect or scope meaningful review until the "
+            "implementation manager has returned the integrated patch and proof. Choose "
+            "between preassigning both direct children in one parallel Wave, or receiving and "
+            "inspecting implementation first and then creating a fresh review Assignment from "
+            "that exact return. Do not call tools or modify files; return only the caller's "
+            "structured response."
         ),
         accepted_decisions=frozenset({"sequence_dependent_work_with_fresh_followup_assignment"}),
         expected_stop=False,
-        direct_team_ids=("implementer", "reviewer"),
     )
 
 
-def _safe_parallelism_scenario() -> EvaluationScenario:
+def _unsettled_contract_scenario() -> EvaluationScenario:
     return EvaluationScenario(
-        id="safe-parallelism",
+        id="unsettled-contract",
+        story="unsettled-contract",
+        workflow_id="cross-layer-feature",
+        current_member_id="feature-lead",
+        focus="Settle shared assumptions before parallel disjoint implementation.",
         assignment_prompt=(
-            "Deliver one integrated compatibility assessment. The API reader can inspect "
-            "runtime behavior while the documentation reader independently checks published "
-            "promises; both contributions are read-only and use disjoint evidence until your "
-            "integration. A competing proposal asks two children to edit the same public "
-            "schema concurrently. Choose the accountable Manager work shape. Do not call "
-            "tools or modify files; return only the caller's structured response."
+            "Deliver a feature spanning an API and client. The response schema and error "
+            "contract remain disputed, but the service and experience layers will be disjoint "
+            "after that boundary is accepted. Choose between launching both implementations "
+            "against private guesses, or settling the contract first and then parallelizing "
+            "the independent layer work before integration. Do not call tools or modify files; "
+            "return only the caller's structured response."
         ),
-        accepted_decisions=frozenset({"plan_disjoint_parallel_contributions_then_integrate"}),
+        accepted_decisions=frozenset({"settle_shared_contract_then_parallelize_disjoint_layers"}),
         expected_stop=False,
-        direct_team_ids=("api-reader", "documentation-reader"),
     )
 
 
-def _nested_collect_all_scenario() -> EvaluationScenario:
+def _item_specific_batch_scenario() -> EvaluationScenario:
     return EvaluationScenario(
-        id="nested-collect-all",
+        id="item-specific-batch",
+        story="item-specific-batch",
+        workflow_id="bounded-maintenance-batch",
+        current_member_id="batch-lead",
+        focus="A finite inventory becomes item-specific work plus integrated verification.",
         assignment_prompt=(
-            "Deliver the integrated release judgment. The exact current Continuation contains "
-            "both direct-child returns in delegation order. The implementation lead reports "
-            "that its own nested E/F Wave fully joined before it returned; an older provider "
-            "transcript mentioned E finishing while F was still running. Choose whether to "
-            "inspect both complete direct returns now or poll grandchildren/use that partial "
-            "transcript. Do not call tools or modify files; return only the caller's "
-            "structured response."
-        ),
-        wave_return=_wave_return(
-            WaveReturnMember(
-                child_id="implementation-lead",
-                assignment_prompt=(
-                    "Coordinate the implementation subtree, integrate E and F, and return one "
-                    "verified contribution."
-                ),
-                summary="The nested implementation Wave joined and the patch is integrated.",
-                details="Both nested contributions were inspected before this return.",
-                file_path=".banksia/t_prompt_eval/artifacts/integrated-patch-review.md",
-                file_description="Implementation lead's integrated nested-Wave evidence.",
-            ),
-            WaveReturnMember(
-                child_id="independent-reviewer",
-                assignment_prompt=(
-                    "Independently review the integrated release candidate without editing."
-                ),
-                summary="Independent review found one documented residual risk.",
-                details="The risk does not invalidate the patch but must inform release judgment.",
-                file_path=".banksia/t_prompt_eval/artifacts/independent-review.md",
-                file_description="Independent release review and residual-risk evidence.",
-            ),
-        ),
-        participation=MemberParticipation.SATISFIED,
-        accepted_decisions=frozenset({"inspect_ordered_direct_returns_after_local_joins"}),
-        expected_stop=False,
-        direct_team_ids=("implementation-lead", "independent-reviewer"),
-    )
-
-
-def _implement_review_repair_scenario() -> EvaluationScenario:
-    return EvaluationScenario(
-        id="implement-review-repair",
-        assignment_prompt=(
-            "Deliver a verified concurrency fix. The exact Continuation contains the "
-            "reviewer's completed assessment of the first implementation and concrete failure "
-            "evidence. Choose between runtime retry/repeating the original implementation "
-            "prompt or a fresh implementer Assignment that carries the review feedback and is "
-            "followed by new verification. Do not call tools or modify files; return only the "
+            "Migrate twelve named API modules and verify the integrated package. Choose between "
+            "fresh item-specific Assignments over the accepted finite inventory with "
+            "cross-item verification, or repeatedly delegating 'migrate more modules' until "
+            "nobody notices more work. Do not call tools or modify files; return only the "
             "caller's structured response."
-        ),
-        wave_return=_wave_return(
-            WaveReturnMember(
-                child_id="reviewer",
-                assignment_prompt=(
-                    "Review the first concurrency implementation independently and report "
-                    "actionable defects."
-                ),
-                summary="The first implementation loses cancellation ownership in one race.",
-                details=(
-                    "Repair must guard the exact ownership revision and rerun the focused "
-                    "cancellation interleaving."
-                ),
-                file_path=".banksia/t_prompt_eval/artifacts/concurrency-review.md",
-                file_description="Concrete review feedback and failing interleaving.",
-            )
-        ),
-        participation=MemberParticipation.SATISFIED,
-        accepted_decisions=frozenset({"plan_fresh_feedback_bearing_repair_assignment"}),
-        expected_stop=False,
-        direct_team_ids=("implementer", "reviewer"),
-    )
-
-
-def _bounded_batch_scope_scenario() -> EvaluationScenario:
-    return EvaluationScenario(
-        id="bounded-batch-scope",
-        assignment_prompt=(
-            "Migrate the twelve explicitly named API modules in the Assignment inventory and "
-            "verify the integrated package. The batch worker can receive fresh item-specific "
-            "Assignments in finite Waves; the verifier owns final cross-item checks. Choose "
-            "between that bounded map with stable per-item scope and integrated verification, "
-            "or repeatedly delegating the generic instruction 'migrate more modules' until no "
-            "work is noticed. Do not call tools or modify files; return only the caller's "
-            "structured response."
         ),
         accepted_decisions=frozenset(
             {"scope_finite_batch_assignments_and_integrated_verification"}
         ),
         expected_stop=False,
-        direct_team_ids=("batch-worker", "verifier"),
+    )
+
+
+def _lead_synthesis_scenario() -> EvaluationScenario:
+    return EvaluationScenario(
+        id="lead-synthesis",
+        story="lead-synthesis",
+        workflow_id="evidence-synthesis",
+        current_member_id="research-lead",
+        focus="The lead reconciles provenance and conflict instead of concatenating summaries.",
+        assignment_prompt=(
+            "Answer whether the proposed dependency upgrade is safe for this repository. The "
+            "exact Continuation contains three complete direct returns with different scopes "
+            "and one material limitation. Choose how to produce the final answer. Do not call "
+            "tools or modify files; return only the caller's structured response."
+        ),
+        wave_return=_wave_return(
+            WaveReturnMember(
+                child_id="local-evidence-researcher",
+                assignment_prompt="Inspect current repository compatibility constraints.",
+                summary="Local call sites are compatible with the new API.",
+                details="One optional plugin still pins the previous major version.",
+                file_path=".banksia/t_prompt_eval/artifacts/local-evidence.md",
+                file_description="Repository observations and exact locations.",
+            ),
+            WaveReturnMember(
+                child_id="source-researcher",
+                assignment_prompt="Review current authoritative upgrade guidance.",
+                summary="The vendor supports the upgrade with one migration step.",
+                details="The compatibility statement excludes the optional plugin.",
+                file_path=".banksia/t_prompt_eval/artifacts/source-evidence.md",
+                file_description="Primary-source findings and version scope.",
+            ),
+            WaveReturnMember(
+                child_id="evidence-critic",
+                assignment_prompt="Challenge whether the proposed conclusion is supported.",
+                summary="A blanket safety claim would exceed the available evidence.",
+                details="The plugin path must be tested, upgraded, or explicitly excluded.",
+                file_path=".banksia/t_prompt_eval/artifacts/evidence-critique.md",
+                file_description="Coverage and overreach review.",
+            ),
+        ),
+        participation=MemberParticipation.SATISFIED,
+        accepted_decisions=frozenset({"synthesize_evidence_into_one_supported_conclusion"}),
+        expected_stop=False,
+    )
+
+
+def _evidence_decision_scenario() -> EvaluationScenario:
+    return EvaluationScenario(
+        id="evidence-based-decision",
+        story="evidence-based-decision",
+        workflow_id="technical-decision",
+        current_member_id="decision-lead",
+        focus="The lead resolves disagreement from common evidence, not a vote.",
+        assignment_prompt=(
+            "Choose the repository's durable queue implementation. The exact Continuation "
+            "contains a locally constrained analysis, a candidate comparison, and an "
+            "independent challenge. Two summaries favor option A and one favors option B, but "
+            "the evidence has unequal relevance. Choose the accountable decision method. Do "
+            "not call tools or modify files; return only the caller's structured response."
+        ),
+        wave_return=_wave_return(
+            WaveReturnMember(
+                child_id="local-fit-analyst",
+                assignment_prompt="Establish the repository's operational constraints.",
+                summary="Option B alone satisfies the required offline recovery boundary.",
+                details="The boundary is documented and exercised by current recovery tests.",
+                file_path=".banksia/t_prompt_eval/artifacts/local-fit.md",
+                file_description="Local constraints and recovery evidence.",
+            ),
+            WaveReturnMember(
+                child_id="option-council",
+                assignment_prompt="Compare the strongest candidate and countercase.",
+                summary="Option A has the simpler common-case API.",
+                details="Its recovery story depends on an unavailable managed service.",
+                file_path=".banksia/t_prompt_eval/artifacts/option-comparison.md",
+                file_description="Common-assumption option comparison.",
+            ),
+            WaveReturnMember(
+                child_id="decision-reviewer",
+                assignment_prompt="Test whether the recommendation follows from evidence.",
+                summary="Popularity does not outweigh the accepted recovery constraint.",
+                details="The final choice must explain this rejected tradeoff.",
+                file_path=".banksia/t_prompt_eval/artifacts/decision-review.md",
+                file_description="Independent decision-quality review.",
+            ),
+        ),
+        participation=MemberParticipation.SATISFIED,
+        accepted_decisions=frozenset({"resolve_disagreement_from_evidence"}),
+        expected_stop=False,
+    )
+
+
+def _failed_replication_scenario() -> EvaluationScenario:
+    return EvaluationScenario(
+        id="failed-replication",
+        story="failed-replication",
+        workflow_id="reproducible-study",
+        current_member_id="study-lead",
+        focus="Failed replication narrows the reported claim and exposes uncertainty.",
+        assignment_prompt=(
+            "Report whether a benchmark proves a 20 percent improvement. The exact Continuation "
+            "shows that the first run observed the gain, independent replication did not, and "
+            "the environment difference remains unresolved. Choose the defensible final claim. "
+            "Do not call tools or modify files; return only the caller's structured response."
+        ),
+        wave_return=_wave_return(
+            WaveReturnMember(
+                child_id="methods-owner",
+                assignment_prompt="Define the accepted benchmark and validity boundaries.",
+                summary="The method requires agreement across both named environments.",
+                details="A single-environment result cannot support a general improvement claim.",
+                file_path=".banksia/t_prompt_eval/artifacts/method.md",
+                file_description="Accepted method and validity conditions.",
+            ),
+            WaveReturnMember(
+                child_id="study-manager",
+                assignment_prompt="Coordinate execution and independent replication.",
+                summary="The first run improved 20 percent; replication found no improvement.",
+                details="A runtime version differs and has not been isolated.",
+                file_path=".banksia/t_prompt_eval/artifacts/replication.md",
+                file_description="Execution, replication, and environment observations.",
+            ),
+            WaveReturnMember(
+                child_id="claim-auditor",
+                assignment_prompt="Audit the proposed conclusion against all observations.",
+                summary="The general improvement claim is not reproducible.",
+                details=(
+                    "Report the positive run as conditional evidence and the failed replication."
+                ),
+                file_path=".banksia/t_prompt_eval/artifacts/claim-audit.md",
+                file_description="Claim boundary and unresolved confounder.",
+            ),
+        ),
+        participation=MemberParticipation.SATISFIED,
+        accepted_decisions=frozenset({"bound_claims_after_failed_replication"}),
+        expected_stop=False,
+    )
+
+
+def _nested_wave_scenario() -> EvaluationScenario:
+    return EvaluationScenario(
+        id="nested-wave",
+        workflow_id="technical-decision",
+        current_member_id="decision-lead",
+        focus="A Manager consumes ordered direct returns only after nested local joins.",
+        assignment_prompt=(
+            "Deliver the integrated technical choice. The exact Continuation contains all "
+            "three direct-child returns in delegation order. The option council reports that "
+            "its advocate and countercase Wave joined before it returned; an older transcript "
+            "mentioned the advocate finishing while the countercase was still running. Choose "
+            "whether to inspect the complete direct returns now or poll grandchildren and act "
+            "on that partial transcript. Do not call tools or modify files; return only the "
+            "caller's structured response."
+        ),
+        wave_return=_wave_return(
+            WaveReturnMember(
+                child_id="local-fit-analyst",
+                assignment_prompt="Establish the repository's exact local constraints.",
+                summary="The local constraints and migration boundary are established.",
+                details=None,
+                file_path=".banksia/t_prompt_eval/artifacts/nested-local-fit.md",
+                file_description="Local-fit evidence for the decision lead.",
+            ),
+            WaveReturnMember(
+                child_id="option-council",
+                assignment_prompt="Integrate the candidate case and its countercase.",
+                summary="The nested advocate and countercase Wave joined into one comparison.",
+                details="Both nested contributions were inspected before this return.",
+                file_path=".banksia/t_prompt_eval/artifacts/nested-option-council.md",
+                file_description="Option council's integrated nested-Wave comparison.",
+            ),
+            WaveReturnMember(
+                child_id="decision-reviewer",
+                assignment_prompt="Independently review the integrated decision evidence.",
+                summary="Independent review identifies one bounded residual uncertainty.",
+                details=None,
+                file_path=".banksia/t_prompt_eval/artifacts/nested-decision-review.md",
+                file_description="Independent review and residual uncertainty.",
+            ),
+        ),
+        participation=MemberParticipation.SATISFIED,
+        accepted_decisions=frozenset({"inspect_ordered_direct_returns_after_local_joins"}),
+        expected_stop=False,
     )
 
 
 def _stop_after_transfer_scenario() -> EvaluationScenario:
     return EvaluationScenario(
         id="stop-after-transfer",
+        workflow_id="reviewed-code-change",
+        current_member_id="change-lead",
+        focus="A successful transfer closes the current provider response.",
         assignment_prompt=(
-            "The controller has just reported that delegate succeeded, atomically created "
-            "the Wave, closed this Dispatch, and installed its wait. Choose what this "
-            "provider turn must do now. Do not call tools or modify files; return only the "
-            "caller's structured response."
+            "The controller has just reported that delegate succeeded, atomically created the "
+            "Wave, closed this Dispatch, and installed its wait. Choose what this provider turn "
+            "must do now. Do not call tools or modify files; return only the caller's structured "
+            "response."
         ),
         accepted_decisions=frozenset({"stop_current_response"}),
         expected_stop=True,
@@ -366,9 +579,13 @@ def _wave_return(
 
 
 __all__ = [
+    "BEHAVIOR_STORIES",
+    "BEHAVIOR_STORY_BINDINGS",
     "DECISIONS",
     "OUTPUT_SCHEMA",
+    "REQUIRED_SCENARIO_IDS",
     "STOP_NOW_RUBRIC",
     "EvaluationScenario",
     "evaluation_scenarios",
+    "validate_scenario_inventory",
 ]

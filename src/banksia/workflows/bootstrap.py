@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from importlib.resources import files
+from pathlib import PurePath
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -9,9 +10,13 @@ from banksia.workflows.ingest import parse_workflow
 from banksia.workflows.publication import publish_workflow_revision
 
 STARTER_WORKFLOW_FILENAMES = (
-    "autonomous-delivery.yaml",
-    "evidence-research.yaml",
-    "reviewed-delivery.yaml",
+    "bounded-maintenance-batch.yaml",
+    "cross-layer-feature.yaml",
+    "debug-and-verify.yaml",
+    "evidence-synthesis.yaml",
+    "reproducible-study.yaml",
+    "reviewed-code-change.yaml",
+    "technical-decision.yaml",
 )
 
 
@@ -23,6 +28,11 @@ async def seed_starter_workflows(
     for filename in STARTER_WORKFLOW_FILENAMES:
         resource = root.joinpath(filename)
         workflow = parse_workflow(resource.read_bytes(), source_format="yaml")
+        if PurePath(filename).stem != workflow.id:
+            raise ValueError(
+                f"Starter Workflow filename stem {PurePath(filename).stem!r} "
+                f"must equal Workflow id {workflow.id!r}"
+            )
         _verify_portable_seed(workflow.model_dump(mode="json", exclude_none=True))
         results.append(
             await publish_workflow_revision(

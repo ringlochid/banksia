@@ -15,7 +15,6 @@ from banksia.persistence.models import (
     TaskModel,
     TeamRevisionMemberModel,
 )
-from banksia.runtime.contracts.member import NodeKind
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
 from banksia.runtime.dispatch.authority import NodeOperationAuthority
 from banksia.runtime.errors import RuntimeOperationError, illegal_state_error
@@ -122,7 +121,7 @@ async def read_available_node_operation_descriptors(
     capabilities = authority.capabilities
     return select_node_operation_descriptors(
         NodeOperationSelection(
-            node_kind=authority.node_kind,
+            has_direct_team=authority.has_direct_team,
             is_human_request_allowed=any(
                 getattr(capabilities, field_name) == "allow"
                 for field_name in (
@@ -166,7 +165,7 @@ async def _read_state_legal_node_operations(
         descriptor.name
         for descriptor in select_node_operation_descriptors(
             NodeOperationSelection(
-                node_kind=authority.node_kind,
+                has_direct_team=authority.has_direct_team,
                 is_human_request_allowed=True,
                 is_command_run_allowed=True,
             )
@@ -190,13 +189,13 @@ async def _narrow_structural_operations(
     *,
     legal: set[NodeOperationName],
 ) -> None:
-    if not legal & _STRUCTURAL_OPERATIONS or authority.node_kind == NodeKind.WORKER:
+    if not legal & _STRUCTURAL_OPERATIONS or not authority.has_direct_team:
         return
     direct_team_members = tuple(
         await session.scalars(
             select(TeamRevisionMemberModel).where(
                 TeamRevisionMemberModel.task_id == authority.task_id,
-                TeamRevisionMemberModel.team_revision_id == authority.team_revision_id,
+                TeamRevisionMemberModel.team_revision_id == authority.current_team_revision_id,
                 TeamRevisionMemberModel.parent_member_id == authority.member_id,
             )
         )
@@ -213,7 +212,6 @@ async def _narrow_structural_operations(
                         AssignmentModel.task_id == authority.task_id,
                         AssignmentModel.member_id == child.member_id,
                         AssignmentModel.terminal_outcome.is_(None),
-                        AssignmentModel.superseded_at.is_(None),
                     )
                 )
             )

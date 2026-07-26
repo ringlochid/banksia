@@ -477,10 +477,8 @@ def _add_terminal_source(
                         "response_schema": {"type": "string"},
                     }
                 ],
-                capability_basis_json={"decision": "allow", "kind": "input"},
                 due_at=None,
-                timeout_policy_json=None,
-                default_behavior_json=None,
+                default_behavior=None,
                 status="resolved",
                 resolution_kind="answered",
                 item_responses_json={
@@ -489,7 +487,6 @@ def _add_terminal_source(
                         "value": "yes",
                     }
                 },
-                resolution_policy_basis_json=None,
                 resolution_summary="Answered.",
                 resolved_by_actor_ref="operator.test",
                 resolved_by_surface="controller",
@@ -506,7 +503,7 @@ def _add_terminal_source(
             attempt_id=ids.root_attempt_id,
             source_dispatch_id=ids.current_dispatch_id,
             command_spec_json={"kind": "argv", "argv": ["true"]},
-            cwd_policy_json=None,
+            cwd=None,
             summary="Already complete.",
             timeout_seconds=None,
             due_at=None,

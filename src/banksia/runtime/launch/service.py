@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from banksia.runtime import RuntimeBootstrapInput, RuntimeBootstrapResult, RuntimeLaunchInput
 from banksia.runtime.contracts import TaskEventSource, TaskEventType
-from banksia.runtime.ids import assignment_key_for_task, attempt_id_for_task
+from banksia.runtime.ids import assignment_id_for_task, attempt_id_for_task
 from banksia.runtime.launch.bootstrap import build_launch_support_projection_signals
 from banksia.runtime.launch.persistence.runtime import persist_bootstrap_runtime_from_precomputed
 from banksia.runtime.projection.signals import SupportProjectionSignal
@@ -34,7 +34,7 @@ async def launch_task_runtime(
     bootstrap_input = RuntimeBootstrapInput(
         task_id=launch_input.task_id,
         attempt_id=attempt_id_for_task(launch_input.task_id, root_member_id, 1),
-        assignment_key=assignment_key_for_task(launch_input.task_id, root_member_id, 1),
+        assignment_id=assignment_id_for_task(launch_input.task_id, root_member_id, 1),
         task_root=launch_input.task_root,
         workspace=launch_input.workspace,
         assignment=launch_input.assignment,

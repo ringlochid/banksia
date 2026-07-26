@@ -18,7 +18,6 @@ from banksia.persistence.models import (
     TaskModel,
     TeamRevisionMemberModel,
 )
-from banksia.runtime.contracts.member import NodeKind
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
 from banksia.runtime.dispatch.currentness import (
     AttemptDispatchIdentity,
@@ -38,8 +37,10 @@ class NodeOperationAuthority:
     assignment_id: str
     attempt_id: str
     member_id: str
-    node_kind: NodeKind
+    is_task_lead: bool
+    has_direct_team: bool
     team_revision_id: str
+    current_team_revision_id: str
     task_control_revision: int
     work_plan_revision: int
     dispatch_status: str
@@ -70,23 +71,19 @@ async def read_node_operation_authority(
         dispatch=dispatch,
     )
     selection = await _read_current_team_selection(session, dispatch=dispatch)
-    has_children = bool(
+    current_team_revision_id = task.current_team_revision_id
+    if current_team_revision_id is None:
+        raise stale_dispatch_error("running Task has no current Team revision")
+    has_direct_team = bool(
         await session.scalar(
             select(
                 exists().where(
                     TeamRevisionMemberModel.task_id == task.task_id,
-                    TeamRevisionMemberModel.team_revision_id == dispatch.team_revision_id,
+                    TeamRevisionMemberModel.team_revision_id == current_team_revision_id,
                     TeamRevisionMemberModel.parent_member_id == dispatch.member_id,
                 )
             )
         )
-    )
-    node_kind = (
-        NodeKind.ROOT
-        if selection.parent_member_id is None
-        else NodeKind.PARENT
-        if has_children
-        else NodeKind.WORKER
     )
     capabilities = await _read_dispatch_capabilities(session, dispatch.dispatch_id)
     return NodeOperationAuthority(
@@ -95,8 +92,10 @@ async def read_node_operation_authority(
         assignment_id=assignment.assignment_id,
         attempt_id=attempt.attempt_id,
         member_id=dispatch.member_id,
-        node_kind=node_kind,
+        is_task_lead=task.root_assignment_id == assignment.assignment_id,
+        has_direct_team=has_direct_team,
         team_revision_id=dispatch.team_revision_id,
+        current_team_revision_id=current_team_revision_id,
         task_control_revision=task.control_revision,
         work_plan_revision=assignment.work_plan_revision,
         dispatch_status=dispatch.status,
@@ -264,7 +263,6 @@ def exact_node_operation_authority_exists(
                 AssignmentModel.member_id == authority.member_id,
                 AssignmentModel.current_attempt_id == authority.attempt_id,
                 AssignmentModel.closed_at.is_(None),
-                AssignmentModel.superseded_at.is_(None),
             )
         ),
         exists(
@@ -332,7 +330,6 @@ async def _read_current_assignment_and_attempt(
         or assignment.member_id != dispatch.member_id
         or assignment.current_attempt_id != attempt.attempt_id
         or assignment.closed_at is not None
-        or assignment.superseded_at is not None
         or attempt.assignment_id != assignment.assignment_id
         or attempt.task_id != scope.task_id
         or attempt.status != "running"

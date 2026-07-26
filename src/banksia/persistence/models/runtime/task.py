@@ -21,7 +21,6 @@ from banksia.persistence.models.registry import WorkflowRevisionModel
 from banksia.persistence.models.runtime.common import (
     TASK_STATUS_VALUES,
     TASK_TERMINAL_OUTCOME_VALUES,
-    WORKSPACE_BINDING_MODE_VALUES,
     sql_in,
     utcnow,
 )
@@ -226,16 +225,8 @@ class TaskModel(RuntimeBase):
 
 class WorkspaceBindingModel(RuntimeBase):
     __tablename__ = "workspace_bindings"
-    __table_args__ = (
-        CheckConstraint(
-            f"binding_mode IN ({sql_in(WORKSPACE_BINDING_MODE_VALUES)})",
-            name="ck_workspace_bindings_mode",
-        ),
-    )
 
-    workspace_binding_id: Mapped[str] = mapped_column(String(255), primary_key=True)
-    task_id: Mapped[str] = mapped_column(ForeignKey("tasks.task_id"), unique=True, index=True)
-    binding_mode: Mapped[str] = mapped_column(String(64))
+    task_id: Mapped[str] = mapped_column(ForeignKey("tasks.task_id"), primary_key=True)
     normalized_root_path: Mapped[str] = mapped_column(Text)
     bound_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow)
     task: Mapped[TaskModel] = relationship(

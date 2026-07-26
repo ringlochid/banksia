@@ -336,7 +336,6 @@ async def _stage_unrelated_child_wait(
                     "allow_skip": False,
                 }
             ],
-            capability_basis_json={"decision": "allow", "kind": "input"},
             status="open",
         )
     )

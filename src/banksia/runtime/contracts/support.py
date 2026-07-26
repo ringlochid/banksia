@@ -9,10 +9,10 @@ from banksia.runtime.contracts.capabilities import (
     EffectiveNetworkAccess,
     EffectiveProviderNativeAccess,
 )
-from banksia.runtime.contracts.member import NodeKind
 from banksia.runtime.contracts.primitives import CheckpointOutcome
 from banksia.runtime.contracts.refs import FileReference
 from banksia.runtime.contracts.task_events import TaskEventRecord
+from banksia.runtime.contracts.team_read import MemberBehavior
 from banksia.runtime.task_control.contracts import (
     ControllerTaskState,
     ControllerTaskSummary,
@@ -92,7 +92,8 @@ class SupportBoundaryTraceEntry(_SupportModel):
 class SupportTeamMemberEntry(_SupportModel):
     member_id: str
     parent_member_id: str | None = None
-    node_kind: NodeKind
+    is_task_lead: bool
+    behavior: MemberBehavior
     member_configuration_id: str
     member_branch_basis_id: str
     member_title: str | None = None

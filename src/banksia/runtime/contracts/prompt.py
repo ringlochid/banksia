@@ -192,7 +192,6 @@ class PromptCommandResult(PromptContract):
     output_observed_bytes: int = Field(ge=0)
     output_written_bytes: int = Field(ge=0)
     output_complete: bool
-    output_encoding: Literal["raw_bytes"]
     failure_code: PromptIdentifier | None = None
     terminal_event_source: PromptCommandTerminalSource
     terminal_actor_ref: PromptIdentifier | None = None

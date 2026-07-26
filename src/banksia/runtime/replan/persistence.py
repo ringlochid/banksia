@@ -261,7 +261,6 @@ async def _build_result(
         available_actions=available_member_actions(
             direct_team=direct_team,
             capabilities=effective_capabilities,
-            is_task_lead=caller.parent_member_id is None,
         ),
         must_stop=True,
     )
@@ -288,7 +287,6 @@ async def _direct_team_member_read(
                     AssignmentModel.task_id == task_id,
                     AssignmentModel.member_id == member.member_id,
                     AssignmentModel.terminal_outcome.is_(None),
-                    AssignmentModel.superseded_at.is_(None),
                 )
             )
         )

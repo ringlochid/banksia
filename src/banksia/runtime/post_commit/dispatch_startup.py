@@ -49,8 +49,7 @@ async def read_task_start_page(
             .join(
                 AssignmentModel,
                 (AssignmentModel.task_id == TaskStartSourceModel.task_id)
-                & (AssignmentModel.assignment_id == TaskStartSourceModel.root_assignment_id)
-                & AssignmentModel.superseded_at.is_(None),
+                & (AssignmentModel.assignment_id == TaskStartSourceModel.root_assignment_id),
             )
             .join(
                 AttemptModel,

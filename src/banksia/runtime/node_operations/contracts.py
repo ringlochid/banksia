@@ -15,7 +15,6 @@ from banksia.runtime.contracts import (
     UpdateChildRequest,
 )
 from banksia.runtime.contracts.common import RuntimeSchemaText
-from banksia.runtime.contracts.member import NodeKind
 from banksia.runtime.contracts.prompt import (
     PromptAssignment,
     PromptContinuation,
@@ -99,7 +98,7 @@ class NodeOperationDescriptor:
     name: NodeOperationName
     request_model: type[BaseModel]
     success_model: type[BaseModel]
-    allowed_node_kinds: frozenset[NodeKind]
+    requires_direct_team: bool
     required_capability: NodeOperationCapability | None
     mutation_kind: NodeOperationMutationKind
     title: str

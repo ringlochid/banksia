@@ -14,7 +14,6 @@ from banksia.persistence.models import (
 )
 from banksia.runtime.capabilities import resolve_effective_capabilities_from_member_request
 from banksia.runtime.contracts.capabilities import EffectiveCapabilitySet
-from banksia.runtime.contracts.member import NodeKind
 from banksia.runtime.contracts.primitives import CapabilityDecision, HumanRequestKind
 from banksia.runtime.contracts.provider_resolution import (
     ClaudeProviderRoute,
@@ -179,12 +178,8 @@ def available_member_actions(
     *,
     direct_team: tuple[DirectTeamMemberRead, ...],
     capabilities: EffectiveCapabilitiesRead,
-    is_task_lead: bool = False,
     state_legal_actions: frozenset[NodeOperationName] | None = None,
 ) -> tuple[str, ...]:
-    node_kind = (
-        NodeKind.ROOT if is_task_lead else NodeKind.PARENT if direct_team else NodeKind.WORKER
-    )
     legal_actions = (
         set(state_legal_actions)
         if state_legal_actions is not None
@@ -204,7 +199,7 @@ def available_member_actions(
         descriptor.name.value
         for descriptor in select_node_operation_descriptors(
             NodeOperationSelection(
-                node_kind=node_kind,
+                has_direct_team=bool(direct_team),
                 is_human_request_allowed=bool(capabilities.human_request),
                 is_command_run_allowed=capabilities.command_run == "allow",
                 legal_operations=legal_actions,
@@ -250,7 +245,6 @@ async def _read_busy_direct_team_members(
         select(AssignmentModel.task_id, AssignmentModel.member_id).where(
             tuple_(AssignmentModel.task_id, AssignmentModel.member_id).in_(member_keys),
             AssignmentModel.terminal_outcome.is_(None),
-            AssignmentModel.superseded_at.is_(None),
         )
     )
     return frozenset((task_id, member_id) for task_id, member_id in rows)

@@ -16,7 +16,6 @@ from banksia.runtime.contracts import (
     ReplanSuccess,
     UpdateChildRequest,
 )
-from banksia.runtime.contracts.member import NodeKind
 from banksia.runtime.node_operations.contracts import (
     EmptyNodeOperationRequest,
     GetCurrentContextResponse,
@@ -30,11 +29,9 @@ from banksia.runtime.node_operations.contracts import (
 )
 from banksia.runtime.work_plan import SetWorkPlanRequest, SetWorkPlanResponse
 
-_ALL_NODE_KINDS = frozenset(NodeKind)
-_PARENT_ROOT_NODE_KINDS = frozenset((NodeKind.PARENT, NodeKind.ROOT))
 _descriptor = partial(
     NodeOperationDescriptor,
-    allowed_node_kinds=_ALL_NODE_KINDS,
+    requires_direct_team=False,
     required_capability=None,
     mutation_kind=NodeOperationMutationKind.MUTATION,
 )
@@ -71,7 +68,7 @@ NODE_OPERATION_CATALOG: tuple[NodeOperationDescriptor, ...] = (
         NodeOperationName.DELEGATE,
         DelegateRequest,
         DelegateSuccess,
-        allowed_node_kinds=_PARENT_ROOT_NODE_KINDS,
+        requires_direct_team=True,
         title="Delegate",
         description=(
             "Atomically start one to eight fresh Assignments for unique available direct "
@@ -96,7 +93,7 @@ NODE_OPERATION_CATALOG: tuple[NodeOperationDescriptor, ...] = (
         NodeOperationName.UPDATE_CHILD,
         UpdateChildRequest,
         ReplanSuccess,
-        allowed_node_kinds=_PARENT_ROOT_NODE_KINDS,
+        requires_direct_team=True,
         title="Update child",
         description=(
             "Update one current descendant and recursively upsert its direct descendants "
@@ -108,7 +105,7 @@ NODE_OPERATION_CATALOG: tuple[NodeOperationDescriptor, ...] = (
         NodeOperationName.REMOVE_CHILD,
         RemoveChildRequest,
         ReplanSuccess,
-        allowed_node_kinds=_PARENT_ROOT_NODE_KINDS,
+        requires_direct_team=True,
         title="Remove child",
         description=(
             "Remove one current descendant subtree without erasing history. Success closes "
@@ -151,7 +148,7 @@ _DESCRIPTORS_BY_NAME = {descriptor.name: descriptor for descriptor in NODE_OPERA
 class NodeOperationSelection:
     """Exact controller facts used to select one ordered operation ceiling."""
 
-    node_kind: NodeKind
+    has_direct_team: bool
     is_human_request_allowed: bool
     is_command_run_allowed: bool
     legal_operations: Collection[NodeOperationName] | None = None
@@ -161,18 +158,6 @@ def get_node_operation_descriptor(
     name: str | NodeOperationName,
 ) -> NodeOperationDescriptor:
     return _DESCRIPTORS_BY_NAME[NodeOperationName(name)]
-
-
-def list_node_operation_descriptors_for_kind(
-    node_kind: NodeKind,
-) -> tuple[NodeOperationDescriptor, ...]:
-    return select_node_operation_descriptors(
-        NodeOperationSelection(
-            node_kind=node_kind,
-            is_human_request_allowed=True,
-            is_command_run_allowed=True,
-        )
-    )
 
 
 def select_node_operation_descriptors(
@@ -188,7 +173,7 @@ def select_node_operation_descriptors(
     return tuple(
         descriptor
         for descriptor in NODE_OPERATION_CATALOG
-        if selection.node_kind in descriptor.allowed_node_kinds
+        if (not descriptor.requires_direct_team or selection.has_direct_team)
         and (legal_operations is None or descriptor.name in legal_operations)
         and _selection_allows_capability(descriptor, selection)
     )
@@ -209,6 +194,5 @@ __all__ = [
     "NODE_OPERATION_CATALOG",
     "NodeOperationSelection",
     "get_node_operation_descriptor",
-    "list_node_operation_descriptors_for_kind",
     "select_node_operation_descriptors",
 ]

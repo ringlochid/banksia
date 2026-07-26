@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import cast
 
 from sqlalchemy import Select, false, func, or_, select
@@ -12,7 +11,7 @@ from sqlalchemy.orm import raiseload
 
 from banksia.persistence.models import AssignmentModel, TaskModel
 from banksia.runtime.checkpoint import read_task_result
-from banksia.runtime.contracts import WorkflowManifestRef
+from banksia.runtime.contracts import FileReference
 from banksia.runtime.errors import (
     illegal_state_error,
     invalid_request_shape_error,
@@ -81,7 +80,7 @@ async def read_runtime_task(session: AsyncSession, task_id: str) -> ControllerTa
         result=result,
         current_team_revision_id=task.current_team_revision_id,
         control_revision=task.control_revision,
-        workflow_manifest_ref=workflow_manifest_ref(),
+        workflow_manifest_ref=workflow_manifest_ref(task.task_id),
         pause_reason=normalized_pause_reason(task.pause_reason),
         created_at=coerce_datetime_to_utc(task.created_at),
         updated_at=coerce_datetime_to_utc(task.updated_at),
@@ -125,7 +124,7 @@ async def list_runtime_task_summaries(
                 status=ControllerTaskLifecycleStatus(task.status),
                 terminal_outcome=normalized_terminal_outcome(task.terminal_outcome),
                 current_team_revision_id=task.current_team_revision_id,
-                workflow_manifest_ref=workflow_manifest_ref(),
+                workflow_manifest_ref=workflow_manifest_ref(task.task_id),
                 created_at=coerce_datetime_to_utc(task.created_at),
                 updated_at=coerce_datetime_to_utc(task.updated_at),
             )
@@ -195,9 +194,9 @@ def normalized_terminal_outcome(
     return cast(ControllerTaskTerminalOutcome, terminal_outcome)
 
 
-def workflow_manifest_ref() -> WorkflowManifestRef:
-    return WorkflowManifestRef(
-        path=Path("manifest.md"),
+def workflow_manifest_ref(task_id: str) -> FileReference:
+    return FileReference(
+        path=f".banksia/{task_id}/manifest.md",
         description=WORKFLOW_MANIFEST_REF_DESCRIPTION,
     )
 

@@ -368,11 +368,6 @@
             "title": "Output Complete",
             "type": "boolean"
           },
-          "output_encoding": {
-            "const": "raw_bytes",
-            "title": "Output Encoding",
-            "type": "string"
-          },
           "output_observed_bytes": {
             "minimum": 0.0,
             "title": "Output Observed Bytes",
@@ -434,8 +429,7 @@
           "output_path",
           "output_observed_bytes",
           "output_written_bytes",
-          "output_complete",
-          "output_encoding"
+          "output_complete"
         ],
         "title": "CommandRunTerminalEventPayload",
         "type": "object"
@@ -544,7 +538,7 @@
             "title": "Workflow Key"
           },
           "workflow_manifest_ref": {
-            "$ref": "#/components/schemas/WorkflowManifestRef"
+            "$ref": "#/components/schemas/FileReference"
           }
         },
         "required": [
@@ -620,7 +614,7 @@
             "title": "Workflow Key"
           },
           "workflow_manifest_ref": {
-            "$ref": "#/components/schemas/WorkflowManifestRef"
+            "$ref": "#/components/schemas/FileReference"
           }
         },
         "required": [
@@ -991,22 +985,20 @@
         "title": "HumanRequestTerminalEventPayload",
         "type": "object"
       },
+      "MemberBehavior": {
+        "enum": [
+          "manager",
+          "contributor"
+        ],
+        "title": "MemberBehavior",
+        "type": "string"
+      },
       "NetworkAccess": {
         "enum": [
           "allow",
           "deny"
         ],
         "title": "NetworkAccess",
-        "type": "string"
-      },
-      "NodeKind": {
-        "description": "Residual runtime shape derived from Team membership, never authored authority.",
-        "enum": [
-          "root",
-          "parent",
-          "worker"
-        ],
-        "title": "NodeKind",
         "type": "string"
       },
       "ProviderKind": {
@@ -1579,6 +1571,9 @@
       "SupportTeamMemberEntry": {
         "additionalProperties": false,
         "properties": {
+          "behavior": {
+            "$ref": "#/components/schemas/MemberBehavior"
+          },
           "child_member_ids": {
             "default": [],
             "items": {
@@ -1597,6 +1592,10 @@
               }
             ],
             "title": "Description"
+          },
+          "is_task_lead": {
+            "title": "Is Task Lead",
+            "type": "boolean"
           },
           "member_branch_basis_id": {
             "title": "Member Branch Basis Id",
@@ -1621,9 +1620,6 @@
             ],
             "title": "Member Title"
           },
-          "node_kind": {
-            "$ref": "#/components/schemas/NodeKind"
-          },
           "parent_member_id": {
             "anyOf": [
               {
@@ -1642,7 +1638,8 @@
         },
         "required": [
           "member_id",
-          "node_kind",
+          "is_task_lead",
+          "behavior",
           "member_configuration_id",
           "member_branch_basis_id",
           "preorder_index"
@@ -2027,27 +2024,6 @@
           "completed"
         ],
         "type": "string"
-      },
-      "WorkflowManifestRef": {
-        "additionalProperties": false,
-        "properties": {
-          "description": {
-            "minLength": 1,
-            "title": "Description",
-            "type": "string"
-          },
-          "path": {
-            "format": "path",
-            "title": "Path",
-            "type": "string"
-          }
-        },
-        "required": [
-          "path",
-          "description"
-        ],
-        "title": "WorkflowManifestRef",
-        "type": "object"
       },
       "_BoundaryAcceptedEvent": {
         "additionalProperties": false,

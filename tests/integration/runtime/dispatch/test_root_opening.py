@@ -240,7 +240,10 @@ def _assert_root_opening_result(
         trace_dispatch.effective_capabilities.provider_native_access.effective
         == expected_native_access
     )
-    assert trace.team_members
+    assert len(trace.team_members) == 1
+    assert trace.team_members[0].is_task_lead is True
+    assert trace.team_members[0].behavior == "contributor"
+    assert trace.current_paths[0].path == f".banksia/{task_id}/manifest.md"
     request_text = dispatch_request.input
     assert "\r" not in request_text
     request_root = ElementTree.fromstring(request_text)

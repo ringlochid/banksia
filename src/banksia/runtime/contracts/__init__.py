@@ -60,7 +60,6 @@ from banksia.runtime.contracts.launch import (
     RuntimeBootstrapResult,
     RuntimeLaunchInput,
 )
-from banksia.runtime.contracts.member import NodeKind
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
 from banksia.runtime.contracts.primitives import (
     CapabilityDecision,
@@ -116,7 +115,7 @@ from banksia.runtime.contracts.provider_resolution import (
     ProviderSelectionBasis,
     SandboxResolutionSource,
 )
-from banksia.runtime.contracts.refs import FileReference, WorkflowManifestRef
+from banksia.runtime.contracts.refs import FileReference
 from banksia.runtime.contracts.replan import (
     AddChildRequest,
     RemoveChildRequest,
@@ -217,7 +216,6 @@ __all__ = [
     "MemberAvailability",
     "MemberBehavior",
     "MemberParticipation",
-    "NodeKind",
     "OpenClawProviderRoute",
     "OperationFailureCode",
     "OperatorContinueTrigger",
@@ -266,6 +264,5 @@ __all__ = [
     "TaskStatus",
     "UpdateChildRequest",
     "WatchdogRecoveryTrigger",
-    "WorkflowManifestRef",
     "serialize_human_request_item_answers",
 ]

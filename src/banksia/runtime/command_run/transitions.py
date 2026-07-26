@@ -253,18 +253,10 @@ async def terminalize_command_run(
 
 
 def command_run_request_from_model(source: CommandRunModel) -> CommandRunStartRequest:
-    cwd: str | None = None
-    if source.cwd_policy_json is not None:
-        if set(source.cwd_policy_json) != {"logical_path"}:
-            raise ValueError("command cwd policy has an invalid shape")
-        logical_path = source.cwd_policy_json["logical_path"]
-        if not isinstance(logical_path, str):
-            raise ValueError("command cwd policy requires a text logical path")
-        cwd = logical_path
     return CommandRunStartRequest.model_validate(
         {
             "command": source.command_spec_json,
-            "cwd": cwd,
+            "cwd": source.cwd,
             "timeout_seconds": source.timeout_seconds,
             "summary": source.summary,
         }
@@ -506,7 +498,6 @@ async def _append_terminal_event(
             "output_observed_bytes": output_observed_bytes,
             "output_written_bytes": output_written_bytes,
             "output_complete": output_complete,
-            "output_encoding": source.output_encoding,
         },
     )
 

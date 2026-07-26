@@ -65,9 +65,8 @@ class HumanRequestModel(RuntimeBase):
             name="ck_human_requests_resolution_surface",
         ),
         CheckConstraint(
-            "(due_at IS NULL AND timeout_policy_json IS NULL AND default_behavior_json IS NULL) OR "
-            "(due_at IS NOT NULL AND timeout_policy_json IS NOT NULL)",
-            name="ck_human_requests_timeout_policy",
+            "default_behavior IS NULL OR due_at IS NOT NULL",
+            name="ck_human_requests_default_requires_deadline",
         ),
         CheckConstraint(
             "status != 'timed_out' OR due_at IS NOT NULL",
@@ -75,9 +74,9 @@ class HumanRequestModel(RuntimeBase):
         ),
         CheckConstraint(
             "(status = 'open' AND resolution_kind IS NULL AND item_responses_json IS NULL AND "
-            "resolution_policy_basis_json IS NULL AND resolution_summary IS NULL AND "
-            "resolved_by_actor_ref IS NULL AND resolved_by_surface IS NULL AND "
-            "resolved_at IS NULL AND successor_dispatch_id IS NULL) OR "
+            "resolution_summary IS NULL AND resolved_by_actor_ref IS NULL AND "
+            "resolved_by_surface IS NULL AND resolved_at IS NULL AND "
+            "successor_dispatch_id IS NULL) OR "
             "(status != 'open' AND resolution_kind IS NOT NULL AND "
             "resolution_summary IS NOT NULL AND resolved_by_surface IS NOT NULL AND "
             "resolved_at IS NOT NULL)",
@@ -87,7 +86,7 @@ class HumanRequestModel(RuntimeBase):
             "(status = 'resolved' AND resolution_kind = 'answered' AND "
             "item_responses_json IS NOT NULL) OR "
             "(status = 'timed_out' AND resolution_kind = 'timed_out' AND "
-            "item_responses_json IS NULL AND resolution_policy_basis_json IS NOT NULL) OR "
+            "item_responses_json IS NULL) OR "
             "(status = 'cancelled' AND resolution_kind = 'cancelled' AND "
             "item_responses_json IS NULL) OR status = 'open'",
             name="ck_human_requests_status_resolution",
@@ -123,22 +122,12 @@ class HumanRequestModel(RuntimeBase):
     request_kind: Mapped[str] = mapped_column(String(64))
     request_summary: Mapped[str] = mapped_column(Text)
     request_items_json: Mapped[list[dict[str, object]]] = mapped_column(JSON(none_as_null=True))
-    capability_basis_json: Mapped[dict[str, object]] = mapped_column(JSON(none_as_null=True))
     due_at: Mapped[datetime | None] = mapped_column(UtcDateTime(), nullable=True)
-    timeout_policy_json: Mapped[dict[str, object] | None] = mapped_column(
-        JSON(none_as_null=True), nullable=True
-    )
-    default_behavior_json: Mapped[dict[str, object] | None] = mapped_column(
-        JSON(none_as_null=True), nullable=True
-    )
+    default_behavior: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(64), default="open")
     resolution_kind: Mapped[str | None] = mapped_column(String(64), nullable=True)
     item_responses_json: Mapped[dict[str, object] | None] = mapped_column(
         JSON(none_as_null=True), nullable=True
-    )
-    resolution_policy_basis_json: Mapped[dict[str, object] | None] = mapped_column(
-        JSON(none_as_null=True),
-        nullable=True,
     )
     resolution_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     resolved_by_actor_ref: Mapped[str | None] = mapped_column(String(255), nullable=True)

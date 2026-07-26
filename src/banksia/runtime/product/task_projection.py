@@ -32,8 +32,6 @@ from banksia.runtime.contracts.task import (
     TaskPlanView,
     TaskProductStatus,
     TaskResultView,
-    TaskSummary,
-    TaskView,
     TaskWorkflowView,
 )
 from banksia.runtime.errors import missing_resource_error
@@ -260,20 +258,6 @@ def build_task_attention(
     return tuple(attention)
 
 
-def build_task_summary(view: TaskView) -> TaskSummary:
-    return TaskSummary(
-        id=view.id,
-        prompt_excerpt=view.prompt_excerpt,
-        workflow=view.workflow,
-        status=view.status,
-        status_message=view.status_message,
-        started_at=view.started_at,
-        updated_at=view.updated_at,
-        attention_count=len(view.attention),
-        result_status=view.result.status if view.result is not None else None,
-    )
-
-
 def task_status_message(status: TaskProductStatus) -> str:
     return {
         "starting": "Banksia accepted the run and is starting the team.",
@@ -346,7 +330,6 @@ async def _read_latest_member_update(
 
 __all__ = [
     "build_task_attention",
-    "build_task_summary",
     "product_task_result",
     "read_product_root_plan",
     "read_product_task_status",

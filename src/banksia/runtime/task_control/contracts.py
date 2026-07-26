@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from banksia.runtime.contracts.checkpoint import TaskResult
 from banksia.runtime.contracts.common import RuntimeSchemaText
-from banksia.runtime.contracts.refs import WorkflowManifestRef
+from banksia.runtime.contracts.refs import FileReference
 
 type ControllerTaskTerminalOutcome = Literal["green", "blocked"]
 type ControllerTaskPauseReason = Literal[
@@ -40,7 +40,7 @@ class ControllerTaskState(BaseModel):
     result: TaskResult | None = None
     current_team_revision_id: RuntimeSchemaText
     control_revision: int = Field(ge=0)
-    workflow_manifest_ref: WorkflowManifestRef
+    workflow_manifest_ref: FileReference
     pause_reason: ControllerTaskPauseReason | None = None
     created_at: datetime
     updated_at: datetime
@@ -56,7 +56,7 @@ class ControllerTaskSummary(BaseModel):
     status: ControllerTaskLifecycleStatus
     terminal_outcome: ControllerTaskTerminalOutcome | None = None
     current_team_revision_id: RuntimeSchemaText
-    workflow_manifest_ref: WorkflowManifestRef
+    workflow_manifest_ref: FileReference
     created_at: datetime
     updated_at: datetime
 
@@ -74,40 +74,8 @@ class ControllerTaskPauseResult(BaseModel):
     task: ControllerTaskState
 
 
-class ControllerTaskControlGuard(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    expected_team_revision_id: RuntimeSchemaText
-    expected_control_revision: int = Field(ge=0)
-
-
-class ControllerTaskListQuery(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    q: RuntimeSchemaText | None = None
-    limit: int = Field(default=50, ge=1, le=200)
-    cursor: RuntimeSchemaText | None = None
-    sort: Literal[
-        "updated_at_desc",
-        "updated_at_asc",
-        "task_title_asc",
-        "task_title_desc",
-    ] = "updated_at_desc"
-    status: Literal[
-        "any",
-        "pending",
-        "running",
-        "paused",
-        "completed",
-        "blocked",
-        "cancelled",
-    ] = "any"
-
-
 __all__ = [
-    "ControllerTaskControlGuard",
     "ControllerTaskLifecycleStatus",
-    "ControllerTaskListQuery",
     "ControllerTaskPauseReason",
     "ControllerTaskPauseResult",
     "ControllerTaskState",

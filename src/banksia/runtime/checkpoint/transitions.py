@@ -56,7 +56,7 @@ async def advance_terminal_checkpoint_state(
     )
     if source_assignment.parent_assignment_id is not None:
         return
-    if authority.node_kind.value != "root":
+    if not authority.is_task_lead:
         raise _conflict("a non-root terminal Boundary is missing parent Assignment lineage")
     await _complete_root_task(
         session,
@@ -108,7 +108,6 @@ async def _read_source_assignment(
             AssignmentModel.member_id == authority.member_id,
             AssignmentModel.current_attempt_id == authority.attempt_id,
             AssignmentModel.closed_at.is_(None),
-            AssignmentModel.superseded_at.is_(None),
         )
     )
     if source is None:
@@ -131,7 +130,6 @@ async def _complete_source_assignment(
             AssignmentModel.member_id == authority.member_id,
             AssignmentModel.current_attempt_id == authority.attempt_id,
             AssignmentModel.closed_at.is_(None),
-            AssignmentModel.superseded_at.is_(None),
         )
         .values(terminal_outcome=outcome, closed_at=transitioned_at)
         .returning(AssignmentModel.assignment_id)
@@ -170,7 +168,6 @@ async def _start_semantic_retry(
             AssignmentModel.member_id == authority.member_id,
             AssignmentModel.current_attempt_id == authority.attempt_id,
             AssignmentModel.closed_at.is_(None),
-            AssignmentModel.superseded_at.is_(None),
             (AssignmentModel.retries_remaining.is_(None)) | (AssignmentModel.retries_remaining > 0),
         )
         .values(

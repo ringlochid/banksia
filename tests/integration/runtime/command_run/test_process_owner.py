@@ -150,7 +150,6 @@ async def _assert_combined_output_contract(
     assert source.output_observed_bytes == len(expected_output)
     assert source.output_written_bytes == len(expected_output)
     assert source.output_complete is True
-    assert source.output_encoding == "raw_bytes"
     assert record.state.value == "succeeded"
     assert record.output_path == source.output_path
     assert record.successor_dispatch_id is None

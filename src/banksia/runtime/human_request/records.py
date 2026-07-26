@@ -70,10 +70,6 @@ def pending_human_request_from_model(
     *,
     files: tuple[FileReference, ...] = (),
 ) -> PendingHumanRequest:
-    default_behavior = None
-    if row.default_behavior_json is not None:
-        value = row.default_behavior_json.get("value")
-        default_behavior = value if isinstance(value, str) else None
     return PendingHumanRequest(
         request_id=row.request_id,
         task_id=row.task_id,
@@ -86,7 +82,7 @@ def pending_human_request_from_model(
         files=files,
         timeout=HumanRequestTimeout(
             due_at=(_coerce_datetime_to_utc(row.due_at) if row.due_at is not None else None),
-            default_behavior=default_behavior,
+            default_behavior=row.default_behavior,
         ),
         opened_at=_coerce_datetime_to_utc(row.opened_at),
         status=HumanRequestStatus(row.status),

@@ -140,7 +140,6 @@ class CommandRunTerminalResult(BaseModel):
     output_observed_bytes: int = Field(ge=0)
     output_written_bytes: int = Field(ge=0)
     output_complete: bool
-    output_encoding: Literal["raw_bytes"]
     failure_code: RuntimeSchemaText | None = None
     terminal_event_source: CommandRunTerminalSource
     terminal_actor_ref: RuntimeSchemaText | None = None
@@ -175,7 +174,6 @@ class CommandRunRecord(BaseModel):
     output_observed_bytes: int = Field(ge=0)
     output_written_bytes: int = Field(ge=0)
     output_complete: bool
-    output_encoding: Literal["raw_bytes"]
     cancellation_requested_at: datetime | None = None
     cancellation_requested_by_actor_ref: RuntimeSchemaText | None = None
     terminal_result: CommandRunTerminalResult | None = None
@@ -200,7 +198,6 @@ class CommandRunRecord(BaseModel):
                 self.terminal_result.output_observed_bytes != self.output_observed_bytes
                 or self.terminal_result.output_written_bytes != self.output_written_bytes
                 or self.terminal_result.output_complete != self.output_complete
-                or self.terminal_result.output_encoding != self.output_encoding
             ):
                 raise ValueError("command run output facts must match terminal_result")
             return self
@@ -233,7 +230,6 @@ class CommandRunListItem(BaseModel):
     output_observed_bytes: int = Field(ge=0)
     output_written_bytes: int = Field(ge=0)
     output_complete: bool
-    output_encoding: Literal["raw_bytes"]
     failure_code: RuntimeSchemaText | None = None
 
     @model_validator(mode="after")
@@ -276,7 +272,6 @@ class CommandRunLogReadResponse(BaseModel):
     is_missing: bool
     is_changed: bool
     output_complete: bool
-    output_encoding: Literal["raw_bytes"]
     read_encoding: Literal["utf-8-replacement"] = "utf-8-replacement"
 
 

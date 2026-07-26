@@ -315,7 +315,6 @@ async def test_delegate_and_command_wait_have_one_stable_async_sqlite_winner(
                     AssignmentModel.task_id == ids.task_id,
                     AssignmentModel.member_id == ids.child_member_id,
                     AssignmentModel.terminal_outcome.is_(None),
-                    AssignmentModel.superseded_at.is_(None),
                 )
             )
             dispatch = await session.get(DispatchTurnModel, ids.current_dispatch_id)

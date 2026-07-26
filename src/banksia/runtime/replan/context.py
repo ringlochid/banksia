@@ -100,7 +100,6 @@ async def require_replan_admission(
             AssignmentModel.task_id == authority.task_id,
             AssignmentModel.member_id.in_(mutation.affected_existing_ids),
             AssignmentModel.assignment_id != authority.assignment_id,
-            AssignmentModel.superseded_at.is_(None),
             AttemptModel.status.in_(("pending", "running")),
         )
     )

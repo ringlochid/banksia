@@ -93,7 +93,6 @@ def _insert_assignment_attempt(
             "assignment_id": assignment_id,
             "task_id": ids.task_id,
             "member_id": member_id,
-            "assignment_key": f"assignment-key.{ids.suffix}.{member_id}",
             "parent_assignment_id": parent_assignment_id,
             "prompt": f"Complete the {member_id} assignment.",
             "current_attempt_id": None,
@@ -106,7 +105,6 @@ def _insert_assignment_attempt(
             "created_at": timestamp,
             "terminal_outcome": None,
             "closed_at": None,
-            "superseded_at": None,
         },
     )
     connection.execute(

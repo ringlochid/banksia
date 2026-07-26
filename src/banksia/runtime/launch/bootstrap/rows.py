@@ -43,9 +43,7 @@ async def stage_launch_bootstrap_rows(
     session.add(TaskEventStreamHeadModel(task_id=bootstrap_input.task_id))
     session.add(
         WorkspaceBindingModel(
-            workspace_binding_id=f"workspace-binding.{bootstrap_input.task_id}",
             task_id=bootstrap_input.task_id,
-            binding_mode="external",
             normalized_root_path=str(bootstrap_input.workspace),
         )
     )

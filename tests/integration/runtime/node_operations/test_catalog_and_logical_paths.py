@@ -2,12 +2,10 @@ from __future__ import annotations
 
 import pytest
 
-from banksia.runtime.contracts.member import NodeKind
 from banksia.runtime.node_operations import (
     NODE_OPERATION_CATALOG,
     NodeOperationTransferKind,
     get_node_operation_descriptor,
-    list_node_operation_descriptors_for_kind,
 )
 from banksia.runtime.node_operations.catalog import (
     NodeOperationSelection,
@@ -29,13 +27,25 @@ EXPECTED_OPERATION_NAMES = (
 )
 
 
-def test_catalog_has_one_exact_node_kind_narrowed_operation_surface() -> None:
+@pytest.mark.parametrize(
+    ("has_direct_team", "expected_count"),
+    ((False, 6), (True, 9)),
+)
+def test_catalog_uses_direct_team_shape_for_the_operation_ceiling(
+    has_direct_team: bool,
+    expected_count: int,
+) -> None:
     assert tuple(descriptor.name.value for descriptor in NODE_OPERATION_CATALOG) == (
         EXPECTED_OPERATION_NAMES
     )
-    assert len(list_node_operation_descriptors_for_kind(NodeKind.WORKER)) == 6
-    assert len(list_node_operation_descriptors_for_kind(NodeKind.PARENT)) == 9
-    assert len(list_node_operation_descriptors_for_kind(NodeKind.ROOT)) == 9
+    selected = select_node_operation_descriptors(
+        NodeOperationSelection(
+            has_direct_team=has_direct_team,
+            is_human_request_allowed=True,
+            is_command_run_allowed=True,
+        )
+    )
+    assert len(selected) == expected_count
     for descriptor in NODE_OPERATION_CATALOG:
         request_properties = descriptor.request_model.model_json_schema().get("properties", {})
         assert "task_id" not in request_properties
@@ -69,7 +79,7 @@ def test_catalog_marks_every_control_transfer_and_terminal_checkpoint() -> None:
 def test_catalog_selector_narrows_facts_without_changing_canonical_order() -> None:
     selected = select_node_operation_descriptors(
         NodeOperationSelection(
-            node_kind=NodeKind.WORKER,
+            has_direct_team=False,
             is_human_request_allowed=False,
             is_command_run_allowed=False,
             legal_operations=(

@@ -307,7 +307,6 @@ async def _cancel_human_request(
             status="cancelled",
             resolution_kind="cancelled",
             item_responses_json=None,
-            resolution_policy_basis_json=None,
             resolution_summary="Cancelled because the task was cancelled.",
             resolved_by_actor_ref=actor_ref,
             resolved_by_surface=_human_resolution_surface(event_source).value,

@@ -12,7 +12,6 @@ from banksia.runtime.node_operations.catalog import (
     NODE_OPERATION_CATALOG,
     NodeOperationSelection,
     get_node_operation_descriptor,
-    list_node_operation_descriptors_for_kind,
     select_node_operation_descriptors,
 )
 from banksia.runtime.node_operations.contracts import (
@@ -68,6 +67,5 @@ __all__ = [
     "StartCommandRunRequest",
     "create_watchdog_activity_publisher",
     "get_node_operation_descriptor",
-    "list_node_operation_descriptors_for_kind",
     "select_node_operation_descriptors",
 ]

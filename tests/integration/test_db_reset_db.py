@@ -546,17 +546,13 @@ def _insert_workspace_binding(database_path: Path, *, workspace_root: Path) -> N
         connection.execute(
             """
             INSERT INTO workspace_bindings (
-                workspace_binding_id,
                 task_id,
-                binding_mode,
                 normalized_root_path,
                 bound_at
-            ) VALUES (?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?)
             """,
             (
-                "workspace-binding.task.alpha",
                 "task.alpha",
-                "external",
                 str(workspace_root),
                 "2026-07-18T00:00:00+00:00",
             ),

@@ -73,15 +73,13 @@ class RootPromptSnapshot:
 
 @dataclass(frozen=True, slots=True)
 class SemanticRetryPromptSnapshot(RootPromptSnapshot):
-    node_kind: str
-    parent_assignment_id: str | None
+    is_task_lead: bool
     trigger: SemanticRetryTrigger
 
 
 @dataclass(frozen=True, slots=True)
 class OrdinaryPromptSnapshot(RootPromptSnapshot):
-    node_kind: str
-    parent_assignment_id: str | None
+    is_task_lead: bool
     predecessor_dispatch_id: str
     trigger: OrdinaryPromptTrigger
 
@@ -111,7 +109,7 @@ def build_semantic_retry_dispatch_request(
     return _build_dispatch_request(
         snapshot,
         trigger=snapshot.trigger,
-        is_task_lead=snapshot.node_kind == "root",
+        is_task_lead=snapshot.is_task_lead,
     )
 
 
@@ -121,7 +119,7 @@ def build_ordinary_dispatch_request(
     return _build_dispatch_request(
         snapshot,
         trigger=snapshot.trigger,
-        is_task_lead=snapshot.node_kind == "root",
+        is_task_lead=snapshot.is_task_lead,
     )
 
 
@@ -152,7 +150,6 @@ def _build_dispatch_request(
     available_actions = available_member_actions(
         direct_team=snapshot.direct_team,
         capabilities=capabilities,
-        is_task_lead=is_task_lead,
     )
     return DispatchRequestRenderInput(
         dynamic_input=PromptDynamicInput(

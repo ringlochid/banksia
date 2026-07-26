@@ -70,12 +70,12 @@ Mutation = Callable[[Connection, RuntimeIds], None]
         ),
     ),
 )
-def test_sqlite_rejects_wp02_cross_record_and_capability_widening(
+def test_sqlite_rejects_cross_record_and_capability_widening(
     tmp_path: Path,
     case_name: str,
     mutation: Mutation,
 ) -> None:
-    engine = create_runtime_schema_engine(tmp_path, name=f"wp02-{case_name}.sqlite")
+    engine = create_runtime_schema_engine(tmp_path, name=f"relationship-{case_name}.sqlite")
     try:
         with engine.begin() as connection:
             seed_catalog(connection)
@@ -90,7 +90,7 @@ def test_sqlite_rejects_wp02_cross_record_and_capability_widening(
 def test_openclaw_capability_snapshot_keeps_nullable_managed_sandbox_shape(
     tmp_path: Path,
 ) -> None:
-    engine = create_runtime_schema_engine(tmp_path, name="wp02-openclaw.sqlite")
+    engine = create_runtime_schema_engine(tmp_path, name="openclaw-capability.sqlite")
     try:
         with engine.begin() as connection:
             seed_catalog(connection)
@@ -101,13 +101,54 @@ def test_openclaw_capability_snapshot_keeps_nullable_managed_sandbox_shape(
         engine.dispose()
 
 
+def test_sqlite_allows_only_one_open_assignment_per_task_member(
+    tmp_path: Path,
+) -> None:
+    engine = create_runtime_schema_engine(tmp_path, name="open-assignment.sqlite")
+    try:
+        with engine.begin() as connection:
+            seed_catalog(connection)
+            ids = seed_runtime_scope(connection, suffix="open-assignment")
+
+        with pytest.raises(IntegrityError):
+            with engine.begin() as connection:
+                _insert_open_assignment(
+                    connection,
+                    ids,
+                    assignment_id="assignment.open-assignment.duplicate",
+                )
+
+        with engine.begin() as connection:
+            _close_assignment(connection, assignment_id=ids.root_assignment_id)
+            _insert_open_assignment(
+                connection,
+                ids,
+                assignment_id="assignment.open-assignment.replacement",
+            )
+
+        with engine.connect() as connection:
+            open_assignment_ids = tuple(
+                connection.scalars(
+                    select(RuntimeBase.metadata.tables["assignments"].c.assignment_id).where(
+                        RuntimeBase.metadata.tables["assignments"].c.task_id == ids.task_id,
+                        RuntimeBase.metadata.tables["assignments"].c.member_id
+                        == ids.root_member_id,
+                        RuntimeBase.metadata.tables["assignments"].c.closed_at.is_(None),
+                    )
+                )
+            )
+        assert open_assignment_ids == ("assignment.open-assignment.replacement",)
+    finally:
+        engine.dispose()
+
+
 @pytest.mark.asyncio
-async def test_postgresql_rejects_wp02_cross_record_and_capability_widening() -> None:
+async def test_postgresql_rejects_cross_record_and_capability_widening() -> None:
     database_url = _disposable_postgres_url()
     if database_url is None:
         pytest.skip("a disposable PostgreSQL test database is not configured")
 
-    schema_name = f"banksia_wp02_integrity_{uuid4().hex}"
+    schema_name = f"banksia_relationship_integrity_{uuid4().hex}"
     engine = create_async_engine(
         database_url,
         execution_options={"schema_translate_map": {None: schema_name}},
@@ -166,12 +207,74 @@ async def test_postgresql_rejects_wp02_cross_record_and_capability_widening() ->
 
 
 @pytest.mark.asyncio
+async def test_postgresql_allows_only_one_open_assignment_per_task_member() -> None:
+    database_url = _disposable_postgres_url()
+    if database_url is None:
+        pytest.skip("a disposable PostgreSQL test database is not configured")
+
+    schema_name = f"banksia_open_assignment_{uuid4().hex}"
+    engine = create_async_engine(
+        database_url,
+        execution_options={"schema_translate_map": {None: schema_name}},
+    )
+    schema_created = False
+    try:
+        async with engine.begin() as connection:
+            await connection.exec_driver_sql(f'CREATE SCHEMA "{schema_name}"')
+            schema_created = True
+            await connection.run_sync(create_runtime_schema_tables)
+            await connection.run_sync(seed_catalog)
+            ids = await connection.run_sync(
+                partial(seed_runtime_scope, suffix="postgres-open-assignment")
+            )
+
+        with pytest.raises(IntegrityError):
+            async with engine.begin() as connection:
+                await connection.run_sync(
+                    lambda sync_connection: _insert_open_assignment(
+                        sync_connection,
+                        ids,
+                        assignment_id="assignment.postgres-open-assignment.duplicate",
+                    )
+                )
+
+        async with engine.begin() as connection:
+            await connection.run_sync(
+                lambda sync_connection: _replace_open_assignment(
+                    sync_connection,
+                    ids,
+                    assignment_id="assignment.postgres-open-assignment.replacement",
+                )
+            )
+
+        async with engine.connect() as connection:
+            open_assignment_ids = tuple(
+                (
+                    await connection.scalars(
+                        select(RuntimeBase.metadata.tables["assignments"].c.assignment_id).where(
+                            RuntimeBase.metadata.tables["assignments"].c.task_id == ids.task_id,
+                            RuntimeBase.metadata.tables["assignments"].c.member_id
+                            == ids.root_member_id,
+                            RuntimeBase.metadata.tables["assignments"].c.closed_at.is_(None),
+                        )
+                    )
+                ).all()
+            )
+        assert open_assignment_ids == ("assignment.postgres-open-assignment.replacement",)
+    finally:
+        if schema_created:
+            async with engine.begin() as connection:
+                await connection.exec_driver_sql(f'DROP SCHEMA IF EXISTS "{schema_name}" CASCADE')
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
 async def test_postgresql_initial_team_materialization_has_one_cas_winner() -> None:
     database_url = _disposable_postgres_url()
     if database_url is None:
         pytest.skip("a disposable PostgreSQL test database is not configured")
 
-    schema_name = f"banksia_wp02_team_race_{uuid4().hex}"
+    schema_name = f"banksia_team_materialization_race_{uuid4().hex}"
     engine = create_async_engine(
         database_url,
         execution_options={"schema_translate_map": {None: schema_name}},
@@ -273,6 +376,53 @@ def _apply_mutation(
     ids: RuntimeIds,
 ) -> None:
     mutation(connection, ids)
+
+
+def _insert_open_assignment(
+    connection: Connection,
+    ids: RuntimeIds,
+    *,
+    assignment_id: str,
+) -> None:
+    connection.execute(
+        RuntimeBase.metadata.tables["assignments"].insert(),
+        {
+            "assignment_id": assignment_id,
+            "task_id": ids.task_id,
+            "member_id": ids.root_member_id,
+            "parent_assignment_id": None,
+            "prompt": "Continue the root assignment.",
+            "current_attempt_id": None,
+            "work_plan_revision": 0,
+            "child_assignment_limit": 20,
+            "child_assignments_remaining": 20,
+            "retry_limit": 1,
+            "retries_remaining": 1,
+            "created_by_dispatch_id": None,
+            "created_at": NOW,
+            "terminal_outcome": None,
+            "closed_at": None,
+        },
+    )
+
+
+def _close_assignment(connection: Connection, *, assignment_id: str) -> None:
+    connection.execute(
+        RuntimeBase.metadata.tables["assignments"]
+        .update()
+        .where(RuntimeBase.metadata.tables["assignments"].c.assignment_id == assignment_id)
+        .values(terminal_outcome="green", closed_at=NOW)
+    )
+
+
+def _replace_open_assignment(
+    connection: Connection,
+    ids: RuntimeIds,
+    *,
+    assignment_id: str,
+) -> None:
+    _close_assignment(connection, assignment_id=ids.root_assignment_id)
+    _insert_open_assignment(connection, ids, assignment_id=assignment_id)
 
 
 def _select_other_configuration(connection: Connection, ids: RuntimeIds) -> None:
@@ -456,7 +606,6 @@ def _convert_current_dispatch_to_openclaw(connection: Connection, ids: RuntimeId
         .values(
             requested_provider="openclaw",
             resolved_provider="openclaw",
-            provider_route_kind="openclaw",
             model_source=None,
             effort_source=None,
             gateway_profile="default",

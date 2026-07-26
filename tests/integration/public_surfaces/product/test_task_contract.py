@@ -418,7 +418,6 @@ async def _seed_terminal_human_request_history(
                     request_kind=open_request.request_kind,
                     request_summary=f"Terminal request {index}",
                     request_items_json=open_request.request_items_json,
-                    capability_basis_json=open_request.capability_basis_json,
                     status="cancelled",
                     resolution_kind="cancelled",
                     resolution_summary="No longer needed.",

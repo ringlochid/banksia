@@ -330,7 +330,6 @@ def _context_is_plausible(
         and source.attempt_id == attempt.attempt_id
         and assignment.current_attempt_id == attempt.attempt_id
         and assignment.terminal_outcome is None
-        and assignment.superseded_at is None
         and attempt.status == "running"
         and attempt.current_dispatch_id == source.dispatch_id
         and attempt.current_wait_id is None

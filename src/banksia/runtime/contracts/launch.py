@@ -15,7 +15,7 @@ class RuntimeBootstrapInput(BaseModel):
 
     task_id: TaskIdentifier
     attempt_id: RuntimeText
-    assignment_key: RuntimeText
+    assignment_id: RuntimeText
     task_root: Path
     workspace: Path
     assignment: AssignmentBody

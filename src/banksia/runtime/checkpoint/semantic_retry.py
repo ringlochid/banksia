@@ -271,13 +271,6 @@ def _build_semantic_retry_prompt(
 ) -> SemanticRetryPromptSnapshot:
     selection = context.selection
     configuration = context.configuration
-    node_kind = (
-        "root"
-        if context.task.root_assignment_id == authority.assignment_id
-        else "parent"
-        if direct_team
-        else "worker"
-    )
     return SemanticRetryPromptSnapshot(
         task_id=authority.task_id,
         workflow_key=context.task.workflow_key,
@@ -300,8 +293,7 @@ def _build_semantic_retry_prompt(
         provider=provider,
         direct_team=direct_team,
         paths=paths,
-        node_kind=node_kind,
-        parent_assignment_id=authority.assignment.parent_assignment_id,
+        is_task_lead=context.task.root_assignment_id == authority.assignment_id,
         trigger=SemanticRetryTrigger(
             source=SemanticRetrySource(
                 accepted_boundary_id=accepted_boundary_id,

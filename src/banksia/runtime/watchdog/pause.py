@@ -241,7 +241,6 @@ def _failed_watchdog_candidate_is_plausible(
         and task.status == "running"
         and assignment.current_attempt_id == attempt.attempt_id
         and assignment.terminal_outcome is None
-        and assignment.superseded_at is None
         and attempt.status == "running"
         and attempt.current_dispatch_id == dispatch.dispatch_id
         and attempt.current_wait_id is None
@@ -266,7 +265,6 @@ def _failed_watchdog_candidate_is_current(
             AssignmentModel.member_id == candidate.member_id,
             AssignmentModel.current_attempt_id == candidate.attempt_id,
             AssignmentModel.terminal_outcome.is_(None),
-            AssignmentModel.superseded_at.is_(None),
         )
         & exists().where(
             AttemptModel.task_id == candidate.task_id,

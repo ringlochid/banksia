@@ -73,24 +73,12 @@ def test_human_request_open_and_answer_shapes_are_database_validated(
         engine.dispose()
 
 
-def test_human_request_timeout_requires_an_immutable_timeout_policy(
-    tmp_path: Path,
-) -> None:
-    def mutate(connection: Connection, scopes: dict[str, RuntimeIds]) -> None:
-        row = _open_human_request(scopes["a"])
-        row["due_at"] = NOW + timedelta(minutes=5)
-        connection.execute(RuntimeBase.metadata.tables["human_requests"].insert(), row)
-
-    _assert_rejected(tmp_path, mutate)
-
-
 def test_human_request_cannot_time_out_without_a_deadline(tmp_path: Path) -> None:
     def mutate(connection: Connection, scopes: dict[str, RuntimeIds]) -> None:
         row = _open_human_request(scopes["a"])
         row.update(
             status="timed_out",
             resolution_kind="timed_out",
-            resolution_policy_basis_json={"behavior": "continue"},
             resolution_summary="Timed out.",
             resolved_by_surface="controller",
             resolved_at=NOW,
@@ -315,14 +303,11 @@ def _open_human_request(ids: RuntimeIds) -> dict[str, object]:
                 ],
             }
         ],
-        "capability_basis_json": {"human_approval": "allow"},
         "due_at": None,
-        "timeout_policy_json": None,
-        "default_behavior_json": None,
+        "default_behavior": None,
         "status": "open",
         "resolution_kind": None,
         "item_responses_json": None,
-        "resolution_policy_basis_json": None,
         "resolution_summary": None,
         "resolved_by_actor_ref": None,
         "resolved_by_surface": None,
@@ -340,7 +325,7 @@ def _pending_command_run(ids: RuntimeIds) -> dict[str, object]:
         "attempt_id": ids.root_attempt_id,
         "source_dispatch_id": ids.current_dispatch_id,
         "command_spec_json": {"argv": ["true"]},
-        "cwd_policy_json": None,
+        "cwd": None,
         "summary": "Run a target command.",
         "timeout_seconds": None,
         "due_at": None,
@@ -348,7 +333,6 @@ def _pending_command_run(ids: RuntimeIds) -> dict[str, object]:
         "output_observed_bytes": 0,
         "output_written_bytes": 0,
         "output_complete": False,
-        "output_encoding": "raw_bytes",
         "state": "pending_start",
         "ownership_revision": 0,
         "process_metadata_json": None,

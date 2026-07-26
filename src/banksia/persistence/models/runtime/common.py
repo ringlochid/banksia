@@ -71,7 +71,6 @@ CAPABILITY_SOURCE_VALUES = ("default", "member_configuration", "controller")
 CAPABILITY_DECISION_VALUES = ("allow", "deny")
 BOUNDARY_OUTCOME_VALUES = ("green", "retry", "blocked")
 WORK_PLAN_STEP_STATUS_VALUES = ("pending", "in_progress", "completed")
-WORKSPACE_BINDING_MODE_VALUES = ("controller_owned", "external")
 HUMAN_REQUEST_KIND_VALUES = ("direction", "approval", "input", "review")
 HUMAN_REQUEST_STATUS_VALUES = ("open", "resolved", "timed_out", "cancelled")
 HUMAN_REQUEST_RESOLUTION_KIND_VALUES = ("answered", "timed_out", "cancelled")
@@ -173,7 +172,6 @@ __all__ = [
     "TASK_EVENT_TYPE_VALUES",
     "TASK_STATUS_VALUES",
     "TASK_TERMINAL_OUTCOME_VALUES",
-    "WORKSPACE_BINDING_MODE_VALUES",
     "WORK_PLAN_STEP_STATUS_VALUES",
     "sql_in",
     "utcnow",

@@ -413,7 +413,6 @@ async def _require_available_child(
                     AssignmentModel.task_id == authority.task_id,
                     AssignmentModel.member_id == target.member_id,
                     AssignmentModel.terminal_outcome.is_(None),
-                    AssignmentModel.superseded_at.is_(None),
                 )
             )
         )
@@ -440,7 +439,6 @@ def _new_child_work(
             assignment_id=assignment_id,
             task_id=authority.task_id,
             member_id=target.member_id,
-            assignment_key=f"{authority.task_id}.{target.member_id}.{suffix}",
             parent_assignment_id=authority.assignment_id,
             prompt=authored.prompt,
             current_attempt_id=attempt_id,

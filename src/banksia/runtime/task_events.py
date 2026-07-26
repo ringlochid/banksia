@@ -168,18 +168,6 @@ async def list_task_events(
     )
 
 
-async def read_task_event(
-    session: AsyncSession,
-    *,
-    task_id: str,
-    event_id: str,
-) -> TaskEventRecord | None:
-    row = await _task_event_by_id(session, task_id=task_id, event_id=event_id)
-    if row is None:
-        return None
-    return task_event_record_from_model(row)
-
-
 async def latest_task_event(
     session: AsyncSession,
     *,
@@ -469,6 +457,5 @@ __all__ = [
     "encode_task_event_cursor",
     "latest_task_event",
     "list_task_events",
-    "read_task_event",
     "task_event_record_from_model",
 ]

@@ -46,7 +46,7 @@ def build_launch_foundation_input(
     return RuntimeBootstrapInput(
         task_id=task_id,
         attempt_id="attempt.launch-foundation.root.1",
-        assignment_key="task.launch-foundation.root.assignment.1",
+        assignment_id="assignment.task.launch-foundation.root.assignment.1",
         task_root=tmp_path / "task-root",
         workspace=tmp_path,
         assignment=AssignmentBody(

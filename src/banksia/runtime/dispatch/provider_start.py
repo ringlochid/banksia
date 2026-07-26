@@ -229,7 +229,7 @@ async def read_provider_start_candidate(
                     DispatchTurnModel.member_id.label("member_id"),
                     DispatchTurnModel.opened_reason.label("opened_reason"),
                     DispatchTurnModel.predecessor_dispatch_id.label("predecessor_dispatch_id"),
-                    DispatchTurnModel.provider_route_kind.label("provider_route_kind"),
+                    DispatchTurnModel.resolved_provider.label("resolved_provider"),
                     DispatchTurnModel.model_override.label("model_override"),
                     DispatchTurnModel.effort_override.label("effort_override"),
                     DispatchTurnModel.gateway_profile.label("gateway_profile"),
@@ -418,7 +418,7 @@ async def _append_provider_start_accepted_event(
 
 def _build_provider_start_candidate(row: RowMapping) -> ProviderStartCandidate:
     try:
-        provider_kind: ProviderKind | None = ProviderKind(row["provider_route_kind"])
+        provider_kind: ProviderKind | None = ProviderKind(row["resolved_provider"])
     except ValueError:
         provider_kind = None
     return ProviderStartCandidate(

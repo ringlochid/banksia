@@ -176,7 +176,6 @@ async def read_command_run_log(
             and current.file_size != source.output_written_bytes
         ),
         output_complete=source.output_complete,
-        output_encoding="raw_bytes",
     )
 
 
@@ -304,7 +303,6 @@ def command_run_record_from_model(source: CommandRunModel) -> CommandRunRecord:
         output_observed_bytes=source.output_observed_bytes,
         output_written_bytes=source.output_written_bytes,
         output_complete=source.output_complete,
-        output_encoding="raw_bytes",
         cancellation_requested_at=source.cancellation_requested_at,
         cancellation_requested_by_actor_ref=source.cancellation_requested_by_actor_ref,
         terminal_result=_terminal_result(source),
@@ -341,7 +339,6 @@ def command_run_list_item_from_model(source: CommandRunModel) -> CommandRunListI
         output_observed_bytes=source.output_observed_bytes,
         output_written_bytes=source.output_written_bytes,
         output_complete=source.output_complete,
-        output_encoding="raw_bytes",
         failure_code=source.terminal_failure_code,
     )
 
@@ -374,7 +371,6 @@ def _unavailable_command_log_response(
         is_missing=is_missing,
         is_changed=not is_missing,
         output_complete=source.output_complete,
-        output_encoding="raw_bytes",
     )
 
 
@@ -489,14 +485,7 @@ def _command_display(source: CommandRunModel) -> str:
 
 
 def _command_workdir(source: CommandRunModel) -> str | None:
-    if source.cwd_policy_json is None:
-        return None
-    if set(source.cwd_policy_json) != {"logical_path"}:
-        raise ValueError("command cwd policy has an invalid shape")
-    value = source.cwd_policy_json["logical_path"]
-    if not isinstance(value, str):
-        raise ValueError("command cwd policy requires a text logical path")
-    return value
+    return source.cwd
 
 
 def _terminal_result(source: CommandRunModel) -> CommandRunTerminalResult | None:
@@ -517,7 +506,6 @@ def _terminal_result(source: CommandRunModel) -> CommandRunTerminalResult | None
         output_observed_bytes=source.output_observed_bytes,
         output_written_bytes=source.output_written_bytes,
         output_complete=source.output_complete,
-        output_encoding="raw_bytes",
         failure_code=source.terminal_failure_code,
         terminal_event_source=CommandRunTerminalSource(source.terminal_event_source),
         terminal_actor_ref=source.terminal_actor_ref,

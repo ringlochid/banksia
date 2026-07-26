@@ -180,7 +180,6 @@ def ordinary_context_is_current(snapshot: OrdinaryDispatchSnapshot) -> ColumnEle
             AssignmentModel.current_attempt_id == prompt.attempt_id,
             AssignmentModel.work_plan_revision == snapshot.assignment_work_plan_revision,
             AssignmentModel.terminal_outcome.is_(None),
-            AssignmentModel.superseded_at.is_(None),
         )
         & exists().where(
             AttemptModel.attempt_id == prompt.attempt_id,
@@ -256,13 +255,6 @@ def build_ordinary_prompt_snapshot(
     configuration = context.configuration
     assignment = context.assignment
     attempt = context.attempt
-    node_kind = (
-        "root"
-        if task.root_assignment_id == assignment.assignment_id
-        else "parent"
-        if direct_team
-        else "worker"
-    )
     return OrdinaryPromptSnapshot(
         task_id=task.task_id,
         workflow_key=task.workflow_key,
@@ -285,8 +277,7 @@ def build_ordinary_prompt_snapshot(
         provider=provider,
         direct_team=direct_team,
         paths=paths,
-        node_kind=node_kind,
-        parent_assignment_id=assignment.parent_assignment_id,
+        is_task_lead=task.root_assignment_id == assignment.assignment_id,
         predecessor_dispatch_id=basis.source_dispatch_id,
         trigger=basis.trigger,
     )
@@ -371,7 +362,6 @@ def _validate_ordinary_runtime_context(
         or source_dispatch.closed_reason != basis.source_dispatch_closed_reason
         or assignment.current_attempt_id != attempt.attempt_id
         or assignment.terminal_outcome is not None
-        or assignment.superseded_at is not None
         or attempt.status != "running"
         or attempt.current_dispatch_id is not None
         or attempt.current_wait_id is not None

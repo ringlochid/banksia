@@ -193,7 +193,6 @@ def test_abandoned_command_record_requires_ownership_lost_diagnostic() -> None:
         "output_observed_bytes": 42,
         "output_written_bytes": 42,
         "output_complete": True,
-        "output_encoding": "raw_bytes",
         "successor_dispatch_id": "dispatch.successor",
         "terminal_result": {
             "state": CommandRunState.ABANDONED,
@@ -204,7 +203,6 @@ def test_abandoned_command_record_requires_ownership_lost_diagnostic() -> None:
             "output_observed_bytes": 42,
             "output_written_bytes": 42,
             "output_complete": True,
-            "output_encoding": "raw_bytes",
             "failure_code": "command_ownership_lost",
             "terminal_event_source": CommandRunTerminalSource.PROCESS_OWNER,
         },
@@ -248,7 +246,6 @@ def test_command_record_rejects_terminal_result_source_mismatches() -> None:
         "output_observed_bytes": 42,
         "output_written_bytes": 42,
         "output_complete": True,
-        "output_encoding": "raw_bytes",
         "terminal_result": {
             "state": CommandRunState.SUCCEEDED,
             "summary": "Command completed.",
@@ -258,7 +255,6 @@ def test_command_record_rejects_terminal_result_source_mismatches() -> None:
             "output_observed_bytes": 42,
             "output_written_bytes": 42,
             "output_complete": True,
-            "output_encoding": "raw_bytes",
             "terminal_event_source": CommandRunTerminalSource.PROCESS_OWNER,
         },
     }
@@ -277,7 +273,6 @@ def test_abandoned_prompt_result_requires_ownership_lost_diagnostic() -> None:
         output_observed_bytes=0,
         output_written_bytes=0,
         output_complete=False,
-        output_encoding="raw_bytes",
         failure_code="command_ownership_lost",
         terminal_event_source=PromptCommandTerminalSource.CONTROLLER,
     )
@@ -294,7 +289,6 @@ def test_abandoned_prompt_result_requires_ownership_lost_diagnostic() -> None:
             output_observed_bytes=0,
             output_written_bytes=0,
             output_complete=False,
-            output_encoding="raw_bytes",
             failure_code="process_not_found",
             terminal_event_source=PromptCommandTerminalSource.CONTROLLER,
         )

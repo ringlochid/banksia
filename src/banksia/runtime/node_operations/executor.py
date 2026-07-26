@@ -354,10 +354,10 @@ def _authorize(
     authority: NodeOperationAuthority,
     request: BaseModel,
 ) -> None:
-    if authority.node_kind not in descriptor.allowed_node_kinds:
+    if descriptor.requires_direct_team and not authority.has_direct_team:
         raise RuntimeOperationError(
             code=OperationFailureCode.ILLEGAL_CALLER,
-            summary=f"{authority.node_kind.value} cannot call {descriptor.name.value}",
+            summary=f"current Member has no direct team for {descriptor.name.value}",
             is_retryable=False,
         )
     if not _capability_allows(descriptor, authority, request):

@@ -101,7 +101,6 @@ async def _get_current_context(
     available_actions = available_member_actions(
         direct_team=direct_team,
         capabilities=effective_capabilities_read(authority.capabilities),
-        is_task_lead=authority.team_selection.parent_member_id is None,
         state_legal_actions=state_legal_actions,
     )
     workflow_id, workflow_note = await _read_workflow_context(session, authority)
@@ -127,7 +126,7 @@ async def _get_current_context(
             title=configuration.title,
             description=configuration.description,
             instruction=configuration.instruction,
-            position=("task_lead" if authority.team_selection.parent_member_id is None else None),
+            position=("task_lead" if authority.is_task_lead else None),
             behavior=(MemberBehavior.MANAGER if direct_team else MemberBehavior.CONTRIBUTOR),
             provider=persisted_provider_read(
                 authority.dispatch,
@@ -162,7 +161,7 @@ async def _read_direct_team_members(
             .options(raiseload("*"))
             .where(
                 TeamRevisionMemberModel.task_id == authority.task_id,
-                TeamRevisionMemberModel.team_revision_id == authority.team_revision_id,
+                TeamRevisionMemberModel.team_revision_id == authority.current_team_revision_id,
                 TeamRevisionMemberModel.parent_member_id == authority.member_id,
             )
             .order_by(TeamRevisionMemberModel.sibling_order)

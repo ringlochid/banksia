@@ -111,8 +111,8 @@ class AssignmentModel(RuntimeBase):
             "task_id",
             "member_id",
             unique=True,
-            sqlite_where=text("terminal_outcome IS NULL AND superseded_at IS NULL"),
-            postgresql_where=text("terminal_outcome IS NULL AND superseded_at IS NULL"),
+            sqlite_where=text("closed_at IS NULL"),
+            postgresql_where=text("closed_at IS NULL"),
         ),
         Index("ix_assignments_task_member", "task_id", "member_id"),
     )
@@ -120,7 +120,6 @@ class AssignmentModel(RuntimeBase):
     assignment_id: Mapped[str] = mapped_column(String(255), primary_key=True)
     task_id: Mapped[str] = mapped_column(ForeignKey("tasks.task_id"), index=True)
     member_id: Mapped[str] = mapped_column(String(128))
-    assignment_key: Mapped[str] = mapped_column(String(255), unique=True)
     parent_assignment_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     prompt: Mapped[str] = mapped_column(Text)
     current_attempt_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
@@ -137,7 +136,6 @@ class AssignmentModel(RuntimeBase):
     created_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow)
     terminal_outcome: Mapped[str | None] = mapped_column(String(64), nullable=True)
     closed_at: Mapped[datetime | None] = mapped_column(UtcDateTime(), nullable=True)
-    superseded_at: Mapped[datetime | None] = mapped_column(UtcDateTime(), nullable=True)
     task: Mapped[TaskModel] = relationship("TaskModel", foreign_keys=[task_id], lazy="raise")
     member: Mapped[MemberModel] = relationship(
         "MemberModel",

@@ -188,7 +188,6 @@ def root_context_is_current(snapshot: RootOpeningSnapshot) -> ColumnElement[bool
             AssignmentModel.current_attempt_id == prompt.attempt_id,
             AssignmentModel.work_plan_revision == snapshot.assignment_work_plan_revision,
             AssignmentModel.terminal_outcome.is_(None),
-            AssignmentModel.superseded_at.is_(None),
         )
         & exists().where(
             AttemptModel.attempt_id == prompt.attempt_id,
@@ -308,7 +307,6 @@ async def _read_root_runtime_context(
     if (
         context.assignment.current_attempt_id != context.attempt.attempt_id
         or context.assignment.terminal_outcome is not None
-        or context.assignment.superseded_at is not None
         or context.attempt.status != "running"
         or context.attempt.current_dispatch_id is not None
         or context.attempt.current_wait_id is not None

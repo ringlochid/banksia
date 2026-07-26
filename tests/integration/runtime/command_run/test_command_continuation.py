@@ -131,7 +131,6 @@ def _assert_command_trigger(
     assert terminal_payload["output_observed_bytes"] == 21
     assert terminal_payload["output_written_bytes"] == 21
     assert terminal_payload["output_complete"] is True
-    assert terminal_payload["output_encoding"] == "raw_bytes"
     assert terminal_payload["terminal_event_source"] == "process_owner"
     assert "files" not in result_payload
 

@@ -191,7 +191,6 @@ def command_run_continuation_basis(
                     output_observed_bytes=source.output_observed_bytes,
                     output_written_bytes=source.output_written_bytes,
                     output_complete=source.output_complete,
-                    output_encoding="raw_bytes",
                     failure_code=source.terminal_failure_code,
                     terminal_event_source=PromptCommandTerminalSource(source.terminal_event_source),
                     terminal_actor_ref=source.terminal_actor_ref,
@@ -202,18 +201,10 @@ def command_run_continuation_basis(
 
 
 def _command_request(source: CommandRunModel) -> CommandRunStartRequest:
-    cwd: str | None = None
-    if source.cwd_policy_json is not None:
-        if set(source.cwd_policy_json) != {"logical_path"}:
-            raise ValueError("command cwd policy has an invalid shape")
-        logical_path = source.cwd_policy_json["logical_path"]
-        if not isinstance(logical_path, str):
-            raise ValueError("command cwd policy requires a text logical path")
-        cwd = logical_path
     return CommandRunStartRequest.model_validate(
         {
             "command": source.command_spec_json,
-            "cwd": cwd,
+            "cwd": source.cwd,
             "timeout_seconds": source.timeout_seconds,
             "summary": source.summary,
         }
@@ -223,13 +214,12 @@ def _command_request(source: CommandRunModel) -> CommandRunStartRequest:
 def _command_request_predicates(
     request: CommandRunStartRequest,
 ) -> tuple[ColumnElement[bool], ...]:
-    cwd_policy = {"logical_path": request.cwd} if request.cwd is not None else None
     return (
         CommandRunModel.command_spec_json == request.command.model_dump(mode="json"),
         (
-            CommandRunModel.cwd_policy_json.is_(None)
-            if cwd_policy is None
-            else CommandRunModel.cwd_policy_json == cwd_policy
+            CommandRunModel.cwd.is_(None)
+            if request.cwd is None
+            else CommandRunModel.cwd == request.cwd
         ),
         CommandRunModel.summary == request.summary,
         (
@@ -261,7 +251,6 @@ def _command_result_predicates(
         CommandRunModel.output_observed_bytes == result.output_observed_bytes,
         CommandRunModel.output_written_bytes == result.output_written_bytes,
         CommandRunModel.output_complete == result.output_complete,
-        CommandRunModel.output_encoding == result.output_encoding,
         (
             CommandRunModel.terminal_failure_code.is_(None)
             if result.failure_code is None

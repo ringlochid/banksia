@@ -1,20 +1,12 @@
-from pathlib import Path, PurePosixPath
+from pathlib import PurePosixPath
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
-from banksia.runtime.contracts.common import RuntimeSchemaText
 from banksia.runtime.contracts.text import (
     MAX_FILE_REFERENCES,
     normalize_exact_text,
     normalize_optional_text,
 )
-
-
-class WorkflowManifestRef(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    path: Path
-    description: RuntimeSchemaText
 
 
 class FileReference(BaseModel):
@@ -88,7 +80,6 @@ def reject_duplicate_file_references(
 
 __all__ = [
     "FileReference",
-    "WorkflowManifestRef",
     "reject_duplicate_file_references",
     "validate_file_reference_limit",
 ]

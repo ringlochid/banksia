@@ -68,14 +68,8 @@ async def open_human_request(
             request_kind=body.kind.value,
             request_summary=body.summary,
             request_items_json=[item.model_dump(mode="json") for item in body.items],
-            capability_basis_json={"decision": "allow", "kind": body.kind.value},
             due_at=timeout.due_at,
-            timeout_policy_json=({"kind": "deadline"} if timeout.due_at is not None else None),
-            default_behavior_json=(
-                {"value": timeout.default_behavior}
-                if timeout.default_behavior is not None
-                else None
-            ),
+            default_behavior=timeout.default_behavior,
             status="open",
         )
     )
@@ -212,7 +206,7 @@ def _stage_command_run_rows(
             attempt_id=authority.attempt_id,
             source_dispatch_id=authority.dispatch_id,
             command_spec_json=body.command.model_dump(mode="json"),
-            cwd_policy_json={"logical_path": cwd} if cwd is not None else None,
+            cwd=cwd,
             summary=body.summary,
             timeout_seconds=body.timeout_seconds,
             due_at=None,

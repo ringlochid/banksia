@@ -151,7 +151,6 @@ async def _seed_wide_direct_team(
                 assignment_id=f"assignment.{ids.suffix}.batch-01",
                 task_id=ids.task_id,
                 member_id="batch-child-01",
-                assignment_key=f"assignment-key.{ids.suffix}.batch-01",
                 parent_assignment_id=ids.root_assignment_id,
                 prompt="Keep the first batch child busy.",
                 current_attempt_id=None,
@@ -164,7 +163,6 @@ async def _seed_wide_direct_team(
                 created_at=FIXTURE_TIMESTAMP,
                 terminal_outcome=None,
                 closed_at=None,
-                superseded_at=None,
             )
         )
         await session.commit()

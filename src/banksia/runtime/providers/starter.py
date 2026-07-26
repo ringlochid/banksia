@@ -307,7 +307,7 @@ class DispatchStarter:
         assert predecessor_dispatch_id is not None
         self._binding_registry.revoke_dispatch(predecessor_dispatch_id)
         predecessor_kind = await session.scalar(
-            select(DispatchTurnModel.provider_route_kind).where(
+            select(DispatchTurnModel.resolved_provider).where(
                 DispatchTurnModel.dispatch_id == predecessor_dispatch_id,
                 DispatchTurnModel.task_id == candidate.task_id,
             )

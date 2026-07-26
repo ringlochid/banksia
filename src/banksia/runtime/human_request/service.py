@@ -4,7 +4,6 @@ import logging
 from datetime import datetime
 from typing import cast
 
-from pydantic import JsonValue
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -118,7 +117,6 @@ async def persist_human_request_resolution(
     source: HumanRequestModel,
     resolution: HumanRequestResolution,
     expected_due_at: datetime | None = None,
-    resolution_policy_basis: dict[str, JsonValue] | None = None,
     runtime_effect_publisher: RuntimeEffectPublisher | None = None,
 ) -> bool:
     """Commit one exact answer, timeout, or cancellation winner."""
@@ -145,7 +143,6 @@ async def persist_human_request_resolution(
             status=terminal_status.value,
             resolution_kind=resolution.resolution_kind.value,
             item_responses_json=serialize_human_request_item_answers(resolution.item_responses),
-            resolution_policy_basis_json=resolution_policy_basis,
             resolution_summary=resolution.summary,
             resolved_by_actor_ref=resolution.resolved_by_actor_ref,
             resolved_by_surface=resolution.resolved_by_surface.value,

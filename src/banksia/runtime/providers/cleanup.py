@@ -48,7 +48,7 @@ def create_provider_dispatch_cleanup_handler(
                 select(
                     DispatchTurnModel.status,
                     DispatchTurnModel.closed_reason,
-                    DispatchTurnModel.provider_route_kind,
+                    DispatchTurnModel.resolved_provider,
                 ).where(DispatchTurnModel.dispatch_id == signal.dispatch_id)
             )
         ).one_or_none()
@@ -56,7 +56,7 @@ def create_provider_dispatch_cleanup_handler(
         if row is None or row.status != "closed" or row.closed_reason not in _PROVIDER_STOP_REASONS:
             return
         try:
-            adapter = adapters.get(ProviderKind(row.provider_route_kind))
+            adapter = adapters.get(ProviderKind(row.resolved_provider))
         except (LookupError, ValueError):
             return
         try:

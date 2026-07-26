@@ -14,11 +14,13 @@ from sqlalchemy.sql.selectable import CompoundSelect, Subquery
 
 from banksia.persistence.models import (
     AcceptedBoundaryModel,
+    AssignmentModel,
     AttemptCheckpointModel,
     CheckpointFileReferenceModel,
     DispatchCapabilitySetModel,
     DispatchTurnModel,
     MemberConfigurationModel,
+    TaskModel,
     TeamRevisionMemberModel,
 )
 from banksia.runtime.contracts import CheckpointOutcome, FileReference
@@ -26,7 +28,6 @@ from banksia.runtime.contracts.capabilities import (
     EffectiveNetworkAccess,
     EffectiveProviderNativeAccess,
 )
-from banksia.runtime.contracts.member import NodeKind
 from banksia.runtime.contracts.support import (
     SupportActionableItem,
     SupportBoundaryTraceEntry,
@@ -38,7 +39,8 @@ from banksia.runtime.contracts.support import (
     SupportTeamMemberEntry,
     SupportTraceEntry,
 )
-from banksia.runtime.errors import invalid_request_shape_error
+from banksia.runtime.contracts.team_read import MemberBehavior
+from banksia.runtime.errors import illegal_state_error, invalid_request_shape_error
 from banksia.runtime.task_control.contracts import ControllerTaskState
 from banksia.runtime.task_control.reads import read_runtime_task
 from banksia.runtime.task_events import latest_task_event
@@ -343,6 +345,17 @@ async def _read_team_members(
     task_id: str,
     team_revision_id: str,
 ) -> tuple[SupportTeamMemberEntry, ...]:
+    root_member_id = await session.scalar(
+        select(AssignmentModel.member_id)
+        .join(
+            TaskModel,
+            (TaskModel.task_id == AssignmentModel.task_id)
+            & (TaskModel.root_assignment_id == AssignmentModel.assignment_id),
+        )
+        .where(TaskModel.task_id == task_id)
+    )
+    if root_member_id is None:
+        raise illegal_state_error(f"task '{task_id}' has no root Assignment")
     rows = tuple(
         (
             await session.execute(
@@ -375,12 +388,11 @@ async def _read_team_members(
         SupportTeamMemberEntry(
             member_id=selection.member_id,
             parent_member_id=selection.parent_member_id,
-            node_kind=(
-                NodeKind.ROOT
-                if selection.parent_member_id is None
-                else NodeKind.PARENT
+            is_task_lead=selection.member_id == root_member_id,
+            behavior=(
+                MemberBehavior.MANAGER
                 if selection.member_id in child_ids_by_parent
-                else NodeKind.WORKER
+                else MemberBehavior.CONTRIBUTOR
             ),
             member_configuration_id=selection.member_configuration_id,
             member_branch_basis_id=selection.member_branch_basis_id,
@@ -436,10 +448,7 @@ def _actionable_items(
 
 
 def _manifest_file_reference(task: ControllerTaskState) -> FileReference:
-    return FileReference(
-        path=str(task.workflow_manifest_ref.path),
-        description=task.workflow_manifest_ref.description,
-    )
+    return task.workflow_manifest_ref
 
 
 def _validate_trace_query(*, limit: int, sort: str) -> _TraceSort:

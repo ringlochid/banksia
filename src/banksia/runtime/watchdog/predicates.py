@@ -47,7 +47,6 @@ def watchdog_context_is_current(
             AssignmentModel.current_attempt_id == prompt.attempt_id,
             AssignmentModel.work_plan_revision == dispatch.assignment_work_plan_revision,
             AssignmentModel.terminal_outcome.is_(None),
-            AssignmentModel.superseded_at.is_(None),
         )
         & exists().where(
             AttemptModel.attempt_id == prompt.attempt_id,

@@ -114,9 +114,7 @@ def _seed_workspace(connection: Connection, *, ids: RuntimeIds) -> None:
     connection.execute(
         RuntimeBase.metadata.tables["workspace_bindings"].insert(),
         {
-            "workspace_binding_id": f"workspace-binding.{ids.suffix}",
             "task_id": ids.task_id,
-            "binding_mode": "external",
             "normalized_root_path": "/tmp/shared-workspace",
             "bound_at": FIXTURE_TIMESTAMP,
         },
@@ -238,7 +236,6 @@ def _insert_dispatch_fixture(
             "requested_provider": "codex",
             "resolved_provider": "codex",
             "provider_selection_basis": "default",
-            "provider_route_kind": "codex",
             "model_override": None,
             "model_source": "provider_configuration",
             "effort_override": None,

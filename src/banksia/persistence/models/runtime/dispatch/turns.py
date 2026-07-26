@@ -66,7 +66,7 @@ class DispatchTurnModel(RuntimeBase):
         UniqueConstraint("dispatch_id", "assignment_id"),
         UniqueConstraint(
             "dispatch_id",
-            "provider_route_kind",
+            "resolved_provider",
             name="uq_dispatch_turns_provider_route_owner",
         ),
         UniqueConstraint("dispatch_id", "assignment_id", "attempt_id"),
@@ -146,8 +146,7 @@ class DispatchTurnModel(RuntimeBase):
             name="ck_dispatch_turns_provider_selection_basis",
         ),
         CheckConstraint(
-            "provider_route_kind = resolved_provider AND "
-            "((provider_route_kind IN ('codex', 'claude') AND gateway_profile IS NULL AND "
+            "((resolved_provider IN ('codex', 'claude') AND gateway_profile IS NULL AND "
             "gateway_profile_source IS NULL AND "
             f"model_source IN ({sql_in(PROVIDER_ROUTE_VALUE_SOURCE_VALUES)}) AND "
             f"effort_source IN ({sql_in(PROVIDER_ROUTE_VALUE_SOURCE_VALUES)}) AND "
@@ -158,7 +157,7 @@ class DispatchTurnModel(RuntimeBase):
             "effort_source = 'provider_configuration')) AND "
             "(model_override IS NULL OR length(trim(model_override)) > 0) AND "
             "(effort_override IS NULL OR length(trim(effort_override)) > 0)) OR "
-            "(provider_route_kind = 'openclaw' AND gateway_profile IS NOT NULL AND "
+            "(resolved_provider = 'openclaw' AND gateway_profile IS NOT NULL AND "
             "length(trim(gateway_profile)) > 0 AND "
             "gateway_profile_source = 'provider_configuration' AND "
             "model_override IS NULL AND effort_override IS NULL AND "
@@ -300,7 +299,6 @@ class DispatchTurnModel(RuntimeBase):
     requested_provider: Mapped[str] = mapped_column(String(64))
     resolved_provider: Mapped[str] = mapped_column(String(64))
     provider_selection_basis: Mapped[str] = mapped_column(String(64))
-    provider_route_kind: Mapped[str] = mapped_column(String(64))
     model_override: Mapped[str | None] = mapped_column(String(255), nullable=True)
     model_source: Mapped[str | None] = mapped_column(String(64), nullable=True)
     effort_override: Mapped[str | None] = mapped_column(String(255), nullable=True)

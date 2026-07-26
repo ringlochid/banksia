@@ -137,7 +137,6 @@ async def _consume_assignment_budget(
             AssignmentModel.member_id == authority.member_id,
             AssignmentModel.current_attempt_id == authority.attempt_id,
             AssignmentModel.closed_at.is_(None),
-            AssignmentModel.superseded_at.is_(None),
             (AssignmentModel.child_assignments_remaining.is_(None))
             | (AssignmentModel.child_assignments_remaining >= count),
             exact_node_operation_authority_exists(authority),

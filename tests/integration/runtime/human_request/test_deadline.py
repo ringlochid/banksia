@@ -182,12 +182,7 @@ async def test_elapsed_human_deadline_terminalizes_exact_source_and_wait(
     assert won is True
     assert source is not None and source.status == "timed_out"
     assert source.resolution_kind == "timed_out"
-    assert source.resolution_policy_basis_json == {
-        "timeout_policy": {"kind": "deadline"},
-        "default_behavior": {
-            "value": "Continue with the documented safe default.",
-        },
-    }
+    assert source.default_behavior == "Continue with the documented safe default."
     assert attempt is not None
     assert attempt.current_dispatch_id is None
     assert attempt.current_wait_id is None

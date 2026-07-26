@@ -4,7 +4,6 @@ from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from typing import cast
 
-from pydantic import JsonValue, TypeAdapter
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import raiseload
@@ -33,7 +32,6 @@ type HumanRequestDueHandler = Callable[
 type HumanRequestDeadlineClock = Callable[[], datetime]
 
 _TIMEOUT_SUMMARY = "The controller-owned human request reached its deadline."
-_JSON_OBJECT_ADAPTER = TypeAdapter(dict[str, JsonValue])
 
 
 def create_human_request_opened_handler(
@@ -107,7 +105,6 @@ async def expire_human_request(
         source=source,
         resolution=resolution,
         expected_due_at=source.due_at,
-        resolution_policy_basis=_timeout_policy_basis(source),
         runtime_effect_publisher=runtime_effect_publisher,
     )
 
@@ -124,21 +121,6 @@ async def _read_human_request(
             .where(HumanRequestModel.request_id == request_id)
         ),
     )
-
-
-def _timeout_policy_basis(source: HumanRequestModel) -> dict[str, JsonValue]:
-    basis: dict[str, JsonValue] = {
-        "timeout_policy": _JSON_OBJECT_ADAPTER.validate_python(
-            source.timeout_policy_json or {"kind": "deadline"},
-            strict=True,
-        ),
-    }
-    if source.default_behavior_json is not None:
-        basis["default_behavior"] = _JSON_OBJECT_ADAPTER.validate_python(
-            source.default_behavior_json,
-            strict=True,
-        )
-    return basis
 
 
 def _as_utc(value: datetime) -> datetime:

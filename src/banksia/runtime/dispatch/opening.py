@@ -100,7 +100,6 @@ def _build_starting_dispatch_model(
         requested_provider=prepared.provider.requested_provider.value,
         resolved_provider=prepared.provider.resolved_provider.value,
         provider_selection_basis=prepared.provider.selection_basis.value,
-        provider_route_kind=prepared.provider.route.kind.value,
         model_override=model_override,
         model_source=(
             prepared.provider.model_source.value if prepared.provider.model_source else None

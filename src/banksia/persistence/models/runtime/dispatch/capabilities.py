@@ -203,7 +203,7 @@ class DispatchCapabilitySetModel(RuntimeBase):
         ),
         ForeignKeyConstraint(
             ["dispatch_id", "provider_kind"],
-            ["dispatch_turns.dispatch_id", "dispatch_turns.provider_route_kind"],
+            ["dispatch_turns.dispatch_id", "dispatch_turns.resolved_provider"],
             name="fk_dispatch_capability_sets_provider_route",
             ondelete="CASCADE",
             deferrable=True,

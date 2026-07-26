@@ -5,7 +5,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from banksia.persistence.models import AssignmentModel, AttemptModel
 from banksia.runtime.assignment import snapshot_assignment_budget, stage_assignment_file_references
 from banksia.runtime.contracts import RuntimeBootstrapInput, RuntimeBootstrapResult
-from banksia.runtime.ids import assignment_id
 
 
 async def stage_launch_attempt_rows(
@@ -21,10 +20,9 @@ async def stage_launch_attempt_rows(
         retry_limit=bootstrap_input.max_retries_per_assignment,
     )
     assignment_row = AssignmentModel(
-        assignment_id=assignment_id(bootstrap_input.assignment_key),
+        assignment_id=bootstrap_input.assignment_id,
         task_id=bootstrap_input.task_id,
         member_id=bootstrap_input.initial_team.root_member_id,
-        assignment_key=bootstrap_input.assignment_key,
         parent_assignment_id=None,
         prompt=result.assignment.prompt,
         current_attempt_id=bootstrap_input.attempt_id,

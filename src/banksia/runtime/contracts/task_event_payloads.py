@@ -251,7 +251,6 @@ class CommandRunTerminalEventPayload(_TaskEventPayload):
     output_observed_bytes: int = Field(ge=0)
     output_written_bytes: int = Field(ge=0)
     output_complete: bool
-    output_encoding: Literal["raw_bytes"]
 
     @model_validator(mode="after")
     def validate_output_counts(self) -> CommandRunTerminalEventPayload:

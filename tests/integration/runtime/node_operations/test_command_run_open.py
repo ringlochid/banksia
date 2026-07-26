@@ -63,7 +63,7 @@ async def test_command_run_start_persists_discriminated_request_without_launchin
             task = await session.get(TaskModel, ids.task_id)
         assert source is not None and source.state == "pending_start"
         assert source.command_spec_json == {"kind": "argv", "argv": ["python", "-V"]}
-        assert source.cwd_policy_json == {"logical_path": "tools"}
+        assert source.cwd == "tools"
         assert dispatch is not None and dispatch.status == "closed"
         assert attempt is not None and wait is not None
         assert attempt.current_dispatch_id is None

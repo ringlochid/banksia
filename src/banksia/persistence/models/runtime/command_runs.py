@@ -63,10 +63,6 @@ class CommandRunModel(RuntimeBase):
             name="ck_command_runs_output_byte_counts",
         ),
         CheckConstraint(
-            "output_encoding = 'raw_bytes'",
-            name="ck_command_runs_output_encoding",
-        ),
-        CheckConstraint(
             "(started_at IS NULL AND due_at IS NULL) OR "
             "(started_at IS NOT NULL AND timeout_seconds IS NULL AND due_at IS NULL) OR "
             "(started_at IS NOT NULL AND timeout_seconds IS NOT NULL AND due_at IS NOT NULL)",
@@ -137,9 +133,7 @@ class CommandRunModel(RuntimeBase):
     attempt_id: Mapped[str] = mapped_column(ForeignKey("attempts.attempt_id"))
     source_dispatch_id: Mapped[str] = mapped_column(String(255), index=True)
     command_spec_json: Mapped[dict[str, object]] = mapped_column(JSON(none_as_null=True))
-    cwd_policy_json: Mapped[dict[str, object] | None] = mapped_column(
-        JSON(none_as_null=True), nullable=True
-    )
+    cwd: Mapped[str | None] = mapped_column(Text, nullable=True)
     summary: Mapped[str] = mapped_column(Text)
     timeout_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
     due_at: Mapped[datetime | None] = mapped_column(UtcDateTime(), nullable=True)
@@ -158,11 +152,6 @@ class CommandRunModel(RuntimeBase):
         Boolean,
         default=False,
         server_default=false(),
-    )
-    output_encoding: Mapped[str] = mapped_column(
-        String(32),
-        default="raw_bytes",
-        server_default="raw_bytes",
     )
     state: Mapped[str] = mapped_column(String(64), default="pending_start")
     ownership_revision: Mapped[int] = mapped_column(Integer, default=0, server_default="0")

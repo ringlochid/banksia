@@ -143,9 +143,9 @@ class ClaudeOperatorTurnRunner:
 
         try:
             provider_result = OPERATOR_PROVIDER_RESULT_ADAPTER.validate_python(
-                result.structured_output
+                _unwrap_claude_output(result.structured_output)
             )
-        except ValidationError as exc:
+        except (ValueError, ValidationError) as exc:
             raise OperatorProviderUnavailableError(
                 "Claude returned an invalid structured Operator result"
             ) from exc
@@ -280,10 +280,25 @@ def _reports_thread_unavailable(report: BaseException | ResultMessage) -> bool:
 
 
 def _build_claude_output_schema() -> dict[str, Any]:
-    """Remove unsupported grammar constraints; controller validation stays authoritative."""
+    """Wrap the union for Claude; controller validation stays authoritative."""
 
-    transformed = _transform_claude_schema_value(OPERATOR_PROVIDER_RESULT_ADAPTER.json_schema())
-    return cast(dict[str, Any], transformed)
+    controller_schema = OPERATOR_PROVIDER_RESULT_ADAPTER.json_schema()
+    definitions = controller_schema.get("$defs")
+    variants = controller_schema.get("oneOf")
+    if not isinstance(definitions, dict) or not isinstance(variants, list):
+        raise RuntimeError("Operator result schema no longer has the expected union shape")
+
+    return {
+        "type": "object",
+        "properties": {
+            "result": {
+                "anyOf": _transform_claude_schema_value(variants),
+            }
+        },
+        "required": ["result"],
+        "additionalProperties": False,
+        "$defs": _transform_claude_schema_value(definitions),
+    }
 
 
 def _transform_claude_schema_value(value: object) -> object:
@@ -296,6 +311,12 @@ def _transform_claude_schema_value(value: object) -> object:
     if isinstance(value, list):
         return [_transform_claude_schema_value(child) for child in value]
     return value
+
+
+def _unwrap_claude_output(payload: object) -> object:
+    if not isinstance(payload, dict) or set(payload) != {"result"}:
+        raise ValueError("Claude structured output has an invalid root")
+    return payload["result"]
 
 
 async def _connect_client(client: ClaudeSDKClient) -> None:

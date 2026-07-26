@@ -215,6 +215,14 @@ def _schema_keys(value: object) -> set[str]:
     return set()
 
 
+def _structured_output(result: object) -> dict[str, object]:
+    return {"result": result}
+
+
+def _message_output(text: str) -> dict[str, object]:
+    return _structured_output({"kind": "message", "text": text})
+
+
 @pytest.mark.asyncio
 async def test_claude_operator_turn_uses_only_exact_private_tools_and_native_output(
     tmp_path: Path,
@@ -222,14 +230,7 @@ async def test_claude_operator_turn_uses_only_exact_private_tools_and_native_out
 ) -> None:
     monkeypatch.setenv("OPENCLAW_GATEWAY_TOKEN", "must-not-reach-claude")
     factory = _ClientFactory(
-        (
-            _result(
-                structured_output={
-                    "kind": "message",
-                    "text": "The workflow draft is ready for review.",
-                }
-            ),
-        )
+        (_result(structured_output=_message_output("The workflow draft is ready for review.")),)
     )
     runner = _runner(factory, working_directory=tmp_path)
 
@@ -269,7 +270,16 @@ async def test_claude_operator_turn_uses_only_exact_private_tools_and_native_out
     output_format = cast(dict[str, Any], options.output_format)
     assert output_format["type"] == "json_schema"
     output_schema = cast(dict[str, Any], output_format["schema"])
-    assert output_schema["anyOf"] == OPERATOR_PROVIDER_RESULT_ADAPTER.json_schema()["oneOf"]
+    controller_schema = OPERATOR_PROVIDER_RESULT_ADAPTER.json_schema()
+    output_properties = cast(dict[str, Any], output_schema["properties"])
+    output_result_schema = cast(dict[str, Any], output_properties["result"])
+    assert output_schema["type"] == "object"
+    assert output_schema["required"] == ["result"]
+    assert output_schema["additionalProperties"] is False
+    assert output_result_schema["anyOf"] == controller_schema["oneOf"]
+    assert set(cast(dict[str, Any], output_schema["$defs"])) == set(
+        cast(dict[str, Any], controller_schema["$defs"])
+    )
     assert not _schema_keys(output_schema) & {
         "discriminator",
         "maxItems",
@@ -287,27 +297,29 @@ async def test_claude_operator_continues_exact_thread_with_typed_answers() -> No
         (
             _result(
                 session_id=thread_id,
-                structured_output={
-                    "kind": "ask_user",
-                    "explanation": "Choose the review depth.",
-                    "questions": [
-                        {
-                            "header": "Review",
-                            "question": "How deep should the review be?",
-                            "allow_skip": False,
-                            "options": [
-                                {
-                                    "label": "Focused",
-                                    "description": "Review only changed behavior.",
-                                },
-                                {
-                                    "label": "Comprehensive",
-                                    "description": "Review every connected boundary.",
-                                },
-                            ],
-                        }
-                    ],
-                },
+                structured_output=_structured_output(
+                    {
+                        "kind": "ask_user",
+                        "explanation": "Choose the review depth.",
+                        "questions": [
+                            {
+                                "header": "Review",
+                                "question": "How deep should the review be?",
+                                "allow_skip": False,
+                                "options": [
+                                    {
+                                        "label": "Focused",
+                                        "description": "Review only changed behavior.",
+                                    },
+                                    {
+                                        "label": "Comprehensive",
+                                        "description": "Review every connected boundary.",
+                                    },
+                                ],
+                            }
+                        ],
+                    }
+                ),
             ),
         )
     )
@@ -338,7 +350,7 @@ async def test_claude_operator_continues_exact_thread_with_typed_answers() -> No
 @pytest.mark.asyncio
 async def test_claude_private_mcp_tool_calls_one_leaf_and_redacts_failures() -> None:
     calls: list[tuple[OperatorToolName, str]] = []
-    factory = _ClientFactory((_result(structured_output={"kind": "message", "text": "Done."}),))
+    factory = _ClientFactory((_result(structured_output=_message_output("Done.")),))
     runner = ClaudeOperatorTurnRunner(
         system_prompt="Exact prompt.",
         tools=_tools(calls),
@@ -404,11 +416,19 @@ async def test_claude_private_mcp_tool_calls_one_leaf_and_redacts_failures() -> 
     "structured_output",
     (
         None,
-        {"kind": "operator_return", "text": "not part of the contract"},
-        {"kind": "message", "text": "x" * (MAX_OPERATOR_TEXT_BYTES + 1)},
+        {"kind": "message", "text": "bare controller result"},
+        {},
+        {**_message_output("wrapped"), "unexpected": True},
+        _structured_output(
+            {
+                "kind": "operator_return",
+                "text": "not part of the contract",
+            }
+        ),
+        _message_output("x" * (MAX_OPERATOR_TEXT_BYTES + 1)),
     ),
 )
-async def test_claude_operator_rejects_missing_or_invalid_structured_output(
+async def test_claude_operator_rejects_missing_invalid_or_unwrapped_structured_output(
     structured_output: object,
 ) -> None:
     factory = _ClientFactory((_result(structured_output=structured_output),))
@@ -430,7 +450,7 @@ async def test_claude_operator_rejects_missing_or_invalid_structured_output(
         ),
         _result(
             session_id="different-thread",
-            structured_output={"kind": "message", "text": "Wrong thread."},
+            structured_output=_message_output("Wrong thread."),
         ),
     ),
 )

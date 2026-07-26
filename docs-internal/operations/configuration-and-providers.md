@@ -27,6 +27,8 @@ The TOML owners are:
 
 `banksia init --workspace PATH` writes the default workspace used when HTTP, Console, or Operator Task start omits one. The path must be an existing absolute directory. `BANKSIA_CONTROLLER_WORKSPACE` may override it. CLI Task start instead resolves an omitted workspace from its invocation directory.
 
+Guided first-run initialization continues into provider setup when the selected configuration has no persisted provider. The provider chooser includes an explicit cancel choice; cancelling preserves the completed local initialization and writes no provider configuration. An initialization rerun with an already configured provider does not reopen or mutate provider setup. Noninteractive and JSON initialization never prompt or configure a provider; automation uses `banksia setup --provider PROVIDER --non-interactive` as a separate explicit mutation.
+
 ## Local control-plane boundary
 
 The API listener accepts loopback hosts only. Product browser requests use exact Host and unsafe-request Origin validation. There is no shared product API key.

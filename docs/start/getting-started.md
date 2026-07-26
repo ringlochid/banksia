@@ -33,15 +33,17 @@ Stay in the Banksia checkout. To use that checkout as the first workspace, run:
 
 Accept the checkout as the default workspace or enter another existing absolute directory. The initializer writes local configuration, prepares controller storage, and publishes the seven provider-neutral Starter Workflows.
 
+When initialization succeeds, the guided flow continues into provider setup. Choose Codex, Claude, or OpenClaw, then follow the authentication and readiness prompts. Choose `cancel` at the provider prompt if you intentionally want to defer that step.
+
 To configure another project explicitly without prompts:
 
 ```bash
 ./.venv/bin/banksia init --workspace /absolute/path/to/project --non-interactive
 ```
 
-## 3. Configure one provider
+## 3. Resume or change provider setup
 
-Run the guided setup:
+If you deferred provider setup during initialization, or want to change the primary provider or add another one, run:
 
 ```bash
 ./.venv/bin/banksia setup

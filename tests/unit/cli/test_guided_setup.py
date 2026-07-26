@@ -80,7 +80,7 @@ def test_guided_init_confirms_recommended_local_settings(
             "--data-dir",
             str(data_dir),
         ],
-        input="\ny\n",
+        input="\ny\ncancel\n",
     )
 
     assert result.exit_code == 0, result.output
@@ -90,7 +90,9 @@ def test_guided_init_confirms_recommended_local_settings(
     assert data_dir.joinpath("banksia.persistence").is_file()
     assert "Default workspace" in result.output
     assert "Use these recommended local settings?" in result.output
-    assert "Next: banksia setup" in result.output
+    assert "Banksia provider setup" in result.output
+    assert "Primary/default provider (codex, claude, openclaw, cancel)" in result.output
+    assert "Provider setup cancelled. No provider changes were made." in result.output
 
 
 def test_guided_init_rerun_keeps_config_and_verifies_database(
@@ -128,6 +130,8 @@ def test_guided_init_rerun_keeps_config_and_verifies_database(
     assert config_path.read_bytes() == previous_config
     assert data_dir.joinpath("banksia.persistence").is_file()
     assert "Keep and verify" in result.output
+    assert "Banksia provider setup" not in result.output
+    assert "Next: banksia serve" in result.output
 
 
 def test_guided_init_replacement_requires_final_confirmation(

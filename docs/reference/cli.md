@@ -63,6 +63,8 @@ Important flags are:
 
 An existing configuration is not overwritten without `--force`. Forced initialization replaces the managed configuration but preserves an existing valid `paths.workspace` when `--workspace` is omitted. Supplying `--workspace` replaces it. An invalid value that cannot be preserved stops the command before rewrite.
 
+After local configuration, exact-schema setup, and Starter Workflow bootstrap succeed, guided first-run initialization continues directly into the provider chooser when no provider is configured. Choose `cancel` there to keep initialization complete and defer provider configuration. Rerunning initialization with an already configured provider verifies local state without reopening provider setup. Noninteractive and JSON initialization remain prompt-free.
+
 ## Provider setup
 
 Supported provider names are `codex`, `claude`, and `openclaw`.
@@ -78,6 +80,8 @@ banksia providers set-default codex
 ```
 
 `setup` is guided only when both terminal streams are interactive and neither `--non-interactive` nor `--json` is present. Noninteractive setup needs `--provider`; the provider-specific route flags are `--model`, `--effort`, `--cli-path`, `--gateway-url`, `--gateway-profile`, and `--gateway-auth-mode`.
+
+Run `banksia setup` directly to resume deferred provider setup, change the primary provider, verify authentication, or add another provider.
 
 `providers configure` enables the named provider and fills `runtime.default_provider` only when no default exists. It never silently replaces another default. Use `providers set-default` for that explicit change.
 

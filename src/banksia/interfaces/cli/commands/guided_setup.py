@@ -110,12 +110,11 @@ async def guide_local_initialization(args: argparse.Namespace) -> int:
             return _emit_cancelled()
         if action == "keep":
             await _verify_existing_local_state(args, config_path)
-            emit_completion(
-                "Initialization complete",
-                (("Config", str(config_path)), ("Database", "verified")),
-                next_action="banksia setup",
+            return _finish_local_initialization(
+                args,
+                config_path=config_path,
+                database_state="verified",
             )
-            return 0
         args = _clone_namespace(args, force=True)
         should_confirm_replacement = True
     elif config_path.is_file():
@@ -132,13 +131,13 @@ async def guide_local_initialization(args: argparse.Namespace) -> int:
             return _emit_cancelled()
 
     result = await cmd_init(selection.args)
-    if result == 0:
-        emit_completion(
-            "Initialization complete",
-            (("Config", str(config_path)), ("Database", "ready")),
-            next_action="banksia setup",
-        )
-    return result
+    if result != 0:
+        return result
+    return _finish_local_initialization(
+        selection.args,
+        config_path=config_path,
+        database_state="ready",
+    )
 
 
 def guide_provider_setup(args: argparse.Namespace) -> int:
@@ -158,7 +157,8 @@ def guide_provider_setup(args: argparse.Namespace) -> int:
     _emit_provider_state(config_path, settings)
     primary = _select_primary_provider(args, config_path, settings)
     if primary is None:
-        return _emit_cancelled()
+        emit_warning("Provider setup cancelled. No provider changes were made.")
+        return 0
 
     check_results: dict[ProviderKind, ProviderCheckSnapshot] = {}
     primary_request = _provider_request_for_selection(args, primary, settings)
@@ -200,6 +200,23 @@ def guide_provider_setup(args: argparse.Namespace) -> int:
 
     _emit_setup_summary(config_path, check_results)
     return 0 if all(check.is_ready is True for check in check_results.values()) else 1
+
+
+def _finish_local_initialization(
+    args: argparse.Namespace,
+    *,
+    config_path: Path,
+    database_state: str,
+) -> int:
+    configured_providers = _persisted_provider_kinds(config_path)
+    emit_completion(
+        "Initialization complete",
+        (("Config", str(config_path)), ("Database", database_state)),
+        next_action=("banksia serve" if configured_providers else "select a provider below"),
+    )
+    if configured_providers:
+        return 0
+    return guide_provider_setup(_clone_namespace(args, provider=None))
 
 
 def _prompt_existing_init_action(config_path: Path) -> str:
@@ -576,10 +593,3 @@ def _clone_namespace(args: argparse.Namespace, **updates: object) -> argparse.Na
 def _emit_cancelled() -> int:
     emit_warning("Cancelled. No further changes were made.")
     return 0
-
-
-__all__ = [
-    "guide_local_initialization",
-    "guide_provider_setup",
-    "should_run_guided_flow",
-]

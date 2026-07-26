@@ -117,7 +117,9 @@ def allowed_statuses_for_path(*, root: Path, path: Path) -> tuple[str, ...] | No
 
 def public_surface_findings(*, root: Path, path: Path, text: str) -> list[ContractFinding]:
     relative_path = path.relative_to(root)
-    if relative_path != Path("README.md") and relative_path.parts[:1] != ("docs",):
+    if relative_path not in {Path("README.md"), Path("CONTRIBUTING.md")} and (
+        relative_path.parts[:1] != ("docs",)
+    ):
         return []
     findings: list[ContractFinding] = []
     for line_number, line in iter_non_fenced_lines(text):

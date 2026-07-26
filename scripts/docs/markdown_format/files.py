@@ -21,6 +21,7 @@ MAINTAINED_MARKDOWN_DIRECTORIES = (
 )
 MAINTAINED_MARKDOWN_FILES = (
     Path("README.md"),
+    Path("CONTRIBUTING.md"),
     Path("AGENTS.md"),
     Path("STYLE.md"),
     Path("docs-internal/README.md"),

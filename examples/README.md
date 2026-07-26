@@ -1,5 +1,10 @@
 # Examples
 
-The maintained public examples are the four [Workflow definitions](workflows/README.md) under `examples/workflows/`.
+Banksia ships two distinct Workflow collections:
 
-They demonstrate the authoring contract. They are not automatically installed into the controller and are not the packaged starter catalog.
+- seven installed, provider-neutral **Starters** for ordinary developer, research, and decision work; and
+- three maintained **advanced references** under `examples/workflows/` for deliberate provider, sandbox, network, Human Request, and Command Run choices.
+
+Use the [Workflow catalog](workflows/README.md) to choose a team, compare its responsibility and verification boundaries, and decide whether a Starter or an advanced reference fits.
+
+The advanced files are public authoring examples. They are not installed into the controller automatically.

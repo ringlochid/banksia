@@ -4,80 +4,101 @@
 
 <p align="center"> <a href="docs/start/getting-started.md">Get started</a> · <a href="docs/README.md">Documentation</a> · <a href="examples/workflows/README.md">Workflow examples</a> </p>
 
-Banksia is a no-code agent-team runtime for developers, researchers, and anyone whose work needs more structure than one long agent conversation. A Workflow describes a reusable team of responsibilities. The controller turns that team into a trackable Task, lets its members delegate through sequential, parallel, iterative, batch, or hybrid plans, and keeps the result recoverable when a provider process stops.
+## Turn subagent workflows into accountable AI teams
 
-Banksia is in active development. Its public contracts are being stabilized and it is not yet recommended for production-critical workloads.
+Banksia is a no-code AI-team runtime for developers, researchers, and anyone who uses multiple agents to complete complex work accountably.
 
-## Why Banksia
+You operate Banksia as a product rather than embed it as an agent SDK; the controller owns published teams, run state, and completion.
 
-- **Accountable teams:** every member has a stable identity and an explicit responsibility.
-- **Flexible execution:** the team tree describes ownership, not a fixed sequence of steps.
-- **Controller-owned truth:** providers perform work; they do not decide whether a Task is complete.
-- **Visible handoffs:** assignments, checkpoints, waits, human decisions, and command outcomes remain inspectable.
-- **Native collaboration files:** members can exchange notes and deliverables through the Task workspace without an artifact bureaucracy.
-- **Operator assistance:** a separate Operator can draft Workflows, start Tasks, answer operational questions, and use the same controller operations as the Console.
+Design reusable responsibilities without hard-coding how the work unfolds. Give the team one complete prompt, follow meaningful progress, respond when a real decision needs you, and receive one exact Result.
 
-## Quick start
+> [!WARNING]
+> Banksia is in active development. Its public contracts are being stabilized,
+> and it is not yet recommended for production-critical workloads.
 
-Banksia requires Python 3.12 or newer. Install the packaged command in an isolated environment:
+## From ad-hoc subagents to a reusable team
 
-```bash
-pipx install banksia-ai
-banksia init
-banksia setup
-banksia serve
-```
+| Ad-hoc subagents | Banksia |
+| --- | --- |
+| Recreate roles and prompts for every job | Publish a reusable tree of named responsibilities |
+| Reconstruct ownership from a transcript | Follow controller-owned team, activity, and wait state |
+| Treat provider completion as the outcome | Accept only the lead's exact `green` or `blocked` Result |
+| Recover by piecing together terminal sessions | Recover from durable controller records; keep deliverables in ordinary workspace files |
 
-Open `http://127.0.0.1:18125/`. `banksia init` can record a default workspace for Tasks started from the Console, HTTP API, or Operator. `banksia setup` configures a Codex, Claude, or OpenClaw provider route.
+Banksia gives you:
 
-From a source checkout, replace the install step with:
+- explicit responsibility and delegation boundaries;
+- sequential, parallel, iterative, batch, or hybrid work chosen from current evidence;
+- independent implementation, research, criticism, and verification roles;
+- typed human decisions and managed command activity when explicitly granted; and
+- one inspectable Result with direct references to the files that carry the detailed work.
 
-```bash
-uv sync --all-groups
-uv run banksia init
-uv run banksia setup
-uv run banksia serve
-```
+## Get to a first Result
 
-Import a Workflow written as YAML or JSON into a draft:
+Banksia is not yet published to a package registry. Use a clean source checkout with Python 3.12 or newer, Make, and a supported Node.js/npm installation:
 
 ```bash
-banksia workflow import --file examples/workflows/advanced-reviewed-code-change.yaml
+git clone https://github.com/ringlochid/banksia.git
+cd banksia
+make backend-install
+make console-install
+make console-package-assets
+./.venv/bin/banksia init
+./.venv/bin/banksia setup
+./.venv/bin/banksia serve
 ```
 
-Review and publish that draft in the Console before using it. Packaged installations also bootstrap provider-neutral starter Workflows. Start a Task interactively:
+`make console-package-assets` prepares the visual Console served by the source checkout. Open `http://127.0.0.1:18125/`, go to **Runs**, and start a run with the `reviewed-code-change` Starter:
 
-```bash
-banksia task start
-```
+> Add validation for the configuration import failure path without changing
+> accepted behavior. Follow current repository conventions, add focused
+> regression proof, independently review the integrated change, repair accepted
+> findings, and return the verified result with referenced files.
 
-For automation, pass strict JSON inline, from `@file`, or through standard input:
+Watch who owns the work, read meaningful Activity, then read the exact Result and open its referenced files in your workspace. The [getting-started guide](docs/start/getting-started.md) includes the complete developer path and a researcher path using `evidence-synthesis`.
 
-```bash
-banksia task start --json \
-  '{"workflow":"reviewed-code-change","prompt":"Implement a bounded refactor of Workflow input validation without changing public behavior; add focused regression proof, independently review the integrated change, fix accepted findings, and return the verified result."}'
-```
+## Start with a team
+
+`banksia init` publishes seven portable Starters:
+
+| Developer work | Research and decisions |
+| --- | --- |
+| `reviewed-code-change` | `evidence-synthesis` |
+| `debug-and-verify` | `reproducible-study` |
+| `cross-layer-feature` | `technical-decision` |
+| `bounded-maintenance-batch` |  |
+
+Each Starter separates ownership from independent challenge or verification. Three maintained [advanced references](examples/workflows/README.md) show how to add deliberate provider, sandbox, network, Human Request, and Command Run choices.
+
+## The product loop
+
+**Design → Publish → Run → Respond → Result**
+
+1. **Design** a Workflow definition as a tree of responsibilities, not a timed sequence.
+2. **Publish** an immutable revision so every run has a stable team contract.
+3. **Run** that revision with one prompt, one workspace, and optional file references.
+4. **Respond** only when an explicitly capable Member opens a Human Request, or control the run when a current action is legal.
+5. **Result** is the lead's exact final `green` or `blocked` Checkpoint, with referenced files for detailed deliverables.
 
 ## Current scope
 
-Codex and Claude are managed provider adapters. OpenClaw is a provider transport with an explicit-ID compatibility projection at `/node/mcp`; users continue to own and operate their OpenClaw Gateway.
+- Banksia runs as one loopback-bound process and is local-tool-first.
+- Codex and Claude are managed providers. OpenClaw is a compatibility transport that you configure and operate.
+- A run uses one shared provider-visible workspace. Per-Member isolation and automatic merging are not current product behavior.
+- Human Request and Command Run capabilities deny by default. The installed Starters grant neither.
+- File references record a workspace-relative path and optional description, not a snapshot. A referenced file can later change or disappear.
+- External MCP servers, reusable Skills, distributed delivery, and broad multi-user operation are deferred.
+- The Console supports the current authoring and operating paths and is currently desktop-oriented. Mature visual design and mobile/tablet experiences are deferred.
 
-External MCP servers and reusable Skills are deliberately deferred from Workflow authoring. The current Workflow extension surface is provider selection, managed sandbox settings, Human Request capability, and Command Run capability. Both capabilities deny by default.
+## Learn more
 
-The shipped Console is a functional migration-stage interface. It supports Workflow and Task operations, but the final visual studio and broader responsive experience are still under development.
-
-## Documentation
-
-- [Getting started](docs/start/getting-started.md)
-- [Workflows and teams](docs/concepts/workflows-and-teams.md)
-- [Runtime and results](docs/concepts/runtime-and-results.md)
-- [Workspace files](docs/concepts/workspace-and-files.md)
+- [Choose a guide by intent](docs/README.md)
+- [Understand Workflows and teams](docs/concepts/workflows-and-teams.md)
 - [Author a Workflow](docs/guides/author-a-workflow.md)
-- [Run and operate Tasks](docs/guides/run-and-operate.md)
-- [CLI reference](docs/reference/cli.md)
-- [HTTP API reference](docs/reference/http-api.md)
-- [Controller tools](docs/reference/controller-tools.md)
-
-## License
+- [Run and operate work](docs/guides/run-and-operate.md)
+- [Use the Console and Operator](docs/guides/console-and-operator.md)
+- [Troubleshoot an installation](docs/help/troubleshooting.md)
+- [Contribute to Banksia](CONTRIBUTING.md)
+- [Report an issue](https://github.com/ringlochid/banksia/issues)
 
 Banksia is open source under the [MIT License](LICENSE).

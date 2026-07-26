@@ -1,72 +1,91 @@
 # Workspace and files
 
-Providers work in the Task's selected workspace. Banksia keeps native filesystem access useful while preserving a clear boundary between controller truth and files.
+Every Task has one selected provider-visible workspace. All Members work in that same native filesystem and use their provider's ordinary file, search, editor, shell, and binary tools.
+
+Banksia does not create a branch, checkout, or write-isolated directory per Member. Managers must sequence overlapping writes or divide ownership into credibly disjoint paths.
 
 ## Task directory
 
-Task admission creates a collision-safe directory under the workspace:
+Task admission creates one collision-safe directory inside the workspace:
 
 ```text
 .banksia/
 └── t_<id>/
     ├── manifest.md
-    ├── workflow-note.md       # only when the Workflow has a note
+    ├── workflow-note.md       # present only when the Workflow has a note
     ├── notes/
     ├── artifacts/
     └── command-runs/
 ```
 
-The Task ID is supplied in the provider context. Banksia creates `notes/`, `artifacts/`, and `command-runs/` before the first provider Dispatch starts.
+The full Task ID identifies this directory and is available in provider context. Banksia creates `notes/`, `artifacts/`, and `command-runs/` before the first provider turn starts.
 
-## What Banksia owns
+## Controller truth and projections
 
-The controller database is canonical for Tasks, teams, Assignments, Attempts, Dispatches, waits, Waves, Checkpoints, file-reference values, controls, and Activity.
+The controller database, not the filesystem, owns Tasks, team revisions, Assignments, Attempts, provider turns, waits, Waves, Checkpoints, controls, and Results.
 
-Only two files are controller projections:
+Only these organization files are controller projections:
 
-- `manifest.md` is the current organization chart. It lists the complete hierarchy and each Member's authored configuration, but not runtime progress.
-- `workflow-note.md` contains the authored team note when one exists.
+- `manifest.md` is controller-generated from the current Task organization and selected Member configurations. It is regenerated after an accepted structural replan; the projection is not itself authored.
+- `workflow-note.md` projects the shared authored Workflow note when one exists.
 
-The manifest is regenerated after a structural replan. A projection can be rebuilt from database truth and never decides runtime legality.
+A projection can be rebuilt from controller truth and cannot authorize a runtime transition. Banksia does not project Assignment, Checkpoint, Work Plan, `instructions.md`, or `input.md` files.
 
-Command Run logs are controller-managed execution output, not database projections. The controller stores their path and bounded status/output details; the full log stays under `command-runs/`.
+## Loose notes and deliverables
 
-## Notes and artifact files
+`notes/` is proportional shared working memory. Use it when a durable research ledger, assumptions list, repair checklist, or delegation rationale will reduce rediscovery. Do not require ceremonial notes for small work.
 
-`notes/` and `artifacts/` are conventions for ordinary mutable files, not controller resource types.
+`artifacts/` is a convention for loose reviewable deliverables such as a research report, option matrix, architecture diagram, review record, browser recording, or patch. Source code, tests, and project documentation should remain at their natural project paths.
 
-Use `notes/` for shared working memory that helps coordination or recovery, such as:
+Despite the directory name, Banksia has no managed Artifact resource. It does not assign a file ID, version, hash, current pointer, approval state, or snapshot lifecycle to these files. They remain ordinary mutable workspace bytes.
 
-- a research ledger;
-- delegation rationale;
-- assumptions and open questions;
-- a repair checklist; or
-- review findings still being reconciled.
+## Command Run output
 
-Use `artifacts/` for a structured deliverable another Member or the user should inspect, such as:
+Each managed Command Run writes its complete observed output to:
 
-- an implementation plan;
-- a research report;
-- an architecture diagram;
-- a review or verification record;
-- an image or browser recording; or
-- a patch file.
+```text
+.banksia/t_<id>/command-runs/c_<id>/output.log
+```
 
-Keep source code, tests, and project documentation at their natural project paths. Do not copy every edit or tool result into `artifacts/`. A short Checkpoint is often enough.
-
-Members use provider-native filesystem, search, editor, shell, and binary tools. Banksia does not add generic list, read, write-note, or artifact operations.
+Product and Operator reads return bounded, sanitized output pages plus facts such as whether output is complete, missing, changed, or bounded. The full log remains in the workspace. It is command execution output, not a database projection or an archive of unrelated provider-native shell activity.
 
 ## File references
 
-Assignments, Checkpoints, Human Requests, and Task start use one generic navigation value:
+Task start, Assignments, Checkpoints, and Human Requests use one generic navigation value:
 
 ```yaml
 path: .banksia/t_7m4k2d9x/artifacts/review-report.md
 description: Independent review and prioritized findings
 ```
 
-The description is optional. The path may name a project file, note, artifact file, organization projection, or Command Run log beneath the selected workspace.
+`path` is required and `description` is optional. The path must be a normalized workspace-relative POSIX path to an existing regular file. Banksia rejects:
 
-A file reference does not copy bytes, grant permission, freeze content, publish an artifact, or assign a file ID, hash, version, or lifecycle. It simply tells the receiver which current loose file to open and why. If exact content matters, the receiver should report a missing or changed file honestly.
+- absolute paths, drive or URI prefixes, backslashes, `..`, and glob syntax;
+- duplicate normalized paths in one owning message;
+- missing paths and non-regular files; and
+- any path with a symbolic-link component.
 
-Banksia does not project Assignments or Checkpoints into Markdown or JSON files. `get_current_context` is the typed readback for the complete current Assignment, Continuation, team context, Work Plan, legal actions, capabilities, and Task paths.
+Validation proves only what existed at the owning boundary. A file reference does not copy bytes, freeze content, grant access, or make later reads canonical. Another Member opens the current file with native provider tools.
+
+## Three honest handoffs
+
+| Kind | Reference | What the receiver should do |
+| --- | --- | --- |
+| Project file | `{path: "src/payments/service.py", description: "Implementation reviewed in this Checkpoint"}` | Inspect the current tracked file and relevant Git diff. If it changed after the report, identify the reviewed revision or say that reinspection is required. |
+| Working note | `{path: ".banksia/t_7m4k2d9x/notes/investigation.md", description: "Observed symptoms and rejected causes"}` | Treat it as mutable coordination memory. If it is missing or stale, report that fact instead of inventing its contents. |
+| Reviewable deliverable | `{path: ".banksia/t_7m4k2d9x/artifacts/review-report.md", description: "Ranked independent findings"}` | Open the current report and verify consequential claims against current project state. Do not describe the file as immutable or approved merely because it was referenced. |
+
+When exact byte-for-byte reconstruction matters, the workspace's version control, dataset preservation, or another user-owned archival system must provide it.
+
+## Git safety
+
+If the workspace is inside a Git worktree, Task admission:
+
+1. rejects a workspace whose relevant `.banksia` path already contains tracked content; and
+2. adds the workspace-local `.banksia/` path to Git's private `.git/info/exclude`.
+
+This keeps controller support files out of ordinary commits without modifying the repository's tracked `.gitignore`. It does not protect project files from concurrent Member edits and does not commit, branch, stash, or roll back work.
+
+If Git identifies a worktree but Git is unavailable, or its private exclude file cannot be updated safely, Task admission fails instead of continuing with an ambiguous repository boundary. Outside a Git repository, the workspace still uses the same shared-file model without a Git exclusion.
+
+See [Runtime and results](runtime-and-results.md) for controller ownership and [Run and operate Tasks](../guides/run-and-operate.md) for inspecting Results and referenced files.

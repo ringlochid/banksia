@@ -1,49 +1,58 @@
 # Use the Console and Operator
 
-The Console and Operator are two product surfaces over the same controller truth.
+The Console and Operator are separate ways to act on the same controller-owned product truth. Use the Console for direct visual control. Use the Operator to translate ordinary language into the same bounded Workflow and run operations.
 
 ## Console
 
-Start the local application:
+From a prepared source checkout, stage the visual Console and start Banksia:
 
 ```bash
-banksia serve
+make console-package-assets
+./.venv/bin/banksia serve
 ```
 
-The default address is `http://127.0.0.1:18125/`. Current routes include:
+Open `http://127.0.0.1:18125/`. The current routes are:
 
-- `/workflows` for the Workflow library;
-- `/workflows/{id}` for draft review and editing;
-- `/runs` for Task history;
-- `/runs/new` for Task start; and
-- `/runs/{task-id}` for Task progress, waits, controls, and technical detail.
+- `/workflows` — search the library, distinguish Starters and drafts, and create a Workflow;
+- `/workflows/{workflow-id}` — inspect, edit, validate, undo, discard, or publish a draft using its current legal actions;
+- `/runs` — search current and previous work;
+- `/runs/new` — choose a published team, enter a complete prompt, and add optional workspace and file references; and
+- `/runs/{task-id}` — read Status, Result, Team, Current plan, Activity, attention, Actions, and current run controls.
 
-The current Console is functional but temporary. It supports the main authoring and operating paths while the final visual studio is still being developed. Desktop is the current design priority; mobile and tablet polish are deferred.
+The Console is functional, temporary, and currently desktop-oriented. A mature visual redesign, mobile and tablet experiences, and broader accessibility polish are deferred rather than part of the current interface.
 
 ## Operator
 
-The Operator is a separate Codex or Claude agent with controller product operations. It can:
+The Operator is a separate control-plane agent configured with Codex or Claude. It is not a Task Member and does not join a run's team.
 
-- search and inspect Workflows;
-- inspect authoring options;
-- create, edit, validate, undo, discard, and publish drafts;
-- search, inspect, start, pause, resume, and cancel Tasks;
-- answer Human Requests; and
-- inspect or cancel Command Runs and read their bounded output.
+Its exact product-operation boundary lets it:
 
-The Operator is not a Task Member and cannot call runtime delegation, Checkpoint, replan, or Task-member context operations. It also has no generic host filesystem, shell, network, artifact, or file-read authority. Workflow drafting uses JSON-compatible structured operations; users do not need to write YAML in the conversation.
+- search Workflows, read catalog or revision detail, and inspect authoring options;
+- create, edit, validate, undo, discard, and publish Workflow drafts;
+- search runs, read overview, Member, Result, Activity, or Human Request views, start a run, and invoke a currently legal pause, resume, or cancel action;
+- answer or cancel an open Human Request using its current action; and
+- inspect a Command Run, read bounded output, or request cancellation using its current action.
 
-When the Codex adapter needs provider-native isolated code mode to compose structured calls, that runtime remains adapter-private and receives only the Operator operation catalog plus inert planning. It does not receive a host execution environment or extra Banksia authority.
+The Operator has no generic filesystem or file-content operations, shell, network, provider setup, external MCP, support/audit, runtime delegation, Checkpoint, or Task-member context authority. Its links and file references come from product readbacks; they do not grant another read path.
 
-## Clarification flow
+“Create a Workflow” authorizes a draft, not publication or a run. Mutations use controller currentness and accepted receipts. When a later claim depends on the change, the Operator rereads current product truth.
 
-When a request is underspecified, the Operator can return a typed question set instead of guessing. The Console renders two or three suggested options and an allowed free-form choice when appropriate. The user submits an explicit answer, and the next Operator turn rereads the persisted conversation and controller state before continuing.
+## Typed clarification is a two-turn flow
 
-The Operator can also return a final answer with links to the Workflow, Task, Human Request, or Command Run it changed. These two output forms—clarification or final answer—keep the interaction small while controller operations perform the actual work.
+When a material choice is missing, the Operator returns native `ask_user` output instead of guessing:
+
+1. The provider returns one to three typed questions and ends that turn.
+2. Each question has two or three stable options. The Console supplies **Something else**, and shows skip only when the question explicitly allows it.
+3. You answer every current question and choose **Continue**.
+4. Banksia persists the answers, starts a fresh provider turn in the same conversation thread, and rereads controller truth before continuing.
+
+The provider is not suspended inside an open tool call while you answer. Operator clarification is also separate from a Task Member's Human Request; the two surfaces have different owners and capabilities.
+
+When no clarification is needed, the Operator returns one human-facing message with product links or file references from its accepted readbacks.
 
 ## Configure the Operator
 
-Choose one configured managed provider in `config.toml`:
+Set one enabled managed provider in `config.toml`:
 
 ```toml
 [operator]
@@ -52,6 +61,6 @@ model = "gpt-5.6"
 effort = "high"
 ```
 
-`provider` may be `codex` or `claude`. Model and effort are optional. The selected provider must also be enabled and authenticated in its provider section.
+`provider` may be `codex` or `claude`; model and effort are optional. The selected route must already be enabled and authenticated in its provider section.
 
-The Operator HTTP routes are same-origin local product routes. They are not an external MCP server and do not make Operator tools authorable inside a Workflow.
+Operator conversations use same-origin local HTTP routes. They do not expose an external MCP server or make Operator operations available to Workflow Members.

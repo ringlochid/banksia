@@ -1,34 +1,43 @@
 # Banksia documentation
 
-Banksia turns a reusable AI-team definition into a controller-owned Task. Start with the guided path, then use the concept, guide, and reference pages when you need a precise contract.
+Banksia upgrades multi-agent work into reusable teams with explicit responsibilities, controller-owned progress, typed decisions, and one exact Result. Use the product loop—**Design → Publish → Run → Respond → Result**—or jump directly to what you need.
 
-## Start
+## Try Banksia
 
-- [Getting started](start/getting-started.md) — install, initialize, configure a provider, import a Workflow, and start a Task.
+- [Getting started](start/getting-started.md) — install Banksia and complete a first developer or researcher run.
 
-## Concepts
+## Design a team
 
-- [Workflows and teams](concepts/workflows-and-teams.md) — responsibility trees, members, providers, capabilities, and runtime replanning.
-- [Runtime and results](concepts/runtime-and-results.md) — Tasks, Assignments, Attempts, Waves, waits, Checkpoints, and the final Result.
-- [Workspace and files](concepts/workspace-and-files.md) — native files, notes, deliverables, the `.banksia/` Task directory, and controller truth.
+- [Workflows and teams](concepts/workflows-and-teams.md) — understand responsibility trees, Members, providers, capabilities, and adaptive work.
+- [Author a Workflow](guides/author-a-workflow.md) — start from a Starter, shape responsibilities in the Console or with the Operator, validate, and publish.
 
-## Guides
+## Choose a Starter
 
-- [Author a Workflow](guides/author-a-workflow.md)
-- [Run and operate Tasks](guides/run-and-operate.md)
-- [Use the Console and Operator](guides/console-and-operator.md)
+- [Workflow catalog and advanced references](../examples/workflows/README.md) — compare all seven installed Starters and the three provider-specific references.
 
-## Reference
+## Follow and operate work
 
-- [CLI](reference/cli.md)
-- [Configuration](reference/configuration.md)
-- [HTTP API](reference/http-api.md)
-- [Controller tools](reference/controller-tools.md)
-- [Workflow definition and schema](reference/workflows/README.md)
+- [Run and operate](guides/run-and-operate.md) — start work, read the semantic run view, respond to allowed waits, and use legal controls.
+- [Console and Operator](guides/console-and-operator.md) — choose between direct visual control and the separate conversational control-plane agent.
 
-## Help and maintenance
+## Read Results and files
 
-- [Troubleshooting](help/troubleshooting.md)
-- [Maintainer verification](maintainers/README.md)
+- [Runtime and Results](concepts/runtime-and-results.md) — understand Tasks, Assignments, Checkpoints, and the exact final Result.
+- [Workspace and files](concepts/workspace-and-files.md) — understand the shared workspace, loose file references, notes, and deliverables.
 
-The public pages describe the current user contract and call out limitations where the implementation is not yet the final product experience. Maintainer-facing architecture, interface, operations, verification, and decision owners are routed from the [internal documentation](../docs-internal/README.md).
+## Configure advanced behavior
+
+- [Configuration reference](reference/configuration.md) — configure providers, workspace defaults, and the Operator.
+- [Workflow definition reference](reference/workflows/README.md) — use the public JSON/YAML schema and field contract.
+- [CLI reference](reference/cli.md), [HTTP API](reference/http-api.md), and [controller tools](reference/controller-tools.md) — integrate through exact public surfaces.
+
+## Troubleshoot
+
+- [Troubleshooting](help/troubleshooting.md) — diagnose setup, provider, controller, and recovery problems.
+
+## Maintain and verify
+
+- [Contributing](../CONTRIBUTING.md) — prepare a source checkout, follow repository owners, work in a bounded slice, and report executable proof.
+- [Maintainer verification](maintainers/README.md) — run the repository's quality, contract, and release-readiness checks.
+
+The public documentation describes current shipped behavior and names active limitations where the experience is still evolving.

@@ -16,6 +16,7 @@ CONTRACT_MARKDOWN_DIRECTORIES = (
 )
 CONTRACT_MARKDOWN_FILES = (
     Path("README.md"),
+    Path("CONTRIBUTING.md"),
     Path("AGENTS.md"),
     Path("STYLE.md"),
     Path("docs-internal/README.md"),

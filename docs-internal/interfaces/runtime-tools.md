@@ -79,37 +79,47 @@ Success is one coherent fresh observation:
 ```yaml
 task:
   id: t_7m4k2d9x
-  root_path: .banksia/t_7m4k2d9x
+  workflow_id: reviewed-code-change
 dispatch:
   id: controller Dispatch ID
-attempt:
-  id: controller Attempt ID
-member:
+  attempt_id: controller Attempt ID
+  assignment_id: controller Assignment ID
+current_member:
   id: current Member ID
   title: optional string
   description: optional string
   instruction: >-
     optional string
-  provider: optional nonsecret effective selection
-  task_lead: boolean
+  position: optional task_lead
   behavior: manager | contributor
+  provider: complete nonsecret effective selection
+  effective_capabilities:
+    human_request: [input, direction]
+    command_run: deny
 assignment:
   id: controller Assignment ID
   prompt: complete exact string
   files:
     - path: .banksia/t_7m4k2d9x/notes/review.md
       description: optional string
-continuation: optional complete typed Continuation
+continuation: null or complete typed Continuation
 direct_team:
-  - member: complete current Member configuration
+  - id: current direct-child Member ID
+    title: optional string
+    description: optional string
+    instruction: >-
+      optional string
+    provider: complete nonsecret effective selection
+    capabilities:
+      human_request: []
+      command_run: deny
     participation: required | satisfied
     availability: available | busy
 work_plan: optional complete current plan
-capabilities:
-  human_request: [input, direction]
-  command_run: deny
-allowed_actions: [get_current_context, set_work_plan, checkpoint, ...]
-paths:
+available_actions: [get_current_context, set_work_plan, checkpoint, ...]
+workspace:
+  root: /work/acme
+  task_directory: .banksia/t_7m4k2d9x
   manifest: .banksia/t_7m4k2d9x/manifest.md
   workflow_note: optional path
   notes: .banksia/t_7m4k2d9x/notes
@@ -118,7 +128,7 @@ paths:
 observed_at: RFC-3339 UTC timestamp
 ```
 
-The exact implementation uses shared typed structures with Dispatch input; it does not duplicate a second vocabulary. Initial Dispatches omit Continuation entirely. A successor includes the exact trigger source and complete result, not a compact reason plus lookup reference. The response contains no Role, Policy, criteria, consume/produce, request-file ref, managed file operation, structural revision/hash, generic file ID/version, synthetic initial trigger, or permanently null placeholder.
+The exact implementation uses shared typed structures with Dispatch input; it does not duplicate a second vocabulary. Current-context JSON returns `continuation: null` for an initial Dispatch. A successor includes the exact trigger source and complete result, not a compact reason plus lookup reference. The response contains no Role, Policy, criteria, consume/produce, request-file ref, managed file operation, structural revision/hash, generic file ID/version, or synthetic initial trigger.
 
 ### `set_work_plan`
 

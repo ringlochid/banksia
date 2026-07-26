@@ -238,7 +238,7 @@ For touched prompt assets, prompt-catalog inputs, or generated prompt pages:
 
 - `make docs-prompt-check`
 - `make docs-prompt-generate` first when inputs or generated pages changed
-- `ruff check scripts/docs` and `mypy scripts/docs` when the slice touched `scripts/docs/*`
+- `ruff check scripts/docs` and `MYPYPATH=src mypy scripts/docs` when the slice touched `scripts/docs/*`
 
 For touched TypeScript, frontend, or plugin surfaces:
 

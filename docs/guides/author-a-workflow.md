@@ -1,53 +1,55 @@
 # Author a Workflow
 
-Use YAML in a text editor or JSON through the Console and HTTP API. Both formats parse into the same closed Workflow model.
+A Workflow definition is a reusable team contract. Start from a packaged Starter, name responsibilities rather than phases, then validate and publish an immutable revision.
 
-## Start small
+## Start in the Console
 
-The smallest valid definition is:
+The fastest path is:
 
-```yaml
-kind: workflow
-id: one-member-work
-description: Complete a task with one accountable lead.
-lead:
-    id: lead
-```
+1. Open **Workflows** and choose the Starter closest to the work.
+2. Open it for editing. Banksia creates or resumes a draft while the current published revision remains available for runs.
+3. Give every Member one distinct responsibility and a clear boundary.
+4. Validate the complete draft.
+5. Publish only when the preview and validation findings match the intended team.
 
-The Workflow description is required and appears in selection surfaces. A Member needs only a stable `id`; add prose when it makes responsibility or routing clearer.
+For example, `reviewed-code-change` separates a change lead, an implementation manager, code and test owners, and an independent reviewer. That separation is the product value: one Member does not silently implement, approve, and verify the same claim.
 
-## Add responsibilities
+Connections in the team tree describe responsibility and delegation ownership, not time. Array order does not schedule work. At runtime, a Manager can choose sequential, parallel, iterative, batch, or hybrid assignments from the prompt and current evidence.
 
-Use `children` to describe the lead's direct team:
+## Draft with the Operator
 
-```yaml
-kind: workflow
-id: reviewed-change
-description: Implement a bounded change and review it independently.
-note: |
-    Keep implementation and review independent. Return consequential findings
-    for no more than two focused repair passes.
-lead:
-    id: delivery-lead
-    title: Delivery lead
-    instruction: >-
-      Reconcile the change, proof, and independent review.
-    children:
-        - id: implementer
-          title: Implementer
-          instruction: >-
-            Implement the requested change and focused proof.
-        - id: reviewer
-          title: Independent reviewer
-          instruction: >-
-            Review the integrated change without editing it.
-```
+Ask the separate Operator for a team in ordinary language:
 
-Do not encode a sequence in array order or restate general orchestration rules in every instruction. The running Manager receives the full Assignment and chooses the execution pattern from current evidence.
+> Create a Workflow draft for a cross-layer feature. Keep the shared contract,
+> service implementation, user experience, and integration verification under
+> distinct ownership.
 
-## Configure only what differs
+The Operator may ask a typed clarification, then create and edit the controller-owned draft. “Create a Workflow” authorizes drafting only. It does not authorize publication or starting a run.
 
-Omit `provider` to use the controller default. Add a provider block only when the Workflow requires a specific route or managed execution setting:
+The Operator has exact Workflow draft operations; it does not have generic file editing or filesystem authority. Review the resulting draft in the Console, validate it, and give an explicit publish instruction when it is ready.
+
+## Write strong responsibilities
+
+Use these tests for every Member:
+
+- **Distinct:** another Member does not own the same decision or edit surface.
+- **Necessary:** removing the responsibility would weaken the result.
+- **Bounded:** the Member can tell what it owns and what it must return.
+- **Reviewable:** another responsibility can challenge consequential claims without erasing ownership.
+
+Keep the Workflow focused on reusable responsibility. Put the specific outcome, local constraints, and optional file references in the run prompt.
+
+## Understand publication and currentness
+
+Draft edits use controller-owned currentness checks so a stale browser or Operator turn cannot silently overwrite newer work. The Console handles these checks and offers current legal actions; reload before retrying a conflicted change.
+
+Publishing creates an immutable Workflow revision and makes it current for new runs. It does not mutate older revisions or existing runs. Every Task pins the exact published revision selected at start. Later changes require a new draft and publication.
+
+Validation proves the draft's current authoring rules. It is not publication and does not prove that a future provider route, Human Request, Command Run, or run start will be legal.
+
+## Add advanced choices deliberately
+
+The installed Starters omit providers and capabilities so they work with the installation default and deny privileged operations. Add advanced fields only when the responsibility requires them:
 
 ```yaml
 provider:
@@ -57,13 +59,6 @@ provider:
     sandbox:
         mode: workspace_write
         network: deny
-```
-
-Codex and Claude support model, effort, and sandbox settings. OpenClaw accepts only `kind: openclaw`.
-
-Capabilities deny by default. Grant only the operation the Member may need:
-
-```yaml
 capabilities:
     human_request:
         - direction
@@ -71,42 +66,42 @@ capabilities:
     command_run: allow
 ```
 
-## Validate and import
+Provider and capability choices apply to that Member; children do not inherit them. Codex and Claude support managed model, effort, sandbox, and network choices. `openclaw` selects a user-operated route whose external access Banksia does not configure or verify.
 
-The maintained schema is [`docs/reference/workflows/workflow-definition.schema.yaml`](../reference/workflows/workflow-definition.schema.yaml). It covers document shape; Banksia ingestion also enforces semantic rules such as tree-wide Member ID uniqueness.
+Human Request kinds are `input`, `direction`, `approval`, and `review`. Command Run is a separate allow-or-deny capability. Both deny when omitted. Grant the smallest capability to the Member that owns the decision or managed command.
 
-Import a YAML or JSON file as a controller-owned draft:
+The three maintained advanced references make different boundaries explicit:
 
-```bash
-banksia workflow import --file ./reviewed-change.yaml
-```
+- [advanced reviewed code change](../../examples/workflows/advanced-reviewed-code-change.yaml);
+- [advanced cross-layer delivery](../../examples/workflows/advanced-cross-layer-delivery.yaml); and
+- [advanced technical decision](../../examples/workflows/advanced-technical-decision.yaml).
 
-Import from standard input with an explicit format:
+Review their exact provider and access assumptions in the [Workflow catalog](../../examples/workflows/README.md) before importing one.
 
-```bash
-banksia workflow import --file - --format json < reviewed-change.json
-```
+## Use JSON or YAML when needed
 
-If a draft already exists, repeat the import with its current opaque ETag:
+The Console and Operator use the same closed Workflow model exposed by the public [definition reference](../reference/workflows/README.md) and [JSON Schema](../reference/workflows/workflow-definition.schema.yaml). YAML is convenient for maintained files; JSON is the structured HTTP and Operator shape.
 
-```bash
-banksia workflow import --file ./reviewed-change.yaml --etag '<current-etag>'
-```
-
-Import does not publish. Review, validate, and publish the draft in the Console, through the Operator, or with the HTTP draft endpoints. Task start selects only published revisions.
-
-## Export a published revision
-
-Write the current published revision to a file:
+Import a complete YAML or JSON definition as a draft:
 
 ```bash
-banksia workflow export reviewed-change --output ./reviewed-change.yaml
+banksia workflow import --file ./team.yaml
 ```
 
-Standard output requires an explicit format:
+Standard input requires an explicit format:
 
 ```bash
-banksia workflow export reviewed-change --format json
+banksia workflow import --file - --format json < team.json
 ```
 
-See the maintained [examples](../../examples/workflows/README.md) for advanced teams with explicit provider, sandbox, network, and capability choices.
+Replacing an existing draft requires its current opaque ETag:
+
+```bash
+banksia workflow import --file ./team.yaml --etag '<current-etag>'
+```
+
+Import never publishes. Export the current published revision with:
+
+```bash
+banksia workflow export team-id --output ./team-id.yaml
+```

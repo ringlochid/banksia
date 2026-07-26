@@ -1,100 +1,120 @@
 # Getting started
 
-This path starts Banksia locally, configures one provider, and launches a Task from a packaged starter Workflow.
+This path prepares Banksia from source, configures one provider, and takes a developer from a packaged Starter to an exact Result. A concise researcher path follows.
 
-## 1. Install
+## 1. Prepare a clean source checkout
 
-Banksia requires Python 3.12 or newer:
+Banksia is not yet published to a package registry. The current first-use path requires:
 
-```bash
-pipx install banksia-ai
-```
+- Python 3.12 or newer;
+- Make;
+- Node.js 20.19 or newer within Node 20, 22.13 or newer within Node 22, or Node 24 or newer; and
+- npm.
 
-From a source checkout:
-
-```bash
-uv sync --all-groups
-```
-
-Prefix later commands with `uv run` when you are using the source environment.
-
-## 2. Initialize
-
-Run the guided initializer from the project directory you normally want the Console, HTTP API, and Operator to use:
+Clone the repository and prepare both the backend environment and the visual Console:
 
 ```bash
-banksia init
+git clone https://github.com/ringlochid/banksia.git
+cd banksia
+make backend-install
+make console-install
+make console-package-assets
 ```
 
-Accept the invocation directory as the suggested default workspace or enter another existing absolute directory. Automation can set it explicitly:
+`make backend-install` creates `.venv` and installs the project with its development dependencies. The source tree does not contain a prebuilt Console bundle, so `make console-package-assets` builds `console/` and stages the ignored assets that `banksia serve` needs for browser routes. Run the asset command again after changing the Console.
+
+## 2. Initialize the workspace
+
+Stay in the Banksia checkout. To use that checkout as the first workspace, run:
 
 ```bash
-banksia init --workspace /absolute/path/to/project --non-interactive
+./.venv/bin/banksia init
 ```
 
-The initializer writes configuration, prepares controller storage, and bootstraps provider-neutral starter Workflows. Use `banksia config show` to confirm the effective workspace and database.
+Accept the checkout as the default workspace or enter another existing absolute directory. The initializer writes local configuration, prepares controller storage, and publishes the seven provider-neutral Starter Workflows.
 
-## 3. Configure a provider
+To configure another project explicitly without prompts:
+
+```bash
+./.venv/bin/banksia init --workspace /absolute/path/to/project --non-interactive
+```
+
+## 3. Configure one provider
+
+Run the guided setup:
+
+```bash
+./.venv/bin/banksia setup
+```
+
+Choose Codex, Claude, or OpenClaw. Codex and Claude are managed adapters. OpenClaw is a user-operated compatibility transport, so you remain responsible for its CLI, Gateway, profile, authentication, and workspace exposure.
+
+Confirm current configuration without changing it:
+
+```bash
+./.venv/bin/banksia providers status
+./.venv/bin/banksia status
+```
+
+## 4. Start Banksia
 
 Run:
 
 ```bash
-banksia setup
+./.venv/bin/banksia serve
 ```
 
-Choose Codex, Claude, or OpenClaw. The guide configures the route, handles supported login, checks availability, and sets the default provider.
+Open `http://127.0.0.1:18125/`. The current product surface is loopback-only.
 
-Codex and Claude are managed adapters. OpenClaw is a user-operated transport: you remain responsible for its CLI, Gateway, profile, and authentication.
+## 5. Complete a developer run
 
-Confirm the result without changing state:
+In the Console:
+
+1. Open **Runs** and choose **New run**.
+2. Select the published `reviewed-code-change` Starter.
+3. Enter one complete prompt, for example:
+
+   > Add validation for the configuration import failure path without changing
+   > accepted behavior. Follow current repository conventions, add focused
+   > regression proof, independently review the integrated change, repair
+   > accepted findings, and return the verified result with referenced files.
+
+4. Start the run and follow **Team**, **Current plan**, and meaningful **Activity**.
+5. Read **Result**. It is the lead's exact final `green` or `blocked` Checkpoint.
+6. Open any referenced paths in the workspace for the detailed change, proof, review, or report.
+
+The responsibility tree tells you who owns each part of the work; it does not force a fixed order. The running team chooses sequential, parallel, iterative, batch, or hybrid work from current evidence.
+
+The installed Starters are capability-neutral: they grant neither Human Request nor Command Run. A normal first run therefore does not promise a question or an Action card. Those surfaces appear only when a custom Workflow explicitly grants the relevant Member capability.
+
+## Researcher path
+
+Start another run with `evidence-synthesis`:
+
+> Determine whether the proposed storage change fits this repository's current
+> recovery contract. Separate local facts, current primary-source claims, and
+> inference; challenge provenance and counterevidence; then return one
+> confidence-calibrated conclusion with limitations and referenced files.
+
+Use **Advanced → Referenced files** on the start form when the team must inspect a particular workspace file. Banksia records each path and optional description, not a copy of the file.
+
+For a computational or empirical question that needs independent replication, choose `reproducible-study` instead.
+
+## CLI alternative
+
+The Console is the clearest catalog and run view. The terminal can start the same published Workflow interactively:
 
 ```bash
-banksia providers status
-banksia status
+./.venv/bin/banksia task start
 ```
 
-## 4. Start the application
-
-Run:
+Automation can pass one strict JSON object inline, from `@file`, or through standard input:
 
 ```bash
-banksia serve
+./.venv/bin/banksia task start --json \
+  '{"workflow":"reviewed-code-change","prompt":"Implement the bounded validation change, add focused regression proof, independently review the integrated state, repair accepted findings, and return the verified result."}'
 ```
 
-Open `http://127.0.0.1:18125/`. Banksia's current product surface is loopback-only.
+The controller must already be running. CLI-started runs use the invocation directory as their workspace. To start from another project, change to that directory and invoke the absolute path to the Banksia checkout's `.venv/bin/banksia`.
 
-On Linux, you can install a user service instead:
-
-```bash
-banksia service install
-banksia service status
-```
-
-## 5. Start a Task
-
-Use the Console's **New run** path or start interactively in the terminal:
-
-```bash
-banksia task start
-```
-
-Choose one of the published starter Workflows, then enter the one complete Task prompt. The Task detail view shows current work, Checkpoints, Human Requests, Command Runs, Activity, and the final Result.
-
-For automation:
-
-```bash
-banksia task start --json \
-  '{"workflow":"reviewed-code-change","prompt":"Review this repository change and report the consequential findings."}'
-```
-
-## 6. Try a reference Workflow
-
-Importing a YAML or JSON definition creates a draft:
-
-```bash
-banksia workflow import --file examples/workflows/advanced-reviewed-code-change.yaml
-```
-
-Open that draft in the Console, validate it, and publish it before Task start. The maintained [Workflow examples](../../examples/workflows/README.md) demonstrate advanced provider, sandbox, network, Human Request, and Command Run choices for developer and researcher teams.
-
-Next, read [Workflows and teams](../concepts/workflows-and-teams.md) or [Run and operate Tasks](../guides/run-and-operate.md).
+Next, [compare every Starter](../../examples/workflows/README.md), learn how to [author a Workflow](../guides/author-a-workflow.md), or learn how to [operate a run](../guides/run-and-operate.md).

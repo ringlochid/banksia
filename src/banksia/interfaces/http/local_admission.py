@@ -24,7 +24,7 @@ _UNSAFE_HTTP_METHODS = frozenset({"DELETE", "PATCH", "POST", "PUT"})
 
 
 class LocalHttpAdmission:
-    """Reject requests outside the V2 loopback Host and Origin boundary."""
+    """Reject requests outside the configured loopback Host and Origin boundary."""
 
     def __init__(
         self,

@@ -27,6 +27,7 @@ def test_build_parser_supports_baseline_commands() -> None:
     assert init_help.exit_code == 0
     assert setup_help.exit_code == 0
     assert service_install_help.exit_code == 0
+    assert "Banksia: an accountable, no-code AI-team runtime for complex work." in result.output
     assert "onboard" not in parser.commands
     assert "configure" not in parser.commands
     assert "doctor" not in parser.commands

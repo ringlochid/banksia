@@ -17,6 +17,7 @@ Use three layers:
 ## Maintained layout
 
 - `README.md` is the public product front door.
+- `CONTRIBUTING.md` is the public contributor front door.
 - `docs/**` contains public product, guide, concept, help, and reference pages.
 - `examples/**` contains maintained user-facing examples.
 - `docs-internal/architecture/**` owns runtime and product architecture.
@@ -29,7 +30,7 @@ Keep public and internal docs versionless unless the product intentionally suppo
 
 ## Authority metadata
 
-Public pages under `README.md` and `docs/**` do not expose `Status:` or `Last verified:` headers. Open them with the product claim, task, or answer.
+Public pages under `README.md`, `CONTRIBUTING.md`, and `docs/**` do not expose `Status:` or `Last verified:` headers. Open them with the product claim, task, or answer.
 
 Maintained internal pages and routers use `Status: Reference`. Individual ADRs use `Status: Accepted`, `Status: Superseded`, or `Status: Reference`. `Status: Template` is reserved for reusable templates.
 

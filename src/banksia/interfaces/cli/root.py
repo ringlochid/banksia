@@ -62,7 +62,7 @@ PROVIDER_CHOICE = click.Choice([provider.value for provider in PROVIDER_ORDER])
 @click.group(
     context_settings={"help_option_names": ["-h", "--help"]},
     epilog=ROOT_HELP_EPILOG,
-    help="Banksia local-first workflow control plane.",
+    help="Banksia: an accountable, no-code AI-team runtime for complex work.",
     invoke_without_command=True,
     no_args_is_help=False,
 )

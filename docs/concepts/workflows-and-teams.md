@@ -1,126 +1,124 @@
 # Workflows and teams
 
-A Banksia Workflow is a reusable responsibility tree. It says who should own each part of a kind of work; it does not prescribe a fixed sequence of steps.
+A Banksia Workflow is a reusable team of responsibilities. It answers **who is responsible**. The Task lead decides **what should happen next**, and the controller records **what actually happened**.
 
-## Starter teams
+That separation is the central design rule. A Workflow is not a pipeline, a schedule, or a list of authored steps.
 
-Fresh installations include seven provider-neutral, capability-neutral Workflows. Each turns a familiar loose subagent practice into explicit responsibility and review boundaries:
+## Workflow identity and revisions
 
-| Workflow | Use it for | Accountability upgrade |
-| --- | --- | --- |
-| `reviewed-code-change` | A bounded implementation, review, and repair | Separates production and proof ownership from independent review; the lead owns finding disposition. |
-| `debug-and-verify` | An intermittent or poorly understood defect | Keeps reproduction, competing hypotheses, cause-based repair, and independent verification distinct. |
-| `cross-layer-feature` | A feature spanning a shared contract and multiple layers | Gives the contract and each layer a clear owner, then verifies the integrated user outcome. |
-| `bounded-maintenance-batch` | A finite migration, cleanup, or repetitive repair | Establishes a complete inventory, bounded item ownership, systematic review, and repository-wide verification. |
-| `evidence-synthesis` | A question requiring local and external evidence | Separates workspace facts, authoritative sources, criticism, and lead-owned synthesis. |
-| `technical-decision` | A consequential choice under real local constraints | Compares advocacy and counterargument against the same criteria and records revisit conditions. |
-| `reproducible-study` | A computational, data, benchmark, or empirical study | Separates method, execution, independent replication, and claim audit. |
+A Workflow has a stable ID and one mutable draft at most. Publishing a valid draft creates an immutable numbered Workflow revision and removes the draft. Later edits happen in another draft and produce another immutable revision.
 
-The maintained [advanced examples](../../examples/workflows/README.md) add deliberate provider, sandbox, network, Human Request, and Command Run choices. They are importable references, not installed Starters.
+Starting a Task pins one published revision. The complete responsibility tree is materialized as that Task's initial team before provider work starts. A later publication under the same Workflow ID cannot change a running Task.
 
-## From loose subagents to a Banksia team
+This gives each layer one job:
 
-### Developer: implement, review, and repair
+- the Workflow ID identifies the reusable team;
+- a published revision preserves the exact authored definition selected at Task start;
+- the Task-local team records the exact responsibilities in force during that run; and
+- Assignments, Waves, waits, and Checkpoints record the temporal choices made for that Task.
 
-In a loose subagent conversation, a developer often asks one agent to change code and another to review it. The primary agent may forward the original prompt unchanged, accept a green summary without inspecting the patch, or repeat review text as its own answer. If rework is needed, the distinction between another execution attempt and a new assignment with new meaning is easily lost.
+## One recursive team shape
 
-With `reviewed-code-change`, the developer starts one Task with the exact change, compatibility boundary, and relevant file references. The change lead owns the complete outcome. Its implementation manager gives the code owner and test owner distinct work, inspects their Checkpoints and current files, and integrates the production and proof changes. The independent reviewer receives the integrated scope, records ranked findings in a loose file such as `.banksia/t_<id>/artifacts/change-review.md`, and links that path from its Checkpoint. A fix-now finding becomes a fresh, feedback-bearing Assignment; it is not disguised as a runtime retry. The change lead returns one verified result that explains accepted fixes and residual risk instead of relaying a child summary.
+Every Workflow has one lead. A Member may have children, and every child uses the same recursive Member shape:
 
-The Workflow does not author that order. On one Task, the lead may sequence implementation before review because review depends on the patch. On another, it may first delegate independent read-only compatibility research in parallel. The controller records the actual Assignments, Waves, waits, and Checkpoints chosen for that Task.
-
-### Researcher: gather, challenge, and synthesize
-
-In a loose research workflow, a researcher may ask several subagents to search, inspect local material, and critique an answer. Their outputs often arrive as disconnected summaries whose provenance and disagreements disappear when the primary agent concatenates them.
-
-With `evidence-synthesis`, the Task prompt defines the exact question and decision boundary. The local evidence researcher links workspace observations and exact locations; the source researcher records authoritative sources, dates, versions, and applicability; and the evidence critic reviews consequential claims, missing counterexamples, and overreach. Members can preserve a shared question boundary in `.banksia/t_<id>/notes/` and put reviewable evidence tables or analysis under `.banksia/t_<id>/artifacts/`, then pass only a path and short description in Assignments or Checkpoints. These are ordinary shared files, not controller-owned Artifact objects.
-
-The research lead decides which contributions can run in parallel and which criticism needs a prior evidence return. It inspects the referenced files, resolves or exposes contradiction, labels inference, and writes one conclusion with confidence and limitations proportionate to the evidence. The responsibility tree remains reusable even when a later question needs a different sequence, an extra review loop, or a bounded follow-up Assignment.
-
-## One recursive shape
-
-Every definition has:
-
-- `kind: workflow`;
-- a stable Workflow `id`;
-- a required, nonblank catalog `description`;
-- an optional shared `note`; and
-- one `lead`.
-
-The lead and every descendant use the same Member shape:
-
-```yaml
-id: member-id
-title: Optional display title
-description: Optional routing hint
-instruction: >-
-  Optional team-specific contribution guidance
-provider:
-    kind: codex
-capabilities:
-    command_run: allow
-children: []
+```text
+lead
+├── delivery-manager
+│   ├── implementation-owner
+│   └── test-owner
+└── independent-reviewer
 ```
 
-Only `id` is required on a Member. `title`, `description`, `instruction`, `provider`, `capabilities`, and `children` may be omitted. Blank or whitespace-only optional prose and explicit `null` normalize to omission. A sparse Member is still meaningful because every runtime Assignment carries a complete required prompt.
+The positions have concrete meanings:
 
-Member IDs are stable and unique across the complete tree. They are human-readable identities, not hashes or runtime versions.
+- **lead:** the root Member. The lead owns the complete Task and the exact Result returned to the user.
+- **Manager:** any current Member with direct children. A Manager keeps its complete Assignment, decides how to use its children, assesses their Checkpoints and referenced files, and integrates the result.
+- **Contributor:** a Member with no direct children. A Contributor performs the substantive work in its Assignment directly.
 
-## Responsibility is not schedule
+A Member can become a Manager or Contributor after a runtime replan because behavior follows the current direct-team shape.
 
-`children` records direct responsibility relationships. Array order is organizational, not execution order. At runtime, a Manager can choose the pattern that best fits the current Assignment:
+## Responsibility is not time
 
-- sequence work when one result informs the next;
-- delegate independent work in one parallel Wave;
-- repeat a review-and-repair cycle;
-- process a large repetitive scope in bounded batches; or
-- combine these patterns.
+`children` records direct responsibility and accountability. Array order is organizational; it does not prescribe execution order.
 
-A Member with current direct children behaves as a Manager: it keeps the complete Assignment, delegates complete child Assignments, and integrates their Checkpoints. A Member without children behaves as a Contributor and performs the substantive work directly. Runtime replan operations can add, update, or remove descendants inside the current Manager's subtree; existing Member IDs never change.
+Using the team above, the delivery Manager might:
 
-## Shared note and member instructions
+- delegate implementation first and testing second when the test depends on the implementation;
+- place credibly independent code and test work in one parallel Wave;
+- ask the implementation owner to repair concrete review findings, then ask the reviewer to inspect the repaired state;
+- give one reusable owner several item-specific Assignments for a bounded maintenance batch; or
+- combine sequence, parallel work, review loops, and batches.
 
-The top-level `note` is optional Markdown for guidance specific to this team: collaboration preferences, purpose, caveats, or non-goals. It is projected into the Task directory when present.
+Those are runtime decisions. The same published revision can use a different pattern for a different Task.
 
-A Member `instruction` specializes that Member's reusable responsibility or independent lens. Neither field should restate Banksia's general rules. Delegation, waits, Checkpoints, file handoffs, replanning, Human Requests, and Command Runs are taught by the system prompt and enforced by the controller.
+A Wave always belongs to one immediate Manager and may contain one or more current direct children. A one-member Wave is the normal durable path for dependent sequence; multiple members provide bounded parallel fan-out. Nested Managers own their own local Waves and joins.
 
-## Provider settings
+Participation is stricter than joining one Wave. Before a Manager can return `green`, every current direct child configuration must have an accepted green return on its current branch basis. A blocked return settles its Wave position but does not satisfy participation; a retry settles neither. A Manager that intends to take over substantive execution must remove every direct child first and continue under fresh Contributor context.
 
-Omitting `provider` resolves the controller's configured default provider. Providers do not inherit from a parent Member.
+Iteration and batch work also reuse ordinary Assignments. Review feedback is new meaning and therefore becomes a fresh feedback-bearing Assignment. Repeating the exact immutable Assignment after an execution problem is the narrower retry case. A Workflow does not author loop counts, item lists, or a batch mode.
 
-Managed Codex and Claude selections can request:
+## A team must add value
 
-- an exact provider-native `model`;
-- an adapter-supported `effort`; and
-- a portable `sandbox` pairing.
+A Manager must add decomposition, evidence assessment, integration, or a decision. This is a quality failure:
 
-The supported sandbox pairs are:
+```text
+parent repeats its Assignment to one child
+child reports a Checkpoint
+parent repeats that Checkpoint as its own result
+```
 
-| Mode | Network |
+That relay adds coordination without accountability. Give the substantive work to the right Member, or give the Manager genuinely distinct responsibility. Do not add filler children merely to make a one-Member Workflow look like a team.
+
+A one-Member Workflow is valid and often better when:
+
+- the work is tightly coupled;
+- the same files would require constant coordination;
+- no independent review or specialization would improve the result; or
+- the job is small enough that delegation would only add ceremony.
+
+## Team-specific prose
+
+The top-level `description` is the nonblank catalog explanation of when to use the Workflow. The optional top-level `note` is shared Markdown for this team's specific boundaries, collaboration preferences, caveats, or non-goals.
+
+Each Member may add:
+
+- a `title` for display;
+- a `description` for responsibility and routing;
+- an `instruction` for reusable, Member-specific contribution guidance; and
+- optional advanced provider and capability settings.
+
+Only the Member `id` is required. Blank, whitespace-only, or explicit `null` values for optional prose normalize to omission. Sparse definitions are valid because every runtime Assignment still carries a complete, nonblank work request.
+
+Notes and instructions should not restate general Banksia operation rules. Delegation, waits, Checkpoints, replanning, file handoffs, Human Requests, and Command Runs are taught by the controller-owned system prompt and enforced by runtime legality.
+
+## Replanning one subtree
+
+A current Manager may change only descendants in its own subtree:
+
+- `add_child` adds one new direct child and may include a recursively new subtree;
+- `update_child` patches one existing descendant and may update or add listed descendants; and
+- `remove_child` explicitly removes one descendant subtree from future team revisions.
+
+Replanning never changes an existing Member ID, reparents a Member, or reorders siblings. Omission never means deletion. Busy affected subtrees are protected, and history remains unchanged.
+
+An accepted replan creates a fresh Task-local team revision. The provider turn that requested it stops. After the organization manifest is current, a fresh same-Attempt continuation receives the updated team and legal actions. Work outside the caller's subtree remains unchanged.
+
+## Start simple; disclose control progressively
+
+Fresh installations include seven provider-neutral, capability-neutral Starters:
+
+| Starter | Use it for |
 | --- | --- |
-| `read_only` | `deny` |
-| `workspace_write` | `allow` or `deny` |
-| `full_access` | `allow` |
+| `reviewed-code-change` | Implement, independently review, repair, and recheck one bounded change. |
+| `debug-and-verify` | Reproduce a difficult defect, challenge causes, repair, and verify independently. |
+| `cross-layer-feature` | Coordinate a shared contract, disjoint layers, and end-to-end verification. |
+| `bounded-maintenance-batch` | Process a finite inventory with item ownership and completeness review. |
+| `evidence-synthesis` | Gather local and current evidence, challenge it, and own one supported conclusion. |
+| `technical-decision` | Compare options under local constraints and make an accountable choice. |
+| `reproducible-study` | Separate methods, execution, replication, and claim audit. |
 
-When the block is omitted, the current managed-provider default is `full_access` with network allowed. Deployment policy may narrow an authored request.
+Starters omit `provider` and `capabilities` throughout the tree. Provider selection resolves from controller configuration, while Human Request and Command Run remain denied until a user grants them narrowly in a customized draft.
 
-OpenClaw accepts only `provider: {kind: openclaw}`. OpenClaw remains a user-operated provider transport; Banksia does not author its model, sandbox, or Gateway configuration inside a Workflow.
+The three maintained [advanced reference Workflows](../../examples/workflows/README.md) demonstrate deliberate provider, sandbox, network, and capability choices. They are importable examples, not installed Starters.
 
-## Capabilities
-
-Human Request and Command Run are the only authored capability grants:
-
-```yaml
-capabilities:
-    human_request:
-        - input
-        - direction
-        - approval
-        - review
-    command_run: allow
-```
-
-Each omitted capability is denied. Grants do not inherit. Controller or deployment policy may narrow a grant but never widen it.
-
-External MCP servers, Skills, arbitrary tools, fixed steps, completion criteria, declared inputs or outputs, and standalone network settings are intentionally outside the current Workflow contract.
-
-See [Author a Workflow](../guides/author-a-workflow.md) and the [schema reference](../reference/workflows/README.md).
+See [Author a Workflow](../guides/author-a-workflow.md) for the publication journey and the [Workflow definition reference](../reference/workflows/README.md) for exact fields and validation.

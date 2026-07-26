@@ -1,51 +1,214 @@
 # Workflow definition reference
 
-The maintained JSON Schema is [`workflow-definition.schema.yaml`](workflow-definition.schema.yaml). It validates the common JSON-compatible model accepted from both YAML and JSON.
+The machine-readable public contract is [`workflow-definition.schema.yaml`](workflow-definition.schema.yaml). It is JSON Schema Draft 2020-12 and validates the common JSON-compatible model accepted from JSON and YAML.
+
+## Complete shape
+
+```yaml
+kind: workflow
+id: reviewed-change-custom
+description: Implement, review, and recheck one bounded code change.
+note: >-
+  Preserve reviewer independence and route accepted findings back to the
+  implementation owner.
+lead:
+  id: change-lead
+  title: Change lead
+  description: Owns scope, integration, finding disposition, and Result.
+  provider:
+    kind: codex
+    model: gpt-5.6
+    effort: high
+    sandbox:
+      mode: workspace_write
+      network: deny
+  capabilities:
+    human_request:
+      - direction
+      - review
+  children:
+    - id: implementation-owner
+      instruction: >-
+        Own the bounded production change and focused proof.
+      capabilities:
+        command_run: allow
+    - id: independent-reviewer
+      instruction: >-
+        Inspect the integrated state without editing it.
+      provider:
+        kind: claude
+        sandbox:
+          mode: read_only
+          network: deny
+```
+
+This hierarchy defines responsibility. It does not require the lead to run children in array order or in parallel.
 
 ## Top-level fields
 
-| Field | Required | Meaning |
+| Field | Required | Contract |
 | --- | --- | --- |
-| `kind` | yes | Closed discriminator; always `workflow`. |
+| `kind` | yes | Closed discriminator; exactly `workflow`. |
 | `id` | yes | Stable Workflow identity. |
-| `description` | yes | Nonblank catalog explanation of when to use the Workflow. |
-| `note` | no | Shared team-specific Markdown guidance. |
-| `lead` | yes | Top Member, using the same shape as every descendant. |
+| `description` | yes | Nonblank catalog explanation of when the Workflow is useful; maximum 1,024 characters. |
+| `note` | no | Shared team-specific Markdown; maximum 8,192 characters. |
+| `lead` | yes | Root Member using the same recursive shape as every descendant. |
 
-## Member fields
+No additional top-level properties are accepted.
 
-| Field | Required | Meaning |
+## Recursive Member fields
+
+| Field | Required | Contract |
 | --- | --- | --- |
-| `id` | yes | Stable tree-wide unique Member identity. |
+| `id` | yes | Stable Member identity, unique across the complete tree. |
 | `title` | no | Display title. |
 | `description` | no | Responsibility and routing hint. |
 | `instruction` | no | Reusable team-specific contribution guidance. |
-| `provider` | no | Codex, Claude, or OpenClaw selection. |
+| `provider` | no | One discriminated Codex, Claude, or OpenClaw selection. |
 | `capabilities` | no | Narrow Human Request and Command Run grants. |
-| `children` | no | Ordered direct responsibilities using this same Member shape. |
+| `children` | no | Ordered direct responsibilities, each using this same Member shape. |
 
-Optional title, description, instruction, and note values accept `null`, an empty string, or whitespace at ingestion and normalize them to omission. The top-level Workflow description must remain nonblank.
+Optional Member prose is bounded to 16,384 characters per field. Member array order is organizational, not temporal. A Member may have at most 32 direct children; semantic ingestion accepts at most 256 Members and a Member-tree depth of 12.
 
-## `$defs` and `$ref`
+The schema uses `$defs.workflowMember` and recursive `$ref` values to express this shape. Workflow authors do not put `$defs` or `$ref` in their documents.
 
-`$defs` is a section inside the schema where reusable validation shapes are named. `$ref` points to one of those shapes. For example, the schema defines `workflowMember` once under `$defs`, then the lead and every child refer back to it. That is how one finite schema describes a tree of any depth without copying the Member rules repeatedly.
+## IDs
 
-Workflow authors do not write `$defs` or `$ref` in their YAML or JSON. Those keywords belong only to the validation schema.
+Workflow and Member IDs:
 
-## Provider variants
+- contain 1 to 128 characters;
+- begin with a lowercase ASCII letter;
+- continue with lowercase letters and digits, with groups optionally separated by one `-` or `_`; and
+- match `^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$`.
 
-`provider.kind` selects the provider-specific shape:
+Member IDs must be unique across the complete tree. Publication revisions, Task IDs, and controller-issued runtime identities are separate concepts; do not encode a revision or runtime version into the authored Workflow ID.
 
-- `codex` and `claude` may include `model`, `effort`, and `sandbox`;
-- `openclaw` accepts no additional Workflow provider fields; and
-- omission resolves the controller default at Task start.
+## Optional prose normalization
 
-`kind` is used because it discriminates one provider configuration variant from another. A Member has a provider selection; the selected variant's kind is Codex, Claude, or OpenClaw.
+At ingestion, these values normalize to omission when they are `null`, empty, or whitespace-only:
 
-Network is configured only inside a managed provider's `sandbox`. There is no standalone `network_access` field.
+- top-level `note`; and
+- Member `title`, `description`, and `instruction`.
 
-## Validation layers
+Line endings normalize to `\n`. The top-level `description` remains required and nonblank.
 
-JSON Schema validates document shape, bounds, and closed fields. Banksia ingestion also normalizes optional prose and validates semantic invariants such as tree-wide unique Member IDs and supported provider settings.
+This normalization does **not** apply to structural or control fields. Explicit `null` is rejected for `provider`, `capabilities`, and `children`. An empty `capabilities` object is invalid because it grants nothing; omit the field instead. An omitted `children` field or an empty array means the Member is a leaf in a complete authored Workflow.
 
-Use the maintained [reference examples](../../../examples/workflows/README.md) as authoring fixtures. They are not packaged starter Workflows.
+## Provider discriminator and settings
+
+`provider.kind` selects one closed variant:
+
+### Codex
+
+```yaml
+provider:
+  kind: codex
+  model: gpt-5.6
+  effort: high
+  sandbox:
+    mode: workspace_write
+    network: deny
+```
+
+Allowed Codex effort values are `none`, `minimal`, `low`, `medium`, `high`, and `xhigh`.
+
+### Claude
+
+```yaml
+provider:
+  kind: claude
+  model: claude-sonnet-4-5
+  effort: high
+  sandbox:
+    mode: read_only
+    network: deny
+```
+
+Allowed Claude effort values are `low`, `medium`, `high`, `xhigh`, and `max`.
+
+Codex and Claude accept optional exact `model`, `effort`, and `sandbox`. Portable sandbox pairs are:
+
+| `mode` | `network` |
+| --- | --- |
+| `read_only` | `deny` |
+| `workspace_write` | `deny` or `allow` |
+| `full_access` | `allow` |
+
+Network is nested inside `sandbox`; there is no standalone Workflow network field. When the authored sandbox block is omitted, managed-provider resolution forms a `full_access` plus `allow` request. The configured `[runtime]` sandbox pair is a controller ceiling, not the omitted authored request: it may narrow either the default request or an explicit authored request, but it never widens one. Each Dispatch records the requested and effective pairs, and the managed provider receives the effective pair.
+
+### OpenClaw
+
+```yaml
+provider:
+  kind: openclaw
+```
+
+OpenClaw accepts no Workflow-authored model, effort, sandbox, Gateway, or network fields. Those properties remain user-operated outside the Workflow.
+
+When `provider` is omitted, Task start resolves the controller's configured default. Provider settings do not inherit from a parent Member.
+
+## Default-deny capabilities
+
+The only authored capability grants are:
+
+```yaml
+capabilities:
+  human_request:
+    - input
+    - direction
+    - approval
+    - review
+  command_run: allow
+```
+
+`human_request` must contain one to four unique kinds from the closed list above. `command_run` has the one literal grant value `allow`.
+
+Omission denies the operation. Grants do not inherit from parent Members. Controller or deployment policy may narrow or revoke a grant at Dispatch time but never widen the authored request.
+
+## Parsing and validation
+
+The shipped ingestion path:
+
+1. accepts one UTF-8 JSON object or one nonempty YAML document, up to 1 MiB;
+2. rejects duplicate keys, YAML anchors, aliases, merge keys, unsupported explicit tags, nonstring object keys, nonfinite numbers, illegal text characters, and non-JSON-compatible values;
+3. normalizes optional prose and line endings;
+4. validates the closed schema and provider variants; and
+5. validates semantic invariants such as tree-wide Member-ID uniqueness, capability-kind uniqueness, and Member count/depth bounds.
+
+Validation reports issue source, document path, and message. A valid preview does not publish or start work. Publishing requires the exact current draft ETag and creates a new immutable numbered revision.
+
+Each Workflow may have at most one active mutable draft. Draft mutations, discard, undo, and publish use currentness checks. Undo receipts are single use. A Task can start only from a published revision and pins that exact revision for its lifetime.
+
+## Starters and maintained references
+
+Fresh/reset controller state contains exactly these installed Starters:
+
+- `bounded-maintenance-batch`;
+- `cross-layer-feature`;
+- `debug-and-verify`;
+- `evidence-synthesis`;
+- `reproducible-study`;
+- `reviewed-code-change`; and
+- `technical-decision`.
+
+They omit `provider` and `capabilities` recursively so they remain portable and default-deny.
+
+The maintained [advanced reference Workflows](../../../examples/workflows/README.md) are:
+
+- `advanced-cross-layer-delivery`;
+- `advanced-reviewed-code-change`; and
+- `advanced-technical-decision`.
+
+They demonstrate meaningful provider, sandbox, network, and capability choices. They are importable JSON/YAML authoring examples, not packaged Starters.
+
+## Deliberately absent
+
+The Workflow contract has no:
+
+- Role, Policy, or Skill definition system;
+- external MCP server, resource, prompt, elicitation, or plugin field;
+- authored steps, phases, edges, modes, loops, or schedules;
+- `criteria`, `consume`, `produce`, expected-output, or task-array fields; or
+- managed Artifact identity, version, hash, approval, or lifecycle.
+
+Use [Workflows and teams](../../concepts/workflows-and-teams.md) for the mental model and [Configuration](../configuration.md) for controller defaults.

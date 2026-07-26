@@ -44,12 +44,14 @@ def test_discovery_covers_final_doc_lanes_and_excludes_generated_output(
     }
 
     assert {
+        "CONTRIBUTING.md",
         "docs-internal/architecture/runtime.md",
         "docs-internal/interfaces/runtime-tools.md",
         "docs-internal/operations/configuration-and-providers.md",
         "docs-internal/verification/gates.md",
         "docs-internal/adr/ADR-0001-controller.md",
     } <= contract_paths
+    assert "CONTRIBUTING.md" in formatter_paths
     assert generated.relative_to(tmp_path).as_posix() in contract_paths
     assert generated.relative_to(tmp_path).as_posix() not in formatter_paths
 
@@ -116,12 +118,19 @@ def test_status_rules_follow_final_internal_roles(
     assert findings[0].category == "status"
 
 
-def test_public_docs_reject_internal_metadata_and_review_headings(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    "relative_path",
+    ("CONTRIBUTING.md", "docs/start/getting-started.md"),
+)
+def test_public_docs_reject_internal_metadata_and_review_headings(
+    tmp_path: Path,
+    relative_path: str,
+) -> None:
     validator, _ = contract_modules()
     build_valid_contract_tree(tmp_path)
     write_page(
         tmp_path,
-        "docs/start/getting-started.md",
+        relative_path,
         "# Getting started\n\nStatus: Reference\n\nLast verified: today\n\n## Evidence\n",
     )
 

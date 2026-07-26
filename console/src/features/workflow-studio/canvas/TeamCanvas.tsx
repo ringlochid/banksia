@@ -11,8 +11,16 @@ import {
     type NodeChange,
     type NodeTypes,
     type ReactFlowInstance,
+    useNodesInitialized,
 } from "@xyflow/react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+    type RefObject,
+} from "react";
 
 import type { NormalizedMember } from "../../../api/types";
 import type {
@@ -262,39 +270,6 @@ export function TeamCanvas({
         [visibleMemberIds],
     );
 
-    useEffect(() => {
-        if (focusRequest?.surface !== "canvas") {
-            return;
-        }
-        let frame: number | null = null;
-        let attemptsRemaining = 12;
-        const focusWhenVisible = (): void => {
-            const target = canvasRef.current?.querySelector<HTMLElement>(
-                `[data-focus-surface="canvas"][data-member-focus="${CSS.escape(
-                    focusRequest.memberId,
-                )}"]`,
-            );
-            if (
-                target !== undefined &&
-                target !== null &&
-                getComputedStyle(target).visibility !== "hidden"
-            ) {
-                target.focus();
-                return;
-            }
-            attemptsRemaining -= 1;
-            if (attemptsRemaining > 0) {
-                frame = requestAnimationFrame(focusWhenVisible);
-            }
-        };
-        frame = requestAnimationFrame(focusWhenVisible);
-        return () => {
-            if (frame !== null) {
-                cancelAnimationFrame(frame);
-            }
-        };
-    }, [focusRequest]);
-
     const fitTeam = (): void => {
         void flowRef.current?.fitView({
             duration: 220,
@@ -360,6 +335,10 @@ export function TeamCanvas({
                     selectedMemberId={selectedMemberId}
                     structure={structure}
                 />
+                <TeamCanvasFocusCoordinator
+                    canvasRef={canvasRef}
+                    focusRequest={focusRequest}
+                />
             </ReactFlow>
             <details
                 className="team-canvas__outline"
@@ -391,6 +370,43 @@ export function TeamCanvas({
             </details>
         </section>
     );
+}
+
+function TeamCanvasFocusCoordinator({
+    canvasRef,
+    focusRequest,
+}: {
+    readonly canvasRef: RefObject<HTMLElement | null>;
+    readonly focusRequest: TeamMemberFocusRequest | null;
+}) {
+    const nodesInitialized = useNodesInitialized();
+    const settledRevision = useRef<number | null>(null);
+
+    useEffect(() => {
+        if (
+            focusRequest?.surface !== "canvas" ||
+            settledRevision.current === focusRequest.revision
+        ) {
+            return;
+        }
+        const frame = requestAnimationFrame(() => {
+            const target = canvasRef.current?.querySelector<HTMLElement>(
+                `[data-focus-surface="canvas"][data-member-focus="${CSS.escape(
+                    focusRequest.memberId,
+                )}"]`,
+            );
+            if (target === undefined || target === null) {
+                return;
+            }
+            target.focus();
+            if (nodesInitialized) {
+                settledRevision.current = focusRequest.revision;
+            }
+        });
+        return () => cancelAnimationFrame(frame);
+    }, [canvasRef, focusRequest, nodesInitialized]);
+
+    return null;
 }
 
 function issueCount(

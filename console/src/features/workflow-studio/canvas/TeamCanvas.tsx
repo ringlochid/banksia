@@ -11,7 +11,6 @@ import {
     type NodeChange,
     type NodeTypes,
     type ReactFlowInstance,
-    useNodesInitialized,
 } from "@xyflow/react";
 import {
     useCallback,
@@ -379,7 +378,6 @@ function TeamCanvasFocusCoordinator({
     readonly canvasRef: RefObject<HTMLElement | null>;
     readonly focusRequest: TeamMemberFocusRequest | null;
 }) {
-    const nodesInitialized = useNodesInitialized();
     const settledRevision = useRef<number | null>(null);
 
     useEffect(() => {
@@ -389,22 +387,47 @@ function TeamCanvasFocusCoordinator({
         ) {
             return;
         }
-        const frame = requestAnimationFrame(() => {
-            const target = canvasRef.current?.querySelector<HTMLElement>(
+        let cancelled = false;
+        let frame: number | null = null;
+        const findTarget = (): HTMLElement | null =>
+            canvasRef.current?.querySelector<HTMLElement>(
                 `[data-focus-surface="canvas"][data-member-focus="${CSS.escape(
                     focusRequest.memberId,
                 )}"]`,
-            );
-            if (target === undefined || target === null) {
-                return;
-            }
-            target.focus();
-            if (nodesInitialized) {
-                settledRevision.current = focusRequest.revision;
+            ) ?? null;
+        const focusAndVerify = (attemptsRemaining: number): void => {
+            const target = findTarget();
+            target?.focus();
+            frame = requestAnimationFrame(() => {
+                if (cancelled) {
+                    return;
+                }
+                const currentTarget = findTarget();
+                if (
+                    target !== null &&
+                    currentTarget === target &&
+                    document.activeElement === target
+                ) {
+                    settledRevision.current = focusRequest.revision;
+                    return;
+                }
+                if (attemptsRemaining > 1) {
+                    focusAndVerify(attemptsRemaining - 1);
+                }
+            });
+        };
+        frame = requestAnimationFrame(() => {
+            if (!cancelled) {
+                focusAndVerify(2);
             }
         });
-        return () => cancelAnimationFrame(frame);
-    }, [canvasRef, focusRequest, nodesInitialized]);
+        return () => {
+            cancelled = true;
+            if (frame !== null) {
+                cancelAnimationFrame(frame);
+            }
+        };
+    }, [canvasRef, focusRequest]);
 
     return null;
 }

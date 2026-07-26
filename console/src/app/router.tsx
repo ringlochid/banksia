@@ -1,10 +1,17 @@
 import { createBrowserRouter, Navigate } from "react-router-dom";
 
 import { AppShell } from "../components/layout/AppShell";
-import { RunsPlaceholderPage } from "../features/runs/RunsPlaceholderPage";
+import {
+    RunApiClient,
+    RunListPage,
+    RunStudioPage,
+    StartRunPage,
+} from "../features/runs";
 import { WorkflowStudioPage } from "../features/workflow-studio/WorkflowStudioPage";
 import { WorkflowLibraryPage } from "../features/workflows/WorkflowLibraryPage";
 import { workflowApi } from "./api";
+
+const runApi = new RunApiClient();
 
 export const router = createBrowserRouter([
     {
@@ -20,7 +27,12 @@ export const router = createBrowserRouter([
                 path: "workflows/:workflowId",
                 element: <WorkflowStudioPage api={workflowApi} />,
             },
-            { path: "runs", element: <RunsPlaceholderPage /> },
+            { path: "runs", element: <RunListPage api={runApi} /> },
+            { path: "runs/new", element: <StartRunPage api={runApi} /> },
+            {
+                path: "runs/:taskId",
+                element: <RunStudioPage api={runApi} />,
+            },
         ],
     },
 ]);

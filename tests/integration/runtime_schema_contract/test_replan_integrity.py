@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from collections.abc import Callable
 from datetime import UTC, datetime
 from functools import partial
@@ -9,13 +8,13 @@ from uuid import uuid4
 
 import pytest
 from sqlalchemy import Connection, select
-from sqlalchemy.engine import URL, make_url
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from banksia.persistence import RuntimeBase
 from banksia.persistence.session import create_runtime_schema_tables
 from tests.helpers.catalog_seed import seed_catalog
+from tests.helpers.disposable_postgres import read_disposable_postgres_url
 from tests.helpers.lineage_seed import RuntimeIds, seed_runtime_scope
 from tests.helpers.sqlite_runtime import create_runtime_schema_engine
 
@@ -98,7 +97,7 @@ def test_sqlite_rejects_inexact_replan_relations(
 
 @pytest.mark.asyncio
 async def test_postgresql_rejects_inexact_replan_relations() -> None:
-    database_url = _disposable_postgres_url()
+    database_url = read_disposable_postgres_url()
     if database_url is None:
         pytest.skip("a disposable PostgreSQL test database is not configured")
 
@@ -240,14 +239,3 @@ def _transition_values(
         "successor_opened_at": successor_opened_at,
         "updated_at": NOW,
     }
-
-
-def _disposable_postgres_url() -> URL | None:
-    raw_url = os.environ.get("BANKSIA_TEST_POSTGRES_URL") or os.environ.get("BANKSIA_DATABASE_URL")
-    if raw_url is None:
-        return None
-    database_url = make_url(raw_url)
-    database_name = database_url.database or ""
-    if database_url.get_backend_name() != "postgresql" or "test" not in database_name.casefold():
-        return None
-    return database_url.set(drivername="postgresql+asyncpg")

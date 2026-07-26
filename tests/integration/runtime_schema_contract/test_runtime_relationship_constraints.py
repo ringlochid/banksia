@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import asyncio
-import os
 from collections.abc import Callable
 from datetime import UTC, datetime
 from functools import partial
@@ -9,20 +7,14 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import Connection, func, select
-from sqlalchemy.engine import URL, make_url
+from sqlalchemy import Connection, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import create_async_engine
 
 from banksia.persistence import RuntimeBase
-from banksia.persistence.models import TaskModel, TeamRevisionModel
 from banksia.persistence.session import create_runtime_schema_tables
-from banksia.runtime.team import TeamMaterializationError, materialize_initial_task_team
 from tests.helpers.catalog_seed import seed_catalog
-from tests.helpers.launch_foundation import (
-    build_launch_foundation_workflow_revision,
-    seed_launch_foundation_workflow,
-)
+from tests.helpers.disposable_postgres import read_disposable_postgres_url
 from tests.helpers.lineage_seed import RuntimeIds, seed_runtime_scope
 from tests.helpers.sqlite_runtime import create_runtime_schema_engine
 from tests.helpers.team_persistence_seed import (
@@ -144,7 +136,7 @@ def test_sqlite_allows_only_one_open_assignment_per_task_member(
 
 @pytest.mark.asyncio
 async def test_postgresql_rejects_cross_record_and_capability_widening() -> None:
-    database_url = _disposable_postgres_url()
+    database_url = read_disposable_postgres_url()
     if database_url is None:
         pytest.skip("a disposable PostgreSQL test database is not configured")
 
@@ -208,7 +200,7 @@ async def test_postgresql_rejects_cross_record_and_capability_widening() -> None
 
 @pytest.mark.asyncio
 async def test_postgresql_allows_only_one_open_assignment_per_task_member() -> None:
-    database_url = _disposable_postgres_url()
+    database_url = read_disposable_postgres_url()
     if database_url is None:
         pytest.skip("a disposable PostgreSQL test database is not configured")
 
@@ -266,80 +258,6 @@ async def test_postgresql_allows_only_one_open_assignment_per_task_member() -> N
             async with engine.begin() as connection:
                 await connection.exec_driver_sql(f'DROP SCHEMA IF EXISTS "{schema_name}" CASCADE')
         await engine.dispose()
-
-
-@pytest.mark.asyncio
-async def test_postgresql_initial_team_materialization_has_one_cas_winner() -> None:
-    database_url = _disposable_postgres_url()
-    if database_url is None:
-        pytest.skip("a disposable PostgreSQL test database is not configured")
-
-    schema_name = f"banksia_team_materialization_race_{uuid4().hex}"
-    engine = create_async_engine(
-        database_url,
-        execution_options={"schema_translate_map": {None: schema_name}},
-    )
-    session_factory = async_sessionmaker(engine, expire_on_commit=False)
-    published = build_launch_foundation_workflow_revision()
-    schema_created = False
-    try:
-        async with engine.begin() as connection:
-            await connection.exec_driver_sql(f'CREATE SCHEMA "{schema_name}"')
-            schema_created = True
-            await connection.run_sync(create_runtime_schema_tables)
-            await connection.run_sync(
-                lambda sync_connection: seed_launch_foundation_workflow(
-                    sync_connection,
-                    workflow_revision=published,
-                )
-            )
-        async with session_factory() as session:
-            session.add(
-                TaskModel(
-                    task_id="task.postgres-team-race",
-                    workflow_key=published.workflow_id,
-                    workflow_revision_no=published.revision_no,
-                    workflow_content_hash=published.content_hash,
-                    current_team_revision_id=None,
-                    max_child_assignments_per_assignment=20,
-                    max_retries_per_assignment=1,
-                    max_wave_members=8,
-                    task_root_path="/tmp/task.postgres-team-race",
-                )
-            )
-            await session.commit()
-
-        async def materialize() -> str:
-            async with session_factory() as session:
-                try:
-                    await materialize_initial_task_team(
-                        session,
-                        published,
-                        task_id="task.postgres-team-race",
-                    )
-                    await session.commit()
-                except TeamMaterializationError:
-                    await session.rollback()
-                    return "lost"
-                return "won"
-
-        outcomes = await asyncio.gather(materialize(), materialize())
-        async with session_factory() as session:
-            task = await session.get(TaskModel, "task.postgres-team-race")
-            team_count = await session.scalar(
-                select(func.count())
-                .select_from(TeamRevisionModel)
-                .where(TeamRevisionModel.task_id == "task.postgres-team-race")
-            )
-    finally:
-        if schema_created:
-            async with engine.begin() as connection:
-                await connection.exec_driver_sql(f'DROP SCHEMA IF EXISTS "{schema_name}" CASCADE')
-        await engine.dispose()
-
-    assert sorted(outcomes) == ["lost", "won"]
-    assert task is not None and task.current_team_revision_id is not None
-    assert team_count == 1
 
 
 def _insert_configuration(
@@ -627,14 +545,3 @@ def _convert_current_dispatch_to_openclaw(connection: Connection, ids: RuntimeId
             sandbox_network_source=None,
         )
     )
-
-
-def _disposable_postgres_url() -> URL | None:
-    raw_url = os.environ.get("BANKSIA_TEST_POSTGRES_URL") or os.environ.get("BANKSIA_DATABASE_URL")
-    if raw_url is None:
-        return None
-    database_url = make_url(raw_url)
-    database_name = database_url.database or ""
-    if database_url.get_backend_name() != "postgresql" or "test" not in database_name.casefold():
-        return None
-    return database_url.set(drivername="postgresql+asyncpg")

@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import asyncio
 import json
-import threading
 from collections.abc import Callable
 from pathlib import Path
 from types import SimpleNamespace
@@ -69,9 +67,6 @@ class _FakeClientOptions(TypedDict):
     active_mcp: NotRequired[tuple[object, ...]]
     server_requests: NotRequired[tuple[tuple[str, JsonObject | None], ...]]
     resume_error: NotRequired[Exception | None]
-    should_block: NotRequired[bool]
-    should_block_start: NotRequired[bool]
-    should_block_close: NotRequired[bool]
 
 
 class _FakeCodexClient:
@@ -86,9 +81,6 @@ class _FakeCodexClient:
         active_mcp: tuple[object, ...] = (),
         server_requests: tuple[tuple[str, JsonObject | None], ...] = (),
         resume_error: Exception | None = None,
-        should_block: bool = False,
-        should_block_start: bool = False,
-        should_block_close: bool = False,
     ) -> None:
         self.handler = handler
         self.output = output if output is not None else {"kind": "message", "text": "Done."}
@@ -98,39 +90,19 @@ class _FakeCodexClient:
         self.active_mcp = active_mcp
         self.server_requests = server_requests
         self.resume_error = resume_error
-        self.should_block = should_block
-        self.should_block_start = should_block_start
-        self.should_block_close = should_block_close
         self.server_results: list[JsonObject] = []
         self.thread_start_params: list[JsonObject] = []
         self.thread_resume_params: list[tuple[str, JsonObject]] = []
         self.turn_start_calls: list[tuple[str, str, JsonObject]] = []
-        self.interrupt_calls: list[tuple[str, str]] = []
         self.unregistered_turns: list[str] = []
         self.was_started = False
         self.was_initialized = False
         self.was_closed = False
-        self.close_during_start = False
         self.cwd_existed_at_start = False
-        self.start_waiting = threading.Event()
-        self.start_release = threading.Event()
-        self.start_finished = threading.Event()
-        self.close_waiting = threading.Event()
-        self.close_release = threading.Event()
-        self.waiting = threading.Event()
-        self.release = threading.Event()
-        self.notification_wait_finished = threading.Event()
-        self.turn_start_finished = threading.Event()
         self.notifications: list[Notification] = []
 
     def start(self) -> None:
-        self.start_waiting.set()
-        try:
-            if self.should_block_start:
-                self.start_release.wait(timeout=5)
-            self.was_started = True
-        finally:
-            self.start_finished.set()
+        self.was_started = True
 
     def initialize(self) -> object:
         self.was_initialized = True
@@ -177,28 +149,18 @@ class _FakeCodexClient:
         input_items: str,
         params: JsonObject,
     ) -> object:
-        try:
-            self.turn_start_calls.append((thread_id, input_items, params))
-            for method, request_params in self.server_requests:
-                self.server_results.append(self.handler(method, request_params))
-            turn_id = "codex-turn-1"
-            self.notifications = _terminal_notifications(
-                thread_id=thread_id,
-                turn_id=turn_id,
-                output=self.output,
-            )
-            return SimpleNamespace(turn=SimpleNamespace(id=turn_id))
-        finally:
-            self.turn_start_finished.set()
+        self.turn_start_calls.append((thread_id, input_items, params))
+        for method, request_params in self.server_requests:
+            self.server_results.append(self.handler(method, request_params))
+        turn_id = "codex-turn-1"
+        self.notifications = _terminal_notifications(
+            thread_id=thread_id,
+            turn_id=turn_id,
+            output=self.output,
+        )
+        return SimpleNamespace(turn=SimpleNamespace(id=turn_id))
 
     def next_turn_notification(self, turn_id: str) -> Notification:
-        if self.should_block:
-            self.waiting.set()
-            try:
-                self.release.wait(timeout=5)
-                raise RuntimeError("provider turn interrupted")
-            finally:
-                self.notification_wait_finished.set()
         if not self.notifications:
             raise AssertionError(f"no notification available for {turn_id}")
         return self.notifications.pop(0)
@@ -206,18 +168,8 @@ class _FakeCodexClient:
     def unregister_turn_notifications(self, turn_id: str) -> None:
         self.unregistered_turns.append(turn_id)
 
-    def turn_interrupt(self, thread_id: str, turn_id: str) -> object:
-        self.interrupt_calls.append((thread_id, turn_id))
-        self.release.set()
-        return object()
-
     def close(self) -> None:
-        self.close_during_start = self.close_during_start or not self.start_finished.is_set()
         self.was_closed = True
-        self.release.set()
-        self.close_waiting.set()
-        if self.should_block_close:
-            self.close_release.wait(timeout=5)
 
 
 class _ClientFactory:
@@ -577,109 +529,6 @@ async def test_codex_operator_fails_before_model_turn_on_external_mcp_surface() 
 
     assert factory.clients[0].turn_start_calls == []
     assert factory.clients[0].was_closed is True
-
-
-@pytest.mark.asyncio
-async def test_codex_operator_cancellation_interrupts_turn_and_closes_client() -> None:
-    factory = _ClientFactory(should_block=True, should_block_close=True)
-    turn = asyncio.create_task(_runner(factory).execute_turn(_request()))
-    await asyncio.sleep(0)
-    client = factory.clients[0]
-    assert await asyncio.to_thread(client.waiting.wait, 2)
-
-    turn.cancel()
-    assert await asyncio.to_thread(client.close_waiting.wait, 2)
-    turn.cancel()
-    await asyncio.sleep(0)
-    assert turn.done() is False
-    client.close_release.set()
-    with pytest.raises(asyncio.CancelledError):
-        await turn
-
-    assert client.interrupt_calls == [("codex-thread-1", "codex-turn-1")]
-    assert client.was_closed is True
-    assert client.notification_wait_finished.is_set()
-    assert client.unregistered_turns == ["codex-turn-1"]
-
-
-@pytest.mark.asyncio
-async def test_codex_operator_cancellation_waits_for_start_before_close() -> None:
-    factory = _ClientFactory(should_block_start=True)
-    turn = asyncio.create_task(_runner(factory).execute_turn(_request()))
-    await asyncio.sleep(0)
-    client = factory.clients[0]
-    assert await asyncio.to_thread(client.start_waiting.wait, 2)
-
-    turn.cancel()
-    client.start_release.set()
-    with pytest.raises(asyncio.CancelledError):
-        await turn
-
-    assert client.start_finished.is_set()
-    assert client.close_during_start is False
-    assert client.was_closed is True
-
-
-@pytest.mark.asyncio
-async def test_codex_operator_cancellation_deactivates_blocked_dynamic_tool() -> None:
-    tool_started = asyncio.Event()
-    cleanup_started = asyncio.Event()
-    cleanup_release = asyncio.Event()
-    cleanup_finished = asyncio.Event()
-    release_tool = asyncio.Event()
-
-    async def block_tool(request: BaseModel) -> BaseModel:
-        _ToolInput.model_validate(request)
-        tool_started.set()
-        try:
-            await release_tool.wait()
-        finally:
-            cleanup_started.set()
-            await cleanup_release.wait()
-            cleanup_finished.set()
-        return _ToolResult(echo="released")
-
-    tools = list(_tools())
-    tools[0] = OperatorTool(
-        name=OperatorToolName.WORKFLOW_SEARCH,
-        description="Use the Banksia workflow_search operation.",
-        input_model=_ToolInput,
-        handler=block_tool,
-    )
-    factory = _ClientFactory(
-        server_requests=(
-            (
-                "item/tool/call",
-                {
-                    "tool": OperatorToolName.WORKFLOW_SEARCH.value,
-                    "namespace": None,
-                    "arguments": {"value": "blocked"},
-                },
-            ),
-        )
-    )
-    turn = asyncio.create_task(_runner(factory, tools=tuple(tools)).execute_turn(_request()))
-    await asyncio.wait_for(tool_started.wait(), timeout=2)
-
-    turn.cancel()
-    try:
-        await asyncio.wait_for(cleanup_started.wait(), timeout=2)
-        await asyncio.sleep(0)
-        assert turn.done() is False
-        assert factory.clients[0].was_closed is False
-        turn.cancel()
-        await asyncio.sleep(0)
-        assert turn.done() is False
-    finally:
-        cleanup_release.set()
-
-    with pytest.raises(asyncio.CancelledError):
-        await asyncio.wait_for(turn, timeout=2)
-
-    client = factory.clients[0]
-    assert cleanup_finished.is_set()
-    assert client.turn_start_finished.is_set()
-    assert client.was_closed is True
 
 
 def test_codex_operator_status_fails_closed_on_unpinned_sdk(

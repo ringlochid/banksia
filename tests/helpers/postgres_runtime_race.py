@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import os
 import threading
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from contextlib import asynccontextmanager, contextmanager
@@ -14,7 +13,6 @@ from uuid import uuid4
 
 import pytest
 from sqlalchemy import event, update
-from sqlalchemy.engine import URL, make_url
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -32,6 +30,7 @@ from banksia.runtime.node_operations import NodeOperationExecutor
 from banksia.runtime.node_operations.activity import NodeActivitySignal
 from banksia.runtime.post_commit import CapturedRuntimeEffectPublisher
 from tests.helpers.catalog_seed import seed_catalog
+from tests.helpers.disposable_postgres import read_disposable_postgres_url
 from tests.helpers.lineage_seed import RuntimeIds, seed_runtime_scope
 
 type SessionFactory = async_sessionmaker[AsyncSession]
@@ -206,7 +205,7 @@ def _updates_table(statement: str, table_name: str) -> bool:
 
 
 def _create_test_engine() -> tuple[AsyncEngine, str]:
-    database_url = _disposable_postgres_url()
+    database_url = read_disposable_postgres_url()
     if database_url is None:
         pytest.skip("a disposable PostgreSQL test database is not configured")
     schema_name = f"banksia_runtime_race_{uuid4().hex}"
@@ -217,17 +216,6 @@ def _create_test_engine() -> tuple[AsyncEngine, str]:
         ),
         schema_name,
     )
-
-
-def _disposable_postgres_url() -> URL | None:
-    raw_url = os.environ.get("BANKSIA_TEST_POSTGRES_URL") or os.environ.get("BANKSIA_DATABASE_URL")
-    if raw_url is None:
-        return None
-    database_url = make_url(raw_url)
-    database_name = database_url.database or ""
-    if database_url.get_backend_name() != "postgresql" or "test" not in database_name.casefold():
-        return None
-    return database_url.set(drivername="postgresql+asyncpg")
 
 
 __all__ = [

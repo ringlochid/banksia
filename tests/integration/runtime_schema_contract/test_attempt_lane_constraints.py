@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import os
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from pathlib import Path
@@ -10,8 +9,7 @@ from typing import cast
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import Connection, make_url, select
-from sqlalchemy.engine import URL
+from sqlalchemy import Connection, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import Session, sessionmaker
@@ -33,6 +31,7 @@ from banksia.runtime.dispatch.currentness import AttemptDispatchConflictError
 from banksia.runtime.dispatch.opening import StartingDispatchBasis, stage_starting_dispatch
 from banksia.runtime.dispatch.preparation import PreparedDispatchRequest
 from tests.helpers.catalog_seed import seed_catalog
+from tests.helpers.disposable_postgres import read_disposable_postgres_url
 from tests.helpers.lineage_seed import RuntimeIds, seed_runtime_scope
 from tests.helpers.sqlite_runtime import SyncSessionAdapter, create_runtime_schema_engine
 from tests.helpers.team_persistence_seed import (
@@ -356,7 +355,7 @@ def test_attempt_wait_owns_one_exact_human_request_source(tmp_path: Path) -> Non
 
 @pytest.mark.asyncio
 async def test_postgresql_enforces_attempt_lane_schema() -> None:
-    database_url = _disposable_postgres_url()
+    database_url = read_disposable_postgres_url()
     if database_url is None:
         pytest.skip("a disposable PostgreSQL test database is not configured")
 
@@ -571,14 +570,3 @@ def _prepared_starting_dispatch(dispatch_id: str) -> PreparedDispatchRequest:
         instructions="Controller instructions.\n",
         input="<banksia_dispatch_request><direct_team /></banksia_dispatch_request>\n",
     )
-
-
-def _disposable_postgres_url() -> URL | None:
-    raw_url = os.environ.get("BANKSIA_TEST_POSTGRES_URL") or os.environ.get("BANKSIA_DATABASE_URL")
-    if raw_url is None:
-        return None
-    database_url = make_url(raw_url)
-    database_name = database_url.database or ""
-    if database_url.get_backend_name() != "postgresql" or "test" not in database_name.casefold():
-        return None
-    return database_url.set(drivername="postgresql+asyncpg")

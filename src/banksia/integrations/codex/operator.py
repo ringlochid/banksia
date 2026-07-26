@@ -5,7 +5,6 @@ import json
 import tempfile
 import threading
 from collections.abc import Callable, Sequence
-from concurrent.futures import Future
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any, cast
@@ -25,6 +24,7 @@ from openai_codex.generated.v2_all import (
 from openai_codex.models import JsonObject
 from pydantic import ValidationError
 
+from banksia.integrations.codex.dynamic_tools import CodexDynamicToolBridge
 from banksia.operator.contracts import OPERATOR_PROVIDER_RESULT_ADAPTER
 from banksia.operator.provider import (
     OperatorMessageTurnInput,
@@ -39,23 +39,12 @@ from banksia.operator.tools import OperatorTool, OperatorToolName
 from banksia.platform.provider_environment import provider_subprocess_environment_overrides
 
 PINNED_CODEX_VERSION = "0.144.4"
-_DYNAMIC_TOOL_METHOD = "item/tool/call"
 _CONFIG_READ_METHOD = "config/read"
 _MCP_STATUS_METHOD = "mcpServerStatus/list"
 _THREAD_UNAVAILABLE_MARKERS = (
     "invalid thread id:",
     "no rollout found for thread id",
     "thread not found:",
-)
-_TOOL_FAILURE_RESULT = json.dumps(
-    {
-        "error": "operator_operation_outcome_uncertain",
-        "message": (
-            "The Banksia operation did not return an accepted result. "
-            "Do not repeat it automatically; refetch current product truth."
-        ),
-    },
-    separators=(",", ":"),
 )
 _DISABLED_CODEX_FEATURES = frozenset(
     """
@@ -74,6 +63,25 @@ _CODEX_OPERATOR_EFFORTS = frozenset(
 
 type _ServerRequestHandler = Callable[[str, JsonObject | None], JsonObject]
 type _CodexClientFactory = Callable[[_ServerRequestHandler], CodexClient]
+
+
+class _CodexTurnIdentity:
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._thread_id: str | None = None
+        self._turn_id: str | None = None
+
+    def set_thread_id(self, thread_id: str) -> None:
+        with self._lock:
+            self._thread_id = thread_id
+
+    def set_turn_id(self, turn_id: str) -> None:
+        with self._lock:
+            self._turn_id = turn_id
+
+    def snapshot(self) -> tuple[str | None, str | None]:
+        with self._lock:
+            return self._thread_id, self._turn_id
 
 
 class CodexOperatorTurnRunner:
@@ -125,7 +133,7 @@ class CodexOperatorTurnRunner:
 
         effort = resolve_codex_operator_effort(request.effort)
         loop = asyncio.get_running_loop()
-        bridge = _DynamicToolBridge(loop=loop, tools=self._tools)
+        bridge = CodexDynamicToolBridge(loop=loop, tools=self._tools)
         client = self._client_factory(bridge)
         client_start_finished = threading.Event()
         turn_identity = _CodexTurnIdentity()
@@ -273,113 +281,12 @@ class CodexOperatorTurnRunner:
         return thread_id, resume_response
 
 
-class _CodexTurnIdentity:
-    def __init__(self) -> None:
-        self._lock = threading.Lock()
-        self._thread_id: str | None = None
-        self._turn_id: str | None = None
-
-    def set_thread_id(self, thread_id: str) -> None:
-        with self._lock:
-            self._thread_id = thread_id
-
-    def set_turn_id(self, turn_id: str) -> None:
-        with self._lock:
-            self._turn_id = turn_id
-
-    def snapshot(self) -> tuple[str | None, str | None]:
-        with self._lock:
-            return self._thread_id, self._turn_id
-
-
-class _DynamicToolBridge:
-    """Bridge sync SDK callbacks while retaining the real async task for cleanup."""
-
-    def __init__(
-        self,
-        *,
-        loop: asyncio.AbstractEventLoop,
-        tools: Sequence[OperatorTool],
-    ) -> None:
-        self._loop = loop
-        self._tools = {tool.name.value: tool for tool in tools}
-        self._pending_tasks: set[asyncio.Task[JsonObject]] = set()
-        self._lock = threading.Lock()
-        self._is_active = True
-
-    def __call__(self, method: str, params: JsonObject | None) -> JsonObject:
-        if method != _DYNAMIC_TOOL_METHOD:
-            return _deny_server_request(method)
-        result: Future[JsonObject] = Future()
-        with self._lock:
-            if not self._is_active:
-                return _tool_failure_response()
-            try:
-                self._loop.call_soon_threadsafe(self._start_tool_call, params, result)
-            except RuntimeError:
-                return _tool_failure_response()
-        try:
-            return result.result()
-        except BaseException:
-            return _tool_failure_response()
-
-    def _start_tool_call(
-        self,
-        params: JsonObject | None,
-        result: Future[JsonObject],
-    ) -> None:
-        with self._lock:
-            if not self._is_active:
-                result.set_result(_tool_failure_response())
-                return
-            task = self._loop.create_task(self._call_tool(params))
-            self._pending_tasks.add(task)
-        task.add_done_callback(lambda completed: self._finish_tool_call(completed, result))
-
-    def _finish_tool_call(
-        self,
-        task: asyncio.Task[JsonObject],
-        result: Future[JsonObject],
-    ) -> None:
-        with self._lock:
-            self._pending_tasks.discard(task)
-        try:
-            response = task.result()
-        except BaseException:
-            response = _tool_failure_response()
-        result.set_result(response)
-
-    async def _call_tool(self, params: JsonObject | None) -> JsonObject:
-        if params is None or params.get("namespace") is not None:
-            return _tool_failure_response()
-        tool_name = params.get("tool")
-        if not isinstance(tool_name, str):
-            return _tool_failure_response()
-        tool = self._tools.get(tool_name)
-        if tool is None:
-            return _tool_failure_response()
-        try:
-            result = await tool.call(params.get("arguments"))
-            rendered = json.dumps(
-                result,
-                ensure_ascii=False,
-                separators=(",", ":"),
-            )
-        except Exception:
-            return _tool_failure_response()
-        return {
-            "contentItems": [{"type": "inputText", "text": rendered}],
-            "success": True,
-        }
-
-    async def deactivate(self) -> None:
-        with self._lock:
-            self._is_active = False
-            pending = tuple(self._pending_tasks)
-        for task in pending:
-            task.cancel()
-        if pending:
-            await asyncio.gather(*pending, return_exceptions=True)
+def resolve_codex_operator_effort(value: str | None) -> str | None:
+    if value is None:
+        return None
+    if value not in _CODEX_OPERATOR_EFFORTS:
+        raise OperatorProviderUnavailableError("Codex Operator effort is not supported")
+    return value
 
 
 def _build_isolation_config(
@@ -584,47 +491,15 @@ def _render_codex_operator_input(request: OperatorTurnRequest) -> str:
             )
 
 
-def resolve_codex_operator_effort(value: str | None) -> str | None:
-    if value is None:
-        return None
-    if value not in _CODEX_OPERATOR_EFFORTS:
-        raise OperatorProviderUnavailableError("Codex Operator effort is not supported")
-    return value
-
-
 def _reports_thread_unavailable(exc: InvalidRequestError) -> bool:
     normalized = exc.message.casefold()
     return any(marker in normalized for marker in _THREAD_UNAVAILABLE_MARKERS)
 
 
-def _deny_server_request(method: str) -> JsonObject:
-    if method in {
-        "applyPatchApproval",
-        "execCommandApproval",
-        "item/commandExecution/requestApproval",
-        "item/fileChange/requestApproval",
-    }:
-        return {"decision": "cancel"}
-    if method == "item/permissions/requestApproval":
-        return {"permissions": {}}
-    if method == "item/tool/requestUserInput":
-        return {"answers": {}}
-    if method == "mcpServer/elicitation/request":
-        return {"action": "cancel"}
-    raise OperatorProviderUnavailableError("Codex requested an unsupported Operator capability")
-
-
-def _tool_failure_response() -> JsonObject:
-    return {
-        "contentItems": [{"type": "inputText", "text": _TOOL_FAILURE_RESULT}],
-        "success": False,
-    }
-
-
 async def _cancel_codex_turn(
     client: CodexClient,
     *,
-    bridge: _DynamicToolBridge,
+    bridge: CodexDynamicToolBridge,
     client_start_finished: threading.Event,
     turn_identity: _CodexTurnIdentity,
     worker: asyncio.Task[tuple[str, Any]],

@@ -43,6 +43,7 @@ _THREAD_UNAVAILABLE_MARKERS = (
 )
 _CLAUDE_OUTPUT_SCHEMA_OMITTED_KEYS = frozenset(
     {
+        "default",
         "discriminator",
         "maxItems",
         "maxLength",
@@ -50,6 +51,7 @@ _CLAUDE_OUTPUT_SCHEMA_OMITTED_KEYS = frozenset(
         "minLength",
     }
 )
+_CLAUDE_LOCAL_DEFINITION_PREFIX = "#/$defs/"
 _TOOL_FAILURE_RESULT = json.dumps(
     {
         "error": "operator_operation_outcome_uncertain",
@@ -292,24 +294,59 @@ def _build_claude_output_schema() -> dict[str, Any]:
         "type": "object",
         "properties": {
             "result": {
-                "anyOf": _transform_claude_schema_value(variants),
+                "anyOf": _transform_claude_schema_value(
+                    variants,
+                    definitions=definitions,
+                ),
             }
         },
         "required": ["result"],
         "additionalProperties": False,
-        "$defs": _transform_claude_schema_value(definitions),
     }
 
 
-def _transform_claude_schema_value(value: object) -> object:
+def _transform_claude_schema_value(
+    value: object,
+    *,
+    definitions: dict[str, object],
+    resolving: tuple[str, ...] = (),
+) -> object:
     if isinstance(value, dict):
+        if "$ref" in value:
+            reference = value["$ref"]
+            if not isinstance(reference, str) or not reference.startswith(
+                _CLAUDE_LOCAL_DEFINITION_PREFIX
+            ):
+                raise RuntimeError("Operator result schema contains an invalid reference")
+            definition_name = reference.removeprefix(_CLAUDE_LOCAL_DEFINITION_PREFIX)
+            definition = definitions.get(definition_name)
+            if not definition_name or not isinstance(definition, dict):
+                raise RuntimeError("Operator result schema contains a missing definition")
+            if definition_name in resolving:
+                raise RuntimeError("Operator result schema contains a cyclic definition")
+            return _transform_claude_schema_value(
+                definition,
+                definitions=definitions,
+                resolving=(*resolving, definition_name),
+            )
         return {
-            ("anyOf" if key == "oneOf" else key): _transform_claude_schema_value(child)
+            ("anyOf" if key == "oneOf" else key): _transform_claude_schema_value(
+                child,
+                definitions=definitions,
+                resolving=resolving,
+            )
             for key, child in value.items()
             if key not in _CLAUDE_OUTPUT_SCHEMA_OMITTED_KEYS
         }
     if isinstance(value, list):
-        return [_transform_claude_schema_value(child) for child in value]
+        return [
+            _transform_claude_schema_value(
+                child,
+                definitions=definitions,
+                resolving=resolving,
+            )
+            for child in value
+        ]
     return value
 
 

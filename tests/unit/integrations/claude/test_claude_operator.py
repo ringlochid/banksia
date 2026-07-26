@@ -205,13 +205,18 @@ def _runner(
     )
 
 
-def _schema_keys(value: object) -> set[str]:
+def _schema_keywords(value: object) -> set[str]:
     if isinstance(value, dict):
-        return set(value) | {
-            nested_key for child in value.values() for nested_key in _schema_keys(child)
-        }
+        keywords = set(value)
+        for key, child in value.items():
+            if key == "properties" and isinstance(child, dict):
+                for property_schema in child.values():
+                    keywords.update(_schema_keywords(property_schema))
+            else:
+                keywords.update(_schema_keywords(child))
+        return keywords
     if isinstance(value, list):
-        return {nested_key for child in value for nested_key in _schema_keys(child)}
+        return {nested_keyword for child in value for nested_keyword in _schema_keywords(child)}
     return set()
 
 
@@ -276,17 +281,45 @@ async def test_claude_operator_turn_uses_only_exact_private_tools_and_native_out
     assert output_schema["type"] == "object"
     assert output_schema["required"] == ["result"]
     assert output_schema["additionalProperties"] is False
-    assert output_result_schema["anyOf"] == controller_schema["oneOf"]
-    assert set(cast(dict[str, Any], output_schema["$defs"])) == set(
-        cast(dict[str, Any], controller_schema["$defs"])
-    )
-    assert not _schema_keys(output_schema) & {
-        "discriminator",
-        "maxItems",
-        "maxLength",
-        "minItems",
-        "minLength",
-        "oneOf",
+    variants = cast(list[dict[str, Any]], output_result_schema["anyOf"])
+    assert len(variants) == len(cast(list[object], controller_schema["oneOf"])) == 2
+    variants_by_kind = {variant["properties"]["kind"]["const"]: variant for variant in variants}
+    assert set(variants_by_kind) == {"message", "ask_user"}
+
+    message_schema = variants_by_kind["message"]
+    assert message_schema["type"] == "object"
+    assert message_schema["additionalProperties"] is False
+    assert message_schema["required"] == ["kind", "text"]
+    assert message_schema["properties"]["kind"] == {
+        "const": "message",
+        "title": "Kind",
+        "type": "string",
+    }
+    assert message_schema["properties"]["text"]["type"] == "string"
+
+    ask_user_schema = variants_by_kind["ask_user"]
+    assert ask_user_schema["type"] == "object"
+    assert ask_user_schema["additionalProperties"] is False
+    assert ask_user_schema["required"] == ["kind", "questions"]
+    question_schema = ask_user_schema["properties"]["questions"]["items"]
+    assert question_schema["type"] == "object"
+    assert question_schema["additionalProperties"] is False
+    assert question_schema["required"] == ["header", "question", "options"]
+    assert question_schema["properties"]["allow_skip"]["type"] == "boolean"
+    option_schema = question_schema["properties"]["options"]["items"]
+    assert option_schema["type"] == "object"
+    assert option_schema["additionalProperties"] is False
+    assert option_schema["required"] == ["label", "description"]
+
+    assert _schema_keywords(output_schema) <= {
+        "additionalProperties",
+        "anyOf",
+        "const",
+        "items",
+        "properties",
+        "required",
+        "title",
+        "type",
     }
 
 
@@ -421,8 +454,8 @@ async def test_claude_private_mcp_tool_calls_one_leaf_and_redacts_failures() -> 
         {**_message_output("wrapped"), "unexpected": True},
         _structured_output(
             {
-                "kind": "operator_return",
-                "text": "not part of the contract",
+                "kind": "ask_user",
+                "questions": [],
             }
         ),
         _message_output("x" * (MAX_OPERATOR_TEXT_BYTES + 1)),

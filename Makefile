@@ -12,7 +12,7 @@ COMPOSE := docker compose
 TEST_COMPOSE := COMPOSE_PROJECT_NAME=banksia-test-db $(COMPOSE)
 TREE_IGNORE := .git|.venv|node_modules|dist|build|tmp|.pytest_cache|.mypy_cache|.ruff_cache|.coverage|coverage|htmlcov|__pycache__|*.egg-info|*.pyc
 
-.PHONY: tree clean-local backend-install backend-dev test-backend test-backend-unit test-backend-integration test-backend-integration-local test-backend-db test-backend-e2e-bounded test-backend-e2e-reviewed test-backend-e2e-staged docker-up docker-down docker-logs lint-backend format-backend typecheck-backend pyright-backend check-backend backend-openapi-generate backend-openapi-check console-install console-dev console-format console-format-check console-lint console-typecheck console-openapi-generate console-openapi-check console-test console-test-integration console-e2e console-e2e-real console-build console-package-assets check-console package-build package-verify docs-format docs-format-check docs-contract-check docs-inventory docs-prompt-generate docs-prompt-check prompt-behavior-eval test-docs check-docs install-user-service
+.PHONY: tree clean-local backend-install backend-dev test-backend test-backend-unit test-backend-integration test-backend-db test-backend-e2e-bounded test-backend-e2e-reviewed test-backend-e2e-staged docker-up docker-down docker-logs lint-backend format-backend typecheck-backend pyright-backend check-backend backend-openapi-generate backend-openapi-check console-install console-dev console-format console-format-check console-lint console-typecheck console-openapi-generate console-openapi-check console-test console-test-integration console-e2e console-e2e-real console-build console-package-assets check-console package-build package-verify docs-format docs-format-check docs-contract-check docs-inventory docs-prompt-generate docs-prompt-check prompt-behavior-eval test-docs check-docs install-user-service
 
 tree:
 	@tree -a -L 6 --dirsfirst --prune --gitignore -I '$(TREE_IGNORE)'
@@ -50,8 +50,6 @@ test-backend-unit: $(PYTHON)
 
 test-backend-integration: $(PYTHON)
 	PYTEST_BIN=$(PYTEST) PYTHONPATH=$(CURDIR)/src sh scripts/testing/run_backend_pytest_groups.sh integration
-
-test-backend-integration-local: test-backend-integration
 
 test-backend-db:
 	@set -eu; \

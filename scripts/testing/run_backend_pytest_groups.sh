@@ -15,7 +15,6 @@ print_usage() {
 Usage:
   run_backend_pytest_groups.sh list
   run_backend_pytest_groups.sh integration
-  run_backend_pytest_groups.sh integration-local
   run_backend_pytest_groups.sh e2e-bounded
   run_backend_pytest_groups.sh e2e-reviewed
   run_backend_pytest_groups.sh e2e-staged
@@ -44,7 +43,7 @@ list_suite() {
   suite="$1"
   printf '\n[%s]\n' "$suite"
   case "$suite" in
-    integration|integration-local)
+    integration)
       describe_group \
         "workflow-and-runtime-schema" \
         tests/integration/runtime_schema_contract \
@@ -143,7 +142,7 @@ main() {
       list_suite integration
       list_suite e2e-all
       ;;
-    integration|integration-local)
+    integration)
       run_integration_groups
       ;;
     e2e-bounded|e2e-reviewed|e2e-staged|e2e-all)

@@ -180,7 +180,6 @@ Rules:
 - `make check-backend` runs lint, mypy, and pyright only; it is not a test command
 - `make test-backend` and `make test-backend-unit` run `tests/unit`
 - `make test-backend-integration` runs the canonical repo-native SQLite and runtime-template integration groups
-- `make test-backend-integration-local` remains a compatibility alias for `make test-backend-integration`
 - `make test-backend-db` runs the Docker/Postgres-backed integration groups only
 - `make test-backend-e2e-bounded`, `make test-backend-e2e-reviewed`, and `make test-backend-e2e-staged` are the progressive e2e lanes
 - `make console-format-check`, `make console-lint`, `make console-typecheck`, `make console-openapi-check`, `make console-test`, `make console-test-integration`, and `make console-build` are the console proof lanes

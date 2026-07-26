@@ -14,7 +14,6 @@ Use this guide when adding tests, reorganizing test trees, or deciding what coun
 
 - `make test-backend` and `make test-backend-unit`: unit behavior under `tests/unit`
 - `make test-backend-integration`: canonical repo-native SQLite and runtime-template integration behavior
-- `make test-backend-integration-local`: compatibility alias for the same local integration lane
 - `make test-backend-db`: specialized Docker/Postgres-backed integration behavior using shipped schema/setup paths
 - `make test-backend-e2e-bounded|reviewed|staged`: progressive end-to-end behavior
 - `make console-test`: frontend unit and component behavior under `console/tests/unit` and `console/tests/component`

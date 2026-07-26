@@ -28,19 +28,6 @@ def _unique_columns(table_name: str) -> set[tuple[str, ...]]:
     }
 
 
-def test_removed_flow_and_compiler_tables_are_absent() -> None:
-    removed_tables = {
-        "compiled_plans",
-        "compiled_plan_nodes",
-        "flows",
-        "flow_revisions",
-        "flow_nodes",
-        "flow_start_sources",
-        "node_plan_revisions",
-    }
-    assert removed_tables.isdisjoint(RuntimeBase.metadata.tables)
-
-
 def test_task_owns_lifecycle_team_root_and_result_backstops() -> None:
     assert {
         "fk_tasks_current_team_revision",

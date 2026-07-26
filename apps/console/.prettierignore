@@ -1,6 +1,0 @@
-coverage
-dist
-node_modules
-playwright-report
-src/api/generated/openapi.ts
-test-results

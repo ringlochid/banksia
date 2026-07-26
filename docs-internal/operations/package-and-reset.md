@@ -6,7 +6,7 @@ This page owns distribution contents, installed verification, exact schema admis
 
 ## Distribution boundary
 
-`pyproject.toml` is the package contract. The distribution is `banksia-ai`, the Python package and console command are `banksia`, and Python 3.12 or newer is required.
+`pyproject.toml` is the package contract. The distribution is `banksia-ai` at version `0.1.0`, the Python package and console command are `banksia`, and Python 3.12 or newer is required.
 
 The built wheel contains:
 
@@ -18,7 +18,7 @@ The built wheel contains:
 
 It contains no environment file, provider credential, Python cache, ignored research, source-only test fixture, request-pair file, or removed compatibility entry point.
 
-`make package-build` is the complete candidate command: it builds and stages the Console, builds wheel and source distribution artifacts, and verifies package data. A bare `python -m build` does not prove the packaged Console or installed behavior.
+`make package-build` builds and stages the Console, creates wheel and source distribution artifacts, and verifies their identity and contents. `make package-verify` rebuilds those artifacts and runs the complete installed candidate proof in a trapped temporary directory outside the repository. The verifier rejects an in-repository workspace and proves that the repository Git-exclude file remains byte-identical. A bare `python -m build` does not prove the packaged Console or installed behavior.
 
 The installed-distribution verifier installs the wheel into a fresh virtual environment outside the repository and exercises imports, CLI, initialization, exact schema setup, provider configuration, Workflow bootstrap, Task start, server health/readiness, restart, and the isolated user-service command path.
 

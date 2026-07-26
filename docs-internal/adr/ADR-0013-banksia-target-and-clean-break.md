@@ -4,7 +4,7 @@ Status: Accepted
 
 ## Decision summary
 
-Banksia is the successor product identity and the versionless design tree is its target authority. The migration preserves proven controller invariants one ownership seam at a time, but the released product is a reset-only clean break: one authored Workflow definition, Task/Attempt/Delegation Wave runtime ownership, one shared native workspace, semantic product interfaces, and no AutoClaw compatibility aliases or live version-era canon.
+Banksia is the product identity, and the maintained subject owners routed from the [internal documentation](../README.md) are its implementation authority. Banksia is a reset-only clean break: one authored Workflow definition, Task/Attempt/Delegation Wave runtime ownership, one shared native workspace, semantic product interfaces, and no AutoClaw compatibility aliases or version-era canon.
 
 ## Context
 
@@ -24,7 +24,7 @@ The product is Banksia. Its eventual released identities are:
 - Console package `@banksia/console`; and
 - first release `0.1.0`.
 
-The [Banksia internal documentation](../README.md) routes the authoritative subject owners. Accepted older ADRs remain useful evidence for controller invariants and prior rationale, but ADR-0013 and the maintained subject owners supersede their product, schema, workspace, prompt, tool, and runtime shapes wherever they conflict.
+The [Banksia internal documentation](../README.md) routes the authoritative subject owners. Git history preserves deleted migration evidence and prior rationale; it is not a second source of current product, schema, workspace, prompt, tool, or runtime truth.
 
 ### Preserve-first implementation
 
@@ -77,7 +77,7 @@ External MCP integration, Skills, distributed execution, a Task-wide provider qu
 - Every removed concept needs an explicit writer/read/deletion ledger and replacement proof; clean break does not mean unsafe bulk deletion.
 - Reset is required at Banksia identity and schema cutover. Existing AutoClaw state remains historical data, not an input accepted by the new product.
 - Reference examples and packaged Starter Workflow seeds remain separate. Only the provider-neutral seed inventory is eligible for bootstrap.
-- During migration, frozen legacy pages and old ADRs may describe real shipped behavior. Their continued presence is not permission to expose a second target contract.
+- Git history preserves deleted migration evidence without creating a second live authority.
 - Release is blocked by any surviving compatibility bridge, target-authority fork, unowned invariant, or unexplained required-proof gap.
 
 ## Alternatives rejected
@@ -96,7 +96,7 @@ Rejected because dual names and schemas create parallel authority, enlarge the t
 
 ### Keep V1/V2/current as parallel live canon
 
-Rejected because an implementation agent cannot resolve contradictory target truth safely from chronology. Versionless subject owners provide one explicit destination; frozen trees remain evidence until deletion.
+Rejected because an implementation agent cannot resolve contradictory target truth safely from chronology. Maintained subject owners provide one explicit authority; Git history preserves deleted evidence.
 
 ### Put orchestration timing in Workflow authoring
 

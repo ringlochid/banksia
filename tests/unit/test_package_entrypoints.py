@@ -11,12 +11,14 @@ from importlib.metadata import version
 from pathlib import Path
 from typing import Any, cast
 
+import pytest
 from fastapi import FastAPI
 
 import banksia
 from banksia.interfaces.cli.main import main
 from banksia.main import app, create_app
 from banksia.platform.managed_services.resources import get_managed_service_resources_root
+from scripts.testing.verify_installed_distribution import validate_external_workspace
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPO_ROOT / "src"
@@ -128,8 +130,8 @@ def test_pyproject_ships_canonical_packages_only() -> None:
     scripts = cast(dict[str, str], project_config["scripts"])
 
     assert project_config["name"] == "banksia-ai"
-    assert project_config["version"] == "0.1.8"
-    assert version("banksia-ai") == "0.1.8"
+    assert project_config["version"] == "0.1.0"
+    assert version("banksia-ai") == "0.1.0"
     assert package_dir == {"": "src"}
     assert packages_find == {
         "where": ["src"],
@@ -257,5 +259,47 @@ def test_resource_owner_helpers_point_to_canonical_package_paths() -> None:
 
     assert workflow_root.joinpath("reviewed-delivery.yaml").is_file()
     assert service_root.name == "resources"
-    # WP-01 slice B owns the operational service-resource rename.
     assert service_root.joinpath("systemd", "banksia.service").is_file()
+
+
+def test_clean_local_preserves_ignored_research(tmp_path: Path) -> None:
+    research_note = tmp_path / "tmp" / "codex" / "target" / "keep.md"
+    research_note.parent.mkdir(parents=True)
+    research_note.write_text("keep\n", encoding="utf-8")
+    generated_paths = (
+        tmp_path / ".pytest_cache",
+        tmp_path / "dist",
+        tmp_path / "console" / "dist",
+        tmp_path / "src" / "banksia" / "interfaces" / "web_console" / "assets",
+    )
+    for generated_path in generated_paths:
+        generated_path.mkdir(parents=True)
+        generated_path.joinpath("generated.txt").write_text("remove\n", encoding="utf-8")
+
+    result = subprocess.run(
+        ["make", "-f", str(REPO_ROOT / "Makefile"), "clean-local"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert research_note.read_text(encoding="utf-8") == "keep\n"
+    assert all(not generated_path.exists() for generated_path in generated_paths)
+
+
+def test_installed_distribution_workspace_must_be_external(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+
+    with pytest.raises(AssertionError, match="must be outside the repository"):
+        validate_external_workspace(
+            workspace=repo_root / "tmp" / "installed-proof",
+            repo_root=repo_root,
+        )
+
+    validate_external_workspace(
+        workspace=tmp_path / "external-installed-proof",
+        repo_root=repo_root,
+    )

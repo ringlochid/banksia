@@ -14,7 +14,6 @@ COPY README.md /app/README.md
 COPY pyproject.toml /app/pyproject.toml
 COPY src /app/src
 COPY tests /app/tests
-COPY docs-internal/design/appendices/workflow-seeds /app/docs-internal/design/appendices/workflow-seeds
 COPY scripts/testing /app/scripts/testing
 
 RUN python -m pip install --upgrade pip \

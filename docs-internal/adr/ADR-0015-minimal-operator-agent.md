@@ -10,7 +10,7 @@ Operator is not a second Task runtime. It has two durable record types, six prod
 
 ## Context
 
-The contract in ADR-0014 tried to create recoverable execution and effect authority around an assistant conversation. It consequently reproduced runtime machinery beside the Task runtime: queued invocations, claims, provider-call identities, effect records, confirmations, and retry coordination.
+The superseded Operator contract tried to create recoverable execution and effect authority around an assistant conversation. It consequently reproduced runtime machinery beside the Task runtime: queued invocations, claims, provider-call identities, effect records, confirmations, and retry coordination.
 
 Operator needs a much smaller boundary. It helps a person author and operate Banksia through already-authoritative Workflow, Task, Human Request, and Command Run services. Those services already own ETags, Undo receipts, opaque legal-action IDs, validation, and accepted results.
 
@@ -43,7 +43,7 @@ The pinned Claude and Codex SDKs both support typed turn results and controller-
 
 ## Alternatives rejected
 
-### Keep the ADR-0014 invocation and effect wrapper
+### Keep the superseded invocation and effect wrapper
 
 Rejected because it duplicates Task-runtime coordination without adding product authority that the owning services do not already have.
 

@@ -18,8 +18,11 @@ tree:
 	@tree -a -L 6 --dirsfirst --prune --gitignore -I '$(TREE_IGNORE)'
 
 clean-local:
-	rm -rf .openclaw-run-logs tmp .pytest_cache .mypy_cache .ruff_cache
-	rm -rf console/dist console/node_modules $(CONSOLE_ASSET_DIR)
+	rm -rf .pytest_cache .mypy_cache .ruff_cache .coverage coverage htmlcov
+	rm -rf build dist src/banksia_ai.egg-info
+	rm -rf node_modules console/dist console/node_modules
+	rm -rf console/test-results console/playwright-report
+	rm -rf $(CONSOLE_ASSET_DIR)
 
 $(PYTHON):
 	python3 -m venv .venv
@@ -167,12 +170,18 @@ check-console:
 package-build: $(PYTHON) console-package-assets
 	rm -rf $(CURDIR)/dist
 	$(PYTHON) -m build
-
-package-verify: package-build
-	rm -rf $(CURDIR)/tmp/installed-distribution-proof
 	PYTHONPATH=$(CURDIR)/src $(PYTHON) scripts/testing/verify_installed_distribution.py \
 		--dist-dir $(CURDIR)/dist \
-		--workspace $(CURDIR)/tmp/installed-distribution-proof
+		--artifacts-only
+
+package-verify: package-build
+	@set -eu; \
+	workspace=$$(mktemp -d); \
+	cleanup() { rm -rf "$$workspace"; }; \
+	trap cleanup EXIT INT TERM; \
+	PYTHONPATH=$(CURDIR)/src $(PYTHON) scripts/testing/verify_installed_distribution.py \
+		--dist-dir $(CURDIR)/dist \
+		--workspace "$$workspace"
 
 docs-format: $(PYTHON)
 	$(PYTHON) -m scripts.docs.format_markdown --write

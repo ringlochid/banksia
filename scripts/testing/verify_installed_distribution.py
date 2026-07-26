@@ -15,12 +15,15 @@ import time
 import zipfile
 from collections.abc import Callable
 from dataclasses import dataclass
+from email.parser import Parser
 from http.client import HTTPConnection
 from pathlib import Path, PurePosixPath
 from typing import Any
 from urllib.error import URLError
 from urllib.request import urlopen
 
+EXPECTED_DISTRIBUTION_NAME = "banksia-ai"
+EXPECTED_DISTRIBUTION_VERSION = "0.1.0"
 REQUIRED_PACKAGE_MEMBERS = (
     "banksia/config.py",
     "banksia/main.py",
@@ -97,37 +100,54 @@ def main() -> int:
         description="Verify built Banksia artifacts and the isolated user-service installer."
     )
     parser.add_argument("--dist-dir", type=Path, required=True)
-    parser.add_argument("--workspace", type=Path, required=True)
+    parser.add_argument("--workspace", type=Path)
+    parser.add_argument("--artifacts-only", action="store_true")
     parser.add_argument("--repo-root", type=Path, default=Path(__file__).resolve().parents[2])
     args = parser.parse_args()
 
     dist_dir = args.dist_dir.resolve()
-    workspace = args.workspace.resolve()
-    repo_root = args.repo_root.resolve()
-    workspace.mkdir(parents=True, exist_ok=True)
     wheel_path = select_one_artifact(dist_dir, "*.whl")
     sdist_path = select_one_artifact(dist_dir, "*.tar.gz")
+    verify_artifact_names(wheel_path=wheel_path, sdist_path=sdist_path)
 
     wheel_members = inspect_wheel(wheel_path)
     sdist_members = inspect_sdist(sdist_path)
-    dependency_site_packages = Path(sysconfig.get_paths()["purelib"]).resolve()
-    installed_venv = workspace / "installed-venv"
-    create_offline_venv(installed_venv, dependency_site_packages)
-    install_wheel(installed_venv, wheel_path, workspace)
-    installed_smoke = verify_installed_runtime(installed_venv, workspace, repo_root)
-    installer_smoke = verify_user_service_installer(
-        wheel_path=wheel_path,
-        workspace=workspace,
-        repo_root=repo_root,
-        dependency_site_packages=dependency_site_packages,
-    )
+    artifact_payload = {
+        "wheel": artifact_result(wheel_path, wheel_members),
+        "sdist": artifact_result(sdist_path, sdist_members),
+    }
+    if args.artifacts_only:
+        print(json.dumps({"ok": True, **artifact_payload}, indent=2, sort_keys=True))
+        return 0
+    if args.workspace is None:
+        parser.error("--workspace is required unless --artifacts-only is used")
+
+    workspace = args.workspace.resolve()
+    repo_root = args.repo_root.resolve()
+    validate_external_workspace(workspace=workspace, repo_root=repo_root)
+    git_exclude_path = repo_root / ".git" / "info" / "exclude"
+    git_exclude_before = read_optional_file(git_exclude_path)
+    workspace.mkdir(parents=True, exist_ok=True)
+    try:
+        dependency_site_packages = Path(sysconfig.get_paths()["purelib"]).resolve()
+        installed_venv = workspace / "installed-venv"
+        create_offline_venv(installed_venv, dependency_site_packages)
+        install_wheel(installed_venv, wheel_path, workspace)
+        installed_smoke = verify_installed_runtime(installed_venv, workspace, repo_root)
+        installer_smoke = verify_user_service_installer(
+            wheel_path=wheel_path,
+            workspace=workspace,
+            repo_root=repo_root,
+            dependency_site_packages=dependency_site_packages,
+        )
+    finally:
+        assert_optional_file_unchanged(git_exclude_path, before=git_exclude_before)
 
     print(
         json.dumps(
             {
                 "ok": True,
-                "wheel": artifact_result(wheel_path, wheel_members),
-                "sdist": artifact_result(sdist_path, sdist_members),
+                **artifact_payload,
                 "installed": installed_smoke,
                 "installer": installer_smoke,
             },
@@ -138,6 +158,29 @@ def main() -> int:
     return 0
 
 
+def validate_external_workspace(*, workspace: Path, repo_root: Path) -> None:
+    if workspace == repo_root or repo_root in workspace.parents:
+        raise AssertionError(
+            f"installed-distribution workspace must be outside the repository: {workspace}"
+        )
+
+
+def read_optional_file(path: Path) -> tuple[bool, bytes]:
+    if not path.exists():
+        return False, b""
+    return True, path.read_bytes()
+
+
+def assert_optional_file_unchanged(
+    path: Path,
+    *,
+    before: tuple[bool, bytes],
+) -> None:
+    after = read_optional_file(path)
+    if after != before:
+        raise AssertionError(f"installed-distribution proof changed repository file: {path}")
+
+
 def select_one_artifact(dist_dir: Path, pattern: str) -> Path:
     artifacts = sorted(dist_dir.glob(pattern))
     if len(artifacts) != 1:
@@ -145,6 +188,21 @@ def select_one_artifact(dist_dir: Path, pattern: str) -> Path:
             f"expected exactly one {pattern} artifact in {dist_dir}, found {len(artifacts)}"
         )
     return artifacts[0].resolve()
+
+
+def verify_artifact_names(*, wheel_path: Path, sdist_path: Path) -> None:
+    expected_wheel_prefix = f"banksia_ai-{EXPECTED_DISTRIBUTION_VERSION}-"
+    if not wheel_path.name.startswith(expected_wheel_prefix):
+        raise AssertionError(
+            f"wheel has unexpected name or version: {wheel_path.name}; "
+            f"expected prefix {expected_wheel_prefix}"
+        )
+    expected_sdist_name = f"banksia_ai-{EXPECTED_DISTRIBUTION_VERSION}.tar.gz"
+    if sdist_path.name != expected_sdist_name:
+        raise AssertionError(
+            f"source distribution has unexpected name or version: {sdist_path.name}; "
+            f"expected {expected_sdist_name}"
+        )
 
 
 def inspect_wheel(wheel_path: Path) -> tuple[str, ...]:
@@ -164,8 +222,7 @@ def verify_wheel_identity(
     entry_points_member = select_member_with_suffix(members, ".dist-info/entry_points.txt")
     metadata = archive.read(metadata_member).decode("utf-8")
     entry_points = archive.read(entry_points_member).decode("utf-8")
-    if "Name: banksia-ai\n" not in metadata:
-        raise AssertionError("wheel metadata does not identify the banksia-ai distribution")
+    verify_core_metadata(metadata, source="wheel")
     if "banksia = banksia.interfaces.cli.main:main" not in entry_points:
         raise AssertionError("wheel does not expose the canonical Banksia console entry point")
     if "autoclaw" in entry_points.casefold():
@@ -182,12 +239,42 @@ def select_member_with_suffix(members: tuple[str, ...], suffix: str) -> str:
 def inspect_sdist(sdist_path: Path) -> tuple[str, ...]:
     with tarfile.open(sdist_path, mode="r:gz") as archive:
         raw_members = tuple(sorted(member.name for member in archive.getmembers()))
+        metadata_member = select_sdist_metadata_member(raw_members)
+        metadata_file = archive.extractfile(metadata_member)
+        if metadata_file is None:
+            raise AssertionError(f"could not read source metadata member: {metadata_member}")
+        verify_core_metadata(metadata_file.read().decode("utf-8"), source="source distribution")
     members = tuple(remove_sdist_root(member) for member in raw_members)
     required = (*REQUIRED_PACKAGE_MEMBERS, "LICENSE", "README.md", "pyproject.toml")
     verify_required_suffixes(members, required)
     verify_console_asset_members(members)
     verify_forbidden_members(members)
     return raw_members
+
+
+def select_sdist_metadata_member(members: tuple[str, ...]) -> str:
+    matches = [
+        member
+        for member in members
+        if len(PurePosixPath(member).parts) == 2 and PurePosixPath(member).name == "PKG-INFO"
+    ]
+    if len(matches) != 1:
+        raise AssertionError(f"expected one top-level source PKG-INFO member: {matches}")
+    return matches[0]
+
+
+def verify_core_metadata(metadata: str, *, source: str) -> None:
+    parsed = Parser().parsestr(metadata, headersonly=True)
+    if parsed["Name"] != EXPECTED_DISTRIBUTION_NAME:
+        raise AssertionError(
+            f"{source} has unexpected distribution name: {parsed['Name']!r}; "
+            f"expected {EXPECTED_DISTRIBUTION_NAME!r}"
+        )
+    if parsed["Version"] != EXPECTED_DISTRIBUTION_VERSION:
+        raise AssertionError(
+            f"{source} has unexpected version: {parsed['Version']!r}; "
+            f"expected {EXPECTED_DISTRIBUTION_VERSION!r}"
+        )
 
 
 def verify_package_members(members: tuple[str, ...]) -> None:
@@ -397,8 +484,10 @@ def assert_installed_import_contract(
             "-c",
             (
                 "from importlib.util import find_spec; "
+                "from importlib.metadata import version; "
                 "assert find_spec('autoclaw') is None; "
-                "assert find_spec('banksia.interfaces.web_console') is not None"
+                "assert find_spec('banksia.interfaces.web_console') is not None; "
+                f"assert version('banksia-ai') == '{EXPECTED_DISTRIBUTION_VERSION}'"
             ),
         ),
         cwd=cwd,

@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "banksia-ai"
-version = "0.1.8"
-description = "Local-first orchestration tool for delegated AI work"
+version = "0.1.0"
+description = "Accountable agent-team runtime for complex work"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]

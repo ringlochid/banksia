@@ -4,6 +4,92 @@
  */
 
 export interface paths {
+    "/api/operator/conversations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Operator Conversations */
+        get: operations["get_operator_conversations_api_operator_conversations_get"];
+        put?: never;
+        /** Post Operator Conversation */
+        post: operations["post_operator_conversation_api_operator_conversations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/operator/conversations/{conversation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Operator Conversation */
+        get: operations["get_operator_conversation_api_operator_conversations__conversation_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/operator/conversations/{conversation_id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Operator Message */
+        post: operations["post_operator_message_api_operator_conversations__conversation_id__messages_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/operator/conversations/{conversation_id}/question-sets/{question_set_id}/answers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Operator Question Answers */
+        post: operations["post_operator_question_answers_api_operator_conversations__conversation_id__question_sets__question_set_id__answers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/operator/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Operator Status */
+        get: operations["get_operator_status_api_operator_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/tasks": {
         parameters: {
             query?: never;
@@ -720,6 +806,308 @@ export interface components {
             /** Summary */
             summary: string;
         };
+        /** OperatorAnswerQuestionSetAction */
+        OperatorAnswerQuestionSetAction: {
+            /** Href */
+            href: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "answer_question_set";
+            /**
+             * Label
+             * @default Continue
+             * @constant
+             */
+            label: "Continue";
+            /**
+             * Method
+             * @default POST
+             * @constant
+             */
+            method: "POST";
+            /** Question Set Id */
+            question_set_id: string;
+        };
+        OperatorAnswerValue: components["schemas"]["OperatorOptionAnswer"] | components["schemas"]["OperatorCustomAnswer"] | components["schemas"]["OperatorSkipAnswer"];
+        /** OperatorAssistantMessageEntry */
+        OperatorAssistantMessageEntry: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Id */
+            id: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "assistant_message";
+            /** Text */
+            text: string;
+        };
+        /** OperatorAssistantQuestionSetEntry */
+        OperatorAssistantQuestionSetEntry: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Explanation */
+            explanation?: string | null;
+            /** Id */
+            id: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "assistant_question_set";
+            /** Questions */
+            questions: components["schemas"]["OperatorQuestion"][];
+        };
+        /** @enum {string} */
+        OperatorAvailability: "available" | "unconfigured" | "unavailable";
+        OperatorConversationAction: components["schemas"]["OperatorSendMessageAction"] | components["schemas"]["OperatorAnswerQuestionSetAction"] | components["schemas"]["OperatorCreateNewConversationAction"];
+        OperatorConversationEntry: components["schemas"]["OperatorUserMessageEntry"] | components["schemas"]["OperatorUserQuestionAnswersEntry"] | components["schemas"]["OperatorAssistantMessageEntry"] | components["schemas"]["OperatorAssistantQuestionSetEntry"] | components["schemas"]["OperatorTurnInterruptedEntry"];
+        /** OperatorConversationPage */
+        OperatorConversationPage: {
+            /** Items */
+            items: components["schemas"]["OperatorConversationSummary"][];
+            /** Next Cursor */
+            next_cursor?: string | null;
+        };
+        /** @enum {string} */
+        OperatorConversationState: "ready" | "running" | "awaiting_answer" | "interrupted" | "closed";
+        /** OperatorConversationSummary */
+        OperatorConversationSummary: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Id */
+            id: string;
+            /** Preview */
+            preview?: string | null;
+            /** Provider */
+            provider: string;
+            state: components["schemas"]["OperatorConversationState"];
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** OperatorConversationView */
+        OperatorConversationView: {
+            /** Actions */
+            actions: components["schemas"]["OperatorConversationAction"][];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Effort */
+            effort?: string | null;
+            /** Entries */
+            entries: components["schemas"]["OperatorConversationEntry"][];
+            /** Id */
+            id: string;
+            /** Model */
+            model?: string | null;
+            /** Older Cursor */
+            older_cursor?: string | null;
+            /** Provider */
+            provider: string;
+            state: components["schemas"]["OperatorConversationState"];
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** OperatorCreateNewConversationAction */
+        OperatorCreateNewConversationAction: {
+            /** Href */
+            href: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "create_new_conversation";
+            /**
+             * Label
+             * @default Start new conversation
+             * @constant
+             */
+            label: "Start new conversation";
+            /**
+             * Method
+             * @default POST
+             * @constant
+             */
+            method: "POST";
+        };
+        /** OperatorCustomAnswer */
+        OperatorCustomAnswer: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "custom";
+            /** Text */
+            text: string;
+        };
+        /** OperatorEmptyRequest */
+        OperatorEmptyRequest: Record<string, never>;
+        /** OperatorMessageRequest */
+        OperatorMessageRequest: {
+            /** Text */
+            text: string;
+        };
+        /** OperatorOptionAnswer */
+        OperatorOptionAnswer: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "option";
+            /** Option Id */
+            option_id: string;
+        };
+        /** OperatorQuestion */
+        OperatorQuestion: {
+            /**
+             * Allow Skip
+             * @default false
+             */
+            allow_skip: boolean;
+            /** Header */
+            header: string;
+            /** Id */
+            id: string;
+            /** Options */
+            options: components["schemas"]["OperatorQuestionOption"][];
+            /** Question */
+            question: string;
+        };
+        /** OperatorQuestionAnswer */
+        OperatorQuestionAnswer: {
+            answer: components["schemas"]["OperatorAnswerValue"];
+            /** Question Id */
+            question_id: string;
+        };
+        /** OperatorQuestionAnswersRequest */
+        OperatorQuestionAnswersRequest: {
+            /** Answers */
+            answers: components["schemas"]["OperatorQuestionAnswer"][];
+        };
+        /** OperatorQuestionOption */
+        OperatorQuestionOption: {
+            /** Description */
+            description: string;
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
+        };
+        /** OperatorSendMessageAction */
+        OperatorSendMessageAction: {
+            /** Href */
+            href: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "send_message";
+            /**
+             * Label
+             * @default Send message
+             * @constant
+             */
+            label: "Send message";
+            /**
+             * Method
+             * @default POST
+             * @constant
+             */
+            method: "POST";
+        };
+        /** OperatorSkipAnswer */
+        OperatorSkipAnswer: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "skip";
+        };
+        /** OperatorStatusResponse */
+        OperatorStatusResponse: {
+            availability: components["schemas"]["OperatorAvailability"];
+            /** Configured Provider */
+            configured_provider?: string | null;
+            /** Explanation */
+            explanation: string;
+            /** Setup Action */
+            setup_action?: string | null;
+        };
+        /** OperatorTurnInterruptedEntry */
+        OperatorTurnInterruptedEntry: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Explanation */
+            explanation: string;
+            /** Id */
+            id: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "turn_interrupted";
+            /** Next Step */
+            next_step: string;
+        };
+        /** OperatorUserMessageEntry */
+        OperatorUserMessageEntry: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Id */
+            id: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "user_message";
+            /** Text */
+            text: string;
+        };
+        /** OperatorUserQuestionAnswersEntry */
+        OperatorUserQuestionAnswersEntry: {
+            /** Answers */
+            answers: components["schemas"]["OperatorQuestionAnswer"][];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Id */
+            id: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "user_question_answers";
+            /** Question Set Id */
+            question_set_id: string;
+        };
         /** ProductAction */
         ProductAction: {
             confirmation: components["schemas"]["ProductActionConfirmation"];
@@ -1331,6 +1719,490 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    get_operator_conversations_api_operator_conversations_get: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperatorConversationPage"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+        };
+    };
+    post_operator_conversation_api_operator_conversations_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OperatorEmptyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperatorConversationView"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+        };
+    };
+    get_operator_conversation_api_operator_conversations__conversation_id__get: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                conversation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperatorConversationView"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+        };
+    };
+    post_operator_message_api_operator_conversations__conversation_id__messages_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                conversation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OperatorMessageRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperatorConversationView"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+        };
+    };
+    post_operator_question_answers_api_operator_conversations__conversation_id__question_sets__question_set_id__answers_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                conversation_id: string;
+                question_set_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OperatorQuestionAnswersRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperatorConversationView"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+        };
+    };
+    get_operator_status_api_operator_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperatorStatusResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+        };
+    };
     get_tasks_api_tasks_get: {
         parameters: {
             query?: {

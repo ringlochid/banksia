@@ -5,6 +5,7 @@ import { RouterProvider } from "react-router-dom";
 import "./styles/index.css";
 import "./components/ui/ui.css";
 import "./components/layout/shell.css";
+import "./features/operator/operator.css";
 import "./features/workflows/workflows.css";
 import "./features/workflow-studio/studio.css";
 import { router } from "./app/router";

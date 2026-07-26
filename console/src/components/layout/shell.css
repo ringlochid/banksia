@@ -74,9 +74,18 @@
 }
 
 .shell__nav-link:hover,
-.shell__nav-link.is-active {
+.shell__nav-link.is-active,
+.shell__operator-toggle:hover,
+.shell__operator-toggle[aria-expanded="true"] {
     background: var(--banksia-leaf-soft);
     color: var(--banksia-leaf-hover);
+}
+
+.shell__operator-toggle {
+    min-height: 2.75rem;
+    border: 0;
+    color: var(--banksia-ink-650);
+    font-weight: 700;
 }
 
 .shell__main {

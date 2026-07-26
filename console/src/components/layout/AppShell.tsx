@@ -1,7 +1,19 @@
-import { Sprout } from "lucide-react";
+import { Bot, Sprout } from "lucide-react";
+import { useRef, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 
+import { operatorApi } from "../../app/api";
+import { OperatorPanel } from "../../features/operator/OperatorPanel";
+
 export function AppShell() {
+    const [operatorOpen, setOperatorOpen] = useState(false);
+    const operatorToggleRef = useRef<HTMLButtonElement>(null);
+
+    function closeOperator(): void {
+        setOperatorOpen(false);
+        operatorToggleRef.current?.focus();
+    }
+
     return (
         <>
             <a className="shell__skip" href="#banksia-main">
@@ -36,6 +48,17 @@ export function AppShell() {
                         >
                             Runs
                         </NavLink>
+                        <button
+                            aria-controls="banksia-operator"
+                            aria-expanded={operatorOpen}
+                            className="ui-button ui-button--quiet shell__operator-toggle"
+                            onClick={() => setOperatorOpen((open) => !open)}
+                            ref={operatorToggleRef}
+                            type="button"
+                        >
+                            <Bot aria-hidden="true" size={17} />
+                            Operator
+                        </button>
                     </nav>
                 </div>
             </header>
@@ -47,6 +70,11 @@ export function AppShell() {
             >
                 <Outlet />
             </main>
+            <OperatorPanel
+                api={operatorApi}
+                isOpen={operatorOpen}
+                onClose={closeOperator}
+            />
         </>
     );
 }

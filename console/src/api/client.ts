@@ -48,6 +48,37 @@ export class ApiNetworkError extends Error {
     }
 }
 
+export async function requestProductApi<T>(
+    apiRoot: string,
+    path: string,
+    init: RequestInit = {},
+): Promise<ControllerResponse<T>> {
+    let response: Response;
+    try {
+        response = await fetch(resolveProductApiUrl(apiRoot, path), {
+            ...init,
+            headers: {
+                Accept: "application/json",
+                ...init.headers,
+            },
+        });
+    } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+            throw error;
+        }
+        throw new ApiNetworkError(error);
+    }
+    const body = await responseBody(response);
+    if (!response.ok) {
+        throw new ApiResponseError(response.status, unwrapHttpDetail(body));
+    }
+    return {
+        body: body as T,
+        etag: response.headers.get("ETag"),
+        status: response.status,
+    };
+}
+
 export interface WorkflowApi {
     searchWorkflows(
         query: string,
@@ -106,7 +137,8 @@ export class WorkflowApiClient implements WorkflowApi {
             parameters.set("cursor", cursor);
         }
         const suffix = parameters.size === 0 ? "" : `?${parameters.toString()}`;
-        return this.request(
+        return requestProductApi(
+            this.apiRoot,
             `/workflows${suffix}`,
             signal === undefined ? {} : { signal },
         );
@@ -116,7 +148,8 @@ export class WorkflowApiClient implements WorkflowApi {
         workflowId: string,
         signal?: AbortSignal,
     ): Promise<ControllerResponse<WorkflowGetResponse>> {
-        return this.request(
+        return requestProductApi(
+            this.apiRoot,
             `/workflows/${encodeURIComponent(workflowId)}`,
             signal === undefined ? {} : { signal },
         );
@@ -125,7 +158,8 @@ export class WorkflowApiClient implements WorkflowApi {
     public getAuthoringOptions(
         signal?: AbortSignal,
     ): Promise<ControllerResponse<WorkflowAuthoringOptions>> {
-        return this.request(
+        return requestProductApi(
+            this.apiRoot,
             "/workflows/authoring-options",
             signal === undefined ? {} : { signal },
         );
@@ -134,13 +168,18 @@ export class WorkflowApiClient implements WorkflowApi {
     public createWorkflow(
         request: CreateWorkflowDraftRequest,
     ): Promise<ControllerResponse<WorkflowDraftOpenResult>> {
-        return this.request("/workflow-drafts", jsonRequest("POST", request));
+        return requestProductApi(
+            this.apiRoot,
+            "/workflow-drafts",
+            jsonRequest("POST", request),
+        );
     }
 
     public openWorkflow(
         workflowId: string,
     ): Promise<ControllerResponse<WorkflowDraftOpenResult>> {
-        return this.request(
+        return requestProductApi(
+            this.apiRoot,
             "/workflow-drafts",
             jsonRequest("POST", { kind: "open", workflow_id: workflowId }),
         );
@@ -151,7 +190,8 @@ export class WorkflowApiClient implements WorkflowApi {
         etag: string,
         operation: DraftOperation,
     ): Promise<ControllerResponse<WorkflowDraftMutationResult>> {
-        return this.request(
+        return requestProductApi(
+            this.apiRoot,
             `/workflow-drafts/${encodeURIComponent(draftId)}`,
             jsonRequest("PATCH", operation, etag),
         );
@@ -160,7 +200,8 @@ export class WorkflowApiClient implements WorkflowApi {
     public validateDraft(
         draftId: string,
     ): Promise<ControllerResponse<WorkflowDraftValidationResult>> {
-        return this.request(
+        return requestProductApi(
+            this.apiRoot,
             `/workflow-drafts/${encodeURIComponent(draftId)}/validate`,
             { method: "POST" },
         );
@@ -170,7 +211,8 @@ export class WorkflowApiClient implements WorkflowApi {
         draftId: string,
         etag: string,
     ): Promise<ControllerResponse<WorkflowPublishedReadback>> {
-        return this.request(
+        return requestProductApi(
+            this.apiRoot,
             `/workflow-drafts/${encodeURIComponent(draftId)}/publish`,
             { method: "POST", headers: { "If-Match": etag } },
         );
@@ -180,10 +222,14 @@ export class WorkflowApiClient implements WorkflowApi {
         draftId: string,
         etag: string,
     ): Promise<ControllerResponse<WorkflowDraftDiscardResult>> {
-        return this.request(`/workflow-drafts/${encodeURIComponent(draftId)}`, {
-            method: "DELETE",
-            headers: { "If-Match": etag },
-        });
+        return requestProductApi(
+            this.apiRoot,
+            `/workflow-drafts/${encodeURIComponent(draftId)}`,
+            {
+                method: "DELETE",
+                headers: { "If-Match": etag },
+            },
+        );
     }
 
     public undoDraft(
@@ -191,40 +237,11 @@ export class WorkflowApiClient implements WorkflowApi {
         etag: string,
         receiptId: string,
     ): Promise<ControllerResponse<WorkflowDraftReadback>> {
-        return this.request(
+        return requestProductApi(
+            this.apiRoot,
             `/workflow-drafts/${encodeURIComponent(draftId)}/undo`,
             jsonRequest("POST", { receipt_id: receiptId }, etag),
         );
-    }
-
-    private async request<T>(
-        path: string,
-        init: RequestInit = {},
-    ): Promise<ControllerResponse<T>> {
-        let response: Response;
-        try {
-            response = await fetch(`${this.apiRoot}${path}`, {
-                ...init,
-                headers: {
-                    Accept: "application/json",
-                    ...init.headers,
-                },
-            });
-        } catch (error) {
-            if (error instanceof DOMException && error.name === "AbortError") {
-                throw error;
-            }
-            throw new ApiNetworkError(error);
-        }
-        const body = await responseBody(response);
-        if (!response.ok) {
-            throw new ApiResponseError(response.status, unwrapHttpDetail(body));
-        }
-        return {
-            body: body as T,
-            etag: response.headers.get("ETag"),
-            status: response.status,
-        };
     }
 }
 
@@ -281,4 +298,16 @@ function responseMessage(body: unknown, status: number): string {
 
 function isObject(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null;
+}
+
+function resolveProductApiUrl(apiRoot: string, path: string): string {
+    const normalizedRoot = apiRoot.endsWith("/")
+        ? apiRoot.slice(0, -1)
+        : apiRoot;
+    if (path === "/api" || path.startsWith("/api/")) {
+        return normalizedRoot.endsWith("/api")
+            ? `${normalizedRoot.slice(0, -4)}${path}`
+            : `${normalizedRoot}${path}`;
+    }
+    return `${normalizedRoot}${path.startsWith("/") ? path : `/${path}`}`;
 }

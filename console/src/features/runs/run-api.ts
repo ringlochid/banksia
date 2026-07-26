@@ -1,9 +1,5 @@
 import type { components } from "../../api/generated/openapi";
-import {
-    ApiNetworkError,
-    ApiResponseError,
-    type ControllerResponse,
-} from "../../api/client";
+import { requestProductApi, type ControllerResponse } from "../../api/client";
 
 export type CommandRunCancelReceipt =
     components["schemas"]["CommandRunCancelReceipt"];
@@ -86,7 +82,8 @@ export class RunApiClient implements RunApi {
         if (cursor !== null) {
             parameters.set("cursor", cursor);
         }
-        return this.request(
+        return requestProductApi(
+            this.apiRoot,
             `/tasks${querySuffix(parameters)}`,
             signal === undefined ? {} : { signal },
         );
@@ -95,7 +92,8 @@ export class RunApiClient implements RunApi {
     public searchWorkflows(
         signal?: AbortSignal,
     ): Promise<ControllerResponse<WorkflowSearchResponse>> {
-        return this.request(
+        return requestProductApi(
+            this.apiRoot,
             "/workflows",
             signal === undefined ? {} : { signal },
         );
@@ -104,14 +102,19 @@ export class RunApiClient implements RunApi {
     public startRun(
         request: TaskStartRequest,
     ): Promise<ControllerResponse<TaskStartReceipt>> {
-        return this.request("/tasks", jsonRequest("POST", request));
+        return requestProductApi(
+            this.apiRoot,
+            "/tasks",
+            jsonRequest("POST", request),
+        );
     }
 
     public getRun(
         taskId: string,
         signal?: AbortSignal,
     ): Promise<ControllerResponse<TaskView>> {
-        return this.request(
+        return requestProductApi(
+            this.apiRoot,
             `/tasks/${encodeURIComponent(taskId)}`,
             signal === undefined ? {} : { signal },
         );
@@ -122,7 +125,8 @@ export class RunApiClient implements RunApi {
         actionId: string,
         confirmed: boolean,
     ): Promise<ControllerResponse<TaskControlReceipt>> {
-        return this.request(
+        return requestProductApi(
+            this.apiRoot,
             `/tasks/${encodeURIComponent(taskId)}/controls/${encodeURIComponent(actionId)}`,
             jsonRequest("POST", { confirmed }),
         );
@@ -134,7 +138,8 @@ export class RunApiClient implements RunApi {
         actionId: string,
         input: HumanRequestResponseInput,
     ): Promise<ControllerResponse<HumanRequestResponseReceipt>> {
-        return this.request(
+        return requestProductApi(
+            this.apiRoot,
             `/tasks/${encodeURIComponent(taskId)}/human-requests/${encodeURIComponent(requestId)}/responses`,
             jsonRequest("POST", { action_id: actionId, input }),
         );
@@ -145,7 +150,8 @@ export class RunApiClient implements RunApi {
         commandId: string,
         actionId: string,
     ): Promise<ControllerResponse<CommandRunCancelReceipt>> {
-        return this.request(
+        return requestProductApi(
+            this.apiRoot,
             `/tasks/${encodeURIComponent(taskId)}/command-runs/${encodeURIComponent(commandId)}/cancel`,
             jsonRequest("POST", {
                 action_id: actionId,
@@ -160,40 +166,11 @@ export class RunApiClient implements RunApi {
         signal?: AbortSignal,
     ): Promise<ControllerResponse<CommandRunOutputPage>> {
         const parameters = new URLSearchParams({ limit: "4096" });
-        return this.request(
+        return requestProductApi(
+            this.apiRoot,
             `/tasks/${encodeURIComponent(taskId)}/command-runs/${encodeURIComponent(commandId)}/output?${parameters.toString()}`,
             signal === undefined ? {} : { signal },
         );
-    }
-
-    private async request<T>(
-        path: string,
-        init: RequestInit = {},
-    ): Promise<ControllerResponse<T>> {
-        let response: Response;
-        try {
-            response = await fetch(`${this.apiRoot}${path}`, {
-                ...init,
-                headers: {
-                    Accept: "application/json",
-                    ...init.headers,
-                },
-            });
-        } catch (error) {
-            if (error instanceof DOMException && error.name === "AbortError") {
-                throw error;
-            }
-            throw new ApiNetworkError(error);
-        }
-        const body = await responseBody(response);
-        if (!response.ok) {
-            throw new ApiResponseError(response.status, unwrapDetail(body));
-        }
-        return {
-            body: body as T,
-            etag: response.headers.get("ETag"),
-            status: response.status,
-        };
     }
 }
 
@@ -207,26 +184,4 @@ function jsonRequest(method: string, body: unknown): RequestInit {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
     };
-}
-
-async function responseBody(response: Response): Promise<unknown> {
-    if (response.status === 204) {
-        return null;
-    }
-    const text = await response.text();
-    if (text === "") {
-        return null;
-    }
-    try {
-        return JSON.parse(text) as unknown;
-    } catch {
-        return text;
-    }
-}
-
-function unwrapDetail(body: unknown): unknown {
-    if (typeof body === "object" && body !== null && "detail" in body) {
-        return body.detail;
-    }
-    return body;
 }

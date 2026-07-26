@@ -1,0 +1,309 @@
+.operator-panel {
+    position: fixed;
+    z-index: 80;
+    top: 4rem;
+    right: 0;
+    display: flex;
+    width: min(28rem, 100vw);
+    height: calc(100vh - 4rem);
+    border-left: 1px solid var(--banksia-line);
+    background: var(--banksia-paper);
+    box-shadow: -1rem 0 2.5rem rgb(33 47 39 / 12%);
+    flex-direction: column;
+    transform: translateX(105%);
+    transition: transform 160ms ease;
+    visibility: hidden;
+}
+
+.operator-panel.is-open {
+    transform: translateX(0);
+    visibility: visible;
+}
+
+.operator-panel__header,
+.operator-panel__conversation-bar,
+.operator-panel__footer {
+    flex: 0 0 auto;
+    border-bottom: 1px solid var(--banksia-line);
+}
+
+.operator-panel__header {
+    display: grid;
+    min-height: 4rem;
+    align-items: center;
+    gap: 0.7rem;
+    grid-template-columns: auto 1fr auto;
+    padding: 0.7rem 1rem;
+}
+
+.operator-panel__header > span {
+    display: grid;
+    width: 2.1rem;
+    height: 2.1rem;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--banksia-leaf-soft);
+    color: var(--banksia-leaf-hover);
+}
+
+.operator-panel__header div {
+    display: grid;
+    gap: 0.1rem;
+}
+
+.operator-panel__header small {
+    color: var(--banksia-ink-650);
+}
+
+.operator-panel__conversation-bar {
+    display: flex;
+    min-height: 3.25rem;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.5rem 0.8rem;
+}
+
+.operator-panel__conversation-bar label {
+    position: relative;
+    min-width: 0;
+    flex: 1;
+}
+
+.operator-panel__conversation-bar select {
+    width: 100%;
+    padding: 0.55rem 2rem 0.55rem 0.65rem;
+    border: 1px solid var(--banksia-line);
+    border-radius: var(--banksia-radius-small);
+    appearance: none;
+    background: white;
+}
+
+.operator-panel__conversation-bar label svg {
+    position: absolute;
+    top: 50%;
+    right: 0.65rem;
+    pointer-events: none;
+    transform: translateY(-50%);
+}
+
+.operator-panel__transcript {
+    display: flex;
+    min-height: 0;
+    padding: 1rem;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 0.9rem;
+    overflow-y: auto;
+}
+
+.operator-panel__welcome,
+.operator-panel__empty,
+.operator-panel__loading {
+    display: grid;
+    justify-items: center;
+    gap: 0.75rem;
+    padding: 3rem 1.25rem;
+    color: var(--banksia-ink-650);
+    text-align: center;
+}
+
+.operator-panel__welcome h2,
+.operator-panel__welcome p {
+    margin: 0;
+}
+
+.operator-entry {
+    max-width: 88%;
+    padding: 0.75rem 0.9rem;
+    border: 1px solid var(--banksia-line);
+    border-radius: 0.9rem;
+    background: white;
+    line-height: 1.5;
+}
+
+.operator-entry p {
+    margin: 0;
+    white-space: pre-wrap;
+}
+
+.operator-entry--user {
+    align-self: flex-end;
+    border-color: var(--banksia-leaf);
+    background: var(--banksia-leaf-soft);
+}
+
+.operator-entry--receipt {
+    align-self: flex-end;
+    background: var(--banksia-surface-muted);
+    color: var(--banksia-ink-650);
+    font-size: 0.9rem;
+}
+
+.operator-entry--receipt dl,
+.operator-entry--receipt dd {
+    margin: 0;
+}
+
+.operator-entry--receipt dl {
+    display: grid;
+    gap: 0.55rem;
+    margin-top: 0.45rem;
+}
+
+.operator-entry--receipt dt {
+    font-weight: 650;
+}
+
+.operator-panel__working {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.45rem;
+    color: var(--banksia-ink-650);
+}
+
+.operator-panel__working p {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin: 0;
+}
+
+.operator-question-card {
+    display: grid;
+    gap: 0.8rem;
+    padding: 1rem;
+    border: 1px solid var(--banksia-leaf);
+    border-radius: var(--banksia-radius);
+    background: white;
+}
+
+.operator-question-card__explanation,
+.operator-question-card__progress {
+    margin: 0;
+    color: var(--banksia-ink-650);
+    font-size: 0.9rem;
+}
+
+.operator-question-card__fieldset {
+    min-width: 0;
+    padding: 0;
+    border: 0;
+}
+
+.operator-question-card__fieldset legend {
+    display: grid;
+    margin-bottom: 0.75rem;
+    gap: 0.2rem;
+    font-weight: 700;
+}
+
+.operator-question-card__fieldset legend span {
+    color: var(--banksia-leaf-hover);
+    font-size: 0.78rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.operator-question-card__options {
+    display: grid;
+    gap: 0.55rem;
+}
+
+.operator-question-card__options > label {
+    display: grid;
+    align-items: center;
+    gap: 0.2rem 0.55rem;
+    padding: 0.7rem;
+    border: 1px solid var(--banksia-line);
+    border-radius: var(--banksia-radius-small);
+    cursor: pointer;
+    grid-template-columns: auto auto 1fr;
+}
+
+.operator-question-card__options > label:has(input:checked) {
+    border-color: var(--banksia-leaf);
+    background: var(--banksia-leaf-soft);
+}
+
+.operator-question-card__options small {
+    color: var(--banksia-ink-650);
+    grid-column: 3;
+}
+
+.operator-question-card__options input[type="text"] {
+    margin-top: 0.4rem;
+    grid-column: 2 / -1;
+}
+
+.operator-question-card__actions {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.operator-panel__footer {
+    display: grid;
+    gap: 0.45rem;
+    padding: 0.75rem;
+    border-top: 1px solid var(--banksia-line);
+    border-bottom: 0;
+    background: white;
+}
+
+.operator-panel__footer form {
+    position: relative;
+}
+
+.operator-panel__footer form > label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+
+.operator-panel__footer textarea {
+    width: 100%;
+    min-height: 4.25rem;
+    padding: 0.7rem 3rem 0.7rem 0.75rem;
+    resize: none;
+}
+
+.operator-panel__footer form .ui-button {
+    position: absolute;
+    right: 0.45rem;
+    bottom: 0.45rem;
+    width: 2.25rem;
+    height: 2.25rem;
+    padding: 0;
+}
+
+.operator-panel__footer > a {
+    justify-self: start;
+    color: var(--banksia-leaf-hover);
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+.is-spinning {
+    animation: operator-spin 900ms linear infinite;
+}
+
+@keyframes operator-spin {
+    to {
+        transform: rotate(1turn);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .operator-panel {
+        transition: none;
+    }
+
+    .is-spinning {
+        animation: none;
+    }
+}

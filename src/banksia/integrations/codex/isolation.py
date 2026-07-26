@@ -230,6 +230,106 @@ def build_codex_operator_isolation_config(
     return cast(JsonObject, config)
 
 
+def require_codex_task_thread_isolation(
+    response: CodexTaskThreadStartResponse,
+    *,
+    expected_model: str | None,
+    network_access: NetworkAccess,
+    sandbox_mode: ManagedSandboxMode,
+    workspace: Path,
+) -> None:
+    expected_type = {
+        ManagedSandboxMode.READ_ONLY: "readOnly",
+        ManagedSandboxMode.WORKSPACE_WRITE: "workspaceWrite",
+        ManagedSandboxMode.FULL_ACCESS: "dangerFullAccess",
+    }[sandbox_mode]
+    _require_codex_thread_isolation(
+        response,
+        expected_ephemeral=True,
+        expected_model=expected_model,
+        expected_runtime_roots=(workspace,),
+        expected_sandbox=expected_type,
+        expected_thread_cwd=workspace,
+        workspace=workspace,
+    )
+    if sandbox_mode is ManagedSandboxMode.WORKSPACE_WRITE:
+        sandbox = response.sandbox.root
+        expected_network = network_access is NetworkAccess.ALLOW
+        if getattr(sandbox, "network_access", None) is not expected_network:
+            raise CodexIsolationError("Codex changed workspace network access")
+
+
+def require_codex_operator_thread_isolation(
+    response: CodexOperatorThreadResponse,
+    *,
+    expected_model: str | None,
+    expected_thread_cwd: Path | None,
+    workspace: Path,
+) -> None:
+    _require_codex_thread_isolation(
+        response,
+        expected_ephemeral=False,
+        expected_model=expected_model,
+        expected_runtime_roots=(),
+        expected_sandbox="readOnly",
+        expected_thread_cwd=expected_thread_cwd,
+        workspace=workspace,
+    )
+
+
+def require_codex_task_mcp_isolation(
+    client: CodexClient,
+    *,
+    enabled_tools: tuple[str, ...],
+    thread_id: str,
+) -> None:
+    servers = _read_codex_mcp_servers(client, thread_id)
+    active = {name for name, server in servers.items() if _codex_mcp_server_is_active(server)}
+    if active != {MANAGED_NODE_MCP_SERVER_NAME}:
+        raise CodexIsolationError("Codex exposed an inexact MCP server surface")
+    node = servers[MANAGED_NODE_MCP_SERVER_NAME]
+    if (
+        node.server_info is None
+        or set(node.tools) != set(enabled_tools)
+        or node.resources
+        or node.resource_templates
+    ):
+        raise CodexIsolationError("Codex exposed an inexact Banksia Node surface")
+
+
+def require_codex_inert_mcp_isolation(
+    client: CodexClient,
+    *,
+    thread_id: str,
+) -> None:
+    if any(
+        _codex_mcp_server_is_active(server)
+        for server in _read_codex_mcp_servers(client, thread_id).values()
+    ):
+        raise CodexIsolationError("Codex exposed an external MCP surface to Operator")
+
+
+def deny_codex_task_server_request(
+    method: str,
+    params: JsonObject | None,
+) -> JsonObject:
+    del params
+    if method in {
+        "applyPatchApproval",
+        "execCommandApproval",
+        "item/commandExecution/requestApproval",
+        "item/fileChange/requestApproval",
+    }:
+        return {"decision": "cancel"}
+    if method == "item/permissions/requestApproval":
+        return {"permissions": {}}
+    if method == "item/tool/requestUserInput":
+        return {"answers": {}}
+    if method == "mcpServer/elicitation/request":
+        return {"action": "cancel"}
+    raise CodexIsolationError("Codex requested an unsupported Task capability")
+
+
 def _build_codex_isolation_config(
     ambient: CodexAmbientState,
     *,
@@ -265,50 +365,6 @@ def _build_codex_isolation_config(
     }
 
 
-def require_codex_task_thread_isolation(
-    response: CodexTaskThreadStartResponse,
-    *,
-    expected_model: str | None,
-    network_access: NetworkAccess,
-    sandbox_mode: ManagedSandboxMode,
-    workspace: Path,
-) -> None:
-    expected_type = {
-        ManagedSandboxMode.READ_ONLY: "readOnly",
-        ManagedSandboxMode.WORKSPACE_WRITE: "workspaceWrite",
-        ManagedSandboxMode.FULL_ACCESS: "dangerFullAccess",
-    }[sandbox_mode]
-    _require_codex_thread_isolation(
-        response,
-        expected_ephemeral=True,
-        expected_model=expected_model,
-        expected_runtime_roots=(workspace,),
-        expected_sandbox=expected_type,
-        workspace=workspace,
-    )
-    if sandbox_mode is ManagedSandboxMode.WORKSPACE_WRITE:
-        sandbox = response.sandbox.root
-        expected_network = network_access is NetworkAccess.ALLOW
-        if getattr(sandbox, "network_access", None) is not expected_network:
-            raise CodexIsolationError("Codex changed workspace network access")
-
-
-def require_codex_operator_thread_isolation(
-    response: CodexOperatorThreadResponse,
-    *,
-    expected_model: str | None,
-    workspace: Path,
-) -> None:
-    _require_codex_thread_isolation(
-        response,
-        expected_ephemeral=False,
-        expected_model=expected_model,
-        expected_runtime_roots=(),
-        expected_sandbox="readOnly",
-        workspace=workspace,
-    )
-
-
 def _require_codex_thread_isolation(
     response: _CodexThreadIsolationResponse,
     *,
@@ -316,13 +372,17 @@ def _require_codex_thread_isolation(
     expected_model: str | None,
     expected_runtime_roots: tuple[Path, ...],
     expected_sandbox: str,
+    expected_thread_cwd: Path | None = None,
     workspace: Path,
 ) -> None:
     if response.instruction_sources:
         raise CodexIsolationError("Codex loaded an external instruction source")
     if _canonical_path(response.cwd) != workspace:
         raise CodexIsolationError("Codex changed the working directory")
-    if _canonical_path(response.thread.cwd) != workspace:
+    if (
+        expected_thread_cwd is not None
+        and _canonical_path(response.thread.cwd) != expected_thread_cwd
+    ):
         raise CodexIsolationError("Codex changed the thread working directory")
     if (
         tuple(_canonical_path(path) for path in response.runtime_workspace_roots)
@@ -338,38 +398,6 @@ def _require_codex_thread_isolation(
         raise CodexIsolationError("Codex changed the requested model")
     if getattr(response.sandbox.root, "type", None) != expected_sandbox:
         raise CodexIsolationError("Codex changed the requested sandbox")
-
-
-def require_codex_task_mcp_isolation(
-    client: CodexClient,
-    *,
-    enabled_tools: tuple[str, ...],
-    thread_id: str,
-) -> None:
-    servers = _read_codex_mcp_servers(client, thread_id)
-    active = {name for name, server in servers.items() if _codex_mcp_server_is_active(server)}
-    if active != {MANAGED_NODE_MCP_SERVER_NAME}:
-        raise CodexIsolationError("Codex exposed an inexact MCP server surface")
-    node = servers[MANAGED_NODE_MCP_SERVER_NAME]
-    if (
-        node.server_info is None
-        or set(node.tools) != set(enabled_tools)
-        or node.resources
-        or node.resource_templates
-    ):
-        raise CodexIsolationError("Codex exposed an inexact Banksia Node surface")
-
-
-def require_codex_inert_mcp_isolation(
-    client: CodexClient,
-    *,
-    thread_id: str,
-) -> None:
-    if any(
-        _codex_mcp_server_is_active(server)
-        for server in _read_codex_mcp_servers(client, thread_id).values()
-    ):
-        raise CodexIsolationError("Codex exposed an external MCP surface to Operator")
 
 
 def _read_codex_mcp_servers(
@@ -412,27 +440,6 @@ def _codex_mcp_server_is_active(server: Any) -> bool:
         or server.resource_templates
         or server.server_info is not None
     )
-
-
-def deny_codex_task_server_request(
-    method: str,
-    params: JsonObject | None,
-) -> JsonObject:
-    del params
-    if method in {
-        "applyPatchApproval",
-        "execCommandApproval",
-        "item/commandExecution/requestApproval",
-        "item/fileChange/requestApproval",
-    }:
-        return {"decision": "cancel"}
-    if method == "item/permissions/requestApproval":
-        return {"permissions": {}}
-    if method == "item/tool/requestUserInput":
-        return {"answers": {}}
-    if method == "mcpServer/elicitation/request":
-        return {"action": "cancel"}
-    raise CodexIsolationError("Codex requested an unsupported Task capability")
 
 
 def _canonical_path(value: object) -> Path:

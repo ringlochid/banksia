@@ -22,19 +22,19 @@ from banksia.operator.provider import (
     OperatorQuestionAnswersTurnInput,
 )
 from banksia.operator.tools import OperatorToolName
-from tests.unit.integrations.codex.operator_test_support import (
+from tests.unit.integrations.codex.codex_test_support import (
     ClientFactory as _ClientFactory,
 )
-from tests.unit.integrations.codex.operator_test_support import (
+from tests.unit.integrations.codex.codex_test_support import (
     request as _request,
 )
-from tests.unit.integrations.codex.operator_test_support import (
+from tests.unit.integrations.codex.codex_test_support import (
     runner as _runner,
 )
-from tests.unit.integrations.codex.operator_test_support import (
+from tests.unit.integrations.codex.codex_test_support import (
     status as _status,
 )
-from tests.unit.integrations.codex.operator_test_support import (
+from tests.unit.integrations.codex.codex_test_support import (
     tools as _tools,
 )
 

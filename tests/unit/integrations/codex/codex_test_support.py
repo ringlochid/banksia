@@ -54,6 +54,7 @@ class FakeClientOptions(TypedDict):
     runtime_workspace_roots: NotRequired[tuple[str, ...]]
     skill_errors: NotRequired[tuple[object, ...]]
     skill_paths: NotRequired[tuple[str, ...]]
+    thread_cwd: NotRequired[str | None]
     active_mcp: NotRequired[tuple[object, ...]]
     server_requests: NotRequired[tuple[tuple[str, JsonObject | None], ...]]
     resume_error: NotRequired[Exception | None]
@@ -73,6 +74,7 @@ class FakeCodexClient:
         runtime_workspace_roots: tuple[str, ...] = (),
         skill_errors: tuple[object, ...] = (),
         skill_paths: tuple[str, ...] = ("/opt/codex/skills/ambient/SKILL.md",),
+        thread_cwd: str | None = None,
         active_mcp: tuple[object, ...] = (),
         server_requests: tuple[tuple[str, JsonObject | None], ...] = (),
         resume_error: Exception | None = None,
@@ -87,6 +89,7 @@ class FakeCodexClient:
         self.runtime_workspace_roots = runtime_workspace_roots
         self.skill_errors = skill_errors
         self.skill_paths = skill_paths
+        self.thread_cwd = thread_cwd
         self.active_mcp = active_mcp
         self.server_requests = server_requests
         self.resume_error = resume_error
@@ -165,7 +168,7 @@ class FakeCodexClient:
             ],
             sandbox=SimpleNamespace(root=SimpleNamespace(type="readOnly")),
             thread=SimpleNamespace(
-                cwd=SimpleNamespace(root=cwd),
+                cwd=SimpleNamespace(root=self.thread_cwd or cwd),
                 ephemeral=False,
                 id=thread_id,
             ),

@@ -207,6 +207,9 @@ class CodexOperatorTurnRunner:
             require_codex_operator_thread_isolation(
                 thread_response,
                 expected_model=request.model,
+                expected_thread_cwd=(
+                    working_directory if request.provider_thread_id is None else None
+                ),
                 workspace=working_directory,
             )
             require_codex_inert_mcp_isolation(client, thread_id=thread_id)

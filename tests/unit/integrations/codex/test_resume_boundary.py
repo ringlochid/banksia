@@ -6,12 +6,25 @@ from typing import cast
 import pytest
 
 from banksia.operator.provider import OperatorProviderUnavailableError
-from tests.unit.integrations.codex.operator_test_support import (
+from tests.unit.integrations.codex.codex_test_support import (
     ClientFactory,
     FakeClientOptions,
     request,
     runner,
 )
+
+
+@pytest.mark.asyncio
+async def test_codex_operator_cold_resume_uses_effective_not_creation_cwd() -> None:
+    factory = ClientFactory(
+        thread_cwd="/tmp/banksia-operator-codex-original",
+        thread_id="opaque-codex-thread",
+    )
+
+    outcome = await runner(factory).execute_turn(request(provider_thread_id="opaque-codex-thread"))
+
+    assert outcome.provider_thread_id == "opaque-codex-thread"
+    assert factory.clients[0].turn_start_calls
 
 
 @pytest.mark.asyncio

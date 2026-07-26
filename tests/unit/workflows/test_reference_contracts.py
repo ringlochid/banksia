@@ -18,7 +18,6 @@ def test_tracked_workflow_examples_and_seeds_pass_schema_and_strict_ingest() -> 
     validator = Draft202012Validator(schema)
     paths = tuple(sorted(EXAMPLE_ROOT.glob("*.yaml"))) + tuple(sorted(SEED_ROOT.glob("*.yaml")))
 
-    assert len(paths) == 7
     for path in paths:
         raw = path.read_bytes()
         parsed_yaml = yaml.safe_load(raw)

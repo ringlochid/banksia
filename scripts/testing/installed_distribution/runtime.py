@@ -233,7 +233,7 @@ def assert_installed_import_contract(
                 "from importlib.metadata import version; "
                 "assert find_spec('autoclaw') is None; "
                 "assert find_spec('banksia.interfaces.web_console') is not None; "
-                f"assert version('banksia-ai') == '{EXPECTED_DISTRIBUTION_VERSION}'"
+                f"assert version('banksia') == '{EXPECTED_DISTRIBUTION_VERSION}'"
             ),
         ),
         cwd=cwd,

@@ -124,7 +124,7 @@ class _ApplicationRuntime:
 
 def _package_version() -> str:
     try:
-        return version("banksia-ai")
+        return version("banksia")
     except PackageNotFoundError:
         for parent in Path(__file__).resolve().parents:
             pyproject_path = parent / "pyproject.toml"

@@ -61,7 +61,7 @@ def default_config_text() -> str:
 
 def package_version() -> str:
     try:
-        return version("banksia-ai")
+        return version("banksia")
     except PackageNotFoundError:
         return "0.1.0"
 

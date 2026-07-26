@@ -18,7 +18,7 @@ The repository also carried simultaneous V1 target, V2 target, current contrast,
 
 The product is Banksia. Its eventual released identities are:
 
-- distribution `banksia-ai`;
+- distribution `banksia`;
 - Python import, module, and CLI `banksia`;
 - environment and service namespace `BANKSIA_` / `banksia`;
 - Console package `@banksia/console`; and

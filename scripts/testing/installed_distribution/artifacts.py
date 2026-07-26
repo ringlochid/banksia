@@ -6,7 +6,7 @@ import zipfile
 from email.parser import Parser
 from pathlib import Path, PurePosixPath
 
-EXPECTED_DISTRIBUTION_NAME = "banksia-ai"
+EXPECTED_DISTRIBUTION_NAME = "banksia"
 EXPECTED_DISTRIBUTION_VERSION = "0.1.0"
 STARTER_WORKFLOW_IDS = (
     "bounded-maintenance-batch",
@@ -53,13 +53,13 @@ def select_one_artifact(dist_dir: Path, pattern: str) -> Path:
 
 
 def verify_artifact_names(*, wheel_path: Path, sdist_path: Path) -> None:
-    expected_wheel_prefix = f"banksia_ai-{EXPECTED_DISTRIBUTION_VERSION}-"
+    expected_wheel_prefix = f"banksia-{EXPECTED_DISTRIBUTION_VERSION}-"
     if not wheel_path.name.startswith(expected_wheel_prefix):
         raise AssertionError(
             f"wheel has unexpected name or version: {wheel_path.name}; "
             f"expected prefix {expected_wheel_prefix}"
         )
-    expected_sdist_name = f"banksia_ai-{EXPECTED_DISTRIBUTION_VERSION}.tar.gz"
+    expected_sdist_name = f"banksia-{EXPECTED_DISTRIBUTION_VERSION}.tar.gz"
     if sdist_path.name != expected_sdist_name:
         raise AssertionError(
             f"source distribution has unexpected name or version: {sdist_path.name}; "

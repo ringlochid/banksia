@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import asyncio
 import json
-from collections.abc import Callable
 from pathlib import Path
 from typing import Any, cast
 
@@ -10,8 +8,12 @@ import pytest
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient, ProcessError
 from claude_agent_sdk.types import ResultMessage
 from mcp.types import CallToolRequest, CallToolRequestParams
-from pydantic import BaseModel, ConfigDict
 
+from banksia.integrations.claude.native_identity import (
+    ClaudeAuthenticationState,
+    ClaudeEndpointPolicyState,
+    ClaudeSubscriptionClass,
+)
 from banksia.integrations.claude.operator import (
     CLAUDE_OPERATOR_MCP_SERVER_NAME,
     ClaudeOperatorTurnRunner,
@@ -19,78 +21,27 @@ from banksia.integrations.claude.operator import (
 from banksia.operator.contracts import (
     MAX_OPERATOR_TEXT_BYTES,
     OPERATOR_PROVIDER_RESULT_ADAPTER,
-    OperatorAvailability,
 )
 from banksia.operator.provider import (
     OperatorAcceptedCustomAnswer,
     OperatorAcceptedOptionAnswer,
     OperatorAnsweredQuestion,
-    OperatorMessageTurnInput,
     OperatorProviderThreadUnavailableError,
     OperatorProviderUnavailableError,
     OperatorQuestionAnswersTurnInput,
-    OperatorRunnerStatus,
-    OperatorTurnRequest,
 )
-from banksia.operator.tools import OperatorTool, OperatorToolName
-from banksia.operator.tools.contracts import (
-    MAX_OPERATOR_TOOL_RESULT_UTF16_CODE_UNITS,
-)
+from banksia.operator.tools import OperatorToolName
+from banksia.runtime.providers import ProviderAuthenticationMethod
 from tests.unit.integrations.claude.operator_sdk_test_support import (
     FakeClaudeOperatorClient,
     FakeClaudeOperatorClientFactory,
+    build_claude_operator_request,
+    build_claude_operator_runner,
+    build_claude_operator_status,
+    build_claude_operator_tools,
+    read_clear_claude_endpoint_policy,
+    read_personal_claude_authentication,
 )
-
-
-class _ToolInput(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    value: str
-
-
-class _ToolResult(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    echo: str
-
-
-def _status(*, availability: OperatorAvailability = "available") -> OperatorRunnerStatus:
-    return OperatorRunnerStatus(
-        availability=availability,
-        configured_provider="claude",
-        explanation="Operator is available through Claude.",
-        model="claude-sonnet-4-5",
-        effort="high",
-    )
-
-
-def _tools(
-    calls: list[tuple[OperatorToolName, str]] | None = None,
-) -> tuple[OperatorTool, ...]:
-    def build_handler(
-        tool_name: OperatorToolName,
-    ) -> Callable[[BaseModel], Any]:
-        async def handle(request: BaseModel) -> BaseModel:
-            typed_request = _ToolInput.model_validate(request)
-            if calls is not None:
-                calls.append((tool_name, typed_request.value))
-            if typed_request.value == "raise-secret":
-                raise RuntimeError("private provider detail")
-            if typed_request.value == "oversize-after-commit":
-                return _ToolResult(echo="x" * (MAX_OPERATOR_TOOL_RESULT_UTF16_CODE_UNITS + 1))
-            return _ToolResult(echo=typed_request.value)
-
-        return handle
-
-    return tuple(
-        OperatorTool(
-            name=tool_name,
-            description=f"Use the Banksia {tool_name.value} operation.",
-            input_model=_ToolInput,
-            handler=build_handler(tool_name),
-        )
-        for tool_name in OperatorToolName
-    )
 
 
 def _result(
@@ -109,34 +60,6 @@ def _result(
         session_id=session_id,
         structured_output=structured_output,
         errors=errors,
-    )
-
-
-def _request(
-    *,
-    provider_thread_id: str | None = None,
-    turn_input: OperatorMessageTurnInput | OperatorQuestionAnswersTurnInput | None = None,
-) -> OperatorTurnRequest:
-    return OperatorTurnRequest(
-        provider="claude",
-        model="claude-sonnet-4-5",
-        effort="high",
-        provider_thread_id=provider_thread_id,
-        input=turn_input or OperatorMessageTurnInput(text="Build an accountable research team."),
-    )
-
-
-def _runner(
-    factory: FakeClaudeOperatorClientFactory,
-    *,
-    working_directory: Path | None = None,
-) -> ClaudeOperatorTurnRunner:
-    return ClaudeOperatorTurnRunner(
-        system_prompt="Exact prompt.\nPreserve this whitespace.\n",
-        tools=_tools(),
-        status=_status(),
-        working_directory=working_directory,
-        client_factory=factory,
     )
 
 
@@ -224,9 +147,9 @@ async def test_claude_operator_turn_uses_only_exact_private_tools_and_native_out
     factory = FakeClaudeOperatorClientFactory(
         (_result(structured_output=_message_output("The workflow draft is ready for review.")),)
     )
-    runner = _runner(factory, working_directory=tmp_path)
+    runner = build_claude_operator_runner(factory, working_directory=tmp_path)
 
-    outcome = await runner.execute_turn(_request())
+    outcome = await runner.execute_turn(build_claude_operator_request())
 
     client = factory.clients[0]
     options = client.options
@@ -258,8 +181,101 @@ async def test_claude_operator_turn_uses_only_exact_private_tools_and_native_out
     assert options.agents == {}
     assert options.hooks is None
     assert options.sandbox is None
+    assert {"Agent", "Artifact", "Skill", "SlashCommand"} <= set(options.disallowed_tools)
+    assert options.extra_args == {
+        "safe-mode": None,
+        "disable-slash-commands": None,
+        "no-chrome": None,
+    }
+    assert options.env["CLAUDE_AGENT_SDK_DISABLE_BUILTIN_AGENTS"] == "1"
+    assert options.env["CLAUDE_CODE_DISABLE_AUTO_MEMORY"] == "1"
+    assert options.env["CLAUDE_CODE_DISABLE_BACKGROUND_TASKS"] == "1"
+    assert options.env["CLAUDE_CODE_DISABLE_CLAUDE_MDS"] == "1"
+    assert options.env["CLAUDE_CODE_DISABLE_GIT_INSTRUCTIONS"] == "1"
+    assert "CLAUDE_CODE_SKIP_PROMPT_HISTORY" not in options.env
+    assert "no-session-persistence" not in options.extra_args
     assert options.env["OPENCLAW_GATEWAY_TOKEN"] == ""
     _assert_native_output_schema(options.output_format)
+
+
+@pytest.mark.asyncio
+async def test_claude_operator_uses_bare_for_api_key_and_rejects_managed_subscription() -> None:
+    api_factory = FakeClaudeOperatorClientFactory(
+        (_result(structured_output=_message_output("Done.")),)
+    )
+    api_runner = ClaudeOperatorTurnRunner(
+        system_prompt="Exact prompt.",
+        tools=build_claude_operator_tools(),
+        status=build_claude_operator_status(),
+        client_factory=api_factory,
+        authentication_reader=lambda: ClaudeAuthenticationState(
+            is_authenticated=True,
+            method=ProviderAuthenticationMethod.API_KEY,
+            code="claude_available",
+        ),
+        endpoint_policy_reader=lambda: ClaudeEndpointPolicyState(
+            is_installed=True,
+            code="claude_endpoint_policy_unsupported",
+        ),
+    )
+
+    await api_runner.execute_turn(build_claude_operator_request())
+
+    assert "bare" in api_factory.clients[0].options.extra_args
+    assert "safe-mode" not in api_factory.clients[0].options.extra_args
+
+    managed_factory = FakeClaudeOperatorClientFactory(())
+    managed_runner = ClaudeOperatorTurnRunner(
+        system_prompt="Exact prompt.",
+        tools=build_claude_operator_tools(),
+        status=build_claude_operator_status(),
+        client_factory=managed_factory,
+        authentication_reader=lambda: ClaudeAuthenticationState(
+            is_authenticated=True,
+            method=ProviderAuthenticationMethod.SUBSCRIPTION,
+            code="claude_available",
+            subscription_class=ClaudeSubscriptionClass.MANAGED,
+        ),
+        endpoint_policy_reader=read_clear_claude_endpoint_policy,
+    )
+
+    with pytest.raises(OperatorProviderUnavailableError, match="isolated"):
+        await managed_runner.execute_turn(build_claude_operator_request())
+
+    assert managed_factory.clients == []
+
+
+@pytest.mark.asyncio
+async def test_claude_operator_rejects_ambient_startup_readback_before_query() -> None:
+    clients: list[FakeClaudeOperatorClient] = []
+
+    class AmbientClient(FakeClaudeOperatorClient):
+        async def get_context_usage(self) -> dict[str, object]:
+            return {
+                "memoryFiles": [{"path": "CLAUDE.md"}],
+                "agents": [],
+                "mcpTools": [],
+            }
+
+    def build_client(options: ClaudeAgentOptions) -> ClaudeSDKClient:
+        client = AmbientClient(options, messages=())
+        clients.append(client)
+        return cast(ClaudeSDKClient, client)
+
+    runner = ClaudeOperatorTurnRunner(
+        system_prompt="Exact prompt.",
+        tools=build_claude_operator_tools(),
+        status=build_claude_operator_status(),
+        client_factory=build_client,
+        authentication_reader=read_personal_claude_authentication,
+        endpoint_policy_reader=read_clear_claude_endpoint_policy,
+    )
+
+    with pytest.raises(OperatorProviderUnavailableError):
+        await runner.execute_turn(build_claude_operator_request())
+
+    assert clients[0].query_input is None
+    assert clients[0].was_disconnected is True
 
 
 @pytest.mark.asyncio
@@ -308,8 +324,8 @@ async def test_claude_operator_continues_exact_thread_with_typed_answers() -> No
         )
     )
 
-    outcome = await _runner(factory).execute_turn(
-        _request(provider_thread_id=thread_id, turn_input=answers)
+    outcome = await build_claude_operator_runner(factory).execute_turn(
+        build_claude_operator_request(provider_thread_id=thread_id, turn_input=answers)
     )
 
     client = factory.clients[0]
@@ -327,11 +343,13 @@ async def test_claude_private_mcp_tool_calls_one_leaf_and_redacts_failures() -> 
     )
     runner = ClaudeOperatorTurnRunner(
         system_prompt="Exact prompt.",
-        tools=_tools(calls),
-        status=_status(),
+        tools=build_claude_operator_tools(calls),
+        status=build_claude_operator_status(),
         client_factory=factory,
+        authentication_reader=read_personal_claude_authentication,
+        endpoint_policy_reader=read_clear_claude_endpoint_policy,
     )
-    await runner.execute_turn(_request())
+    await runner.execute_turn(build_claude_operator_request())
     server_config = cast(
         dict[str, Any],
         cast(dict[str, object], factory.clients[0].options.mcp_servers)[
@@ -408,7 +426,7 @@ async def test_claude_operator_rejects_missing_invalid_or_unwrapped_structured_o
     factory = FakeClaudeOperatorClientFactory((_result(structured_output=structured_output),))
 
     with pytest.raises(OperatorProviderUnavailableError):
-        await _runner(factory).execute_turn(_request())
+        await build_claude_operator_runner(factory).execute_turn(build_claude_operator_request())
 
     assert factory.clients[0].was_disconnected is True
 
@@ -434,7 +452,9 @@ async def test_claude_operator_maps_lost_or_changed_resume_to_thread_unavailable
     factory = FakeClaudeOperatorClientFactory((result,))
 
     with pytest.raises(OperatorProviderThreadUnavailableError):
-        await _runner(factory).execute_turn(_request(provider_thread_id="thread-1"))
+        await build_claude_operator_runner(factory).execute_turn(
+            build_claude_operator_request(provider_thread_id="thread-1")
+        )
 
     assert factory.clients[0].was_disconnected is True
 
@@ -451,127 +471,11 @@ async def test_claude_operator_maps_sdk_resume_failure_to_thread_unavailable() -
     )
 
     with pytest.raises(OperatorProviderThreadUnavailableError):
-        await _runner(factory).execute_turn(_request(provider_thread_id="thread-1"))
+        await build_claude_operator_runner(factory).execute_turn(
+            build_claude_operator_request(provider_thread_id="thread-1")
+        )
 
     assert factory.clients[0].was_disconnected is True
-
-
-@pytest.mark.asyncio
-async def test_claude_operator_cancellation_interrupts_and_disconnects_provider() -> None:
-    factory = FakeClaudeOperatorClientFactory((), should_block_response=True)
-    turn = asyncio.create_task(_runner(factory).execute_turn(_request()))
-    await factory.client_created.wait()
-    client = factory.clients[0]
-    await client.response_started.wait()
-
-    turn.cancel()
-    with pytest.raises(asyncio.CancelledError):
-        await turn
-
-    assert client.was_interrupted is True
-    assert client.was_disconnected is True
-
-
-@pytest.mark.asyncio
-async def test_repeated_cancellation_cannot_interrupt_claude_disconnect() -> None:
-    disconnect_started = asyncio.Event()
-    disconnect_release = asyncio.Event()
-    client_created = asyncio.Event()
-    clients: list[FakeClaudeOperatorClient] = []
-
-    class BlockingDisconnectClient(FakeClaudeOperatorClient):
-        async def disconnect(self) -> None:
-            disconnect_started.set()
-            await disconnect_release.wait()
-            self.was_disconnected = True
-
-    def build_client(options: ClaudeAgentOptions) -> ClaudeSDKClient:
-        client = BlockingDisconnectClient(
-            options,
-            messages=(),
-            should_block_response=True,
-        )
-        clients.append(client)
-        client_created.set()
-        return cast(ClaudeSDKClient, client)
-
-    runner = ClaudeOperatorTurnRunner(
-        system_prompt="Exact prompt.",
-        tools=_tools(),
-        status=_status(),
-        client_factory=build_client,
-    )
-    turn = asyncio.create_task(runner.execute_turn(_request()))
-    try:
-        await client_created.wait()
-        client = clients[0]
-        await client.response_started.wait()
-        turn.cancel()
-        await disconnect_started.wait()
-        turn.cancel()
-        await asyncio.sleep(0)
-
-        assert not turn.done()
-
-        disconnect_release.set()
-        with pytest.raises(asyncio.CancelledError):
-            await turn
-        assert client.was_interrupted is True
-        assert client.was_disconnected is True
-    finally:
-        disconnect_release.set()
-        if not turn.done():
-            turn.cancel()
-        await asyncio.gather(turn, return_exceptions=True)
-
-
-@pytest.mark.asyncio
-async def test_repeated_cancellation_waits_for_claude_connect_cleanup() -> None:
-    connect_started = asyncio.Event()
-    connect_cleanup_started = asyncio.Event()
-    connect_cleanup_release = asyncio.Event()
-    clients: list[FakeClaudeOperatorClient] = []
-
-    class BlockingConnectClient(FakeClaudeOperatorClient):
-        async def connect(self) -> None:
-            connect_started.set()
-            try:
-                await asyncio.Event().wait()
-            except asyncio.CancelledError:
-                connect_cleanup_started.set()
-                await connect_cleanup_release.wait()
-                raise
-
-    def build_client(options: ClaudeAgentOptions) -> ClaudeSDKClient:
-        client = BlockingConnectClient(options, messages=())
-        clients.append(client)
-        return cast(ClaudeSDKClient, client)
-
-    runner = ClaudeOperatorTurnRunner(
-        system_prompt="Exact prompt.",
-        tools=_tools(),
-        status=_status(),
-        client_factory=build_client,
-    )
-    turn = asyncio.create_task(runner.execute_turn(_request()))
-    try:
-        await connect_started.wait()
-        turn.cancel()
-        await connect_cleanup_started.wait()
-        turn.cancel()
-        await asyncio.sleep(0)
-
-        assert not turn.done()
-
-        connect_cleanup_release.set()
-        with pytest.raises(asyncio.CancelledError):
-            await turn
-        assert clients[0].was_disconnected is True
-    finally:
-        connect_cleanup_release.set()
-        if not turn.done():
-            turn.cancel()
-        await asyncio.gather(turn, return_exceptions=True)
 
 
 def test_claude_operator_requires_the_exact_ordered_tool_catalog() -> None:
@@ -580,7 +484,9 @@ def test_claude_operator_requires_the_exact_ordered_tool_catalog() -> None:
     with pytest.raises(ValueError, match="exact ordered"):
         ClaudeOperatorTurnRunner(
             system_prompt="Exact prompt.",
-            tools=_tools()[:-1],
-            status=_status(),
+            tools=build_claude_operator_tools()[:-1],
+            status=build_claude_operator_status(),
             client_factory=factory,
+            authentication_reader=read_personal_claude_authentication,
+            endpoint_policy_reader=read_clear_claude_endpoint_policy,
         )

@@ -4,25 +4,36 @@ import asyncio
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
 
 from openai_codex import (
-    ApprovalMode,
-    AsyncCodex,
-    AsyncTurnHandle,
-    CodexConfig,
     CodexRpcError,
     InvalidParamsError,
-    Sandbox,
     TransportClosedError,
 )
-from openai_codex.generated.v2_all import ReasoningEffort
+from openai_codex.client import CodexClient
+from openai_codex.generated.v2_all import (
+    GetAccountResponse,
+    ReasoningEffort,
+    TurnCompletedNotification,
+)
 from openai_codex.models import JsonObject
 
-from banksia.platform.provider_environment import provider_subprocess_environment_overrides
-from banksia.providers import ManagedSandboxMode, NetworkAccess, ProviderKind
+from banksia.integrations.codex.isolation import (
+    CodexIsolationError,
+    CodexServerRequestHandler,
+    CodexTaskThreadStartResponse,
+    build_codex_client,
+    build_codex_task_isolation_config,
+    deny_codex_task_server_request,
+    read_codex_ambient_state,
+    require_codex_task_mcp_isolation,
+    require_codex_task_thread_isolation,
+)
+from banksia.providers import ManagedSandboxMode, ProviderKind
 from banksia.runtime.contracts.provider_resolution import CodexProviderRoute
 from banksia.runtime.providers.contracts import (
-    MANAGED_NODE_MCP_SERVER_NAME,
     DispatchStartRequest,
     ManagedNodeMcpConnection,
     ProviderAuthenticationMethod,
@@ -36,21 +47,31 @@ from banksia.runtime.providers.contracts import (
     ProviderStopOutcome,
 )
 
+_THREAD_START_METHOD = "thread/start"
+
+type _CodexClientFactory = Callable[[CodexServerRequestHandler], CodexClient]
+
+
+@dataclass(frozen=True, slots=True)
+class _StartedTurn:
+    thread_id: str
+    turn_id: str
+
 
 @dataclass(slots=True)
 class _CodexExecution:
-    turn: AsyncTurnHandle
-    consumer: asyncio.Task[None]
+    client: CodexClient
+    thread_id: str
+    turn_id: str
 
 
 class CodexAdapter:
-    """Narrow Codex app-server adapter for one accepted turn per dispatch."""
+    """One isolated Codex app-server process and turn per accepted Dispatch."""
 
     kind = ProviderKind.CODEX
 
-    def __init__(self, *, codex_factory: Callable[[], AsyncCodex] | None = None) -> None:
-        self._codex_factory = codex_factory or _build_codex
-        self._codex: AsyncCodex | None = None
+    def __init__(self, *, codex_factory: _CodexClientFactory | None = None) -> None:
+        self._codex_factory = codex_factory or build_codex_client
         self._executions: dict[str, _CodexExecution] = {}
         self._consumer_tasks: set[asyncio.Task[None]] = set()
         self._starting_dispatches: set[str] = set()
@@ -60,69 +81,56 @@ class CodexAdapter:
     async def start(self, request: DispatchStartRequest) -> ProviderStartAccepted:
         route, connection = _validate_codex_request(request)
         effort = _resolve_effort(route.effort_override)
+        workspace = _resolve_workspace(request.working_directory)
         assert request.sandbox_mode is not None
-        sandbox = _resolve_sandbox(request.sandbox_mode)
-        thread_config = _build_thread_config(connection, request.network_access, sandbox)
 
         await self._reserve_start(request.dispatch_id)
+        client: CodexClient | None = None
+        accepted = False
         try:
-            codex = await self._get_codex()
-            thread = await codex.thread_start(
-                approval_mode=ApprovalMode.deny_all,
-                config=thread_config,
-                cwd=str(request.working_directory),
-                developer_instructions=request.instructions,
-                ephemeral=True,
-                model=route.model_override,
-                sandbox=sandbox,
+            client = self._codex_factory(deny_codex_task_server_request)
+            started = await self._start_client_turn(
+                client,
+                request=request,
+                route=route,
+                connection=connection,
+                effort=effort,
+                workspace=workspace,
             )
-            try:
-                turn = await thread.turn(request.input, effort=effort)
-            except (TransportClosedError, TimeoutError, OSError) as exc:
-                raise ProviderStartError(
-                    kind=ProviderStartFailureKind.UNCERTAIN_ACCEPTANCE,
-                    code=ProviderStartErrorCode.UNCERTAIN,
-                ) from exc
-            except (InvalidParamsError, CodexRpcError) as exc:
-                raise ProviderStartError(
-                    kind=ProviderStartFailureKind.DEFINITE_FAILURE,
-                    code=ProviderStartErrorCode.REJECTED,
-                ) from exc
-            except Exception as exc:
-                raise ProviderStartError(
-                    kind=ProviderStartFailureKind.UNCERTAIN_ACCEPTANCE,
-                    code=ProviderStartErrorCode.UNCERTAIN,
-                ) from exc
+            async with self._lock:
+                if not self._is_active:
+                    raise _definite_error(ProviderStartErrorCode.UNAVAILABLE)
+                consumer = asyncio.create_task(
+                    self._consume_turn(
+                        request.dispatch_id,
+                        client,
+                        started,
+                    ),
+                    name=f"codex-turn-{request.dispatch_id}",
+                )
+                self._starting_dispatches.discard(request.dispatch_id)
+                self._executions[request.dispatch_id] = _CodexExecution(
+                    client=client,
+                    thread_id=started.thread_id,
+                    turn_id=started.turn_id,
+                )
+                self._consumer_tasks.add(consumer)
+                accepted = True
+        except asyncio.CancelledError:
+            raise
         except ProviderStartError:
-            await self._release_start_reservation(request.dispatch_id)
             raise
         except (InvalidParamsError, ValueError) as exc:
-            await self._release_start_reservation(request.dispatch_id)
-            raise ProviderStartError(
-                kind=ProviderStartFailureKind.DEFINITE_FAILURE,
-                code=ProviderStartErrorCode.CONFIGURATION,
-            ) from exc
+            raise _definite_error(ProviderStartErrorCode.CONFIGURATION) from exc
         except (CodexRpcError, TransportClosedError, TimeoutError, OSError) as exc:
-            await self._release_start_reservation(request.dispatch_id)
-            raise ProviderStartError(
-                kind=ProviderStartFailureKind.DEFINITE_FAILURE,
-                code=ProviderStartErrorCode.CONNECTION,
-            ) from exc
+            raise _definite_error(ProviderStartErrorCode.CONNECTION) from exc
         except Exception as exc:
-            await self._release_start_reservation(request.dispatch_id)
-            raise ProviderStartError(
-                kind=ProviderStartFailureKind.DEFINITE_FAILURE,
-                code=ProviderStartErrorCode.UNAVAILABLE,
-            ) from exc
-        async with self._lock:
-            consumer = asyncio.create_task(
-                self._consume_turn(request.dispatch_id, turn),
-                name=f"codex-turn-{request.dispatch_id}",
-            )
-            execution = _CodexExecution(turn=turn, consumer=consumer)
-            self._starting_dispatches.discard(request.dispatch_id)
-            self._executions[request.dispatch_id] = execution
-            self._consumer_tasks.add(consumer)
+            raise _definite_error(ProviderStartErrorCode.UNAVAILABLE) from exc
+        finally:
+            if not accepted:
+                if client is not None:
+                    await _close_client(client)
+                await self._release_start_reservation(request.dispatch_id)
         return ProviderStartAccepted()
 
     async def stop(self, dispatch_id: str) -> ProviderStopOutcome:
@@ -133,7 +141,12 @@ class CodexAdapter:
             return ProviderStopOutcome.FAILED if is_starting else ProviderStopOutcome.NOT_RUNNING
 
         try:
-            await execution.turn.interrupt()
+            await asyncio.to_thread(
+                execution.client.turn_interrupt,
+                execution.thread_id,
+                execution.turn_id,
+            )
+            await _close_client(execution.client)
         except Exception:
             return ProviderStopOutcome.FAILED
 
@@ -143,14 +156,19 @@ class CodexAdapter:
         return ProviderStopOutcome.STOPPED
 
     async def read_availability(self) -> ProviderCheckResult:
+        async with self._lock:
+            if not self._is_active:
+                return _unavailable_check("codex_check_failed")
+        client: CodexClient | None = None
         try:
-            account = await (await self._get_codex()).account()
+            client = self._codex_factory(deny_codex_task_server_request)
+            account = await asyncio.to_thread(_read_codex_account, client)
         except Exception:
-            return ProviderCheckResult(
-                kind=self.kind,
-                status=ProviderCheckStatus.UNAVAILABLE,
-                code="codex_check_failed",
-            )
+            return _unavailable_check("codex_check_failed")
+        finally:
+            if client is not None:
+                await _close_client(client)
+
         if account.account is None and account.requires_openai_auth:
             return ProviderCheckResult(
                 kind=self.kind,
@@ -189,19 +207,38 @@ class CodexAdapter:
             self._is_active = False
             await self._cleanup()
 
-    async def _get_codex(self) -> AsyncCodex:
-        async with self._lock:
-            if not self._is_active:
-                raise ProviderStartError(
-                    kind=ProviderStartFailureKind.DEFINITE_FAILURE,
-                    code=ProviderStartErrorCode.UNAVAILABLE,
-                )
-            if self._codex is None:
-                self._codex = self._codex_factory()
-            return self._codex
+    async def _start_client_turn(
+        self,
+        client: CodexClient,
+        *,
+        request: DispatchStartRequest,
+        route: CodexProviderRoute,
+        connection: ManagedNodeMcpConnection,
+        effort: str | None,
+        workspace: Path,
+    ) -> _StartedTurn:
+        worker = asyncio.create_task(
+            asyncio.to_thread(
+                _start_codex_turn,
+                client,
+                request,
+                route,
+                connection,
+                effort,
+                workspace,
+            )
+        )
+        try:
+            return await asyncio.shield(worker)
+        except asyncio.CancelledError:
+            await _close_client(client)
+            await _drain_task(worker)
+            raise
 
     async def _reserve_start(self, dispatch_id: str) -> None:
         async with self._lock:
+            if not self._is_active:
+                raise _definite_error(ProviderStartErrorCode.UNAVAILABLE)
             if dispatch_id in self._starting_dispatches or dispatch_id in self._executions:
                 raise ProviderStartError(
                     kind=ProviderStartFailureKind.UNCERTAIN_ACCEPTANCE,
@@ -213,106 +250,231 @@ class CodexAdapter:
         async with self._lock:
             self._starting_dispatches.discard(dispatch_id)
 
-    async def _consume_turn(self, dispatch_id: str, turn: AsyncTurnHandle) -> None:
+    async def _consume_turn(
+        self,
+        dispatch_id: str,
+        client: CodexClient,
+        started: _StartedTurn,
+    ) -> None:
         current_task = asyncio.current_task()
         try:
-            await turn.run()
+            await asyncio.to_thread(_wait_for_terminal_turn, client, started.turn_id)
         except BaseException:
             pass
         finally:
+            await _close_client(client)
             async with self._lock:
                 execution = self._executions.get(dispatch_id)
-                if execution is not None and execution.turn is turn:
+                if execution is not None and execution.client is client:
                     self._executions.pop(dispatch_id, None)
                 if current_task is not None:
                     self._consumer_tasks.discard(current_task)
 
     async def _cleanup(self) -> None:
         async with self._lock:
+            executions = tuple(self._executions.values())
             consumers = tuple(self._consumer_tasks)
-            codex = self._codex
             self._executions.clear()
             self._consumer_tasks.clear()
             self._starting_dispatches.clear()
-            self._codex = None
 
+        if executions:
+            await asyncio.gather(
+                *(_close_client(execution.client) for execution in executions),
+                return_exceptions=True,
+            )
         for consumer in consumers:
             consumer.cancel()
-        try:
-            if codex is not None:
-                await codex.close()
-        finally:
-            if consumers:
-                await asyncio.gather(*consumers, return_exceptions=True)
+        if consumers:
+            await asyncio.gather(*consumers, return_exceptions=True)
 
 
-def _build_codex() -> AsyncCodex:
-    return AsyncCodex(
-        CodexConfig(env=provider_subprocess_environment_overrides()),
+def _start_codex_turn(
+    client: CodexClient,
+    request: DispatchStartRequest,
+    route: CodexProviderRoute,
+    connection: ManagedNodeMcpConnection,
+    effort: str | None,
+    workspace: Path,
+) -> _StartedTurn:
+    try:
+        thread_id = _start_isolated_codex_thread(
+            client,
+            request=request,
+            route=route,
+            connection=connection,
+            workspace=workspace,
+        )
+    except ProviderStartError:
+        raise
+    except (CodexIsolationError, InvalidParamsError, ValueError) as exc:
+        raise _definite_error(ProviderStartErrorCode.CONFIGURATION) from exc
+    except (TransportClosedError, TimeoutError, OSError) as exc:
+        raise _definite_error(ProviderStartErrorCode.CONNECTION) from exc
+    except CodexRpcError as exc:
+        raise _definite_error(ProviderStartErrorCode.UNAVAILABLE) from exc
+    except Exception as exc:
+        raise _definite_error(ProviderStartErrorCode.UNAVAILABLE) from exc
+
+    turn_params: JsonObject = {"approvalPolicy": "never"}
+    if effort is not None:
+        turn_params["effort"] = effort
+    try:
+        turn = client.turn_start(thread_id, request.input, turn_params)
+    except (InvalidParamsError, CodexRpcError) as exc:
+        raise _definite_error(ProviderStartErrorCode.REJECTED) from exc
+    except (TransportClosedError, TimeoutError, OSError) as exc:
+        raise ProviderStartError(
+            kind=ProviderStartFailureKind.UNCERTAIN_ACCEPTANCE,
+            code=ProviderStartErrorCode.UNCERTAIN,
+        ) from exc
+    except Exception as exc:
+        raise ProviderStartError(
+            kind=ProviderStartFailureKind.UNCERTAIN_ACCEPTANCE,
+            code=ProviderStartErrorCode.UNCERTAIN,
+        ) from exc
+    return _StartedTurn(thread_id=thread_id, turn_id=turn.turn.id)
+
+
+def _start_isolated_codex_thread(
+    client: CodexClient,
+    *,
+    request: DispatchStartRequest,
+    route: CodexProviderRoute,
+    connection: ManagedNodeMcpConnection,
+    workspace: Path,
+) -> str:
+    client.start()
+    client.initialize()
+    ambient = read_codex_ambient_state(client, workspace)
+    assert request.sandbox_mode is not None
+    config = build_codex_task_isolation_config(
+        ambient,
+        connection=connection,
+        network_access=request.network_access,
+        sandbox_mode=request.sandbox_mode,
+        workspace=workspace,
     )
+    params: JsonObject = {
+        "approvalPolicy": "never",
+        "approvalsReviewer": "user",
+        "allowProviderModelFallback": False,
+        "config": config,
+        "cwd": str(workspace),
+        "developerInstructions": request.instructions,
+        "ephemeral": True,
+        "personality": "none",
+        "runtimeWorkspaceRoots": [str(workspace)],
+        "sandbox": _sandbox_value(request.sandbox_mode),
+        "selectedCapabilityRoots": [],
+    }
+    if route.model_override is not None:
+        params["model"] = route.model_override
+    response = client.request(
+        _THREAD_START_METHOD,
+        params,
+        response_model=CodexTaskThreadStartResponse,
+    )
+    require_codex_task_thread_isolation(
+        response,
+        expected_model=route.model_override,
+        network_access=request.network_access,
+        sandbox_mode=request.sandbox_mode,
+        workspace=workspace,
+    )
+    thread_id = response.thread.id
+    require_codex_task_mcp_isolation(
+        client,
+        enabled_tools=connection.enabled_tools,
+        thread_id=thread_id,
+    )
+    return thread_id
+
+
+def _read_codex_account(client: CodexClient) -> GetAccountResponse:
+    client.start()
+    client.initialize()
+    return client.account_read()
+
+
+def _wait_for_terminal_turn(client: CodexClient, turn_id: str) -> None:
+    try:
+        while True:
+            notification = client.next_turn_notification(turn_id)
+            payload = notification.payload
+            if isinstance(payload, TurnCompletedNotification) and payload.turn.id == turn_id:
+                return
+    finally:
+        try:
+            client.unregister_turn_notifications(turn_id)
+        except Exception:
+            pass
 
 
 def _validate_codex_request(
     request: DispatchStartRequest,
 ) -> tuple[CodexProviderRoute, ManagedNodeMcpConnection]:
     if not isinstance(request.provider_route, CodexProviderRoute):
-        raise ProviderStartError(
-            kind=ProviderStartFailureKind.DEFINITE_FAILURE,
-            code=ProviderStartErrorCode.CONFIGURATION,
-        )
+        raise _definite_error(ProviderStartErrorCode.CONFIGURATION)
     if request.managed_node_mcp is None:
-        raise ProviderStartError(
-            kind=ProviderStartFailureKind.DEFINITE_FAILURE,
-            code=ProviderStartErrorCode.CONFIGURATION,
-        )
+        raise _definite_error(ProviderStartErrorCode.CONFIGURATION)
     return request.provider_route, request.managed_node_mcp
 
 
-def _resolve_effort(value: str | None) -> ReasoningEffort | None:
+def _resolve_workspace(path: Path) -> Path:
+    try:
+        workspace = path.resolve(strict=True)
+    except OSError as exc:
+        raise _definite_error(ProviderStartErrorCode.CONFIGURATION) from exc
+    if not workspace.is_dir():
+        raise _definite_error(ProviderStartErrorCode.CONFIGURATION)
+    return workspace
+
+
+def _resolve_effort(value: str | None) -> str | None:
     if value is None:
         return None
     try:
-        return ReasoningEffort(value)
+        return ReasoningEffort(value).value
     except ValueError as exc:
-        raise ProviderStartError(
-            kind=ProviderStartFailureKind.DEFINITE_FAILURE,
-            code=ProviderStartErrorCode.CONFIGURATION,
-        ) from exc
+        raise _definite_error(ProviderStartErrorCode.CONFIGURATION) from exc
 
 
-def _resolve_sandbox(
-    sandbox_mode: ManagedSandboxMode,
-) -> Sandbox:
-    match sandbox_mode:
-        case ManagedSandboxMode.READ_ONLY:
-            return Sandbox.read_only
-        case ManagedSandboxMode.WORKSPACE_WRITE:
-            return Sandbox.workspace_write
-        case ManagedSandboxMode.FULL_ACCESS:
-            return Sandbox.full_access
+def _sandbox_value(sandbox_mode: ManagedSandboxMode) -> str:
+    return {
+        ManagedSandboxMode.READ_ONLY: "read-only",
+        ManagedSandboxMode.WORKSPACE_WRITE: "workspace-write",
+        ManagedSandboxMode.FULL_ACCESS: "danger-full-access",
+    }[sandbox_mode]
 
 
-def _build_thread_config(
-    connection: ManagedNodeMcpConnection,
-    network_access: NetworkAccess,
-    sandbox: Sandbox,
-) -> JsonObject:
-    config: JsonObject = {
-        "mcp_servers": {
-            MANAGED_NODE_MCP_SERVER_NAME: {
-                "url": connection.url,
-                "http_headers": {"Authorization": connection.authorization_header},
-                "enabled_tools": list(connection.enabled_tools),
-                "default_tools_approval_mode": "approve",
-                "required": True,
-            }
-        }
-    }
-    if sandbox is Sandbox.workspace_write:
-        config["sandbox_workspace_write"] = {
-            "network_access": network_access is NetworkAccess.ALLOW
-        }
-    return config
+def _definite_error(code: ProviderStartErrorCode) -> ProviderStartError:
+    return ProviderStartError(
+        kind=ProviderStartFailureKind.DEFINITE_FAILURE,
+        code=code,
+    )
+
+
+def _unavailable_check(code: str) -> ProviderCheckResult:
+    return ProviderCheckResult(
+        kind=ProviderKind.CODEX,
+        status=ProviderCheckStatus.UNAVAILABLE,
+        code=code,
+    )
+
+
+async def _close_client(client: CodexClient) -> None:
+    try:
+        await asyncio.to_thread(client.close)
+    except Exception:
+        pass
+
+
+async def _drain_task(task: asyncio.Task[Any]) -> None:
+    try:
+        await asyncio.shield(task)
+    except BaseException:
+        pass
 
 
 __all__ = ["CodexAdapter"]

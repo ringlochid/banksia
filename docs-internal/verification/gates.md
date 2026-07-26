@@ -22,6 +22,10 @@ The package closeout records:
 
 Existing failures must be reproduced and classified before they become a baseline exception. A prior sync receipt or interrupted run is not current evidence.
 
+Real provider, installed-package, or HTTP proof stays deliberately small. Use one or two Members and one bounded outcome such as a greeting, short brainstorm, council, or narrow research question; Operator proof uses the minimum typed clarification and final answer. Large catalog Workflows are deterministic contract fixtures, not live-provider burn tests.
+
+Managed-provider isolation proof uses a disposable provider home and workspace containing sentinel user/project instructions, Skills, plugins or apps, agents, hooks, and external MCP servers. Before a model turn, readback must show no ambient instruction source, no active external server, no extra operation, resource, or resource template, and no provider configuration mutation. Claude proof covers API-key bare mode, Task personal-subscription SDK isolation, Operator personal-subscription safe mode, and fail-closed managed-policy readiness. Codex proof covers global and project guidance, named MCP/Skill disabling, untrusted-project configuration, exact workspace roots, and byte-identical provider configuration before and after.
+
 ## Hidden controller validation guardrails
 
 This table is the sole numeric owner of controller-only baseline safety bounds that are not represented in a public authored or operation schema. Public contract schemas remain the owners of visible semantic constraints such as Workflow identifier lengths, Work Plan step count, and Wave size. The bounds below are controller validation constants with stable field-level diagnostics, not Workflow fields, user-authored limits, provider settings, or an administrator configuration surface. Work packages and subject owners link here rather than restating different values.

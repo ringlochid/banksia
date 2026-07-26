@@ -9,7 +9,7 @@ from typing import TypeVar, cast
 from openai_codex import AsyncCodex, CodexConfig
 
 from banksia.config import OperatorProvider, Settings
-from banksia.integrations.claude.native_identity import read_claude_authentication
+from banksia.integrations.claude.native_identity import read_claude_invocation_readiness
 from banksia.integrations.claude.operator import (
     ClaudeOperatorTurnRunner,
     resolve_claude_operator_effort,
@@ -159,14 +159,16 @@ class ConfiguredOperatorTurnRunner:
                     f"`xhigh`, or `max` in `{self._settings.config_path}`, then restart Banksia."
                 ),
             )
-        working_directory = self._settings.data_dir / "operator" / "claude"
-        working_directory.mkdir(parents=True, exist_ok=True)
-        authentication = await _await_owned_operation(asyncio.to_thread(read_claude_authentication))
-        if not authentication.is_authenticated:
+        readiness = await _await_owned_operation(
+            asyncio.to_thread(read_claude_invocation_readiness)
+        )
+        if not readiness.is_available:
             return _authentication_unavailable_runner(
                 self._settings,
-                code=authentication.code,
+                code=readiness.code,
             )
+        working_directory = self._settings.data_dir / "operator" / "claude"
+        working_directory.mkdir(parents=True, exist_ok=True)
         return ClaudeOperatorTurnRunner(
             system_prompt=self._system_prompt,
             tools=self._tools,

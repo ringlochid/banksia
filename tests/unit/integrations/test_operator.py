@@ -16,7 +16,10 @@ from banksia.config import (
     RuntimeSettings,
     Settings,
 )
-from banksia.integrations.claude.native_identity import ClaudeAuthenticationState
+from banksia.integrations.claude.native_identity import (
+    ClaudeInvocationReadiness,
+    ClaudeIsolationMode,
+)
 from banksia.operator import (
     OperatorProviderMessageResult,
     OperatorTurnOutcome,
@@ -80,10 +83,10 @@ async def test_claude_selection_resolves_options_and_uses_stable_working_directo
     )
     monkeypatch.setattr(
         operator_module,
-        "read_claude_authentication",
-        lambda: ClaudeAuthenticationState(
-            is_authenticated=True,
+        "read_claude_invocation_readiness",
+        lambda: ClaudeInvocationReadiness(
             method=ProviderAuthenticationMethod.SUBSCRIPTION,
+            isolation_mode=ClaudeIsolationMode.SUBSCRIPTION,
             code="claude_available",
         ),
     )
@@ -131,6 +134,41 @@ async def test_claude_selection_resolves_options_and_uses_stable_working_directo
     assert (tmp_path / "data" / "operator" / "claude").is_dir()
 
 
+async def test_claude_activation_rejects_unisolatable_identity_before_workspace_creation(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    settings = Settings(
+        data_dir=tmp_path / "data",
+        claude=ClaudeSettings(enabled=True),
+        operator=OperatorSettings(provider=OperatorProvider.CLAUDE),
+    )
+    monkeypatch.setattr(
+        operator_module,
+        "read_claude_invocation_readiness",
+        lambda: ClaudeInvocationReadiness(
+            method=ProviderAuthenticationMethod.SUBSCRIPTION,
+            isolation_mode=None,
+            code="claude_managed_subscription_unsupported",
+        ),
+    )
+
+    def reject_runner(**arguments: object) -> object:
+        raise AssertionError(f"unsupported Claude identity created a runner: {arguments}")
+
+    monkeypatch.setattr(operator_module, "ClaudeOperatorTurnRunner", reject_runner)
+    runner = operator_module.ConfiguredOperatorTurnRunner(
+        settings=settings,
+        system_prompt="prompt",
+        tools=(),
+    )
+
+    async with runner.lifespan():
+        assert runner.status.availability == "unavailable"
+
+    assert not (tmp_path / "data" / "operator" / "claude").exists()
+
+
 async def test_codex_selection_never_checks_or_falls_back_to_claude(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -149,7 +187,11 @@ async def test_codex_selection_never_checks_or_falls_back_to_claude(
     async def accept_codex_check() -> object:
         return SimpleNamespace(is_authenticated=True, code="codex_available")
 
-    monkeypatch.setattr(operator_module, "read_claude_authentication", reject_claude_check)
+    monkeypatch.setattr(
+        operator_module,
+        "read_claude_invocation_readiness",
+        reject_claude_check,
+    )
     monkeypatch.setattr(operator_module, "_read_codex_authentication", accept_codex_check)
     monkeypatch.setattr(
         operator_module,
@@ -194,7 +236,11 @@ async def test_unconfigured_disabled_and_failed_selection_stay_human_safe(
             code="codex_authentication_required",
         )
 
-    monkeypatch.setattr(operator_module, "read_claude_authentication", record_claude_check)
+    monkeypatch.setattr(
+        operator_module,
+        "read_claude_invocation_readiness",
+        record_claude_check,
+    )
     monkeypatch.setattr(operator_module, "_read_codex_authentication", fail_codex_check)
 
     unconfigured = operator_module.ConfiguredOperatorTurnRunner(
@@ -334,15 +380,19 @@ async def test_invalid_effective_claude_effort_fails_before_readiness(
     readiness_checks: list[str] = []
     adapters: list[RecordingProviderRunner] = []
 
-    def record_claude_check() -> ClaudeAuthenticationState:
+    def record_claude_check() -> ClaudeInvocationReadiness:
         readiness_checks.append("claude")
-        return ClaudeAuthenticationState(
-            is_authenticated=True,
+        return ClaudeInvocationReadiness(
             method=ProviderAuthenticationMethod.SUBSCRIPTION,
+            isolation_mode=ClaudeIsolationMode.SUBSCRIPTION,
             code="claude_available",
         )
 
-    monkeypatch.setattr(operator_module, "read_claude_authentication", record_claude_check)
+    monkeypatch.setattr(
+        operator_module,
+        "read_claude_invocation_readiness",
+        record_claude_check,
+    )
     monkeypatch.setattr(
         operator_module,
         "ClaudeOperatorTurnRunner",

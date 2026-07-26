@@ -20,13 +20,21 @@ from claude_agent_sdk.types import (
     SandboxSettings,
 )
 
+from banksia.integrations.claude.isolation import (
+    CLAUDE_ALWAYS_DISALLOWED_TOOLS,
+    claude_isolation_environment,
+    claude_isolation_extra_args,
+    claude_isolation_settings,
+    validate_claude_startup,
+)
 from banksia.integrations.claude.native_identity import (
     ClaudeAuthenticationState,
+    ClaudeEndpointPolicyState,
+    ClaudeInvocationReadiness,
+    ClaudeIsolationMode,
     read_claude_authentication,
-)
-from banksia.platform.provider_environment import (
-    ANTHROPIC_API_KEY,
-    provider_subprocess_environment_overrides,
+    read_claude_endpoint_policy,
+    read_claude_invocation_readiness,
 )
 from banksia.providers import (
     ManagedSandboxMode,
@@ -50,15 +58,12 @@ from banksia.runtime.providers.contracts import (
 )
 
 _CLAUDE_FULL_NATIVE_TOOLS = (
-    "Agent",
     "Bash",
     "Edit",
     "Glob",
     "Grep",
     "NotebookEdit",
     "Read",
-    "Skill",
-    "SlashCommand",
     "TodoWrite",
     "WebFetch",
     "WebSearch",
@@ -70,7 +75,6 @@ _CLAUDE_RESTRICTED_NATIVE_TOOLS = (
     "Grep",
     "NotebookEdit",
     "Read",
-    "Skill",
     "TodoWrite",
     "Write",
 )
@@ -85,7 +89,6 @@ _CLAUDE_WRITE_TOOL_PATH_FIELDS = {
     "Write": "file_path",
     "NotebookEdit": "notebook_path",
 }
-_CLAUDE_ALWAYS_DISALLOWED_TOOLS = ("AskUserQuestion",)
 _CLAUDE_EFFORTS = frozenset({"low", "medium", "high", "xhigh", "max"})
 
 
@@ -105,9 +108,13 @@ class ClaudeAdapter:
         *,
         client_factory: Callable[[ClaudeAgentOptions], ClaudeSDKClient] = ClaudeSDKClient,
         authentication_reader: Callable[[], ClaudeAuthenticationState] = read_claude_authentication,
+        endpoint_policy_reader: Callable[
+            [], ClaudeEndpointPolicyState
+        ] = read_claude_endpoint_policy,
     ) -> None:
         self._client_factory = client_factory
         self._authentication_reader = authentication_reader
+        self._endpoint_policy_reader = endpoint_policy_reader
         self._executions: dict[str, _ClaudeExecution] = {}
         self._consumer_tasks: set[asyncio.Task[None]] = set()
         self._starting_dispatches: set[str] = set()
@@ -116,11 +123,15 @@ class ClaudeAdapter:
 
     async def start(self, request: DispatchStartRequest) -> ProviderStartAccepted:
         route, connection = _validate_claude_request(request)
+        readiness = await self._read_invocation_readiness()
+        if readiness.isolation_mode is None:
+            raise _readiness_start_error(readiness)
         options = _build_claude_options(
             request,
             route,
             connection,
             request.instructions,
+            readiness.isolation_mode,
         )
 
         await self._reserve_start(request.dispatch_id)
@@ -133,6 +144,20 @@ class ClaudeAdapter:
             raise ProviderStartError(
                 kind=ProviderStartFailureKind.DEFINITE_FAILURE,
                 code=ProviderStartErrorCode.CONNECTION,
+            ) from exc
+
+        try:
+            await validate_claude_startup(
+                client,
+                external_mcp_server=MANAGED_NODE_MCP_SERVER_NAME,
+                external_mcp_tools=connection.enabled_tools,
+            )
+        except Exception as exc:
+            await _disconnect_client(client)
+            await self._release_start_reservation(request.dispatch_id)
+            raise ProviderStartError(
+                kind=ProviderStartFailureKind.DEFINITE_FAILURE,
+                code=ProviderStartErrorCode.UNAVAILABLE,
             ) from exc
 
         try:
@@ -182,32 +207,30 @@ class ClaudeAdapter:
                 status=ProviderCheckStatus.UNAVAILABLE,
                 code="claude_adapter_inactive",
             )
-        try:
-            state = await asyncio.to_thread(self._authentication_reader)
-        except Exception:
-            return ProviderCheckResult(
-                kind=self.kind,
-                status=ProviderCheckStatus.UNAVAILABLE,
-                code="claude_check_failed",
-            )
-        if not state.is_authenticated:
+        readiness = await self._read_invocation_readiness()
+        if not readiness.is_available:
             authentication = (
                 ProviderCheckAxisStatus.FAILED
-                if state.code.startswith("claude_authentication_")
-                else ProviderCheckAxisStatus.NOT_CHECKED
+                if readiness.code.startswith("claude_authentication_")
+                else (
+                    ProviderCheckAxisStatus.PASSED
+                    if readiness.method is not None
+                    else ProviderCheckAxisStatus.NOT_CHECKED
+                )
             )
             return ProviderCheckResult(
                 kind=self.kind,
                 status=ProviderCheckStatus.UNAVAILABLE,
-                code=state.code,
+                code=readiness.code,
                 authentication=authentication,
+                authentication_method=readiness.method,
             )
         return ProviderCheckResult(
             kind=self.kind,
             status=ProviderCheckStatus.AVAILABLE,
-            code=state.code,
+            code=readiness.code,
             authentication=ProviderCheckAxisStatus.PASSED,
-            authentication_method=state.method,
+            authentication_method=readiness.method,
         )
 
     @asynccontextmanager
@@ -238,6 +261,13 @@ class ClaudeAdapter:
     async def _release_start_reservation(self, dispatch_id: str) -> None:
         async with self._lock:
             self._starting_dispatches.discard(dispatch_id)
+
+    async def _read_invocation_readiness(self) -> ClaudeInvocationReadiness:
+        return await asyncio.to_thread(
+            read_claude_invocation_readiness,
+            authentication_reader=self._authentication_reader,
+            endpoint_policy_reader=self._endpoint_policy_reader,
+        )
 
     async def _consume_response(self, dispatch_id: str, client: ClaudeSDKClient) -> None:
         current_task = asyncio.current_task()
@@ -295,6 +325,7 @@ def _build_claude_options(
     route: ClaudeProviderRoute,
     connection: ManagedNodeMcpConnection,
     instructions: str,
+    isolation_mode: ClaudeIsolationMode,
 ) -> ClaudeAgentOptions:
     assert request.sandbox_mode is not None
     workspace_root = _resolve_workspace_root(request.working_directory)
@@ -303,7 +334,7 @@ def _build_claude_options(
         f"mcp__{MANAGED_NODE_MCP_SERVER_NAME}__{tool}" for tool in connection.enabled_tools
     )
     available_tools = [*native_tools, *managed_tools]
-    disallowed_tools = [*_CLAUDE_ALWAYS_DISALLOWED_TOOLS]
+    disallowed_tools = [*CLAUDE_ALWAYS_DISALLOWED_TOOLS]
     if request.network_access is NetworkAccess.DENY:
         disallowed_tools.extend(_CLAUDE_NETWORK_TOOLS)
 
@@ -315,22 +346,33 @@ def _build_claude_options(
     return ClaudeAgentOptions(
         tools=available_tools,
         allowed_tools=available_tools,
-        system_prompt={
-            "type": "preset",
-            "preset": "claude_code",
-            "append": instructions,
-        },
+        system_prompt=instructions,
         mcp_servers={MANAGED_NODE_MCP_SERVER_NAME: mcp_server},
         strict_mcp_config=True,
         permission_mode="dontAsk",
         disallowed_tools=disallowed_tools,
         model=route.model_override,
+        fallback_model=None,
         cwd=request.working_directory,
-        setting_sources=["user", "project", "local"],
+        add_dirs=[],
+        settings=claude_isolation_settings(),
+        setting_sources=[],
+        skills=[],
+        plugins=[],
+        agents={},
+        continue_conversation=False,
+        resume=None,
+        fork_session=False,
+        include_partial_messages=False,
         sandbox=_build_sandbox(request.network_access),
         hooks=_build_workspace_hooks(request.sandbox_mode, workspace_root),
         effort=_resolve_effort(route.effort_override),
-        env=provider_subprocess_environment_overrides(allowed_keys=frozenset({ANTHROPIC_API_KEY})),
+        extra_args=claude_isolation_extra_args(
+            isolation_mode,
+            should_persist_session=False,
+            should_use_safe_mode=False,
+        ),
+        env=claude_isolation_environment(should_persist_session=False),
     )
 
 
@@ -489,6 +531,18 @@ def _resolve_effort(value: str | None) -> EffortLevel | None:
             code=ProviderStartErrorCode.CONFIGURATION,
         )
     return cast(EffortLevel, value)
+
+
+def _readiness_start_error(readiness: ClaudeInvocationReadiness) -> ProviderStartError:
+    authentication_failure = readiness.code.startswith("claude_authentication_")
+    return ProviderStartError(
+        kind=ProviderStartFailureKind.DEFINITE_FAILURE,
+        code=(
+            ProviderStartErrorCode.AUTHENTICATION
+            if authentication_failure
+            else ProviderStartErrorCode.UNAVAILABLE
+        ),
+    )
 
 
 async def _disconnect_client(client: ClaudeSDKClient) -> None:

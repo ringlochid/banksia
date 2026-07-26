@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from collections.abc import AsyncIterator, Callable
 from pathlib import Path
 from typing import cast
@@ -17,7 +18,11 @@ from claude_agent_sdk.types import (
 from pydantic import SecretStr
 
 from banksia.integrations.claude import ClaudeAdapter
-from banksia.integrations.claude.native_identity import ClaudeAuthenticationState
+from banksia.integrations.claude.native_identity import (
+    ClaudeAuthenticationState,
+    ClaudeEndpointPolicyState,
+    ClaudeSubscriptionClass,
+)
 from banksia.providers import ManagedSandboxMode, NetworkAccess, ProviderKind, ProviderNativeAccess
 from banksia.runtime.contracts.provider_resolution import ClaudeProviderRoute
 from banksia.runtime.providers.contracts import (
@@ -26,6 +31,8 @@ from banksia.runtime.providers.contracts import (
     ProviderAuthenticationMethod,
     ProviderCheckAxisStatus,
     ProviderCheckStatus,
+    ProviderStartError,
+    ProviderStartErrorCode,
     ProviderStopOutcome,
 )
 
@@ -37,10 +44,42 @@ class _FakeClaudeClient:
         self.was_connected = False
         self.was_interrupted = False
         self.was_disconnected = False
+        self.mcp_status_reads = 0
         self._done = asyncio.Event()
 
     async def connect(self) -> None:
         self.was_connected = True
+
+    async def get_server_info(self) -> dict[str, object]:
+        return {"commands": []}
+
+    async def get_context_usage(self) -> dict[str, object]:
+        return {
+            "memoryFiles": [],
+            "agents": [],
+            "mcpTools": [
+                {
+                    "name": "checkpoint",
+                    "serverName": "banksia_node",
+                },
+                {
+                    "name": "delegate",
+                    "serverName": "banksia_node",
+                },
+            ],
+        }
+
+    async def get_mcp_status(self) -> dict[str, object]:
+        self.mcp_status_reads += 1
+        return {
+            "mcpServers": [
+                {
+                    "name": "banksia_node",
+                    "status": "pending" if self.mcp_status_reads == 1 else "connected",
+                    "tools": [{"name": "checkpoint"}, {"name": "delegate"}],
+                }
+            ]
+        }
 
     async def query(self, dispatch_input: str) -> None:
         self.query_input = dispatch_input
@@ -58,6 +97,28 @@ class _FakeClaudeClient:
         self.was_disconnected = True
 
 
+def _authentication(
+    method: ProviderAuthenticationMethod = ProviderAuthenticationMethod.SUBSCRIPTION,
+) -> ClaudeAuthenticationState:
+    return ClaudeAuthenticationState(
+        is_authenticated=True,
+        method=method,
+        code="claude_available",
+        subscription_class=(
+            ClaudeSubscriptionClass.PERSONAL
+            if method is ProviderAuthenticationMethod.SUBSCRIPTION
+            else None
+        ),
+    )
+
+
+def _clear_policy() -> ClaudeEndpointPolicyState:
+    return ClaudeEndpointPolicyState(
+        is_installed=False,
+        code="claude_endpoint_policy_clear",
+    )
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "method",
@@ -70,11 +131,8 @@ async def test_claude_check_confirms_supported_native_authentication(
     method: ProviderAuthenticationMethod,
 ) -> None:
     adapter = ClaudeAdapter(
-        authentication_reader=lambda: ClaudeAuthenticationState(
-            is_authenticated=True,
-            method=method,
-            code="claude_available",
-        )
+        authentication_reader=lambda: _authentication(method),
+        endpoint_policy_reader=_clear_policy,
     )
 
     async with adapter.lifespan():
@@ -93,7 +151,8 @@ async def test_claude_check_rejects_missing_native_authentication() -> None:
             is_authenticated=False,
             method=None,
             code="claude_authentication_required",
-        )
+        ),
+        endpoint_policy_reader=_clear_policy,
     )
 
     async with adapter.lifespan():
@@ -141,6 +200,8 @@ async def test_claude_start_uses_disposable_scoped_client_and_returns_before_out
 
     adapter = ClaudeAdapter(
         client_factory=cast(Callable[[ClaudeAgentOptions], ClaudeSDKClient], build_client),
+        authentication_reader=_authentication,
+        endpoint_policy_reader=_clear_policy,
     )
 
     async with adapter.lifespan():
@@ -148,17 +209,44 @@ async def test_claude_start_uses_disposable_scoped_client_and_returns_before_out
         client = clients[0]
 
         assert client.was_connected is True
+        assert client.mcp_status_reads == 2
         assert client.query_input == "exact input"
         assert str(client.options.cwd) == str(Path.cwd())
-        assert client.options.system_prompt == {
-            "type": "preset",
-            "preset": "claude_code",
-            "append": "exact instructions",
-        }
+        assert client.options.system_prompt == "exact instructions"
         assert client.options.permission_mode == "dontAsk"
         assert client.options.strict_mcp_config is True
-        assert client.options.setting_sources == ["user", "project", "local"]
+        assert client.options.setting_sources == []
+        assert client.options.skills == []
+        assert client.options.plugins == []
+        assert client.options.agents == {}
+        assert client.options.continue_conversation is False
+        assert client.options.resume is None
+        assert client.options.extra_args == {
+            "disable-slash-commands": None,
+            "no-chrome": None,
+            "no-session-persistence": None,
+        }
+        assert "safe-mode" not in client.options.extra_args
+        assert "bare" not in client.options.extra_args
+        settings = json.loads(cast(str, client.options.settings))
+        assert settings["attribution"] == {"commit": "", "pr": ""}
+        assert settings["autoMemoryEnabled"] is False
+        assert settings["disableClaudeAiConnectors"] is True
+        assert settings["disableAgentView"] is True
+        assert settings["disableArtifact"] is True
+        assert client.options.env["CLAUDE_AGENT_SDK_DISABLE_BUILTIN_AGENTS"] == "1"
+        assert client.options.env["CLAUDE_CODE_DISABLE_AUTO_MEMORY"] == "1"
+        assert client.options.env["CLAUDE_CODE_DISABLE_BACKGROUND_TASKS"] == "1"
+        assert client.options.env["CLAUDE_CODE_DISABLE_CLAUDE_MDS"] == "1"
+        assert client.options.env["CLAUDE_CODE_DISABLE_GIT_INSTRUCTIONS"] == "1"
+        assert client.options.env["CLAUDE_CODE_SKIP_PROMPT_HISTORY"] == "1"
         assert client.options.env["OPENCLAW_GATEWAY_TOKEN"] == ""
+        assert {"Agent", "Artifact", "Skill", "SlashCommand"} <= set(
+            client.options.disallowed_tools
+        )
+        assert {"Agent", "Artifact", "Skill", "SlashCommand"}.isdisjoint(
+            client.options.allowed_tools
+        )
         assert "AskUserQuestion" in client.options.disallowed_tools
         assert "WebFetch" in client.options.disallowed_tools
         assert "WebFetch" not in client.options.allowed_tools
@@ -180,6 +268,82 @@ async def test_claude_start_uses_disposable_scoped_client_and_returns_before_out
 
 
 @pytest.mark.asyncio
+async def test_claude_api_key_start_uses_bare_mode_even_with_endpoint_policy() -> None:
+    clients: list[_FakeClaudeClient] = []
+
+    def build_client(options: ClaudeAgentOptions) -> _FakeClaudeClient:
+        client = _FakeClaudeClient(options)
+        clients.append(client)
+        return client
+
+    adapter = ClaudeAdapter(
+        client_factory=cast(Callable[[ClaudeAgentOptions], ClaudeSDKClient], build_client),
+        authentication_reader=lambda: _authentication(ProviderAuthenticationMethod.API_KEY),
+        endpoint_policy_reader=lambda: ClaudeEndpointPolicyState(
+            is_installed=True,
+            code="claude_endpoint_policy_unsupported",
+        ),
+    )
+
+    async with adapter.lifespan():
+        await adapter.start(_request())
+        assert "bare" in clients[0].options.extra_args
+        assert "safe-mode" not in clients[0].options.extra_args
+        assert await adapter.stop("dispatch-1") is ProviderStopOutcome.STOPPED
+
+
+@pytest.mark.asyncio
+async def test_claude_start_fails_before_query_for_managed_identity_or_wrong_mcp_readback() -> None:
+    clients: list[_FakeClaudeClient] = []
+
+    class WrongMcpClient(_FakeClaudeClient):
+        async def get_mcp_status(self) -> dict[str, object]:
+            status = await super().get_mcp_status()
+            server = cast(dict[str, object], cast(list[object], status["mcpServers"])[0])
+            server["tools"] = [
+                {"name": "checkpoint"},
+                {"name": "delegate"},
+                {"name": "ambient"},
+            ]
+            return status
+
+    def build_client(options: ClaudeAgentOptions) -> _FakeClaudeClient:
+        client = WrongMcpClient(options)
+        clients.append(client)
+        return client
+
+    managed_adapter = ClaudeAdapter(
+        client_factory=cast(Callable[[ClaudeAgentOptions], ClaudeSDKClient], build_client),
+        authentication_reader=lambda: ClaudeAuthenticationState(
+            is_authenticated=True,
+            method=ProviderAuthenticationMethod.SUBSCRIPTION,
+            code="claude_available",
+            subscription_class=ClaudeSubscriptionClass.MANAGED,
+        ),
+        endpoint_policy_reader=_clear_policy,
+    )
+    async with managed_adapter.lifespan():
+        with pytest.raises(ProviderStartError) as managed_error:
+            await managed_adapter.start(_request())
+
+    assert managed_error.value.code is ProviderStartErrorCode.UNAVAILABLE
+    assert clients == []
+
+    wrong_mcp_adapter = ClaudeAdapter(
+        client_factory=cast(Callable[[ClaudeAgentOptions], ClaudeSDKClient], build_client),
+        authentication_reader=_authentication,
+        endpoint_policy_reader=_clear_policy,
+    )
+    async with wrong_mcp_adapter.lifespan():
+        with pytest.raises(ProviderStartError) as wrong_mcp_error:
+            await wrong_mcp_adapter.start(_request())
+
+    assert wrong_mcp_error.value.code is ProviderStartErrorCode.UNAVAILABLE
+    assert clients[0].query_input is None
+    assert clients[0].was_disconnected is True
+
+
+@pytest.mark.asyncio
 async def test_claude_read_only_mode_has_a_distinct_native_tool_projection() -> None:
     clients: list[_FakeClaudeClient] = []
 
@@ -190,6 +354,8 @@ async def test_claude_read_only_mode_has_a_distinct_native_tool_projection() -> 
 
     adapter = ClaudeAdapter(
         client_factory=cast(Callable[[ClaudeAgentOptions], ClaudeSDKClient], build_client),
+        authentication_reader=_authentication,
+        endpoint_policy_reader=_clear_policy,
     )
     request = _request().model_copy(
         update={
@@ -317,6 +483,8 @@ async def test_claude_lifespan_disconnects_without_waiting_for_interrupt(
 
     adapter = ClaudeAdapter(
         client_factory=cast(Callable[[ClaudeAgentOptions], ClaudeSDKClient], build_client),
+        authentication_reader=_authentication,
+        endpoint_policy_reader=_clear_policy,
     )
 
     async with adapter.lifespan():
@@ -336,6 +504,8 @@ async def _started_options(request: DispatchStartRequest) -> ClaudeAgentOptions:
 
     adapter = ClaudeAdapter(
         client_factory=cast(Callable[[ClaudeAgentOptions], ClaudeSDKClient], build_client),
+        authentication_reader=_authentication,
+        endpoint_policy_reader=_clear_policy,
     )
     async with adapter.lifespan():
         await adapter.start(request)

@@ -77,6 +77,8 @@ The adapter sends `instructions` through the strongest provider-supported applic
 
 Tool definitions own names, input schemas, bounds, enums, and result schemas. System-prompt text must not duplicate those details. Provider-specific role mapping belongs to the adapter.
 
+Provider homes, workspace instruction files, Skills, plugins, subagents, apps, external MCP servers, hooks, memory, and equivalent ambient configuration are never implicit prompt layers. Managed adapters disable them and validate the provider's effective instruction and extension readback before the first model turn. A provider configuration that cannot satisfy that proof is unavailable; it is not merged below the Banksia instruction lane.
+
 ## Source assets and composition
 
 Maintain these controller-owned assets:

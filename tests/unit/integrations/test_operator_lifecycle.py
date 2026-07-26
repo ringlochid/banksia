@@ -15,7 +15,10 @@ from banksia.config import (
     OperatorSettings,
     Settings,
 )
-from banksia.integrations.claude.native_identity import ClaudeAuthenticationState
+from banksia.integrations.claude.native_identity import (
+    ClaudeInvocationReadiness,
+    ClaudeIsolationMode,
+)
 from banksia.operator import OperatorTurnOutcome, OperatorTurnRequest
 from banksia.operator.provider import OperatorMessageTurnInput, OperatorRunnerStatus
 from banksia.runtime.providers import ProviderAuthenticationMethod
@@ -117,17 +120,21 @@ async def test_cancelled_claude_readiness_does_not_outlive_lifespan(
     readiness_release = threading.Event()
     readiness_finished = threading.Event()
 
-    def blocking_claude_check() -> ClaudeAuthenticationState:
+    def blocking_claude_check() -> ClaudeInvocationReadiness:
         readiness_started.set()
         readiness_release.wait(timeout=5)
         readiness_finished.set()
-        return ClaudeAuthenticationState(
-            is_authenticated=True,
+        return ClaudeInvocationReadiness(
             method=ProviderAuthenticationMethod.SUBSCRIPTION,
+            isolation_mode=ClaudeIsolationMode.SUBSCRIPTION,
             code="claude_available",
         )
 
-    monkeypatch.setattr(operator_module, "read_claude_authentication", blocking_claude_check)
+    monkeypatch.setattr(
+        operator_module,
+        "read_claude_invocation_readiness",
+        blocking_claude_check,
+    )
     runner = operator_module.ConfiguredOperatorTurnRunner(
         settings=Settings(
             data_dir=tmp_path / "data",

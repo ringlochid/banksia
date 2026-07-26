@@ -17,6 +17,21 @@ from claude_agent_sdk import (
 from claude_agent_sdk.types import EffortLevel, ResultMessage
 from pydantic import ValidationError
 
+from banksia.integrations.claude.isolation import (
+    CLAUDE_ALWAYS_DISALLOWED_TOOLS,
+    claude_isolation_environment,
+    claude_isolation_extra_args,
+    claude_isolation_settings,
+    validate_claude_startup,
+)
+from banksia.integrations.claude.native_identity import (
+    ClaudeAuthenticationState,
+    ClaudeEndpointPolicyState,
+    ClaudeIsolationMode,
+    read_claude_authentication,
+    read_claude_endpoint_policy,
+    read_claude_invocation_readiness,
+)
 from banksia.operator.contracts import OPERATOR_PROVIDER_RESULT_ADAPTER
 from banksia.operator.provider import (
     OperatorMessageTurnInput,
@@ -28,10 +43,6 @@ from banksia.operator.provider import (
     OperatorTurnRequest,
 )
 from banksia.operator.tools import OperatorTool, OperatorToolName
-from banksia.platform.provider_environment import (
-    ANTHROPIC_API_KEY,
-    provider_subprocess_environment_overrides,
-)
 
 CLAUDE_OPERATOR_MCP_SERVER_NAME = "banksia_operator"
 _CLAUDE_OPERATOR_MCP_SERVER_VERSION = "1.0.0"
@@ -83,6 +94,10 @@ class ClaudeOperatorTurnRunner:
         status: OperatorRunnerStatus,
         working_directory: Path | None = None,
         client_factory: _ClaudeClientFactory = ClaudeSDKClient,
+        authentication_reader: Callable[[], ClaudeAuthenticationState] = read_claude_authentication,
+        endpoint_policy_reader: Callable[
+            [], ClaudeEndpointPolicyState
+        ] = read_claude_endpoint_policy,
     ) -> None:
         if not system_prompt.strip():
             raise ValueError("Claude Operator system prompt must not be blank")
@@ -98,6 +113,8 @@ class ClaudeOperatorTurnRunner:
         self._status = status
         self._working_directory = working_directory
         self._client_factory = client_factory
+        self._authentication_reader = authentication_reader
+        self._endpoint_policy_reader = endpoint_policy_reader
 
     @property
     def status(self) -> OperatorRunnerStatus:
@@ -109,10 +126,24 @@ class ClaudeOperatorTurnRunner:
         if request.provider != "claude":
             raise OperatorProviderUnavailableError("Claude cannot run this Operator conversation")
 
-        options = self._build_options(request)
+        readiness = await asyncio.to_thread(
+            read_claude_invocation_readiness,
+            authentication_reader=self._authentication_reader,
+            endpoint_policy_reader=self._endpoint_policy_reader,
+        )
+        if readiness.isolation_mode is None:
+            raise OperatorProviderUnavailableError(
+                "Claude cannot establish an isolated Operator session"
+            )
+
+        options = self._build_options(request, readiness.isolation_mode)
         client = self._client_factory(options)
         try:
             await _connect_client(client)
+            await validate_claude_startup(
+                client,
+                external_mcp_server=None,
+            )
             await client.query(_render_claude_operator_input(request))
             result = await _read_terminal_result(client)
         except asyncio.CancelledError:
@@ -156,7 +187,11 @@ class ClaudeOperatorTurnRunner:
             result=provider_result,
         )
 
-    def _build_options(self, request: OperatorTurnRequest) -> ClaudeAgentOptions:
+    def _build_options(
+        self,
+        request: OperatorTurnRequest,
+        isolation_mode: ClaudeIsolationMode,
+    ) -> ClaudeAgentOptions:
         projected_tools = [_project_operator_tool(operator_tool) for operator_tool in self._tools]
         allowed_tools = [
             f"mcp__{CLAUDE_OPERATOR_MCP_SERVER_NAME}__{operator_tool.name.value}"
@@ -175,14 +210,19 @@ class ClaudeOperatorTurnRunner:
             },
             strict_mcp_config=True,
             permission_mode="dontAsk",
+            disallowed_tools=[*CLAUDE_ALWAYS_DISALLOWED_TOOLS],
             continue_conversation=False,
             resume=request.provider_thread_id,
             model=request.model,
             fallback_model=None,
             cwd=self._working_directory,
             add_dirs=[],
-            env=provider_subprocess_environment_overrides(
-                allowed_keys=frozenset({ANTHROPIC_API_KEY})
+            settings=claude_isolation_settings(),
+            env=claude_isolation_environment(should_persist_session=True),
+            extra_args=claude_isolation_extra_args(
+                isolation_mode,
+                should_persist_session=True,
+                should_use_safe_mode=True,
             ),
             hooks=None,
             include_partial_messages=False,

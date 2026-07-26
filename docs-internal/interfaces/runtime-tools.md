@@ -13,6 +13,8 @@ Banksia has two separate built-in agent tool catalogs:
 
 The deferred external-MCP decision does not remove either built-in catalog. It means a Workflow cannot add arbitrary MCP servers or tools, and Banksia has no external-MCP registry, credential, discovery, approval, replan, or UI shape in this baseline.
 
+For a managed Task Dispatch, the provider must report exactly one active MCP server: the Dispatch-bound `banksia_node`. Its operation names must equal the exact controller binding, and it must expose no MCP resources or resource templates. Ambient provider MCP configuration is enumerated and disabled in an invocation-only overlay; an adapter that cannot prove the resulting inventory fails before the first model turn.
+
 ## Exact final Task-member catalog
 
 The final catalog contains exactly nine logical operations:

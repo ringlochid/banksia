@@ -1,84 +1,100 @@
-# Install and set up Banksia
+# Getting started
 
-This is the shortest local path from installation to a running controller.
+This path starts Banksia locally, configures one provider, and launches a Task from a packaged starter Workflow.
 
-## Install
+## 1. Install
 
-Use an isolated tool environment:
+Banksia requires Python 3.12 or newer:
 
 ```bash
 pipx install banksia-ai
 ```
 
-You can use `uv tool install banksia-ai` instead. Install `banksia-ai[postgres]` only when you plan to use Postgres.
+From a source checkout:
 
-## Create local state
+```bash
+uv sync --all-groups
+```
+
+Prefix later commands with `uv run` when you are using the source environment.
+
+## 2. Initialize
+
+Run the guided initializer from the project directory you normally want the Console, HTTP API, and Operator to use:
 
 ```bash
 banksia init
 ```
 
-On a terminal, `init` asks for the default workspace, suggesting the directory where you invoked it, then shows the recommended local paths, database, and loopback API address before it writes. It creates the local configuration, prepares the controller database, and installs the packaged definitions. It binds the server to `127.0.0.1:18125` by default.
+Accept the invocation directory as the suggested default workspace or enter another existing absolute directory. Automation can set it explicitly:
 
-Rerunning `init` keeps and verifies an existing config by default. Replacing config requires an explicit selection and confirmation. It never resets a mismatched database; use `banksia db reset` only when destructive replacement is intended.
+```bash
+banksia init --workspace /absolute/path/to/project --non-interactive
+```
 
-Use `--workspace`, `--data-dir`, `--database-url`, `--host`, or `--port` when the defaults do not fit your machine. `--workspace` must name an existing directory. Keep the server on loopback for the supported local lane.
+The initializer writes configuration, prepares controller storage, and bootstraps provider-neutral starter Workflows. Use `banksia config show` to confirm the effective workspace and database.
 
-## Configure a provider
+## 3. Configure a provider
 
-Start the provider guide:
+Run:
 
 ```bash
 banksia setup
 ```
 
-The guide asks for the primary/default provider, checks it, configures authentication when needed, checks again, and asks whether to add providers. Codex and Claude offer subscription login or API key. OpenClaw asks for Gateway URL/profile and token or password; it is selectable and may be the default, but its Gateway and compatibility MCP setup remain experimental and user-managed.
+Choose Codex, Claude, or OpenClaw. The guide configures the route, handles supported login, checks availability, and sets the default provider.
 
-To change the default directly later, run:
+Codex and Claude are managed adapters. OpenClaw is a user-operated transport: you remain responsible for its CLI, Gateway, profile, and authentication.
 
-```bash
-banksia providers set-default claude
-```
-
-For scripts, use `--non-interactive`. Non-interactive setup configures one selected route; login and checking remain explicit. Secret login also requires an explicit method and `--secret-stdin`:
+Confirm the result without changing state:
 
 ```bash
-banksia init --non-interactive
-banksia setup --provider codex --non-interactive
-printf '%s\n' "$OPENAI_API_KEY" | \
-  banksia providers login codex --method api-key --secret-stdin
-banksia providers check codex
+banksia providers status
+banksia status
 ```
 
-Run `banksia providers login codex --method subscription` directly on an interactive terminal when you want the provider-native browser or device login.
+## 4. Start the application
 
-See [configuration and settings](configuration-and-settings.md) for provider behavior and authentication.
-
-## Run Banksia
-
-Start the foreground server:
+Run:
 
 ```bash
 banksia serve
 ```
 
-Or install the Linux user service:
+Open `http://127.0.0.1:18125/`. Banksia's current product surface is loopback-only.
+
+On Linux, you can install a user service instead:
 
 ```bash
 banksia service install
 banksia service status
 ```
 
-Open `http://127.0.0.1:18125/`. The packaged console, HTTP API, and MCP surfaces share this local server.
+## 5. Start a Task
 
-## Check local state
+Use the Console's **New run** path or start interactively in the terminal:
 
 ```bash
-banksia status
-banksia config show --json
-banksia providers status
+banksia task start
 ```
 
-These commands read local state. Use `banksia providers check <provider>` for a fresh bounded diagnostic. The check must find a supported effective credential source before it reports ready. It never starts an agent, so Codex/Claude model reachability remains deferred until the first task and is shown as `not tested`.
+Choose one of the published starter Workflows, then enter the one complete Task prompt. The Task detail view shows current work, Checkpoints, Human Requests, Command Runs, Activity, and the final Result.
 
-Next, [start a task](start-a-task.md).
+For automation:
+
+```bash
+banksia task start --json \
+  '{"workflow":"reviewed-delivery","prompt":"Review this repository change and report the consequential findings."}'
+```
+
+## 6. Try a reference Workflow
+
+Importing a YAML or JSON definition creates a draft:
+
+```bash
+banksia workflow import --file examples/workflows/minimal.yaml
+```
+
+Open that draft in the Console, validate it, and publish it before Task start. The maintained [Workflow examples](../../examples/workflows/README.md) range from one sparse lead to deep delivery and research teams.
+
+Next, read [Workflows and teams](../concepts/workflows-and-teams.md) or [Run and operate Tasks](../guides/run-and-operate.md).

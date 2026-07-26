@@ -30,7 +30,7 @@ def test_task_member_prompt_contract_readback_is_deterministic() -> None:
     assert "Status: Reference" in rendered
     assert "deterministic implementation readback" in rendered
     assert "not an independent source of product truth" in rendered
-    assert "../../system-prompts.md" in rendered
+    assert "../../architecture/system-prompts.md" in rendered
     assert rendered.count(".txt`") == 9
     assert (
         "task | dispatch | current_member | assignment | continuation | direct_team | "
@@ -40,7 +40,5 @@ def test_task_member_prompt_contract_readback_is_deterministic() -> None:
     assert "root_start" not in rendered
     assert PROMPT_CONTRACT_READBACK_PATH.relative_to(
         Path(__file__).resolve().parents[2]
-    ).as_posix() == (
-        "docs-internal/design/appendices/generated/task-member-prompt-contract-readback.md"
-    )
+    ).as_posix() == ("docs-internal/verification/generated/task-member-prompt-contract-readback.md")
     assert PROMPT_CONTRACT_READBACK_PATH.read_text(encoding="utf-8") == rendered

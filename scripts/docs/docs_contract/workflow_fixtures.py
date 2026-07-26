@@ -17,12 +17,10 @@ from .models import ContractFinding
 from .strict_yaml import StrictYamlError, load_strict_yaml
 from .workflow_schema import workflow_schema_reference_findings
 
-WORKFLOW_APPENDIX_ROOT = Path("docs-internal/design/appendices")
-WORKFLOW_SCHEMA_PATH = WORKFLOW_APPENDIX_ROOT / "workflow-definition.schema.yaml"
-WORKFLOW_EXAMPLE_ROOT = WORKFLOW_APPENDIX_ROOT / "workflow-examples"
-WORKFLOW_SEED_ROOT = WORKFLOW_APPENDIX_ROOT / "workflow-seeds"
+WORKFLOW_SCHEMA_PATH = Path("docs/reference/workflows/workflow-definition.schema.yaml")
+WORKFLOW_EXAMPLE_ROOT = Path("examples/workflows")
+WORKFLOW_SEED_ROOT = Path("src/banksia/workflows/resources/starter_workflows")
 WORKFLOW_EXAMPLE_README_PATH = WORKFLOW_EXAMPLE_ROOT / "README.md"
-WORKFLOW_SEED_README_PATH = WORKFLOW_SEED_ROOT / "README.md"
 EXPECTED_WORKFLOW_EXAMPLE_FILES = (
     "full.yaml",
     "minimal.yaml",
@@ -209,7 +207,6 @@ def readme_inventory_findings(root: Path) -> list[ContractFinding]:
     findings: list[ContractFinding] = []
     for family_name, readme_path, expected_names in (
         ("reference-example", WORKFLOW_EXAMPLE_README_PATH, EXPECTED_WORKFLOW_EXAMPLE_FILES),
-        ("packaged-seed", WORKFLOW_SEED_README_PATH, EXPECTED_WORKFLOW_SEED_FILES),
     ):
         absolute_readme_path = root / readme_path
         if not absolute_readme_path.is_file():
@@ -266,7 +263,7 @@ def distinct_inventory_findings(root: Path) -> list[ContractFinding]:
     return [
         workflow_finding(
             root=root,
-            path=root / WORKFLOW_APPENDIX_ROOT,
+            path=root / WORKFLOW_EXAMPLE_ROOT,
             message=(
                 "reference examples and packaged seeds must use distinct paths; overlap: "
                 + ", ".join(overlapping_names)

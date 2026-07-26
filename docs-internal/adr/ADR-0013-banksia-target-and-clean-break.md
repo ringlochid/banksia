@@ -24,7 +24,7 @@ The product is Banksia. Its eventual released identities are:
 - Console package `@banksia/console`; and
 - first release `0.1.0`.
 
-The versionless [Banksia design canon](../design/README.md) owns target behavior. Versioned V1/V2 design and current-v1 pages are frozen migration and shipped-baseline evidence only. They cannot override a versionless owner. Accepted older ADRs remain useful evidence for controller invariants and prior rationale, but ADR-0013 and the versionless subject owners supersede their product, schema, workspace, prompt, tool, and runtime shapes wherever they conflict.
+The [Banksia internal documentation](../README.md) routes the authoritative subject owners. Accepted older ADRs remain useful evidence for controller invariants and prior rationale, but ADR-0013 and the maintained subject owners supersede their product, schema, workspace, prompt, tool, and runtime shapes wherever they conflict.
 
 ### Preserve-first implementation
 
@@ -104,7 +104,7 @@ Rejected because responsibility is reusable while sequence, parallelism, iterati
 
 ## Proof obligations
 
-- Every preserved invariant appears in the tracked [baseline/removal ledger](../design/appendices/baseline-and-removal-ledger.md) with current owner, direct proof, and replacement package.
+- Every preserved invariant has an owner and direct proof in the [verification gates](../verification/gates.md).
 - Workflow schema, maintained reference examples, and packaged seeds validate as distinct inventories; seeds contain no provider or capability fields.
 - Each package proves new authority before deleting the old reader/writer and records any temporary bridge plus its deletion package.
 - Final fresh-clone, reset, SQLite, PostgreSQL, provider, runtime, Console, browser, accessibility, docs, and package lanes pass through shipped paths.
@@ -113,10 +113,9 @@ Rejected because responsibility is reusable while sequence, parallelism, iterati
 
 ## Canonical references
 
-- [Banksia design canon](../design/README.md)
-- [Product and Workflow](../design/product-and-workflow.md)
-- [Runtime](../design/runtime.md)
-- [Workspace, files, and prompt](../design/workspace-files-and-prompt.md)
-- [Interfaces, Console, and Operator](../design/interfaces-console-and-operator.md)
-- [Migration strategy](../design/migration.md)
-- [Verification gates](../design/verification-gates.md)
+- [Banksia internal documentation](../README.md)
+- [Product and Workflow](../architecture/product-and-workflow.md)
+- [Runtime](../architecture/runtime.md)
+- [Workspace, files, and prompt](../architecture/workspace-files-and-prompt.md)
+- [Console and Operator](../interfaces/console-and-operator.md)
+- [Verification gates](../verification/gates.md)

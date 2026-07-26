@@ -198,13 +198,12 @@ Source: [React custom hooks](https://legacy.reactjs.org/docs/hooks-custom.html) 
 ## Docs structure rule
 
 - separate public product/operator docs, public reference/internals docs, and internal canon docs
-- prefer `design/` over `redesign/` in steady-state internal naming
-- keep internal canon under `docs-internal/**` in the steady state
-- keep Banksia target canon versionless under the direct `docs-internal/design/**` owners; treat existing V1/V2/current trees as frozen migration evidence until deletion
+- keep internal architecture, interface, operations, verification, and decision owners under `docs-internal/**`
+- use `Status: Reference` for maintained internal owners and routers
 - keep public docs versionless by default unless multiple supported public product versions must coexist
 - do not recreate deleted execution or archive trees just to satisfy stale references
 - keep stable implementation-heavy reference in a dedicated internals or maintainer lane, not in onboarding or general concept pages
-- keep design truth and current contrast in internal canon paths, and record durable accepted decisions under `docs-internal/adr/**`
+- record durable accepted decisions under `docs-internal/adr/**`
 
 Extended guidance: [Docs structure guide](.agents/standards/docs/docs-structure.md)
 

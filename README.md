@@ -1,129 +1,83 @@
 <h1 align="center">Banksia</h1>
 
-<p align="center"><strong>Local-first orchestration for delegated AI work.</strong></p>
+<p align="center"><strong>Accountable AI teams for complex work.</strong></p>
 
-<p align="center"><a href="docs/start/getting-started.md">Get started</a> · <a href="docs/concepts/README.md">Concepts</a> · <a href="docs/guides/README.md">Guides</a> · <a href="docs/reference/README.md">Reference</a></p>
+<p align="center"> <a href="docs/start/getting-started.md">Get started</a> · <a href="docs/README.md">Documentation</a> · <a href="examples/workflows/README.md">Workflow examples</a> </p>
 
----
+Banksia is a no-code agent-team runtime for developers, researchers, and anyone whose work needs more structure than one long agent conversation. A Workflow describes a reusable team of responsibilities. The controller turns that team into a trackable Task, lets its members delegate through sequential, parallel, iterative, batch, or hybrid plans, and keeps the result recoverable when a provider process stops.
 
-Banksia turns agent work into auditable workflow runs. The controller owns tasks, assignments, attempts, checkpoints, artifacts, waits, and dispatch history. Providers execute bounded turns, but their output and terminal status do not decide workflow truth.
+Banksia is in active development. Its public contracts are being stabilized and it is not yet recommended for production-critical workloads.
 
-> **Early development:** Banksia is not production-ready. Interfaces and schemas may change.
+## Why Banksia
 
-## What it provides
-
-- reusable role, policy, workflow, and task-compose definitions
-- controller-owned runtime state and immutable launch provenance
-- explicit checkpoints, artifacts, boundaries, retries, and replans
-- first-class human requests and long command runs
-- a loopback web console, HTTP API, Operator MCP, and Node MCP
-- SQLite by default, with PostgreSQL support for stronger concurrent use
-- focused recovery through exact-source signals and a watchdog
-
-Banksia is useful when work must remain inspectable across several agent turns. A one-off question or command usually does not need it.
+- **Accountable teams:** every member has a stable identity and an explicit responsibility.
+- **Flexible execution:** the team tree describes ownership, not a fixed sequence of steps.
+- **Controller-owned truth:** providers perform work; they do not decide whether a Task is complete.
+- **Visible handoffs:** assignments, checkpoints, waits, human decisions, and command outcomes remain inspectable.
+- **Native collaboration files:** members can exchange notes and deliverables through the Task workspace without an artifact bureaucracy.
+- **Operator assistance:** a separate Operator can draft Workflows, start Tasks, answer operational questions, and use the same controller operations as the Console.
 
 ## Quick start
 
-Install Banksia in an isolated tool environment:
+Banksia requires Python 3.12 or newer. Install the packaged command in an isolated environment:
 
 ```bash
 pipx install banksia-ai
 banksia init
-```
-
-Run the provider guide. It asks for the primary/default provider, handles supported native login, checks the route, and offers additional providers:
-
-```bash
 banksia setup
-```
-
-Choose Codex, Claude, or OpenClaw. OpenClaw remains experimental and user-managed. Banksia never silently falls back to another provider. For scripts, use `--non-interactive` and explicit provider commands; see the [getting-started guide](docs/start/getting-started.md).
-
-Run the local server:
-
-```bash
 banksia serve
 ```
 
-Open `http://127.0.0.1:18125/`. The supported browser lane is loopback and same-origin.
+Open `http://127.0.0.1:18125/`. `banksia init` can record a default workspace for Tasks started from the Console, HTTP API, or Operator. `banksia setup` configures a Codex, Claude, or OpenClaw provider route.
 
-To run Banksia as a Linux user service:
-
-```bash
-banksia service install
-banksia service status
-```
-
-## Start a task
-
-You can start a task from the console or a local task-compose file. For example:
-
-```yaml
-task:
-    key: first-research-brief
-    title: My first task
-    summary: Produce one concise research brief.
-workflow:
-    key: topic-research-brief
-```
+From a source checkout, replace the install step with:
 
 ```bash
-banksia task-compose start --file ./task-compose.yaml --json
+uv sync --all-groups
+uv run banksia init
+uv run banksia setup
+uv run banksia serve
 ```
 
-Inspect the returned task in the console, through the control API, or with the Operator MCP tools.
+Import a Workflow written as YAML or JSON into a draft:
 
-## Provider boundary
-
-Codex and Claude receive a managed, dispatch-scoped MCP connection. Banksia attaches only the Node tools allowed for that dispatch and does not write the connection into global or project provider configuration.
-
-OpenClaw is an experimental compatibility provider. It remains selectable and may be the default, but the user owns the Gateway and `openclaw.json`. Its static compatibility MCP calls include full `task_id` and `dispatch_id` selectors; Banksia rereads controller truth and rejects stale or illegal operations.
-
-For every provider:
-
-- the controller commits the dispatch and request pair before provider start
-- successor opening and provider start happen asynchronously after commit
-- Node MCP operations are the runtime authority
-- provider stdout, final responses, drain, and terminal success do not advance the task
-
-## Runtime model
-
-```mermaid
-flowchart LR
-    D[Definitions] --> R[Controller registry]
-    T[Task compose] --> C[Compile and validate]
-    R --> C
-    C --> F[Controller-owned flow]
-    F --> A[Current assignment and attempt]
-    A --> P[Provider dispatch]
-    P --> N[Node MCP operation]
-    N --> F
-    F --> O[Console, HTTP, and Operator MCP]
+```bash
+banksia workflow import --file examples/workflows/minimal.yaml
 ```
 
-An accepted boundary returns independently from later work. After the source transaction commits, a thin asynchronous handler rereads the exact source and conditionally opens one successor. Duplicate or stale signals lose without changing state.
+Review and publish that draft in the Console before using it. Packaged installations also bootstrap provider-neutral starter Workflows. Start a Task interactively:
 
-Human requests and command runs suspend ordinary dispatch progress while their controller-owned source remains active. The watchdog ignores those waits. Its default inactivity deadline is 15 minutes; a still-current stale dispatch may be atomically replaced, while duplicate or outdated watchdog signals lose.
+```bash
+banksia task start
+```
 
-Support files under the task root explain committed state. They can be rebuilt and never replace the database as runtime truth.
+For automation, pass strict JSON inline, from `@file`, or through standard input:
 
-## Local security
+```bash
+banksia task start --json \
+  '{"workflow":"reviewed-delivery","prompt":"Review this repository and propose the safest cleanup."}'
+```
 
-The shipped console and control plane bind to loopback. Banksia validates expected loopback `Host` values and exact allowed browser origins. There is no global browser or Operator API key in this local lane. Do not expose it directly to another machine.
+## Current scope
+
+Codex and Claude are managed provider adapters. OpenClaw is a provider transport with an explicit-ID compatibility projection at `/node/mcp`; users continue to own and operate their OpenClaw Gateway.
+
+External MCP servers and reusable Skills are deliberately deferred from Workflow authoring. The current Workflow extension surface is provider selection, managed sandbox settings, Human Request capability, and Command Run capability. Both capabilities deny by default.
+
+The shipped Console is a functional migration-stage interface. It supports Workflow and Task operations, but the final visual studio and broader responsive experience are still under development.
 
 ## Documentation
 
-- [Install and set up Banksia](docs/start/getting-started.md)
-- [Configuration and providers](docs/start/configuration-and-settings.md)
-- [Start a task](docs/start/start-a-task.md)
-- [Inspect a task](docs/start/inspect-a-task.md)
-- [Core concepts](docs/concepts/core-concepts.md)
-- [Runtime model](docs/concepts/runtime-model.md)
-- [Write a workflow](docs/guides/write-a-workflow.md)
-- [CLI reference](docs/reference/cli/README.md)
-- [API reference](docs/reference/api/README.md)
-- [Operator reference](docs/reference/operator/README.md)
+- [Getting started](docs/start/getting-started.md)
+- [Workflows and teams](docs/concepts/workflows-and-teams.md)
+- [Runtime and results](docs/concepts/runtime-and-results.md)
+- [Workspace files](docs/concepts/workspace-and-files.md)
+- [Author a Workflow](docs/guides/author-a-workflow.md)
+- [Run and operate Tasks](docs/guides/run-and-operate.md)
+- [CLI reference](docs/reference/cli.md)
+- [HTTP API reference](docs/reference/http-api.md)
+- [Controller tools](docs/reference/controller-tools.md)
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+Banksia is open source under the [MIT License](LICENSE).

@@ -577,9 +577,9 @@ def test_member_projection_traverses_wide_deep_and_source_scoped_trees() -> None
 
 
 def test_operator_prompt_is_byte_identical_to_its_canonical_appendix() -> None:
-    appendix = (
-        REPO_ROOT / "docs-internal/design/appendices/operator-conversation-contract.md"
-    ).read_text(encoding="utf-8")
+    appendix = (REPO_ROOT / "docs-internal/interfaces/operator-conversation-contract.md").read_text(
+        encoding="utf-8"
+    )
     source = appendix.split("The source body is:\n\n```text\n", 1)[1].split("\n```", 1)[0]
 
     assert read_operator_system_prompt() == f"{source}\n"

@@ -1,50 +1,34 @@
 # Banksia documentation
 
-Banksia runs structured AI work from controller-owned tasks, assignments, and evidence. Start one task first. Read the concepts when you need to design or operate a larger workflow.
+Banksia turns a reusable AI-team definition into a controller-owned Task. Start with the guided path, then use the concept, guide, and reference pages when you need a precise contract.
 
-## Browse by section
+## Start
 
-- [Start](start/README.md)
-- [Concepts](concepts/README.md)
-- [Guides](guides/README.md)
-- [Help](help/README.md)
-- [Reference](reference/README.md)
-- [Maintainers](maintainers/README.md)
+- [Getting started](start/getting-started.md) — install, initialize, configure a provider, import a Workflow, and start a Task.
 
-## Start here
+## Concepts
 
-1. [Install and set up Banksia](start/getting-started.md).
-2. [Choose and check a provider](start/configuration-and-settings.md).
-3. [Start a task](start/start-a-task.md).
-4. [Inspect the task](start/inspect-a-task.md).
+- [Workflows and teams](concepts/workflows-and-teams.md) — responsibility trees, members, providers, capabilities, and runtime replanning.
+- [Runtime and results](concepts/runtime-and-results.md) — Tasks, Assignments, Attempts, Waves, waits, Checkpoints, and the final Result.
+- [Workspace and files](concepts/workspace-and-files.md) — native files, notes, deliverables, the `.banksia/` Task directory, and controller truth.
 
-Codex and Claude use a managed tool connection for each dispatch. OpenClaw is also selectable, but it is an experimental lane that you configure in OpenClaw yourself.
+## Guides
 
-## Learn the model
+- [Author a Workflow](guides/author-a-workflow.md)
+- [Run and operate Tasks](guides/run-and-operate.md)
+- [Use the Console and Operator](guides/console-and-operator.md)
 
-- [Product overview](concepts/overview.md)
-- [Orchestration model](concepts/orchestration-model.md)
-- [Core concepts](concepts/core-concepts.md)
-- [Authoring model](concepts/authoring-model.md)
-- [Runtime model](concepts/runtime-model.md)
-- [Operator model](concepts/operator-model.md)
+## Reference
 
-## Build and operate
+- [CLI](reference/cli.md)
+- [Configuration](reference/configuration.md)
+- [HTTP API](reference/http-api.md)
+- [Controller tools](reference/controller-tools.md)
+- [Workflow definition and schema](reference/workflows/README.md)
 
-- [Design a workflow](guides/design-workflows-and-instructions.md)
-- [Write a role](guides/write-a-role.md)
-- [Write a policy](guides/write-a-policy.md)
-- [Write a workflow](guides/write-a-workflow.md)
-- [Write a task-compose file](guides/write-a-task-compose.md)
-- [Inspect and control a task](guides/inspect-and-control-a-task.md)
-- [Recover or replan a task](guides/recover-or-replan-a-task.md)
+## Help and maintenance
 
-## Find exact details
-
-- [CLI reference](reference/cli/README.md)
-- [API reference](reference/api/README.md)
-- [Operator reference](reference/operator/README.md)
-- [Definition examples](reference/definitions/README.md)
 - [Troubleshooting](help/troubleshooting.md)
+- [Maintainer verification](maintainers/README.md)
 
-Maintainers should use the [maintainer docs](maintainers/README.md). Target architecture and shipped-behavior contrast live under `docs-internal/**`.
+The public pages describe the current user contract and call out limitations where the implementation is not yet the final product experience. Maintainer-facing architecture, interface, operations, verification, and decision owners are routed from the [internal documentation](../docs-internal/README.md).

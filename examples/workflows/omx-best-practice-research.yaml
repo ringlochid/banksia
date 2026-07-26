@@ -1,0 +1,63 @@
+kind: workflow
+id: omx-best-practice-research
+description: >-
+    Produce a bounded source-backed recommendation that separates repository
+    facts, current upstream guidance, critical review, and implementation handoff.
+note: |
+    This team adapts OMX Best-Practice Research's local-context,
+    official/upstream-evidence, synthesis, and handoff pattern. The repository
+    explorer establishes current local facts; the upstream researcher establishes
+    current primary guidance; the evidence critic tests provenance,
+    applicability, and overreach before the lead recommends a path.
+
+    The team is advisory by default. It may prepare an implementation handoff but
+    does not change product files unless the user's task explicitly includes
+    implementation.
+
+lead:
+    id: research-lead
+    title: Research lead
+    description: Own the research boundary, evidence reconciliation, and recommendation.
+    instruction: >-
+      Keep repo-local observation distinct from upstream claims and from your own inference. Reconcile conflicts by source quality, version fit, and local applicability. Deliver a bounded recommendation with uncertainty and a concrete handoff for the next owner.
+    provider:
+        kind: claude
+        sandbox:
+            mode: workspace_write
+            network: allow
+    capabilities:
+        human_request:
+            - input
+            - direction
+            - review
+    children:
+        - id: repo-explorer
+          title: Repository explorer
+          description: Establish current local usage, versions, and constraints.
+          instruction: >-
+            Inspect only repository facts relevant to the research question. Cite exact paths and observed behavior, distinguish shipped behavior from comments or plans, and do not edit files or decide the external recommendation.
+          provider:
+              kind: codex
+              effort: medium
+              sandbox:
+                  mode: read_only
+                  network: deny
+
+        - id: upstream-researcher
+          title: Upstream researcher
+          description: Gather current primary evidence for the chosen technology.
+          instruction: >-
+            Prefer official documentation, upstream source, standards, release notes, and maintainer guidance. Preserve direct URLs and version/date context, and identify conflicts or undocumented behavior.
+          provider:
+              kind: openclaw
+
+        - id: evidence-critic
+          title: Evidence critic
+          description: Test provenance, applicability, uncertainty, and overreach.
+          instruction: >-
+            Review the local and upstream evidence without editing. Check that material claims have primary support, versions match, inferences are labeled, and the recommendation does not exceed the evidence.
+          provider:
+              kind: claude
+              sandbox:
+                  mode: read_only
+                  network: deny

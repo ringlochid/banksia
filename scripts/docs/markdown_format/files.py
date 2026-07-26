@@ -9,16 +9,13 @@ from .formatting import format_markdown_text, format_yaml_text, normalize_text
 
 ROOT = Path(__file__).resolve().parents[3]
 FORMAT_SUFFIXES = frozenset({".md", ".yaml", ".yml"})
-EXCLUDED_PROMPT_GENERATED_DIRECTORIES = (
-    Path("docs-internal/design/appendices/generated"),
-    Path("docs-internal/design/v1/prompt-layer/generated"),
-    Path("docs-internal/design/v1/prompt-layer/prompt-pack"),
-    Path("docs-internal/design/v2/prompt-layer/generated"),
-)
+EXCLUDED_PROMPT_GENERATED_DIRECTORIES = (Path("docs-internal/verification/generated"),)
 MAINTAINED_MARKDOWN_DIRECTORIES = (
     Path("docs"),
-    Path("docs-internal/design"),
-    Path("docs-internal/current"),
+    Path("docs-internal/architecture"),
+    Path("docs-internal/interfaces"),
+    Path("docs-internal/operations"),
+    Path("docs-internal/verification"),
     Path("docs-internal/adr"),
     Path(".agents/standards"),
 )

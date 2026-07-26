@@ -28,12 +28,12 @@ The final top level is product- and ownership-oriented:
 
 Do not reserve an `apps/**` taxonomy for hypothetical future applications. Do not add top-level directories merely to sort by language, build tool, or temporary migration state when an existing owner fits.
 
-The backend root-layout cutover is complete: `src/banksia/**` and `tests/**` are authoritative. `apps/console/**` remains a temporary host for imported AutoClaw baseline behavior and its proof until its separately owned replacement slice.
+The root-layout cutover is complete: `src/banksia/**`, `tests/**`, and `console/**` are authoritative.
 
 ## Canonical backend package rule
 
 - shipped backend Python code should converge to one canonical import package
-- compatibility import paths may exist during migration, but they must stay thin and explicitly temporary
+- compatibility import paths require an explicit contract, must stay thin, and must name their removal owner
 - do not let two long-lived source trees both act like the real backend owner
 
 For Banksia, the canonical backend package is `src/banksia/**`. No parallel `autoclaw`, `banksia_v2`, or unwrapped package tree may remain in the final layout.
@@ -145,7 +145,7 @@ If a runtime-specific contract lane exists, it must explain why it is not just a
 
 ## Console frontend source rule
 
-The final root `console/**` tree owns the browser Console only. The current `apps/console/**` tree is disposable AutoClaw migration evidence, not a source to rename or incrementally turn into the target.
+The root `console/**` tree owns the browser Console.
 
 It consumes controller-owned API truth and design handoff truth; it does not define runtime truth, registry truth, node-tool truth, or support-state truth.
 
@@ -239,11 +239,11 @@ tests/
 
 Avoid keeping `phase2/`, `phase3/`, `phase4a/`, and similar folders as the long-term primary source of test ownership once the redesign history is no longer the important axis.
 
-For Banksia, this test-tree direction is canonical enough that new structural test-layout work should follow it by default unless a documented migration exception is recorded.
+For Banksia, new structural test-layout work follows this direction by default unless an owning contract records an exception.
 
 ## Banksia steady-state direction
 
-The Banksia source layout target is:
+The Banksia source layout is:
 
 ```text
 pyproject.toml

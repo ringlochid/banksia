@@ -28,7 +28,7 @@ The imported Operator MCP surface also allowed the model to submit `confirmed`. 
 - Guarded schemas contain no `confirmed` input. A single-use confirmation is bound to conversation, stored payload, and current ETag/action guard.
 - Every mutation is journaled before execution. An ambiguous post-commit crash is reconciled or marked indeterminate; it is never blindly replayed.
 
-The exact routes, records, transitions, and recovery behavior live in the [Operator conversation contract](../design/appendices/operator-conversation-contract.md).
+The exact routes, records, transitions, and recovery behavior live in the [Operator conversation contract](../interfaces/operator-conversation-contract.md).
 
 ## Consequences
 

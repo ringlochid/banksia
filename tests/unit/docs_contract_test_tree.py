@@ -35,27 +35,33 @@ def write_page(root: Path, relative_path: str, text: str) -> Path:
 
 def copy_workflow_fixtures(root: Path) -> None:
     repo_root = ensure_repo_root_on_path()
-    source_root = repo_root / "docs-internal/design/appendices"
-    target_root = root / "docs-internal/design/appendices"
-    target_root.mkdir(parents=True, exist_ok=True)
+    schema_source = repo_root / "docs/reference/workflows/workflow-definition.schema.yaml"
+    schema_target = root / "docs/reference/workflows/workflow-definition.schema.yaml"
+    schema_target.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(
-        source_root / "workflow-definition.schema.yaml",
-        target_root / "workflow-definition.schema.yaml",
+        schema_source,
+        schema_target,
     )
-    for family, names in (
-        ("workflow-examples", WORKFLOW_EXAMPLE_FILES),
-        ("workflow-seeds", WORKFLOW_SEED_FILES),
+    for source_root, target_root, names in (
+        (
+            repo_root / "examples/workflows",
+            root / "examples/workflows",
+            WORKFLOW_EXAMPLE_FILES,
+        ),
+        (
+            repo_root / "src/banksia/workflows/resources/starter_workflows",
+            root / "src/banksia/workflows/resources/starter_workflows",
+            WORKFLOW_SEED_FILES,
+        ),
     ):
-        family_root = target_root / family
-        family_root.mkdir(parents=True, exist_ok=True)
+        target_root.mkdir(parents=True, exist_ok=True)
         for name in names:
-            shutil.copy2(source_root / family / name, family_root / name)
+            shutil.copy2(source_root / name, target_root / name)
 
 
 def build_valid_contract_tree(root: Path) -> None:
     _write_root_and_public_docs(root)
-    _write_versionless_design(root)
-    _write_frozen_evidence(root)
+    _write_internal_docs(root)
     _write_decisions_and_standards(root)
 
 
@@ -89,7 +95,8 @@ def _write_root_and_public_docs(root: Path) -> None:
         "[Guides](guides/example.md)\n"
         "[Help](help/troubleshooting.md)\n"
         "[Maintainers](maintainers/maintain-docs.md)\n"
-        "[Reference](reference/overview.md)\n",
+        "[Reference](reference/overview.md)\n"
+        "[Workflow schema](reference/workflows/README.md)\n",
     )
     write_page(root, "docs/start/getting-started.md", "# Getting started\n")
     write_page(root, "docs/concepts/overview.md", "# Concepts\n")
@@ -97,90 +104,53 @@ def _write_root_and_public_docs(root: Path) -> None:
     write_page(root, "docs/help/troubleshooting.md", "# Troubleshooting\n")
     write_page(root, "docs/maintainers/maintain-docs.md", "# Maintain docs\n")
     write_page(root, "docs/reference/overview.md", "# Reference\n")
-
-
-def _write_versionless_design(root: Path) -> None:
     write_page(
         root,
-        "docs-internal/README.md",
-        "# Internal canon\n\nStatus: Reference\n\n"
-        "[Banksia design](design/README.md)\n"
-        "[Frozen V1 design](design/v1/README.md)\n"
-        "[Frozen V2 design](design/v2/README.md)\n"
-        "[Frozen current evidence](current/v1/README.md)\n"
-        "[Decisions](adr/README.md)\n",
+        "docs/reference/workflows/README.md",
+        "# Workflow reference\n\n[Workflow schema](workflow-definition.schema.yaml)\n",
     )
     write_page(
         root,
-        "docs-internal/design/README.md",
-        "# Banksia design\n\nStatus: Target\n\n"
-        "[Runtime](runtime.md)\n"
-        "[Appendices](appendices/README.md)\n"
-        "[Frozen V1 design](v1/README.md)\n"
-        "[Frozen V2 design](v2/README.md)\n",
-    )
-    write_page(root, "docs-internal/design/runtime.md", "# Runtime\n\nStatus: Target\n")
-    write_page(
-        root,
-        "docs-internal/design/appendices/README.md",
-        "# Appendices\n\nStatus: Reference\n\n"
-        "[Workflow examples](workflow-examples/README.md)\n"
-        "[Workflow seeds](workflow-seeds/README.md)\n",
-    )
-    write_page(
-        root,
-        "docs-internal/design/appendices/workflow-examples/README.md",
-        "# Workflow examples\n\nStatus: Reference\n\n"
+        "examples/workflows/README.md",
+        "# Workflow examples\n\n"
         "[Full](full.yaml)\n"
         "[Minimal](minimal.yaml)\n"
         "[Autopilot](omx-autopilot.yaml)\n"
         "[Research](omx-best-practice-research.yaml)\n",
     )
-    write_page(
-        root,
-        "docs-internal/design/appendices/workflow-seeds/README.md",
-        "# Workflow seeds\n\nStatus: Reference\n\n"
-        "[Autonomous delivery](autonomous-delivery.yaml)\n"
-        "[Evidence research](evidence-research.yaml)\n"
-        "[Reviewed delivery](reviewed-delivery.yaml)\n",
-    )
     copy_workflow_fixtures(root)
 
 
-def _write_frozen_evidence(root: Path) -> None:
+def _write_internal_docs(root: Path) -> None:
     write_page(
         root,
-        "docs-internal/design/v1/README.md",
-        "# V1 design\n\nStatus: Reference\n\n"
-        "> **Frozen migration evidence:** This tree records an earlier Banksia "
-        "baseline. It is not Banksia target authority. Use the versionless "
-        "[Banksia design](../README.md).\n\n"
-        "[Baseline](baseline.md)\n",
-    )
-    write_page(root, "docs-internal/design/v1/baseline.md", "# Baseline\n\nStatus: Target\n")
-    write_page(
-        root,
-        "docs-internal/design/v2/README.md",
-        "# V2 design\n\nStatus: Reference\n\n"
-        "> **Frozen migration evidence:** This tree records the final Banksia "
-        "baseline. It is not Banksia target authority. Use the versionless "
-        "[Banksia design](../README.md).\n\n"
-        "[Runtime contract](runtime.md)\n",
-    )
-    write_page(root, "docs-internal/design/v2/runtime.md", "# Runtime\n\nStatus: Target\n")
-    write_page(
-        root,
-        "docs-internal/current/v1/README.md",
-        "# Current v1\n\nStatus: Reference\n\n"
-        "> **Frozen shipped-baseline evidence:** This tree is not a live Banksia current\n"
-        "> lane or target owner. Use the versionless "
-        "[Banksia design](../../design/README.md).\n\n"
-        "[Runtime evidence](runtime.md)\n",
+        "docs-internal/README.md",
+        "# Internal docs\n\nStatus: Reference\n\n"
+        "[Runtime](architecture/runtime.md)\n"
+        "[Runtime tools](interfaces/runtime-tools.md)\n"
+        "[Configuration](operations/configuration-and-providers.md)\n"
+        "[Verification](verification/gates.md)\n"
+        "[Decisions](adr/README.md)\n",
     )
     write_page(
         root,
-        "docs-internal/current/v1/runtime.md",
-        "# Runtime\n\nStatus: Current\n\n## Evidence\n\nObserved.\n",
+        "docs-internal/architecture/runtime.md",
+        "# Runtime\n\nStatus: Reference\n",
+    )
+    write_page(
+        root,
+        "docs-internal/interfaces/runtime-tools.md",
+        "# Runtime tools\n\nStatus: Reference\n",
+    )
+    write_page(
+        root,
+        "docs-internal/operations/configuration-and-providers.md",
+        "# Configuration and providers\n\nStatus: Reference\n",
+    )
+    write_page(
+        root,
+        "docs-internal/verification/gates.md",
+        "# Verification gates\n\nStatus: Reference\n",
     )
 
 

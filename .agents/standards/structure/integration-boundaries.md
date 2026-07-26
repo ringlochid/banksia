@@ -17,7 +17,7 @@ Use this guide when a change touches seams between backend layers, OpenClaw inte
 - `interfaces/cli/**` owns command parsing, prompting, rendering, and exit-status mapping only
 - `interfaces/mcp/**` owns MCP or server-facing transport wiring, tool exposure, and transport translation only
 - inside `interfaces/http/**`, keep route modules under `routers/**`, keep HTTP-only support contracts and presenters under `contracts/**`, and keep shared HTTP wiring such as `router.py`, `dependencies.py`, and `errors.py` at the interface-owner root
-- if migration-baseline code still uses older transport paths, apply the same entrypoint-thinness rules there without treating those paths as target layout
+- compatibility transport paths require an explicit owner and follow the same entrypoint-thinness rules
 - do not keep DB transaction control, runtime effect-runner coordination, or controller orchestration inside interface modules unless canon names an explicit package-bounded exception
 - do not expose internal execution routing labels, package names, or internal-doc chronology in shipped API, CLI, MCP, operator, or runtime teaching strings when current product behavior can be described directly instead
 - `services/**` owns orchestration, transaction-aware behavior, and domain flows only when that owner name is precise; otherwise keep orchestration under the named domain owner
@@ -25,7 +25,7 @@ Use this guide when a change touches seams between backend layers, OpenClaw inte
 - `runtime/**` owns runtime records, manifests, task-root materialization, prompt assembly, and controller-loop behavior named by canon
 - `integrations/**` owns reusable provider substrate rather than runtime-specific controller behavior
 - `persistence/**` owns persistence models and DB access surfaces; if legacy `db/**` remains, apply the same ownership rule there
-- keep typed contracts near the owning domain, for example `workflows/contracts/**` and `runtime/contracts/**`; if migration-baseline `schemas/**` remains, treat it as transitional contract ownership that must converge
+- keep typed contracts near the owning domain, for example `workflows/contracts/**` and `runtime/contracts/**`
 
 These paths are relative to the canonical `src/banksia/**` package.
 
@@ -73,7 +73,7 @@ Rules:
 - do not turn OpenAPI-generated types into edited source; add view-model mappers when render shape differs from controller shape
 - do not let React, Tailwind, route names, or component names leak into runtime docs, provider docs, backend contracts, or API schemas
 
-The legacy `apps/console/**` client, its `/runtime`, `/control`, `/definitions`, `/authoring`, and `/tasks/start` route families, and its `--ac-*` tokens are current AutoClaw migration evidence only. Minimum compatibility work may keep that baseline running until deletion, but no new Banksia product contract or target component may take authority from it.
+The root `console/**` client takes authority only from generated controller contracts and the owning Banksia interface pages. Removed route families and token namespaces must not be reintroduced through frontend-local compatibility logic.
 
 View-model boundaries:
 
@@ -86,7 +86,7 @@ Design handoff boundaries:
 
 - design repo charters, static HTML, screenshots, and shared CSS define visual language, interaction cadence, and expected states
 - implementation extracts reusable console tokens, primitives, layouts, and state fixtures from the handoff instead of copying prototype page code
-- `console/src/styles/tokens.css` owns the target implementation token vocabulary and uses the `--banksia-*` namespace even when the design prototype uses a different prefix
+- `console/src/styles/tokens.css` owns the implementation token vocabulary and uses the `--banksia-*` namespace even when a design prototype uses a different prefix
 - versionless Banksia owner contracts, generated OpenAPI, and route tests define legal routes, field names, state names, actions, and currentness
 - when design handoff and controller truth disagree, patch the contract or the design handoff before encoding the behavior in components
 

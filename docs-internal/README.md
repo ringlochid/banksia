@@ -1,22 +1,35 @@
-# Banksia internal canon
+# Banksia internal documentation
 
 Status: Reference
 
-This is the internal canon front door for Banksia and its imported AutoClaw migration baseline.
+This is the maintainer-facing source of truth for Banksia's shipped product contracts and implementation boundaries. Public user documentation lives under [`docs/`](../docs/README.md).
 
-Use the [versionless Banksia design](design/README.md) for target product and implementation truth. Its [appendices](design/appendices/README.md) own exact schemas, fixtures, baseline traceability, and bounded implementation-reference protocols. [Accepted decisions](adr/README.md) own durable cross-cutting rationale.
+## Architecture
 
-## Start here
+- [Product and Workflow](architecture/product-and-workflow.md) owns product language, Workflow authoring, publication, Task start, and Assignment.
+- [Runtime](architecture/runtime.md) owns controller records, currentness, Delegation Waves, replan, waits, Checkpoints, and Result selection.
+- [Workspace, files, and prompt](architecture/workspace-files-and-prompt.md) owns the shared native workspace, Task files, file references, Dispatch requests, and current-context data boundary.
+- [Task-member system prompts](architecture/system-prompts.md) owns exact controller-maintained prompt assets and behavior evaluations.
 
-- [Banksia design canon](design/README.md)
-- [Design appendices](design/appendices/README.md)
-- [Accepted decisions](adr/README.md)
-- [Frozen V1 design evidence](design/v1/README.md)
-- [Frozen V2 design evidence](design/v2/README.md)
-- [Frozen AutoClaw shipped contrast](current/v1/README.md)
+## Interfaces
 
-The versioned design/current trees are migration evidence only and never override a versionless Banksia owner. Execution records, research, screenshots, and source-study clones are local implementation-control material and are not part of tracked product authority.
+- [Built-in runtime tools](interfaces/runtime-tools.md) owns the exact Task-member and Operator operation catalogs.
+- [Console and Operator](interfaces/console-and-operator.md) owns product APIs, Console information architecture, and the separate Operator experience.
+- [Operator conversation contract](interfaces/operator-conversation-contract.md) owns Operator persistence, provider turns, typed questions, and interruption behavior.
 
-## Surface rule
+## Operations
 
-This tree is internal canon. It is not the public docs surface. Do not recreate deleted execution or archive trees to satisfy stale links; update the surviving owner instead.
+- [Configuration and providers](operations/configuration-and-providers.md) owns configuration precedence, workspace defaults, provider selection, credentials, and adapter boundaries.
+- [Recovery and observability](operations/recovery-and-observability.md) owns startup recovery, runtime health, projections, support access, and audit readback.
+- [Package and reset](operations/package-and-reset.md) owns distribution contents, installed proof, schema verification, and destructive reset.
+
+## Verification and decisions
+
+- [Verification gates](verification/gates.md) owns numeric safety bounds and proof requirements.
+- [n8n interaction-reference protocol](verification/n8n-reference-protocol.md) owns the bounded source-study and provenance rules for UI work.
+- [Generated prompt contract readback](verification/generated/task-member-prompt-contract-readback.md) is regenerated from shipped prompt inputs.
+- [Accepted decisions](adr/README.md) retains durable rationale. Subject owners above remain authoritative for implementation.
+
+## Ownership rule
+
+Keep one factual owner for each contract. Generated readbacks, ordinary workspace files, provider output, screenshots, ignored research, and support projections never override controller truth or these owner pages.

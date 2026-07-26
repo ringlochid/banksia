@@ -1,0 +1,96 @@
+kind: workflow
+id: omc-team-delivery
+description: >-
+    Deliver a medium repository change through scoped planning, coordinated
+    implementation, independent verification, and bounded repair.
+note: |
+    This team adapts OMC Team's scope, execution, verification, and fix
+    responsibilities. A useful default is for the scope planner to establish the
+    delivery boundary, the implementation manager to own product and test
+    changes, and the independent verifier to challenge the integrated result.
+
+    Consequential verifier findings return to the implementation manager for no
+    more than two focused repair passes before the lead records unresolved debt
+    or marks the delivery boundary unresolved. Preserve the verifier's
+    independence throughout the run.
+
+lead:
+    id: delivery-lead
+    title: Delivery lead
+    description: Own the delivery boundary, team reconciliation, and final decision.
+    instruction: >-
+      Keep scope, implementation, and independent verification responsibilities distinct. Reconcile the scope brief with the integrated change and the verifier's findings. Decide whether a finding needs repair now, can be recorded as debt, or changes the agreed delivery boundary.
+    provider:
+        kind: codex
+        model: gpt-5.6
+        effort: high
+        sandbox:
+            mode: full_access
+            network: allow
+    capabilities:
+        human_request:
+            - input
+            - direction
+            - approval
+            - review
+        command_run: allow
+    children:
+        - id: scope-planner
+          title: Scope planner
+          description: Establish the smallest coherent delivery boundary.
+          instruction: >-
+            Inspect the repository and produce an evidence-backed scope brief with affected surfaces, compatibility constraints, dependencies, excluded work, and the proof expected from implementation. Do not edit product files.
+          provider:
+              kind: claude
+              sandbox:
+                  mode: read_only
+                  network: deny
+
+        - id: implementation-manager
+          title: Implementation manager
+          description: Own product changes, test changes, and their integration.
+          instruction: >-
+            Convert the accepted scope brief into separate product and proof responsibilities. Preserve the stated compatibility boundary, resolve collisions between the two lanes, and incorporate approved verifier repairs without widening the scope.
+          provider:
+              kind: codex
+              model: gpt-5.6
+              effort: high
+              sandbox:
+                  mode: full_access
+                  network: allow
+          capabilities:
+              command_run: allow
+          children:
+              - id: product-implementation
+                title: Product implementation
+                description: Own the bounded production-code change.
+                instruction: >-
+                  Implement the production scope in the accepted brief. Preserve unrelated work and public compatibility, and leave test ownership to the proof lane except for inseparable local fixtures.
+                provider:
+                    kind: codex
+                    effort: medium
+                    sandbox:
+                        mode: workspace_write
+                        network: deny
+
+              - id: proof-implementation
+                title: Proof implementation
+                description: Own focused regression and acceptance proof.
+                instruction: >-
+                  Derive proof from the scoped invariants and the actual product change. Cover the compatibility and failure boundaries that would make the delivery unsafe, and distinguish harness defects from product defects.
+                provider:
+                    kind: claude
+                    sandbox:
+                        mode: workspace_write
+                        network: allow
+
+        - id: independent-verifier
+          title: Independent verifier
+          description: Challenge the integrated result without editing it.
+          instruction: >-
+            Compare the final change and fresh proof against the original task and scope brief. Rank correctness, compatibility, architecture, and regression findings by consequence. Do not edit product files or treat the delivery lead's interpretation as independent evidence.
+          provider:
+              kind: claude
+              sandbox:
+                  mode: read_only
+                  network: deny

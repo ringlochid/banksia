@@ -8,8 +8,10 @@ ROOT = Path(__file__).resolve().parents[3]
 CONTRACT_MARKDOWN_DIRECTORIES = (
     Path(".agents/standards"),
     Path("docs"),
-    Path("docs-internal/design"),
-    Path("docs-internal/current"),
+    Path("docs-internal/architecture"),
+    Path("docs-internal/interfaces"),
+    Path("docs-internal/operations"),
+    Path("docs-internal/verification"),
     Path("docs-internal/adr"),
 )
 CONTRACT_MARKDOWN_FILES = (
@@ -18,10 +20,6 @@ CONTRACT_MARKDOWN_FILES = (
     Path("STYLE.md"),
     Path("docs-internal/README.md"),
 )
-FROZEN_LEGACY_VERSION_ROOTS_BY_FAMILY = {
-    "design": ("v1", "v2"),
-    "current": ("v1",),
-}
 
 
 def iter_contract_markdown_files(root: Path = ROOT) -> list[Path]:
@@ -47,17 +45,9 @@ def discover_front_doors(root: Path = ROOT) -> list[FrontDoor]:
     )
     add_front_door(
         front_doors,
-        label="Banksia design",
-        scope_root=root / "docs-internal" / "design",
-        entrypoint=root / "docs-internal" / "design" / "README.md",
-    )
-    add_legacy_version_front_doors(front_doors, root=root, family="design")
-    add_legacy_version_front_doors(front_doors, root=root, family="current")
-    add_front_door(
-        front_doors,
-        label="accepted decisions",
-        scope_root=root / "docs-internal" / "adr",
-        entrypoint=root / "docs-internal" / "adr" / "README.md",
+        label="internal docs",
+        scope_root=root / "docs-internal",
+        entrypoint=root / "docs-internal" / "README.md",
     )
     add_front_door(
         front_doors,
@@ -66,29 +56,6 @@ def discover_front_doors(root: Path = ROOT) -> list[FrontDoor]:
         entrypoint=root / ".agents" / "standards" / "README.md",
     )
     return front_doors
-
-
-def add_legacy_version_front_doors(
-    front_doors: list[FrontDoor],
-    *,
-    root: Path,
-    family: str,
-) -> None:
-    family_root = root / "docs-internal" / family
-    if not family_root.exists():
-        return
-    version_roots = (
-        family_root / version for version in FROZEN_LEGACY_VERSION_ROOTS_BY_FAMILY.get(family, ())
-    )
-    for version_root in version_roots:
-        if not version_root.is_dir():
-            continue
-        add_front_door(
-            front_doors,
-            label=f"{family} {version_root.name}",
-            scope_root=version_root,
-            entrypoint=version_root / "README.md",
-        )
 
 
 def add_front_door(

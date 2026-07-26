@@ -15,7 +15,7 @@ from scripts.docs.prompt_catalog.render import (
     render_prompt_contract_readback,
 )
 
-PROMPT_CONTRACT_PATH = PROMPT_CONTRACT_READBACK_PATH.parents[2] / "system-prompts.md"
+PROMPT_CONTRACT_PATH = PROMPT_CONTRACT_READBACK_PATH.parents[2] / "architecture/system-prompts.md"
 EXPECTED_ASSET_PATHS = (
     "shared/core.txt",
     "shared/workspace-and-files.txt",

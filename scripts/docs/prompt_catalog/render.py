@@ -13,7 +13,7 @@ from banksia.runtime.prompt import (
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 PROMPT_CONTRACT_READBACK_PATH = (
-    REPO_ROOT / "docs-internal/design/appendices/generated/task-member-prompt-contract-readback.md"
+    REPO_ROOT / "docs-internal/verification/generated/task-member-prompt-contract-readback.md"
 )
 
 
@@ -26,8 +26,9 @@ def render_prompt_contract_readback() -> str:
         "This page is generated from the shipped Banksia prompt contracts and controller-owned "
         "instruction assets. It is a deterministic implementation readback, not an independent "
         "source of product truth. The versionless [Task-member system-prompt contract]"
-        "(../../system-prompts.md) is normative. Run `make docs-prompt-generate` after changing "
-        "an input, then run `make docs-prompt-check`.",
+        "(../../architecture/system-prompts.md) is normative. Run "
+        "`make docs-prompt-generate` after changing an input, then run "
+        "`make docs-prompt-check`.",
         "",
         "## Instruction assets",
         "",

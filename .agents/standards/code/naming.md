@@ -238,13 +238,13 @@ Generated OpenAPI names are allowed to follow generator output. Do not rename ge
 - package levels should reflect ownership and responsibility, not generic categorization
 - one or two meaningful levels are usually enough
 - avoid adding directory layers merely to group similar leftovers
-- keep active Banksia owner docs versionless; use version directories only for explicitly frozen historical evidence
+- keep Banksia owner docs versionless
 
 Prefer:
 
 - `runtime/watchdog/`
 - `registry/revisions/`
-- `docs-internal/design/appendices/`
+- `docs-internal/verification/`
 
 Avoid:
 

@@ -1,0 +1,219 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://banksia.local/schemas/workflow-definition"
+title: Banksia user-authored Workflow
+description: >-
+    Schema for one recursive Banksia Workflow responsibility tree. JSON and YAML
+    inputs parse to this same JSON-compatible model. Blank optional prose and
+    null normalize to omission before canonical persistence.
+type: object
+additionalProperties: false
+required:
+    - kind
+    - id
+    - description
+    - lead
+properties:
+    kind:
+        const: workflow
+        description: Closed document discriminator; a visual editor may fill and hide it.
+    id:
+        $ref: "#/$defs/identifier"
+        description: Stable Workflow identity, not a revision, hash, or runtime ID.
+    description:
+        $ref: "#/$defs/catalogDescription"
+        description: Required catalog explanation of when this Workflow is useful.
+    note:
+        $ref: "#/$defs/optionalNote"
+        description: >-
+            Shared team-specific Markdown guidance for the complete Workflow. It is
+            not general Banksia instruction and is not parsed as routing, policy,
+            execution order, or completion logic.
+    lead:
+        $ref: "#/$defs/workflowMember"
+        description: Top Task lead using the same shape as every descendant.
+
+$defs:
+    identifier:
+        type: string
+        minLength: 1
+        maxLength: 128
+        pattern: "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$"
+
+    catalogDescription:
+        type: string
+        minLength: 1
+        maxLength: 1024
+        pattern: "\\S"
+
+    nonBlankText:
+        type: string
+        minLength: 1
+        pattern: "\\S"
+
+    optionalText:
+        description: >-
+            Optional authoring prose. Null, empty, and whitespace-only values are
+            accepted at ingestion and normalized to omission before persistence.
+        anyOf:
+            - type: string
+              maxLength: 16384
+            - type: "null"
+
+    optionalNote:
+        description: >-
+            Optional shared guidance. Null, empty, and whitespace-only values
+            normalize to omission.
+        anyOf:
+            - type: string
+              maxLength: 8192
+            - type: "null"
+
+    providerSandbox:
+        description: >-
+            Optional portable managed-provider execution request. If the sandbox
+            block is absent, full_access with network allow is the target default.
+        oneOf:
+            - type: object
+              additionalProperties: false
+              required:
+                  - mode
+                  - network
+              properties:
+                  mode:
+                      const: read_only
+                  network:
+                      const: deny
+            - type: object
+              additionalProperties: false
+              required:
+                  - mode
+                  - network
+              properties:
+                  mode:
+                      const: workspace_write
+                  network:
+                      enum:
+                          - allow
+                          - deny
+            - type: object
+              additionalProperties: false
+              required:
+                  - mode
+                  - network
+              properties:
+                  mode:
+                      const: full_access
+                  network:
+                      const: allow
+
+    providerSelection:
+        oneOf:
+            - $ref: "#/$defs/codexProviderSelection"
+            - $ref: "#/$defs/claudeProviderSelection"
+            - $ref: "#/$defs/openclawProviderSelection"
+
+    memberCapabilities:
+        type: object
+        additionalProperties: false
+        minProperties: 1
+        description: >-
+            Optional controller-operation grants for one Member. Omitted capability
+            fields deny that operation. Controller and deployment policy may narrow
+            an authored grant but never widen it.
+        properties:
+            human_request:
+                type: array
+                minItems: 1
+                maxItems: 4
+                uniqueItems: true
+                description: >-
+                    Human Request kinds this Member may open. Omission means no Human
+                    Request kind is granted.
+                items:
+                    enum:
+                        - input
+                        - direction
+                        - approval
+                        - review
+            command_run:
+                const: allow
+                description: >-
+                    Grants controller-managed Command Run. Omission means deny.
+
+    codexProviderSelection:
+        type: object
+        additionalProperties: false
+        required:
+            - kind
+        properties:
+            kind:
+                const: codex
+            model:
+                $ref: "#/$defs/nonBlankText"
+                description: Exact provider-native model ID; an explicit value never silently falls back.
+            effort:
+                $ref: "#/$defs/nonBlankText"
+                description: Value supported by the active Codex adapter descriptor.
+            sandbox:
+                $ref: "#/$defs/providerSandbox"
+
+    claudeProviderSelection:
+        type: object
+        additionalProperties: false
+        required:
+            - kind
+        properties:
+            kind:
+                const: claude
+            model:
+                $ref: "#/$defs/nonBlankText"
+                description: Exact provider-native model ID; an explicit value never silently falls back.
+            effort:
+                $ref: "#/$defs/nonBlankText"
+                description: Value supported by the active Claude adapter descriptor.
+            sandbox:
+                $ref: "#/$defs/providerSandbox"
+
+    openclawProviderSelection:
+        type: object
+        additionalProperties: false
+        required:
+            - kind
+        properties:
+            kind:
+                const: openclaw
+
+    workflowMember:
+        type: object
+        additionalProperties: false
+        required:
+            - id
+        description: >-
+            One responsibility in the Workflow tree. IDs must be unique across the
+            complete tree; semantic validation enforces that cross-tree invariant.
+        properties:
+            id:
+                $ref: "#/$defs/identifier"
+                description: Stable member identity; update operations never change it.
+            title:
+                $ref: "#/$defs/optionalText"
+            description:
+                $ref: "#/$defs/optionalText"
+                description: Optional responsibility and routing hint.
+            instruction:
+                $ref: "#/$defs/optionalText"
+                description: >-
+                    Optional reusable team-specific contribution guidance, not a
+                    scheduled step or general Banksia operating instruction.
+            provider:
+                $ref: "#/$defs/providerSelection"
+            capabilities:
+                $ref: "#/$defs/memberCapabilities"
+            children:
+                type: array
+                default: []
+                description: >-
+                    Ordered direct responsibilities. Runtime planning owns their order of
+                    execution, grouping, and repetition.
+                items:
+                    $ref: "#/$defs/workflowMember"

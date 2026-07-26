@@ -7,17 +7,16 @@ from jsonschema import Draft202012Validator  # type: ignore[import-untyped]
 
 from banksia.workflows import NormalizedWorkflow, parse_workflow
 
-APPENDIX_ROOT = Path(__file__).resolve().parents[3] / "docs-internal/design/appendices"
+REPO_ROOT = Path(__file__).resolve().parents[3]
+SCHEMA_PATH = REPO_ROOT / "docs/reference/workflows/workflow-definition.schema.yaml"
+EXAMPLE_ROOT = REPO_ROOT / "examples/workflows"
+SEED_ROOT = REPO_ROOT / "src/banksia/workflows/resources/starter_workflows"
 
 
 def test_tracked_workflow_examples_and_seeds_pass_schema_and_strict_ingest() -> None:
-    schema = yaml.safe_load(
-        (APPENDIX_ROOT / "workflow-definition.schema.yaml").read_text(encoding="utf-8")
-    )
+    schema = yaml.safe_load(SCHEMA_PATH.read_text(encoding="utf-8"))
     validator = Draft202012Validator(schema)
-    paths = tuple(sorted((APPENDIX_ROOT / "workflow-examples").glob("*.yaml"))) + tuple(
-        sorted((APPENDIX_ROOT / "workflow-seeds").glob("*.yaml"))
-    )
+    paths = tuple(sorted(EXAMPLE_ROOT.glob("*.yaml"))) + tuple(sorted(SEED_ROOT.glob("*.yaml")))
 
     assert len(paths) == 7
     for path in paths:

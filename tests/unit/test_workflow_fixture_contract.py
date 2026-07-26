@@ -17,11 +17,12 @@ from .docs_contract_test_tree import (
     workflow_finding_messages,
 )
 
-APPENDIX_ROOT = Path("docs-internal/design/appendices")
-SCHEMA_PATH = APPENDIX_ROOT / "workflow-definition.schema.yaml"
-MINIMAL_PATH = APPENDIX_ROOT / "workflow-examples/minimal.yaml"
-EXAMPLE_README_PATH = APPENDIX_ROOT / "workflow-examples/README.md"
-SEED_PATH = APPENDIX_ROOT / "workflow-seeds/reviewed-delivery.yaml"
+SCHEMA_PATH = Path("docs/reference/workflows/workflow-definition.schema.yaml")
+EXAMPLE_ROOT = Path("examples/workflows")
+SEED_ROOT = Path("src/banksia/workflows/resources/starter_workflows")
+MINIMAL_PATH = EXAMPLE_ROOT / "minimal.yaml"
+EXAMPLE_README_PATH = EXAMPLE_ROOT / "README.md"
+SEED_PATH = SEED_ROOT / "reviewed-delivery.yaml"
 
 
 def workflow_modules() -> tuple[Any, Any]:
@@ -52,7 +53,7 @@ def workflow_findings(report: Any, *, path: Path | None = None) -> list[Any]:
 def test_workflow_fixture_inventory_and_schema_are_validated(tmp_path: Path) -> None:
     validator, _ = contract_modules()
     build_valid_contract_tree(tmp_path)
-    example_root = tmp_path / APPENDIX_ROOT / "workflow-examples"
+    example_root = tmp_path / EXAMPLE_ROOT
     for unexpected_name in ("unexpected.yaml", "alternate.yml"):
         (example_root / unexpected_name).write_text(
             (example_root / "minimal.yaml").read_text(encoding="utf-8"),
@@ -94,7 +95,7 @@ def test_workflow_semantics_enforce_tree_and_cross_family_identity(
     seed_path.write_text(
         seed_path.read_text(encoding="utf-8")
         .replace("id: reviewed-delivery\n", "id: direct-work\n", 1)
-        .replace("    id: lead\n", "    id: lead\n    provider:\n        kind: codex\n", 1),
+        .replace("  id: lead\n", "  id: lead\n  provider:\n    kind: codex\n", 1),
         encoding="utf-8",
     )
 

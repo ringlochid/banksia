@@ -18,12 +18,13 @@ Use this guide when the work includes moving files, splitting packages, renaming
 
 - `src/banksia/**`: the one canonical Banksia backend package
 - `tests/**`: backend proof organized by unit, integration, and end-to-end ownership
-- `apps/console/**`: disposable legacy Console used only for baseline evidence until the fresh root `console/**` replacement is proven
-- `definitions/**`: legacy authored inputs removed by Workflow-only catalog cutover; packaged seed files are bootstrap inputs, not runtime authority
+- `console/**`: the Banksia browser Console
+- `src/banksia/workflows/resources/starter_workflows/**`: provider-neutral bootstrap inputs, not runtime authority
 - `docs/**`: public product, operator, reference, and help docs
-- direct owner pages under `docs-internal/design/**`: versionless Banksia target truth
-- `docs-internal/design/appendices/**`: exact target fixtures, baseline traceability, generated readbacks, and bounded reference protocols
-- `docs-internal/design/v1/**`, `docs-internal/design/v2/**`, and `docs-internal/current/v1/**`: frozen AutoClaw migration evidence
+- `docs-internal/architecture/**`: runtime and product architecture
+- `docs-internal/interfaces/**`: controller, Console, Operator, and tool contracts
+- `docs-internal/operations/**`: configuration, recovery, packaging, and reset behavior
+- `docs-internal/verification/**`: gates, generated readbacks, and bounded reference protocols
 - `docs-internal/adr/**`: durable accepted decisions
 - `scripts/docs/**`: docs and prompt tooling
 - `scripts/testing/**`: test runners and support scripts
@@ -68,7 +69,7 @@ Prefer splitting when:
 - package names should represent ownership, not generic categorization buckets
 - avoid placeholder names such as `utils`, `helpers`, `misc`, `common`, `support`, or `wrapper` unless the directory truly owns that narrow concern
 - avoid version suffixes or temporary migration names in steady-state code paths
-- keep active Banksia canon versionless and do not add new V1/V2/vnext target lanes or version-suffixed owner files
+- keep Banksia canon versionless and do not add version-suffixed owner files
 - keep public shared helpers non-underscored
 - keep test filenames aligned with the feature or contract they verify, not with incidental helper names
 
@@ -94,7 +95,6 @@ Extended guidance: [Naming](../code/naming.md)
 
 ## Frontend layout guidance
 
-- treat `apps/console/**` as frozen migration evidence except for minimum compatibility needed by earlier packages; the Workflow Studio package creates a fresh independently authored root `console/**` and the cleanup package deletes the legacy app after replacement proof
 - keep package manager, Vite, TypeScript, ESLint, Prettier, Vitest, Playwright, and Tailwind config app-local unless a second JS app later proves a shared workspace is needed
 - keep generated OpenAPI output under `console/src/api/generated/**` and treat it as generated contract input, not authored source
 - keep API wiring under `console/src/api/**` and keep feature components behind view-model mappers instead of direct raw-payload rendering
@@ -117,8 +117,8 @@ Extended guidance: [Naming](../code/naming.md)
 - do not use archive pages as living source of truth
 - keep public docs under `docs/**`
 - keep internal canon under `docs-internal/**`
-- use `design/` rather than `redesign/` in steady-state internal naming
-- keep active Banksia design owners versionless; existing V1/V2/current paths are frozen evidence and no new version-era target path is allowed
+- keep internal owners in the architecture, interfaces, operations, verification, or ADR lane named by their responsibility
+- keep Banksia owner paths versionless
 - do not use the public docs tree as a catch-all for versioned implementation programs, historical design drafts, or execution artifacts
 
 ## Local instruction files

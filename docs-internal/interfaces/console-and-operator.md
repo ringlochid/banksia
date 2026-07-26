@@ -1,0 +1,499 @@
+# Interfaces, Console, and Operator
+
+Status: Reference
+
+This page owns the shipped product API boundary, Console information architecture, and separate Operator-agent experience.
+
+## Product language and audience boundary
+
+The controller entity remains `Task`. The ordinary UI calls a Task a **Run**. There is no duplicate Run persistence model.
+
+Banksia deliberately separates three planes:
+
+| Plane | Audience | Contents |
+| --- | --- | --- |
+| Controller truth | Runtime and recovery | Task, TeamRevision, Assignment, Attempt, Dispatch, wait, Wave, Checkpoint, Boundary, exact source, control, and raw event records. |
+| Support/audit | Maintainers and diagnosis | Exact chronology, technical IDs, provider routing, retries, watchdog, revisions, hashes, refs, raw payloads, and protected logs. |
+| Product experience | Person who commissioned the work | Workflow, team, plan, status, attention, meaningful Activity, legal actions, referenced files, and exact Result. |
+
+The browser product API receives only the third plane. Technical fields are not downloaded and then hidden behind a toggle. A separately authorized internal support API/export may expose controller/audit truth.
+
+Opaque resource IDs, URLs, ETags, SSE cursors, and request correlation tokens may be carried by the client when required for navigation or concurrency. They are not rendered as product content.
+
+## Frozen HTTP and service boundary
+
+The product and support planes are separate FastAPI applications over the same domain services. Human-facing Console routes remain at the root HTTP origin, while every product JSON route is namespaced under `/api`. The support application is mounted at `/support`; mounted support routes and schemas never enter the product OpenAPI document.
+
+The root browser surface is deliberately explicit:
+
+```text
+/                         -> redirect to /workflows
+/workflows                -> Workflow library
+/workflows/{workflow_id}  -> Workflow Studio
+/runs                     -> Run library
+/runs/new                 -> Start a Run
+/runs/{task_id}           -> Run Studio
+/assets/*                 -> packaged Console assets
+```
+
+There is no root catch-all, content-negotiated HTML/JSON route, hash-routing fallback, or dual legacy API. Unknown `/api/*`, `/assets/*`, and browser paths remain `404`. Health/readiness, support, Operator, node, and managed internal mounts keep their separately owned root paths.
+
+The outer local admission boundary applies to both applications: direct loopback peer, exact configured loopback `Host`, and exact allowed `Origin` for ordinary unsafe browser requests. Support adds a second boundary:
+
+- support HTTP is disabled unless a high-entropy bearer is supplied through the dedicated controller secret setting;
+- every support route, including `/support/openapi.json`, requires `Authorization: Bearer <support credential>` with constant-time comparison;
+- support requests containing an `Origin` header reject, so the browser product cannot become a support client; and
+- the credential is never returned by configuration readback, product OpenAPI, product responses, Console assets, Operator tools, logs, or errors.
+
+An absent support credential produces no usable support route. Health/readiness remain loopback operational endpoints, are excluded from both generated client schemas, and grant no support access.
+
+The two tracked generated contracts are:
+
+```text
+openapi/product.json
+openapi/support.json
+```
+
+`openapi/product.json` is the only Console and Operator SDK/MCP generation input. `openapi/support.json` is generated directly from the support application and is consumed only by explicitly authorized diagnostic tooling. Neither document is assembled by deleting fields from one combined schema. Generation and drift checks fail when a route appears in both documents, a support schema is reachable from the product component graph, or an Operator operation cannot map to one product-domain operation below.
+
+### Product route matrix
+
+Every product mutation returns controller truth plus an opaque receipt or current resource readback. `If-Match` owns Workflow draft concurrency. Controller-issued action IDs own Task, Human Request, and Command Run legality; the browser never submits runtime revisions.
+
+| HTTP method and path | Domain operation | Response owner | Consumers |
+| --- | --- | --- | --- |
+| `GET /api/workflows` | Search the unified Workflow library across published Workflows and active drafts. | `WorkflowSearchResponse` | Console, Operator `workflow_search` |
+| `GET /api/workflows/authoring-options` | Read supported provider, sandbox, model/effort, and built-in capability authoring choices. | `WorkflowAuthoringOptions` | Console, Operator `workflow_authoring_options` |
+| `GET /api/workflows/{workflow_id}` | Read current published Workflow when present, bounded immutable history, and active draft/ETag when present. At least one of published or draft truth must exist. | `WorkflowGetResponse` | Console, Operator `workflow_get` |
+| `POST /api/workflow-drafts` | Create a new draft from a minimal browser request or complete structured JSON candidate, or atomically open an existing Workflow for editing. Return `201 Created` with `Location` only when a draft is created and `200 OK` when the existing active draft is returned. | `WorkflowDraftOpenResult` | Console, Operator `workflow_draft_create` |
+| `GET /api/workflow-drafts/{draft_id}` | Read one mutable draft and ETag. | `WorkflowDraftReadback` | Console |
+| `PATCH /api/workflow-drafts/{draft_id}` | Apply one closed typed metadata, note, Member, provider, or capability edit. | `WorkflowDraftMutationResult` | Console, Operator `workflow_draft_edit` |
+| `POST /api/workflow-drafts/{draft_id}/validate` | Validate the complete normalized candidate without publishing it. | `WorkflowDraftValidationResult` | Console, Operator `workflow_draft_validate` |
+| `POST /api/workflow-drafts/{draft_id}/undo` | Consume one controller-issued single-use Undo receipt. | `WorkflowDraftReadback` | Console, Operator `workflow_draft_undo` |
+| `DELETE /api/workflow-drafts/{draft_id}` | Discard only the mutable draft. | `WorkflowDraftDiscardResult` | Console, Operator `workflow_draft_discard` |
+| `POST /api/workflow-drafts/{draft_id}/publish` | Publish the exact ETag-selected draft as an immutable revision. | `WorkflowPublishedReadback` | Console, Operator `workflow_draft_publish` |
+| `GET /api/tasks` | Search Tasks through semantic status and presentation fields. | `TaskSearchResponse` | Console, Operator `task_search` |
+| `POST /api/tasks` | Start a Task from one published Workflow and one exact prompt. | `TaskStartReceipt` | Console, Operator `task_start` |
+| `GET /api/tasks/{task_id}` | Read canonical `TaskView`, including current team, plan, attention, legal actions, bounded Activity, Command summaries, and exact Result. | `TaskView` | Console, Operator `task_get` |
+| `POST /api/tasks/{task_id}/controls/{action_id}` | Execute one returned pause, resume, or cancel action with its typed input and confirmation. | `TaskControlReceipt` | Console, Operator `task_control` |
+| `GET /api/tasks/{task_id}/activities` | Page semantic Activity from an opaque cursor. | `TaskActivityPage` | Console |
+| `GET /api/tasks/{task_id}/activities/stream` | Stream semantic Activity plus payload-minimal `task_changed` hints with cursor reset. | SSE `TaskActivity` or `task_changed` | Console |
+| `GET /api/tasks/{task_id}/human-requests/{request_id}` | Read one product-safe Human Request and its current legal response action. | `HumanRequestView` | Console; included by Operator `task_get` |
+| `POST /api/tasks/{task_id}/human-requests/{request_id}/responses` | Commit one typed answer or cancellation against a returned action ID. | `HumanRequestResponseReceipt` | Console, Operator `human_request_respond` |
+| `GET /api/tasks/{task_id}/command-runs/{command_id}` | Read one product-safe managed Action state and current legal cancellation action. | `CommandRunView` | Console, Operator `command_run_get` |
+| `GET /api/tasks/{task_id}/command-runs/{command_id}/output` | Read one sanitized bounded output range/tail with cursor and completeness facts. | `CommandRunOutputPage` | Console, Operator `command_run_output_read` |
+| `POST /api/tasks/{task_id}/command-runs/{command_id}/cancel` | Request cancellation against the returned Command Run action ID. | `CommandRunCancelReceipt` | Console, Operator `command_run_cancel` |
+| `GET /api/operator/status` | Read configured Operator availability and a human-safe setup or unsupported explanation. | `OperatorStatusResponse` | Console |
+| `GET /api/operator/conversations` | Page durable Operator conversation summaries. | `OperatorConversationPage` | Console |
+| `POST /api/operator/conversations` | Create one empty ready conversation pinned to the configured Operator provider. | `OperatorConversationView` | Console |
+| `GET /api/operator/conversations/{conversation_id}` | Read one bounded semantic transcript and current legal actions. | `OperatorConversationView` | Console |
+| `POST /api/operator/conversations/{conversation_id}/messages` | Commit one user message, run one provider turn, and return the committed typed result. | `OperatorConversationView` | Console |
+| `POST /api/operator/conversations/{conversation_id}/question-sets/{question_set_id}/answers` | Commit one complete typed answer, run one fresh turn on the same provider thread, and return the committed result. | `OperatorConversationView` | Console |
+
+There is no separate product Result route: `TaskView.result` is the singular exact root Result. There is no Task file index, generic file route, Artifact route, raw event route, trace route, runtime snapshot route, provider setup route, or execute-anything route. A later scoped browser read of current referenced-file bytes is optional and requires a separate canon addition; it must not be inferred from the Command output route.
+
+Every Operator `POST` requires an idempotency key. Message and answer routes run synchronously and return `200` only after one provider result or visible interruption is durable. A duplicate returns committed readback without replaying provider work or a product mutation. Operator readback is the baseline convergence path; Operator SSE is deferred.
+
+### Support route matrix
+
+Support routes are read-only in this baseline. They call support presenters over controller records and never become an alternate mutation or recovery path.
+
+| HTTP method and path | Support operation | Response owner | Consumers |
+| --- | --- | --- | --- |
+| `GET /support/openapi.json` | Read the separately generated support contract. | OpenAPI document | Authorized diagnostic tooling |
+| `GET /support/tasks` | Search technical Task summaries for diagnosis. | `SupportTaskSearchResponse` | Authorized diagnostic tooling |
+| `GET /support/tasks/{task_id}` | Read an exact controller snapshot and current source relationships. | `SupportTaskSnapshot` | Authorized diagnostic tooling |
+| `GET /support/tasks/{task_id}/trace` | Page the technical lineage/transition trace with an opaque cursor. | `SupportTaskTracePage` | Authorized diagnostic tooling |
+| `GET /support/tasks/{task_id}/events` | Page raw durable Task Events with hash-chain and source facts. | `SupportTaskEventPage` | Authorized diagnostic tooling |
+| `GET /support/tasks/{task_id}/events/stream` | Stream raw durable Task Events for live diagnosis. | SSE `SupportTaskEvent` | Authorized diagnostic tooling |
+
+Support responses may contain technical controller fields, but never credentials, secret environment, provider prompt bodies, or arbitrary workspace file contents. Command output remains available only through the product-safe bounded Command output operation unless a future support owner explicitly adds a more privileged contract.
+
+### Service and Operator parity
+
+HTTP handlers and Operator tools are thin projections over one closed domain-operation catalog. They may expose different bounded response shapes over the same owning service: an Operator-private projection does not create a second product operation or change the HTTP response contract. The exact seventeen Operator operations map to the product matrix as shown above. HTTP-only reads are draft reload and Activity page/stream. Operator `workflow_get` absorbs draft read and bounded revision history through source-pinned catalog/member projections. Operator `task_get` defaults to a compact current overview and selects one exact Member, Result, recent Activity item, Human Request, or Human Request file set when detail is needed; these facets absorb Human Request read, Command summary, legal-action, Result, and owning-message file-reference readback without returning a potentially oversized recursive `TaskView`. `task_control` and `human_request_respond` return compact accepted-state receipts after their shared service commits. Support operations have no Operator projection.
+
+## Nontechnical product contract
+
+The Console and every backend surface created primarily for it are designed for a person commissioning work, not for someone who understands agent-runtime machinery. This is a product contract, not a final-copy polish pass.
+
+- Default screens ask only for the minimum user intent. Progressive disclosure means every supported provider, sandbox, capability, import, and diagnostic choice remains reachable in its relevant screen, but secondary choices begin in clearly labeled collapsed or contextual controls instead of competing with the primary task. It never means removing, silently defaulting without readback, or making an advanced choice support-only.
+- Page names, field labels, status, Activity, attention, actions, errors, and receipts describe the person's work and next safe action. They do not require a glossary of Banksia internals.
+- Destructive or externally consequential actions state their scope and consequence before commitment. Reversible accepted edits return a concise receipt and Undo when the owning contract permits it.
+- Empty, loading, pending, conflict, offline, rejected, blocked, partial-log, and restart/reconnect states each provide a clear explanation and safe next action without exposing controller machinery.
+- Advanced fields explain their practical consequence. They never present raw provider options, Policy syntax, generic tools, technical event types, or support/audit data merely because the backend stores them.
+
+The product backend makes this possible rather than delegating semantic work to the browser. UI-facing responses provide semantic status, human-safe field errors, actionable attention, controller-returned legal actions, confirmation requirements, typed input constraints, effect receipts, and opaque correlation handles where support needs them. They never require the browser to classify raw events, decode runtime states, derive legality, or turn an exception string into user guidance.
+
+Every critical journey is tested from a first-use prompt without access to internal docs: recognize the page's purpose, find the primary action, predict its material effect, recover from one failure, and confirm accepted controller truth. Passing typecheck or reproducing a reference screenshot is not evidence of this usability contract.
+
+The required repeatable evaluator is an independent review agent that did not implement the slice and receives only the plain user scenario plus the product UI—no Banksia internal docs or runtime vocabulary. It drives the real browser and records screenshots, accessibility snapshots, ambiguity, hesitation, wrong turns, and recovery evidence under ignored `tmp/`. A real human study is welcome but is not a release prerequisite for this baseline.
+
+## Workflow authoring API
+
+The product API is Workflow-specific. It exposes:
+
+- list/search the unified Workflow library, including active drafts;
+- read one Workflow and immutable revision history;
+- create/read/update/discard a mutable Workflow draft;
+- structured tree add/update/remove operations;
+- validate a normalized draft;
+- explicitly publish a draft; and
+- start a Task from one published Workflow.
+
+Browser requests and responses use structured JSON. They contain no generic Definition kind switch, Role/Policy route, source-text YAML body, compiler preview, external MCP configuration, or arbitrary tool configuration. The Member shape includes only the narrow Human Request/Command Run capability grants defined by the Workflow schema.
+
+### Draft concurrency and identity
+
+- The Workflow library is controller truth for all editable Workflows. A row is `draft`, `published`, or `published_with_draft`; it includes the current human description, last controller update time, provenance, optional published revision number, and the closed currently legal action set `edit | start_run`. A draft-only Workflow remains discoverable after browser refresh, navigation, and controller restart.
+- Library `updated_at` is the later durable change to the Workflow's current-publication selection or its active draft. Opening, editing, publishing, discarding a published Workflow's draft, and reselecting an immutable revision therefore never make the visible time regress to an older revision's creation time.
+- Creating a new Workflow draft accepts its stable Workflow ID, required description, and optional initial-lead prose/settings without a Member ID. The controller allocates the first Member ID and returns the complete draft.
+- Opening a Workflow for editing is idempotent: return its active draft when one exists; otherwise clone the current published revision and pin its base revision in the same transaction. It never performs a browser read-copy-write or silently replaces an active draft.
+- A Workflow detail response is one coherent controller snapshot. Its semantic state, current description, current published revision, active draft, update time, provenance, actions, and bounded history cannot combine facts from incompatible read snapshots or return a spurious not-found result while Workflow truth existed continuously.
+- HTTP and Operator use the same Workflow normalization and draft-open services. Browser create may begin from minimal fields; Operator `workflow_draft_create` accepts one complete structured JSON Workflow candidate. YAML remains a CLI/text-editor import format, and no separate Operator import tool exists.
+- Draft reads carry an opaque HTTP ETag.
+- Mutations send `If-Match`; a stale client receives a conflict plus current draft readback, never last-write-wins guessing.
+- The ordinary UI does not expose revision tokens.
+- The controller allocates new member IDs for canvas/Operator add operations.
+- IDs cannot be edited after creation.
+- Draft mutations are autosaved to controller truth and return an opaque, controller-issued, single-use Undo receipt bound to the draft and accepted ETag. The browser never computes or submits an inverse mutation.
+- Discard deletes only a mutable draft. A published Workflow revision is immutable and has no product delete operation in this baseline.
+- Publish is explicit and creates an immutable revision. Autosave never publishes.
+
+The UI and Operator call the same structured services. Neither maintains a parallel local Workflow truth.
+
+`WorkflowAuthoringOptions` includes the nonsecret configured default-provider selection when one exists: kind, optional model/effort, and managed sandbox pair. Omission is rendered honestly as no configured default. This is passive readback only; credentials, provider health, and provider mutation remain outside Workflow Studio.
+
+## Task start API
+
+HTTP, Console, CLI, and Operator converge on the strict TaskStartRequest in [Product and Workflow](../architecture/product-and-workflow.md). A successful response is a start receipt containing opaque Task ID, selected Workflow/revision readback, resolved workspace, manifest path, and accepted status. It does not imply that the root provider started successfully or finished.
+
+The ordinary product labels this action **Run workflow** or **Start run**, not Compose Task.
+
+## Task product read model
+
+The exact wire schema is generated from typed backend contracts. Conceptually:
+
+```text
+TaskView
+  id
+  prompt_excerpt                    presentation-only
+  workflow {id, description}
+  status                            starting | working | waiting_for_you |
+                                    paused | completed | blocked | cancelled
+  status_message
+  started_at / updated_at
+  team: recursive TaskMemberView
+  plan?
+  attention[]
+  actions[]                         actions currently legal for the user
+  result?                           singular exact root Result
+```
+
+`TaskMemberView` contains opaque navigation identity, title/fallback name, purpose, recursive children, and plain work state such as not started, working, waiting, done, or blocked. It may contain one latest human update. It does not contain Assignment, Attempt, Dispatch, Boundary, Wave, configuration revision, provider route, or watchdog fields.
+
+`attention[]` contains actionable human facts such as an open Human Request or an Action whose failure requires a decision. Each item has human copy, relevant member, typed answer/action controls, and legal operation URLs/guards. It is not a raw wait row.
+
+`actions[]` is the backend-owned legal control set. The browser does not derive pause/resume/cancel/answer/cancel-action legality from controller internals.
+
+`result` is null until an accepted terminal root Checkpoint exists. When present it is singular and contains exact completed/blocked outcome, Checkpoint summary, optional details, file references, and completion time. Cancellation or infrastructure failure without that Checkpoint never fabricates a Result.
+
+Every nested `files[]` entry is only a workspace-relative path and optional short description already recorded on its Assignment, Checkpoint, or Human Request. Result, Activity, attention, and current-work views mirror those exact source values. References stay embedded in their owning semantic view; `TaskView` has no standalone file catalog. A reference has no generic file resource ID, frozen body, version, hash, or content guarantee. A separately authorized browser file route may open the file's current bytes after fresh containment checks; it must label missing or changed files honestly and is not an Operator tool.
+
+The normal model excludes technical IDs beyond opaque navigation handles, Workflow revision internals, control counters, hashes, refs, provider/session facts, route resolution, raw trace, raw event payloads, and negative filler such as “No current Dispatch.”
+
+## Semantic Activity and SSE
+
+The browser chronology is `TaskActivity`, not TaskEvent:
+
+```text
+TaskActivity
+  id                              opaque cursor identity
+  kind                            small semantic discriminator
+  occurred_at
+  title
+  summary?
+  member? {id, name}
+  outcome?                        completed | blocked | failed | cancelled
+  files[]                         exact source readback; not a file catalog
+  action? {label, href}
+```
+
+Initial semantic kinds are bounded to human meaning:
+
+```text
+task_started / task_paused / task_resumed / task_cancelled
+task_completed / task_blocked
+work_completed / work_blocked
+input_requested / input_received / input_expired / input_cancelled
+action_started / action_succeeded / action_failed /
+action_timed_out / action_cancelled
+```
+
+The backend maps committed source facts to these variants. The frontend never classifies `boundary_accepted`, payload shape, runtime IDs, or provider events. Mid-flow Dispatch, plan bookkeeping, structural revision, start/watchdog, Wave, retry, and cleanup facts create no Activity item unless they produce a separate human-relevant outcome.
+
+An accepted root terminal Boundary emits exactly one `task_completed` or `task_blocked` Activity. Result is the singular readable projection of that same Checkpoint and emits no second readiness Activity.
+
+Initial implementation may project Activity deterministically from durable raw TaskEvents and source records. It must not create a second runtime state machine. A dedicated persisted Activity table is deferred until stable backfill/localization requirements prove one necessary.
+
+SSE has two product uses:
+
+- semantic Activity backfill/stream with opaque cursor; and
+- a payload-minimal `task_changed` hint that causes TaskView refetch.
+
+Cursor reset triggers silent authoritative refetch. The UI only reports a live update problem when delay is long enough to affect the user.
+
+## Actions, Human Requests, and Results
+
+### Managed Command Run -> Action
+
+A controller-managed Command Run appears as one evolving **Action** with a human purpose, member, running/terminal outcome, elapsed time, `View output`, and Cancel only when legal. It does not show argv, cwd, process state, exit code, physical log path, ownership revision, or runtime ID by default.
+
+`View output` opens a scoped contextual view with sanitized bounded tail, search, copy, optional download, and explicit bounded-view/incomplete notices. Routine provider-native shell calls do not become product Activity.
+
+### Human Request -> Needs your attention
+
+An open request creates a pinned `Needs your attention` card beneath the Run header and highlights the requesting member/ancestor path. Controls match the typed request:
+
+- Input: bounded text/number/date/etc.;
+- Direction: two or three choices and optional Other;
+- Approval: explicit Approve/Decline;
+- Review: decision plus optional note.
+
+Submitting commits only the answer. The card freezes as a receipt; SSE/refetch later proves whether a continuation opened. The UI never equates a successful answer HTTP request with completed resumption.
+
+### Root Checkpoint -> Result
+
+When present, Result appears directly below status and above the team/Activity. It renders the exact Checkpoint summary, optional Markdown details, file references, completion time, and completed/blocked status. A blocked Result is an accountable answer with the same prominence as completed. It is never streamed from provisional provider prose or reconstructed from the latest child/event.
+
+## Fresh Console
+
+The root `console/` React, TypeScript, and Tailwind application is the authoritative browser product. Its current interface is deliberately temporary: preserve its semantic API, SSE, browser, accessibility, and error behavior while the later mature visual rewrite replaces presentation and interaction design.
+
+The production build writes `console/dist/`. Packaging stages those files into an ignored generated-assets directory and then into the distribution through `make package-build`; generated assets never become a parallel hand-edited Console source tree.
+
+Top-level navigation is intentionally small:
+
+- **Workflows** — library, Workflow Studio, publish, and start;
+- **Runs** — task list, Run Studio, attention, Activity, and Result.
+
+Settings needed for controller/provider configuration may be contextual but do not become a third authoring model.
+
+An empty/reset installation shows the three packaged Starter Workflows in the Workflow library as ordinary published teams with a quiet **Starter** label and a plain-language “use when” description. It never shows the maintained OMC/OMX reference-example IDs as installed content. Because Starter Workflows omit provider and capability configuration, their cards make no provider or tool availability promise; they use the installation's configured default until a user explicitly customizes a draft.
+
+## Workflow Studio
+
+### Horizontal team hierarchy
+
+- Use the [`add-child-sibling-branch.png` geometry reference](../verification/n8n-reference-protocol.md#visual-reference-packet) as the primary deep-team geometry reference, interpreting every block as one Member and discarding n8n's node, port, and execution semantics.
+- The lead begins on the left.
+- Each hierarchy depth occupies the next column to the right.
+- Direct children stack vertically in authored organizational order.
+- One card is one recursive Member.
+- One neutral connector means direct ownership only.
+- There are no arrowheads, particles, step numbers, sockets, typed ports, or flow animation.
+- Column and sibling position never imply sequence or execution order.
+
+Use React Flow for canvas interaction and Dagre with `rankdir: LR` for the first deterministic layout. Test broad, deep, collapsed, blank-title, error, and localized trees with measured cards. Evaluate ELK only if Dagre demonstrably cannot preserve readable noncrossing subtrees.
+
+Canvas coordinates, viewport, zoom, selection, and collapse are presentation state, never Workflow or scheduling data. Baseline authoring has no arbitrary free positioning, drag reorder, or drag reparent.
+
+### One trailing add-child control
+
+Exactly one visible `+` belongs to the selected editable Member:
+
+- with no children it sits on a short right-side stem;
+- with children it occupies the next vertical direct-child slot after the final accepted child subtree;
+- activation submits one structured add-child mutation and no type picker;
+- an in-flight pending card is UI state only;
+- accepted truth appends one blank child with controller ID, keeps the parent selected, and moves the same `+` to the next slot;
+- failure removes pending state and restores the original control; and
+- selecting another Member relocates the single `+` to that Member.
+
+Run Studio never shows the authoring `+`. The accessible outline and Member drawer expose an equivalent text Add child action.
+
+### Member editing
+
+Selecting a card opens one context drawer with human fields in this order:
+
+1. title/name;
+2. purpose/description;
+3. instruction;
+4. collapsed advanced provider selection; and
+5. collapsed built-in capabilities with default-off Human Request kinds and Managed Command Run.
+
+The capability controls say what they permit in human language. They do not show Policy, generic tools, MCP, allow/deny rule expressions, or system-prompt prose. Child controls always begin from that child's explicit grants; the UI never implies inheritance from the selected parent.
+
+ID is visible only when support/import needs it and is never editable. Removal states the full subtree consequence. After accepted removal, selection and focus move to the removed Member's surviving direct parent; the browser derives that destination from the pre-mutation accepted tree and confirms it still exists in returned controller truth. Changes autosave through structured JSON with ETag conflict handling, receipts, and controller-issued single-use Undo; publish is explicit. Discard applies only to the mutable draft; published Workflow revisions cannot be deleted.
+
+### Canvas and drawer
+
+The canvas owns the page body. One contextual surface displays Member details, Operator, and later Run context:
+
+- desktop: collapsible overlay drawer on the right, not a permanent width-consuming split;
+- narrow screen: bottom sheet plus accessible tree/outline as primary navigation;
+- opening it pans the selected card into the unobscured region.
+
+`Tidy team` deterministically recomputes visible card positions from hierarchy, authored child order, card sizes, and collapse state. It changes no draft, revision, event, or runtime fact and preserves selection/context/zoom when practical. `Fit team` changes viewport only. They are separate controls.
+
+## Run Studio
+
+Run Studio reuses the horizontal hierarchy as a read-only organization view. It shows:
+
+- plain Task status and meaningful message;
+- pinned attention and exact Result before lower-priority details;
+- Member work states and optional human-readable current plan;
+- semantic Activity;
+- generic file references and managed Action output;
+- legal Task controls; and
+- the Operator as a separate contextual agent.
+
+It does not show Assignments, Attempts, Dispatches, Boundaries, Waves, Checkpoints as machinery, revisions, routes, watchdogs, raw refs, technical events, or raw JSON. A selected Member can focus relevant Activity but never replace the Task-level attention or Result.
+
+## Shared QuestionCard
+
+One presentational family serves Operator clarification and runtime Human Requests while feature containers retain separate persistence and continuation.
+
+Behavior:
+
+- one active question at a time;
+- one to three questions per short set;
+- two or three full-width, single-select suggested rows;
+- stable controller-issued question/option IDs;
+- UI-added `Something else`/Other with nonblank free text;
+- `current of total` progress and back/next preserving drafts;
+- one explicit final action such as Continue, Approve, Decline, or Submit review;
+- read-only receipt after commit;
+- fieldset/radio semantics, focus management, announcements, keyboard use, zoom/reflow, and narrow-screen layout.
+
+Operator questions may explicitly allow Skip as “continue without this preference.” Runtime Human Requests allow Skip/Other only when their typed contract permits it. An open Operator question locks only the Operator composer; a Task Human Request never locks unrelated Operator chat.
+
+Task-start file entries are labeled **Referenced files**, live under Advanced, and accept workspace-relative path plus optional purpose only. The baseline has no browser upload, copied attachment body, or generic file picker that implies Banksia owns the bytes.
+
+## Operator agent
+
+Operator is a small, separate control-plane agent over existing Banksia product services. Conceptually it is one configured `Agent` with the controller-owned Operator prompt and exact Operator tool catalog. It is not a Workflow Member, Task, Assignment, Attempt, Dispatch, second Banksia runtime, queue, coordinator, or LangGraph graph.
+
+The controller supports Claude and pinned Codex 0.144.4 for Operator. Provider selection is explicit, never borrows a Workflow Member's choice, and never silently falls back. Missing configuration produces a concrete setup action. Both adapters return the same provider-native typed result and preserve the opaque provider thread across turns.
+
+Operator tools are direct typed calls to existing product services. An adapter may use an invocation-local in-process MCP projection when its SDK benefits from that transport, but no public/static Operator MCP mount or authorable external MCP configuration exists. Workflow drafting is a primary job, and Operator may perform any currently legal operation in the closed catalog when the user's message or typed answer clearly requests it.
+
+### Complete product-operation coverage
+
+The Operator catalog must cover every ordinary product operation a user can perform in Workflow Studio or Run Studio:
+
+| Family | Required effects |
+| --- | --- |
+| Workflow discovery | List/search Workflows; read catalog metadata and bounded immutable source references; traverse one exact published revision or exact draft/ETag one Member at a time through ordered direct-child IDs. |
+| Draft lifecycle | Create, read, update metadata/note, discard, validate, and explicitly publish a draft. |
+| Team editing | Add, update, or remove a Member/subtree, including prose, provider, and built-in capability settings. |
+| Run lifecycle | Start from one published Workflow; list/read Runs; pause, resume, or cancel when legal. |
+| Human attention | Read open Human Requests; submit or cancel an answer when the product service says it is legal. |
+| Managed Actions | Read Command Run state/output and cancel when legal. |
+| Results and files | Read Result and loose file references. The product UI may open current file bytes through an authorized route; Operator has no generic file-content operation. |
+| Legal actions | Execute controller-returned Task lifecycle controls through `task_control`; every non-Task action stays with its typed Workflow, Human Request, or Command Run operation. There is no generic execute-anything escape hatch. |
+
+The exact baseline catalog is seventeen operations over those product services:
+
+```text
+workflow_search
+workflow_get
+workflow_authoring_options
+workflow_draft_create
+workflow_draft_edit
+workflow_draft_validate
+workflow_draft_undo
+workflow_draft_discard
+workflow_draft_publish
+task_search
+task_get
+task_start
+task_control
+human_request_respond
+command_run_get
+command_run_output_read
+command_run_cancel
+```
+
+`workflow_get` has no unpinned-current or full-tree form. Its required closed selector chooses catalog metadata, one exact published revision, or one exact draft ID/ETag; a Member selector is optional and otherwise selects the lead. One Member result carries only ordered direct-child IDs and preserves omitted versus explicit-empty `children`, so further traversal repeats the same bounded call against the same source. Workflow mutations return compact source/accepted-change/Undo/validation/discard/publication receipts, and a stale failure exposes no Workflow body. The exact shapes and provider-result size guard are owned by the [Operator conversation contract](operator-conversation-contract.md#workflow-projections-and-receipts) and [Verification gates](../verification/gates.md#hidden-controller-validation-guardrails).
+
+`workflow_draft_create` accepts one complete structured JSON Workflow candidate and uses the existing normalization and authoring services to create or open its mutable draft. There is no separate import operation. `task_get` defaults to the bounded current overview and uses the exact detail selectors in the Operator conversation contract for owning-message content and loose file references. There is no `artifact_get`, `file_get`, generic file reader, or file CRUD/catalog family. Operator receives no support/audit export, raw runtime record, provider credential/setup, host filesystem, or external-MCP administration tool.
+
+### Durable conversation
+
+Only two durable record types exist:
+
+```text
+OperatorConversation
+  configured provider/model/effort
+  opaque provider thread/session ID
+  state and nullable active-turn identity
+
+OperatorConversationEntry
+  conversation ID and ordered sequence
+  user message | user answers | assistant message |
+  assistant question set | visible interruption
+```
+
+Do not reproduce Assignment, Attempt, Dispatch, Wave, Checkpoint, invocation, effect, proposal, confirmation, retry, or raw tool-event families for Operator chat. One nullable active-turn compare-and-swap permits at most one provider turn per conversation. Message and answer routes run one turn synchronously. Duplicate transport requests return committed readback or a typed conflict and never replay provider work or a mutation. The exact route, record, transaction, and interruption contract lives in the [Operator conversation contract](operator-conversation-contract.md).
+
+If an opaque provider thread cannot continue, Banksia preserves every visible entry, closes the conversation, and offers a new one. It does not silently fork the thread or claim continuity from reconstructed transcript text.
+
+### Typed turn output
+
+Every provider turn returns exactly one native structured variant:
+
+```text
+message
+  human-facing message
+
+ask_user
+  optional explanation
+  1..3 questions
+    short header
+    concrete question
+    allow_skip: boolean = false
+    2..3 mutually exclusive options
+      label
+      one-sentence consequence
+```
+
+The model does not generate Other, persistent question IDs, or option IDs. `allow_skip` is explicit and defaults to false. Banksia validates the native result, allocates IDs, persists the assistant entry, and changes the conversation to awaiting answer. The provider invocation has ended; no process or open tool call survives the human delay.
+
+The user answers through QuestionCard and presses Continue. Banksia commits one structured user turn, marks the previous card as a receipt, and invokes the same provider thread/session for a fresh turn carrying the exact question and answer. Refresh, navigation, restart, and browser closure therefore do not lose the boundary.
+
+Claude uses native structured output. Codex uses `outputSchema` and `dynamicTools`. When pinned model metadata requires code mode, isolated provider-native `exec` and `wait` may compose only the seventeen Banksia operations plus inert `update_plan`; they receive no execution environment, host bindings, filesystem, shell, network, external MCP, module imports, Skills, or Plugins. They are adapter transport rather than product tools or authorable capabilities. The contract therefore fixes the seventeen Banksia operations without claiming a literal global model-visible tool count.
+
+### Intent and currentness
+
+These general rules belong to the Operator's controller-owned system prompt and tool teaching. They are never inserted into Workflow `note` or Member `instruction`.
+
+- If a material user choice is missing, Operator returns `ask_user` rather than guessing. Prefer one question and ask none when the request is already specific.
+- An explicit user message or committed typed answer supplies intent for the action it clearly requests.
+- “Create a workflow for me” authorizes drafting, not publishing or starting a Run.
+- Workflow ETags, Undo receipts, current opaque legal-action IDs, typed inputs, and owning service transactions—not model-authored `confirmed`, proposals, or effect records—own currentness and acceptance.
+- Operator never claims a mutation succeeded without the accepted tool result and refetches owning controller truth before any later claim that depends on it.
+- Provider/tool/controller interruption becomes one bounded visible entry. Restart and client retry never replay a provider turn or uncertain mutation automatically.
+- Product UI shows meaningful messages, questions, accepted changes, and interruptions—not chain-of-thought or raw tool-call internals.
+
+## n8n reference boundary
+
+The curated screenshots and pinned sparse source snapshot documented in the [tracked n8n reference protocol](../verification/n8n-reference-protocol.md) provide mature implementation-study references for question cards, assistant chat, canvas density/layering, selection, add affordances, horizontal branching, contextual editing, list/run/log views, compact controls, responsive states, accessibility behavior, and tests.
+
+Before any UI or UI-facing product-API delegation, the parent selects the matching reference packet and names the exact upstream files in the brief. The slice records what it adopts, adapts, and rejects against the Banksia owner contract. Reading the source is mandatory; treating its data model or visual surface as authority is forbidden.
+
+Implementation is independently authored React/Tailwind Banksia code. Import or copy no n8n Vue/TypeScript components, stores, tests, router, CSS, HTML/markup, tokens, strings, icons/assets, enterprise files, backend, or dataflow/product semantics, and do not translate it line-for-line. The source snapshot remains ignored and unpackaged. Banksia owns its information architecture, contracts, terminology, visual identity, and accessibility behavior. Any desired substantially derived implementation stops for an explicit license/provenance decision.
+
+## Product acceptance journey
+
+A nontechnical user must be able to:
+
+1. ask Operator to draft a Workflow and answer a short material question;
+2. inspect and edit the horizontal responsibility tree without learning runtime nouns;
+3. publish explicitly and start with one prompt;
+4. understand what the team is doing and whether Banksia needs input;
+5. answer a Human Request or inspect a managed Action log;
+6. see meaningful Activity and file references; and
+7. read the exact completed or blocked Result.
+
+At no point should the journey require understanding Dispatch, Attempt, Boundary, Wave, control revision, provider route, watchdog, raw event, or trace JSON. The user must be able to complete the journey from visible labels and feedback without opening product documentation or a support/audit surface.

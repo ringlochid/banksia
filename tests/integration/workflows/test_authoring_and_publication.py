@@ -41,8 +41,6 @@ from banksia.workflows.service_errors import (
 )
 from tests.helpers.workflow_runtime import initialized_workflow_database
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
-
 
 async def test_bootstrap_exposes_exact_portable_starter_workflow_set(tmp_path: Path) -> None:
     async with initialized_workflow_database(tmp_path) as session_factory:
@@ -57,13 +55,10 @@ async def test_bootstrap_exposes_exact_portable_starter_workflow_set(tmp_path: P
     assert all(item.provenance is WorkflowProvenance.STARTER_SEED for item in workflows.items)
 
     packaged_root = files("banksia.workflows.resources.starter_workflows")
-    tracked_root = REPO_ROOT / "docs-internal/design/appendices/workflow-seeds"
     for filename in STARTER_WORKFLOW_FILENAMES:
         packaged = parse_workflow(
             packaged_root.joinpath(filename).read_bytes(), source_format="yaml"
         )
-        tracked = parse_workflow((tracked_root / filename).read_bytes(), source_format="yaml")
-        assert packaged == tracked
         packaged_json = packaged.model_dump_json(exclude_none=True)
         assert "provider" not in packaged_json
         assert "capabilities" not in packaged_json

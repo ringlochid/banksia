@@ -43,6 +43,7 @@ This page is generated from the shipped Banksia prompt contracts and controller-
 - controller-owned fixed element names with escaped values as element text
 - stable field order and omission of absent optional sections
 - UTF-8-compatible Unicode, LF line endings, and exactly one final newline
+- a Checkpoint exists only after the exposed controller action is accepted; provider prose cannot complete an Assignment or become the Task Result
 
 ## Definition-backed behavior evaluation
 

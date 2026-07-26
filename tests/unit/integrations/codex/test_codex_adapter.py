@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
-from openai_codex import AsyncCodex, Sandbox
+from openai_codex import ApprovalMode, AsyncCodex, Sandbox
 from pydantic import SecretStr
 
 from banksia.integrations.codex import CodexAdapter
@@ -230,6 +230,7 @@ async def test_codex_start_uses_ephemeral_overlay_and_returns_before_output(
         await adapter.start(request)
 
         assert fake.thread_kwargs["developer_instructions"] == "exact instructions"
+        assert fake.thread_kwargs["approval_mode"] is ApprovalMode.deny_all
         assert fake.thread_kwargs["cwd"] == str(workspace)
         assert fake.thread_kwargs["ephemeral"] is True
         assert fake.thread_kwargs["sandbox"] is expected_sandbox
@@ -238,6 +239,7 @@ async def test_codex_start_uses_ephemeral_overlay_and_returns_before_output(
         node_config = config["mcp_servers"]["banksia_node"]
         assert node_config["http_headers"] == {"Authorization": "Bearer binding-secret"}
         assert node_config["enabled_tools"] == ["checkpoint", "delegate"]
+        assert node_config["default_tools_approval_mode"] == "approve"
         if expected_sandbox is Sandbox.workspace_write:
             assert config["sandbox_workspace_write"]["network_access"] is False
         else:

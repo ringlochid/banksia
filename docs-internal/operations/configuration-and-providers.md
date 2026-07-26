@@ -61,4 +61,6 @@ One committed current Dispatch supplies exact instruction and input strings, wor
 
 Managed Codex and Claude starts receive an ephemeral Dispatch-scoped Node MCP binding and exact tool ceiling. The credential is injected for that invocation, never written to user configuration, and revoked when Dispatch authority ends. OpenClaw uses the explicit-ID `/node/mcp` compatibility projection configured by the user; Banksia does not edit `openclaw.json` or weaken its sandbox, tool, execution, or approval policy.
 
+On Linux and WSL2, a Claude Dispatch with effective network `deny` requires the host `bubblewrap` and `socat` executables used by Claude Code's native sandbox. The adapter enables that sandbox with fail-closed startup; missing host prerequisites produce a definite provider-start failure rather than silently widening network or filesystem access.
+
 Provider terminal output, session identity, process lifetime, and transport continuity are never controller authority. [Runtime](../architecture/runtime.md) and [built-in runtime tools](../interfaces/runtime-tools.md) own the exact Dispatch and operation semantics.

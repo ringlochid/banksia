@@ -49,6 +49,14 @@ Run the guided setup:
 
 Choose Codex, Claude, or OpenClaw. Codex and Claude are managed adapters. OpenClaw is a user-operated compatibility transport, so you remain responsible for its CLI, Gateway, profile, authentication, and workspace exposure.
 
+On Linux or WSL2, install `bubblewrap` and `socat` before using a Claude Member whose effective network setting is `deny`. On Ubuntu or Debian:
+
+```bash
+sudo apt-get install bubblewrap socat
+```
+
+These are host prerequisites for Claude Code's deny-network sandbox, not general Banksia dependencies. Banksia does not request that sandbox for a Claude route with network access allowed. See the [configuration reference](../reference/configuration.md#managed-sandbox-and-network) and [Claude Code sandboxing guide](https://code.claude.com/docs/en/sandboxing) for platform details.
+
 Confirm current configuration without changing it:
 
 ```bash

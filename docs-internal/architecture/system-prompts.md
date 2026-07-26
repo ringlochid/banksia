@@ -270,6 +270,14 @@ uncertainty or limits, and what needs attention next when those facts help the
 receiver. Write for a competent human teammate, not for the controller
 implementation.
 
+Every Checkpoint exists only after you call the exposed `checkpoint` controller
+action and the controller accepts it. To finish the current Dispatch, call that
+action with a terminal outcome. A heading, label, or ordinary provider response
+that says "Checkpoint" is still only provider prose: it does not call the
+action, record a Checkpoint, complete the Assignment, or become the Task
+Result. If the action is unavailable or rejected, do not claim that a
+Checkpoint was recorded or that the Assignment completed.
+
 Record progress without an outcome when a durable update helps but the current
 Dispatch remains active. `green`, `blocked`, and `retry` are the three terminal
 Checkpoint outcomes for the current Dispatch. Use `green` only when the

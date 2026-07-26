@@ -159,6 +159,8 @@ watchdog_same_attempt_replacement_limit = 2
 | `watchdog_inactivity_timeout_seconds` | `900` | Inactivity duration before watchdog handling. |
 | `watchdog_same_attempt_replacement_limit` | `2` | Bounded same-Attempt watchdog replacement count. |
 
+### Managed sandbox and network
+
 Legal managed sandbox/network pairs are:
 
 | Sandbox | Network |
@@ -168,6 +170,8 @@ Legal managed sandbox/network pairs are:
 | `full_access` | `allow` |
 
 A Workflow may request a sandbox under an individual Codex or Claude `provider` block. If that authored block is omitted, provider resolution first forms a `full_access` plus `allow` request. The two runtime values then act as a controller ceiling: they preserve an equally or more restrictive request and narrow a broader one. They do not replace the omitted authored request. Each Dispatch records both requested and effective provenance, and the managed-provider adapter receives the effective pair. There is no standalone `network_access` field in a Workflow.
+
+On Linux and WSL2, a Claude Dispatch with effective network `deny` uses Claude Code's native sandbox with fail-closed startup. Install the host packages `bubblewrap` and `socat` before using either `read_only`/`deny` or `workspace_write`/`deny`; otherwise the provider turn does not start. These packages are Claude deny-network sandbox prerequisites, not general Banksia dependencies, and Banksia does not enable this sandbox for Claude's allow-network pairs. See [Claude Code sandboxing](https://code.claude.com/docs/en/sandboxing) for distribution and AppArmor guidance.
 
 `providers configure NAME` enables a provider and fills `runtime.default_provider` only if it is empty. Use `providers set-default NAME` for an intentional replacement. Banksia never falls back silently from an explicit unavailable provider.
 

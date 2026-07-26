@@ -122,6 +122,12 @@ def test_instruction_composition_is_conditional_ordered_and_provider_neutral() -
     assert "one-member Waves" in codex.instructions_text
     assert "multi-member Wave" in codex.instructions_text
     assert "delegate action" in codex.instructions_text
+    checkpoint_contract = " ".join((root.findtext("checkpoint_contract") or "").split())
+    assert (
+        "Every Checkpoint exists only after you call the exposed `checkpoint` controller action"
+    ) in checkpoint_contract
+    assert "ordinary provider response" in checkpoint_contract
+    assert "do not claim that a Checkpoint was recorded" in checkpoint_contract
 
 
 def test_nested_continuation_round_trips_from_committed_input() -> None:

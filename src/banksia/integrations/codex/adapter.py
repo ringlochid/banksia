@@ -303,6 +303,7 @@ def _build_thread_config(
                 "url": connection.url,
                 "http_headers": {"Authorization": connection.authorization_header},
                 "enabled_tools": list(connection.enabled_tools),
+                "default_tools_approval_mode": "approve",
                 "required": True,
             }
         }

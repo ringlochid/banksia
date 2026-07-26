@@ -53,6 +53,13 @@ banksia providers check codex
 
 `providers status` is passive. `providers check NAME` actively tests that route and returns exit `1` when it is not ready.
 
+For a Claude Member whose effective network setting is `deny` on Linux or WSL2, also check the sandbox host prerequisites:
+
+```bash
+command -v bwrap
+command -v socat
+```
+
 **Legal action.**
 
 ```bash
@@ -63,6 +70,14 @@ banksia providers check codex
 ```
 
 Choose the real provider and authentication method. For OpenClaw, also verify the user-operated CLI, Gateway URL/profile, authentication mode, Gateway health, provider-visible workspace, and source access outside Banksia.
+
+For Claude deny-network execution on Ubuntu or Debian, install the missing host packages:
+
+```bash
+sudo apt-get install bubblewrap socat
+```
+
+On Ubuntu 24.04 or later, an installed `bwrap` may still need the AppArmor setup documented in the [Claude Code sandboxing guide](https://code.claude.com/docs/en/sandboxing). Banksia configures this path to fail closed: do not widen network access merely to bypass a missing sandbox unless that policy change is intentional.
 
 **Controller truth.** A Task-start provider rejection commits no Task. A provider interruption after acceptance does not erase the Task; current controller state determines recovery or attention.
 

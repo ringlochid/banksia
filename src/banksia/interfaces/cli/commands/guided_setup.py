@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -94,7 +95,7 @@ def should_run_guided_flow(*, is_non_interactive: bool, is_json_output: bool) ->
     return sys.stdin.isatty() and sys.stdout.isatty()
 
 
-async def guide_local_initialization(args: argparse.Namespace) -> int:
+def guide_local_initialization(args: argparse.Namespace) -> int:
     """Guide local initialization while keeping database reset explicit."""
 
     config_path = coerce_path(args.config)
@@ -109,7 +110,7 @@ async def guide_local_initialization(args: argparse.Namespace) -> int:
         if action == "cancel":
             return _emit_cancelled()
         if action == "keep":
-            await _verify_existing_local_state(args, config_path)
+            asyncio.run(_verify_existing_local_state(args, config_path))
             return _finish_local_initialization(
                 args,
                 config_path=config_path,
@@ -130,7 +131,7 @@ async def guide_local_initialization(args: argparse.Namespace) -> int:
         if not click.confirm(prompt, default=not should_confirm_replacement):
             return _emit_cancelled()
 
-    result = await cmd_init(selection.args)
+    result = asyncio.run(cmd_init(selection.args))
     if result != 0:
         return result
     return _finish_local_initialization(

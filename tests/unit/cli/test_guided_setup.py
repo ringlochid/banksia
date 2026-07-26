@@ -14,6 +14,7 @@ from banksia.interfaces.cli.bootstrap.config import (
 )
 from banksia.interfaces.cli.commands import guided_setup
 from banksia.interfaces.cli.main import build_parser
+from banksia.interfaces.cli.providers import inspection as provider_inspection
 from banksia.interfaces.cli.providers.contracts import (
     ProviderCheckOutcome,
     ProviderCheckSnapshot,
@@ -28,6 +29,8 @@ from banksia.providers import ProviderKind
 from banksia.runtime.providers import (
     ProviderAuthenticationMethod,
     ProviderCheckAxisStatus,
+    ProviderCheckResult,
+    ProviderCheckStatus,
 )
 from tests.unit.cli.cli_test_support import (
     build_provider_check_snapshot,
@@ -93,6 +96,64 @@ def test_guided_init_confirms_recommended_local_settings(
     assert "Banksia provider setup" in result.output
     assert "Primary/default provider (codex, claude, openclaw, cancel)" in result.output
     assert "Provider setup cancelled. No provider changes were made." in result.output
+
+
+def test_guided_init_runs_provider_diagnostic_outside_database_event_loop(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config_path = tmp_path / "config.toml"
+    data_dir = tmp_path / "data"
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    monkeypatch.chdir(workspace)
+    monkeypatch.setattr(cli_root, "should_run_guided_flow", lambda **_kwargs: True)
+    monkeypatch.setattr(
+        provider_inspection,
+        "is_provider_integration_available",
+        lambda *_args: True,
+    )
+
+    def run_diagnostic(
+        _settings: object,
+        provider: ProviderKind,
+    ) -> ProviderCheckResult:
+        async def read_result() -> ProviderCheckResult:
+            return ProviderCheckResult(
+                kind=provider,
+                status=ProviderCheckStatus.AVAILABLE,
+                code="codex_available",
+                authentication=ProviderCheckAxisStatus.PASSED,
+                authentication_method=ProviderAuthenticationMethod.SUBSCRIPTION,
+            )
+
+        return asyncio.run(read_result())
+
+    monkeypatch.setattr(
+        provider_inspection,
+        "execute_provider_diagnostic",
+        run_diagnostic,
+    )
+
+    result = CliRunner().invoke(
+        build_parser(),
+        [
+            "init",
+            "--config",
+            str(config_path),
+            "--data-dir",
+            str(data_dir),
+        ],
+        input="\ny\ncodex\n\ny\nn\n",
+    )
+
+    assert result.exit_code == 0, result.output
+    output = result.output.casefold()
+    assert "credential" in output
+    assert "found" in output
+    assert "codex" in output
+    assert "ready" in output
+    assert "check_failed" not in output
 
 
 def test_guided_init_rerun_keeps_config_and_verifies_database(

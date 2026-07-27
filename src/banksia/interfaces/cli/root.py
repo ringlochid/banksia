@@ -205,7 +205,7 @@ def operator_group() -> None:
 
 @operator_group.command(
     "setup",
-    help="Select Codex or Claude for Operator and replace its optional overrides.",
+    help="Configure Operator while preserving saved choices unless you change them.",
 )
 @config_option
 @click.option("--provider", type=OPERATOR_PROVIDER_CHOICE)

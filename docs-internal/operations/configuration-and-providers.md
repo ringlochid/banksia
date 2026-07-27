@@ -33,7 +33,9 @@ Guided first-run initialization is one self-contained human journey over indepen
 2. one explicit Task provider when none is configured, which fills an empty default; and
 3. one explicit optional Operator selection when none is configured.
 
-The provider chooser includes an explicit cancel choice. Cancelling preserves completed local initialization and writes no provider configuration. The Operator chooser is `Codex | Claude | Not now`; selecting a managed provider that is not configured first offers the existing provider configuration flow. Model and effort remain optional advanced values. An initialization rerun preserves every existing provider and Operator selection rather than reopening or mutating it.
+The provider chooser includes an explicit cancel choice. Cancelling preserves completed local initialization and writes no provider configuration. The Operator chooser is `Codex | Claude | Not now`; selecting a managed provider that is not configured first uses the same exact provider configuration, authentication, and diagnostic flow as Task-provider setup. Model and effort remain optional advanced values.
+
+An existing guided installation offers `keep | reconfigure | cancel`. `keep` verifies the current local state. `reconfigure` changes local paths, database, server, and logging settings while explicitly keeping provider routes, the Task-provider default, and Operator configuration. It is not described as full replacement. Completed provider and Operator phases are not reopened, and the final summary labels their retained values as **kept**.
 
 `banksia setup` is the rerunnable settings hub. Its interactive overview routes to Task providers, Operator, or default workspace configuration and derives completion from current durable settings rather than a persisted wizard cursor. The focused `banksia operator setup|status|disable` family owns only the explicit Operator selection. `operator disable` removes the persisted Operator selection without disabling its provider route.
 
@@ -67,7 +69,9 @@ Bare `banksia`, `banksia status`, and `banksia providers status` are passive. Th
 
 `banksia providers check PROVIDER` performs one bounded non-agent diagnostic. It may inspect provider installation, native identity, authentication, and documented reachability, but it creates no Task, Dispatch, binding, or durable readiness cache.
 
-`banksia operator status` is also passive. It reports the explicit selected provider/model/effort, whether the corresponding managed provider route is configured, any effective environment override, and the exact next diagnostic command. It does not start an Operator turn or persist a readiness result. Interactive `operator setup` may run the existing provider check after saving; a failed check is “needs attention” and does not erase or disable the accepted selection.
+`banksia operator status` is also passive. It reports the explicit selected provider/model/effort, whether the corresponding managed provider route is configured, any effective environment override, and the exact next diagnostic command. It does not start an Operator turn or persist a readiness result.
+
+Interactive `operator setup` defaults to the saved Operator provider, not a hard-coded provider. Keeping the same provider and declining override changes preserves the saved model and effort. Choosing to edit them uses the current values as defaults and accepts `-` as an explicit return to the provider default. Changing provider does not carry provider-specific overrides to the new route unless the user explicitly supplies replacements. A no-op reports **Operator already configured** and offers, rather than forces, the shared provider readiness diagnostic. A changed selection runs that diagnostic. Diagnostic failure is “needs attention” and does not erase or disable the accepted selection.
 
 Provider configuration and identity mutation are CLI-owned. Codex and Claude support subscription and API-key identity flows; OpenClaw supports a selected Gateway token or password. The config-adjacent `banksia.env` file may contain only `ANTHROPIC_API_KEY`, `OPENCLAW_GATEWAY_TOKEN`, or `OPENCLAW_GATEWAY_PASSWORD`. It is owner-only, rejects unrelated assignments, and keeps the two OpenClaw credentials mutually exclusive.
 

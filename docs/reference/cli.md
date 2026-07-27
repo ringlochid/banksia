@@ -62,7 +62,9 @@ Important flags are:
 - `--non-interactive`; and
 - `--force`.
 
-An existing configuration is not overwritten without `--force`. Forced initialization replaces the managed configuration but preserves an existing valid `paths.workspace` when `--workspace` is omitted. Supplying `--workspace` replaces it. An invalid value that cannot be preserved stops the command before rewrite.
+An existing guided configuration offers `keep`, `reconfigure`, or `cancel`. **Reconfigure** changes local paths, database, server, and logging settings while keeping provider routes, the Task-provider default, and Operator settings; the final summary labels those values as **kept**. It is not a full configuration reset.
+
+Noninteractive initialization does not overwrite an existing configuration without `--force`. Forced initialization applies the same bounded local reconfiguration and preserves an existing valid `paths.workspace` when `--workspace` is omitted. Supplying `--workspace` replaces it. An invalid value that cannot be preserved stops the command before rewrite.
 
 After local configuration, exact-schema setup, and Starter Workflow bootstrap succeed, guided first-run initialization continues into the Task-provider chooser when no provider is configured. Choose `cancel` there to keep initialization complete and defer provider configuration. It then offers Codex, Claude, or **Not now** for Operator when no Operator is selected. Rerunning initialization preserves existing provider and Operator selections. Noninteractive and JSON initialization remain prompt-free and never configure either lane.
 
@@ -100,7 +102,9 @@ banksia operator status
 banksia operator disable
 ```
 
-Interactive `operator setup` can configure a missing managed route, asks whether to add optional Operator-specific model or effort values, saves the selection, and runs the existing provider diagnostic. A diagnostic failure may make the command exit `1`; the accepted Operator selection remains saved.
+Interactive `operator setup` defaults to the saved provider. A missing managed route uses the same configuration, authentication, and diagnostic flow as Task-provider setup. Existing model and effort overrides are preserved unless you choose to change them; enter `-` while editing either value to restore the provider default. Changing providers does not carry the prior provider's overrides automatically.
+
+A changed selection runs the shared provider diagnostic. An unchanged selection reports **Operator already configured** and asks whether to run that diagnostic. A diagnostic failure may make the command exit `1`; the accepted Operator selection remains saved.
 
 Automation must provide the provider:
 

@@ -164,6 +164,23 @@ def clone_namespace(
     return argparse.Namespace(**payload)
 
 
+def collect_configured_provider_check(
+    config_path: Path,
+    provider: ProviderKind,
+) -> ProviderCheckSnapshot:
+    """Run the shared bounded diagnostic for one configured provider route."""
+
+    with service_provider_check_env(config_path=config_path):
+        return collect_provider_check(load_settings(), provider)
+
+
+def provider_list_text(providers: set[ProviderKind]) -> str:
+    """Render configured providers in the shared product order."""
+
+    ordered = [provider.value for provider in PROVIDER_ORDER if provider in providers]
+    return ", ".join(ordered) if ordered else "none"
+
+
 def _require_initialized_config(config_path: Path) -> None:
     if not config_path.is_file():
         raise click.UsageError(
@@ -226,7 +243,7 @@ def _check_provider_with_identity(
     preferred_method: ProviderAuthenticationMethod | None,
 ) -> ProviderCheckSnapshot:
     emit_step(f"Checking {provider.value}")
-    provider_check = _collect_provider_check(config_path, provider)
+    provider_check = collect_configured_provider_check(config_path, provider)
     emit_provider_check(provider_check, is_compact=True)
     can_configure_identity = provider_check.is_ready is True or (
         provider_check.outcome
@@ -294,7 +311,7 @@ def _recheck_effective_authentication(
     label = authentication_method_label(method)
     emit_success(f"{provider_display_name(provider)} {label} completed")
     emit_step(f"Checking effective {provider.value} credential")
-    provider_check = _collect_provider_check(config_path, provider)
+    provider_check = collect_configured_provider_check(config_path, provider)
     emit_provider_check(provider_check, is_compact=True)
     if provider_check.is_ready is True and provider_check.authentication_method is not method:
         effective_method = (
@@ -326,13 +343,13 @@ def _emit_provider_state(config_path: Path, settings: Settings) -> None:
     persisted_providers = persisted_provider_kinds(config_path)
     rows = [
         ("Config", str(config_path)),
-        ("Configured providers", _provider_list_text(persisted_providers)),
+        ("Configured providers", provider_list_text(persisted_providers)),
     ]
     if effective_providers != persisted_providers:
         rows.append(
             (
                 "Effective providers",
-                f"{_provider_list_text(effective_providers)} (environment overrides apply)",
+                f"{provider_list_text(effective_providers)} (environment overrides apply)",
             )
         )
     persisted_default = persisted_default_provider(config_path)
@@ -361,10 +378,10 @@ def _emit_setup_summary(
     effective_default = settings.runtime.default_provider
     rows = [
         ("Default provider", _provider_text(default)),
-        ("Configured providers", _provider_list_text(configured)),
+        ("Configured providers", provider_list_text(configured)),
     ]
     if effective_providers != configured:
-        rows.append(("Effective providers", _provider_list_text(effective_providers)))
+        rows.append(("Effective providers", provider_list_text(effective_providers)))
     if effective_default != default:
         rows.append(
             (
@@ -419,28 +436,17 @@ def _provider_request_for_selection(
     return provider_configuration_request_from_args(selected_args)
 
 
-def _collect_provider_check(
-    config_path: Path,
-    provider: ProviderKind,
-) -> ProviderCheckSnapshot:
-    with service_provider_check_env(config_path=config_path):
-        return collect_provider_check(load_settings(), provider)
-
-
-def _provider_list_text(providers: set[ProviderKind]) -> str:
-    ordered = [provider.value for provider in PROVIDER_ORDER if provider in providers]
-    return ", ".join(ordered) if ordered else "none"
-
-
 def _provider_text(provider: ProviderKind | None) -> str:
     return provider.value if provider is not None else "none"
 
 
 __all__ = [
     "clone_namespace",
+    "collect_configured_provider_check",
     "guide_provider_setup",
     "guide_specific_provider",
     "load_config_settings",
     "persisted_default_provider",
     "persisted_provider_kinds",
+    "provider_list_text",
 ]

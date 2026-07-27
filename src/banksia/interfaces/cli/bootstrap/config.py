@@ -93,8 +93,9 @@ def persist_config_mutation(
     with acquire_config_mutation_lock(config_path, timeout_seconds=timeout_seconds):
         current_sections = read_config_sections(config_path)
         candidate_sections = mutation(copy.deepcopy(current_sections))
-        rendered = config_sections_to_text(candidate_sections)
-        write_config_text_atomically(config_path, rendered)
+        if candidate_sections != current_sections:
+            rendered = config_sections_to_text(candidate_sections)
+            write_config_text_atomically(config_path, rendered)
     return candidate_sections
 
 

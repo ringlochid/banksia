@@ -134,7 +134,7 @@ def test_operator_status_is_passive_and_discloses_environment_override(
     )
     monkeypatch.setattr(
         operator_commands,
-        "collect_provider_check",
+        "collect_configured_provider_check",
         lambda *_args: pytest.fail("passive status contacted a provider"),
     )
 
@@ -254,3 +254,118 @@ def test_guided_operator_can_configure_missing_route_before_selection(
     payload = tomllib.loads(config_path.read_text(encoding="utf-8"))
     assert payload["claude"]["enabled"] is True
     assert payload["operator"] == {"provider": "claude"}
+
+
+def test_guided_operator_defaults_to_saved_provider_and_preserves_overrides(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config_path = write_local_cli_config(tmp_path)
+    configure_provider(
+        config_path,
+        ProviderConfigurationRequest(provider=ProviderKind.CODEX),
+    )
+    configure_provider(
+        config_path,
+        ProviderConfigurationRequest(provider=ProviderKind.CLAUDE),
+    )
+    with config_path.open("a", encoding="utf-8") as stream:
+        stream.write(
+            '\n[operator]\nprovider = "claude"\nmodel = "claude-operator"\neffort = "high"\n'
+        )
+    previous_bytes = config_path.read_bytes()
+    monkeypatch.setattr(cli_root, "should_run_guided_flow", lambda **_kwargs: True)
+    monkeypatch.setattr(
+        operator_commands,
+        "collect_configured_provider_check",
+        lambda *_args: pytest.fail("declined readiness check contacted a provider"),
+    )
+
+    result = CliRunner().invoke(
+        build_parser(),
+        ["operator", "setup", "--config", str(config_path)],
+        input="\n\nn\n",
+    )
+
+    assert result.exit_code == 0, result.output
+    assert config_path.read_bytes() == previous_bytes
+    assert "Operator provider (Codex, Claude) [Claude]" in result.output
+    assert "Change the saved Operator model or reasoning effort?" in result.output
+    assert "Operator already configured" in result.output
+    assert "Operator setup complete" not in result.output
+    assert "Changed" not in result.output
+    assert result.output.count("banksia providers check claude") == 1
+
+
+def test_guided_operator_can_explicitly_clear_saved_overrides(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config_path = write_local_cli_config(tmp_path)
+    configure_provider(
+        config_path,
+        ProviderConfigurationRequest(provider=ProviderKind.CODEX),
+    )
+    with config_path.open("a", encoding="utf-8") as stream:
+        stream.write('\n[operator]\nprovider = "codex"\nmodel = "gpt-operator"\neffort = "high"\n')
+    monkeypatch.setattr(cli_root, "should_run_guided_flow", lambda **_kwargs: True)
+    monkeypatch.setattr(
+        operator_commands,
+        "collect_configured_provider_check",
+        lambda *_args: build_provider_check_snapshot(
+            ProviderKind.CODEX,
+            outcome=ProviderCheckOutcome.READY,
+            is_ready=True,
+            detail="codex_available",
+        ),
+    )
+
+    result = CliRunner().invoke(
+        build_parser(),
+        ["operator", "setup", "--config", str(config_path)],
+        input="\ny\n-\n-\n",
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = tomllib.loads(config_path.read_text(encoding="utf-8"))
+    assert payload["operator"] == {"provider": "codex"}
+    assert "Operator setup complete" in result.output
+    assert "Operator already configured" not in result.output
+    assert "provider default" in result.output
+    assert "Next: banksia serve" in result.output
+
+
+def test_guided_operator_does_not_carry_overrides_to_a_different_provider(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config_path = write_local_cli_config(tmp_path)
+    for provider in (ProviderKind.CODEX, ProviderKind.CLAUDE):
+        configure_provider(
+            config_path,
+            ProviderConfigurationRequest(provider=provider),
+        )
+    with config_path.open("a", encoding="utf-8") as stream:
+        stream.write('\n[operator]\nprovider = "codex"\nmodel = "gpt-operator"\neffort = "high"\n')
+    monkeypatch.setattr(cli_root, "should_run_guided_flow", lambda **_kwargs: True)
+    monkeypatch.setattr(
+        operator_commands,
+        "collect_configured_provider_check",
+        lambda *_args: build_provider_check_snapshot(
+            ProviderKind.CLAUDE,
+            outcome=ProviderCheckOutcome.READY,
+            is_ready=True,
+            detail="claude_available",
+        ),
+    )
+
+    result = CliRunner().invoke(
+        build_parser(),
+        ["operator", "setup", "--config", str(config_path)],
+        input="Claude\nn\n",
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = tomllib.loads(config_path.read_text(encoding="utf-8"))
+    assert payload["operator"] == {"provider": "claude"}
+    assert "Operator setup complete" in result.output

@@ -212,7 +212,7 @@ def test_guided_init_rerun_keeps_config_and_verifies_database(
     assert "banksia serve" in result.output
 
 
-def test_guided_init_replacement_requires_final_confirmation(
+def test_guided_init_reconfiguration_requires_final_confirmation(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -225,16 +225,16 @@ def test_guided_init_replacement_requires_final_confirmation(
     result = CliRunner().invoke(
         build_parser(),
         ["init", "--config", str(config_path)],
-        input="replace\n\ny\nn\n",
+        input="reconfigure\n\ny\nn\n",
     )
 
     assert result.exit_code == 0, result.output
     assert config_path.read_bytes() == previous_config
-    assert "Replace the existing local config" in result.output
+    assert "Reconfigure local settings and keep provider and Operator settings?" in result.output
     assert "Cancelled" in result.output
 
 
-def test_guided_init_replacement_preserves_provider_and_operator_settings(
+def test_guided_init_reconfiguration_marks_retained_provider_and_operator_settings(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -264,7 +264,7 @@ def test_guided_init_replacement_preserves_provider_and_operator_settings(
             "19191",
             "--skip-db-upgrade",
         ],
-        input="replace\n\ny\ny\n",
+        input="reconfigure\n\ny\ny\n",
     )
 
     assert result.exit_code == 0, result.output
@@ -282,6 +282,8 @@ def test_guided_init_replacement_preserves_provider_and_operator_settings(
     assert payload["runtime"] == {"default_provider": "codex"}
     assert "Banksia Task provider setup" not in result.output
     assert "optional Operator setup" not in result.output
+    assert "codex, claude (kept)" in result.output
+    assert "claude (kept)" in result.output
 
 
 def test_guided_setup_collects_openclaw_gateway_route_and_token(

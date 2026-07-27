@@ -6,7 +6,7 @@ from typing import Any
 
 import click
 
-from banksia.config import OperatorProvider, load_settings
+from banksia.config import OperatorProvider, OperatorSettings
 from banksia.interfaces.cli.commands.presentation import (
     emit_completion,
     emit_key_value_panel,
@@ -15,6 +15,7 @@ from banksia.interfaces.cli.commands.presentation import (
 )
 from banksia.interfaces.cli.commands.provider_setup import (
     clone_namespace,
+    collect_configured_provider_check,
     guide_specific_provider,
 )
 from banksia.interfaces.cli.errors import CliPrerequisiteError
@@ -23,18 +24,15 @@ from banksia.interfaces.cli.providers import (
     OperatorSelectionMutationResult,
     OperatorSelectionRequest,
     OperatorSelectionSnapshot,
-    collect_provider_check,
     disable_operator_selection,
     is_operator_provider_persisted,
     read_operator_selection,
     save_operator_selection,
 )
-from banksia.interfaces.cli.providers.contracts import ProviderCheckSnapshot
 from banksia.interfaces.cli.providers.presentation import emit_provider_check
 from banksia.interfaces.cli.support import (
     coerce_path,
     print_json,
-    service_provider_check_env,
 )
 from banksia.providers import ProviderKind
 
@@ -97,7 +95,7 @@ def cmd_operator_disable(args: argparse.Namespace) -> int:
 
 
 def guide_operator_setup(args: argparse.Namespace) -> int:
-    """Guide a focused Operator replacement and diagnose its selected route."""
+    """Guide focused Operator configuration and diagnose its selected route."""
 
     config_path = _require_initialized_config(args.config)
     emit_wizard_header(
@@ -105,12 +103,26 @@ def guide_operator_setup(args: argparse.Namespace) -> int:
         "Choose the provider for Banksia's separate workflow and run assistant.",
     )
     selection = read_operator_selection(config_path)
-    _emit_operator_status(config_path, selection)
-    selected = _select_operator_provider(args, is_optional=False)
+    _emit_operator_status(
+        config_path,
+        selection,
+        should_emit_next_action=False,
+    )
+    selected = _select_operator_provider(
+        args,
+        is_optional=False,
+        default_provider=selection.persisted.provider,
+    )
     if selected is None:
         emit_warning("Operator setup cancelled. No Operator changes were made.")
         return 0
-    return _guide_selected_operator(args, config_path, selected, should_emit_summary=True)
+    return _guide_selected_operator(
+        args,
+        config_path,
+        selected,
+        current=selection.persisted,
+        should_emit_summary=True,
+    )
 
 
 def guide_optional_operator_setup(
@@ -129,7 +141,11 @@ def guide_optional_operator_setup(
         "optional Operator setup",
         "Operator can help draft workflows, start runs, and explain current work.",
     )
-    selected = _select_operator_provider(args, is_optional=True)
+    selected = _select_operator_provider(
+        args,
+        is_optional=True,
+        default_provider=None,
+    )
     if selected is None:
         emit_warning(
             "Operator was not configured. You can add it later with 'banksia operator setup'."
@@ -139,6 +155,7 @@ def guide_optional_operator_setup(
         args,
         config_path,
         selected,
+        current=current.persisted,
         should_emit_summary=should_emit_summary,
     )
 
@@ -148,6 +165,7 @@ def _guide_selected_operator(
     config_path: Path,
     provider: OperatorProvider,
     *,
+    current: OperatorSettings,
     should_emit_summary: bool,
 ) -> int:
     provider_check = None
@@ -167,7 +185,11 @@ def _guide_selected_operator(
             provider=ProviderKind(provider.value),
         )
 
-    model, effort = _prompt_operator_overrides(args)
+    model, effort = _prompt_operator_overrides(
+        args,
+        current=current,
+        provider=provider,
+    )
     result = _save_operator_or_raise(
         config_path,
         OperatorSelectionRequest(
@@ -176,20 +198,30 @@ def _guide_selected_operator(
             effort=effort,
         ),
     )
-    if should_emit_summary:
-        _emit_operator_mutation(
-            "Operator setup complete",
-            config_path,
-            result,
-            is_json_output=False,
-        )
-
     if provider_check is None:
-        provider_check = _read_provider_check(
+        if (
+            not result.is_changed
+            and should_emit_summary
+            and not click.confirm(
+                f"Check {provider.value.title()} readiness now?",
+                default=True,
+            )
+        ):
+            _emit_operator_setup_result(config_path, result)
+            return 0
+        provider_check = collect_configured_provider_check(
             config_path,
             ProviderKind(provider.value),
         )
         emit_provider_check(provider_check)
+    if should_emit_summary:
+        _emit_operator_setup_result(
+            config_path,
+            result,
+            next_action=(
+                "banksia serve" if provider_check.is_ready is True else result.selection.next_action
+            ),
+        )
     return 0 if provider_check.is_ready is True else 1
 
 
@@ -197,6 +229,7 @@ def _select_operator_provider(
     args: argparse.Namespace,
     *,
     is_optional: bool,
+    default_provider: OperatorProvider | None,
 ) -> OperatorProvider | None:
     raw_provider = getattr(args, "provider", None)
     if raw_provider is not None:
@@ -206,7 +239,11 @@ def _select_operator_provider(
         click.prompt(
             "Operator provider",
             type=choices,
-            default="Not now" if is_optional else "Codex",
+            default=(
+                "Not now"
+                if is_optional
+                else (default_provider.value.title() if default_provider is not None else "Codex")
+            ),
         )
     ).casefold()
     if selected == "not now":
@@ -216,31 +253,54 @@ def _select_operator_provider(
 
 def _prompt_operator_overrides(
     args: argparse.Namespace,
+    *,
+    current: OperatorSettings,
+    provider: OperatorProvider,
 ) -> tuple[str | None, str | None]:
     supplied_model = getattr(args, "model", None)
     supplied_effort = getattr(args, "effort", None)
     if supplied_model is not None or supplied_effort is not None:
         return supplied_model, supplied_effort
+    is_same_provider = current.provider == provider
+    has_saved_overrides = is_same_provider and (
+        current.model is not None or current.effort is not None
+    )
     if not click.confirm(
-        "Set an Operator-specific model or reasoning effort?",
+        (
+            "Change the saved Operator model or reasoning effort?"
+            if has_saved_overrides
+            else "Set an Operator-specific model or reasoning effort?"
+        ),
         default=False,
     ):
+        if is_same_provider:
+            return current.model, current.effort
         return None, None
-    model = str(
+    return (
+        _prompt_operator_override(
+            "Operator model",
+            current=current.model if is_same_provider else None,
+        ),
+        _prompt_operator_override(
+            "Operator effort",
+            current=current.effort if is_same_provider else None,
+        ),
+    )
+
+
+def _prompt_operator_override(
+    label: str,
+    *,
+    current: str | None,
+) -> str | None:
+    value = str(
         click.prompt(
-            "Operator model (leave blank for provider default)",
-            default="",
-            show_default=False,
+            f"{label} ('-' for provider default)",
+            default=current or "",
+            show_default=current is not None,
         )
     ).strip()
-    effort = str(
-        click.prompt(
-            "Operator effort (leave blank for provider default)",
-            default="",
-            show_default=False,
-        )
-    ).strip()
-    return model or None, effort or None
+    return None if value in {"", "-"} else value
 
 
 def _provider_setup_args(
@@ -259,12 +319,20 @@ def _provider_setup_args(
     )
 
 
-def _read_provider_check(
+def _emit_operator_setup_result(
     config_path: Path,
-    provider: ProviderKind,
-) -> ProviderCheckSnapshot:
-    with service_provider_check_env(config_path=config_path):
-        return collect_provider_check(load_settings(), provider)
+    result: OperatorSelectionMutationResult,
+    *,
+    next_action: str | None = None,
+) -> None:
+    _emit_operator_mutation(
+        ("Operator setup complete" if result.is_changed else "Operator already configured"),
+        config_path,
+        result,
+        is_json_output=False,
+        should_include_changed=False,
+        next_action=next_action,
+    )
 
 
 def _operator_request_from_args(
@@ -305,6 +373,8 @@ def _emit_operator_mutation(
     *,
     is_json_output: bool,
     should_warn_environment_override: bool = True,
+    should_include_changed: bool = True,
+    next_action: str | None = None,
 ) -> None:
     payload = {
         **_operator_payload(config_path, result.selection),
@@ -314,15 +384,17 @@ def _emit_operator_mutation(
         print_json(payload)
         return
     persisted = result.selection.persisted
+    rows = [
+        ("Provider", _operator_provider_text(persisted.provider)),
+        ("Model", persisted.model or "provider default"),
+        ("Effort", persisted.effort or "provider default"),
+    ]
+    if should_include_changed:
+        rows.append(("Changed", "yes" if result.is_changed else "no"))
     emit_completion(
         title,
-        (
-            ("Provider", _operator_provider_text(persisted.provider)),
-            ("Model", persisted.model or "provider default"),
-            ("Effort", persisted.effort or "provider default"),
-            ("Changed", "yes" if result.is_changed else "no"),
-        ),
-        next_action=result.selection.next_action,
+        rows,
+        next_action=next_action or result.selection.next_action,
     )
     if should_warn_environment_override and result.selection.is_environment_override:
         emit_warning("BANKSIA_OPERATOR__* environment settings override the saved selection.")
@@ -331,6 +403,8 @@ def _emit_operator_mutation(
 def _emit_operator_status(
     config_path: Path,
     selection: OperatorSelectionSnapshot,
+    *,
+    should_emit_next_action: bool = True,
 ) -> None:
     persisted = selection.persisted
     effective = selection.effective
@@ -356,7 +430,8 @@ def _emit_operator_status(
             )
         )
     emit_key_value_panel("Operator configuration", rows)
-    click.echo(f"Next: {selection.next_action}")
+    if should_emit_next_action:
+        click.echo(f"Next: {selection.next_action}")
 
 
 def _operator_payload(

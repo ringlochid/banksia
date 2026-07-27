@@ -52,14 +52,14 @@ When no clarification is needed, the Operator returns one human-facing message w
 
 ## Configure the Operator
 
-Guided `banksia init` offers Operator as an optional final choice. Configure or replace it later with:
+Guided `banksia init` offers Operator as an optional final choice. Configure or change it later with:
 
 ```bash
 banksia operator setup
 banksia operator status
 ```
 
-Choose Codex or Claude. Model and effort overrides are optional. If the selected managed route is not configured, the interactive flow offers to configure it first. The resulting provider check is diagnostic: a failure reports that the route needs attention without removing the saved Operator choice.
+Choose Codex or Claude. The saved provider is the default when you rerun setup. Model and effort overrides are optional and remain unchanged when you decline to edit them; enter `-` during editing to restore a provider default. If the selected managed route is not configured, the interactive flow uses the same provider setup path as Task providers. An unchanged selection asks before running the provider diagnostic. A failure reports that the route needs attention without removing the saved Operator choice.
 
 Automation supplies the selection explicitly:
 

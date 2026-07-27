@@ -248,7 +248,12 @@
     box-shadow: 0 0 0 1px var(--focus-ring--color);
 }
 
-.ui-select__value {
+.ui-select__value,
+.ui-select__trigger > span:first-child {
+    display: block;
+    min-width: 0;
+    max-width: 100%;
+    flex: 1 1 auto;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

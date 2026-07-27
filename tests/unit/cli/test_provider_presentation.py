@@ -61,6 +61,7 @@ def test_provider_status_and_check_use_rich_semantic_panels(
     assert "Provider status" in rendered
     assert "Codex provider check" in rendered
     assert "Configured" in rendered
+    assert "Ready for first task" in rendered
     assert "Found" in rendered
     assert "Not Tested" in rendered
     assert "╭" in rendered

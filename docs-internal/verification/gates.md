@@ -389,6 +389,8 @@ The required usability oracle is an independent no-doc evaluator that did not im
 - Ubuntu and macOS 13+ native lanes install the built wheel outside the checkout and prove CLI import/help, interactive-safe initialization primitives, exact schema/reset, workspace admission, private-path enforcement, Command Run process-family cleanup, and the native user-service lifecycle.
 - Provider setup always lists the pinned Codex, Claude, and OpenClaw routes documented for that host. Diagnostics separately report installation, identity, reachability, and exact sandbox/network support; failure never disables, rewrites, or silently replaces a route.
 - Fresh guided initialization completes local state, one Task-provider choice, and one optional Operator choice through the same provider configuration and diagnostic owner. Existing guided initialization offers `keep | reconfigure | cancel`; reconfigure keeps provider/default/Operator settings and labels them as kept.
+- One initialization checks a shared Task/Operator provider once. Selecting an unconfigured, different Operator provider configures and checks that route while preserving the Task default. Same-call check reuse remains transient, and initialization renders compact provider facts rather than detailed limitations.
+- An authenticated route without a live reachability probe reads **Ready for first task**. Reusing a detected credential takes one confirmation; declining opens authentication replacement.
 - Guided Operator setup defaults to the persisted provider, preserves existing overrides when change is declined, supports explicit clearing, and offers a shared readiness check after a no-op without contacting the provider when declined.
 
 ## Required final proof matrix

@@ -33,7 +33,9 @@ Guided first-run initialization is one self-contained human journey over indepen
 2. one explicit Task provider when none is configured, which fills an empty default; and
 3. one explicit optional Operator selection when none is configured.
 
-The provider chooser includes an explicit cancel choice. Cancelling preserves completed local initialization and writes no provider configuration. The Operator chooser is `Codex | Claude | Not now`; selecting a managed provider that is not configured first uses the same exact provider configuration, authentication, and diagnostic flow as Task-provider setup. Model and effort remain optional advanced values.
+The provider chooser includes an explicit cancel choice. Cancelling preserves completed local initialization and writes no provider configuration. The Operator chooser is `Codex | Claude | Not now`; selecting a managed provider that is not configured first uses the same exact provider configuration, authentication, and diagnostic flow as Task-provider setup. Configuring that additional route preserves the already selected Task-provider default. Model and effort remain optional advanced values.
+
+One initialization journey may reuse a provider check that it just performed when Operator selects the same route. This is transient presentation state only: Banksia does not persist readiness or treat the check as controller truth. A different, unconfigured Operator provider receives its own configuration and compact check. Initialization keeps detailed provider limitations out of the default journey; the focused check command owns that diagnostic readback.
 
 An existing guided installation offers `keep | reconfigure | cancel`. `keep` verifies the current local state. `reconfigure` changes local paths, database, server, and logging settings while explicitly keeping provider routes, the Task-provider default, and Operator configuration. It is not described as full replacement. Completed provider and Operator phases are not reopened, and the final summary labels their retained values as **kept**.
 
@@ -67,13 +69,13 @@ Workflow provider settings remain portable: managed providers may request model,
 
 Bare `banksia`, `banksia status`, and `banksia providers status` are passive. They do not run a model turn, contact a provider, refresh authentication, or write readiness.
 
-`banksia providers check PROVIDER` performs one bounded non-agent diagnostic. It may inspect provider installation, native identity, authentication, and documented reachability, but it creates no Task, Dispatch, binding, or durable readiness cache.
+`banksia providers check PROVIDER` performs one bounded non-agent diagnostic. It may inspect provider installation, native identity, authentication, and documented reachability, but it creates no Task, Dispatch, binding, or durable readiness cache. A route with acceptable local prerequisites and credentials but no live reachability probe is presented as **Ready for first task**, not as fully tested.
 
 `banksia operator status` is also passive. It reports the explicit selected provider/model/effort, whether the corresponding managed provider route is configured, any effective environment override, and the exact next diagnostic command. It does not start an Operator turn or persist a readiness result.
 
 Interactive `operator setup` defaults to the saved Operator provider, not a hard-coded provider. Keeping the same provider and declining override changes preserves the saved model and effort. Choosing to edit them uses the current values as defaults and accepts `-` as an explicit return to the provider default. Changing provider does not carry provider-specific overrides to the new route unless the user explicitly supplies replacements. A no-op reports **Operator already configured** and offers, rather than forces, the shared provider readiness diagnostic. A changed selection runs that diagnostic. Diagnostic failure is “needs attention” and does not erase or disable the accepted selection.
 
-Provider configuration and identity mutation are CLI-owned. Codex and Claude support subscription and API-key identity flows; OpenClaw supports a selected Gateway token or password. The config-adjacent `banksia.env` file may contain only `ANTHROPIC_API_KEY`, `OPENCLAW_GATEWAY_TOKEN`, or `OPENCLAW_GATEWAY_PASSWORD`. It is owner-only, rejects unrelated assignments, and keeps the two OpenClaw credentials mutually exclusive.
+Provider configuration and identity mutation are CLI-owned. Codex and Claude support subscription and API-key identity flows; OpenClaw supports a selected Gateway token or password. When a check finds a working credential, guided setup first offers to keep it; only declining that confirmation opens authentication-method selection or replacement. The config-adjacent `banksia.env` file may contain only `ANTHROPIC_API_KEY`, `OPENCLAW_GATEWAY_TOKEN`, or `OPENCLAW_GATEWAY_PASSWORD`. It is owner-only, rejects unrelated assignments, and keeps the two OpenClaw credentials mutually exclusive.
 
 ## Adapter boundary
 

@@ -59,7 +59,9 @@ banksia operator setup
 banksia operator status
 ```
 
-Choose Codex or Claude. The saved provider is the default when you rerun setup. Model and effort overrides are optional and remain unchanged when you decline to edit them; enter `-` during editing to restore a provider default. If the selected managed route is not configured, the interactive flow uses the same provider setup path as Task providers. An unchanged selection asks before running the provider diagnostic. A failure reports that the route needs attention without removing the saved Operator choice.
+Choose Codex or Claude. Operator may use a different route from the default Task provider. If that route is not configured, the interactive flow configures it through the same provider setup path without changing the Task default. The saved Operator provider is the default when you rerun setup.
+
+Model and effort overrides are optional and remain unchanged when you decline to edit them; enter `-` during editing to restore a provider default. An unchanged selection asks before running the provider diagnostic. A failure reports that the route needs attention without removing the saved Operator choice.
 
 Automation supplies the selection explicitly:
 

@@ -66,7 +66,11 @@ An existing guided configuration offers `keep`, `reconfigure`, or `cancel`. **Re
 
 Noninteractive initialization does not overwrite an existing configuration without `--force`. Forced initialization applies the same bounded local reconfiguration and preserves an existing valid `paths.workspace` when `--workspace` is omitted. Supplying `--workspace` replaces it. An invalid value that cannot be preserved stops the command before rewrite.
 
-After local configuration, exact-schema setup, and Starter Workflow bootstrap succeed, guided first-run initialization continues into the Task-provider chooser when no provider is configured. Choose `cancel` there to keep initialization complete and defer provider configuration. It then offers Codex, Claude, or **Not now** for Operator when no Operator is selected. Rerunning initialization preserves existing provider and Operator selections. Noninteractive and JSON initialization remain prompt-free and never configure either lane.
+After local configuration, exact-schema setup, and Starter Workflow bootstrap succeed, guided first-run initialization continues into the Task-provider chooser when no provider is configured. Choose `cancel` there to keep initialization complete and defer provider configuration. It then offers Codex, Claude, or **Not now** for Operator when no Operator is selected.
+
+Operator may use a different provider. For example, selecting Codex for Tasks and then Claude for Operator offers to configure Claude, keeps Codex as the Task default, and saves Claude only for Operator. Selecting the same provider reuses the check already performed by that initialization call rather than repeating it. This does not create a persisted readiness cache.
+
+Rerunning initialization preserves existing provider and Operator selections. Noninteractive and JSON initialization remain prompt-free and never configure either lane.
 
 ## Settings and Task-provider setup
 
@@ -90,7 +94,7 @@ Noninteractive `setup` configures one Task provider and therefore needs `--provi
 
 Codex and Claude login methods are `subscription` and `api-key`. OpenClaw methods are `token` and `password`. A secret can be read without echo in a terminal or from standard input with `--secret-stdin`; do not put it on the command line. Subscription login requires a terminal.
 
-An explicitly selected unavailable provider never falls back to another provider. `providers check` is the active route/readiness diagnostic; `providers status` remains passive. A failed check returns exit `1` but does not disable, rewrite, or replace the saved route.
+An explicitly selected unavailable provider never falls back to another provider. `providers check` is the active route/readiness diagnostic; `providers status` remains passive. **Ready for first task** means local prerequisites and credentials passed while live reachability remains for the first Task. A failed check returns exit `1` but does not disable, rewrite, or replace the saved route.
 
 ## Operator setup
 

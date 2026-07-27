@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -25,7 +26,7 @@ from banksia.interfaces.cli.commands.presentation import (
 )
 from banksia.interfaces.cli.commands.provider_setup import (
     clone_namespace,
-    guide_provider_setup,
+    guide_provider_setup_with_result,
     persisted_default_provider,
     persisted_provider_kinds,
     provider_list_text,
@@ -35,6 +36,7 @@ from banksia.interfaces.cli.providers import (
     OperatorSelectionSnapshot,
     read_operator_selection,
 )
+from banksia.interfaces.cli.providers.contracts import ProviderCheckSnapshot
 from banksia.interfaces.cli.support import coerce_path, command_env
 from banksia.paths import default_data_dir, default_database_url
 from banksia.providers import ProviderKind
@@ -118,11 +120,14 @@ def _finish_initialization(
     retained_operator = read_operator_selection(config_path).persisted.provider
     configured_providers = retained_providers
     provider_result = 0
+    provider_checks: Mapping[ProviderKind, ProviderCheckSnapshot] = {}
     if not configured_providers:
-        provider_result = guide_provider_setup(
+        setup_result = guide_provider_setup_with_result(
             clone_namespace(args, provider=None),
             should_emit_summary=False,
         )
+        provider_result = setup_result.exit_code
+        provider_checks = setup_result.checks
     operator_result = guide_optional_operator_setup(
         clone_namespace(
             args,
@@ -131,6 +136,7 @@ def _finish_initialization(
             effort=None,
         ),
         should_emit_summary=False,
+        provider_checks=provider_checks,
     )
     configured_providers = persisted_provider_kinds(config_path)
     operator_selection = read_operator_selection(config_path)

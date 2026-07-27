@@ -181,7 +181,7 @@ def test_guided_setup_can_replace_existing_codex_subscription_with_api_key(
     result = CliRunner().invoke(
         build_parser(),
         ["setup", "--config", str(config_path), "--provider", "codex"],
-        input="api-key\ncodex-api-secret\nn\n",
+        input="n\napi-key\ncodex-api-secret\nn\n",
     )
 
     assert result.exit_code == 0, result.output
@@ -223,7 +223,7 @@ def test_guided_setup_confirms_reusing_detected_subscription_login(
     result = CliRunner().invoke(
         build_parser(),
         ["setup", "--config", str(config_path), "--provider", provider.value],
-        input="\n\nn\n",
+        input="\nn\n",
     )
 
     assert result.exit_code == 0, result.output
@@ -231,6 +231,7 @@ def test_guided_setup_confirms_reusing_detected_subscription_login(
         f"Existing {provider.value.title()} subscription login found. Use it? [Y/n]"
         in result.output
     )
+    assert f"{provider.value.title()} authentication (" not in result.output
     assert f"Using existing {provider.value} subscription login" in result.output
     assert check_calls == [provider]
 
@@ -288,7 +289,7 @@ def test_guided_setup_can_replace_detected_subscription_login(
     result = CliRunner().invoke(
         build_parser(),
         ["setup", "--config", str(config_path), "--provider", provider.value],
-        input="\nn\nn\n",
+        input="n\n\nn\n",
     )
 
     assert result.exit_code == 0, result.output
@@ -353,7 +354,7 @@ def test_guided_setup_can_replace_detected_claude_api_key(
     result = CliRunner().invoke(
         build_parser(),
         ["setup", "--config", str(config_path), "--provider", "claude"],
-        input="\nn\nreplacement-secret\nn\n",
+        input="n\n\nreplacement-secret\nn\n",
     )
 
     assert result.exit_code == 0, result.output
@@ -407,7 +408,7 @@ def test_guided_setup_rejects_when_selected_authentication_is_not_effective(
     result = CliRunner().invoke(
         build_parser(),
         ["setup", "--config", str(config_path), "--provider", "claude"],
-        input="\nn\nn\n",
+        input="n\n\nn\n",
     )
 
     assert result.exit_code == 1, result.output
@@ -452,7 +453,7 @@ def test_guided_setup_does_not_fall_back_after_selected_authentication_fails(
     result = CliRunner().invoke(
         build_parser(),
         ["setup", "--config", str(config_path), "--provider", "codex"],
-        input="api-key\ncodex-api-secret\nn\n",
+        input="n\napi-key\ncodex-api-secret\nn\n",
     )
 
     assert result.exit_code == 1, result.output

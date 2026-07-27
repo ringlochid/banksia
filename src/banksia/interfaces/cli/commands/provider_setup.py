@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Mapping
+from dataclasses import dataclass
 from pathlib import Path
 
 import click
@@ -65,12 +67,33 @@ _PROVIDER_CHOICES = click.Choice(
 )
 
 
+@dataclass(frozen=True, slots=True)
+class GuidedProviderSetupResult:
+    """Transient results from one guided provider-setup journey."""
+
+    exit_code: int
+    checks: Mapping[ProviderKind, ProviderCheckSnapshot]
+
+
 def guide_provider_setup(
     args: argparse.Namespace,
     *,
     should_emit_summary: bool = True,
 ) -> int:
     """Guide Task-provider selection through the atomic provider operations."""
+
+    return guide_provider_setup_with_result(
+        args,
+        should_emit_summary=should_emit_summary,
+    ).exit_code
+
+
+def guide_provider_setup_with_result(
+    args: argparse.Namespace,
+    *,
+    should_emit_summary: bool = True,
+) -> GuidedProviderSetupResult:
+    """Run provider setup and return checks for this guided call only."""
 
     config_path = coerce_path(args.config)
     _require_initialized_config(config_path)
@@ -83,7 +106,7 @@ def guide_provider_setup(
     primary = _select_primary_provider(args, config_path, settings)
     if primary is None:
         emit_warning("Provider setup cancelled. No provider changes were made.")
-        return 0
+        return GuidedProviderSetupResult(exit_code=0, checks={})
 
     check_results = {
         primary: guide_specific_provider(
@@ -120,7 +143,11 @@ def guide_provider_setup(
 
     if should_emit_summary:
         _emit_setup_summary(config_path, check_results)
-    return 0 if all(check.is_ready is True for check in check_results.values()) else 1
+    exit_code = 0 if all(check.is_ready is True for check in check_results.values()) else 1
+    return GuidedProviderSetupResult(
+        exit_code=exit_code,
+        checks=dict(check_results),
+    )
 
 
 def guide_specific_provider(
@@ -255,23 +282,22 @@ def _check_provider_with_identity(
     if not can_configure_identity:
         return provider_check
 
+    if _should_reuse_ready_credential(
+        provider,
+        provider_check,
+        preferred_method=preferred_method,
+    ):
+        method = provider_check.authentication_method
+        assert method is not None
+        emit_success(f"Using existing {provider.value} {authentication_method_label(method)}")
+        return provider_check
+
     method = preferred_method or prompt_authentication_method(
         provider,
         default_method=(
             provider_check.authentication_method or read_shell_authentication_method(provider)
         ),
     )
-    if (
-        provider_check.is_ready is True
-        and provider_check.authentication_method is method
-        and click.confirm(
-            existing_credential_prompt(provider, method),
-            default=True,
-        )
-    ):
-        emit_success(f"Using existing {provider.value} {authentication_method_label(method)}")
-        return provider_check
-
     secret = prompt_shell_secret_import(config_path, provider, method)
     if secret is None:
         secret = prompt_provider_secret(provider, method)
@@ -301,6 +327,25 @@ def _check_provider_with_identity(
             OpenClawGatewayAuthMode(method.value),
         )
     return _recheck_effective_authentication(config_path, provider, method)
+
+
+def _should_reuse_ready_credential(
+    provider: ProviderKind,
+    provider_check: ProviderCheckSnapshot,
+    *,
+    preferred_method: ProviderAuthenticationMethod | None,
+) -> bool:
+    current_method = provider_check.authentication_method
+    if (
+        provider_check.is_ready is not True
+        or current_method is None
+        or (preferred_method is not None and preferred_method is not current_method)
+    ):
+        return False
+    return click.confirm(
+        existing_credential_prompt(provider, current_method),
+        default=True,
+    )
 
 
 def _recheck_effective_authentication(
@@ -441,9 +486,11 @@ def _provider_text(provider: ProviderKind | None) -> str:
 
 
 __all__ = [
+    "GuidedProviderSetupResult",
     "clone_namespace",
     "collect_configured_provider_check",
     "guide_provider_setup",
+    "guide_provider_setup_with_result",
     "guide_specific_provider",
     "load_config_settings",
     "persisted_default_provider",

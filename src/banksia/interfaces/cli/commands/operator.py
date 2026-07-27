@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -29,6 +30,7 @@ from banksia.interfaces.cli.providers import (
     read_operator_selection,
     save_operator_selection,
 )
+from banksia.interfaces.cli.providers.contracts import ProviderCheckSnapshot
 from banksia.interfaces.cli.providers.presentation import emit_provider_check
 from banksia.interfaces.cli.support import (
     coerce_path,
@@ -121,6 +123,7 @@ def guide_operator_setup(args: argparse.Namespace) -> int:
         config_path,
         selected,
         current=selection.persisted,
+        provider_checks={},
         should_emit_summary=True,
     )
 
@@ -129,6 +132,7 @@ def guide_optional_operator_setup(
     args: argparse.Namespace,
     *,
     should_emit_summary: bool = True,
+    provider_checks: Mapping[ProviderKind, ProviderCheckSnapshot] | None = None,
 ) -> int:
     """Offer one optional first-run Operator choice when none is effective."""
 
@@ -138,8 +142,8 @@ def guide_optional_operator_setup(
         return 0
 
     emit_wizard_header(
-        "optional Operator setup",
-        "Operator can help draft workflows, start runs, and explain current work.",
+        "Operator setup",
+        "Optional: choose the provider Banksia uses to draft workflows and operate runs.",
     )
     selected = _select_operator_provider(
         args,
@@ -156,6 +160,7 @@ def guide_optional_operator_setup(
         config_path,
         selected,
         current=current.persisted,
+        provider_checks=provider_checks or {},
         should_emit_summary=should_emit_summary,
     )
 
@@ -166,9 +171,11 @@ def _guide_selected_operator(
     provider: OperatorProvider,
     *,
     current: OperatorSettings,
+    provider_checks: Mapping[ProviderKind, ProviderCheckSnapshot],
     should_emit_summary: bool,
 ) -> int:
-    provider_check = None
+    provider_kind = ProviderKind(provider.value)
+    provider_check = provider_checks.get(provider_kind)
     if not is_operator_provider_persisted(config_path, provider):
         if not click.confirm(
             f"{provider.value.title()} is not configured. Configure it now?",
@@ -182,7 +189,7 @@ def _guide_selected_operator(
         provider_check = guide_specific_provider(
             _provider_setup_args(args, provider),
             config_path=config_path,
-            provider=ProviderKind(provider.value),
+            provider=provider_kind,
         )
 
     model, effort = _prompt_operator_overrides(
@@ -211,9 +218,12 @@ def _guide_selected_operator(
             return 0
         provider_check = collect_configured_provider_check(
             config_path,
-            ProviderKind(provider.value),
+            provider_kind,
         )
-        emit_provider_check(provider_check)
+        emit_provider_check(
+            provider_check,
+            is_compact=not should_emit_summary,
+        )
     if should_emit_summary:
         _emit_operator_setup_result(
             config_path,

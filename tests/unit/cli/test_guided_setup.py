@@ -15,7 +15,6 @@ from banksia.interfaces.cli.bootstrap.config import (
 from banksia.interfaces.cli.commands import provider_setup as guided_provider_setup
 from banksia.interfaces.cli.commands import settings as guided_setup
 from banksia.interfaces.cli.main import build_parser
-from banksia.interfaces.cli.providers import inspection as provider_inspection
 from banksia.interfaces.cli.providers.contracts import (
     ProviderCheckOutcome,
     ProviderCheckSnapshot,
@@ -30,8 +29,6 @@ from banksia.providers import ProviderKind
 from banksia.runtime.providers import (
     ProviderAuthenticationMethod,
     ProviderCheckAxisStatus,
-    ProviderCheckResult,
-    ProviderCheckStatus,
 )
 from tests.unit.cli.cli_test_support import (
     build_provider_check_snapshot,
@@ -103,72 +100,6 @@ def test_guided_init_confirms_recommended_local_settings(
     assert "Provider setup summary" not in result.output
 
 
-def test_guided_init_runs_provider_diagnostic_outside_database_event_loop(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    config_path = tmp_path / "config.toml"
-    data_dir = tmp_path / "data"
-    workspace = tmp_path / "workspace"
-    workspace.mkdir()
-    monkeypatch.chdir(workspace)
-    monkeypatch.setattr(cli_root, "should_run_guided_flow", lambda **_kwargs: True)
-    monkeypatch.setattr(
-        provider_inspection,
-        "is_provider_integration_available",
-        lambda *_args: True,
-    )
-
-    def run_diagnostic(
-        _settings: object,
-        provider: ProviderKind,
-    ) -> ProviderCheckResult:
-        async def read_result() -> ProviderCheckResult:
-            return ProviderCheckResult(
-                kind=provider,
-                status=ProviderCheckStatus.AVAILABLE,
-                code="codex_available",
-                authentication=ProviderCheckAxisStatus.PASSED,
-                authentication_method=ProviderAuthenticationMethod.SUBSCRIPTION,
-            )
-
-        return asyncio.run(read_result())
-
-    monkeypatch.setattr(
-        provider_inspection,
-        "execute_provider_diagnostic",
-        run_diagnostic,
-    )
-
-    result = CliRunner().invoke(
-        build_parser(),
-        [
-            "init",
-            "--config",
-            str(config_path),
-            "--data-dir",
-            str(data_dir),
-        ],
-        input="\ny\ncodex\n\ny\nn\ncodex\nn\n",
-    )
-
-    assert result.exit_code == 0, result.output
-    output = result.output.casefold()
-    assert "credential" in output
-    assert "found" in output
-    assert "codex" in output
-    assert "ready" in output
-    assert "check_failed" not in output
-    assert tomllib.loads(config_path.read_text(encoding="utf-8"))["operator"] == {
-        "provider": "codex"
-    }
-    assert result.output.count("Initialization complete") == 1
-    assert "Local initialization complete" not in result.output
-    assert "Provider setup summary" not in result.output
-    assert "Operator setup complete" not in result.output
-    assert result.output.count("Next: banksia serve") == 1
-
-
 def test_guided_init_rerun_keeps_config_and_verifies_database(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -208,7 +139,7 @@ def test_guided_init_rerun_keeps_config_and_verifies_database(
     assert data_dir.joinpath("banksia.persistence").is_file()
     assert "Keep and verify" in result.output
     assert "Banksia Task provider setup" not in result.output
-    assert "optional Operator setup" not in result.output
+    assert "Banksia Operator setup" not in result.output
     assert "banksia serve" in result.output
 
 
@@ -281,7 +212,7 @@ def test_guided_init_reconfiguration_marks_retained_provider_and_operator_settin
     }
     assert payload["runtime"] == {"default_provider": "codex"}
     assert "Banksia Task provider setup" not in result.output
-    assert "optional Operator setup" not in result.output
+    assert "Banksia Operator setup" not in result.output
     assert "codex, claude (kept)" in result.output
     assert "claude (kept)" in result.output
 
@@ -444,7 +375,7 @@ def test_guided_setup_adds_provider_without_replacing_primary_default(
     result = CliRunner().invoke(
         build_parser(),
         ["setup", "--config", str(config_path), "--provider", "claude"],
-        input="\n\ny\nopenclaw\n\n\n\n\nn\n",
+        input="\ny\nopenclaw\n\n\n\n\nn\n",
     )
 
     assert result.exit_code == 0, result.output
@@ -491,7 +422,7 @@ def test_guided_setup_points_to_a_nonready_additional_provider(
     result = CliRunner().invoke(
         build_parser(),
         ["setup", "--config", str(config_path), "--provider", "codex"],
-        input="\n\ny\nclaude\nn\n",
+        input="\ny\nclaude\nn\n",
     )
 
     assert result.exit_code == 1, result.output

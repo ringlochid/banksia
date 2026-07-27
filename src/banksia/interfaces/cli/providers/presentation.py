@@ -370,6 +370,8 @@ def _rich_check_followup(snapshot: ProviderCheckSnapshot) -> Group | None:
 
 def _check_result_style(snapshot: ProviderCheckSnapshot) -> tuple[str, str, str]:
     if snapshot.is_ready is True:
+        if snapshot.reachability is ProviderCheckAxisStatus.NOT_CHECKED:
+            return "Ready for first task", "success", "success"
         return "Ready", "success", "success"
     if snapshot.outcome is ProviderCheckOutcome.LOCAL_PREREQUISITES_READY:
         return "Local prerequisites ready", "warn", "warn"

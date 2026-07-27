@@ -331,6 +331,31 @@ describe("temporary Run Studio", () => {
         ).not.toBeInTheDocument();
     });
 
+    it("does not narrate a non-terminal status already shown by the status label", async () => {
+        const api = runApiStub({
+            getRun: () =>
+                Promise.resolve(
+                    response(
+                        taskFixture({
+                            status: "working",
+                            status_message: "The team is working.",
+                            result: null,
+                        }),
+                    ),
+                ),
+        });
+
+        renderRun(api);
+
+        expect(
+            await screen.findByRole("heading", {
+                name: "Compare the release candidates and recommend one.",
+            }),
+        ).toBeVisible();
+        expect(screen.getByText("Working")).toBeVisible();
+        expect(screen.queryByText("The team is working.")).toBeNull();
+    });
+
     it("does not apply a stale control response after switching Runs", async () => {
         let resolveControl:
             | ((receipt: ControllerResponse<TaskControlReceipt>) => void)

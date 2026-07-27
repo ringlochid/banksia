@@ -102,14 +102,7 @@ export function StartRunPage({ api }: StartRunPageProps) {
                     ? {}
                     : { workspace: workspace.trim() }),
             });
-            void navigate(
-                `/runs/${encodeURIComponent(response.body.task_id)}`,
-                {
-                    state: {
-                        startMessage: response.body.status_message,
-                    },
-                },
-            );
+            void navigate(`/runs/${encodeURIComponent(response.body.task_id)}`);
         } catch (reason) {
             setError(errorMessage(reason));
         } finally {

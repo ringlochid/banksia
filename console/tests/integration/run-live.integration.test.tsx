@@ -107,8 +107,8 @@ describe("Run live controller convergence", () => {
         expect(streamCursor(sources[1])).toBe("cursor-reset");
         expect(screen.getByText("Current controller truth")).toBeVisible();
         expect(
-            screen.getByText("The latest controller state is visible."),
-        ).toBeVisible();
+            screen.queryByText("The latest controller state is visible."),
+        ).not.toBeInTheDocument();
 
         view.unmount();
         expect(sources[1]?.close).toHaveBeenCalledOnce();
@@ -164,8 +164,8 @@ describe("Run live controller convergence", () => {
 
         await waitFor(() => expect(reads).toBe(3));
         expect(
-            await screen.findByText("Current after coalescing."),
-        ).toBeVisible();
+            screen.queryByText("Current after coalescing."),
+        ).not.toBeInTheDocument();
         expect(document.querySelector(".run-status")).toHaveTextContent(
             "Completed",
         );

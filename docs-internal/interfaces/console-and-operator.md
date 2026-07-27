@@ -199,7 +199,7 @@ TaskView
 
 `result` is null until an accepted terminal root Checkpoint exists. When present it is singular and contains exact completed/blocked outcome, Checkpoint summary, optional details, file references, and completion time. Cancellation or infrastructure failure without that Checkpoint never fabricates a Result.
 
-When `result` is present, the Run header does not repeat a generic terminal `status_message`. The status label and singular Result already communicate the terminal state; actionable status messages remain visible for non-terminal Runs and terminal Runs without a Result.
+`status_message` remains a compact API receipt, but Run Studio does not render it as persistent header narration or repeat the task-start receipt after navigation. The status label, attention, legal controls, and singular Result already communicate normal state. A mutation receipt is shown only when it adds a concrete accepted transition or next action; generic prose such as "The team is working" or "The run completed" is omitted.
 
 Every nested `files[]` entry is only a workspace-relative path and optional short description already recorded on its Assignment, Checkpoint, or Human Request. Result, Activity, attention, and current-work views mirror those exact source values. References stay embedded in their owning semantic view; `TaskView` has no standalone file catalog. A reference has no generic file resource ID, frozen body, version, hash, or content guarantee. A separately authorized browser file route may open the file's current bytes after fresh containment checks; it must label missing or changed files honestly and is not an Operator tool.
 
@@ -236,6 +236,8 @@ action_timed_out / action_cancelled
 The backend maps committed source facts to these variants. The frontend never classifies `boundary_accepted`, payload shape, runtime IDs, or provider events. Mid-flow Dispatch, plan bookkeeping, structural revision, start/watchdog, Wave, retry, and cleanup facts create no Activity item unless they produce a separate human-relevant outcome.
 
 An accepted root terminal Boundary emits exactly one `task_completed` or `task_blocked` Activity. Result is the singular readable projection of that same Checkpoint and emits no second readiness Activity.
+
+An Activity summary is present only when it adds source-specific information beyond the title, time, member, and outcome. Task lifecycle events and successful input receipt need no generic summary. Input requests keep their exact question, member returns keep their exact Checkpoint summary, and managed Action outcomes keep their exact recorded outcome.
 
 Initial implementation may project Activity deterministically from durable raw TaskEvents and source records. It must not create a second runtime state machine. A dedicated persisted Activity table is deferred until stable backfill/localization requirements prove one necessary.
 

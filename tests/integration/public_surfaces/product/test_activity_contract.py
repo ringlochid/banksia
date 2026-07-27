@@ -88,6 +88,8 @@ async def test_human_activity_uses_source_truth_and_rejects_duplicate_corrupt_hi
         "input_requested",
         "input_received",
     ]
+    assert page.items[0].summary == "Choose a direction."
+    assert page.items[1].summary is None
     assert all(activity.member is not None for activity in page.items)
     assert {activity.member.name for activity in page.items if activity.member} == {"Root Member"}
     assert suppressed is None

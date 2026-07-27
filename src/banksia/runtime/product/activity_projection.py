@@ -190,7 +190,6 @@ def _project_task_activity(event: TaskEventRecord) -> TaskActivity:
             kind="task_started",
             occurred_at=event.occurred_at,
             title="Run started",
-            summary="Banksia accepted the work and began coordinating the team.",
         )
     if event.event_type == TaskEventType.TASK_PAUSED:
         return TaskActivity(
@@ -198,7 +197,6 @@ def _project_task_activity(event: TaskEventRecord) -> TaskActivity:
             kind="task_paused",
             occurred_at=event.occurred_at,
             title="Run paused",
-            summary="The run was paused.",
         )
     if event.event_type == TaskEventType.TASK_RESUMED:
         return TaskActivity(
@@ -206,14 +204,12 @@ def _project_task_activity(event: TaskEventRecord) -> TaskActivity:
             kind="task_resumed",
             occurred_at=event.occurred_at,
             title="Run resumed",
-            summary="The run resumed.",
         )
     return TaskActivity(
         id=activity_id,
         kind="task_cancelled",
         occurred_at=event.occurred_at,
         title="Run cancelled",
-        summary="The run was cancelled.",
         outcome="cancelled",
     )
 
@@ -299,7 +295,11 @@ def _project_human_activity(
         kind=kind,
         occurred_at=cast(datetime, human.resolved_at),
         title=title,
-        summary=human.resolution_summary,
+        summary=(
+            None
+            if event.event_type == TaskEventType.HUMAN_REQUEST_RESOLVED
+            else human.resolution_summary
+        ),
         member=member,
         outcome=outcome,
     )

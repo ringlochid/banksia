@@ -1,6 +1,6 @@
 import { ArrowLeft, Pause, Play, RefreshCw, Square } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import { Link, useLocation, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 
 import {
     Button,
@@ -37,20 +37,12 @@ export interface RunStudioPageProps {
     readonly api: RunApi;
 }
 
-interface RunLocationState {
-    readonly startMessage?: string;
-}
-
 interface RunStudioTaskProps extends RunStudioPageProps {
-    readonly startMessage: string | undefined;
     readonly taskId: string;
 }
 
 export function RunStudioPage({ api }: RunStudioPageProps) {
     const { taskId } = useParams();
-    const location = useLocation();
-    const startMessage = (location.state as RunLocationState | null)
-        ?.startMessage;
 
     if (taskId === undefined) {
         return (
@@ -62,17 +54,10 @@ export function RunStudioPage({ api }: RunStudioPageProps) {
             />
         );
     }
-    return (
-        <RunStudioTask
-            api={api}
-            key={taskId}
-            startMessage={startMessage}
-            taskId={taskId}
-        />
-    );
+    return <RunStudioTask api={api} key={taskId} taskId={taskId} />;
 }
 
-function RunStudioTask({ api, startMessage, taskId }: RunStudioTaskProps) {
+function RunStudioTask({ api, taskId }: RunStudioTaskProps) {
     const {
         activities,
         error: readError,
@@ -85,7 +70,7 @@ function RunStudioTask({ api, startMessage, taskId }: RunStudioTaskProps) {
         task,
     } = useRunLive(api, taskId);
     const [operationError, setOperationError] = useState<string | null>(null);
-    const [receipt, setReceipt] = useState<string | null>(startMessage ?? null);
+    const [receipt, setReceipt] = useState<string | null>(null);
     const [pendingControl, setPendingControl] = useState<ProductAction | null>(
         null,
     );
@@ -240,11 +225,6 @@ function RunStudioTask({ api, startMessage, taskId }: RunStudioTaskProps) {
                             </time>
                         </div>
                         <h1>{task.prompt_excerpt}</h1>
-                        {task.result === null ? (
-                            <Prose className="run-studio__status-message">
-                                {task.status_message}
-                            </Prose>
-                        ) : null}
                     </div>
                 </div>
             </header>

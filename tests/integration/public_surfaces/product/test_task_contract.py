@@ -177,6 +177,7 @@ async def test_task_view_embeds_the_most_recent_twenty_activities(
             )
 
     assert len(full_activity.items) == 23
+    assert all(activity.summary is None for activity in full_activity.items)
     assert len(view.activities) == 20
     assert view.is_activity_history_truncated is True
     assert [activity.id for activity in view.activities] == [

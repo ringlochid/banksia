@@ -106,18 +106,6 @@
     background: var(--state--blocked);
 }
 
-.run-studio__status-message {
-    max-width: 58rem;
-    margin-top: var(--spacing--4xs);
-    font-size: var(--font-size--xs);
-    color: var(--text-color--subtle);
-}
-
-.run-studio__status-message > :first-child,
-.run-studio__status-message > :last-child {
-    margin-block: 0;
-}
-
 .run-studio__feedback {
     display: grid;
     flex: none;

@@ -1,9 +1,16 @@
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, CircleAlert } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useBlocker, useNavigate, useParams } from "react-router-dom";
 
 import type { WorkflowApi } from "../../api/client";
-import { Button, Dialog, Notice } from "../../components/ui";
+import {
+    Button,
+    Dialog,
+    DialogFooter,
+    Notice,
+    PageState,
+    Prose,
+} from "../../components/ui";
 import { AuthoringStudio } from "./AuthoringStudio";
 import { StudioProvider, useStudio } from "./state/context";
 import type { StudioContextValue, StudioLoadState } from "./state/contracts";
@@ -17,7 +24,23 @@ export interface WorkflowStudioPageProps {
 export function WorkflowStudioPage({ api }: WorkflowStudioPageProps) {
     const { workflowId } = useParams();
     if (workflowId === undefined) {
-        return <Notice tone="danger">The Workflow link is incomplete.</Notice>;
+        return (
+            <PageState
+                actions={
+                    <Link
+                        className="ui-button ui-button--secondary"
+                        to="/workflows"
+                    >
+                        Return to Workflows
+                    </Link>
+                }
+                detail="The Workflow link is incomplete."
+                fill
+                icon={CircleAlert}
+                kind="error"
+                title="Workflow could not be opened"
+            />
+        );
     }
     return (
         <StudioProvider api={api} workflowId={workflowId}>
@@ -51,15 +74,30 @@ function WorkflowStudioContent({ api }: WorkflowStudioPageProps) {
         void navigate("/workflows", { replace: true });
     }, [navigate, snapshot.recoveryOutcome]);
 
+    // Opening a published Workflow goes straight to the editor. The old
+    // interstitial asked for a click without offering a decision. Attempted
+    // once per page so a failure surfaces instead of retrying forever.
+    const autoOpenedRef = useRef(false);
+    useEffect(() => {
+        if (
+            autoOpenedRef.current ||
+            snapshot.load.kind !== "ready" ||
+            snapshot.workingWorkflow !== null ||
+            snapshot.catalog === null ||
+            snapshot.recovery !== null ||
+            !snapshot.catalog.available_actions.includes("edit")
+        ) {
+            return;
+        }
+        autoOpenedRef.current = true;
+        void actions.beginEditing();
+    }, [actions, snapshot]);
+
     if (snapshot.load.kind !== "ready") {
         return <WorkflowOpeningState load={snapshot.load} />;
     }
     if (snapshot.recoveryOutcome?.kind === "workflow_removed") {
-        return (
-            <div className="page-frame studio-state" role="status">
-                Returning to Workflows…
-            </div>
-        );
+        return <PageState fill kind="loading" title="Returning to Workflows" />;
     }
     if (snapshot.catalog === null) {
         return null;
@@ -68,14 +106,12 @@ function WorkflowStudioContent({ api }: WorkflowStudioPageProps) {
         return (
             <PublishedWorkflow
                 canEdit={snapshot.catalog.available_actions.includes("edit")}
-                description={snapshot.catalog.description}
                 error={
                     snapshot.save.kind === "failed" ||
                     snapshot.save.kind === "offline"
                         ? snapshot.save.message
                         : null
                 }
-                isOpening={snapshot.save.kind === "saving"}
                 onEdit={() => void actions.beginEditing()}
                 onRecover={() => void actions.retrySave()}
                 recovery={snapshot.recovery}
@@ -118,20 +154,25 @@ function WorkflowStudioContent({ api }: WorkflowStudioPageProps) {
 
 function WorkflowOpeningState({ load }: { readonly load: StudioLoadState }) {
     if (load.kind === "loading") {
-        return (
-            <div className="page-frame studio-state" role="status">
-                Opening Workflow…
-            </div>
-        );
+        return <PageState fill kind="loading" title="Opening Workflow" />;
     }
     if (load.kind === "failed") {
         return (
-            <div className="page-frame studio-state">
-                <Notice tone="danger" urgent>
-                    {load.message}
-                </Notice>
-                <Link to="/workflows">Return to Workflows</Link>
-            </div>
+            <PageState
+                actions={
+                    <Link
+                        className="ui-button ui-button--secondary"
+                        to="/workflows"
+                    >
+                        Return to Workflows
+                    </Link>
+                }
+                detail={load.message}
+                fill
+                icon={CircleAlert}
+                kind="error"
+                title="Workflow could not be opened"
+            />
         );
     }
     return null;
@@ -152,75 +193,82 @@ function NavigationWarningDialog({
         <Dialog
             isOpen={isOpen}
             onClose={onStay}
-            title="Leave before changes are saved?"
+            title="Discard unsaved changes?"
         >
             <p>
-                Some changes have not reached Banksia. Leaving now will discard
-                the values that exist only in this tab.
+                Banksia is still saving the changes in this tab. If you leave
+                now, those unsaved changes will be lost. Your last saved version
+                will remain available.
             </p>
-            <div className="workflow-dialog__actions">
-                <Button onClick={onStay} tone="quiet">
-                    Keep editing
+            <DialogFooter>
+                <Button onClick={onStay} tone="secondary">
+                    Continue editing
                 </Button>
                 <Button onClick={onLeave} tone="danger">
-                    Leave page
+                    Discard changes and leave
                 </Button>
-            </div>
+            </DialogFooter>
         </Dialog>
     );
 }
 
 interface PublishedWorkflowProps {
     readonly canEdit: boolean;
-    readonly description: string;
     readonly error: string | null;
-    readonly isOpening: boolean;
     readonly onEdit: () => void;
     readonly onRecover: () => void;
     readonly recovery: StudioContextValue["snapshot"]["recovery"];
     readonly workflowId: string;
 }
 
+/**
+ * Shown only while the draft is opening, or when it cannot be opened. The
+ * happy path never renders anything here for long — the editor takes over as
+ * soon as the draft exists.
+ */
 function PublishedWorkflow({
     canEdit,
-    description,
     error,
-    isOpening,
     onEdit,
     onRecover,
     recovery,
     workflowId,
 }: PublishedWorkflowProps) {
+    if (error === null && recovery === null && canEdit) {
+        return (
+            <PageState fill kind="loading" title={`Opening ${workflowId}`} />
+        );
+    }
     return (
-        <section className="page-frame studio-published">
-            <Link className="studio__back" to="/workflows">
-                <ArrowLeft aria-hidden="true" size={16} />
-                Workflows
-            </Link>
-            <p className="studio-form__eyebrow">Published Workflow</p>
-            <h1>{workflowId}</h1>
-            <p>{description}</p>
-            <Notice tone="success">
-                This is the current published team. Open a draft when you want
-                to make changes.
-            </Notice>
-            {error === null ? null : (
-                <Notice tone="danger" urgent>
-                    <p>{error}</p>
-                    {recovery === null ? null : (
-                        <Button onClick={onRecover}>Check current</Button>
-                    )}
-                </Notice>
-            )}
-            {canEdit ? (
-                <Button
-                    disabled={isOpening || recovery !== null}
-                    onClick={onEdit}
-                    tone="primary"
-                >
-                    {isOpening ? "Opening draft…" : "Edit Workflow"}
-                </Button>
-            ) : null}
+        <section className="page">
+            <header className="page__header">
+                <div className="page__heading">
+                    <Link className="page__back" to="/workflows">
+                        <ArrowLeft aria-hidden="true" size={15} />
+                        Workflows
+                    </Link>
+                    <h1 className="page__title">{workflowId}</h1>
+                </div>
+            </header>
+            <div className="page__body">
+                {error === null ? (
+                    <Notice tone="info">
+                        You do not have permission to edit this workflow.
+                    </Notice>
+                ) : (
+                    <Notice tone="danger" urgent>
+                        <Prose>{error}</Prose>
+                        {recovery === null ? null : (
+                            <Button onClick={onRecover}>Check current</Button>
+                        )}
+                    </Notice>
+                )}
+                {canEdit && error !== null ? (
+                    <Button onClick={onEdit} tone="primary">
+                        Try again
+                    </Button>
+                ) : null}
+            </div>
         </section>
     );
 }

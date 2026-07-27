@@ -9,6 +9,7 @@ import type {
     WorkflowDraftValidationResult,
     WorkflowGetResponse,
     WorkflowPublishedReadback,
+    WorkflowRemovalResult,
     WorkflowSearchResponse,
     WorkflowStaleDraftResponse,
 } from "./types";
@@ -106,6 +107,9 @@ export interface WorkflowApi {
         workflowId: string,
         signal?: AbortSignal,
     ): Promise<ControllerResponse<WorkflowGetResponse>>;
+    removeWorkflow(
+        workflowId: string,
+    ): Promise<ControllerResponse<WorkflowRemovalResult>>;
     getAuthoringOptions(
         signal?: AbortSignal,
     ): Promise<ControllerResponse<WorkflowAuthoringOptions>>;
@@ -169,6 +173,16 @@ export class WorkflowApiClient implements WorkflowApi {
             this.apiRoot,
             `/workflows/${encodeURIComponent(workflowId)}`,
             signal === undefined ? {} : { signal },
+        );
+    }
+
+    public removeWorkflow(
+        workflowId: string,
+    ): Promise<ControllerResponse<WorkflowRemovalResult>> {
+        return requestProductApi(
+            this.apiRoot,
+            `/workflows/${encodeURIComponent(workflowId)}`,
+            { method: "DELETE" },
         );
     }
 

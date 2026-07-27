@@ -77,7 +77,9 @@ describe("Workflow Studio structural mutations", () => {
         controller.editWorkflow({ description: "Save before structure." });
         await vi.advanceTimersByTimeAsync(500);
         await settleUntil(() => calls.length === 1);
-        const addingChild = controller.addChild("member-1");
+        const addingChild = controller.addChild("member-1", {
+            title: "Release verifier",
+        });
         await vi.advanceTimersByTimeAsync(0);
         expect(calls).toHaveLength(1);
 
@@ -91,14 +93,14 @@ describe("Workflow Studio structural mutations", () => {
         expect(calls[1]?.operation).toEqual({
             kind: "add_member",
             parent_member_id: "member-1",
-            member: {},
+            member: { title: "Release verifier" },
         });
-        expect(controller.getSnapshot().selectedMemberId).toBe("member-1");
+        expect(controller.getSnapshot().selectedMemberId).toBe("member-3");
         expect(controller.getSnapshot().pendingStructure).toBeNull();
         controller.dispose();
     });
 
-    it("keeps the selected parent while two accepted additions append siblings", async () => {
+    it("selects each accepted child while two additions append siblings", async () => {
         const operations: DraftOperation[] = [];
         let current = draftFixture();
         server.use(
@@ -119,19 +121,19 @@ describe("Workflow Studio structural mutations", () => {
         );
         const controller = await loadedController();
 
-        await controller.addChild("member-1");
-        await controller.addChild("member-1");
+        await controller.addChild("member-1", { title: "First reviewer" });
+        await controller.addChild("member-1", { title: "Second reviewer" });
 
         expect(operations).toEqual([
             {
                 kind: "add_member",
                 parent_member_id: "member-1",
-                member: {},
+                member: { title: "First reviewer" },
             },
             {
                 kind: "add_member",
                 parent_member_id: "member-1",
-                member: {},
+                member: { title: "Second reviewer" },
             },
         ]);
         expect(
@@ -139,7 +141,7 @@ describe("Workflow Studio structural mutations", () => {
                 .getSnapshot()
                 .workingWorkflow?.lead.children?.map((child) => child.id),
         ).toEqual(["member-2", "member-3", "member-4"]);
-        expect(controller.getSnapshot().selectedMemberId).toBe("member-1");
+        expect(controller.getSnapshot().selectedMemberId).toBe("member-4");
         controller.dispose();
     });
 
@@ -174,7 +176,9 @@ describe("Workflow Studio structural mutations", () => {
             );
             const controller = await loadedController();
 
-            await controller.addChild("member-2");
+            await controller.addChild("member-2", {
+                title: "Added specialist",
+            });
             expect(controller.getSnapshot().recovery).toEqual({
                 kind: "check_current",
                 operation: "adding_child",

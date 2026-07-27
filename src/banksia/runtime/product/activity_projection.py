@@ -241,10 +241,13 @@ def _project_boundary_activity(
         kind=kind,
         occurred_at=accepted.committed_at,
         title=title,
-        summary=checkpoint.summary,
+        # The exact root Checkpoint already owns the singular Result surface.
+        # The terminal Activity records only that the boundary occurred; copying
+        # the Result body here made one answer appear repeatedly in Run Studio.
+        summary=None if is_root else checkpoint.summary,
         member=member,
         outcome="blocked" if accepted.outcome == "blocked" else "completed",
-        files=checkpoint_files.get(checkpoint.checkpoint_id, ()),
+        files=() if is_root else checkpoint_files.get(checkpoint.checkpoint_id, ()),
     )
 
 

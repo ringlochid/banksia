@@ -1,11 +1,4 @@
-import {
-    Bot,
-    ChevronDown,
-    LoaderCircle,
-    RefreshCw,
-    Send,
-    X,
-} from "lucide-react";
+import { Bot, LoaderCircle, Plus, RefreshCw, Send, X } from "lucide-react";
 import {
     type FormEvent,
     type KeyboardEvent,
@@ -15,7 +8,14 @@ import {
 } from "react";
 import { Link } from "react-router-dom";
 
-import { Button, Notice } from "../../components/ui";
+import {
+    Button,
+    Notice,
+    PageState,
+    Prose,
+    Select,
+    Textarea,
+} from "../../components/ui";
 import { OperatorQuestionCard } from "./OperatorQuestionCard";
 import type {
     OperatorAnswerQuestionSetAction,
@@ -34,6 +34,13 @@ export interface OperatorPanelProps {
     readonly onClose: () => void;
 }
 
+interface PendingUserMessage {
+    readonly entryIdsBeforeSend: ReadonlySet<string>;
+    readonly idempotencyKey: string;
+    readonly state: "sending" | "failed";
+    readonly text: string;
+}
+
 export function OperatorPanel({ api, isOpen, onClose }: OperatorPanelProps) {
     const [status, setStatus] = useState<OperatorStatusResponse | null>(null);
     const [conversations, setConversations] = useState<
@@ -44,6 +51,8 @@ export function OperatorPanel({ api, isOpen, onClose }: OperatorPanelProps) {
     const [message, setMessage] = useState("");
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
+    const [pendingUserMessage, setPendingUserMessage] =
+        useState<PendingUserMessage | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [reloadKey, setReloadKey] = useState(0);
     const transcriptRef = useRef<HTMLDivElement>(null);
@@ -84,7 +93,7 @@ export function OperatorPanel({ api, isOpen, onClose }: OperatorPanelProps) {
             transcriptRef.current.scrollTop =
                 transcriptRef.current.scrollHeight;
         }
-    }, [conversation, isOpen]);
+    }, [conversation, isOpen, pendingUserMessage]);
 
     const sendAction = conversation?.actions.find(
         (action) => action.kind === "send_message",
@@ -122,6 +131,8 @@ export function OperatorPanel({ api, isOpen, onClose }: OperatorPanelProps) {
         createKeyRef.current = key;
         setSubmitting(true);
         setError(null);
+        setMessage("");
+        setPendingUserMessage(null);
         try {
             const next = (await api.createConversation(key)).body;
             createKeyRef.current = null;
@@ -143,6 +154,7 @@ export function OperatorPanel({ api, isOpen, onClose }: OperatorPanelProps) {
         }
         setLoading(true);
         setError(null);
+        setPendingUserMessage(null);
         try {
             setConversation((await api.getConversation(id)).body);
         } catch (reason) {
@@ -159,10 +171,63 @@ export function OperatorPanel({ api, isOpen, onClose }: OperatorPanelProps) {
             return;
         }
         setMessage("");
-        await mutate(
-            () => api.sendMessage(sendAction.href, text, idempotencyKey()),
-            true,
-        );
+        await submitUserMessage({
+            entryIdsBeforeSend: new Set(
+                conversation?.entries.map((entry) => entry.id) ?? [],
+            ),
+            idempotencyKey: idempotencyKey(),
+            state: "sending",
+            text,
+        });
+    }
+
+    async function submitUserMessage(
+        pending: PendingUserMessage,
+    ): Promise<void> {
+        if (sendAction === undefined) {
+            return;
+        }
+        setSubmitting(true);
+        setError(null);
+        setPendingUserMessage({ ...pending, state: "sending" });
+        try {
+            const next = (
+                await api.sendMessage(
+                    sendAction.href,
+                    pending.text,
+                    pending.idempotencyKey,
+                )
+            ).body;
+            setConversation(next);
+            setPendingUserMessage(null);
+            await refreshConversationList(api, setConversations).catch(
+                () => undefined,
+            );
+        } catch (reason) {
+            let reconciled: OperatorConversationView | null = null;
+            if (conversation !== null) {
+                try {
+                    reconciled = (await api.getConversation(conversation.id))
+                        .body;
+                    setConversation(reconciled);
+                } catch {
+                    // Preserve the original mutation failure below.
+                }
+            }
+            const accepted =
+                reconciled?.entries.some(
+                    (entry) =>
+                        !pending.entryIdsBeforeSend.has(entry.id) &&
+                        entry.kind === "user_message" &&
+                        entry.text === pending.text,
+                ) ?? false;
+            setPendingUserMessage(
+                accepted ? null : { ...pending, state: "failed" },
+            );
+            setError(errorMessage(reason));
+        } finally {
+            setSubmitting(false);
+        }
     }
 
     async function answerQuestions(
@@ -246,7 +311,6 @@ export function OperatorPanel({ api, isOpen, onClose }: OperatorPanelProps) {
                 </span>
                 <div>
                     <strong>Operator</strong>
-                    <small>Build and operate with Banksia</small>
                 </div>
                 <button
                     aria-label="Close Operator"
@@ -260,10 +324,12 @@ export function OperatorPanel({ api, isOpen, onClose }: OperatorPanelProps) {
             </header>
 
             {loading ? (
-                <div className="operator-panel__loading" role="status">
-                    <LoaderCircle aria-hidden="true" className="is-spinning" />
-                    Opening Operator…
-                </div>
+                <PageState
+                    className="operator-panel__loading"
+                    fill
+                    kind="loading"
+                    title="Opening Operator"
+                />
             ) : status?.availability !== "available" ? (
                 <div className="operator-panel__empty">
                     <Notice title="Operator is not available" tone="warning">
@@ -291,27 +357,28 @@ export function OperatorPanel({ api, isOpen, onClose }: OperatorPanelProps) {
                                     : "Current conversation"}
                             </span>
                         ) : (
-                            <label>
-                                <span className="visually-hidden">
-                                    Operator conversation
-                                </span>
-                                <select
-                                    onChange={(event) =>
-                                        void chooseConversation(
-                                            event.target.value,
-                                        )
-                                    }
-                                    value={conversation?.id ?? ""}
-                                >
-                                    {conversations.map((item) => (
-                                        <option key={item.id} value={item.id}>
-                                            {conversationLabel(item)}
-                                        </option>
-                                    ))}
-                                </select>
-                                <ChevronDown aria-hidden="true" size={15} />
-                            </label>
+                            <Select
+                                ariaLabel="Operator conversation"
+                                onValueChange={(id) =>
+                                    void chooseConversation(id)
+                                }
+                                options={conversations.map((item) => ({
+                                    hint: conversationTime(item),
+                                    label: conversationLabel(item),
+                                    value: item.id,
+                                }))}
+                                value={conversation?.id ?? ""}
+                            />
                         )}
+                        <Button
+                            aria-label="New Operator conversation"
+                            disabled={submitting}
+                            icon
+                            onClick={() => void createConversation()}
+                            tone="quiet"
+                        >
+                            <Plus aria-hidden="true" size={17} />
+                        </Button>
                     </div>
 
                     <div
@@ -323,12 +390,8 @@ export function OperatorPanel({ api, isOpen, onClose }: OperatorPanelProps) {
                         {conversation === null ? (
                             <div className="operator-panel__welcome">
                                 <Bot aria-hidden="true" size={28} />
-                                <h2>How can I help?</h2>
-                                <p>
-                                    Ask Operator to draft a Workflow, start
-                                    work, or help you understand what needs
-                                    attention.
-                                </p>
+                                <h2>Start a conversation</h2>
+                                <p>Describe the Workflow or work you need.</p>
                                 <Button
                                     disabled={submitting}
                                     onClick={() => void createConversation()}
@@ -353,7 +416,32 @@ export function OperatorPanel({ api, isOpen, onClose }: OperatorPanelProps) {
                                 />
                             ))
                         )}
-                        {conversation?.state === "running" ? (
+                        {pendingUserMessage === null ? null : (
+                            <article
+                                className={`operator-entry operator-entry--user operator-entry--pending ${
+                                    pendingUserMessage.state === "failed"
+                                        ? "is-failed"
+                                        : ""
+                                }`}
+                            >
+                                <p>{pendingUserMessage.text}</p>
+                                {pendingUserMessage.state === "failed" ? (
+                                    <Button
+                                        disabled={submitting}
+                                        onClick={() =>
+                                            void submitUserMessage(
+                                                pendingUserMessage,
+                                            )
+                                        }
+                                        tone="quiet"
+                                    >
+                                        Retry
+                                    </Button>
+                                ) : null}
+                            </article>
+                        )}
+                        {conversation?.state === "running" ||
+                        pendingUserMessage?.state === "sending" ? (
                             <div className="operator-panel__working">
                                 <p role="status">
                                     <LoaderCircle
@@ -361,14 +449,18 @@ export function OperatorPanel({ api, isOpen, onClose }: OperatorPanelProps) {
                                         className="is-spinning"
                                         size={16}
                                     />
-                                    Operator is working…
+                                    Working…
                                 </p>
-                                <Button
-                                    onClick={() => void reloadConversation()}
-                                    tone="quiet"
-                                >
-                                    Refresh
-                                </Button>
+                                {pendingUserMessage === null ? (
+                                    <Button
+                                        onClick={() =>
+                                            void reloadConversation()
+                                        }
+                                        tone="quiet"
+                                    >
+                                        Refresh
+                                    </Button>
+                                ) : null}
                             </div>
                         ) : null}
                         {stateMismatch ? (
@@ -395,8 +487,7 @@ export function OperatorPanel({ api, isOpen, onClose }: OperatorPanelProps) {
                         ) : null}
                         {error === null ? null : (
                             <Notice tone="danger" urgent>
-                                {error} The latest controller state was loaded
-                                when possible.
+                                <Prose>{error}</Prose>
                             </Notice>
                         )}
                     </div>
@@ -416,7 +507,7 @@ export function OperatorPanel({ api, isOpen, onClose }: OperatorPanelProps) {
                                 <label htmlFor="operator-message">
                                     Message Operator
                                 </label>
-                                <textarea
+                                <Textarea
                                     disabled={!canSend || submitting}
                                     id="operator-message"
                                     onChange={(event) =>
@@ -431,7 +522,7 @@ export function OperatorPanel({ api, isOpen, onClose }: OperatorPanelProps) {
                                               ? "Answer the question above"
                                               : conversation.state === "running"
                                                 ? "Operator is working"
-                                                : "Ask Operator…"
+                                                : "Message Operator"
                                     }
                                     rows={2}
                                     value={message}
@@ -494,7 +585,7 @@ function ConversationEntry({
         case "assistant_message":
             return (
                 <article className="operator-entry operator-entry--assistant">
-                    <p>{entry.text}</p>
+                    <Prose>{entry.text}</Prose>
                 </article>
             );
         case "user_message":
@@ -506,8 +597,8 @@ function ConversationEntry({
         case "turn_interrupted":
             return (
                 <Notice title="Operator was interrupted" tone="warning">
-                    <p>{entry.explanation}</p>
-                    <p>{entry.next_step}</p>
+                    <Prose>{entry.explanation}</Prose>
+                    <Prose>{entry.next_step}</Prose>
                 </Notice>
             );
         case "user_question_answers":
@@ -570,10 +661,42 @@ function conversationLabel(item: OperatorConversationSummary): string {
     if (item.preview?.trim()) {
         return item.preview;
     }
+    return "New conversation";
+}
+
+function conversationTime(item: OperatorConversationSummary): string {
     const date = new Date(item.updated_at);
-    return Number.isNaN(date.valueOf())
-        ? "Earlier conversation"
-        : `Conversation from ${date.toLocaleDateString()}`;
+    if (Number.isNaN(date.valueOf())) {
+        return "Updated earlier";
+    }
+
+    const elapsedSeconds = Math.max(
+        0,
+        Math.floor((Date.now() - date.valueOf()) / 1_000),
+    );
+    if (elapsedSeconds < 60) {
+        return "Just now";
+    }
+    const elapsedMinutes = Math.floor(elapsedSeconds / 60);
+    if (elapsedMinutes < 60) {
+        return `${elapsedMinutes}m ago`;
+    }
+    const elapsedHours = Math.floor(elapsedMinutes / 60);
+    if (elapsedHours < 24) {
+        return `${elapsedHours}h ago`;
+    }
+    const elapsedDays = Math.floor(elapsedHours / 24);
+    if (elapsedDays < 7) {
+        return `${elapsedDays}d ago`;
+    }
+    return date.toLocaleDateString(undefined, {
+        day: "numeric",
+        month: "short",
+        year:
+            date.getFullYear() === new Date().getFullYear()
+                ? undefined
+                : "numeric",
+    });
 }
 
 function idempotencyKey(): string {

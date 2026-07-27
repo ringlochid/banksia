@@ -213,8 +213,12 @@ def map_operator_workflow_catalog_result(
         ),
         updated_at=summary.updated_at,
         provenance=summary.provenance,
-        available_actions=derive_workflow_library_actions(
-            has_published_workflow=has_published_workflow
+        available_actions=tuple(
+            action
+            for action in derive_workflow_library_actions(
+                has_published_workflow=has_published_workflow
+            )
+            if action is not WorkflowLibraryAction.REMOVE
         ),
         published=(
             OperatorPublishedWorkflowSource(

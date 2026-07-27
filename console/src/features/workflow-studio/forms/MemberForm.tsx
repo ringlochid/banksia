@@ -1,7 +1,5 @@
-import { useId } from "react";
-
 import type { NormalizedMember, NormalizedWorkflow } from "../../../api/types";
-import { FormField } from "../../../components/ui";
+import { FormField, Input, Textarea } from "../../../components/ui";
 import type {
     MemberEdit,
     StudioValidationIssue,
@@ -17,6 +15,7 @@ export interface MemberFormProps {
     readonly onEdit: (patch: MemberEdit) => void;
     readonly onRetryOptions: () => void;
     readonly options: WorkflowAuthoringOptionsState;
+    readonly titleRequired?: boolean;
     readonly workflow: NormalizedWorkflow;
 }
 
@@ -27,31 +26,21 @@ export function MemberForm({
     onEdit,
     onRetryOptions,
     options,
+    titleRequired = false,
     workflow,
 }: MemberFormProps) {
-    const prefix = useId();
+    const prefix = `member-${member.id}`;
     const memberIssues = memberFieldIssues(workflow, issues, member.id);
 
     return (
-        <section aria-labelledby={`${prefix}-heading`} className="studio-form">
-            <header>
-                <p className="studio-form__eyebrow">Member</p>
-                <h2 id={`${prefix}-heading`}>
-                    {member.title?.trim() === "" || member.title === undefined
-                        ? "Unnamed teammate"
-                        : member.title}
-                </h2>
-                <p>
-                    A Member is one teammate. Its responsibility comes from the
-                    instruction you give it.
-                </p>
-            </header>
+        <section aria-label="Member settings" className="studio-form">
             <MemberProseFields
                 disabled={disabled}
                 issues={memberIssues}
                 member={member}
                 onEdit={onEdit}
                 prefix={prefix}
+                titleRequired={titleRequired}
             />
             <ProviderAndAccessFields
                 disabled={disabled}
@@ -72,6 +61,7 @@ interface MemberProseFieldsProps {
     readonly member: NormalizedMember;
     readonly onEdit: (patch: MemberEdit) => void;
     readonly prefix: string;
+    readonly titleRequired: boolean;
 }
 
 function MemberProseFields({
@@ -80,34 +70,36 @@ function MemberProseFields({
     member,
     onEdit,
     prefix,
+    titleRequired,
 }: MemberProseFieldsProps) {
     return (
         <>
             <FormField
                 error={fieldIssue(issues, "title")}
-                hint="A short name people can recognize."
+                hint="Shown on the team canvas."
                 id={`${prefix}-title`}
                 label="Name"
-                optional
+                optional={!titleRequired}
             >
-                <input
+                <Input
                     data-field-path={`$.members.${member.id}.title`}
                     disabled={disabled}
                     maxLength={16_384}
                     onChange={(event) =>
                         onEdit({ title: optionalText(event.target.value) })
                     }
+                    required={titleRequired}
                     value={member.title ?? ""}
                 />
             </FormField>
             <FormField
                 error={fieldIssue(issues, "description")}
-                hint="What responsibility does this teammate own?"
+                hint="The part of the work this member owns."
                 id={`${prefix}-description`}
                 label="Responsibility"
                 optional
             >
-                <textarea
+                <Textarea
                     data-field-path={`$.members.${member.id}.description`}
                     disabled={disabled}
                     maxLength={16_384}
@@ -121,12 +113,12 @@ function MemberProseFields({
             </FormField>
             <FormField
                 error={fieldIssue(issues, "instruction")}
-                hint="Specific task guidance for this Member. Banksia adds shared teamwork guidance automatically."
+                hint="Directions used whenever this member works."
                 id={`${prefix}-instruction`}
                 label="Instruction"
                 optional
             >
-                <textarea
+                <Textarea
                     data-field-path={`$.members.${member.id}.instruction`}
                     disabled={disabled}
                     maxLength={16_384}

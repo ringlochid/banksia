@@ -2,6 +2,7 @@ import "@xyflow/react/dist/style.css";
 import "./team-canvas.css";
 
 import {
+    applyNodeChanges,
     Background,
     BackgroundVariant,
     Panel,
@@ -63,6 +64,7 @@ export interface TeamCanvasProps {
     readonly focusRequest: TeamMemberFocusRequest | null;
     readonly issues: readonly StudioValidationIssue[];
     readonly lead: NormalizedMember;
+    readonly localAddOpen: boolean;
     readonly onAddChild: (parentMemberId: string) => void;
     readonly onEdit: (memberId: string) => void;
     readonly onOutlineOpenChange: (open: boolean) => void;
@@ -87,6 +89,7 @@ export function TeamCanvas({
     focusRequest,
     issues,
     lead,
+    localAddOpen,
     onAddChild,
     onEdit,
     onOutlineOpenChange,
@@ -102,10 +105,24 @@ export function TeamCanvas({
         {},
     );
     const [layoutRevision, setLayoutRevision] = useState(0);
+    /**
+     * Cards the user has dragged. Presentation state only — it is never sent
+     * to the controller and never becomes part of the Workflow. `Tidy team`
+     * clears it, which is what puts the hierarchy back in order.
+     */
+    const [positionOverrides, setPositionOverrides] = useState<
+        ReadonlyMap<string, { readonly x: number; readonly y: number }>
+    >(() => new Map());
+
+    const tidyTeam = useCallback(() => {
+        setPositionOverrides(new Map());
+        setLayoutRevision((revision) => revision + 1);
+    }, []);
     const flowRef = useRef<ReactFlowInstance<
         TeamFlowNode,
         ResponsibilityEdgeModel
     > | null>(null);
+    const activeDragId = useRef<string | null>(null);
     const measurementFrame = useRef<number | null>(null);
     const pendingMeasurements = useRef(new Map<string, TeamNodeDimensions>());
     const visibleMemberIds = useMemo(() => new Set(memberIds(lead)), [lead]);
@@ -147,13 +164,18 @@ export function TeamCanvas({
         visibleDimensionsById,
     ]);
 
-    const nodes = useMemo<readonly TeamFlowNode[]>(
+    const authoredNodes = useMemo<readonly TeamFlowNode[]>(
         () =>
             layout.nodes.map((node): TeamFlowNode => {
                 if (node.kind === "add") {
+                    const position = addControlPosition(
+                        node,
+                        layout.nodes,
+                        positionOverrides,
+                    );
                     return {
                         data: {
-                            disabled,
+                            disabled: disabled || localAddOpen,
                             onAdd: onAddChild,
                             parentMemberId: node.parentId,
                             parentName: memberTitle(
@@ -164,10 +186,12 @@ export function TeamCanvas({
                                 pendingStructure.parentMemberId ===
                                     node.parentId,
                         },
+                        // The add control follows its parent rather than being
+                        // placed by hand.
                         draggable: false,
                         focusable: false,
                         id: addNodeId(node.parentId),
-                        position: { x: node.x, y: node.y },
+                        position,
                         selectable: false,
                         sourcePosition: Position.Right,
                         style: {
@@ -192,10 +216,16 @@ export function TeamCanvas({
                         ),
                         selected: selectedMemberId === node.member.id,
                     },
-                    draggable: false,
+                    draggable: !disabled,
                     focusable: false,
                     id: node.member.id,
-                    position: { x: node.x, y: node.y },
+                    // A dragged card keeps the position the user gave it until
+                    // Tidy team recomputes the layout. Position is presentation
+                    // state only; it never reaches the Workflow.
+                    position: positionOverrides.get(node.member.id) ?? {
+                        x: node.x,
+                        y: node.y,
+                    },
                     selectable: false,
                     sourcePosition: Position.Right,
                     style: { width: node.width },
@@ -209,15 +239,29 @@ export function TeamCanvas({
             issues,
             layout.nodes,
             lead,
+            localAddOpen,
             onAddChild,
             onSelect,
             onToggleCollapse,
             pendingStructure,
+            positionOverrides,
             selectedMemberId,
         ],
     );
+    const [flowNodes, setFlowNodes] = useState<TeamFlowNode[]>(() => [
+        ...authoredNodes,
+    ]);
 
-    const edges = useMemo<readonly ResponsibilityEdgeModel[]>(
+    useEffect(() => {
+        if (activeDragId.current !== null) {
+            return;
+        }
+        setFlowNodes((current) =>
+            reconcileAuthoredNodes(current, authoredNodes),
+        );
+    }, [authoredNodes]);
+
+    const edges = useMemo<ResponsibilityEdgeModel[]>(
         () =>
             layout.edges.map((edge) => ({
                 data: { relationship: edge.kind },
@@ -235,6 +279,17 @@ export function TeamCanvas({
 
     const onNodesChange = useCallback(
         (changes: NodeChange<TeamFlowNode>[]) => {
+            /*
+             * Let XYFlow own transient drag geometry. Rebuilding every authored
+             * node from React state on every pointer event repaints the whole
+             * canvas and caused the black flash visible in the drag recording.
+             * Only the changed node and its attached add control move here;
+             * the presentation override is committed on drag stop.
+             */
+            setFlowNodes((current) =>
+                applyTransientNodeChanges(current, changes),
+            );
+
             const measured = changes.filter(
                 (change) =>
                     change.type === "dimensions" &&
@@ -286,7 +341,7 @@ export function TeamCanvas({
         >
             <ReactFlow<TeamFlowNode, ResponsibilityEdgeModel>
                 deleteKeyCode={null}
-                edges={[...edges]}
+                edges={edges}
                 edgesFocusable={false}
                 edgesReconnectable={false}
                 edgeTypes={edgeTypes}
@@ -296,36 +351,52 @@ export function TeamCanvas({
                 maxZoom={1.5}
                 minZoom={0.25}
                 nodeTypes={nodeTypes}
-                nodes={[...nodes]}
+                nodes={flowNodes}
                 nodesConnectable={false}
-                nodesDraggable={false}
+                nodesDraggable={!disabled}
                 nodesFocusable={false}
+                autoPanOnNodeDrag={false}
                 onInit={(instance) => {
                     flowRef.current = instance;
                 }}
+                onNodeDragStart={(_, node) => {
+                    activeDragId.current = node.id;
+                }}
+                onNodeDragStop={(_, node) => {
+                    activeDragId.current = null;
+                    if (!visibleMemberIds.has(node.id)) {
+                        return;
+                    }
+                    const position = node.position;
+                    setPositionOverrides((current) => {
+                        const previous = current.get(node.id);
+                        if (
+                            previous?.x === position.x &&
+                            previous.y === position.y
+                        ) {
+                            return current;
+                        }
+                        const next = new Map(current);
+                        next.set(node.id, position);
+                        return next;
+                    });
+                }}
                 onNodeClick={() => undefined}
                 onNodesChange={onNodesChange}
+                nodeDragThreshold={4}
                 panOnDrag
                 proOptions={{ hideAttribution: true }}
                 selectionOnDrag={false}
                 zoomOnDoubleClick={false}
             >
                 <Background
-                    color="#d7d4c9"
-                    gap={24}
+                    color="var(--canvas--dot--color)"
+                    gap={16}
                     size={1}
                     variant={BackgroundVariant.Dots}
                 />
-                <Panel className="team-canvas__legend" position="top-right">
-                    Lines show responsibility, not task order.
-                </Panel>
                 <Panel className="team-canvas__controls" position="bottom-left">
-                    <TeamCanvasControls
-                        onFit={fitTeam}
-                        onTidy={() =>
-                            setLayoutRevision((revision) => revision + 1)
-                        }
-                    />
+                    <TeamCanvasControls onFit={fitTeam} onTidy={tidyTeam} />
                 </Panel>
                 <TeamViewportCoordinator
                     canvasRef={canvasRef}
@@ -481,4 +552,78 @@ function mergeMeasuredDimensions(
         }
     }
     return changed ? next : current;
+}
+
+function addControlPosition(
+    addNode: Extract<
+        ReturnType<typeof layoutTeam>["nodes"][number],
+        { readonly kind: "add" }
+    >,
+    nodes: ReturnType<typeof layoutTeam>["nodes"],
+    positionOverrides: ReadonlyMap<
+        string,
+        { readonly x: number; readonly y: number }
+    >,
+): { readonly x: number; readonly y: number } {
+    const parent = nodes.find(
+        (node) => node.kind === "member" && node.member.id === addNode.parentId,
+    );
+    const parentOverride = positionOverrides.get(addNode.parentId);
+    if (parent === undefined || parentOverride === undefined) {
+        return { x: addNode.x, y: addNode.y };
+    }
+    return {
+        x: addNode.x + parentOverride.x - parent.x,
+        y: addNode.y + parentOverride.y - parent.y,
+    };
+}
+
+function applyTransientNodeChanges(
+    current: TeamFlowNode[],
+    changes: NodeChange<TeamFlowNode>[],
+): TeamFlowNode[] {
+    const next = applyNodeChanges(changes, current);
+    for (const change of changes) {
+        if (change.type !== "position" || change.position === undefined) {
+            continue;
+        }
+        const previousParent = current.find((node) => node.id === change.id);
+        const nextParent = next.find((node) => node.id === change.id);
+        const addIndex = next.findIndex(
+            (node) => node.id === addNodeId(change.id),
+        );
+        const addNode = next[addIndex];
+        if (
+            previousParent === undefined ||
+            nextParent === undefined ||
+            addNode === undefined
+        ) {
+            continue;
+        }
+        next[addIndex] = {
+            ...addNode,
+            position: {
+                x:
+                    addNode.position.x +
+                    nextParent.position.x -
+                    previousParent.position.x,
+                y:
+                    addNode.position.y +
+                    nextParent.position.y -
+                    previousParent.position.y,
+            },
+        };
+    }
+    return next;
+}
+
+function reconcileAuthoredNodes(
+    current: readonly TeamFlowNode[],
+    authored: readonly TeamFlowNode[],
+): TeamFlowNode[] {
+    const currentById = new Map(current.map((node) => [node.id, node]));
+    return authored.map((node) => {
+        const previous = currentById.get(node.id);
+        return previous === undefined ? node : { ...previous, ...node };
+    });
 }

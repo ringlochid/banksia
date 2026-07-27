@@ -142,7 +142,7 @@ export function searchItemFixture(
         updated_at: "2026-07-25T05:00:00Z",
         provenance: "starter_seed",
         published_revision_no: 1,
-        available_actions: ["edit", "start_run"],
+        available_actions: ["edit", "start_run", "remove"],
         ...overrides,
     };
 }
@@ -158,6 +158,7 @@ export function workflowApiStub(overrides: Partial<WorkflowApi>): WorkflowApi {
     return {
         searchWorkflows: unavailable,
         getWorkflow: unavailable,
+        removeWorkflow: unavailable,
         getAuthoringOptions: unavailable,
         createWorkflow: unavailable,
         openWorkflow: unavailable,

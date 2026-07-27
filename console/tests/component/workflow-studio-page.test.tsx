@@ -14,7 +14,11 @@ import {
 } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
-import { ApiNetworkError, type WorkflowApi } from "../../src/api/client";
+import {
+    ApiNetworkError,
+    ApiResponseError,
+    type WorkflowApi,
+} from "../../src/api/client";
 import type { DraftOperation, WorkflowGetResponse } from "../../src/api/types";
 import { WorkflowStudioPage } from "../../src/features/workflow-studio/WorkflowStudioPage";
 import {
@@ -85,16 +89,20 @@ describe("Workflow Studio page", () => {
         await user.click(screen.getByRole("link", { name: "Workflows" }));
 
         const warning = screen.getByRole("dialog", {
-            name: "Leave before changes are saved?",
+            name: "Discard unsaved changes?",
         });
         expect(warning).toBeVisible();
 
-        await user.click(screen.getByRole("button", { name: "Keep editing" }));
+        await user.click(
+            screen.getByRole("button", { name: "Continue editing" }),
+        );
         expect(warning).not.toBeInTheDocument();
         expect(purpose).toBeVisible();
 
         await user.click(screen.getByRole("link", { name: "Workflows" }));
-        await user.click(screen.getByRole("button", { name: "Leave page" }));
+        await user.click(
+            screen.getByRole("button", { name: "Discard changes and leave" }),
+        );
 
         expect(await screen.findByText("Workflow library route")).toBeVisible();
     });
@@ -155,9 +163,6 @@ describe("Workflow Studio page", () => {
         const user = userEvent.setup();
 
         renderStudio(api);
-        await user.click(
-            await screen.findByRole("button", { name: "Edit Workflow" }),
-        );
 
         expect(await openWorkflowPurpose(user)).toHaveValue(
             "Research a question with independent evidence review.",
@@ -191,7 +196,7 @@ describe("Workflow Studio page", () => {
 
         await waitFor(() => expect(purpose).toBeDisabled());
         expect(
-            screen.getByRole("button", { name: "Add child" }),
+            screen.getByRole("button", { name: "Add member" }),
         ).toBeDisabled();
         expect(
             screen.getByRole("button", { name: "Discard draft" }),
@@ -231,17 +236,71 @@ describe("Workflow Studio page", () => {
         await user.click(await screen.findByText("Provider and access"));
         await user.click(
             await screen.findByRole("button", {
-                name: "Try loading choices again",
+                name: "Try again",
             }),
         );
 
         await waitFor(() => {
             expect(screen.getByLabelText("Provider")).toBeEnabled();
         });
+        await user.click(screen.getByLabelText("Provider"));
         expect(
             screen.getByRole("option", { name: "Codex" }),
         ).toBeInTheDocument();
         expect(optionReads).toBe(2);
+    });
+
+    it("shows a rejected capability once at the field instead of as a page error wall", async () => {
+        const message = "The request contains an unsupported or invalid field.";
+        const api = workflowApiStub({
+            getWorkflow: () => Promise.resolve(response(catalogFixture())),
+            getAuthoringOptions: () =>
+                Promise.resolve(
+                    response({
+                        workflow_fields: ["description", "note"],
+                        member_fields: ["provider", "capabilities"],
+                        provider_kinds: ["codex"],
+                        codex_efforts: ["high"],
+                        claude_efforts: [],
+                        managed_sandbox_options: [],
+                        human_request_kinds: ["approval"],
+                        command_run_values: [],
+                        default_provider: null,
+                    }),
+                ),
+            mutateDraft: () =>
+                Promise.reject(
+                    new ApiResponseError(422, {
+                        code: "invalid_request",
+                        field_path: "patch.capabilities.human_request",
+                        summary: message,
+                    }),
+                ),
+        });
+        const user = userEvent.setup();
+
+        renderStudio(api);
+        await openMemberDetails(user);
+        await user.click(await screen.findByText("Provider and access"));
+        await user.click(
+            screen.getByLabelText(
+                "Allow this teammate to ask you for approval",
+            ),
+        );
+
+        const capabilities = await screen.findByRole("group", {
+            name: "Allowed actions",
+        });
+        await waitFor(() => {
+            expect(capabilities).toHaveAttribute("aria-invalid", "true");
+        });
+        expect(capabilities).toHaveAccessibleDescription(message);
+        expect(screen.getAllByText(message)).toHaveLength(1);
+        expect(screen.queryByText("Check these fields")).toBeNull();
+        expect(
+            screen.queryByRole("button", { name: "Try saving again" }),
+        ).toBeNull();
+        expect(screen.getByText("Not saved")).toBeVisible();
     });
 
     it("keeps one desktop overlay open and returns Details focus to the selected card", async () => {
@@ -259,22 +318,26 @@ describe("Workflow Studio page", () => {
         await user.click(outlineSummary);
         await user.click(
             screen.getByRole("treeitem", {
-                name: /Independent reviewer.*Contributor/,
+                name: "Independent reviewer",
             }),
         );
         await user.click(screen.getByRole("button", { name: "Edit" }));
         expect(
-            screen.getByRole("complementary", { name: "Details" }),
+            screen.getByRole("complementary", {
+                name: "Independent reviewer",
+            }),
         ).toBeVisible();
 
         expect(outlineSummary.closest("details")).not.toHaveAttribute("open");
         await user.click(outlineSummary);
 
         expect(
-            screen.queryByRole("complementary", { name: "Details" }),
+            screen.queryByRole("complementary", {
+                name: "Independent reviewer",
+            }),
         ).not.toBeInTheDocument();
         const selectedOutlineItem = screen.getByRole("treeitem", {
-            name: /Independent reviewer.*Contributor/,
+            name: "Independent reviewer",
         });
         await waitFor(() => expect(selectedOutlineItem).toHaveFocus());
         expect(selectedOutlineItem).toHaveAttribute("aria-selected", "true");
@@ -289,7 +352,7 @@ describe("Workflow Studio page", () => {
         expect(outlineSummary.closest("details")).not.toHaveAttribute("open");
         await user.click(
             screen.getByRole("button", {
-                name: "Close teammate details",
+                name: "Close member details",
             }),
         );
         const childCard = document.querySelector<HTMLElement>(
@@ -313,13 +376,13 @@ describe("Workflow Studio page", () => {
         );
         await user.click(
             screen.getByRole("treeitem", {
-                name: /Independent reviewer.*Contributor/,
+                name: "Independent reviewer",
             }),
         );
         await user.click(screen.getByRole("button", { name: "Edit" }));
         await user.click(
             screen.getByRole("button", {
-                name: "Close teammate details",
+                name: "Close member details",
             }),
         );
         const collapse = document.querySelector<HTMLButtonElement>(
@@ -375,20 +438,20 @@ describe("Workflow Studio page", () => {
         );
         await user.click(
             screen.getByRole("treeitem", {
-                name: /Independent reviewer.*Contributor/,
+                name: "Independent reviewer",
             }),
         );
-        await user.click(screen.getByRole("button", { name: "Remove branch" }));
+        await user.click(screen.getByRole("button", { name: "Remove" }));
         await user.click(
             within(
                 screen.getByRole("dialog", {
                     name: "Remove Independent reviewer?",
                 }),
-            ).getByRole("button", { name: "Remove branch" }),
+            ).getByRole("button", { name: "Remove member" }),
         );
 
         const leadOutlineItem = await screen.findByRole("treeitem", {
-            name: /Research lead.*Contributor/,
+            name: "Research lead",
         });
         await waitFor(() => expect(leadOutlineItem).toHaveFocus());
         expect(leadOutlineItem).toHaveAttribute("aria-selected", "true");
@@ -461,11 +524,11 @@ describe("Workflow Studio page", () => {
 
         await user.click(screen.getByRole("link", { name: "Workflows" }));
         const warning = screen.getByRole("dialog", {
-            name: "Leave before changes are saved?",
+            name: "Discard unsaved changes?",
         });
         expect(warning).toBeVisible();
         await user.click(
-            within(warning).getByRole("button", { name: "Keep editing" }),
+            within(warning).getByRole("button", { name: "Continue editing" }),
         );
         await user.click(screen.getByRole("button", { name: "Check current" }));
 
@@ -500,17 +563,16 @@ async function openMemberDetails(user: ReturnType<typeof userEvent.setup>) {
     await user.click(
         await screen.findByText("Team outline", { selector: "summary" }),
     );
-    await user.click(
-        screen.getByRole("treeitem", { name: /Research lead.*Manager/ }),
-    );
+    await user.click(screen.getByRole("treeitem", { name: "Research lead" }));
     await user.click(screen.getByRole("button", { name: "Edit" }));
-    return screen.getByRole("heading", { name: "Details" });
+    return screen.getByRole("heading", { name: "Research lead" });
 }
 
 async function openWorkflowPurpose(
     user: ReturnType<typeof userEvent.setup>,
 ): Promise<HTMLElement> {
-    await openMemberDetails(user);
-    await user.click(screen.getByText("Workflow purpose and shared note"));
-    return screen.getByLabelText("Use this team when…");
+    await user.click(
+        await screen.findByRole("button", { name: "Workflow settings" }),
+    );
+    return screen.getByLabelText("Purpose");
 }

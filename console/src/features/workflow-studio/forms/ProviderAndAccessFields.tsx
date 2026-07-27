@@ -1,10 +1,20 @@
+import { LoaderCircle } from "lucide-react";
+
 import type {
     NormalizedMember,
     ProviderSandbox,
     ProviderSelection,
     WorkflowAuthoringOptions,
 } from "../../../api/types";
-import { Button, FormField, Notice } from "../../../components/ui";
+import {
+    Button,
+    FormField,
+    Input,
+    Notice,
+    Prose,
+    Select,
+    type SelectOption,
+} from "../../../components/ui";
 import type {
     MemberEdit,
     WorkflowAuthoringOptionsState,
@@ -38,24 +48,20 @@ export function ProviderAndAccessFields({
             <summary>Provider and access</summary>
             <div className="studio-disclosure__body">
                 {options.kind === "loading" ? (
-                    <p className="studio-form__explanation" role="status">
-                        Loading provider and access choices…
-                    </p>
+                    <div className="studio-form__status" role="status">
+                        <LoaderCircle
+                            aria-hidden="true"
+                            className="ui-spin"
+                            size={16}
+                        />
+                        Loading choices
+                    </div>
                 ) : options.kind === "error" ? (
                     <Notice tone="warning">
-                        <p>{options.message}</p>
-                        <Button onClick={onRetryOptions}>
-                            Try loading choices again
-                        </Button>
+                        <Prose>{options.message}</Prose>
+                        <Button onClick={onRetryOptions}>Try again</Button>
                     </Notice>
-                ) : (
-                    <p className="studio-form__explanation">
-                        Leave these settings unchanged to use the installation
-                        default. Asking you questions and running managed
-                        commands are denied unless you explicitly allow them
-                        here; each teammate needs its own access settings.
-                    </p>
-                )}
+                ) : null}
                 <ProviderFields
                     disabled={controlsDisabled}
                     issues={issues}
@@ -67,6 +73,7 @@ export function ProviderAndAccessFields({
                 />
                 <MemberCapabilityFields
                     disabled={controlsDisabled}
+                    error={fieldIssue(issues, "capabilities")}
                     member={member}
                     onEdit={onEdit}
                     options={availableOptions}
@@ -116,23 +123,17 @@ function ProviderFields({
                 id={`${prefix}-provider`}
                 label="Provider"
             >
-                <select
-                    data-field-path={`$.members.${member.id}.provider`}
+                <Select
+                    dataFieldPath={`$.members.${member.id}.provider`}
                     disabled={disabled}
-                    onChange={(event) => {
+                    onValueChange={(value) => {
                         onEdit({
-                            provider: providerForKind(event.target.value),
+                            provider: providerForKind(value),
                         });
                     }}
+                    options={providerOptions(providerKinds)}
                     value={providerKind}
-                >
-                    <option value="default">Installation default</option>
-                    {providerKinds.map((kind) => (
-                        <option key={kind} value={kind}>
-                            {providerLabel(kind)}
-                        </option>
-                    ))}
-                </select>
+                />
             </FormField>
             {managedProvider ? (
                 <ManagedProviderFields
@@ -182,12 +183,16 @@ function ManagedProviderFields({
     const efforts = [
         ...new Set([
             ...(availableEfforts ?? []),
-            ...(provider.effort === undefined ? [] : [provider.effort]),
+            ...(provider.effort === undefined || provider.effort === null
+                ? []
+                : [provider.effort]),
         ]),
     ];
     const sandboxes = uniqueSandboxes([
         ...(options?.managed_sandbox_options ?? []),
-        ...(provider.sandbox === undefined ? [] : [provider.sandbox]),
+        ...(provider.sandbox === undefined || provider.sandbox === null
+            ? []
+            : [provider.sandbox]),
     ]);
 
     return (
@@ -247,7 +252,7 @@ function ManagedModelField({
             label="Model"
             optional
         >
-            <input
+            <Input
                 data-field-path={`$.members.${memberId}.provider.model`}
                 disabled={disabled}
                 onChange={(event) =>
@@ -286,27 +291,27 @@ function ManagedEffortField({
             label="Reasoning effort"
             optional
         >
-            <select
-                data-field-path={`$.members.${memberId}.provider.effort`}
+            <Select
+                dataFieldPath={`$.members.${memberId}.provider.effort`}
                 disabled={disabled}
-                onChange={(event) =>
+                onValueChange={(value) =>
                     onEdit({
                         provider: withProviderValue(
                             provider,
                             "effort",
-                            optionalValue(event.target.value),
+                            value === "default" ? undefined : value,
                         ),
                     })
                 }
-                value={provider.effort ?? ""}
-            >
-                <option value="">Provider default</option>
-                {efforts.map((effort) => (
-                    <option key={effort} value={effort}>
-                        {providerLabel(effort)}
-                    </option>
-                ))}
-            </select>
+                options={[
+                    { value: "default", label: "Provider default" },
+                    ...efforts.map((effort) => ({
+                        value: effort,
+                        label: providerLabel(effort),
+                    })),
+                ]}
+                value={provider.effort ?? "default"}
+            />
         </FormField>
     );
 }
@@ -332,30 +337,31 @@ function ManagedSandboxField({
             label="Sandbox and network"
             optional
         >
-            <select
-                data-field-path={`$.members.${memberId}.provider.sandbox`}
+            <Select
+                dataFieldPath={`$.members.${memberId}.provider.sandbox`}
                 disabled={disabled}
-                onChange={(event) =>
+                onValueChange={(value) =>
                     onEdit({
                         provider: withProviderValue(
                             provider,
                             "sandbox",
-                            sandboxFromValue(event.target.value),
+                            sandboxFromValue(value === "default" ? "" : value),
                         ),
                     })
                 }
-                value={sandboxValue(provider.sandbox)}
-            >
-                <option value="">Full access · network allow (default)</option>
-                {sandboxes.map((sandbox) => (
-                    <option
-                        key={`${sandbox.mode}:${sandbox.network}`}
-                        value={`${sandbox.mode}:${sandbox.network}`}
-                    >
-                        {sandboxLabel(sandbox)}
-                    </option>
-                ))}
-            </select>
+                options={[
+                    { value: "default", label: "Provider default" },
+                    ...sandboxes.map((sandbox) => ({
+                        value: `${sandbox.mode}:${sandbox.network}`,
+                        label: sandboxLabel(sandbox),
+                    })),
+                ]}
+                value={
+                    provider.sandbox === undefined || provider.sandbox === null
+                        ? "default"
+                        : sandboxValue(provider.sandbox)
+                }
+            />
         </FormField>
     );
 }
@@ -373,12 +379,40 @@ function providerForKind(kind: string): ProviderSelection | null {
     }
 }
 
+function providerOptions(kinds: readonly string[]): readonly SelectOption[] {
+    const descriptions: Readonly<Record<string, string>> = {
+        codex: "Use the configured Codex provider.",
+        claude: "Use the configured Claude provider.",
+        openclaw: "Use the configured OpenClaw provider.",
+    };
+    return [
+        {
+            value: "default",
+            label: "Installation default",
+            hint: "Use the provider configured for Banksia.",
+        },
+        ...kinds.map((kind) => ({
+            value: kind,
+            label: providerLabel(kind),
+            ...(descriptions[kind] === undefined
+                ? {}
+                : { hint: descriptions[kind] }),
+        })),
+    ];
+}
+
 function withProviderValue(
     provider: Extract<ProviderSelection, { kind: "codex" | "claude" }>,
     field: "model" | "effort" | "sandbox",
     value: string | ProviderSandbox | undefined,
 ): ProviderSelection {
-    const next: Record<string, unknown> = { ...provider };
+    const next: Record<string, unknown> = { kind: provider.kind };
+    for (const providerField of ["model", "effort", "sandbox"] as const) {
+        const currentValue = provider[providerField];
+        if (currentValue !== undefined && currentValue !== null) {
+            next[providerField] = currentValue;
+        }
+    }
     if (value === undefined) {
         delete next[field];
     } else {
@@ -400,21 +434,31 @@ function sandboxValue(sandbox: ProviderSandbox | undefined): string {
 }
 
 function sandboxLabel(sandbox: ProviderSandbox): string {
-    const mode = sandbox.mode.replaceAll("_", " ");
-    return `${providerLabel(mode)} · network ${sandbox.network}`;
+    return `${providerLabel(sandbox.mode)} · Network ${sandbox.network}`;
 }
 
 function uniqueSandboxes(
-    sandboxes: readonly ProviderSandbox[],
+    sandboxes: readonly (ProviderSandbox | null | undefined)[],
 ): readonly ProviderSandbox[] {
     return [
         ...new Map(
-            sandboxes.map((sandbox) => [
-                `${sandbox.mode}:${sandbox.network}`,
-                sandbox,
-            ]),
+            sandboxes
+                .filter(isProviderSandbox)
+                .map(
+                    (sandbox) =>
+                        [
+                            `${sandbox.mode}:${sandbox.network}`,
+                            sandbox,
+                        ] as const,
+                ),
         ).values(),
     ];
+}
+
+function isProviderSandbox(
+    sandbox: ProviderSandbox | null | undefined,
+): sandbox is ProviderSandbox {
+    return sandbox !== null && sandbox !== undefined;
 }
 
 function defaultProviderHint(
@@ -423,12 +467,12 @@ function defaultProviderHint(
 ): string {
     if (options === null) {
         return isLoading
-            ? "Provider choices are loading. The current selection is preserved."
-            : "Provider choices could not be loaded. The current selection is preserved.";
+            ? "Current selection is preserved."
+            : "Choices unavailable. Current selection is preserved.";
     }
     const provider = options.default_provider;
     if (provider === null || provider === undefined) {
-        return "No installation default is currently reported. Configure a provider before running this team.";
+        return "No installation default configured.";
     }
     const details = [
         providerLabel(provider.kind),
@@ -440,7 +484,7 @@ function defaultProviderHint(
             ? null
             : sandboxLabel(provider.sandbox),
     ].filter((detail): detail is string => detail !== null);
-    return `Installation default: ${details.join(" · ")}.`;
+    return `Default: ${details.join(" · ")}`;
 }
 
 function optionalValue(value: string): string | undefined {

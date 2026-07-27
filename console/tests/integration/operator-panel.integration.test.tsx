@@ -8,6 +8,7 @@ import { OperatorQuestionCard } from "../../src/features/operator/OperatorQuesti
 import type {
     OperatorApi,
     OperatorAssistantQuestionSetEntry,
+    OperatorConversationSummary,
     OperatorConversationView,
 } from "../../src/features/operator/operator-api";
 
@@ -267,6 +268,89 @@ describe("temporary Operator conversation flow", () => {
         expect(createKeys[0]).toBe(createKeys[1]);
         expect(listConversations).toHaveBeenCalledTimes(2);
     });
+
+    it("switches existing conversations and starts a new one from the header", async () => {
+        const sendAction: OperatorConversationView["actions"] = [
+            {
+                kind: "send_message",
+                label: "Send message",
+                method: "POST",
+                href: "/api/operator/conversations/op_1/messages",
+            },
+        ];
+        const first = conversation(
+            "ready",
+            [
+                {
+                    id: "message-first",
+                    kind: "assistant_message",
+                    text: "First conversation",
+                    created_at: "2026-07-26T01:00:00Z",
+                },
+            ],
+            sendAction,
+            "op_1",
+        );
+        const second = conversation(
+            "ready",
+            [
+                {
+                    id: "message-second",
+                    kind: "assistant_message",
+                    text: "Second conversation",
+                    created_at: "2026-07-26T02:00:00Z",
+                },
+            ],
+            sendAction,
+            "op_2",
+        );
+        const third = conversation("ready", [], sendAction, "op_3");
+        const summaries: OperatorConversationSummary[] = [
+            conversationSummary("op_1", "First request", "01:00:00"),
+            conversationSummary("op_2", "Second request", "02:00:00"),
+        ];
+        const getConversation = vi.fn((id: string) =>
+            resolved(id === "op_2" ? second : first),
+        );
+        const createConversation = vi.fn(() => resolved(third, 201));
+        const api = operatorApiStub({
+            listConversations: () =>
+                resolved({ items: summaries, next_cursor: null }),
+            getConversation,
+            createConversation,
+        });
+        const user = userEvent.setup();
+
+        render(
+            <MemoryRouter>
+                <OperatorPanel api={api} isOpen onClose={vi.fn()} />
+            </MemoryRouter>,
+        );
+
+        expect(await screen.findByText("First conversation")).toBeVisible();
+        const picker = screen.getByRole("combobox", {
+            name: "Operator conversation",
+        });
+        await user.click(picker);
+        const secondOption = screen.getByRole("option", {
+            name: /Second request/,
+        });
+        expect(secondOption).toHaveTextContent(
+            /Second request(?:Just now|\d+[mhd] ago|\d{1,2} \w{3}(?: \d{4})?)/,
+        );
+        await user.click(secondOption);
+
+        expect(await screen.findByText("Second conversation")).toBeVisible();
+        expect(getConversation).toHaveBeenLastCalledWith("op_2");
+
+        await user.click(
+            screen.getByRole("button", {
+                name: "New Operator conversation",
+            }),
+        );
+        expect(createConversation).toHaveBeenCalledOnce();
+        expect(await screen.findByLabelText("Message Operator")).toBeEnabled();
+    });
 });
 
 function questionSet(): OperatorAssistantQuestionSetEntry {
@@ -315,9 +399,10 @@ function conversation(
     state: OperatorConversationView["state"],
     entries: OperatorConversationView["entries"],
     actions: OperatorConversationView["actions"],
+    id = "op_1",
 ): OperatorConversationView {
     return {
-        id: "op_1",
+        id,
         provider: "codex",
         state,
         entries,
@@ -325,6 +410,21 @@ function conversation(
         created_at: "2026-07-26T01:00:00Z",
         updated_at: "2026-07-26T01:00:00Z",
         older_cursor: null,
+    };
+}
+
+function conversationSummary(
+    id: string,
+    preview: string,
+    time: string,
+): OperatorConversationSummary {
+    return {
+        id,
+        preview,
+        provider: "codex",
+        state: "ready",
+        created_at: `2026-07-26T${time}Z`,
+        updated_at: `2026-07-26T${time}Z`,
     };
 }
 

@@ -280,6 +280,7 @@ async def test_operator_message_and_answer_routes_return_committed_readback(
     assert answer_response.json()["state"] == "ready"
     assert readback.json() == answer_response.json()
     assert [item["id"] for item in listing.json()["items"]] == [conversation_id]
+    assert listing.json()["items"][0]["preview"] == "Create a Workflow."
     assert len(runner.requests) == 2
 
 

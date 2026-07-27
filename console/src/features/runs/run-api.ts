@@ -43,6 +43,7 @@ export interface RunApi {
         signal?: AbortSignal,
     ): Promise<ControllerResponse<TaskSearchResponse>>;
     searchWorkflows(
+        cursor?: string | null,
         signal?: AbortSignal,
     ): Promise<ControllerResponse<WorkflowSearchResponse>>;
     startRun(
@@ -110,11 +111,16 @@ export class RunApiClient implements RunApi {
     }
 
     public searchWorkflows(
+        cursor: string | null = null,
         signal?: AbortSignal,
     ): Promise<ControllerResponse<WorkflowSearchResponse>> {
+        const parameters = new URLSearchParams();
+        if (cursor !== null) {
+            parameters.set("cursor", cursor);
+        }
         return requestProductApi(
             this.apiRoot,
-            "/workflows",
+            `/workflows${querySuffix(parameters)}`,
             signal === undefined ? {} : { signal },
         );
     }

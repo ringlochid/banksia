@@ -78,6 +78,7 @@ Rules:
 - public reference owns external schemas and maintained examples; generated readbacks remain subordinate to their named internal owner
 - frontend work consumes the product/interface owner, generated controller contracts, and the tracked n8n reference protocol as its data and study boundaries
 - external design repos, ignored source clones, screenshots, and static HTML handoffs are visual, state, and interaction references only; they do not override controller-owned routes, fields, states, or legality
+- n8n material may be ported into `console/` only, which is licensed separately under the Sustainable Use License; everything outside `console/` stays MIT-clean. n8n's product vocabulary and data model are never ported — Banksia's terminology stays authoritative. See `docs-internal/verification/n8n-reference-protocol.md`
 - code and tests can expose drift, but they do not silently overrule an owning contract; patch the owner and implementation together
 
 ## Mandatory read order

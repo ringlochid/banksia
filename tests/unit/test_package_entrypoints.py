@@ -145,6 +145,8 @@ def test_pyproject_ships_canonical_packages_only() -> None:
     assert package_data["banksia"] == [
         "interfaces/web_console/assets/index.html",
         "interfaces/web_console/assets/assets/*",
+        "interfaces/web_console/assets/LICENSE.txt",
+        "interfaces/web_console/assets/NOTICE.txt",
         "workflows/resources/starter_workflows/*.yaml",
         "platform/managed_services/resources/systemd/*.service",
         "operator/prompt/assets/*.txt",

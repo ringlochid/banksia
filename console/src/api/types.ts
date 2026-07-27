@@ -10,6 +10,7 @@ export type DraftOperation =
     | components["schemas"]["RemoveMemberOperation"];
 export type MemberCapabilities = components["schemas"]["MemberCapabilities"];
 export type MemberPatch = components["schemas"]["MemberPatch"];
+export type NewMember = components["schemas"]["NewMember"];
 export type NormalizedMember = components["schemas"]["NormalizedMember"];
 export type NormalizedWorkflow = components["schemas"]["NormalizedWorkflow"];
 export type ProviderSandbox = components["schemas"]["ProviderSandbox"];
@@ -32,6 +33,8 @@ export type WorkflowDraftValidationResult =
 export type WorkflowGetResponse = components["schemas"]["WorkflowGetResponse"];
 export type WorkflowPublishedReadback =
     components["schemas"]["WorkflowPublishedReadback"];
+export type WorkflowRemovalResult =
+    components["schemas"]["WorkflowRemovalResult"];
 export type WorkflowSearchItem = components["schemas"]["WorkflowSearchItem"];
 export type WorkflowSearchResponse =
     components["schemas"]["WorkflowSearchResponse"];

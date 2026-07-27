@@ -1,101 +1,120 @@
+/*
+ * Member details panel.
+ *
+ * A contextual panel over the canvas, following n8n's node-detail surface at
+ * pinned commit 43c6f329fb1fb528259a78f80b163e4ed1405c02: a flat header strip
+ * over a scrolling body with a fixed action footer.
+ * Copyright (c) n8n GmbH and contributors. Sustainable Use License; see
+ * console/LICENSE and console/NOTICE.
+ *
+ * Every colour here comes from the token layer in src/styles; no literal
+ * colour values belong in a feature stylesheet.
+ */
+
 .studio-member-details {
     position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
     z-index: 20;
-    top: 1rem;
-    right: 1rem;
-    width: min(27rem, calc(100% - 2rem));
-    max-height: calc(100% - 2rem);
-    overflow: auto;
-    border: 1px solid var(--banksia-line);
-    border-radius: var(--banksia-radius-large);
-    background: var(--banksia-surface);
-    box-shadow: 0 24px 70px rgb(23 37 29 / 22%);
+    display: flex;
+    width: min(26rem, calc(100% - 2rem));
+    overflow: hidden;
+    background: var(--background--surface);
+    border-left: var(--border-width) solid var(--border-color--strong);
+    flex-direction: column;
+    box-shadow: var(--shadow--lg);
 }
 
 .studio-member-details__header {
     position: sticky;
-    z-index: 2;
     top: 0;
+    z-index: 2;
     display: flex;
+    gap: var(--spacing--2xs);
     align-items: center;
     justify-content: space-between;
-    gap: 1rem;
-    padding: 0.9rem 1rem;
-    border-bottom: 1px solid var(--banksia-line);
-    background: rgb(255 253 248 / 96%);
-    backdrop-filter: blur(10px);
+    padding: var(--spacing--2xs) var(--spacing--xs);
+    background: var(--background--surface);
+    border-bottom: var(--border-width) solid var(--border-color);
 }
 
-.studio-member-details__header p,
-.studio-member-details__header h2 {
-    margin: 0;
-}
-
+/*
+ * The header carried a green all-caps "SELECTED TEAMMATE" line above the word
+ * "Details" — two labels for one panel. Only the name remains.
+ */
 .studio-member-details__header p {
-    color: var(--banksia-leaf);
-    font-size: 0.68rem;
-    font-weight: 850;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
+    display: none;
 }
 
 .studio-member-details__header h2 {
-    font-size: 1.05rem;
+    overflow: hidden;
+    font-size: var(--font-size--sm);
+    font-weight: var(--font-weight--bold);
+    color: var(--text-color);
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .studio-member-details__close {
-    width: 2.75rem;
-    min-width: 2.75rem;
+    width: var(--control-height);
+    min-width: var(--control-height);
     padding: 0;
 }
 
 .studio-member-details__body {
     display: grid;
-    gap: 0.9rem;
-    padding: 0.9rem;
+    align-content: start;
+    min-height: 0;
+    gap: var(--spacing--2xs);
+    padding: var(--spacing--xs);
+    overflow-y: auto;
+    flex: 1;
 }
 
 .studio-member-details .studio-form {
-    padding: 0.9rem;
-    border-radius: var(--banksia-radius);
+    align-content: start;
+    gap: var(--spacing--xs);
+    grid-auto-rows: max-content;
+    padding: 0;
+    background: transparent;
+    border: 0;
     box-shadow: none;
 }
 
-.studio-member-details .studio-form textarea {
+.studio-member-details textarea[data-field-path$=".description"],
+.studio-member-details textarea[data-field-path="$.description"] {
     min-height: 6rem;
 }
 
-.studio-member-details__workflow {
-    border: 1px solid var(--banksia-line);
-    border-radius: var(--banksia-radius);
-    background: var(--banksia-surface);
+.studio-member-details textarea[data-field-path$=".instruction"],
+.studio-member-details textarea[data-field-path="$.note"] {
+    min-height: 10rem;
 }
 
-.studio-member-details__workflow > summary {
-    min-height: 2.9rem;
-    padding: 0.75rem 0.9rem;
-    cursor: pointer;
-    color: var(--banksia-ink-800);
-    font-size: 0.86rem;
-    font-weight: 800;
+.studio-member-details__footer {
+    display: flex;
+    flex: none;
+    gap: var(--spacing--2xs);
+    justify-content: flex-end;
+    padding: var(--spacing--xs);
+    background: var(--background--surface);
+    border-top: var(--border-width) solid var(--border-color);
 }
 
-.studio-member-details__workflow[open] > summary {
-    border-bottom: 1px solid var(--banksia-line);
+.studio-member-details__footer > .ui-button--danger:only-child {
+    margin-right: auto;
 }
 
-.studio-member-details__workflow > .studio-form {
-    border: 0;
-}
-
+/* Narrow screens present the panel as a bottom sheet instead. */
 .studio-member-details__backdrop {
     position: fixed;
-    z-index: 120;
     inset: 0;
+    z-index: 120;
     display: flex;
     align-items: flex-end;
     justify-content: center;
-    background: rgb(23 37 29 / 52%);
+    background: var(--background--overlay);
 }
 
 .studio-member-details__backdrop .studio-member-details {
@@ -103,35 +122,24 @@
     top: auto;
     right: auto;
     width: 100%;
-    max-height: min(88vh, 50rem);
+    max-height: min(88vh, 44rem);
     border: 0;
-    border-top: 1px solid var(--banksia-line);
-    border-radius: 1.35rem 1.35rem 0 0;
-    box-shadow: 0 -20px 60px rgb(23 37 29 / 22%);
+    border-top: var(--border-width) solid var(--border-color--strong);
+    border-radius: var(--radius--xs) var(--radius--xs) 0 0;
 }
 
 .studio-member-details__backdrop .studio-member-details__header::before {
     position: absolute;
-    top: 0.42rem;
+    top: var(--spacing--5xs);
     left: 50%;
-    width: 3rem;
+    width: 2.5rem;
     height: 0.25rem;
-    border-radius: 999px;
-    background: var(--banksia-line-strong);
     content: "";
+    background: var(--border-color--stronger);
+    border-radius: var(--radius--full);
     transform: translateX(-50%);
 }
 
 .studio-member-details__backdrop .studio-member-details__header {
-    padding-top: 1.1rem;
-}
-
-@media (max-width: 22rem) {
-    .studio-member-details__body {
-        padding-inline: 0.55rem;
-    }
-
-    .studio-member-details .studio-form {
-        padding-inline: 0.7rem;
-    }
+    padding-top: var(--spacing--xs);
 }

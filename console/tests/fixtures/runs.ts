@@ -243,7 +243,7 @@ export function workflowSearchFixture(): WorkflowSearchResponse {
                 updated_at: "2026-07-25T23:00:00Z",
                 provenance: "user",
                 published_revision_no: 3,
-                available_actions: ["edit", "start_run"],
+                available_actions: ["edit", "start_run", "remove"],
             },
         ],
         next_cursor: null,

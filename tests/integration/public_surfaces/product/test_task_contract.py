@@ -227,8 +227,10 @@ async def test_exact_root_checkpoint_is_the_only_result_and_terminal_activity(
         if activity.kind in {"task_completed", "task_blocked"}
     ]
     assert len(root_terminal) == 1
-    assert root_terminal[0].summary == view.result.summary
-    assert root_terminal[0].files == view.result.files
+    assert root_terminal[0].summary is None
+    assert root_terminal[0].files == ()
+    assert view.team.latest_update is None
+    assert any(child.latest_update is not None for child in view.team.children)
 
 
 async def test_task_search_uses_stable_keyset_and_one_summary_query(

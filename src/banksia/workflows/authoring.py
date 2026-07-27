@@ -14,6 +14,7 @@ from sqlalchemy.sql.elements import ColumnElement
 from banksia.persistence.models import (
     WorkflowDefinitionModel,
     WorkflowDraftModel,
+    WorkflowRevisionModel,
     WorkflowUndoReceiptModel,
 )
 from banksia.workflows.authoring_contracts import (
@@ -24,6 +25,7 @@ from banksia.workflows.authoring_contracts import (
     WorkflowDraftOpenResult,
     WorkflowDraftReadback,
     WorkflowDraftValidationResult,
+    WorkflowRemovalResult,
 )
 from banksia.workflows.canonical import canonical_workflow_hash
 from banksia.workflows.catalog import read_published_workflow_revision
@@ -248,6 +250,30 @@ async def discard_workflow_draft(
     raise WorkflowStaleDraftError(map_workflow_draft_readback(current))
 
 
+async def remove_workflow(
+    session: AsyncSession,
+    *,
+    workflow_id: str,
+) -> WorkflowRemovalResult:
+    draft = await _active_draft_row_for_update(session, workflow_id=workflow_id)
+    owner = await acquire_workflow_owner(session, workflow_id=workflow_id)
+    draft = await _active_draft_row_for_update(session, workflow_id=workflow_id)
+    has_revisions = await _has_published_revisions(session, workflow_id=workflow_id)
+    if draft is None and owner.current_revision_no is None:
+        if not has_revisions:
+            await session.delete(owner)
+        raise WorkflowNotFoundError(f"Workflow {workflow_id!r} does not exist")
+    if draft is not None:
+        await session.delete(draft)
+    if owner.current_revision_no is not None:
+        owner.current_revision_no = None
+        owner.updated_at = datetime.now(UTC)
+    elif not has_revisions:
+        await session.delete(owner)
+    await session.flush()
+    return WorkflowRemovalResult(is_removed=True, workflow_id=workflow_id)
+
+
 async def publish_workflow_draft(
     session: AsyncSession,
     *,
@@ -344,6 +370,11 @@ async def _create_workflow_draft(
     existing = await _active_draft_row_for_update(session, workflow_id=workflow.id)
     if existing is not None:
         raise WorkflowDraftConflictError(f"Workflow {workflow.id!r} already has an active draft")
+    if owner.current_revision_no is None and await _has_published_revisions(
+        session,
+        workflow_id=workflow.id,
+    ):
+        raise WorkflowDraftConflictError(f"Workflow {workflow.id!r} was removed")
     return await _insert_workflow_draft(
         session,
         workflow=workflow,
@@ -365,6 +396,8 @@ async def _create_new_workflow_draft(
         raise WorkflowDraftConflictError(f"Workflow {workflow.id!r} already has an active draft")
     if owner.current_revision_no is not None:
         raise WorkflowDraftConflictError(f"Workflow {workflow.id!r} is already published")
+    if await _has_published_revisions(session, workflow_id=workflow.id):
+        raise WorkflowDraftConflictError(f"Workflow {workflow.id!r} was removed")
     return await _insert_workflow_draft(
         session,
         workflow=workflow,
@@ -436,6 +469,19 @@ async def _insert_workflow_draft(
             f"Workflow {workflow.id!r} already has an active draft"
         ) from None
     return map_workflow_draft_readback(row)
+
+
+async def _has_published_revisions(
+    session: AsyncSession,
+    *,
+    workflow_id: str,
+) -> bool:
+    revision_no = await session.scalar(
+        select(WorkflowRevisionModel.revision_no)
+        .where(WorkflowRevisionModel.workflow_key == workflow_id)
+        .limit(1)
+    )
+    return revision_no is not None
 
 
 async def _delete_draft_with_etag(
@@ -579,6 +625,7 @@ __all__ = [
     "publish_workflow_draft",
     "read_workflow_catalog_entry",
     "read_workflow_draft",
+    "remove_workflow",
     "search_workflow_catalog",
     "undo_workflow_draft",
     "validate_workflow_draft",

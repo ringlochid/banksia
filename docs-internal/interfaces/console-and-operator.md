@@ -65,6 +65,7 @@ Every product mutation returns controller truth plus an opaque receipt or curren
 | `GET /api/workflows` | Search the unified Workflow library across published Workflows and active drafts. | `WorkflowSearchResponse` | Console, Operator `workflow_search` |
 | `GET /api/workflows/authoring-options` | Read supported provider, sandbox, model/effort, and built-in capability authoring choices. | `WorkflowAuthoringOptions` | Console, Operator `workflow_authoring_options` |
 | `GET /api/workflows/{workflow_id}` | Read current published Workflow when present, bounded immutable history, and active draft/ETag when present. At least one of published or draft truth must exist. | `WorkflowGetResponse` | Console, Operator `workflow_get` |
+| `DELETE /api/workflows/{workflow_id}` | Remove a Workflow from the active library and discard its active draft while preserving every immutable revision referenced by existing Tasks. | `WorkflowRemovalResult` | Console |
 | `POST /api/workflow-drafts` | Create a new draft from a minimal browser request or complete structured JSON candidate, or atomically open an existing Workflow for editing. Return `201 Created` with `Location` only when a draft is created and `200 OK` when the existing active draft is returned. | `WorkflowDraftOpenResult` | Console, Operator `workflow_draft_create` |
 | `GET /api/workflow-drafts/{draft_id}` | Read one mutable draft and ETag. | `WorkflowDraftReadback` | Console |
 | `PATCH /api/workflow-drafts/{draft_id}` | Apply one closed typed metadata, note, Member, provider, or capability edit. | `WorkflowDraftMutationResult` | Console, Operator `workflow_draft_edit` |
@@ -145,7 +146,7 @@ Browser requests and responses use structured JSON. They contain no generic Defi
 
 ### Draft concurrency and identity
 
-- The Workflow library is controller truth for all editable Workflows. A row is `draft`, `published`, or `published_with_draft`; it includes the current human description, last controller update time, provenance, optional published revision number, and the closed currently legal action set `edit | start_run`. A draft-only Workflow remains discoverable after browser refresh, navigation, and controller restart.
+- The Workflow library is controller truth for all editable Workflows. A row is `draft`, `published`, or `published_with_draft`; it includes the current human description, last controller update time, provenance, optional published revision number, and the closed currently legal action set `edit | start_run | remove`. A draft-only Workflow remains discoverable after browser refresh, navigation, and controller restart.
 - Library `updated_at` is the later durable change to the Workflow's current-publication selection or its active draft. Opening, editing, publishing, discarding a published Workflow's draft, and reselecting an immutable revision therefore never make the visible time regress to an older revision's creation time.
 - Creating a new Workflow draft accepts its stable Workflow ID, required description, and optional initial-lead prose/settings without a Member ID. The controller allocates the first Member ID and returns the complete draft.
 - Opening a Workflow for editing is idempotent: return its active draft when one exists; otherwise clone the current published revision and pin its base revision in the same transaction. It never performs a browser read-copy-write or silently replaces an active draft.
@@ -157,7 +158,7 @@ Browser requests and responses use structured JSON. They contain no generic Defi
 - The controller allocates new member IDs for canvas/Operator add operations.
 - IDs cannot be edited after creation.
 - Draft mutations are autosaved to controller truth and return an opaque, controller-issued, single-use Undo receipt bound to the draft and accepted ETag. The browser never computes or submits an inverse mutation.
-- Discard deletes only a mutable draft. A published Workflow revision is immutable and has no product delete operation in this baseline.
+- Discard deletes only a mutable draft. **Remove Workflow** is a separate confirmed library operation: it discards any active draft and clears the current published selection so the Workflow cannot be found or used to start new work. It never deletes immutable revisions, changes existing Task revision pins, or permits a removed published ID to be silently reused or restored by starter seeding. Removing a never-published draft releases its unused ID.
 - Publish is explicit and creates an immutable revision. Autosave never publishes.
 
 The UI and Operator call the same structured services. Neither maintains a parallel local Workflow truth.
@@ -197,6 +198,8 @@ TaskView
 `actions[]` is the backend-owned legal control set. The browser does not derive pause/resume/cancel/answer/cancel-action legality from controller internals.
 
 `result` is null until an accepted terminal root Checkpoint exists. When present it is singular and contains exact completed/blocked outcome, Checkpoint summary, optional details, file references, and completion time. Cancellation or infrastructure failure without that Checkpoint never fabricates a Result.
+
+When `result` is present, the Run header does not repeat a generic terminal `status_message`. The status label and singular Result already communicate the terminal state; actionable status messages remain visible for non-terminal Runs and terminal Runs without a Result.
 
 Every nested `files[]` entry is only a workspace-relative path and optional short description already recorded on its Assignment, Checkpoint, or Human Request. Result, Activity, attention, and current-work views mirror those exact source values. References stay embedded in their owning semantic view; `TaskView` has no standalone file catalog. A reference has no generic file resource ID, frozen body, version, hash, or content guarantee. A separately authorized browser file route may open the file's current bytes after fresh containment checks; it must label missing or changed files honestly and is not an Operator tool.
 
@@ -277,6 +280,8 @@ Top-level navigation is intentionally small:
 - **Workflows** — library, Workflow Studio, publish, and start;
 - **Runs** — task list, Run Studio, attention, Activity, and Result.
 
+The sidebar exposes explicit create, collapse, navigation, and Operator actions. It has no global search or command-palette affordance while Banksia owns no corresponding cross-product command surface. Workflow and Run search stay page-scoped. The sidebar create action opens the same Create Workflow dialog as the Workflow library action.
+
 Settings needed for controller/provider configuration may be contextual but do not become a third authoring model.
 
 An empty/reset installation shows exactly seven packaged Starter Workflows in the Workflow library as ordinary published teams with a quiet **Starter** label and a plain-language “use when” description: `reviewed-code-change`, `debug-and-verify`, `cross-layer-feature`, `bounded-maintenance-batch`, `evidence-synthesis`, `technical-decision`, and `reproducible-study`.
@@ -298,7 +303,7 @@ It never installs the maintained `advanced-*` reference examples. Because Starte
 
 Use React Flow for canvas interaction and Dagre with `rankdir: LR` for the first deterministic layout. Test broad, deep, collapsed, blank-title, error, and localized trees with measured cards. Evaluate ELK only if Dagre demonstrably cannot preserve readable noncrossing subtrees.
 
-Canvas coordinates, viewport, zoom, selection, and collapse are presentation state, never Workflow or scheduling data. Baseline authoring has no arbitrary free positioning, drag reorder, or drag reparent.
+Canvas coordinates, viewport, zoom, selection, and collapse are presentation state, never Workflow or scheduling data. A user may drag a Member card to a temporary browser-local canvas position to inspect a dense team; `Tidy team` discards those offsets. Dragging never changes authored child order, ownership, or parentage, and the Console has no controller-persisted manual layout, drag reorder, or drag reparent.
 
 ### One trailing add-child control
 
@@ -306,17 +311,18 @@ Exactly one visible `+` belongs to the selected editable Member:
 
 - with no children it sits on a short right-side stem;
 - with children it occupies the next vertical direct-child slot after the final accepted child subtree;
-- activation submits one structured add-child mutation and no type picker;
-- an in-flight pending card is UI state only;
-- accepted truth appends one blank child with controller ID, keeps the parent selected, and moves the same `+` to the next slot;
-- failure removes pending state and restores the original control; and
+- activation opens a local unsaved Member in the context drawer and no type picker;
+- the pending Member has no controller ID, does not appear in accepted hierarchy truth, requires a nonblank Name, and is committed only when the user chooses **Add Member**;
+- cancelling or closing the pending Member submits no mutation and restores the original control;
+- saving submits one structured add-child mutation; accepted truth appends the new child with its controller ID, selects it, and moves the same `+` to that child's trailing slot;
+- failure preserves the local form, reports one safe retry action, and leaves accepted hierarchy truth unchanged; and
 - selecting another Member relocates the single `+` to that Member.
 
 Run Studio never shows the authoring `+`. The accessible outline and Member drawer expose an equivalent text Add child action.
 
 ### Member editing
 
-Selecting a card opens one context drawer with human fields in this order:
+Selecting a card opens a Member context drawer with human fields in this order:
 
 1. title/name;
 2. purpose/description;
@@ -326,7 +332,9 @@ Selecting a card opens one context drawer with human fields in this order:
 
 The capability controls say what they permit in human language. They do not show Policy, generic tools, MCP, allow/deny rule expressions, or system-prompt prose. Child controls always begin from that child's explicit grants; the UI never implies inheritance from the selected parent.
 
-ID is visible only when support/import needs it and is never editable. Removal states the full subtree consequence. After accepted removal, selection and focus move to the removed Member's surviving direct parent; the browser derives that destination from the pre-mutation accepted tree and confirms it still exists in returned controller truth. Changes autosave through structured JSON with ETag conflict handling, receipts, and controller-issued single-use Undo; publish is explicit. Discard applies only to the mutable draft; published Workflow revisions cannot be deleted.
+Workflow purpose and shared note never appear inside a Member drawer. A separate **Workflow settings** action opens a mutually exclusive drawer containing only those Workflow-owned fields. Forms use visible labels and consistent input surfaces; explanatory prose does not repeat the label, value, or product noun.
+
+ID is visible only when support/import needs it and is never editable. Every removable non-lead Member keeps **Remove member** visible in the fixed drawer footer; the lead has no removal action because it owns the Workflow. Removal states the full subtree consequence. After accepted removal, selection and focus move to the removed Member's surviving direct parent; the browser derives that destination from the pre-mutation accepted tree and confirms it still exists in returned controller truth. Changes autosave through structured JSON with ETag conflict handling, receipts, and controller-issued single-use Undo; publish is explicit. Discard applies only to the mutable draft. Workflow removal lives in Workflow-level library or settings actions, requires confirmation, and preserves published revision history used by existing Tasks.
 
 ### Canvas and drawer
 
@@ -336,7 +344,7 @@ The canvas owns the page body. One contextual surface displays Member details, O
 - narrow screen: bottom sheet plus accessible tree/outline as primary navigation;
 - opening it pans the selected card into the unobscured region.
 
-`Tidy team` deterministically recomputes visible card positions from hierarchy, authored child order, card sizes, and collapse state. It changes no draft, revision, event, or runtime fact and preserves selection/context/zoom when practical. `Fit team` changes viewport only. They are separate controls.
+The first render deterministically computes visible card positions from hierarchy, authored child order, card sizes, and collapse state. Afterwards, the user may reposition cards freely for the current browser view. `Tidy team` discards those offsets and restores the deterministic hierarchy layout. `Fit team` changes viewport only. Neither control creates a draft, revision, event, or runtime fact. During a drag, the canvas renderer owns transient node geometry and updates only the moving card, its attached add control, and connected lines. The browser-local position commits on drag stop so pointer movement does not rebuild or flash the whole canvas.
 
 ## Run Studio
 
@@ -438,6 +446,8 @@ OperatorConversationEntry
   user message | user answers | assistant message |
   assistant question set | visible interruption
 ```
+
+The conversation picker identifies a durable conversation by its first user message, with whitespace collapsed and the visible preview capped at 64 characters. An empty conversation is labeled **New conversation**. Updated time is secondary metadata and never replaces or repeats the content label. This preview is a controller projection, not a generated title or another durable record.
 
 Do not reproduce Assignment, Attempt, Dispatch, Wave, Checkpoint, invocation, effect, proposal, confirmation, retry, or raw tool-event families for Operator chat. One nullable active-turn compare-and-swap permits at most one provider turn per conversation. Message and answer routes run one turn synchronously. Duplicate transport requests return committed readback or a typed conflict and never replay provider work or a mutation. The exact route, record, transaction, and interruption contract lives in the [Operator conversation contract](operator-conversation-contract.md).
 

@@ -134,7 +134,12 @@ async def _should_select_revision(
     if not requested or current_provenance_guard is None:
         return requested
     if owner.current_revision_no is None:
-        return True
+        existing_revision = await session.scalar(
+            select(WorkflowRevisionModel.revision_no)
+            .where(WorkflowRevisionModel.workflow_key == owner.workflow_key)
+            .limit(1)
+        )
+        return existing_revision is None
     current_provenance = await session.scalar(
         select(WorkflowRevisionModel.provenance).where(
             WorkflowRevisionModel.workflow_key == owner.workflow_key,

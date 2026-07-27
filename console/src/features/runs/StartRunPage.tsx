@@ -1,10 +1,26 @@
-import { ArrowLeft, FilePlus2, Play, RefreshCw, Trash2 } from "lucide-react";
+import {
+    ArrowLeft,
+    FilePlus2,
+    Play,
+    RefreshCw,
+    Trash2,
+    Workflow,
+} from "lucide-react";
 import { useEffect, useId, useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
-import { Button, FormField, Notice } from "../../components/ui";
+import {
+    Button,
+    FormField,
+    Input,
+    Notice,
+    PageState,
+    Prose,
+    Textarea,
+} from "../../components/ui";
 import { errorMessage } from "./run-presentation";
 import type { FileReference, RunApi, WorkflowSearchItem } from "./run-api";
+import { WorkflowPicker } from "./WorkflowPicker";
 
 export interface StartRunPageProps {
     readonly api: RunApi;
@@ -33,12 +49,8 @@ export function StartRunPage({ api }: StartRunPageProps) {
 
     useEffect(() => {
         const controller = new AbortController();
-        void api
-            .searchWorkflows(controller.signal)
-            .then(({ body }) => {
-                const published = body.items.filter(
-                    (workflow) => workflow.published_revision_no !== null,
-                );
+        void loadPublishedWorkflows(api, controller.signal)
+            .then((published) => {
                 setWorkflows(published);
                 setWorkflowId((current) => {
                     if (
@@ -125,182 +137,184 @@ export function StartRunPage({ api }: StartRunPageProps) {
     }
 
     return (
-        <section className="page-frame run-start">
-            <Link className="run-back-link" to="/runs">
-                <ArrowLeft aria-hidden="true" size={17} />
-                Back to Runs
-            </Link>
-            <header>
-                <p className="run-eyebrow">New work</p>
-                <h1>Start a Run</h1>
-                <p>
-                    Choose a published team and give it one complete prompt.
-                    Banksia will start the work asynchronously.
-                </p>
+        <section className="page run-start">
+            <header className="page__header run-start__topbar">
+                <Link className="run-back-link" to="/runs">
+                    <ArrowLeft aria-hidden="true" size={17} />
+                    Back to Runs
+                </Link>
             </header>
+            <div className="page__body run-start__body">
+                <div className="run-start__content">
+                    <header className="run-start__intro">
+                        <h1>Start a run</h1>
+                    </header>
 
-            {loading ? (
-                <div className="run-start__state" role="status">
-                    Loading published Workflows…
-                </div>
-            ) : error !== null && workflows.length === 0 ? (
-                <Notice tone="danger" urgent>
-                    <p>{error}</p>
-                    <Button
-                        onClick={() => {
-                            setLoading(true);
-                            setError(null);
-                            setReloadKey((key) => key + 1);
-                        }}
-                    >
-                        <RefreshCw aria-hidden="true" size={16} />
-                        Try again
-                    </Button>
-                </Notice>
-            ) : workflows.length === 0 ? (
-                <Notice title="Publish a Workflow first" tone="warning">
-                    <p>
-                        Runs use a published team. Finish and publish a
-                        Workflow, then come back here.
-                    </p>
-                    <Link
-                        className="ui-button ui-button--secondary"
-                        to="/workflows"
-                    >
-                        Open Workflows
-                    </Link>
-                </Notice>
-            ) : (
-                <form
-                    aria-busy={submitting}
-                    className="run-start__form"
-                    onSubmit={(event) => void handleSubmit(event)}
-                >
-                    {error === null ? null : (
-                        <Notice tone="danger" urgent>
-                            {error}
-                        </Notice>
-                    )}
-                    <FormField id="run-workflow" label="Workflow">
-                        <select
-                            disabled={submitting}
-                            onChange={(event) =>
-                                setWorkflowId(event.target.value)
-                            }
-                            value={workflowId}
-                        >
-                            {workflows.map((workflow) => (
-                                <option
-                                    key={workflow.workflow_id}
-                                    value={workflow.workflow_id}
-                                >
-                                    {workflow.workflow_id} —{" "}
-                                    {workflow.description}
-                                </option>
-                            ))}
-                        </select>
-                    </FormField>
-                    <FormField
-                        hint="Include the outcome, important context, and any constraints the team must follow."
-                        id="run-prompt"
-                        label="What should the team accomplish?"
-                    >
-                        <textarea
-                            disabled={submitting}
-                            onChange={(event) => setPrompt(event.target.value)}
-                            required
-                            value={prompt}
+                    {loading ? (
+                        <PageState
+                            fill
+                            kind="loading"
+                            title="Loading Workflows"
                         />
-                    </FormField>
-
-                    <details className="run-start__advanced">
-                        <summary>Advanced</summary>
-                        <div className="run-start__advanced-body">
+                    ) : error !== null && workflows.length === 0 ? (
+                        <PageState
+                            actions={
+                                <Button
+                                    onClick={() => {
+                                        setLoading(true);
+                                        setError(null);
+                                        setReloadKey((key) => key + 1);
+                                    }}
+                                >
+                                    <RefreshCw aria-hidden="true" size={16} />
+                                    Try again
+                                </Button>
+                            }
+                            detail={error}
+                            fill
+                            kind="error"
+                            title="Workflows could not be loaded"
+                        />
+                    ) : workflows.length === 0 ? (
+                        <PageState
+                            actions={
+                                <Link
+                                    className="ui-button ui-button--secondary"
+                                    to="/workflows"
+                                >
+                                    Open Workflows
+                                </Link>
+                            }
+                            detail="Publish a Workflow before starting a Run."
+                            fill
+                            icon={Workflow}
+                            title="No published Workflows"
+                        />
+                    ) : (
+                        <form
+                            aria-busy={submitting}
+                            className="run-start__form"
+                            onSubmit={(event) => void handleSubmit(event)}
+                        >
+                            {error === null ? null : (
+                                <Notice tone="danger" urgent>
+                                    <Prose>{error}</Prose>
+                                </Notice>
+                            )}
+                            <FormField id="run-workflow" label="Workflow">
+                                <WorkflowPicker
+                                    disabled={submitting}
+                                    onValueChange={setWorkflowId}
+                                    value={workflowId}
+                                    workflows={workflows}
+                                />
+                            </FormField>
                             <FormField
-                                hint="Leave blank to use the installation's configured default workspace."
-                                id="run-workspace"
-                                label="Workspace"
-                                optional
+                                hint="Include the outcome, important context, and any constraints the team must follow."
+                                id="run-prompt"
+                                label="What should the team accomplish?"
                             >
-                                <input
+                                <Textarea
                                     disabled={submitting}
                                     onChange={(event) =>
-                                        setWorkspace(event.target.value)
+                                        setPrompt(event.target.value)
                                     }
-                                    placeholder="/path/to/project"
-                                    value={workspace}
+                                    required
+                                    value={prompt}
                                 />
                             </FormField>
 
-                            <section
-                                aria-labelledby="referenced-files-title"
-                                className="run-files-editor"
-                            >
-                                <div className="run-files-editor__heading">
-                                    <div>
-                                        <h2 id="referenced-files-title">
-                                            Referenced files
-                                        </h2>
-                                        <p>
-                                            Add paths the team should inspect.
-                                            Banksia records the path, not a copy
-                                            of the file.
-                                        </p>
-                                    </div>
-                                    <Button
-                                        disabled={submitting}
-                                        onClick={addFile}
+                            <details className="run-start__advanced">
+                                <summary>Advanced</summary>
+                                <div className="run-start__advanced-body">
+                                    <FormField
+                                        hint="Leave blank to use the installation's configured default workspace."
+                                        id="run-workspace"
+                                        label="Workspace"
+                                        optional
                                     >
-                                        <FilePlus2
-                                            aria-hidden="true"
-                                            size={16}
+                                        <Input
+                                            disabled={submitting}
+                                            onChange={(event) =>
+                                                setWorkspace(event.target.value)
+                                            }
+                                            placeholder="/path/to/project"
+                                            value={workspace}
                                         />
-                                        Add file
-                                    </Button>
-                                </div>
-                                {files.map((file, index) => (
-                                    <FileDraftRow
-                                        disabled={submitting}
-                                        file={file}
-                                        index={index}
-                                        key={file.key}
-                                        onRemove={() =>
-                                            setFiles((current) =>
-                                                current.filter(
-                                                    (candidate) =>
-                                                        candidate.key !==
-                                                        file.key,
-                                                ),
-                                            )
-                                        }
-                                        onUpdate={(patch) =>
-                                            updateFile(file.key, patch)
-                                        }
-                                    />
-                                ))}
-                            </section>
-                        </div>
-                    </details>
+                                    </FormField>
 
-                    <div className="run-start__actions">
-                        <Link
-                            aria-disabled={submitting || undefined}
-                            className="ui-button ui-button--quiet"
-                            to="/runs"
-                        >
-                            Cancel
-                        </Link>
-                        <Button
-                            disabled={submitting}
-                            tone="primary"
-                            type="submit"
-                        >
-                            <Play aria-hidden="true" size={17} />
-                            {submitting ? "Starting…" : "Start run"}
-                        </Button>
-                    </div>
-                </form>
-            )}
+                                    <section
+                                        aria-labelledby="referenced-files-title"
+                                        className="run-files-editor"
+                                    >
+                                        <div className="run-files-editor__heading">
+                                            <div>
+                                                <h2 id="referenced-files-title">
+                                                    Referenced files
+                                                </h2>
+                                                <p>
+                                                    Add paths the team should
+                                                    inspect. Banksia records the
+                                                    path, not a copy of the
+                                                    file.
+                                                </p>
+                                            </div>
+                                            <Button
+                                                disabled={submitting}
+                                                onClick={addFile}
+                                            >
+                                                <FilePlus2
+                                                    aria-hidden="true"
+                                                    size={16}
+                                                />
+                                                Add file
+                                            </Button>
+                                        </div>
+                                        {files.map((file, index) => (
+                                            <FileDraftRow
+                                                disabled={submitting}
+                                                file={file}
+                                                index={index}
+                                                key={file.key}
+                                                onRemove={() =>
+                                                    setFiles((current) =>
+                                                        current.filter(
+                                                            (candidate) =>
+                                                                candidate.key !==
+                                                                file.key,
+                                                        ),
+                                                    )
+                                                }
+                                                onUpdate={(patch) =>
+                                                    updateFile(file.key, patch)
+                                                }
+                                            />
+                                        ))}
+                                    </section>
+                                </div>
+                            </details>
+
+                            <div className="run-start__actions">
+                                <Link
+                                    aria-disabled={submitting || undefined}
+                                    className="ui-button ui-button--quiet"
+                                    to="/runs"
+                                >
+                                    Cancel
+                                </Link>
+                                <Button
+                                    disabled={submitting}
+                                    tone="primary"
+                                    type="submit"
+                                >
+                                    <Play aria-hidden="true" size={17} />
+                                    {submitting ? "Starting…" : "Start run"}
+                                </Button>
+                            </div>
+                        </form>
+                    )}
+                </div>
+            </div>
         </section>
     );
 }
@@ -324,7 +338,7 @@ function FileDraftRow({
     return (
         <div className="run-file-draft">
             <FormField id={`${baseId}-path`} label={`File ${index + 1} path`}>
-                <input
+                <Input
                     disabled={disabled}
                     onChange={(event) => onUpdate({ path: event.target.value })}
                     placeholder="docs/research-brief.md"
@@ -337,7 +351,7 @@ function FileDraftRow({
                 label="Why should the team open it?"
                 optional
             >
-                <input
+                <Input
                     disabled={disabled}
                     onChange={(event) =>
                         onUpdate({ description: event.target.value })
@@ -372,4 +386,22 @@ function normalizedFiles(files: readonly FileDraft[]): FileReference[] | null {
         });
     }
     return normalized;
+}
+
+async function loadPublishedWorkflows(
+    api: RunApi,
+    signal: AbortSignal,
+): Promise<WorkflowSearchItem[]> {
+    const publishedById = new Map<string, WorkflowSearchItem>();
+    let cursor: string | null = null;
+    do {
+        const { body } = await api.searchWorkflows(cursor, signal);
+        for (const workflow of body.items) {
+            if (workflow.published_revision_no !== null) {
+                publishedById.set(workflow.workflow_id, workflow);
+            }
+        }
+        cursor = body.next_cursor ?? null;
+    } while (cursor !== null);
+    return [...publishedById.values()];
 }

@@ -23,12 +23,14 @@ describe("team layout", () => {
         expect(addNodeCenter(addNode)).toBeCloseTo(
             leadNode.y + leadNode.height / 2,
         );
-        expect(result.edges).toContainEqual({
-            id: "add:lead",
-            kind: "add",
-            source: "lead",
-            target: addNodeId("lead"),
-        });
+        expect(result.edges).toContainEqual(
+            expect.objectContaining({
+                id: "add:lead",
+                kind: "add",
+                source: "lead",
+                target: addNodeId("lead"),
+            }),
+        );
     });
 
     it("keeps broad authored siblings in stable top-to-bottom order", () => {
@@ -169,9 +171,11 @@ describe("team layout", () => {
         expect(
             collapsed.visibleMembers.map((entry) => entry.member.id),
         ).toEqual(["lead", "manager", "peer"]);
+        // A collapsed Member hides the slot a new child would occupy, so no
+        // add control is offered until it is expanded.
         expect(
             collapsed.nodes.filter((node) => node.kind === "add"),
-        ).toHaveLength(1);
+        ).toHaveLength(0);
     });
 });
 

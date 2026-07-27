@@ -1,28 +1,31 @@
 @import "tailwindcss";
+@import "./primitives.css";
 @import "./tokens.css";
 
-* {
+*,
+*::before,
+*::after {
     box-sizing: border-box;
 }
 
 html {
-    min-width: 20rem;
-    background: var(--banksia-paper);
-    color: var(--banksia-ink-950);
-    font-family: var(--banksia-font);
-    line-height: 1.5;
+    height: 100%;
+    background: var(--background--base);
+    color: var(--text-color);
+    font-family: var(--font-family);
+    font-size: 100%;
+    line-height: var(--line-height--regular);
+    -webkit-font-smoothing: antialiased;
 }
 
 body {
-    min-height: 100vh;
+    height: 100%;
     margin: 0;
-    background:
-        radial-gradient(
-            circle at 88% 0%,
-            rgb(217 163 33 / 10%),
-            transparent 25rem
-        ),
-        var(--banksia-paper);
+    font-size: var(--font-size--sm);
+}
+
+#root {
+    height: 100%;
 }
 
 button,
@@ -30,6 +33,7 @@ input,
 select,
 textarea {
     font: inherit;
+    color: inherit;
 }
 
 button,
@@ -42,12 +46,63 @@ summary {
 }
 
 :focus-visible {
-    outline: 0.1875rem solid var(--banksia-focus);
-    outline-offset: 0.1875rem;
+    outline: 2px solid var(--focus-ring--color);
+    outline-offset: 2px;
 }
 
 a {
     color: inherit;
+    text-decoration: none;
+}
+
+h1,
+h2,
+h3,
+h4,
+p,
+figure,
+blockquote {
+    margin: 0;
+}
+
+ul,
+ol {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+code,
+pre,
+kbd {
+    font-family: var(--font-family--monospace);
+}
+
+/*
+ * Scrollbars. Ported from n8n's scrollbar.scss at pinned commit
+ * 43c6f329fb1fb528259a78f80b163e4ed1405c02, retargeted at Banksia tokens.
+ */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color--neutral-700) transparent;
+}
+
+*::-webkit-scrollbar {
+    width: 0.5rem;
+    height: 0.5rem;
+}
+
+*::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+    background: var(--color--neutral-700);
+    border-radius: var(--radius--full);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+    background: var(--color--neutral-600);
 }
 
 .sr-only {
@@ -57,20 +112,9 @@ a {
     padding: 0;
     margin: -1px;
     overflow: hidden;
-    clip: rect(0, 0, 0, 0);
+    clip-path: inset(50%);
     white-space: nowrap;
     border: 0;
-}
-
-.page-frame {
-    width: min(100% - 2rem, var(--banksia-content));
-    margin-inline: auto;
-}
-
-@media (max-width: 40rem) {
-    .page-frame {
-        width: min(100% - 1.25rem, var(--banksia-content));
-    }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -1,127 +1,90 @@
-import {
-    useEffect,
-    useId,
-    useRef,
-    type KeyboardEvent as ReactKeyboardEvent,
-    type ReactNode,
-    type RefObject,
-} from "react";
-import { createPortal } from "react-dom";
-
-import { Button } from "./Button";
+import * as RadixDialog from "@radix-ui/react-dialog";
+import type { ReactNode, RefObject } from "react";
 
 export interface DialogProps {
     readonly children: ReactNode;
     readonly closeDisabled?: boolean;
+    readonly description?: string;
+    /** Focus this element on open instead of the first focusable child. */
     readonly initialFocusRef?: RefObject<HTMLElement | null>;
     readonly isOpen: boolean;
     readonly onClose: () => void;
     readonly title: string;
 }
 
-const FOCUSABLE =
-    'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
-
+/**
+ * Radix owns focus trapping, restore, scroll lock, and Escape. The previous
+ * hand-rolled implementation is gone along with its focus-order bugs.
+ */
 export function Dialog({
     children,
     closeDisabled = false,
+    description,
     initialFocusRef,
     isOpen,
     onClose,
     title,
 }: DialogProps) {
-    const titleId = useId();
-    const panelRef = useRef<HTMLDivElement>(null);
-    const invokerRef = useRef<HTMLElement | null>(null);
-
-    useEffect(() => {
-        if (!isOpen) {
-            return;
-        }
-        invokerRef.current =
-            document.activeElement instanceof HTMLElement
-                ? document.activeElement
-                : null;
-        const frame = requestAnimationFrame(() => {
-            const first =
-                panelRef.current?.querySelector<HTMLElement>(FOCUSABLE);
-            (initialFocusRef?.current ?? first ?? panelRef.current)?.focus();
-        });
-        return () => {
-            cancelAnimationFrame(frame);
-            invokerRef.current?.focus();
-        };
-    }, [initialFocusRef, isOpen]);
-
-    if (!isOpen) {
-        return null;
-    }
-
-    return createPortal(
-        <div className="ui-dialog__backdrop">
-            <div
-                aria-busy={closeDisabled || undefined}
-                aria-labelledby={titleId}
-                aria-modal="true"
-                className="ui-dialog"
-                onKeyDown={(event) =>
-                    trapDialogFocus(
-                        event,
-                        panelRef.current,
-                        closeDisabled,
-                        onClose,
-                    )
+    return (
+        <RadixDialog.Root
+            onOpenChange={(open) => {
+                if (!open && !closeDisabled) {
+                    onClose();
                 }
-                ref={panelRef}
-                role="dialog"
-                tabIndex={-1}
-            >
-                <header className="ui-dialog__header">
-                    <h2 id={titleId}>{title}</h2>
-                    <Button
-                        aria-label={`Close ${title}`}
-                        disabled={closeDisabled}
-                        onClick={onClose}
-                        tone="quiet"
-                    >
-                        Close
-                    </Button>
-                </header>
-                {children}
-            </div>
-        </div>,
-        document.body,
+            }}
+            open={isOpen}
+        >
+            <RadixDialog.Portal>
+                <RadixDialog.Overlay className="ui-dialog__overlay" />
+                <RadixDialog.Content
+                    className="ui-dialog__content"
+                    onEscapeKeyDown={(event) => {
+                        if (closeDisabled) {
+                            event.preventDefault();
+                        }
+                    }}
+                    onInteractOutside={(event) => {
+                        if (closeDisabled) {
+                            event.preventDefault();
+                        }
+                    }}
+                    onOpenAutoFocus={(event) => {
+                        const target = initialFocusRef?.current;
+                        if (target !== null && target !== undefined) {
+                            event.preventDefault();
+                            target.focus();
+                        }
+                    }}
+                >
+                    <RadixDialog.Title className="ui-dialog__title">
+                        {title}
+                    </RadixDialog.Title>
+                    {description === undefined ? (
+                        <RadixDialog.Description className="sr-only">
+                            {title}
+                        </RadixDialog.Description>
+                    ) : (
+                        <RadixDialog.Description className="ui-dialog__description">
+                            {description}
+                        </RadixDialog.Description>
+                    )}
+                    {children}
+                </RadixDialog.Content>
+            </RadixDialog.Portal>
+        </RadixDialog.Root>
     );
 }
 
-function trapDialogFocus(
-    event: ReactKeyboardEvent<HTMLDivElement>,
-    panel: HTMLDivElement | null,
-    closeDisabled: boolean,
-    onClose: () => void,
-): void {
-    if (event.key === "Escape") {
-        event.preventDefault();
-        if (!closeDisabled) {
-            onClose();
-        }
-        return;
-    }
-    if (event.key !== "Tab") {
-        return;
-    }
-    const items = [...(panel?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? [])];
-    const first = items[0];
-    const last = items.at(-1);
-    if (first === undefined || last === undefined) {
-        event.preventDefault();
-        return;
-    }
-    if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-    }
+export function DialogFooter({ children }: { readonly children: ReactNode }) {
+    return <div className="ui-dialog__footer">{children}</div>;
+}
+
+export interface DialogCloseProps {
+    readonly children: ReactNode;
+    /** Render the child element itself as the close control. */
+    readonly asChild?: boolean;
+}
+
+export function DialogClose({ asChild = false, children }: DialogCloseProps) {
+    return <RadixDialog.Close asChild={asChild}>{children}</RadixDialog.Close>;
 }

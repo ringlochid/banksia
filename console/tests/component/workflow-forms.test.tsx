@@ -53,14 +53,12 @@ describe("Workflow authoring forms", () => {
             />,
         );
 
-        const description = screen.getByLabelText("Use this team when…");
+        const description = screen.getByLabelText("Purpose");
         expect(description).toHaveAttribute("aria-invalid", "true");
         expect(description).toHaveAccessibleDescription(
             /Describe when this team should be used/,
         );
-        expect(
-            screen.getByText("Shared note").closest("details"),
-        ).not.toHaveAttribute("open");
+        expect(screen.getByLabelText(/^Shared note/)).toBeVisible();
     });
 
     it("keeps provider and default-deny capabilities reachable by disclosure", async () => {
@@ -82,13 +80,13 @@ describe("Workflow authoring forms", () => {
 
         expect(screen.queryByLabelText("Provider")).not.toBeVisible();
         await user.click(screen.getByText("Provider and access"));
-        expect(screen.getByLabelText("Provider")).toHaveValue("default");
+        const provider = screen.getByRole("combobox", { name: "Provider" });
+        expect(provider).toHaveTextContent("Installation default");
         expect(screen.getByText(/Nothing is allowed by default/)).toBeVisible();
-        expect(
-            screen.getByText(/Installation default: Codex · gpt-default/),
-        ).toBeVisible();
+        expect(screen.getByText(/Default: Codex · gpt-default/)).toBeVisible();
 
-        await user.selectOptions(screen.getByLabelText("Provider"), "codex");
+        await user.click(provider);
+        await user.click(screen.getByRole("option", { name: /^Codex/ }));
         expect(onEdit).toHaveBeenCalledWith({ provider: { kind: "codex" } });
         await user.click(
             screen.getByLabelText(
@@ -128,6 +126,77 @@ describe("Workflow authoring forms", () => {
         );
     });
 
+    it("keeps a rejected capability beside the affected choices", async () => {
+        const user = userEvent.setup();
+        const member = workflowFixture().lead;
+
+        render(
+            <MemberForm
+                disabled={false}
+                issues={[
+                    {
+                        source: "controller",
+                        path: "patch.capabilities.human_request",
+                        message: "This capability is not available.",
+                        target: {
+                            kind: "member",
+                            memberId: member.id,
+                            field: "capabilities",
+                        },
+                    },
+                ]}
+                member={member}
+                onEdit={vi.fn()}
+                onRetryOptions={vi.fn()}
+                options={readyOptions}
+                workflow={workflowFixture()}
+            />,
+        );
+
+        await user.click(screen.getByText("Provider and access"));
+        const capabilities = screen.getByRole("group", {
+            name: "Allowed actions",
+        });
+        expect(capabilities).toHaveAttribute("aria-invalid", "true");
+        expect(capabilities).toHaveAccessibleDescription(
+            "This capability is not available.",
+        );
+    });
+
+    it("omits null capability defaults when another action is enabled", async () => {
+        const user = userEvent.setup();
+        const onEdit = vi.fn();
+        const member = {
+            ...workflowFixture().lead,
+            capabilities: {
+                human_request: ["input"],
+                command_run: null,
+            },
+        } as unknown as ReturnType<typeof workflowFixture>["lead"];
+
+        render(
+            <MemberForm
+                disabled={false}
+                issues={[]}
+                member={member}
+                onEdit={onEdit}
+                onRetryOptions={vi.fn()}
+                options={readyOptions}
+                workflow={workflowFixture()}
+            />,
+        );
+
+        await user.click(screen.getByText("Provider and access"));
+        await user.click(
+            screen.getByLabelText(
+                "Allow this teammate to ask you for direction",
+            ),
+        );
+        expect(onEdit).toHaveBeenCalledWith({
+            capabilities: { human_request: ["input", "direction"] },
+        });
+    });
+
     it("distinguishes loading from options failure and offers a real retry", async () => {
         const user = userEvent.setup();
         const retry = vi.fn();
@@ -149,9 +218,7 @@ describe("Workflow authoring forms", () => {
         );
 
         await user.click(screen.getByText("Provider and access"));
-        expect(
-            screen.getByText(/Loading provider and access choices/i),
-        ).toBeVisible();
+        expect(screen.getByText("Loading choices")).toBeVisible();
         expect(
             screen.queryByText(/choices could not be loaded/i),
         ).not.toBeInTheDocument();
@@ -173,14 +240,13 @@ describe("Workflow authoring forms", () => {
         );
         await user.click(
             screen.getByRole("button", {
-                name: "Try loading choices again",
+                name: "Try again",
             }),
         );
         expect(retry).toHaveBeenCalledOnce();
-        expect(screen.queryByRole("option", { name: "Codex" })).toBeNull();
         expect(
-            screen.getByRole("option", { name: "OpenClaw" }),
-        ).toBeInTheDocument();
+            screen.getByRole("combobox", { name: "Provider" }),
+        ).toHaveTextContent("OpenClaw");
         expect(screen.getByText(/OpenClaw owns its sandbox/)).toBeVisible();
         expect(
             screen.queryByLabelText(
@@ -216,12 +282,54 @@ describe("Workflow authoring forms", () => {
         await user.click(screen.getByText("Provider and access"));
         expect(
             screen.getByRole("combobox", { name: /^Sandbox and network/ }),
-        ).toHaveValue("");
+        ).toHaveTextContent("Provider default");
         expect(
-            screen.getByRole("option", {
-                name: "Full access · network allow (default)",
-            }),
+            screen.getByText(
+                /Default: Codex · gpt-default · High effort · Read Only · Network deny/,
+            ),
         ).toBeVisible();
+    });
+
+    it("treats null managed-provider defaults from controller readback as omitted", async () => {
+        const user = userEvent.setup();
+        const onEdit = vi.fn();
+        const member = {
+            ...workflowFixture().lead,
+            provider: {
+                kind: "codex",
+                model: null,
+                effort: null,
+                sandbox: null,
+            },
+        } as unknown as ReturnType<typeof workflowFixture>["lead"];
+
+        render(
+            <MemberForm
+                disabled={false}
+                issues={[]}
+                member={member}
+                onEdit={onEdit}
+                onRetryOptions={vi.fn()}
+                options={readyOptions}
+                workflow={workflowFixture()}
+            />,
+        );
+
+        await user.click(screen.getByText("Provider and access"));
+        expect(
+            screen.getByRole("combobox", { name: /^Reasoning effort/ }),
+        ).toHaveTextContent("Provider default");
+        expect(
+            screen.getByRole("combobox", { name: /^Sandbox and network/ }),
+        ).toHaveTextContent("Provider default");
+
+        await user.click(
+            screen.getByRole("combobox", { name: /^Reasoning effort/ }),
+        );
+        await user.click(screen.getByRole("option", { name: "High" }));
+        expect(onEdit).toHaveBeenCalledWith({
+            provider: { kind: "codex", effort: "high" },
+        });
     });
 
     it("routes colliding Member IDs and provider model paths exactly", async () => {

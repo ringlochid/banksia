@@ -1,6 +1,7 @@
 import { ApiResponseError } from "../../../api/client";
 import type {
     DraftOperation,
+    NewMember,
     WorkflowDraftReadback,
     WorkflowGetResponse,
 } from "../../../api/types";
@@ -58,19 +59,27 @@ export async function openEditableDraft(
 export async function addDraftChild(
     runtime: WorkflowDraftRuntime,
     parentMemberId: string,
-): Promise<void> {
+    member: NewMember,
+): Promise<string | null> {
     const generation = runtime.beginExclusive("adding_child");
     if (generation === null) {
-        return;
+        return null;
     }
+    let acceptedMemberId: string | null = null;
     try {
         if (!(await runtime.flushEdits(generation))) {
-            return;
+            return null;
         }
         await runtime.enqueue(generation, async () => {
-            if (runtime.snapshot().workingWorkflow === null) {
+            const working = runtime.snapshot().workingWorkflow;
+            if (working === null) {
                 return;
             }
+            const existingChildIds = new Set(
+                findMember(working.lead, parentMemberId)?.member.children?.map(
+                    (child) => child.id,
+                ) ?? [],
+            );
             runtime.dispatch(
                 {
                     type: "structure_changed",
@@ -85,7 +94,7 @@ export async function addDraftChild(
             const operation: DraftOperation = {
                 kind: "add_member",
                 parent_member_id: parentMemberId,
-                member: {},
+                member,
             };
             const accepted = await runtime.sendOperation(
                 operation,
@@ -98,8 +107,16 @@ export async function addDraftChild(
             if (accepted === null) {
                 return;
             }
+            const acceptedParent = findMember(
+                accepted.draft.workflow.lead,
+                parentMemberId,
+            )?.member;
+            acceptedMemberId =
+                acceptedParent?.children?.find(
+                    (child) => !existingChildIds.has(child.id),
+                )?.id ?? null;
             runtime.acceptMutation(accepted, generation, {
-                selectedMemberId: parentMemberId,
+                selectedMemberId: acceptedMemberId ?? parentMemberId,
             });
         });
     } finally {
@@ -109,6 +126,7 @@ export async function addDraftChild(
         );
         runtime.finishExclusive("adding_child", generation);
     }
+    return acceptedMemberId;
 }
 
 export async function removeDraftMember(

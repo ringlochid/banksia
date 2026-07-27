@@ -2,7 +2,15 @@ import { ArrowLeft, Pause, Play, RefreshCw, Square } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 
-import { Button, Card, Dialog, Notice } from "../../components/ui";
+import {
+    Button,
+    Dialog,
+    Notice,
+    PageState,
+    Prose,
+    TabPanel,
+    Tabs,
+} from "../../components/ui";
 import { CommandRunCard } from "./CommandRunCard";
 import { HumanRequestCard } from "./HumanRequestCard";
 import {
@@ -46,9 +54,12 @@ export function RunStudioPage({ api }: RunStudioPageProps) {
 
     if (taskId === undefined) {
         return (
-            <section className="page-frame run-studio">
-                <Notice tone="danger">This Run link is incomplete.</Notice>
-            </section>
+            <PageState
+                detail="Open a Run from the Runs list."
+                fill
+                kind="error"
+                title="This Run link is incomplete"
+            />
         );
     }
     return (
@@ -79,6 +90,7 @@ function RunStudioTask({ api, startMessage, taskId }: RunStudioTaskProps) {
         null,
     );
     const [controlSubmitting, setControlSubmitting] = useState(false);
+    const [activeTab, setActiveTab] = useState("activity");
     const error = operationError ?? readError;
 
     function refreshRun(message?: string): void {
@@ -133,32 +145,33 @@ function RunStudioTask({ api, startMessage, taskId }: RunStudioTaskProps) {
     }
 
     if (loading) {
-        return (
-            <section className="page-frame run-studio">
-                <div className="run-studio__state" role="status">
-                    Loading Run…
-                </div>
-            </section>
-        );
+        return <PageState fill kind="loading" title="Loading Run" />;
     }
     if (task === null) {
         return (
-            <section className="page-frame run-studio">
-                <Link className="run-back-link" to="/runs">
-                    <ArrowLeft aria-hidden="true" size={17} />
-                    Back to Runs
-                </Link>
-                <Notice tone="danger" urgent>
-                    <p>
-                        {error ??
-                            "Banksia could not find controller truth for this Run."}
-                    </p>
-                    <Button disabled={refreshing} onClick={() => refreshRun()}>
-                        <RefreshCw aria-hidden="true" size={16} />
-                        {refreshing ? "Trying again…" : "Try again"}
-                    </Button>
-                </Notice>
-            </section>
+            <PageState
+                actions={
+                    <>
+                        <Button
+                            disabled={refreshing}
+                            onClick={() => refreshRun()}
+                        >
+                            <RefreshCw aria-hidden="true" size={16} />
+                            {refreshing ? "Trying again…" : "Try again"}
+                        </Button>
+                        <Link className="ui-button ui-button--quiet" to="/runs">
+                            Back to Runs
+                        </Link>
+                    </>
+                }
+                detail={
+                    error ??
+                    "Banksia could not find controller truth for this Run."
+                }
+                fill
+                kind="error"
+                title="Run unavailable"
+            />
         );
     }
 
@@ -170,172 +183,210 @@ function RunStudioTask({ api, startMessage, taskId }: RunStudioTaskProps) {
     );
 
     return (
-        <section className="page-frame run-studio">
-            <Link className="run-back-link" to="/runs">
-                <ArrowLeft aria-hidden="true" size={17} />
-                Back to Runs
-            </Link>
+        <section className="run-studio">
             <header className="run-studio__header">
-                <div>
-                    <div className="run-studio__status-line">
-                        <span
-                            className={`run-status run-status--${task.status}`}
-                        >
-                            {runStatusLabel(task.status)}
-                        </span>
-                        <span>{task.workflow.id}</span>
-                    </div>
-                    <h1>{task.prompt_excerpt}</h1>
-                    <p>{task.status_message}</p>
-                    <span className="run-studio__updated">
-                        Updated {formatRunDate(task.updated_at)}
-                    </span>
-                </div>
-                <div className="run-studio__header-actions">
-                    <Button
-                        aria-label="Refresh Run"
-                        disabled={refreshing}
-                        onClick={() => refreshRun()}
-                    >
-                        <RefreshCw
-                            aria-hidden="true"
-                            className={refreshing ? "is-spinning" : ""}
-                            size={16}
-                        />
-                        {refreshing ? "Refreshing…" : "Refresh"}
-                    </Button>
-                    {task.actions.map((action) => (
+                <div className="run-studio__toolbar">
+                    <Link className="run-back-link" to="/runs">
+                        <ArrowLeft aria-hidden="true" size={15} />
+                        Runs
+                    </Link>
+                    <div className="run-studio__header-actions">
                         <Button
-                            key={action.id}
-                            onClick={() =>
-                                action.confirmation.required
-                                    ? setPendingControl(action)
-                                    : void handleControl(action)
-                            }
-                            tone={
-                                action.kind === "cancel"
-                                    ? "danger"
-                                    : action.kind === "resume"
-                                      ? "primary"
-                                      : "secondary"
-                            }
+                            aria-label="Refresh Run"
+                            disabled={refreshing}
+                            onClick={() => refreshRun()}
+                            tone="quiet"
                         >
-                            <ActionIcon kind={action.kind} />
-                            {action.label}
+                            <RefreshCw
+                                aria-hidden="true"
+                                className={refreshing ? "is-spinning" : ""}
+                                size={15}
+                            />
+                            {refreshing ? "Refreshing…" : "Refresh"}
                         </Button>
-                    ))}
+                        {task.actions.map((action) => (
+                            <Button
+                                key={action.id}
+                                onClick={() =>
+                                    action.confirmation.required
+                                        ? setPendingControl(action)
+                                        : void handleControl(action)
+                                }
+                                tone={
+                                    action.kind === "cancel"
+                                        ? "danger"
+                                        : action.kind === "resume"
+                                          ? "primary"
+                                          : "secondary"
+                                }
+                            >
+                                <ActionIcon kind={action.kind} />
+                                {action.label}
+                            </Button>
+                        ))}
+                    </div>
+                </div>
+                <div className="run-studio__title-row">
+                    <div>
+                        <div className="run-studio__status-line">
+                            <span
+                                className={`run-status run-status--${task.status}`}
+                            >
+                                {runStatusLabel(task.status)}
+                            </span>
+                            <span>{task.workflow.id}</span>
+                            <time dateTime={task.updated_at}>
+                                Updated {formatRunDate(task.updated_at)}
+                            </time>
+                        </div>
+                        <h1>{task.prompt_excerpt}</h1>
+                        {task.result === null ? (
+                            <Prose className="run-studio__status-message">
+                                {task.status_message}
+                            </Prose>
+                        ) : null}
+                    </div>
                 </div>
             </header>
 
-            {receipt === null ? null : <Notice tone="info">{receipt}</Notice>}
-            {liveDelayed ? (
-                <Notice tone="info">
-                    <p>
-                        Live updates are delayed. This Run may be slightly out
-                        of date.
-                    </p>
-                    <Button onClick={retryLive}>
-                        <RefreshCw aria-hidden="true" size={16} />
-                        Retry
-                    </Button>
-                </Notice>
-            ) : null}
-            {error === null ? null : (
-                <Notice tone="danger" urgent>
-                    {error} Refresh to read current Run state.
-                </Notice>
-            )}
+            <div className="run-studio__feedback">
+                {receipt === null ? null : (
+                    <Notice tone="info">
+                        <Prose>{receipt}</Prose>
+                    </Notice>
+                )}
+                {liveDelayed ? (
+                    <Notice tone="info">
+                        <p>Live updates are delayed.</p>
+                        <Button onClick={retryLive}>
+                            <RefreshCw aria-hidden="true" size={16} />
+                            Retry
+                        </Button>
+                    </Notice>
+                ) : null}
+                {error === null ? null : (
+                    <Notice tone="danger" urgent>
+                        <Prose>{error}</Prose>
+                        <Button onClick={() => refreshRun()}>Refresh</Button>
+                    </Notice>
+                )}
+            </div>
 
-            {task.result === null || task.result === undefined ? null : (
-                <RunResult result={task.result} />
-            )}
-
-            {openRequests.length === 0 && otherAttention.length === 0 ? null : (
-                <section
-                    aria-labelledby="run-attention-title"
-                    className="run-attention"
-                >
-                    <div>
-                        <p className="run-section-kicker">Action needed</p>
-                        <h2 id="run-attention-title">Needs your attention</h2>
-                    </div>
-                    {openRequests.map((request) => (
-                        <HumanRequestCard
-                            key={request.id}
-                            onRespond={handleHumanResponse}
-                            request={request}
-                        />
-                    ))}
-                    {otherAttention.map((attention) => (
-                        <Card
-                            as="article"
-                            className="run-attention__item"
-                            key={attention.id}
-                        >
-                            <h3>{attention.title}</h3>
-                            <p>{attention.summary}</p>
-                            {attention.member === null ||
-                            attention.member === undefined ? null : (
-                                <span>{attention.member.name}</span>
-                            )}
-                            <FileReferences compact files={attention.files} />
-                            {attention.link === null ||
-                            attention.link === undefined ? null : (
-                                <a
-                                    className="ui-button ui-button--secondary"
-                                    href={attention.link.href}
-                                >
-                                    {attention.link.label}
-                                </a>
-                            )}
-                        </Card>
-                    ))}
-                </section>
-            )}
-
-            <div className="run-studio__columns">
-                <div>
+            <div className="run-studio__workspace">
+                <aside aria-label="Run context" className="run-studio__sidebar">
                     <TeamSection team={task.team} />
                     {task.plan === null || task.plan === undefined ? null : (
                         <PlanSection plan={task.plan} />
                     )}
-                </div>
-                <div>
-                    <ActivitySection
-                        activities={activities}
-                        isTruncated={task.activities_truncated}
-                    />
-                    {task.command_runs.length === 0 ? null : (
-                        <Card
-                            aria-labelledby="run-actions-title"
-                            className="run-section"
+                </aside>
+
+                <div className="run-studio__main">
+                    {openRequests.length === 0 &&
+                    otherAttention.length === 0 ? null : (
+                        <section
+                            aria-labelledby="run-attention-title"
+                            className="run-attention"
                         >
-                            <div className="run-section-heading">
-                                <div>
-                                    <p className="run-section-kicker">
-                                        Work in the world
-                                    </p>
-                                    <h2 id="run-actions-title">Actions</h2>
-                                </div>
-                            </div>
-                            <div className="run-commands">
-                                {task.command_runs.map((command) => (
-                                    <CommandRunCard
-                                        api={api}
-                                        command={command}
-                                        key={command.id}
-                                        onCancel={handleCommandCancel}
-                                        taskId={task.id}
+                            <header>
+                                <h2 id="run-attention-title">
+                                    Action required
+                                </h2>
+                            </header>
+                            {openRequests.map((request) => (
+                                <HumanRequestCard
+                                    key={request.id}
+                                    onRespond={handleHumanResponse}
+                                    request={request}
+                                />
+                            ))}
+                            {otherAttention.map((attention) => (
+                                <article
+                                    className="run-attention__item"
+                                    key={attention.id}
+                                >
+                                    <h3>{attention.title}</h3>
+                                    <Prose>{attention.summary}</Prose>
+                                    {attention.member === null ||
+                                    attention.member === undefined ? null : (
+                                        <span>{attention.member.name}</span>
+                                    )}
+                                    <FileReferences
+                                        compact
+                                        files={attention.files}
                                     />
-                                ))}
-                            </div>
-                            {task.command_runs_truncated ? (
-                                <p className="run-bounded-note">
-                                    This view shows the most recent Actions.
-                                </p>
-                            ) : null}
-                        </Card>
+                                    {attention.link === null ||
+                                    attention.link === undefined ? null : (
+                                        <a
+                                            className="ui-button ui-button--secondary"
+                                            href={attention.link.href}
+                                        >
+                                            {attention.link.label}
+                                        </a>
+                                    )}
+                                </article>
+                            ))}
+                        </section>
                     )}
+
+                    {task.result === null ||
+                    task.result === undefined ? null : (
+                        <RunResult result={task.result} />
+                    )}
+
+                    <Tabs
+                        ariaLabel="Run information"
+                        items={[
+                            {
+                                label: `Activity (${String(activities.length)})`,
+                                value: "activity",
+                            },
+                            {
+                                label: `Commands (${String(task.command_runs.length)})`,
+                                value: "commands",
+                            },
+                        ]}
+                        onValueChange={setActiveTab}
+                        value={activeTab}
+                    >
+                        <TabPanel value="activity">
+                            <ActivitySection
+                                activities={activities}
+                                isTruncated={task.activities_truncated}
+                            />
+                        </TabPanel>
+                        <TabPanel value="commands">
+                            <section
+                                aria-labelledby="run-commands-title"
+                                className="run-commands-panel"
+                            >
+                                <header className="run-section-heading">
+                                    <h2 id="run-commands-title">Commands</h2>
+                                </header>
+                                {task.command_runs.length === 0 ? (
+                                    <p className="run-section__empty">
+                                        No commands for this Run.
+                                    </p>
+                                ) : (
+                                    <div className="run-commands">
+                                        {task.command_runs.map((command) => (
+                                            <CommandRunCard
+                                                api={api}
+                                                command={command}
+                                                key={command.id}
+                                                onCancel={handleCommandCancel}
+                                                taskId={task.id}
+                                            />
+                                        ))}
+                                    </div>
+                                )}
+                                {task.command_runs_truncated ? (
+                                    <p className="run-bounded-note">
+                                        Showing the most recent commands.
+                                    </p>
+                                ) : null}
+                            </section>
+                        </TabPanel>
+                    </Tabs>
                 </div>
             </div>
 
@@ -346,7 +397,7 @@ function RunStudioTask({ api, startMessage, taskId }: RunStudioTaskProps) {
                 title={pendingControl?.confirmation.title ?? "Confirm action"}
             >
                 <div className="run-control-dialog">
-                    <p>{pendingControl?.confirmation.consequence}</p>
+                    <Prose>{pendingControl?.confirmation.consequence}</Prose>
                     <div>
                         <Button
                             disabled={controlSubmitting}

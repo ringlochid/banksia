@@ -6,11 +6,21 @@ export default defineConfig(({ mode }) => {
     const environment = loadEnv(mode, import.meta.dirname, "");
     const proxyTarget = environment.BANKSIA_CONSOLE_PROXY_TARGET;
 
+    // Inotify does not fire when a Windows editor writes to a path the dev
+    // server sees through /mnt/c, so file changes are missed. Set this to fall
+    // back to polling; leave it unset for same-filesystem development.
+    const pollWatcher = environment.BANKSIA_CONSOLE_WATCH_POLL === "1";
+
     return {
         plugins: [react(), tailwindcss()],
         server: {
             host: "127.0.0.1",
             port: 5173,
+            // Polling across the mount is expensive, so keep the interval
+            // coarse: it costs a beat of latency, not a stalled watcher.
+            ...(pollWatcher
+                ? { watch: { usePolling: true, interval: 1000 } }
+                : {}),
             proxy:
                 proxyTarget === undefined || proxyTarget === ""
                     ? undefined

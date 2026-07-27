@@ -1,7 +1,16 @@
 import { useId, useRef, useState, type FormEvent } from "react";
 
 import type { WorkflowApi } from "../../api/client";
-import { Button, Dialog, FormField, Notice } from "../../components/ui";
+import {
+    Button,
+    Dialog,
+    DialogFooter,
+    FormField,
+    Input,
+    Notice,
+    Prose,
+    Textarea,
+} from "../../components/ui";
 
 export interface CreateWorkflowDialogProps {
     readonly api: WorkflowApi;
@@ -40,7 +49,11 @@ export function CreateWorkflowDialog({
             onClose={onClose}
             title="Create a Workflow"
         >
-            <CreateWorkflowIntroduction error={error} />
+            {error === null ? null : (
+                <Notice tone="danger" urgent>
+                    <Prose>{error}</Prose>
+                </Notice>
+            )}
             <form
                 className="workflow-dialog__form"
                 onSubmit={(event) => void submit(event)}
@@ -51,7 +64,7 @@ export function CreateWorkflowDialog({
                     id={`${idPrefix}-workflow-id`}
                     label="Workflow ID"
                 >
-                    <input
+                    <Input
                         autoComplete="off"
                         disabled={isCreating}
                         maxLength={128}
@@ -64,11 +77,10 @@ export function CreateWorkflowDialog({
                 </FormField>
                 <FormField
                     error={descriptionError}
-                    hint="A plain-language sentence helps people choose the right team."
                     id={`${idPrefix}-workflow-description`}
-                    label="Use this team when…"
+                    label="Purpose"
                 >
-                    <textarea
+                    <Textarea
                         disabled={isCreating}
                         maxLength={1024}
                         onChange={(event) => setDescription(event.target.value)}
@@ -89,26 +101,6 @@ export function CreateWorkflowDialog({
     );
 }
 
-function CreateWorkflowIntroduction({
-    error,
-}: {
-    readonly error: string | null;
-}) {
-    return (
-        <>
-            <p className="workflow-dialog__intro">
-                A Workflow is a reusable AI team for a kind of complex work.
-                Banksia creates its lead Member for you.
-            </p>
-            {error === null ? null : (
-                <Notice tone="danger" urgent>
-                    {error}
-                </Notice>
-            )}
-        </>
-    );
-}
-
 interface CreateWorkflowActionsProps {
     readonly canCreate: boolean;
     readonly isCreating: boolean;
@@ -121,8 +113,8 @@ function CreateWorkflowActions({
     onClose,
 }: CreateWorkflowActionsProps) {
     return (
-        <div className="workflow-dialog__actions">
-            <Button disabled={isCreating} onClick={onClose} tone="quiet">
+        <DialogFooter>
+            <Button disabled={isCreating} onClick={onClose} tone="secondary">
                 Cancel
             </Button>
             <Button
@@ -132,7 +124,7 @@ function CreateWorkflowActions({
             >
                 {isCreating ? "Creating…" : "Create Workflow"}
             </Button>
-        </div>
+        </DialogFooter>
     );
 }
 

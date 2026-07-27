@@ -81,6 +81,7 @@ A successful final-package completion records **go**. An explicit **no-go** is s
 - Unknown `/api/*`, `/assets/*`, and browser paths return `404`; no catch-all rewrites API or missing-asset requests to HTML.
 - Health/readiness, support, Operator, node, and managed internal mounts retain their separately owned paths and schemas.
 - The generated product OpenAPI document and Console client use `/api` paths, and a created Workflow draft returns an `/api/workflow-drafts/{draft_id}` `Location`.
+- Removing a Workflow discards its active draft and removes it from catalog search, detail, and new Task selection while exact immutable revisions remain readable for existing Task pins. Re-running starter seeding does not restore a removed published Workflow, and ordinary create cannot reuse its retired published ID.
 - Source-tree development proves the API without requiring staged Console assets; installed wheel/sdist proof includes the exact production bundle and direct-navigation behavior.
 
 ### Mechanical schema proof
@@ -327,12 +328,13 @@ The required usability oracle is an independent no-doc evaluator that did not im
 - Before implementation, each delegated slice verifies the pinned n8n commit, reads its assigned source packet and screenshots, and returns an adopt/adapt/reject record tied to Banksia contracts. Source reading without this decision record is not proof.
 - Fresh/reset library state shows exactly `bounded-maintenance-batch`, `cross-layer-feature`, `debug-and-verify`, `evidence-synthesis`, `reproducible-study`, `reviewed-code-change`, and `technical-decision`, with human “use when” descriptions and no provider/capability claim where those fields are omitted. The three `advanced-*` reference examples remain absent from installed content.
 - New Workflow starts with one selected lead, one right-side add control, and no type picker.
-- Repeated accepted clicks append siblings and move the same control; selecting a child relocates it and creates a nested Member on add.
+- Add opens an ID-less local Member form. A nonblank Name is required. Cancel/close performs no mutation; **Add Member** submits once, returned controller truth selects the accepted child, and the same trailing control follows that child.
+- A rejected add preserves the local form for correction or retry without inserting a blank accepted Member.
 - Accepted subtree removal selects and restores focus to the removed Member's surviving direct parent rather than unexpectedly returning to the lead.
 - Pending, accepted, conflict, validation, failure, Undo, autosave, and publish states reconcile to controller draft truth.
 - Horizontal broad/deep/collapsed/error/localized trees remain readable and connectors never imply execution flow. Deep-tree geometry is compared with the curated `add-child-sibling-branch.png` reference after interpreting every block as a Member and removing all n8n node/port meaning.
-- Tidy changes view positions only; Fit changes viewport only; neither creates draft/runtime/audit changes.
-- Overlay drawer/bottom sheet preserves focus and selected-card visibility.
+- Dragging a Member changes browser-local presentation position only. Tidy clears those offsets and recomputes hierarchy layout; Fit changes viewport only. Neither creates draft, runtime, or audit changes, and no drag can reorder or reparent a Member. Continuous drag proof shows no whole-canvas flash, blank frame, page movement, or card remount; only the moving card, attached add control, and connected lines change before drag stop.
+- Member and Workflow settings use separate, mutually exclusive overlay drawers/bottom sheets. They preserve focus and selected-card visibility. Non-lead Member removal remains visible in the fixed Member footer, while the lead exposes no illegal removal action.
 - Capability controls default off, edit only the selected Member, communicate no inheritance, and cover all four Human Request kinds plus managed Command Run without exposing generic tool/policy concepts.
 - Keyboard and narrow-screen outline can select, edit, add, remove, publish, and start equivalently.
 - Route-mocked browser tests prove controlled error and responsive states but never stand in for persistence proof. A repeatable disposable-controller browser lane proves create, edit, accepted add, reload, second-client ETag conflict and recovery, publish, and reopen against controller readback.

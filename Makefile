@@ -154,6 +154,11 @@ console-package-assets: console-build
 	rm -rf $(CONSOLE_ASSET_DIR)
 	mkdir -p $(CONSOLE_ASSET_DIR)
 	cp -R $(CONSOLE_DIR)/dist/. $(CONSOLE_ASSET_DIR)/
+	# The built Console contains n8n-derived material under the Sustainable Use
+	# License. That license requires its terms and the modification notice to
+	# accompany every copy, so they ship inside the distribution.
+	cp $(CONSOLE_DIR)/LICENSE $(CONSOLE_ASSET_DIR)/LICENSE.txt
+	cp $(CONSOLE_DIR)/NOTICE $(CONSOLE_ASSET_DIR)/NOTICE.txt
 
 check-console:
 	$(MAKE) console-format-check

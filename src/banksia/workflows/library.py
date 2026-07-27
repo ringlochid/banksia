@@ -224,8 +224,12 @@ def derive_workflow_library_actions(
         return (
             WorkflowLibraryAction.EDIT,
             WorkflowLibraryAction.START_RUN,
+            WorkflowLibraryAction.REMOVE,
         )
-    return (WorkflowLibraryAction.EDIT,)
+    return (
+        WorkflowLibraryAction.EDIT,
+        WorkflowLibraryAction.REMOVE,
+    )
 
 
 __all__ = [

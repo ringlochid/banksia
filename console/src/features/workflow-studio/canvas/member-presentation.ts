@@ -4,10 +4,15 @@ export function memberTitle(member: NormalizedMember): string {
     return member.title?.trim() || "Untitled teammate";
 }
 
-export function providerSummary(member: NormalizedMember): string {
+/**
+ * The provider a Member runs on, or null when it uses the installation
+ * default. Cards omit the default rather than repeating "Installation default"
+ * on every Member — that told the reader nothing and crowded the card.
+ */
+export function providerSummary(member: NormalizedMember): string | null {
     const provider = member.provider;
     if (provider === undefined || provider === null) {
-        return "Installation default";
+        return null;
     }
     const name =
         provider.kind === "openclaw"

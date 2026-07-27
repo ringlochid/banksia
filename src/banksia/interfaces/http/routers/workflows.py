@@ -26,6 +26,7 @@ from banksia.workflows.authoring import (
     publish_workflow_draft,
     read_workflow_catalog_entry,
     read_workflow_draft,
+    remove_workflow,
     search_workflow_catalog,
     undo_workflow_draft,
     validate_workflow_draft,
@@ -41,6 +42,7 @@ from banksia.workflows.authoring_contracts import (
     WorkflowDraftValidationResult,
     WorkflowGetResponse,
     WorkflowPublishedReadback,
+    WorkflowRemovalResult,
     WorkflowSearchResponse,
     map_workflow_published_readback,
 )
@@ -134,6 +136,20 @@ async def get_workflow(
         if workflow.active_draft is not None:
             response.headers["ETag"] = workflow.active_draft.etag
         return workflow
+    except Exception as exc:
+        raise _http_error(exc) from exc
+
+
+@router.delete("/workflows/{workflow_id}", response_model=WorkflowRemovalResult)
+async def delete_workflow(
+    workflow_id: str,
+    session: DBSession,
+) -> WorkflowRemovalResult:
+    try:
+        return await write_session_operation(
+            lambda db: remove_workflow(db, workflow_id=workflow_id),
+            session=session,
+        )
     except Exception as exc:
         raise _http_error(exc) from exc
 

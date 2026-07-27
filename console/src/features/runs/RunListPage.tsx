@@ -1,8 +1,16 @@
-import { ArrowRight, Plus, RefreshCw, Search } from "lucide-react";
-import { useEffect, useState, type FormEvent } from "react";
+import { ListChecks, Plus, RefreshCw, SearchX } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
-import { Button, Card, Notice } from "../../components/ui";
+import {
+    Badge,
+    Button,
+    Notice,
+    PageState,
+    Prose,
+    SearchInput,
+} from "../../components/ui";
+import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import {
     errorMessage,
     formatRunDate,
@@ -18,7 +26,9 @@ type RunItem = TaskSearchResponse["items"][number];
 
 export function RunListPage({ api }: RunListPageProps) {
     const [draftQuery, setDraftQuery] = useState("");
-    const [query, setQuery] = useState("");
+    // Runs filter as you type, exactly like the workflow library. There is no
+    // submit button: the Console has one search interaction, not two.
+    const query = useDebouncedValue(draftQuery.trim(), 250);
     const [items, setItems] = useState<RunItem[]>([]);
     const [nextCursor, setNextCursor] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -33,6 +43,7 @@ export function RunListPage({ api }: RunListPageProps) {
             .then(({ body }) => {
                 setItems(body.items);
                 setNextCursor(body.next_cursor ?? null);
+                setError(null);
             })
             .catch((reason: unknown) => {
                 if (!controller.signal.aborted) {
@@ -47,22 +58,17 @@ export function RunListPage({ api }: RunListPageProps) {
         return () => controller.abort();
     }, [api, query, reloadKey]);
 
-    function handleSearch(event: FormEvent<HTMLFormElement>): void {
-        event.preventDefault();
-        const nextQuery = draftQuery.trim();
-        setLoading(true);
+    function retry(): void {
         setError(null);
-        if (nextQuery === query) {
-            setReloadKey((key) => key + 1);
-        } else {
-            setQuery(nextQuery);
-        }
+        setLoading(true);
+        setReloadKey((key) => key + 1);
     }
 
-    function retry(): void {
-        setLoading(true);
-        setError(null);
-        setReloadKey((key) => key + 1);
+    function updateQuery(value: string): void {
+        setDraftQuery(value);
+        if (value.trim() !== query) {
+            setLoading(true);
+        }
     }
 
     async function handleLoadMore(): Promise<void> {
@@ -83,114 +89,104 @@ export function RunListPage({ api }: RunListPageProps) {
     }
 
     return (
-        <section className="page-frame run-list">
-            <header className="run-list__header">
-                <div>
-                    <p className="run-eyebrow">Commissioned work</p>
-                    <h1>Runs</h1>
-                    <p>
-                        Follow what your teams are doing, respond when they need
-                        you, and read the final result.
-                    </p>
+        <section className="page">
+            <header className="page__header">
+                <div className="page__heading">
+                    <h1 className="page__title">Runs</h1>
                 </div>
-                <Link className="ui-button ui-button--primary" to="/runs/new">
-                    <Plus aria-hidden="true" size={18} />
-                    Start run
-                </Link>
+                <div className="page__actions">
+                    <Link
+                        className="ui-button ui-button--primary"
+                        to="/runs/new"
+                    >
+                        <Plus aria-hidden="true" size={15} />
+                        Start run
+                    </Link>
+                </div>
             </header>
 
-            <form className="run-search" onSubmit={handleSearch}>
-                <Search aria-hidden="true" size={18} />
-                <label className="sr-only" htmlFor="run-search">
-                    Search Runs
-                </label>
-                <input
+            <div className="page__toolbar">
+                <SearchInput
+                    autoComplete="off"
                     id="run-search"
-                    onChange={(event) => setDraftQuery(event.target.value)}
-                    placeholder="Search by prompt or Workflow"
-                    type="search"
+                    label="Search runs"
+                    onChange={(event) => updateQuery(event.target.value)}
+                    placeholder="Search runs"
                     value={draftQuery}
                 />
-                <Button type="submit">Search</Button>
-            </form>
+            </div>
 
-            {loading ? (
-                <div className="run-list__state" role="status">
-                    Loading Runs…
-                </div>
-            ) : error !== null && items.length === 0 ? (
-                <RunListError message={error} onRetry={retry} />
-            ) : items.length === 0 ? (
-                <EmptyRunList isSearching={query !== ""} />
-            ) : (
-                <>
-                    {error === null ? null : (
-                        <Notice tone="danger" urgent>
-                            {error} Try showing more again.
-                        </Notice>
-                    )}
-                    <div className="run-list__items">
-                        {items.map((run) => (
-                            <RunRow key={run.id} run={run} />
-                        ))}
-                    </div>
-                    {nextCursor === null ? null : (
-                        <div className="run-list__more">
-                            <Button
-                                disabled={loadingMore}
-                                onClick={() => void handleLoadMore()}
-                            >
-                                {loadingMore
-                                    ? "Loading more…"
-                                    : "Show more Runs"}
-                            </Button>
+            <div className="page__body">
+                {loading ? (
+                    <PageState fill kind="loading" title="Loading Runs" />
+                ) : error !== null && items.length === 0 ? (
+                    <RunListError message={error} onRetry={retry} />
+                ) : items.length === 0 ? (
+                    <EmptyRunList isSearching={query !== ""} />
+                ) : (
+                    <>
+                        {error === null ? null : (
+                            <Notice tone="danger" urgent>
+                                <Prose>{error}</Prose>
+                            </Notice>
+                        )}
+                        <div className="run-list">
+                            {items.map((run) => (
+                                <RunRow key={run.id} run={run} />
+                            ))}
                         </div>
-                    )}
-                </>
-            )}
+                        {nextCursor === null ? null : (
+                            <div className="run-list__more">
+                                <Button
+                                    disabled={loadingMore}
+                                    onClick={() => void handleLoadMore()}
+                                >
+                                    {loadingMore ? "Loading…" : "Show more"}
+                                </Button>
+                            </div>
+                        )}
+                    </>
+                )}
+            </div>
         </section>
     );
 }
 
+/**
+ * One row per Run. The status is shown once, as a dot plus a label; the
+ * status sentence is not repeated beside it.
+ */
 function RunRow({ run }: { readonly run: RunItem }) {
     return (
-        <Card as="article" className="run-row">
-            <div className="run-row__status">
-                <span
-                    className={`run-status run-status--${run.status}`}
-                    data-status={run.status}
-                >
+        <Link
+            aria-label={`Open Run: ${run.prompt_excerpt}`}
+            className="run-row"
+            to={`/runs/${encodeURIComponent(run.id)}`}
+        >
+            <span
+                aria-hidden="true"
+                className={`run-dot run-dot--${run.status}`}
+            />
+            <div className="run-row__main">
+                <h2 className="run-row__prompt">{run.prompt_excerpt}</h2>
+                <p className="run-row__workflow">{run.workflow.id}</p>
+            </div>
+            <div className="run-row__meta">
+                {run.attention_count > 0 ? (
+                    <Badge tone="accent">
+                        {run.attention_count === 1
+                            ? "1 needs you"
+                            : `${String(run.attention_count)} need you`}
+                    </Badge>
+                ) : null}
+                <span className="run-row__status">
                     {runStatusLabel(run.status)}
                 </span>
-                <span>{formatRunDate(run.updated_at)}</span>
+                <span className="run-row__date">
+                    {formatRunDate(run.updated_at)}
+                </span>
             </div>
-            <div className="run-row__body">
-                <div>
-                    <h2>{run.prompt_excerpt}</h2>
-                    <p>{run.workflow.description}</p>
-                </div>
-                <div className="run-row__meta">
-                    <span>{run.workflow.id}</span>
-                    {run.attention_count > 0 ? (
-                        <strong>
-                            {run.attention_count}{" "}
-                            {run.attention_count === 1 ? "item" : "items"} need
-                            you
-                        </strong>
-                    ) : (
-                        <span>{run.status_message}</span>
-                    )}
-                </div>
-            </div>
-            <Link
-                aria-label={`Open Run: ${run.prompt_excerpt}`}
-                className="run-row__open"
-                to={`/runs/${encodeURIComponent(run.id)}`}
-            >
-                Open Run
-                <ArrowRight aria-hidden="true" size={17} />
-            </Link>
-        </Card>
+        </Link>
     );
 }
 
@@ -202,30 +198,37 @@ function RunListError({
     readonly onRetry: () => void;
 }) {
     return (
-        <Notice tone="danger" urgent>
-            <p>{message}</p>
-            <Button onClick={onRetry}>
-                <RefreshCw aria-hidden="true" size={16} />
-                Try again
-            </Button>
-        </Notice>
+        <PageState
+            actions={
+                <Button onClick={onRetry}>
+                    <RefreshCw aria-hidden="true" size={15} />
+                    Try again
+                </Button>
+            }
+            detail={message}
+            fill
+            kind="error"
+            title="Runs could not be loaded"
+        />
     );
 }
 
 function EmptyRunList({ isSearching }: { readonly isSearching: boolean }) {
     return (
-        <div className="run-list__state">
-            <h2>{isSearching ? "No matching Runs" : "No Runs yet"}</h2>
-            <p>
-                {isSearching
-                    ? "Try a different prompt or Workflow name."
-                    : "Start a Run when you have work for one of your published teams."}
-            </p>
-            {isSearching ? null : (
-                <Link className="ui-button ui-button--primary" to="/runs/new">
-                    Start your first Run
-                </Link>
-            )}
-        </div>
+        <PageState
+            actions={
+                isSearching ? undefined : (
+                    <Link
+                        className="ui-button ui-button--primary"
+                        to="/runs/new"
+                    >
+                        Start Run
+                    </Link>
+                )
+            }
+            fill
+            icon={isSearching ? SearchX : ListChecks}
+            title={isSearching ? "No Runs match this search" : "No Runs yet"}
+        />
     );
 }

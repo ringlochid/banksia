@@ -102,9 +102,15 @@ async def read_product_team(
         selections[selection.member_id] = (selection, configuration)
         children_by_parent.setdefault(selection.parent_member_id, []).append(selection.member_id)
 
+    roots = children_by_parent.get(None, ())
+    if len(roots) != 1:
+        raise RuntimeError("current Team must contain exactly one root Member")
+    root_member_id = roots[0]
+
     async def build(member_id: str) -> TaskMemberView:
         _selection, configuration = selections[member_id]
         assignment = latest_assignments.get(member_id)
+        owns_terminal_result = task.result is not None and member_id == root_member_id
         return TaskMemberView(
             id=member_id,
             name=configuration.title or configuration.description or "Team member",
@@ -116,7 +122,7 @@ async def read_product_team(
             ),
             latest_update=(
                 await _read_latest_member_update(session, assignment)
-                if assignment is not None
+                if assignment is not None and not owns_terminal_result
                 else None
             ),
             children=tuple(
@@ -124,10 +130,7 @@ async def read_product_team(
             ),
         )
 
-    roots = children_by_parent.get(None, ())
-    if len(roots) != 1:
-        raise RuntimeError("current Team must contain exactly one root Member")
-    return await build(roots[0])
+    return await build(root_member_id)
 
 
 async def read_product_task_workflow(

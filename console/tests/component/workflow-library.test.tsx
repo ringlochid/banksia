@@ -80,6 +80,56 @@ describe("Workflow library", () => {
         expect(screen.queryByText("Start run")).not.toBeInTheDocument();
     });
 
+    it("removes a Workflow only after explaining that existing Runs keep history", async () => {
+        const removeWorkflow = vi.fn((workflowId: string) =>
+            Promise.resolve(
+                response({
+                    is_removed: true,
+                    workflow_id: workflowId,
+                }),
+            ),
+        );
+        const api = workflowApiStub({
+            searchWorkflows: () =>
+                Promise.resolve(
+                    response({
+                        items: [searchItemFixture()],
+                        next_cursor: null,
+                    }),
+                ),
+            removeWorkflow,
+        });
+        const user = userEvent.setup();
+
+        renderLibrary(api);
+        await screen.findByRole("heading", { name: "evidence-synthesis" });
+        await user.click(
+            screen.getByRole("button", {
+                name: "More actions for evidence-synthesis",
+            }),
+        );
+        await user.click(
+            screen.getByRole("menuitem", { name: "Remove workflow" }),
+        );
+
+        const dialog = screen.getByRole("dialog", {
+            name: "Remove evidence-synthesis?",
+        });
+        expect(dialog).toHaveTextContent(
+            "Existing runs keep their recorded Workflow revision.",
+        );
+        await user.click(
+            within(dialog).getByRole("button", { name: "Remove Workflow" }),
+        );
+
+        await waitFor(() => {
+            expect(removeWorkflow).toHaveBeenCalledWith("evidence-synthesis");
+            expect(
+                screen.queryByRole("link", { name: "Open evidence-synthesis" }),
+            ).not.toBeInTheDocument();
+        });
+    });
+
     it("distinguishes an empty library from a searched no-results state", async () => {
         const searches: string[] = [];
         const api = workflowApiStub({
@@ -98,11 +148,13 @@ describe("Workflow library", () => {
             await screen.findByRole("heading", { name: "No Workflows yet" }),
         ).toBeVisible();
         await user.type(
-            screen.getByRole("searchbox", { name: "Search Workflows" }),
+            screen.getByRole("searchbox", { name: /Search workflows/i }),
             "legal",
         );
         expect(
-            await screen.findByRole("heading", { name: "No matches" }),
+            await screen.findByRole("heading", {
+                name: "No Workflows match this search",
+            }),
         ).toBeVisible();
         expect(searches.at(-1)).toBe("legal");
     });
@@ -165,7 +217,7 @@ describe("Workflow library", () => {
         expect(searchWorkflows).toHaveBeenCalledTimes(1);
 
         fireEvent.change(
-            screen.getByRole("searchbox", { name: "Search Workflows" }),
+            screen.getByRole("searchbox", { name: /Search workflows/i }),
             { target: { value: "review" } },
         );
         expect(signals[0]?.aborted).toBe(true);
@@ -227,7 +279,7 @@ describe("Workflow library", () => {
         renderLibrary(api);
         await screen.findByRole("heading", { name: "evidence-synthesis" });
         await user.click(
-            screen.getByRole("button", { name: "Create Workflow" }),
+            screen.getByRole("button", { name: "Create workflow" }),
         );
         const dialog = screen.getByRole("dialog", {
             name: "Create a Workflow",
@@ -237,7 +289,7 @@ describe("Workflow library", () => {
             "review-team",
         );
         await user.type(
-            within(dialog).getByLabelText("Use this team when…"),
+            within(dialog).getByLabelText("Purpose"),
             "Review a consequential change.",
         );
         await user.click(
@@ -252,21 +304,39 @@ describe("Workflow library", () => {
             });
         });
         expect(
-            within(dialog).getByRole("button", {
-                name: "Close Create a Workflow",
-            }),
-        ).toBeDisabled();
-        expect(
             within(dialog).getByRole("button", { name: "Cancel" }),
         ).toBeDisabled();
         releaseCreate?.();
         expect(await screen.findByText("Studio route opened")).toBeVisible();
     });
+
+    it("opens the create dialog from the sidebar route request", async () => {
+        const user = userEvent.setup();
+
+        renderLibrary(
+            workflowApiStub({
+                searchWorkflows: () =>
+                    Promise.resolve(response({ items: [], next_cursor: null })),
+            }),
+            "/workflows?create=1",
+        );
+
+        expect(
+            screen.getByRole("dialog", { name: "Create a Workflow" }),
+        ).toBeVisible();
+        await user.click(screen.getByRole("button", { name: "Cancel" }));
+        expect(
+            screen.queryByRole("dialog", { name: "Create a Workflow" }),
+        ).not.toBeInTheDocument();
+    });
 });
 
-function renderLibrary(api: Parameters<typeof WorkflowLibraryPage>[0]["api"]) {
+function renderLibrary(
+    api: Parameters<typeof WorkflowLibraryPage>[0]["api"],
+    initialEntry = "/workflows",
+) {
     return render(
-        <MemoryRouter initialEntries={["/workflows"]}>
+        <MemoryRouter initialEntries={[initialEntry]}>
             <Routes>
                 <Route
                     element={<WorkflowLibraryPage api={api} />}

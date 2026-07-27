@@ -104,4 +104,4 @@ Each Starter separates ownership from independent challenge or verification. Thr
 - [Contribute to Banksia](CONTRIBUTING.md)
 - [Report an issue](https://github.com/ringlochid/banksia/issues)
 
-Banksia is open source under the [MIT License](LICENSE).
+Banksia is open source under the [MIT License](LICENSE), except for the visual Console in [`console/`](console/), which contains material derived from n8n and is distributed under the [Sustainable Use License](console/LICENSE). That license limits use to internal business purposes or non-commercial or personal use, and permits redistribution only free of charge for non-commercial purposes. See [`console/NOTICE`](console/NOTICE) for attribution and the modification notice.

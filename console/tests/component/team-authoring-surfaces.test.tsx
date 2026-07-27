@@ -24,13 +24,13 @@ describe("team authoring surfaces", () => {
         );
 
         const lead = screen.getByRole("treeitem", {
-            name: /Research lead.*Manager/,
+            name: "Research lead",
         });
         lead.focus();
         await user.keyboard("{ArrowDown}");
 
         const manager = screen.getByRole("treeitem", {
-            name: /Evidence manager.*Manager/,
+            name: "Evidence manager",
         });
         await waitFor(() => expect(manager).toHaveFocus());
         await user.keyboard("{Enter}");
@@ -60,9 +60,9 @@ describe("team authoring surfaces", () => {
             ).toHaveFocus(),
         );
 
-        await user.click(screen.getByRole("button", { name: "Add child" }));
+        await user.click(screen.getByRole("button", { name: "Add member" }));
         await user.click(screen.getByRole("button", { name: "Edit" }));
-        await user.click(screen.getByRole("button", { name: "Remove branch" }));
+        await user.click(screen.getByRole("button", { name: "Remove" }));
 
         expect(addChild).toHaveBeenCalledWith("manager");
         expect(edit).toHaveBeenCalledWith("manager");
@@ -84,7 +84,7 @@ describe("team authoring surfaces", () => {
 
         render(<DetailsHarness />, { container: root });
 
-        const dialog = screen.getByRole("dialog", { name: "Details" });
+        const dialog = screen.getByRole("dialog", { name: "Research lead" });
         expect(dialog).toHaveAttribute("aria-modal", "true");
         expect(root).toHaveAttribute("inert");
         expect(document.body.style.overflow).toBe("hidden");
@@ -98,7 +98,9 @@ describe("team authoring surfaces", () => {
 
         await user.keyboard("{Escape}");
 
-        expect(screen.queryByRole("dialog", { name: "Details" })).toBeNull();
+        expect(
+            screen.queryByRole("dialog", { name: "Research lead" }),
+        ).toBeNull();
         expect(root).not.toHaveAttribute("inert");
         expect(document.body.style.overflow).toBe("");
 
@@ -112,7 +114,6 @@ describe("team authoring surfaces", () => {
                     member={workflow.lead}
                     onClose={() => setOpen(false)}
                     onEditMember={() => undefined}
-                    onEditWorkflow={() => undefined}
                     onRetryOptions={() => undefined}
                     open={open}
                     options={{ kind: "loading" }}

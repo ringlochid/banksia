@@ -1,11 +1,15 @@
-import { Bot, Sprout } from "lucide-react";
 import { useRef, useState } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { Outlet, useNavigate } from "react-router-dom";
 
 import { operatorApi } from "../../app/api";
 import { OperatorPanel } from "../../features/operator/OperatorPanel";
+import { TooltipProvider } from "../ui";
+import { Sidebar } from "./Sidebar";
+import { useSidebarLayout } from "./useSidebarLayout";
 
 export function AppShell() {
+    const navigate = useNavigate();
+    const layout = useSidebarLayout();
     const [operatorOpen, setOperatorOpen] = useState(false);
     const operatorToggleRef = useRef<HTMLButtonElement>(null);
 
@@ -15,66 +19,33 @@ export function AppShell() {
     }
 
     return (
-        <>
+        <TooltipProvider delayDuration={400}>
             <a className="shell__skip" href="#banksia-main">
                 Skip to main content
             </a>
-            <header className="shell__header">
-                <div className="page-frame shell__header-inner">
-                    <NavLink className="shell__brand" to="/workflows">
-                        <span aria-hidden="true" className="shell__brand-mark">
-                            <Sprout size={21} strokeWidth={2.2} />
-                        </span>
-                        <span>Banksia</span>
-                    </NavLink>
-                    <nav aria-label="Primary" className="shell__nav">
-                        <NavLink
-                            className={({ isActive }) =>
-                                isActive
-                                    ? "shell__nav-link is-active"
-                                    : "shell__nav-link"
-                            }
-                            to="/workflows"
-                        >
-                            Workflows
-                        </NavLink>
-                        <NavLink
-                            className={({ isActive }) =>
-                                isActive
-                                    ? "shell__nav-link is-active"
-                                    : "shell__nav-link"
-                            }
-                            to="/runs"
-                        >
-                            Runs
-                        </NavLink>
-                        <button
-                            aria-controls="banksia-operator"
-                            aria-expanded={operatorOpen}
-                            className="ui-button ui-button--quiet shell__operator-toggle"
-                            onClick={() => setOperatorOpen((open) => !open)}
-                            ref={operatorToggleRef}
-                            type="button"
-                        >
-                            <Bot aria-hidden="true" size={17} />
-                            Operator
-                        </button>
-                    </nav>
-                </div>
-            </header>
-            <main
-                aria-label="Banksia Console"
-                className="shell__main"
-                id="banksia-main"
-                tabIndex={-1}
-            >
-                <Outlet />
-            </main>
+            <div className="shell">
+                <Sidebar
+                    layout={layout}
+                    onCreateWorkflow={() => {
+                        void navigate("/workflows?create=1");
+                    }}
+                    onToggleOperator={() => setOperatorOpen((open) => !open)}
+                    operatorOpen={operatorOpen}
+                />
+                <main
+                    aria-label="Banksia Console"
+                    className="shell__main"
+                    id="banksia-main"
+                    tabIndex={-1}
+                >
+                    <Outlet />
+                </main>
+            </div>
             <OperatorPanel
                 api={operatorApi}
                 isOpen={operatorOpen}
                 onClose={closeOperator}
             />
-        </>
+        </TooltipProvider>
     );
 }

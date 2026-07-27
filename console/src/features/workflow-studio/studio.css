@@ -1,19 +1,31 @@
+/*
+ * The studio is a full-height column: a slim header strip over a canvas that
+ * takes the rest of the viewport. Header composition follows n8n's workflow
+ * editor at pinned commit 43c6f329fb1fb528259a78f80b163e4ed1405c02 — a
+ * breadcrumb on the left and the publish controls on the right, all on one
+ * row. Copyright (c) n8n GmbH and contributors. Sustainable Use License; see
+ * console/LICENSE and console/NOTICE.
+ */
 .studio {
-    min-height: calc(100vh - 4rem);
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
 }
 
 .studio__header {
-    border-bottom: 1px solid var(--banksia-line);
-    background: var(--banksia-surface);
+    flex: none;
+    border-bottom: var(--border-width) solid var(--border-color);
 }
 
 .studio__header-inner {
     display: flex;
-    min-width: 0;
-    min-height: 6.5rem;
+    gap: var(--spacing--sm);
     align-items: center;
     justify-content: space-between;
-    gap: 1.5rem;
+    min-width: 0;
+    min-height: var(--topbar-height);
+    padding: var(--spacing--2xs) var(--spacing--sm);
 }
 
 .studio__header-inner > *,
@@ -22,23 +34,39 @@
     min-width: 0;
 }
 
-.studio__header h1,
-.studio-published h1 {
-    overflow-wrap: anywhere;
-    margin: 0.3rem 0 0;
-    font-size: clamp(1.7rem, 4vw, 2.4rem);
-    letter-spacing: -0.04em;
+.studio__crumbs {
+    display: flex;
+    gap: var(--spacing--3xs);
+    align-items: center;
+    min-width: 0;
 }
 
-.studio__back {
+.studio__crumb-sep {
+    color: var(--text-color--subtler);
+}
+
+.studio__title {
+    overflow: hidden;
+    font-size: var(--font-size--sm);
+    font-weight: var(--font-weight--medium);
+    color: var(--text-color);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.studio__back,
+.page__back {
     display: inline-flex;
-    min-height: 2.75rem;
+    gap: var(--spacing--5xs);
     align-items: center;
-    gap: 0.35rem;
-    color: var(--banksia-ink-650);
-    font-size: 0.85rem;
-    font-weight: 750;
-    text-decoration: none;
+    font-size: var(--font-size--xs);
+    color: var(--text-color--subtle);
+    white-space: nowrap;
+}
+
+.studio__back:hover,
+.page__back:hover {
+    color: var(--text-color);
 }
 
 .studio__actions,
@@ -51,28 +79,33 @@
 }
 
 .studio-save-status {
-    color: var(--banksia-ink-650);
+    color: var(--text-color--subtle);
     font-size: 0.8rem;
 }
 
 .studio__body {
-    display: grid;
-    gap: 1rem;
-    padding-block: 1.5rem 4rem;
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
 }
 
 .studio__workspace {
     position: relative;
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
 }
 
 .studio-form {
     display: grid;
     gap: 1.1rem;
     padding: clamp(1rem, 3vw, 1.5rem);
-    border: 1px solid var(--banksia-line);
-    border-radius: var(--banksia-radius-large);
-    background: var(--banksia-surface);
-    box-shadow: var(--banksia-shadow-small);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius--xs);
+    background: var(--background--surface);
+    box-shadow: var(--shadow--xs);
 }
 
 .studio-form header h2,
@@ -82,12 +115,12 @@
 
 .studio-form header > p:last-child,
 .studio-form__explanation {
-    color: var(--banksia-ink-650);
+    color: var(--text-color--subtle);
 }
 
 .studio-form__eyebrow {
     margin: 0 0 0.25rem !important;
-    color: var(--banksia-leaf);
+    color: var(--text-color--brand);
     font-size: 0.72rem;
     font-weight: 850;
     letter-spacing: 0.12em;
@@ -95,48 +128,62 @@
 }
 
 .studio-disclosure {
-    border-top: 1px solid var(--banksia-line);
-    padding-top: 0.75rem;
+    padding-top: var(--spacing--2xs);
+    border-top: var(--border-width) solid var(--border-color);
 }
 
 .studio-disclosure summary {
-    min-height: 2.75rem;
+    display: flex;
+    min-height: var(--control-height);
+    align-items: center;
+    font-size: var(--font-size--xs);
+    font-weight: var(--font-weight--medium);
+    color: var(--text-color);
     cursor: pointer;
-    color: var(--banksia-ink-800);
-    font-weight: 800;
 }
 
 .studio-disclosure__body {
     display: grid;
-    gap: 1rem;
-    padding-top: 0.75rem;
+    gap: var(--spacing--xs);
+    padding-top: var(--spacing--2xs);
+}
+
+.studio-form__status {
+    display: flex;
+    min-height: var(--control-height);
+    gap: var(--spacing--3xs);
+    align-items: center;
+    font-size: var(--font-size--xs);
+    color: var(--text-color--subtle);
 }
 
 .studio-capabilities {
     display: grid;
-    gap: 0.6rem;
+    gap: var(--spacing--3xs);
     margin: 0;
-    padding: 1rem;
-    border: 1px solid var(--banksia-line);
-    border-radius: var(--banksia-radius-small);
+    padding: var(--spacing--2xs);
+    border: var(--border-width) solid var(--border-color);
+    border-radius: var(--radius--3xs);
 }
 
 .studio-capabilities legend {
-    padding-inline: 0.35rem;
-    font-weight: 800;
+    padding-inline: var(--spacing--4xs);
+    font-size: var(--font-size--xs);
+    font-weight: var(--font-weight--medium);
 }
 
 .studio-capabilities p {
-    margin: 0 0 0.3rem;
-    color: var(--banksia-ink-650);
-    font-size: 0.85rem;
+    margin: 0;
+    color: var(--text-color--subtle);
+    font-size: var(--font-size--2xs);
 }
 
 .studio-capabilities label {
     display: flex;
-    min-height: 2.75rem;
+    min-height: var(--control-height);
     align-items: center;
-    gap: 0.65rem;
+    gap: var(--spacing--2xs);
+    font-size: var(--font-size--xs);
 }
 
 .studio-capabilities input {
@@ -144,11 +191,20 @@
     height: 1.15rem;
 }
 
+.studio-capabilities[aria-invalid="true"] {
+    border-color: var(--color--red-500);
+}
+
+.studio-capabilities[aria-invalid="true"]:focus {
+    outline: none;
+    box-shadow: 0 0 0 1px var(--color--red-500);
+}
+
 .studio-validation {
     padding: 1rem 1.25rem;
-    border: 1px solid #dda9a4;
-    border-radius: var(--banksia-radius);
-    background: var(--banksia-danger-soft);
+    border: 1px solid var(--border-color--danger);
+    border-radius: var(--radius--2xs);
+    background: var(--background--danger);
 }
 
 .studio-validation h2 {
@@ -165,7 +221,7 @@
 }
 
 .studio-published > p {
-    color: var(--banksia-ink-650);
+    color: var(--text-color--subtle);
     font-size: 1.05rem;
 }
 

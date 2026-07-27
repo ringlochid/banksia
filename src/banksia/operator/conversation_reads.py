@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import cast
 from uuid import uuid4
 
-from sqlalchemy import Select, and_, or_, select
+from sqlalchemy import Select, and_, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -40,6 +40,8 @@ from banksia.runtime.clock import utc_now
 from banksia.runtime.product.paths import build_product_api_path
 
 type OperatorSessionFactory = Callable[[], AbstractAsyncContextManager[AsyncSession]]
+
+_CONVERSATION_PREVIEW_MAX_CHARS = 64
 
 
 async def create_operator_conversation(
@@ -111,9 +113,13 @@ async def list_operator_conversations(
 
     async with session_factory() as session:
         conversations = list((await session.scalars(statement)).all())
+        has_more = len(conversations) > limit
+        visible = conversations[:limit]
+        previews = await _read_conversation_previews(
+            session,
+            conversation_ids=tuple(conversation.conversation_id for conversation in visible),
+        )
 
-    has_more = len(conversations) > limit
-    visible = conversations[:limit]
     next_cursor = (
         _encode_conversation_cursor(visible[-1].updated_at, visible[-1].conversation_id)
         if has_more and visible
@@ -125,6 +131,7 @@ async def list_operator_conversations(
                 id=conversation.conversation_id,
                 state=cast(OperatorConversationState, conversation.state),
                 provider=conversation.provider,
+                preview=previews.get(conversation.conversation_id),
                 created_at=conversation.created_at,
                 updated_at=conversation.updated_at,
             )
@@ -132,6 +139,58 @@ async def list_operator_conversations(
         ),
         next_cursor=next_cursor,
     )
+
+
+async def _read_conversation_previews(
+    session: AsyncSession,
+    *,
+    conversation_ids: tuple[str, ...],
+) -> dict[str, str]:
+    if not conversation_ids:
+        return {}
+
+    first_user_messages = (
+        select(
+            OperatorConversationEntryModel.conversation_id.label("conversation_id"),
+            func.min(OperatorConversationEntryModel.sequence).label("sequence"),
+        )
+        .where(
+            OperatorConversationEntryModel.conversation_id.in_(conversation_ids),
+            OperatorConversationEntryModel.kind == "user_message",
+        )
+        .group_by(OperatorConversationEntryModel.conversation_id)
+        .subquery()
+    )
+    statement = select(
+        OperatorConversationEntryModel.conversation_id,
+        OperatorConversationEntryModel.body_json,
+    ).join(
+        first_user_messages,
+        and_(
+            OperatorConversationEntryModel.conversation_id == first_user_messages.c.conversation_id,
+            OperatorConversationEntryModel.sequence == first_user_messages.c.sequence,
+        ),
+    )
+    rows = (await session.execute(statement)).all()
+    previews: dict[str, str] = {}
+    for conversation_id, body in rows:
+        preview = _conversation_preview(body)
+        if preview is not None:
+            previews[conversation_id] = preview
+    return previews
+
+
+def _conversation_preview(body: dict[str, object]) -> str | None:
+    text = body.get("text")
+    if not isinstance(text, str):
+        return None
+
+    normalized = " ".join(text.split())
+    if not normalized:
+        return None
+    if len(normalized) <= _CONVERSATION_PREVIEW_MAX_CHARS:
+        return normalized
+    return f"{normalized[: _CONVERSATION_PREVIEW_MAX_CHARS - 1].rstrip()}…"
 
 
 async def read_operator_conversation(

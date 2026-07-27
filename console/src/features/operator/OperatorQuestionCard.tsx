@@ -1,7 +1,7 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 
-import { Button } from "../../components/ui";
+import { Button, Input, Prose } from "../../components/ui";
 import type {
     OperatorAssistantQuestionSetEntry,
     OperatorQuestionAnswer,
@@ -69,9 +69,9 @@ export function OperatorQuestionCard({
     return (
         <section className="operator-question-card">
             {questionSet.explanation ? (
-                <p className="operator-question-card__explanation">
+                <Prose className="operator-question-card__explanation">
                     {questionSet.explanation}
-                </p>
+                </Prose>
             ) : null}
             <p aria-live="polite" className="operator-question-card__progress">
                 Question {currentIndex + 1} of {questionSet.questions.length}
@@ -125,7 +125,7 @@ export function OperatorQuestionCard({
                             type="radio"
                         />
                         <strong>Something else</strong>
-                        <input
+                        <Input
                             aria-label="Something else"
                             disabled={disabled}
                             onChange={(event) =>

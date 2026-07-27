@@ -1,5 +1,5 @@
 import { ApiResponseError, type WorkflowApi } from "../../../api/client";
-import type { WorkflowGetResponse } from "../../../api/types";
+import type { NewMember, WorkflowGetResponse } from "../../../api/types";
 import { AutosaveDeadline } from "./autosave-deadline";
 import type {
     MemberEdit,
@@ -123,8 +123,11 @@ export class WorkflowStudioController
         this.scheduleAutosave();
     }
 
-    public async addChild(parentMemberId: string): Promise<void> {
-        await addDraftChild(this.draftRuntime, parentMemberId);
+    public async addChild(
+        parentMemberId: string,
+        member: NewMember,
+    ): Promise<string | null> {
+        return addDraftChild(this.draftRuntime, parentMemberId, member);
     }
 
     public async removeMember(memberId: string): Promise<void> {

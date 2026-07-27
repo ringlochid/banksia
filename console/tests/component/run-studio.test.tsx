@@ -163,14 +163,14 @@ describe("temporary Run Studio", () => {
             }),
         ).toBeVisible();
         expect(
-            screen.getByRole("heading", { name: "Needs your attention" }),
+            screen.getByRole("heading", { name: "Action required" }),
         ).toBeVisible();
         await user.click(screen.getByRole("radio", { name: /Reliability/ }));
         await user.click(
             screen.getByRole("button", { name: "Submit response" }),
         );
 
-        expect(await screen.findAllByText("Response received")).toHaveLength(2);
+        expect(await screen.findAllByText("Response received")).toHaveLength(1);
         expect(respondToHumanRequest).toHaveBeenCalledWith(
             "t_7m4k2d9x",
             "request-one",
@@ -187,6 +187,11 @@ describe("temporary Run Studio", () => {
         );
         await waitFor(() => expect(getRun).toHaveBeenCalledTimes(2));
 
+        await user.click(
+            screen.getByRole("tab", {
+                name: "Commands (1)",
+            }),
+        );
         await user.click(screen.getByRole("button", { name: "View output" }));
         const dialog = await screen.findByRole("dialog", {
             name: "Output: Run the release verification suite",
@@ -293,6 +298,37 @@ describe("temporary Run Studio", () => {
         ).toBeVisible();
         await waitFor(() => expect(sources).toHaveLength(1));
         expect(screen.getByText("Run started")).toBeVisible();
+    });
+
+    it("does not repeat a generic terminal message above the accepted Result", async () => {
+        const api = runApiStub({
+            getRun: () =>
+                Promise.resolve(
+                    response(
+                        taskFixture({
+                            status: "completed",
+                            status_message:
+                                "The run completed with an accepted result.",
+                            result: {
+                                status: "completed",
+                                summary: "The verified report is ready.",
+                                details: "See the **Result** below.",
+                                files: [],
+                                completed_at: "2026-07-26T01:10:00Z",
+                            },
+                        }),
+                    ),
+                ),
+        });
+
+        renderRun(api);
+
+        expect(
+            await screen.findByText("The verified report is ready."),
+        ).toBeVisible();
+        expect(
+            screen.queryByText("The run completed with an accepted result."),
+        ).not.toBeInTheDocument();
     });
 
     it("does not apply a stale control response after switching Runs", async () => {

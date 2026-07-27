@@ -102,6 +102,7 @@ class WorkflowLibraryState(StrEnum):
 class WorkflowLibraryAction(StrEnum):
     EDIT = "edit"
     START_RUN = "start_run"
+    REMOVE = "remove"
 
 
 class WorkflowSearchItem(_AuthoringModel):
@@ -164,9 +165,13 @@ class WorkflowGetResponse(_AuthoringModel):
         if (self.published is not None) is not has_published_workflow:
             raise ValueError("Workflow detail publication contradicts its current revision")
         expected_actions = (
-            (WorkflowLibraryAction.EDIT, WorkflowLibraryAction.START_RUN)
+            (
+                WorkflowLibraryAction.EDIT,
+                WorkflowLibraryAction.START_RUN,
+                WorkflowLibraryAction.REMOVE,
+            )
             if has_published_workflow
-            else (WorkflowLibraryAction.EDIT,)
+            else (WorkflowLibraryAction.EDIT, WorkflowLibraryAction.REMOVE)
         )
         if self.available_actions != expected_actions:
             raise ValueError("Workflow detail actions contradict its current publication")
@@ -194,6 +199,11 @@ class WorkflowGetResponse(_AuthoringModel):
 class WorkflowDraftDiscardResult(_AuthoringModel):
     is_discarded: bool
     draft_id: str
+
+
+class WorkflowRemovalResult(_AuthoringModel):
+    is_removed: bool
+    workflow_id: Identifier
 
 
 AUTHORING_OPTIONS = WorkflowAuthoringOptions(
@@ -251,6 +261,7 @@ __all__ = [
     "WorkflowLibraryAction",
     "WorkflowLibraryState",
     "WorkflowPublishedReadback",
+    "WorkflowRemovalResult",
     "WorkflowRevisionReadback",
     "WorkflowSearchItem",
     "WorkflowSearchResponse",

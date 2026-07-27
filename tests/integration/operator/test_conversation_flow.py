@@ -441,6 +441,12 @@ async def test_conversation_and_entry_readback_use_bounded_opaque_pages(
         second_conversation.id,
         third_conversation.id,
     }
+    summaries = {
+        summary.id: summary for summary in (*latest_conversations.items, *older_conversations.items)
+    }
+    assert summaries[first_conversation.id].preview == "First input."
+    assert summaries[second_conversation.id].preview is None
+    assert summaries[third_conversation.id].preview is None
     assert older_conversations.next_cursor is None
 
 

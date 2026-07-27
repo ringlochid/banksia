@@ -1,3 +1,4 @@
+import { ChevronDown, ChevronRight, Circle } from "lucide-react";
 import {
     useEffect,
     useMemo,
@@ -190,12 +191,6 @@ export function TeamOutline({
 
     return (
         <aside className="team-outline">
-            <header className="team-outline__header">
-                <div>
-                    <h2>Team outline</h2>
-                    <p>Keyboard-friendly hierarchy</p>
-                </div>
-            </header>
             <div
                 aria-label="Workflow team hierarchy"
                 className="team-outline__tree"
@@ -226,7 +221,7 @@ export function TeamOutline({
                     onClick={() => onAddChild(selectedMemberId)}
                     tone="secondary"
                 >
-                    Add child
+                    Add member
                 </Button>
                 <Button
                     disabled={disabled}
@@ -240,7 +235,7 @@ export function TeamOutline({
                     onClick={() => onRemove(selectedMemberId)}
                     tone="quiet"
                 >
-                    Remove branch
+                    Remove
                 </Button>
             </div>
         </aside>
@@ -308,10 +303,15 @@ function OutlineBranch({
                 tabIndex={focusedMemberId === member.id ? 0 : -1}
             >
                 <span aria-hidden="true" className="team-outline__branch-mark">
-                    {children.length === 0 ? "•" : collapsed ? "›" : "⌄"}
+                    {children.length === 0 ? (
+                        <Circle fill="currentColor" size={5} />
+                    ) : collapsed ? (
+                        <ChevronRight size={14} />
+                    ) : (
+                        <ChevronDown size={14} />
+                    )}
                 </span>
                 <span>{memberTitle(member)}</span>
-                <small>{children.length > 0 ? "Manager" : "Contributor"}</small>
             </div>
             {children.length === 0 || collapsed ? null : (
                 <div className="team-outline__group" role="group">

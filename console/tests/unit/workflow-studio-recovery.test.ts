@@ -76,7 +76,9 @@ describe("Workflow Studio exclusive operations", () => {
             });
             const controller = await loadedController(api);
             if (action === "undo") {
-                await controller.addChild("member-1");
+                await controller.addChild("member-1", {
+                    title: "Undo seed",
+                });
                 expect(controller.getSnapshot().canUndo).toBe(true);
             }
 
@@ -84,7 +86,9 @@ describe("Workflow Studio exclusive operations", () => {
                 action === "publish"
                     ? controller.validateAndPublish()
                     : action === "add"
-                      ? controller.addChild("member-1")
+                      ? controller.addChild("member-1", {
+                            title: "New teammate",
+                        })
                       : action === "remove"
                         ? controller.removeMember("member-2")
                         : action === "undo"
@@ -216,13 +220,17 @@ describe("Workflow Studio typed recovery state", () => {
             });
             const controller = await loadedController(api);
             if (failurePoint === "undo") {
-                await controller.addChild("member-1");
+                await controller.addChild("member-1", {
+                    title: "Undo seed",
+                });
             }
 
             if (failurePoint === "validation" || failurePoint === "publish") {
                 await controller.validateAndPublish();
             } else if (failurePoint === "add") {
-                await controller.addChild("member-1");
+                await controller.addChild("member-1", {
+                    title: "New teammate",
+                });
             } else if (failurePoint === "remove") {
                 await controller.removeMember("member-2");
             } else if (failurePoint === "undo") {

@@ -1,7 +1,7 @@
 import { ChevronLeft, ChevronRight, Send, X } from "lucide-react";
 import { useId, useMemo, useState } from "react";
 
-import { Button, Card, Notice } from "../../components/ui";
+import { Button, Input, Notice, Prose } from "../../components/ui";
 import { errorMessage } from "./run-presentation";
 import { FileReferences } from "./RunSections";
 import type {
@@ -56,14 +56,13 @@ export function HumanRequestCard({
 
     if (request.status !== "open") {
         return (
-            <Card className="run-request run-request--resolved">
-                <p className="run-section-kicker">Your response</p>
+            <section className="run-request run-request--resolved">
                 <h3>{request.summary}</h3>
-                <p>
+                <Prose>
                     {request.resolution?.summary ??
                         "This request no longer needs a response."}
-                </p>
-            </Card>
+                </Prose>
+            </section>
         );
     }
 
@@ -113,23 +112,17 @@ export function HumanRequestCard({
 
     if (receipt !== null) {
         return (
-            <Card className="run-request run-request--receipt" role="status">
-                <p className="run-section-kicker">Response received</p>
+            <section className="run-request run-request--receipt" role="status">
                 <h3>{request.summary}</h3>
-                <p>{receipt}</p>
-                <p>
-                    Banksia is checking the Run again. A response does not by
-                    itself mean the team has resumed or finished.
-                </p>
-            </Card>
+                <Prose>{receipt}</Prose>
+            </section>
         );
     }
 
     return (
-        <Card aria-labelledby={titleId} className="run-request">
+        <section aria-labelledby={titleId} className="run-request">
             <div className="run-request__heading">
                 <div>
-                    <p className="run-section-kicker">Needs your attention</p>
                     <h3 id={titleId}>{request.summary}</h3>
                 </div>
                 {request.member === null ||
@@ -140,7 +133,7 @@ export function HumanRequestCard({
             <FileReferences files={request.files} compact />
             {error === null ? null : (
                 <Notice tone="danger" urgent>
-                    {error} Your draft response is still here.
+                    <Prose>{error}</Prose>
                 </Notice>
             )}
             {item === undefined ? (
@@ -207,7 +200,9 @@ export function HumanRequestCard({
             request.cancel_action === undefined ? null : cancelPending ? (
                 <div className="run-request__cancel-confirm">
                     <strong>{request.cancel_action.confirmation.title}</strong>
-                    <p>{request.cancel_action.confirmation.consequence}</p>
+                    <Prose>
+                        {request.cancel_action.confirmation.consequence}
+                    </Prose>
                     <div>
                         <Button
                             disabled={submitting}
@@ -234,7 +229,7 @@ export function HumanRequestCard({
                     Cancel this request
                 </Button>
             )}
-        </Card>
+        </section>
     );
 }
 
@@ -299,7 +294,7 @@ function QuestionInput({
                         <span>
                             <strong>Something else</strong>
                             {answer?.mode === "other" ? (
-                                <input
+                                <Input
                                     aria-label="Your answer"
                                     autoFocus
                                     disabled={disabled}
@@ -344,7 +339,7 @@ function QuestionInput({
     return (
         <label className="run-question run-question--value">
             <strong>{item.prompt}</strong>
-            <input
+            <Input
                 disabled={disabled}
                 onChange={(event) =>
                     onChange({

@@ -1,7 +1,7 @@
 import { useId } from "react";
 
-import { FormField } from "../../../components/ui";
 import type { NormalizedWorkflow } from "../../../api/types";
+import { FormField, Textarea } from "../../../components/ui";
 import type { StudioValidationIssue, WorkflowEdit } from "../state/contracts";
 import { validationMessageForTarget } from "../state/validation";
 
@@ -29,22 +29,13 @@ export function WorkflowForm({
     });
 
     return (
-        <section aria-labelledby={`${prefix}-heading`} className="studio-form">
-            <header>
-                <p className="studio-form__eyebrow">Workflow</p>
-                <h2 id={`${prefix}-heading`}>Team purpose</h2>
-                <p>
-                    Help people recognize when this reusable team is the right
-                    fit.
-                </p>
-            </header>
+        <section aria-label="Workflow settings" className="studio-form">
             <FormField
                 error={descriptionError}
-                hint="One plain-language sentence. This appears in the Workflow library."
                 id={`${prefix}-description`}
-                label="Use this team when…"
+                label="Purpose"
             >
-                <textarea
+                <Textarea
                     data-field-path="$.description"
                     disabled={disabled}
                     maxLength={1024}
@@ -55,28 +46,22 @@ export function WorkflowForm({
                     value={workflow.description}
                 />
             </FormField>
-            <details className="studio-disclosure">
-                <summary>Shared note</summary>
-                <div className="studio-disclosure__body">
-                    <FormField
-                        error={noteError}
-                        hint="Optional shared context for this team, such as goals, preferences, or important background."
-                        id={`${prefix}-note`}
-                        label="Note"
-                        optional
-                    >
-                        <textarea
-                            data-field-path="$.note"
-                            disabled={disabled}
-                            maxLength={8192}
-                            onChange={(event) => {
-                                onEdit({ note: event.target.value || null });
-                            }}
-                            value={workflow.note ?? ""}
-                        />
-                    </FormField>
-                </div>
-            </details>
+            <FormField
+                error={noteError}
+                id={`${prefix}-note`}
+                label="Shared note"
+                optional
+            >
+                <Textarea
+                    data-field-path="$.note"
+                    disabled={disabled}
+                    maxLength={8192}
+                    onChange={(event) => {
+                        onEdit({ note: event.target.value || null });
+                    }}
+                    value={workflow.note ?? ""}
+                />
+            </FormField>
         </section>
     );
 }

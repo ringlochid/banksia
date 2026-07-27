@@ -1,31 +1,139 @@
+/*
+ * Semantic tokens. Banksia ships dark only — there is no light variant and no
+ * theme switch, so these sit directly on :root rather than in a mixin.
+ *
+ * Structure and token names derived from the `theme-dark` mixin in n8n's
+ * `@n8n/design-system/src/css/_tokens.scss` at pinned commit
+ * 43c6f329fb1fb528259a78f80b163e4ed1405c02.
+ * Copyright (c) n8n GmbH and contributors. Sustainable Use License; see
+ * console/LICENSE and console/NOTICE.
+ *
+ * Banksia substitutes its own brand: the accent is green rather than n8n's
+ * orange, with gold for the secondary accent. Tokens naming n8n product
+ * concepts (nodes, sticky notes, execution state, the assistant gradient) are
+ * deliberately not carried over — Banksia's own surfaces are defined below.
+ */
+
 :root {
-    color-scheme: light;
-    --banksia-ink-950: #17251d;
-    --banksia-ink-800: #2f4135;
-    --banksia-ink-650: #526457;
-    --banksia-ink-500: #718176;
-    --banksia-paper: #f7f5ee;
-    --banksia-surface: #fffdf8;
-    --banksia-surface-muted: #efede5;
-    --banksia-line: #d7d4c9;
-    --banksia-line-strong: #a9b2a8;
-    --banksia-leaf: #2f6a48;
-    --banksia-leaf-hover: #24573a;
-    --banksia-leaf-soft: #e4efe6;
-    --banksia-flower: #d9a321;
-    --banksia-flower-soft: #fff1c7;
-    --banksia-danger: #a63d38;
-    --banksia-danger-soft: #fae7e3;
-    --banksia-info: #315b76;
-    --banksia-info-soft: #e5eff6;
-    --banksia-focus: #0b69a3;
-    --banksia-shadow: 0 16px 48px rgb(23 37 29 / 10%);
-    --banksia-shadow-small: 0 5px 18px rgb(23 37 29 / 8%);
-    --banksia-radius-small: 0.5rem;
-    --banksia-radius: 0.85rem;
-    --banksia-radius-large: 1.25rem;
-    --banksia-content: 80rem;
-    --banksia-font:
-        Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
-        "Segoe UI", sans-serif;
+    color-scheme: dark;
+
+    /* brand */
+    --background--brand: var(--color--green-600);
+    --background--brand--hover: var(--color--green-500);
+    --background--brand--active: var(--color--green-700);
+    --background--brand--focus: var(--color--green-400);
+    --background--brand--disabled: var(--color--neutral-800);
+    --text-color--brand: var(--color--green-300);
+    --border-color--brand: var(--color--green-700);
+
+    /* accent */
+    --background--accent: var(--color--gold-500);
+    --background--accent--hover: var(--color--gold-400);
+    --text-color--accent: var(--color--gold-300);
+    --border-color--accent: var(--color--gold-700);
+
+    /* surfaces */
+    --background--base: var(--color--neutral-950);
+    --background--surface: var(--color--neutral-900);
+    --background--subtle: var(--color--neutral-800);
+    --background--raised: var(--color--neutral-850);
+    --background--hover: var(--color--white-alpha-100);
+    --background--active: var(--color--white-alpha-150);
+    --background--focus: var(--color--white-alpha-150);
+    --background--disabled: var(--color--neutral-800);
+    --background--overlay: var(--color--black-alpha-600);
+
+    /* borders */
+    --border-color: var(--color--white-alpha-100);
+    --border-color--subtle: var(--color--white-alpha-50);
+    --border-color--strong: var(--color--white-alpha-200);
+    --border-color--stronger: var(--color--white-alpha-400);
+    --border-width: 1px;
+
+    /* text */
+    --text-color: var(--color--neutral-white);
+    --text-color--subtle: var(--color--neutral-200);
+    --text-color--subtler: var(--color--neutral-400);
+    --text-color--disabled: var(--color--neutral-600);
+
+    /* icons */
+    --icon-color--subtle: var(--color--neutral-600);
+    --icon-color: var(--color--neutral-300);
+    --icon-color--strong: var(--color--neutral-white);
+
+    /* status: success */
+    --background--success: var(--color--green-950);
+    --border-color--success: var(--color--green-800);
+    --text-color--success: var(--color--green-50);
+    --icon-color--success: var(--color--green-50);
+
+    /* status: warning */
+    --background--warning: var(--color--yellow-900);
+    --border-color--warning: var(--color--yellow-800);
+    --text-color--warning: var(--color--yellow-100);
+    --icon-color--warning: var(--color--yellow-100);
+
+    /* status: danger */
+    --background--danger: var(--color--red-950);
+    --border-color--danger: var(--color--red-800);
+    --text-color--danger: var(--color--red-50);
+    --icon-color--danger: var(--color--red-50);
+
+    /* status: info */
+    --background--info: var(--color--blue-950);
+    --border-color--info: var(--color--blue-800);
+    --text-color--info: var(--color--blue-50);
+    --icon-color--info: var(--color--blue-50);
+
+    /* inverse */
+    --background--inverse: var(--color--neutral-white);
+    --border-color--inverse: var(--color--neutral-200);
+    --text-color--inverse: var(--color--neutral-800);
+    --icon-color--inverse: var(--color--neutral-800);
+
+    /* focus ring */
+    --focus-ring--color: var(--color--green-400);
+    --focus-ring:
+        0 0 0 2px var(--background--base), 0 0 0 4px var(--focus-ring--color);
+
+    /* shadows */
+    --shadow-color: var(--color--black-alpha-500);
+    --shadow--outline: 0 0 0 1px var(--color--white-alpha-100);
+    --shadow--2xs: 0 1px 2px var(--shadow-color);
+    --shadow--xs: 0 1px 3px var(--shadow-color);
+    --shadow--sm: 0 2px 6px var(--shadow-color);
+    --shadow--md: 0 6px 16px var(--shadow-color);
+    --shadow--lg: 0 12px 32px var(--shadow-color);
+
+    /* control sizing — n8n's compact console rhythm */
+    --control-height--sm: 1.75rem;
+    --control-height: 2rem;
+    --control-height--lg: 2.25rem;
+    --control-padding-x: var(--spacing--2xs);
+
+    /* chrome */
+    --rail-width: 2.75rem;
+    --topbar-height: 3rem;
+
+    /*
+     * Banksia team canvas. n8n's equivalents describe nodes and execution
+     * state; these describe Members and ownership, which is a different model.
+     */
+    --canvas--color--background: var(--color--neutral-950);
+    --canvas--dot--color: var(--color--neutral-700);
+    --canvas--connector--color: var(--color--neutral-500);
+    --canvas--connector--width: 2px;
+    --member--height: 2.25rem;
+    --member--color--background: var(--color--neutral-850);
+    --member--border-color: var(--color--white-alpha-150);
+    --member--border-color--selected: var(--color--green-500);
+    --member--color--background--selected: var(--color--green-alpha-100);
+    --member--shadow--selected: 0 0 0 1px var(--color--green-500);
+
+    /* Member work state, used on the read-only run view */
+    --state--not-started: var(--color--neutral-600);
+    --state--working: var(--color--blue-400);
+    --state--waiting: var(--color--gold-400);
+    --state--done: var(--color--green-500);
+    --state--blocked: var(--color--red-500);
 }

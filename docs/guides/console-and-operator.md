@@ -13,13 +13,13 @@ make console-package-assets
 
 Open `http://127.0.0.1:18125/`. The current routes are:
 
-- `/workflows` — search the library, distinguish Starters and drafts, and create a Workflow;
+- `/workflows` — search the library, distinguish Starters and drafts, create a Workflow, or remove one after confirmation;
 - `/workflows/{workflow-id}` — inspect, edit, validate, undo, discard, or publish a draft using its current legal actions;
 - `/runs` — search current and previous work;
 - `/runs/new` — choose a published team, enter a complete prompt, and add optional workspace and file references; and
 - `/runs/{task-id}` — read Status, Result, Team, Current plan, Activity, attention, Actions, and current run controls.
 
-The Console is functional, temporary, and currently desktop-oriented. A mature visual redesign, mobile and tablet experiences, and broader accessibility polish are deferred rather than part of the current interface.
+Removing a Workflow takes it out of the active library and prevents new runs. Existing runs keep their recorded immutable Workflow revision.
 
 ## Operator
 

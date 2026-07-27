@@ -199,6 +199,8 @@ Operator UI uses product HTTP only. There is no Operator SSE or public Operator 
 | `POST /api/operator/conversations/{conversation_id}/messages` | Commit one user message, run one provider turn, and return committed readback. | `200 OperatorConversationView` |
 | `POST /api/operator/conversations/{conversation_id}/question-sets/{question_set_id}/answers` | Commit one complete answer, run one same-thread provider turn, and return committed readback. | `200 OperatorConversationView` |
 
+Each conversation summary projects an optional `preview` from the first `user_message`: whitespace is collapsed and the result is capped at 64 characters. Empty conversations return `preview = null`. The projection adds no generated title and no durable field.
+
 Unknown body fields are rejected. The strict bodies are:
 
 ```json

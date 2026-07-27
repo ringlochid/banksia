@@ -1,5 +1,6 @@
 import type {
     MemberCapabilities,
+    NewMember,
     NormalizedMember,
     NormalizedWorkflow,
     ProviderSelection,
@@ -162,7 +163,7 @@ export interface StudioActions {
     selectMember(memberId: string): void;
     editWorkflow(patch: WorkflowEdit): void;
     editMember(memberId: string, patch: MemberEdit): void;
-    addChild(parentMemberId: string): Promise<void>;
+    addChild(parentMemberId: string, member: NewMember): Promise<string | null>;
     removeMember(memberId: string): Promise<void>;
     retrySave(): Promise<void>;
     undo(): Promise<void>;

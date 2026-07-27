@@ -200,7 +200,9 @@ def _workflow_search_item(workflow_id: str, *, is_published: bool) -> dict[str, 
         "updated_at": "2026-07-25T00:00:00Z",
         "published_revision_no": 1 if is_published else None,
         "provenance": "user",
-        "available_actions": ["edit", "start_run"] if is_published else ["edit"],
+        "available_actions": (
+            ["edit", "start_run", "remove"] if is_published else ["edit", "remove"]
+        ),
     }
 
 
@@ -286,7 +288,7 @@ async def test_task_start_cli_interactive_abort_or_blank_never_builds_request(
                             "updated_at": "2026-07-25T00:00:00Z",
                             "published_revision_no": 1,
                             "provenance": "user",
-                            "available_actions": ["edit", "start_run"],
+                            "available_actions": ["edit", "start_run", "remove"],
                         }
                     ]
                 },

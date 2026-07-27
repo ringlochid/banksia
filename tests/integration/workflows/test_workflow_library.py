@@ -18,8 +18,14 @@ from banksia.workflows.authoring import (
     read_workflow_catalog_entry,
 )
 from banksia.workflows.authoring_contracts import OpenWorkflowDraftRequest
+from banksia.workflows.bootstrap import seed_starter_workflows
+from banksia.workflows.catalog import (
+    read_current_published_workflow,
+    read_published_workflow_revision,
+)
 from banksia.workflows.contracts import WorkflowProvenance
 from banksia.workflows.publication import publish_workflow_revision
+from banksia.workflows.service_errors import WorkflowNotFoundError
 from tests.helpers.product_surface import product_http_client
 from tests.helpers.workflow_concurrency import DatabaseBackend, workflow_database
 
@@ -58,7 +64,7 @@ async def test_draft_only_workflow_is_discoverable_by_id_and_description(
         "state": "draft",
         "published_revision_no": None,
         "provenance": "user",
-        "available_actions": ["edit"],
+        "available_actions": ["edit", "remove"],
     }
     assert search_by_id.json()["items"] == [
         expected_item | {"updated_at": search_by_id.json()["items"][0]["updated_at"]}
@@ -70,6 +76,93 @@ async def test_draft_only_workflow_is_discoverable_by_id_and_description(
     assert detail.json()["state"] == "draft"
     assert detail.json()["published"] is None
     assert detail.json()["active_draft"] == created.json()["draft"]
+
+
+@pytest.mark.parametrize("database_backend", ("sqlite", "postgresql"))
+async def test_remove_workflow_retires_publication_and_preserves_history(
+    tmp_path: Path,
+    database_backend: DatabaseBackend,
+) -> None:
+    published_id = "evidence-synthesis"
+    async with workflow_database(tmp_path, backend=database_backend) as session_factory:
+        async with product_http_client(session_factory, tmp_path=tmp_path) as client:
+            created = await client.post(
+                "/api/workflow-drafts",
+                json={
+                    "kind": "create",
+                    "workflow_id": "unused-draft",
+                    "description": "A draft that has never been published.",
+                },
+            )
+            removed_draft = await client.delete("/api/workflows/unused-draft")
+            missing_draft = await client.get("/api/workflows/unused-draft")
+            reused_draft_id = await client.post(
+                "/api/workflow-drafts",
+                json={
+                    "kind": "create",
+                    "workflow_id": "unused-draft",
+                    "description": "The unused ID can be reclaimed.",
+                },
+            )
+
+            opened = await client.post(
+                "/api/workflow-drafts",
+                json={"kind": "open", "workflow_id": published_id},
+            )
+            removed_published = await client.delete(f"/api/workflows/{published_id}")
+            missing_published = await client.get(f"/api/workflows/{published_id}")
+            missing_open_draft = await client.get(
+                f"/api/workflow-drafts/{opened.json()['draft']['draft_id']}"
+            )
+            search = await client.get("/api/workflows", params={"q": published_id})
+            reused_published_id = await client.post(
+                "/api/workflow-drafts",
+                json={
+                    "kind": "create",
+                    "workflow_id": published_id,
+                    "description": "This must not replace immutable history.",
+                },
+            )
+
+        async with session_factory() as session:
+            historical = await read_published_workflow_revision(
+                session,
+                workflow_id=published_id,
+                revision_no=1,
+            )
+            with pytest.raises(WorkflowNotFoundError):
+                await read_current_published_workflow(session, workflow_id=published_id)
+            await seed_starter_workflows(session)
+            await session.commit()
+
+        async with session_factory() as session:
+            with pytest.raises(WorkflowNotFoundError):
+                await read_current_published_workflow(session, workflow_id=published_id)
+
+        async with product_http_client(session_factory, tmp_path=tmp_path) as client:
+            after_reseed = await client.get("/api/workflows", params={"q": published_id})
+
+    assert created.status_code == 201, created.text
+    assert removed_draft.status_code == 200, removed_draft.text
+    assert removed_draft.json() == {
+        "is_removed": True,
+        "workflow_id": "unused-draft",
+    }
+    assert missing_draft.status_code == 404
+    assert reused_draft_id.status_code == 201, reused_draft_id.text
+    assert opened.status_code == 201, opened.text
+    assert removed_published.status_code == 200, removed_published.text
+    assert removed_published.json() == {
+        "is_removed": True,
+        "workflow_id": published_id,
+    }
+    assert missing_published.status_code == 404
+    assert missing_open_draft.status_code == 404
+    assert search.json()["items"] == []
+    assert reused_published_id.status_code == 409
+    assert historical.workflow_id == published_id
+    assert historical.revision_no == 1
+    assert after_reseed.json()["items"] == []
 
 
 @pytest.mark.parametrize("database_backend", ("sqlite", "postgresql"))
@@ -131,10 +224,14 @@ async def test_library_states_current_description_pagination_and_discard(
     assert ids == sorted(ids)
     by_id = {item["workflow_id"]: item for item in all_items}
     assert by_id["only-draft"]["state"] == "draft"
-    assert by_id["only-draft"]["available_actions"] == ["edit"]
+    assert by_id["only-draft"]["available_actions"] == ["edit", "remove"]
     assert by_id["only-draft"]["published_revision_no"] is None
     assert by_id["evidence-synthesis"]["state"] == "published"
-    assert by_id["evidence-synthesis"]["available_actions"] == ["edit", "start_run"]
+    assert by_id["evidence-synthesis"]["available_actions"] == [
+        "edit",
+        "start_run",
+        "remove",
+    ]
     assert by_id["reviewed-code-change"]["state"] == "published_with_draft"
     assert by_id["reviewed-code-change"]["description"] == "Current editable description."
     assert by_id["reviewed-code-change"]["updated_at"] == combined_detail.json()["updated_at"]

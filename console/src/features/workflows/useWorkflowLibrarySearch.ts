@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 import type { WorkflowApi } from "../../api/client";
 import type { WorkflowSearchItem } from "../../api/types";
-import { useDebouncedValue } from "./useDebouncedValue";
+import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 
 export interface WorkflowLibrarySearch {
     readonly error: string | null;
@@ -13,6 +13,8 @@ export interface WorkflowLibrarySearch {
     readonly moreError: string | null;
     readonly nextCursor: string | null;
     readonly query: string;
+    readonly removeItem: (workflowId: string) => void;
+    readonly retry: () => void;
     readonly search: string;
     readonly updateQuery: (value: string) => void;
 }
@@ -42,6 +44,8 @@ export function useWorkflowLibrarySearch(
                 if (requestSequence.current === sequence) {
                     setItems(body.items);
                     setNextCursor(body.next_cursor ?? null);
+                    setError(null);
+                    setMoreError(null);
                     setIsLoading(false);
                     setIsLoadingMore(false);
                 }
@@ -92,6 +96,21 @@ export function useWorkflowLibrarySearch(
         setMoreError(null);
     };
 
+    const retry = () => {
+        activeRequest.current?.abort();
+        requestSequence.current += 1;
+        setError(null);
+        setMoreError(null);
+        setIsLoading(true);
+        setReloadToken((current) => current + 1);
+    };
+
+    const removeItem = (workflowId: string) => {
+        setItems((current) =>
+            current.filter((workflow) => workflow.workflow_id !== workflowId),
+        );
+    };
+
     const loadMore = async () => {
         if (nextCursor === null || isLoadingMore) {
             return;
@@ -136,6 +155,8 @@ export function useWorkflowLibrarySearch(
         moreError,
         nextCursor,
         query,
+        removeItem,
+        retry,
         search,
         updateQuery,
     };

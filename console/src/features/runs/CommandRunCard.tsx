@@ -1,7 +1,14 @@
 import { Copy, RefreshCw, Square, Terminal } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
-import { Button, Card, Dialog, Notice } from "../../components/ui";
+import {
+    Button,
+    Dialog,
+    Notice,
+    PageState,
+    Prose,
+    SearchInput,
+} from "../../components/ui";
 import { errorMessage, formatRunDate } from "./run-presentation";
 import type {
     CommandRunOutputPage,
@@ -52,7 +59,7 @@ export function CommandRunCard({
     }
 
     return (
-        <Card as="article" className="run-command">
+        <article className="run-command">
             <div className="run-command__heading">
                 <span className="run-command__icon" aria-hidden="true">
                     <Terminal size={18} />
@@ -60,14 +67,14 @@ export function CommandRunCard({
                 <div>
                     <h3>{command.purpose}</h3>
                     <span>
-                        {command.member?.name ?? "Team action"} ·{" "}
+                        {command.member?.name ?? "Team"} ·{" "}
                         {commandStateLabel(command.state)}
                     </span>
                 </div>
             </div>
             {command.outcome_summary === null ||
             command.outcome_summary === undefined ? null : (
-                <p>{command.outcome_summary}</p>
+                <Prose>{command.outcome_summary}</Prose>
             )}
             <dl className="run-command__facts">
                 <div>
@@ -89,10 +96,14 @@ export function CommandRunCard({
             </dl>
             {error === null ? null : (
                 <Notice tone="danger" urgent>
-                    {error}
+                    <Prose>{error}</Prose>
                 </Notice>
             )}
-            {receipt === null ? null : <Notice tone="info">{receipt}</Notice>}
+            {receipt === null ? null : (
+                <Notice tone="info">
+                    <Prose>{receipt}</Prose>
+                </Notice>
+            )}
             <div className="run-command__actions">
                 <Button onClick={() => setOutputOpen(true)}>View output</Button>
                 {command.cancel_action === null ||
@@ -112,7 +123,9 @@ export function CommandRunCard({
             command.cancel_action !== undefined ? (
                 <div className="run-command__confirm">
                     <strong>{command.cancel_action.confirmation.title}</strong>
-                    <p>{command.cancel_action.confirmation.consequence}</p>
+                    <Prose>
+                        {command.cancel_action.confirmation.consequence}
+                    </Prose>
                     <div>
                         <Button
                             disabled={submitting}
@@ -138,7 +151,7 @@ export function CommandRunCard({
                 onClose={() => setOutputOpen(false)}
                 taskId={taskId}
             />
-        </Card>
+        </article>
     );
 }
 
@@ -212,19 +225,14 @@ function CommandOutputDialog({
             title={`Output: ${command.purpose}`}
         >
             <div className="run-output">
-                <p>
-                    This is a bounded view of the Action output. Banksia does
-                    not load the complete log into this page.
-                </p>
                 <div className="run-output__tools">
-                    <label>
-                        Search visible output
-                        <input
-                            onChange={(event) => setQuery(event.target.value)}
-                            type="search"
-                            value={query}
-                        />
-                    </label>
+                    <SearchInput
+                        id="command-output-search"
+                        label="Search visible output"
+                        onChange={(event) => setQuery(event.target.value)}
+                        placeholder="Search visible output"
+                        value={query}
+                    />
                     <Button
                         disabled={output === null || visibleOutput === ""}
                         onClick={() => void copyOutput()}
@@ -237,12 +245,14 @@ function CommandOutputDialog({
                     <p role="status">{copyMessage}</p>
                 )}
                 {loading ? (
-                    <div className="run-output__state" role="status">
-                        Loading output…
-                    </div>
+                    <PageState
+                        className="run-output__state"
+                        kind="loading"
+                        title="Loading output"
+                    />
                 ) : error !== null ? (
                     <Notice tone="danger" urgent>
-                        <p>{error}</p>
+                        <Prose>{error}</Prose>
                         <Button
                             onClick={() => {
                                 setLoading(true);

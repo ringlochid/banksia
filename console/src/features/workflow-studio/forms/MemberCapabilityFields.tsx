@@ -3,10 +3,12 @@ import type {
     NormalizedMember,
     WorkflowAuthoringOptions,
 } from "../../../api/types";
+import { useId } from "react";
 import type { MemberEdit } from "../state/contracts";
 
 export interface MemberCapabilityFieldsProps {
     readonly disabled: boolean;
+    readonly error: string | null;
     readonly member: NormalizedMember;
     readonly onEdit: (patch: MemberEdit) => void;
     readonly options: WorkflowAuthoringOptions | null;
@@ -14,10 +16,12 @@ export interface MemberCapabilityFieldsProps {
 
 export function MemberCapabilityFields({
     disabled,
+    error,
     member,
     onEdit,
     options,
 }: MemberCapabilityFieldsProps) {
+    const errorId = useId();
     const capabilities = member.capabilities;
     const humanKinds = [
         ...new Set([
@@ -30,7 +34,14 @@ export function MemberCapabilityFields({
         capabilities?.command_run === "allow";
 
     return (
-        <fieldset className="studio-capabilities" disabled={disabled}>
+        <fieldset
+            aria-describedby={error === null ? undefined : errorId}
+            aria-invalid={error === null ? undefined : true}
+            className="studio-capabilities"
+            data-field-path={`$.members.${member.id}.capabilities`}
+            disabled={disabled}
+            tabIndex={error === null ? undefined : -1}
+        >
             <legend>Allowed actions</legend>
             <p>
                 Nothing is allowed by default. Choose only what this Member
@@ -79,6 +90,11 @@ export function MemberCapabilityFields({
                     Allow this teammate to run a managed command
                 </label>
             ) : null}
+            {error === null ? null : (
+                <span className="ui-field__error" id={errorId}>
+                    {error}
+                </span>
+            )}
         </fieldset>
     );
 }
@@ -95,7 +111,7 @@ function toggleHumanRequest(
     } else {
         selected.delete(typedKind);
     }
-    const next: MemberCapabilities = { ...current };
+    const next = normalizedCapabilities(current);
     if (selected.size === 0) {
         delete next.human_request;
     } else {
@@ -108,7 +124,7 @@ function toggleCommandRun(
     current: MemberCapabilities | undefined,
     enabled: boolean,
 ): MemberCapabilities | null {
-    const next: MemberCapabilities = { ...current };
+    const next = normalizedCapabilities(current);
     if (enabled) {
         next.command_run = "allow";
     } else {
@@ -124,6 +140,19 @@ function compactCapabilities(
         (value.human_request === undefined || value.human_request.length === 0)
         ? null
         : value;
+}
+
+function normalizedCapabilities(
+    value: MemberCapabilities | undefined,
+): MemberCapabilities {
+    const normalized: MemberCapabilities = {};
+    if ((value?.human_request?.length ?? 0) > 0) {
+        normalized.human_request = [...(value?.human_request ?? [])];
+    }
+    if (value?.command_run === "allow") {
+        normalized.command_run = "allow";
+    }
+    return normalized;
 }
 
 function humanRequestLabel(kind: string): string {

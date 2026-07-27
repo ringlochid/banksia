@@ -1,0 +1,186 @@
+/*
+ * Raw colour, spacing, type, radius, and shadow scales.
+ *
+ * Derived from n8n's `@n8n/design-system/src/css/_primitives.scss` at pinned
+ * commit 43c6f329fb1fb528259a78f80b163e4ed1405c02, translated from SCSS mixin
+ * to plain custom properties and reduced to the families Banksia uses.
+ * Copyright (c) n8n GmbH and contributors. Sustainable Use License; see
+ * console/LICENSE and console/NOTICE.
+ *
+ * Nothing here is semantic. Screens consume tokens.css, never these values.
+ */
+
+:root {
+    /* neutral */
+    --color--neutral-white: oklch(100% 0 89.88);
+    --color--neutral-50: oklch(98.51% 0 89.88);
+    --color--neutral-100: oklch(97.02% 0 89.88);
+    --color--neutral-150: oklch(95.51% 0 89.88);
+    --color--neutral-200: oklch(92.19% 0 89.88);
+    --color--neutral-250: oklch(90.67% 0 89.88);
+    --color--neutral-300: oklch(88.53% 0 89.88);
+    --color--neutral-400: oklch(79.21% 0 89.88);
+    --color--neutral-500: oklch(68.3% 0 89.88);
+    --color--neutral-600: oklch(55.55% 0 89.88);
+    --color--neutral-700: oklch(38.67% 0 89.88);
+    --color--neutral-800: oklch(31.71% 0 89.88);
+    --color--neutral-850: oklch(29.2% 0 89.88);
+    --color--neutral-900: oklch(26.86% 0 89.88);
+    --color--neutral-950: oklch(20.46% 0 89.88);
+    --color--neutral-black: oklch(0% 0 0);
+
+    /* white alpha */
+    --color--white-alpha-50: oklch(100% 0 89.88 / 0.05);
+    --color--white-alpha-100: oklch(100% 0 89.88 / 0.1);
+    --color--white-alpha-150: oklch(100% 0 89.88 / 0.15);
+    --color--white-alpha-200: oklch(100% 0 89.88 / 0.2);
+    --color--white-alpha-250: oklch(100% 0 89.88 / 0.25);
+    --color--white-alpha-300: oklch(100% 0 89.88 / 0.3);
+    --color--white-alpha-400: oklch(100% 0 89.88 / 0.4);
+    --color--white-alpha-500: oklch(100% 0 89.88 / 0.5);
+    --color--white-alpha-600: oklch(100% 0 89.88 / 0.6);
+    --color--white-alpha-700: oklch(100% 0 89.88 / 0.7);
+    --color--white-alpha-800: oklch(100% 0 89.88 / 0.8);
+    --color--white-alpha-900: oklch(100% 0 89.88 / 0.9);
+    --color--white-alpha-950: oklch(100% 0 89.88 / 0.95);
+
+    /* black alpha */
+    --color--black-alpha-50: oklch(0% 0 0 / 0.05);
+    --color--black-alpha-100: oklch(0% 0 0 / 0.1);
+    --color--black-alpha-150: oklch(0% 0 0 / 0.15);
+    --color--black-alpha-200: oklch(0% 0 0 / 0.2);
+    --color--black-alpha-300: oklch(0% 0 0 / 0.3);
+    --color--black-alpha-400: oklch(0% 0 0 / 0.4);
+    --color--black-alpha-500: oklch(0% 0 0 / 0.5);
+    --color--black-alpha-600: oklch(0% 0 0 / 0.6);
+    --color--black-alpha-700: oklch(0% 0 0 / 0.7);
+    --color--black-alpha-800: oklch(0% 0 0 / 0.8);
+    --color--black-alpha-900: oklch(0% 0 0 / 0.9);
+
+    /* green — Banksia's brand accent, in place of n8n's orange */
+    --color--green-50: oklch(98.19% 0.0181 155.83);
+    --color--green-100: oklch(96.24% 0.0434 156.74);
+    --color--green-150: oklch(94.08% 0.0693 155.66);
+    --color--green-200: oklch(92.58% 0.0845 155.86);
+    --color--green-250: oklch(88.88% 0.1311 154.31);
+    --color--green-300: oklch(87.04% 0.149 154.62);
+    --color--green-400: oklch(79.14% 0.2091 151.66);
+    --color--green-500: oklch(72.89% 0.2119 147.82);
+    --color--green-600: oklch(63.2% 0.186 147.37);
+    --color--green-700: oklch(52.96% 0.1495 148.99);
+    --color--green-800: oklch(44.68% 0.1187 151.4);
+    --color--green-900: oklch(39.35% 0.0957 152.28);
+    --color--green-950: oklch(26.54% 0.0651 152.77);
+    --color--green-alpha-100: oklch(58.78% 0.1343 153.89 / 0.149);
+    --color--green-alpha-200: oklch(58.78% 0.1343 153.89 / 0.251);
+
+    /* gold — Banksia's secondary accent */
+    --color--gold-50: oklch(98.3% 0.0114 84.58);
+    --color--gold-100: oklch(92.41% 0.0463 78.84);
+    --color--gold-200: oklch(89.52% 0.0631 77.82);
+    --color--gold-300: oklch(84.14% 0.0975 76.95);
+    --color--gold-400: oklch(76.08% 0.1386 73.14);
+    --color--gold-500: oklch(69.33% 0.143 69.76);
+    --color--gold-600: oklch(61.78% 0.1267 70.31);
+    --color--gold-700: oklch(52.43% 0.1059 70.78);
+    --color--gold-800: oklch(40.5% 0.0793 72.23);
+    --color--gold-900: oklch(24.57% 0.0436 73.41);
+    --color--gold-alpha-020: oklch(76.08% 0.1386 73.14 / 0.2);
+
+    /* red */
+    --color--red-50: oklch(97.05% 0.0129 17.38);
+    --color--red-100: oklch(93.65% 0.032 17.74);
+    --color--red-200: oklch(88.34% 0.0616 18.39);
+    --color--red-300: oklch(80.53% 0.1109 19.78);
+    --color--red-400: oklch(70.22% 0.1892 22.23);
+    --color--red-500: oklch(63.78% 0.2373 25.44);
+    --color--red-600: oklch(58.3% 0.2387 28.48);
+    --color--red-700: oklch(50.95% 0.2086 28.51);
+    --color--red-800: oklch(44.46% 0.1774 26.79);
+    --color--red-900: oklch(39.67% 0.1408 25.71);
+    --color--red-950: oklch(25.75% 0.0918 25.84);
+    --color--red-alpha-020: oklch(59.99% 0.2299 24.84 / 0.2);
+
+    /* yellow */
+    --color--yellow-50: oklch(98.73% 0.0262 102.21);
+    --color--yellow-100: oklch(97.27% 0.0706 103.29);
+    --color--yellow-200: oklch(94.53% 0.1293 101.4);
+    --color--yellow-300: oklch(90.32% 0.1817 98.27);
+    --color--yellow-400: oklch(85.35% 0.1744 88.77);
+    --color--yellow-500: oklch(79.77% 0.1641 82.71);
+    --color--yellow-600: oklch(68.22% 0.1465 71.47);
+    --color--yellow-700: oklch(55.48% 0.1271 62.52);
+    --color--yellow-800: oklch(47.76% 0.1115 60.43);
+    --color--yellow-900: oklch(42.15% 0.0952 57.94);
+    --color--yellow-950: oklch(28.71% 0.0662 54.59);
+
+    /* blue */
+    --color--blue-50: oklch(97.05% 0.0142 254.6);
+    --color--blue-100: oklch(93.19% 0.0316 255.59);
+    --color--blue-200: oklch(88.2% 0.0588 253.97);
+    --color--blue-300: oklch(80.71% 0.1007 250.45);
+    --color--blue-400: oklch(70.4% 0.1583 253.63);
+    --color--blue-500: oklch(61.87% 0.2067 259.23);
+    --color--blue-600: oklch(54.65% 0.2455 262.87);
+    --color--blue-700: oklch(48.78% 0.2432 264.4);
+    --color--blue-800: oklch(42.42% 0.1982 265.5);
+    --color--blue-900: oklch(37.96% 0.1453 265.47);
+    --color--blue-950: oklch(28.1% 0.0924 268.13);
+
+    /* spacing */
+    --spacing--5xs: 0.125rem;
+    --spacing--4xs: 0.25rem;
+    --spacing--3xs: 0.375rem;
+    --spacing--2xs: 0.5rem;
+    --spacing--xs: 0.75rem;
+    --spacing--sm: 1rem;
+    --spacing--md: 1.25rem;
+    --spacing--lg: 1.5rem;
+    --spacing--xl: 2rem;
+    --spacing--2xl: 3rem;
+    --spacing--3xl: 4rem;
+    --spacing--4xl: 8rem;
+
+    /* type */
+    --font-family:
+        Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-family--monospace:
+        ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+        "Liberation Mono", monospace;
+    --font-size--4xs: 0.5rem;
+    --font-size--3xs: 0.625rem;
+    --font-size--2xs: 0.75rem;
+    --font-size--xs: 0.8125rem;
+    --font-size--sm: 0.875rem;
+    --font-size--md: 1rem;
+    --font-size--lg: 1.125rem;
+    --font-size--xl: 1.25rem;
+    --font-size--2xl: 1.75rem;
+    --font-weight--regular: 400;
+    --font-weight--medium: 500;
+    --font-weight--bold: 600;
+    --line-height--compact: 1.25;
+    --line-height--regular: 1.5;
+    --line-height--loose: 1.7;
+
+    /* control heights */
+    --height--3xs: 1rem;
+    --height--2xs: 1.25rem;
+    --height--xs: 1.5rem;
+    --height--sm: 1.75rem;
+    --height--md: 2rem;
+    --height--lg: 2.25rem;
+    --height--xl: 2.5rem;
+    --height--2xl: 3rem;
+
+    /* radius */
+    --radius--4xs: 0.125rem;
+    --radius--3xs: 0.25rem;
+    --radius--2xs: 0.375rem;
+    --radius--xs: 0.5rem;
+    --radius--sm: 0.75rem;
+    --radius--md: 1rem;
+    --radius--lg: 1.25rem;
+    --radius--xl: 1.5rem;
+    --radius--full: 9999px;
+}

@@ -136,15 +136,17 @@ Read the ignored checkout's `upstream/LICENSE.md` before using this reference. A
 
 The reviewed license file SHA-256 is `d2f621f59aa4c10eab79b6333e59d9d3d5b53307dcfd16dbd75e40e679e84965`. A refresh must record the new commit and license digest and repeat the enterprise-path search before any delegation uses it.
 
-Banksia is currently MIT-licensed. Therefore:
+The Banksia backend is MIT-licensed. The Console in `console/` is not: it is distributed under the Sustainable Use License and carries `console/LICENSE` and `console/NOTICE`. This split was decided on 2026-07-27 and **reverses the earlier prohibition on copying**. Porting n8n material into `console/` is now permitted. Therefore:
 
 - keep this clone under ignored `tmp/`; do not package, publish, or commit it;
-- do not import n8n packages or copy Vue, TypeScript, stores, tests, HTML structure, SCSS/CSS, tokens, icons, images, strings, or assets into Banksia;
-- do not translate source line-for-line from Vue to React;
-- independently implement Banksia's React/Tailwind components from the Banksia contract after recording the interaction decision learned; and
-- stop for a separate license/provenance decision if a desired implementation would be substantially derived from n8n code rather than the general design behavior.
+- port n8n design tokens, component stylesheets, markup structure, and canvas interaction logic into `console/` only, translating Vue to React; keep the ported code recognisably close to its source so provenance stays auditable;
+- never place n8n-derived material outside `console/` — the rest of the repository must stay MIT-clean and separately distributable;
+- do not port n8n's form-control components: they wrap Element Plus, which has no React equivalent. Build those on Radix primitives and apply n8n's CSS;
+- do not carry over n8n's product vocabulary or data model. Nodes, connections, triggers, credentials, and executions have no place in Banksia's UI. Banksia's terminology, information architecture, and controller contracts are authoritative, and the visual reference never overrides them;
+- use no file whose name contains `.ee.` and no file under a `.ee` directory — those are outside the Sustainable Use License; and
+- preserve n8n copyright headers on ported files, and keep `console/NOTICE` accurate. The license forbids altering or obscuring licensor notices and requires a prominent statement that the software has been modified.
 
-The source can teach behavior, component boundaries, states, focus handling, responsive strategies, and test cases. It cannot become a hidden second codebase or license path.
+The Sustainable Use License grants copyright permissions only and grants no trademark rights. n8n's name, logo, and wordmark remain n8n GmbH trademarks and are not covered; the placeholder mark currently shipped is recorded as a known issue in `console/NOTICE` and must be replaced before public distribution.
 
 ## Reference packets
 
@@ -173,9 +175,11 @@ Read:
 - `upstream/packages/frontend/editor-ui/src/app/components/WorkflowCanvasHostBody.vue`
 - `upstream/packages/frontend/editor-ui/src/app/views/CanvasAddButton.vue`
 - `upstream/packages/frontend/editor-ui/src/app/views/NodeView.vue`
+- `upstream/packages/frontend/editor-ui/src/features/workflows/canvas/components/Canvas.vue`
+- `upstream/packages/frontend/editor-ui/src/features/workflows/canvas/composables/useCanvasAgentNodeGeometry.ts`
 - the curated Workflow Studio screenshot packet listed below
 
-Study canvas layering, selection, pan/zoom/fit/tidy controls, pending states, tooltips, compact card geometry, drawer obstruction, focus, and tests. Banksia adapts these into one horizontal responsibility tree with exactly one trailing Add child control. Reject arbitrary graph edges, typed ports, multiple plus handles, dataflow/run controls, free placement, and node-type selection.
+Study canvas layering, selection, pan/zoom/fit/tidy controls, pending states, tooltips, compact card geometry, drawer obstruction, focus, and tests. Banksia adapts these into one horizontal responsibility tree with exactly one trailing Add child control and browser-local card repositioning that `Tidy team` discards. Reject persisted manual layout, arbitrary graph edges, typed ports, multiple plus handles, dataflow/run controls, drag reorder/reparent, and node-type selection.
 
 ### C. Member editing and team configuration
 
@@ -229,7 +233,9 @@ Read only the primitives relevant to the component being built under:
 - `upstream/packages/frontend/@n8n/design-system/src/components/`
 - `upstream/packages/frontend/@n8n/design-system/src/css/`
 
-Study density, spacing relationships, focus, disabled/selected states, labels, tooltips, empty states, responsive behavior, and component tests. Do not copy tokens or CSS values. Define a distinct Banksia token system and validate it against Banksia screenshots and accessibility gates.
+Study density, spacing relationships, focus, disabled/selected states, labels, tooltips, empty states, responsive behavior, and component tests.
+
+Port `_primitives.scss` and the `theme-dark` mixin in `_tokens.scss` into `console/` as CSS custom properties, then substitute Banksia's green and gold for n8n's coral accent across primary actions, focus rings, and selection. Banksia ships dark-only; the light token set is deliberately not ported. Per-component stylesheets in that directory translate directly and should be ported for the components Banksia actually has. Validate the result against Banksia screenshots and accessibility gates.
 
 ## Visual reference packet
 
@@ -244,7 +250,7 @@ The following image files live only under the ignored `tmp/codex/references/n8n-
 | Workflow Studio | `workflow-studio/add-child-sibling-branch.png` | Primary deep-team geometry: lead left, deeper generations right, siblings stacked vertically, and connectors meaning ownership only. |
 | Workflow Studio | `workflow-studio/add-child-selected-member.png` | Selected-Member attachment and one trailing Add child affordance. |
 | Workflow Studio | `workflow-studio/multiple-plus-avoid.png` | Negative reference: reject multiple typed ports or multiple visible add controls. |
-| Workflow Studio | `workflow-studio/tidy-control.png` | Compact Tidy placement and tooltip; Tidy changes derived layout while Fit changes viewport only. |
+| Workflow Studio | `workflow-studio/tidy-control.png` | Compact Tidy placement and tooltip; Tidy resets browser-local card offsets while Fit changes viewport only. |
 
 Every use names the exact image, the interaction principle it supports, and the Banksia owner that supplies data and semantics. Surrounding n8n branding, navigation, strings, and product behavior are out of scope.
 
@@ -261,10 +267,11 @@ Adapted principles and why:
 Rejected n8n concepts and why:
 Nontechnical user scenario exercised:
 Accessibility/responsive states exercised:
-Provenance check (no copied/imported source or assets):
+Ported files and where they landed (must be under console/):
+Banksia terms substituted for n8n terms:
 ```
 
-Reading the entire clone without naming the relevant files is not sufficient. Copying a component because it looks close is not sufficient. The slice must show how a specific mature interaction was translated into Banksia's simpler responsibility-tree or Run model for a person who does not know agent-runtime terminology.
+Reading the entire clone without naming the relevant files is not sufficient. Porting a component's markup and CSS is expected; porting its vocabulary is not. The slice must show how a specific mature interaction was mapped onto Banksia's responsibility-tree or Run model for a person who does not know agent-runtime terminology, and must record every n8n noun it replaced with a Banksia one.
 
 ## Nontechnical usability standard
 

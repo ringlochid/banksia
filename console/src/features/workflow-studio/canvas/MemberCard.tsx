@@ -1,8 +1,14 @@
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import {
+    AlertTriangle,
+    ChevronDown,
+    ChevronRight,
+    User,
+    Users,
+} from "lucide-react";
 
 import type { NormalizedMember } from "../../../api/types";
-import { memberTitle, providerSummary } from "./member-presentation";
+import { memberTitle } from "./member-presentation";
 
 export type MemberCardNode = Node<MemberCardData, "member">;
 
@@ -19,8 +25,6 @@ export type MemberCardData = {
 export function MemberCard({ data }: NodeProps<MemberCardNode>) {
     const title = memberTitle(data.member);
     const children = data.member.children ?? [];
-    const purpose = data.member.description?.trim();
-    const role = children.length > 0 ? "Manager" : "Contributor";
 
     return (
         <article
@@ -44,38 +48,28 @@ export function MemberCard({ data }: NodeProps<MemberCardNode>) {
             />
             <button
                 aria-pressed={data.selected}
-                className="team-member-card__select nodrag nopan"
+                className="team-member-card__select"
                 data-focus-surface="canvas"
                 data-member-focus={data.member.id}
                 onClick={() => data.onSelect(data.member.id)}
-                onPointerDown={(event) => {
-                    event.preventDefault();
-                }}
                 type="button"
             >
                 <span aria-hidden="true" className="team-member-card__avatar">
-                    {memberInitial(title)}
-                </span>
-                <span className="team-member-card__content">
-                    <span className="team-member-card__heading">
-                        <strong>{title}</strong>
-                        <span>{role}</span>
-                    </span>
-                    {purpose === undefined || purpose === "" ? null : (
-                        <span className="team-member-card__purpose">
-                            {purpose}
-                        </span>
+                    {children.length > 0 ? (
+                        <Users size={15} />
+                    ) : (
+                        <User size={15} />
                     )}
-                    <span className="team-member-card__footer">
-                        <span>{providerSummary(data.member)}</span>
-                        {data.issueCount === 0 ? null : (
-                            <span className="team-member-card__issues">
-                                {data.issueCount}{" "}
-                                {data.issueCount === 1 ? "issue" : "issues"}
-                            </span>
-                        )}
-                    </span>
                 </span>
+                <span className="team-member-card__name">{title}</span>
+                {data.issueCount === 0 ? null : (
+                    <span
+                        className="team-member-card__issues"
+                        title={`${String(data.issueCount)} ${data.issueCount === 1 ? "issue" : "issues"}`}
+                    >
+                        <AlertTriangle aria-hidden="true" size={13} />
+                    </span>
+                )}
             </button>
             {children.length === 0 ? null : (
                 <button
@@ -107,9 +101,4 @@ export function MemberCard({ data }: NodeProps<MemberCardNode>) {
             />
         </article>
     );
-}
-
-function memberInitial(title: string): string {
-    const first = [...title.trim()][0];
-    return first?.toLocaleUpperCase() ?? "T";
 }

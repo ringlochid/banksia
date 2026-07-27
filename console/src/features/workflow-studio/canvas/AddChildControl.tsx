@@ -16,7 +16,7 @@ export function AddChildControl({ data }: NodeProps<AddChildNode>) {
         <div className="team-add-control">
             <Handle
                 aria-hidden="true"
-                className="team-geometry-handle"
+                className="team-add-control__handle"
                 isConnectable={false}
                 position={Position.Left}
                 type="target"

@@ -1,0 +1,104 @@
+/*
+ * Model-authored prose. Structure follows n8n's `css/markdown.scss` at pinned
+ * commit 43c6f329fb1fb528259a78f80b163e4ed1405c02, retargeted at Banksia
+ * tokens. Copyright (c) n8n GmbH and contributors. Sustainable Use License;
+ * see console/LICENSE and console/NOTICE.
+ */
+
+.prose {
+    font-size: var(--font-size--xs);
+    line-height: var(--line-height--regular);
+    color: var(--text-color--subtle);
+    overflow-wrap: anywhere;
+}
+
+.prose > * + * {
+    margin-top: var(--spacing--2xs);
+}
+
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4 {
+    font-size: var(--font-size--sm);
+    font-weight: var(--font-weight--bold);
+    color: var(--text-color);
+}
+
+.prose strong {
+    font-weight: var(--font-weight--medium);
+    color: var(--text-color);
+}
+
+.prose a {
+    color: var(--text-color--brand);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.prose a:hover {
+    color: var(--color--green-200);
+}
+
+.prose ul,
+.prose ol {
+    padding-left: var(--spacing--sm);
+    list-style: revert;
+}
+
+.prose li + li {
+    margin-top: var(--spacing--5xs);
+}
+
+.prose code {
+    padding: 0.1em 0.3em;
+    font-size: 0.9em;
+    background: var(--background--subtle);
+    border-radius: var(--radius--4xs);
+}
+
+.prose pre {
+    padding: var(--spacing--2xs);
+    overflow-x: auto;
+    background: var(--background--base);
+    border: var(--border-width) solid var(--border-color);
+    border-radius: var(--radius--3xs);
+}
+
+.prose pre code {
+    padding: 0;
+    background: none;
+}
+
+.prose blockquote {
+    padding-left: var(--spacing--2xs);
+    color: var(--text-color--subtler);
+    border-left: 2px solid var(--border-color--strong);
+}
+
+.prose hr {
+    border: none;
+    border-top: var(--border-width) solid var(--border-color);
+}
+
+/* Wide tables scroll inside their own container; the page never scrolls. */
+.prose table {
+    display: block;
+    width: max-content;
+    max-width: 100%;
+    overflow-x: auto;
+    border-collapse: collapse;
+}
+
+.prose th,
+.prose td {
+    padding: var(--spacing--5xs) var(--spacing--3xs);
+    text-align: left;
+    border: var(--border-width) solid var(--border-color);
+}
+
+.prose th {
+    font-weight: var(--font-weight--medium);
+    color: var(--text-color);
+    background: var(--background--subtle);
+}

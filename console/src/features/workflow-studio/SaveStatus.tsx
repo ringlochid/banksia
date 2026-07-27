@@ -30,6 +30,13 @@ export function SaveStatus({ snapshot, actions }: StudioContextValue) {
         );
     }
     if (snapshot.save.kind === "failed") {
+        if (hasTargetedControllerIssue(snapshot)) {
+            return (
+                <span className="studio-save-status" role="status">
+                    Not saved
+                </span>
+            );
+        }
         return (
             <Notice tone="danger" urgent>
                 <p>{message}</p>
@@ -41,6 +48,18 @@ export function SaveStatus({ snapshot, actions }: StudioContextValue) {
         <span className="studio-save-status" role="status">
             {message}
         </span>
+    );
+}
+
+function hasTargetedControllerIssue(
+    snapshot: StudioContextValue["snapshot"],
+): boolean {
+    return (
+        snapshot.validation.kind === "invalid" &&
+        snapshot.validation.issues.some(
+            (issue) =>
+                issue.source === "controller" && issue.target !== undefined,
+        )
     );
 }
 

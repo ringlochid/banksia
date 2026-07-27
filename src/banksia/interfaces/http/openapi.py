@@ -16,7 +16,7 @@ PRODUCT_ROUTE_METHODS: dict[str, frozenset[str]] = {
     for path, methods in {
         "/workflows": frozenset({"get"}),
         "/workflows/authoring-options": frozenset({"get"}),
-        "/workflows/{workflow_id}": frozenset({"get"}),
+        "/workflows/{workflow_id}": frozenset({"get", "delete"}),
         "/operator/status": frozenset({"get"}),
         "/operator/conversations": frozenset({"get", "post"}),
         "/operator/conversations/{conversation_id}": frozenset({"get"}),

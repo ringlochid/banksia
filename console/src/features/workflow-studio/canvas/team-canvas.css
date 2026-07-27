@@ -1,24 +1,17 @@
+/*
+ * The canvas owns the viewport, as n8n's does: no card, no border, no radius,
+ * no page scroll competing with the pan surface.
+ */
 .team-canvas {
     position: relative;
-    height: min(46rem, calc(100vh - 10rem));
-    min-height: 34rem;
+    flex: 1;
+    min-height: 0;
     overflow: hidden;
-    border: 1px solid var(--banksia-line);
-    border-radius: var(--banksia-radius-large);
-    background:
-        linear-gradient(rgb(255 253 248 / 88%), rgb(255 253 248 / 88%)),
-        var(--banksia-surface);
-    box-shadow: var(--banksia-shadow-small);
+    background: var(--canvas--color--background);
 }
 
 .team-canvas .react-flow {
-    background:
-        radial-gradient(
-            circle at 72% 14%,
-            rgb(217 163 33 / 9%),
-            transparent 20rem
-        ),
-        var(--banksia-surface);
+    background: var(--canvas--color--background);
 }
 
 .team-canvas .react-flow__node {
@@ -32,162 +25,135 @@
 }
 
 .team-geometry-handle {
-    width: 1px !important;
-    min-width: 1px !important;
-    height: 1px !important;
-    min-height: 1px !important;
-    border: 0 !important;
-    opacity: 0 !important;
+    width: 0.5rem !important;
+    min-width: 0.5rem !important;
+    height: 0.5rem !important;
+    min-height: 0.5rem !important;
+    background: var(--canvas--color--background) !important;
+    border: var(--border-width) solid var(--canvas--connector--color) !important;
+    opacity: 1 !important;
     pointer-events: none !important;
 }
 
+/*
+ * Member cards follow the density of n8n's canvas nodes: a small square icon,
+ * one line of title, and a compact body — not a document card.
+ */
 .team-member-card {
     position: relative;
     width: 100%;
-    overflow: hidden;
-    border: 1px solid var(--banksia-line);
-    border-radius: 1.1rem;
-    background: var(--banksia-surface);
-    box-shadow: 0 8px 26px rgb(23 37 29 / 10%);
+    overflow: visible;
+    background: var(--member--color--background);
+    border: var(--border-width) solid var(--member--border-color);
+    border-radius: var(--radius--2xs);
     transition:
-        border-color 150ms ease,
-        box-shadow 150ms ease,
-        transform 150ms ease;
+        border-color 0.12s ease,
+        box-shadow 0.12s ease;
 }
 
 .team-member-card:hover {
-    border-color: var(--banksia-line-strong);
-    transform: translateY(-1px);
+    border-color: var(--border-color--stronger);
 }
 
 .team-member-card--selected {
-    border-color: var(--banksia-leaf);
-    box-shadow:
-        0 0 0 3px var(--banksia-leaf-soft),
-        0 12px 30px rgb(23 37 29 / 14%);
+    border-color: var(--member--border-color--selected);
+    box-shadow: var(--member--shadow--selected);
 }
 
 .team-member-card--invalid {
-    border-color: #c77d75;
+    border-color: var(--color--red-600);
+}
+
+.team-member-card--selected.team-member-card--invalid {
+    border-color: var(--color--red-600);
+    box-shadow: 0 0 0 1px var(--color--red-600);
 }
 
 .team-member-card--pending {
-    opacity: 0.72;
+    opacity: 0.6;
 }
 
+/*
+ * One row: icon, name, and a warning only when there is one. Everything else
+ * about a Member lives in the details panel — a card crowded with role,
+ * purpose, and provider is unreadable at canvas scale.
+ */
 .team-member-card__select {
-    display: grid;
+    display: flex;
+    gap: var(--spacing--3xs);
+    align-items: center;
     width: 100%;
-    min-height: 10.75rem;
-    grid-template-columns: 2.65rem minmax(0, 1fr);
-    align-items: start;
-    gap: 0.85rem;
-    padding: 1.1rem 1.1rem 1rem;
-    border: 0;
-    background: transparent;
-    color: var(--banksia-ink-950);
+    height: var(--member--height);
+    padding: 0 var(--spacing--2xs);
+    color: var(--text-color);
     text-align: left;
-    cursor: pointer;
+    cursor: grab;
+    background: transparent;
+    border: 0;
+}
+
+.team-member-card__select:active {
+    cursor: grabbing;
 }
 
 .team-member-card__select:focus-visible {
-    outline: 0.1875rem solid var(--banksia-focus);
-    outline-offset: -0.25rem;
+    outline: 2px solid var(--focus-ring--color);
+    outline-offset: -2px;
 }
 
 .team-member-card__avatar {
     display: grid;
-    width: 2.65rem;
-    height: 2.65rem;
+    flex: none;
+    width: 1.25rem;
+    height: 1.25rem;
+    color: var(--icon-color);
     place-items: center;
-    border-radius: 0.8rem;
-    background: linear-gradient(140deg, var(--banksia-leaf), #568365);
-    color: white;
-    font-weight: 850;
 }
 
-.team-member-card__content {
-    display: grid;
+.team-member-card--selected .team-member-card__avatar {
+    color: var(--text-color--brand);
+}
+
+.team-member-card--selected.team-member-card--invalid
+    .team-member-card__avatar {
+    color: var(--text-color--danger);
+}
+
+.team-member-card__name {
+    flex: 1;
     min-width: 0;
-    gap: 0.7rem;
-}
-
-.team-member-card__heading {
-    display: grid;
-    min-width: 0;
-    gap: 0.18rem;
-    padding-right: 1.75rem;
-}
-
-.team-member-card__heading strong {
-    overflow-wrap: anywhere;
-    font-size: 1.02rem;
-    line-height: 1.25;
-}
-
-.team-member-card__heading > span {
-    color: var(--banksia-leaf);
-    font-size: 0.72rem;
-    font-weight: 800;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-}
-
-.team-member-card__purpose {
-    display: -webkit-box;
     overflow: hidden;
-    color: var(--banksia-ink-650);
-    font-size: 0.85rem;
-    line-height: 1.45;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 3;
-}
-
-.team-member-card__footer {
-    display: flex;
-    min-width: 0;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-    padding-top: 0.7rem;
-    border-top: 1px solid var(--banksia-line);
-    color: var(--banksia-ink-650);
-    font-size: 0.76rem;
-}
-
-.team-member-card__footer > span:first-child {
-    overflow: hidden;
+    font-size: var(--font-size--xs);
+    font-weight: var(--font-weight--medium);
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
 .team-member-card__issues {
-    flex: 0 0 auto;
-    padding: 0.16rem 0.42rem;
-    border-radius: 999px;
-    background: var(--banksia-danger-soft);
-    color: var(--banksia-danger);
-    font-weight: 800;
+    display: flex;
+    flex: none;
+    color: var(--text-color--danger);
 }
 
 .team-member-card__collapse {
     position: absolute;
-    top: 0.8rem;
-    right: 0.8rem;
+    top: 50%;
+    right: var(--spacing--5xs);
     display: grid;
-    width: 2.25rem;
-    height: 2.25rem;
-    place-items: center;
-    border: 0;
-    border-radius: 999px;
-    background: transparent;
-    color: var(--banksia-ink-650);
+    width: 1.25rem;
+    height: 1.25rem;
+    color: var(--icon-color--subtle);
     cursor: pointer;
+    background: transparent;
+    border: 0;
+    border-radius: var(--radius--4xs);
+    place-items: center;
+    transform: translateY(-50%);
 }
 
 .team-member-card__collapse:hover {
-    background: var(--banksia-surface-muted);
-    color: var(--banksia-ink-950);
+    background: var(--background--subtle);
+    color: var(--text-color);
 }
 
 .team-add-control {
@@ -197,24 +163,31 @@
     place-items: center;
 }
 
+.team-add-control__handle {
+    width: 1px !important;
+    height: 1px !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+/* Sized to a canvas control, not a page button — n8n's add affordance is small. */
 .team-add-control__button {
     display: grid;
-    width: 3rem;
-    height: 3rem;
-    place-items: center;
-    border: 1px solid #bd8614;
-    border-radius: 999px;
-    background: var(--banksia-flower);
-    color: #3c2a00;
-    box-shadow:
-        0 0 0 5px var(--banksia-flower-soft),
-        0 7px 18px rgb(93 65 0 / 18%);
+    width: 1.5rem;
+    height: 1.5rem;
+    color: var(--text-color--subtle);
     cursor: pointer;
+    background: var(--background--surface);
+    border: var(--border-width) dashed var(--border-color--stronger);
+    border-radius: var(--radius--3xs);
+    place-items: center;
 }
 
 .team-add-control__button:hover:not(:disabled) {
-    background: #e4b33d;
-    transform: translateY(-1px);
+    color: var(--text-color);
+    background: var(--background--hover);
+    border-color: var(--background--brand);
+    border-style: solid;
 }
 
 .team-add-control__button:disabled {
@@ -232,91 +205,74 @@
     }
 }
 
+/* Neutral ownership lines terminate at visible, non-interactive endpoint dots. */
 .team-responsibility-edge {
     fill: none;
-    stroke: #8b9a8e;
-    stroke-width: 1.5;
+    stroke: var(--canvas--connector--color);
+    stroke-width: var(--canvas--connector--width);
+    stroke-linecap: round;
 }
 
-.team-canvas__legend {
-    max-width: 15rem;
-    padding: 0.45rem 0.65rem;
-    border: 1px solid var(--banksia-line);
-    border-radius: 999px;
-    background: rgb(255 253 248 / 92%);
-    color: var(--banksia-ink-650);
-    font-size: 0.75rem;
-    font-weight: 700;
-    box-shadow: var(--banksia-shadow-small);
-}
-
+/*
+ * Floating canvas controls, bottom-left, following n8n's canvas control bar:
+ * a compact surface-coloured group rather than a translucent pill.
+ */
 .team-canvas__controls {
-    margin: 0 !important;
+    margin: var(--spacing--2xs) !important;
 }
 
 .team-canvas-controls {
     display: flex;
-    gap: 0.4rem;
-    padding: 0.3rem;
-    border: 1px solid var(--banksia-line);
-    border-radius: 0.8rem;
-    background: rgb(255 253 248 / 94%);
-    box-shadow: var(--banksia-shadow-small);
+    gap: var(--spacing--5xs);
+    padding: var(--spacing--5xs);
+    background: var(--background--surface);
+    border: var(--border-width) solid var(--border-color--strong);
+    border-radius: var(--radius--2xs);
+    box-shadow: var(--shadow--sm);
 }
 
 .team-canvas-controls .ui-button {
-    min-height: 2.5rem;
-    padding-inline: 0.7rem;
-    font-size: 0.78rem;
+    height: var(--control-height--sm);
+    padding-inline: var(--spacing--3xs);
+    font-size: var(--font-size--2xs);
 }
 
 .team-canvas__outline {
     position: absolute;
+    top: var(--spacing--2xs);
+    left: var(--spacing--2xs);
     z-index: 8;
-    top: 1rem;
-    left: 1rem;
-    width: min(20rem, calc(100% - 2rem));
-    border: 1px solid var(--banksia-line);
-    border-radius: 0.85rem;
-    background: rgb(255 253 248 / 96%);
-    box-shadow: var(--banksia-shadow-small);
+    width: fit-content;
+    min-width: 9rem;
+    max-width: min(18rem, calc(100% - 2rem));
+    background: var(--background--surface);
+    border: var(--border-width) solid var(--border-color--strong);
+    border-radius: var(--radius--2xs);
+    box-shadow: var(--shadow--sm);
 }
 
 .team-canvas__outline > summary {
     display: flex;
-    min-height: 2.75rem;
     align-items: center;
-    padding: 0.55rem 0.8rem;
+    min-height: var(--control-height);
+    padding: 0 var(--spacing--2xs);
+    font-size: var(--font-size--2xs);
+    font-weight: var(--font-weight--medium);
+    color: var(--text-color--subtle);
     cursor: pointer;
-    font-size: 0.82rem;
-    font-weight: 800;
+}
+
+.team-canvas__outline[open] {
+    width: min(18rem, calc(100% - 2rem));
 }
 
 .team-canvas__outline[open] > summary {
-    border-bottom: 1px solid var(--banksia-line);
+    border-bottom: var(--border-width) solid var(--border-color);
 }
 
 .team-outline {
     max-height: min(31rem, calc(100vh - 16rem));
     overflow: auto;
-}
-
-.team-outline__header {
-    padding: 0.8rem 0.85rem 0.45rem;
-}
-
-.team-outline__header h2,
-.team-outline__header p {
-    margin: 0;
-}
-
-.team-outline__header h2 {
-    font-size: 0.92rem;
-}
-
-.team-outline__header p {
-    color: var(--banksia-ink-650);
-    font-size: 0.75rem;
 }
 
 .team-outline__tree {
@@ -328,13 +284,13 @@
 .team-outline__group {
     margin-left: 1rem;
     padding-left: 0.55rem;
-    border-left: 1px solid var(--banksia-line);
+    border-left: 1px solid var(--border-color);
 }
 
 .team-outline__item {
     display: grid;
     min-height: 2.5rem;
-    grid-template-columns: 1rem minmax(0, 1fr) auto;
+    grid-template-columns: 1rem minmax(0, 1fr);
     align-items: center;
     gap: 0.4rem;
     padding: 0.38rem 0.5rem;
@@ -343,27 +299,23 @@
 }
 
 .team-outline__item:hover {
-    background: var(--banksia-surface-muted);
+    background: var(--background--subtle);
 }
 
 .team-outline__item:focus-visible {
-    outline: 0.1875rem solid var(--banksia-focus);
+    outline: 0.1875rem solid var(--focus-ring--color);
     outline-offset: -0.1875rem;
 }
 
 .team-outline__item[aria-selected="true"] {
-    background: var(--banksia-leaf-soft);
-    color: var(--banksia-leaf-hover);
-}
-
-.team-outline__item small {
-    color: var(--banksia-ink-650);
-    font-size: 0.66rem;
+    background: var(--color--green-alpha-100);
+    color: var(--background--brand--hover);
 }
 
 .team-outline__branch-mark {
-    color: var(--banksia-ink-500);
-    text-align: center;
+    display: grid;
+    color: var(--text-color--subtler);
+    place-items: center;
 }
 
 .team-outline__actions {
@@ -371,7 +323,7 @@
     flex-wrap: wrap;
     gap: 0.35rem;
     padding: 0.65rem;
-    border-top: 1px solid var(--banksia-line);
+    border-top: 1px solid var(--border-color);
 }
 
 .team-outline__actions .ui-button {
@@ -384,7 +336,7 @@
     .team-canvas {
         height: 39rem;
         min-height: 34rem;
-        border-radius: var(--banksia-radius);
+        border-radius: var(--radius--2xs);
     }
 
     .team-canvas__legend {

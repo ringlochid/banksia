@@ -1,12 +1,33 @@
+/*
+ * Application chrome: a narrow icon rail beside a full-bleed content area.
+ *
+ * Composition follows n8n's editor shell at pinned commit
+ * 43c6f329fb1fb528259a78f80b163e4ed1405c02 (`app/components/MainSidebar`,
+ * `app/components/MainHeader`) — a fixed icon rail with tooltip labels and a
+ * content region that owns its own scrolling.
+ * Copyright (c) n8n GmbH and contributors. Sustainable Use License; see
+ * console/LICENSE and console/NOTICE.
+ *
+ * The rail carries Banksia's own destinations (Workflows, Runs, Operator);
+ * n8n's project, template, and execution entries have no Banksia equivalent.
+ */
+
+.shell {
+    display: flex;
+    height: 100%;
+    background: var(--background--base);
+}
+
 .shell__skip {
-    position: fixed;
-    z-index: 200;
-    top: 0.75rem;
-    left: 0.75rem;
-    padding: 0.65rem 0.9rem;
-    border-radius: var(--banksia-radius-small);
-    background: var(--banksia-ink-950);
-    color: white;
+    position: absolute;
+    top: var(--spacing--2xs);
+    left: var(--spacing--2xs);
+    z-index: 90;
+    padding: var(--spacing--3xs) var(--spacing--2xs);
+    color: var(--text-color);
+    background: var(--background--surface);
+    border: var(--border-width) solid var(--border-color--strong);
+    border-radius: var(--radius--3xs);
     transform: translateY(-200%);
 }
 
@@ -14,111 +35,271 @@
     transform: translateY(0);
 }
 
-.shell__header {
-    position: sticky;
-    z-index: 30;
-    top: 0;
-    border-bottom: 1px solid var(--banksia-line);
-    background: rgb(255 253 248 / 92%);
-    backdrop-filter: blur(1rem);
+.shell__main {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+    overflow: hidden;
 }
 
-.shell__header-inner {
+/* ---------- Sidebar ----------
+ *
+ * Translated from n8n's MainSidebar.vue / MainSidebarHeader.vue and the
+ * design system's MenuItem.vue at pinned commit
+ * 43c6f329fb1fb528259a78f80b163e4ed1405c02. The 42px collapsed width, the
+ * 200-500px resize range, the 8px/6px header padding, and the 32px menu rows
+ * with 24px icon boxes are theirs.
+ */
+
+.sidebar {
+    position: relative;
     display: flex;
-    min-width: 0;
-    min-height: 4rem;
+    flex: none;
+    flex-direction: column;
+    height: 100%;
+    background: var(--background--surface);
+    border-right: var(--border-width) solid var(--border-color);
+    transition: width 0.15s ease-out;
+    will-change: width;
+}
+
+.sidebar--resizing {
+    transition: none;
+    user-select: none;
+}
+
+.sidebar__header {
+    display: flex;
+    gap: var(--spacing--4xs);
     align-items: center;
     justify-content: space-between;
-    gap: 1.5rem;
+    padding: var(--spacing--2xs) var(--spacing--3xs);
 }
 
-.shell__brand {
-    display: inline-flex;
-    min-width: 0;
-    min-height: 2.75rem;
-    align-items: center;
-    gap: 0.65rem;
-    color: var(--banksia-ink-950);
-    font-size: 1.12rem;
-    font-weight: 850;
-    letter-spacing: -0.02em;
-    text-decoration: none;
+.sidebar--collapsed .sidebar__header {
+    flex-direction: column;
+    border-bottom: var(--border-width) solid var(--border-color);
 }
 
-.shell__brand-mark {
-    display: grid;
-    width: 2rem;
-    height: 2rem;
-    place-items: center;
-    border-radius: 50%;
-    background: var(--banksia-flower);
-    color: var(--banksia-ink-950);
-}
-
-.shell__nav {
+.sidebar__logo {
     display: flex;
+    gap: var(--spacing--3xs);
+    align-items: center;
+    margin-right: auto;
+    overflow: hidden;
+}
+
+.sidebar__mark {
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 1.375rem;
+    height: 1.375rem;
+    color: var(--color--neutral-white);
+    background: var(--background--brand);
+    border-radius: var(--radius--3xs);
+}
+
+.sidebar__wordmark {
+    font-size: var(--font-size--sm);
+    font-weight: var(--font-weight--bold);
+    color: var(--text-color);
+    white-space: nowrap;
+}
+
+.sidebar__icon-button {
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: var(--spacing--lg);
+    height: var(--spacing--lg);
+    color: var(--icon-color);
+    cursor: pointer;
+    background: none;
+    border: none;
+    border-radius: var(--radius--3xs);
+}
+
+.sidebar__icon-button:hover {
+    color: var(--icon-color--strong);
+    background: var(--background--hover);
+}
+
+.sidebar__nav {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+    padding: var(--spacing--2xs) var(--spacing--3xs) 0;
+    overflow-y: auto;
+}
+
+.sidebar__bottom {
+    display: flex;
+    flex-direction: column;
+    padding: var(--spacing--3xs);
+    border-top: var(--border-width) solid var(--border-color);
+}
+
+.sidebar__item {
+    display: flex;
+    gap: var(--spacing--4xs);
+    align-items: center;
+    width: 100%;
     min-width: 0;
+    min-height: var(--spacing--xl);
+    margin-bottom: var(--spacing--5xs);
+    padding: var(--spacing--4xs);
+    font-size: var(--font-size--xs);
+    color: var(--text-color--subtle);
+    text-align: left;
+    cursor: pointer;
+    background: none;
+    border: none;
+    border-radius: var(--radius--3xs);
+}
+
+.sidebar--collapsed .sidebar__item {
+    justify-content: center;
+    gap: 0;
+}
+
+.sidebar__item:hover:not(.is-active) {
+    color: var(--text-color);
+    background: var(--background--hover);
+}
+
+.sidebar__item.is-active {
+    color: var(--text-color);
+    background: var(--background--active);
+}
+
+.sidebar__item-icon {
+    display: flex;
+    flex: none;
     align-items: center;
-    gap: 0.35rem;
+    justify-content: center;
+    width: var(--spacing--lg);
+    height: var(--spacing--lg);
 }
 
-.shell__nav-link {
-    display: inline-flex;
-    min-height: 2.75rem;
+.sidebar__item.is-active .sidebar__item-icon {
+    color: var(--text-color--brand);
+}
+
+.sidebar__item-text {
+    min-width: 0;
+    overflow: hidden;
+    line-height: var(--font-size--lg);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Drag handle sits on the trailing edge, matching n8n's resize wrapper. */
+.sidebar__resize {
+    position: absolute;
+    top: 0;
+    right: -2px;
+    bottom: 0;
+    width: 4px;
+    cursor: col-resize;
+}
+
+.sidebar__resize:hover {
+    background: var(--background--brand);
+}
+
+/* ---------- Page scaffolding ---------- */
+
+/*
+ * Every screen is a page: a fixed header strip, then a body that scrolls on
+ * its own. The document never scrolls, so a canvas can fill the viewport
+ * without competing with page scroll.
+ */
+.page {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.page__header {
+    display: flex;
+    flex: none;
+    gap: var(--spacing--sm);
     align-items: center;
-    padding: 0.55rem 0.85rem;
-    border-radius: var(--banksia-radius-small);
-    color: var(--banksia-ink-650);
-    font-weight: 700;
-    text-decoration: none;
+    justify-content: space-between;
+    min-height: var(--topbar-height);
+    padding: var(--spacing--2xs) var(--spacing--sm);
+    border-bottom: var(--border-width) solid var(--border-color);
 }
 
-.shell__nav-link:hover,
-.shell__nav-link.is-active,
-.shell__operator-toggle:hover,
-.shell__operator-toggle[aria-expanded="true"] {
-    background: var(--banksia-leaf-soft);
-    color: var(--banksia-leaf-hover);
+.page__heading {
+    display: flex;
+    gap: var(--spacing--2xs);
+    align-items: baseline;
+    min-width: 0;
 }
 
-.shell__operator-toggle {
-    min-height: 2.75rem;
-    border: 0;
-    color: var(--banksia-ink-650);
-    font-weight: 700;
+.page__title {
+    font-size: var(--font-size--md);
+    font-weight: var(--font-weight--bold);
+    color: var(--text-color);
 }
 
-.shell__main {
-    min-height: calc(100vh - 4rem);
+.page__count {
+    font-size: var(--font-size--2xs);
+    color: var(--text-color--subtler);
 }
 
-@media (max-width: 30rem) {
-    .shell__header-inner {
-        min-height: auto;
-        align-items: stretch;
-        flex-direction: column;
-        gap: 0;
-        padding-block: 0.35rem;
-    }
+.page__actions {
+    display: flex;
+    flex: none;
+    gap: var(--spacing--2xs);
+    align-items: center;
+}
 
-    .shell__brand {
-        align-self: flex-start;
-    }
+.page__toolbar {
+    display: flex;
+    flex: none;
+    gap: var(--spacing--2xs);
+    align-items: center;
+    padding: var(--spacing--2xs) var(--spacing--sm);
+}
 
-    .shell__nav {
-        width: 100%;
-        justify-content: space-between;
-    }
+.page__toolbar .ui-search {
+    max-width: 22rem;
+}
 
-    .shell__nav-link {
-        min-width: 0;
-        padding-inline: 0.5rem;
-        flex: 0 1 auto;
-        justify-content: center;
-    }
+.page__body {
+    flex: 1;
+    min-height: 0;
+    padding: 0 var(--spacing--sm) var(--spacing--sm);
+    overflow-y: auto;
+}
 
-    .shell__operator-toggle {
-        min-width: 0;
-        padding-inline: 0.5rem;
+/* Canvas pages hand the whole body to the canvas. */
+.page__body--flush {
+    padding: 0;
+    overflow: hidden;
+}
+
+.page__empty {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing--2xs);
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing--3xl) var(--spacing--sm);
+    color: var(--text-color--subtler);
+    text-align: center;
+}
+
+@media (max-width: 40rem) {
+    .page__header {
+        flex-wrap: wrap;
     }
 }

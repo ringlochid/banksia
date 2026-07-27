@@ -7,12 +7,15 @@ import dagre, {
 
 import type { NormalizedMember } from "../../../api/types";
 
-export const MEMBER_CARD_WIDTH = 17.5 * 16;
-export const ADD_CONTROL_SIZE = 3 * 16;
+// One row per card: icon, name, optional warning. Matches `--member--height`.
+export const MEMBER_CARD_WIDTH = 12 * 16;
+export const MEMBER_CARD_HEIGHT = 2.25 * 16;
+export const ADD_CONTROL_SIZE = 1.5 * 16;
+/** Gap between a childless Member and its trailing add control. */
+const ADD_CONTROL_STEM = 2.5 * 16;
 
-const DEFAULT_CARD_HEIGHT = 10.75 * 16;
-const RANK_SPACING = 7 * 16;
-const SIBLING_SPACING = 3.5 * 16;
+const RANK_SPACING = 5 * 16;
+const SIBLING_SPACING = 1.25 * 16;
 const CANVAS_MARGIN = 2 * 16;
 
 export interface TeamNodeDimensions {
@@ -132,35 +135,44 @@ export function layoutTeam({
     const bounds = layoutBounds(nodes);
 
     return {
-        edges: [
-            ...visibleMembers.flatMap<TeamLayoutEdge>((entry) =>
-                entry.parentId === null
-                    ? []
-                    : [
-                          {
-                              id: `owns:${entry.parentId}:${entry.member.id}`,
-                              kind: "ownership",
-                              source: entry.parentId,
-                              target: entry.member.id,
-                          },
-                      ],
-            ),
-            ...(addNode === null
-                ? []
-                : [
-                      {
-                          id: `add:${addNode.parentId}`,
-                          kind: "add" as const,
-                          source: addNode.parentId,
-                          target: addNodeId(addNode.parentId),
-                      },
-                  ]),
-        ],
+        edges: buildEdges(memberNodes, addNode),
         height: bounds.height,
         nodes,
         visibleMembers,
         width: bounds.width,
     };
+}
+
+/**
+ * One edge per ownership link, plus one to the trailing add control. The path
+ * itself is computed by the edge component from the handle positions React
+ * Flow supplies, exactly as n8n's canvas does.
+ */
+function buildEdges(
+    memberNodes: readonly TeamMemberLayoutNode[],
+    addNode: TeamAddLayoutNode | null,
+): readonly TeamLayoutEdge[] {
+    const edges: TeamLayoutEdge[] = memberNodes.flatMap((node) =>
+        node.parentId === null
+            ? []
+            : [
+                  {
+                      id: `owns:${node.parentId}:${node.member.id}`,
+                      kind: "ownership" as const,
+                      source: node.parentId,
+                      target: node.member.id,
+                  },
+              ],
+    );
+    if (addNode !== null) {
+        edges.push({
+            id: `add:${addNode.parentId}`,
+            kind: "add",
+            source: addNode.parentId,
+            target: addNodeId(addNode.parentId),
+        });
+    }
+    return edges;
 }
 
 export function flattenVisibleTeam(
@@ -208,6 +220,11 @@ function authoredOrderConstraints(
     );
 }
 
+/**
+ * Every card is one fixed-height row, so there is nothing to estimate from the
+ * Member's content. Measured heights still win in case the browser rounds
+ * differently.
+ */
 function dimensionsFor(
     member: NormalizedMember,
     dimensionsById: TeamDimensionsById,
@@ -216,35 +233,10 @@ function dimensionsFor(
     return {
         height:
             measured === undefined || measured.height <= 0
-                ? estimatedHeight(member)
+                ? MEMBER_CARD_HEIGHT
                 : measured.height,
         width: MEMBER_CARD_WIDTH,
     };
-}
-
-function estimatedHeight(member: NormalizedMember): number {
-    const titleLines = estimatedLines(member.title, 26, 2);
-    const purposeLines = estimatedLines(member.description, 42, 3);
-    return (
-        DEFAULT_CARD_HEIGHT +
-        Math.max(0, titleLines - 1) * 1.45 * 16 +
-        purposeLines * 1.25 * 16
-    );
-}
-
-function estimatedLines(
-    value: string | null | undefined,
-    charactersPerLine: number,
-    maximum: number,
-): number {
-    const length = value?.trim().length ?? 0;
-    if (length === 0) {
-        return 0;
-    }
-    return Math.min(
-        maximum,
-        Math.max(1, Math.ceil(length / charactersPerLine)),
-    );
 }
 
 function positionAddControl(
@@ -257,40 +249,43 @@ function positionAddControl(
         return null;
     }
     const acceptedChildren = selected.member.children ?? [];
-    const visibleDescendants = nodes.filter(
+
+    // A collapsed Member hides the very slot a new child would land in, so
+    // offering the control there points at nothing. Expand first.
+    if (
+        collapsedMemberIds.has(selected.member.id) &&
+        acceptedChildren.length > 0
+    ) {
+        return null;
+    }
+
+    // With no children yet, the control sits on a short stem beside the card
+    // rather than a full column away, so it reads as belonging to it.
+    if (acceptedChildren.length === 0) {
+        return {
+            height: ADD_CONTROL_SIZE,
+            kind: "add",
+            parentId: selected.member.id,
+            width: ADD_CONTROL_SIZE,
+            x: selected.x + selected.width + ADD_CONTROL_STEM,
+            y: selected.y + (selected.height - ADD_CONTROL_SIZE) / 2,
+        };
+    }
+
+    // Otherwise it takes the next direct-child slot, below this Member's own
+    // last descendant. Siblings share a column, so the slot is then pushed
+    // clear of anything already occupying it — the connector keeps it legible
+    // even when that lands some way down.
+    const subtree = nodes.filter(
         (node) =>
             node.depth > selected.depth &&
             isDescendantOf(node, selected.member.id, nodes),
     );
-    const visibleDirectChild = nodes.find(
+    const directChild = subtree.find(
         (node) => node.parentId === selected.member.id,
     );
-    const x =
-        visibleDirectChild?.x ?? selected.x + selected.width + RANK_SPACING;
-
-    if (
-        acceptedChildren.length === 0 ||
-        (collapsedMemberIds.has(selected.member.id) &&
-            visibleDescendants.length === 0)
-    ) {
-        return resolveAddCollision(
-            {
-                height: ADD_CONTROL_SIZE,
-                kind: "add",
-                parentId: selected.member.id,
-                width: ADD_CONTROL_SIZE,
-                x,
-                y:
-                    acceptedChildren.length === 0
-                        ? selected.y + (selected.height - ADD_CONTROL_SIZE) / 2
-                        : selected.y + selected.height + SIBLING_SPACING,
-            },
-            nodes,
-        );
-    }
-
     const lastSubtreeBottom = Math.max(
-        ...visibleDescendants.map((node) => node.y + node.height),
+        ...subtree.map((node) => node.y + node.height),
     );
     return resolveAddCollision(
         {
@@ -298,7 +293,7 @@ function positionAddControl(
             kind: "add",
             parentId: selected.member.id,
             width: ADD_CONTROL_SIZE,
-            x,
+            x: directChild?.x ?? selected.x + selected.width + RANK_SPACING,
             y: lastSubtreeBottom + SIBLING_SPACING,
         },
         nodes,

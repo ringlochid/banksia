@@ -1,4 +1,4 @@
-import { ArrowLeft, RotateCcw } from "lucide-react";
+import { ArrowLeft, RotateCcw, Settings2 } from "lucide-react";
 import {
     useCallback,
     useEffect,
@@ -9,11 +9,16 @@ import {
 } from "react";
 import { Link } from "react-router-dom";
 
-import type { NormalizedWorkflow } from "../../api/types";
-import { Button, Dialog } from "../../components/ui";
+import type {
+    NewMember,
+    NormalizedMember,
+    NormalizedWorkflow,
+} from "../../api/types";
+import { Button, Dialog, DialogFooter } from "../../components/ui";
 import { ConflictNotice } from "./ConflictNotice";
 import { MemberDetailsSurface } from "./MemberDetailsSurface";
 import { SaveStatus } from "./SaveStatus";
+import { WorkflowDetailsSurface } from "./WorkflowDetailsSurface";
 import { TeamCanvas, type TeamMemberFocusRequest } from "./canvas/TeamCanvas";
 import type {
     StudioContextValue,
@@ -37,6 +42,11 @@ export interface AuthoringStudioProps {
     readonly validationRef: RefObject<HTMLDivElement | null>;
 }
 
+interface PendingMemberDraft {
+    readonly parentMemberId: string;
+    readonly member: NewMember;
+}
+
 export function AuthoringStudio({
     isDiscardOpen,
     onCloseDiscard,
@@ -47,6 +57,11 @@ export function AuthoringStudio({
     studio,
     validationRef,
 }: AuthoringStudioProps) {
+    const [pendingMember, setPendingMember] =
+        useState<PendingMemberDraft | null>(null);
+    const [workflowDetailsOpen, setWorkflowDetailsOpen] = useState(false);
+    const [workflowDetailsFocusRequest, setWorkflowDetailsFocusRequest] =
+        useState(0);
     const workflow = studio.snapshot.workingWorkflow;
     if (workflow === null) {
         return null;
@@ -54,7 +69,12 @@ export function AuthoringStudio({
     return (
         <section className="studio">
             <StudioHeader
+                localAddOpen={pendingMember !== null}
                 onOpenDiscard={onOpenDiscard}
+                onOpenWorkflowSettings={() => {
+                    setWorkflowDetailsOpen(true);
+                    setWorkflowDetailsFocusRequest((request) => request + 1);
+                }}
                 studio={studio}
                 validationRef={validationRef}
                 workflowId={workflow.id}
@@ -62,8 +82,13 @@ export function AuthoringStudio({
             <StudioBody
                 options={options}
                 onRetryOptions={onRetryOptions}
+                pendingMember={pendingMember}
+                setPendingMember={setPendingMember}
                 studio={studio}
                 validationRef={validationRef}
+                workflowDetailsFocusRequest={workflowDetailsFocusRequest}
+                workflowDetailsOpen={workflowDetailsOpen}
+                setWorkflowDetailsOpen={setWorkflowDetailsOpen}
             />
             <DiscardDraftDialog
                 isOpen={isDiscardOpen}
@@ -76,14 +101,18 @@ export function AuthoringStudio({
 }
 
 interface StudioHeaderProps {
+    readonly localAddOpen: boolean;
     readonly onOpenDiscard: () => void;
+    readonly onOpenWorkflowSettings: () => void;
     readonly studio: StudioContextValue;
     readonly validationRef: RefObject<HTMLDivElement | null>;
     readonly workflowId: string;
 }
 
 function StudioHeader({
+    localAddOpen,
     onOpenDiscard,
+    onOpenWorkflowSettings,
     studio,
     validationRef,
     workflowId,
@@ -93,19 +122,31 @@ function StudioHeader({
     const isExclusive = snapshot.exclusiveOperation !== null;
     const actionBlocked =
         isExclusive ||
+        localAddOpen ||
         snapshot.recovery !== null ||
         snapshot.save.kind === "conflict";
     return (
         <header className="studio__header">
-            <div className="page-frame studio__header-inner">
-                <div>
+            <div className="studio__header-inner">
+                <div className="studio__crumbs">
                     <Link className="studio__back" to="/workflows">
-                        <ArrowLeft aria-hidden="true" size={16} />
+                        <ArrowLeft aria-hidden="true" size={15} />
                         Workflows
                     </Link>
-                    <h1>{workflowId}</h1>
+                    <span aria-hidden="true" className="studio__crumb-sep">
+                        /
+                    </span>
+                    <h1 className="studio__title">{workflowId}</h1>
                 </div>
                 <div className="studio__actions">
+                    <Button
+                        disabled={actionBlocked}
+                        onClick={onOpenWorkflowSettings}
+                        tone="quiet"
+                    >
+                        <Settings2 aria-hidden="true" size={16} />
+                        Workflow settings
+                    </Button>
                     <SaveStatus {...studio} />
                     <Button
                         disabled={!snapshot.canUndo || actionBlocked}
@@ -151,24 +192,39 @@ function StudioHeader({
 interface StudioBodyProps {
     readonly onRetryOptions: () => void;
     readonly options: WorkflowAuthoringOptionsState;
+    readonly pendingMember: PendingMemberDraft | null;
+    readonly setPendingMember: (pending: PendingMemberDraft | null) => void;
     readonly studio: StudioContextValue;
     readonly validationRef: RefObject<HTMLDivElement | null>;
+    readonly workflowDetailsFocusRequest: number;
+    readonly workflowDetailsOpen: boolean;
+    readonly setWorkflowDetailsOpen: (open: boolean) => void;
 }
 
 function StudioBody({
     onRetryOptions,
     options,
+    pendingMember,
+    setPendingMember,
     studio,
     validationRef,
+    workflowDetailsFocusRequest,
+    workflowDetailsOpen,
+    setWorkflowDetailsOpen,
 }: StudioBodyProps) {
     const workflow = studio.snapshot.workingWorkflow;
     return workflow === null ? null : (
         <EditableStudioBody
             onRetryOptions={onRetryOptions}
             options={options}
+            pendingMember={pendingMember}
+            setPendingMember={setPendingMember}
             studio={studio}
             validationRef={validationRef}
             workflow={workflow}
+            workflowDetailsFocusRequest={workflowDetailsFocusRequest}
+            workflowDetailsOpen={workflowDetailsOpen}
+            setWorkflowDetailsOpen={setWorkflowDetailsOpen}
         />
     );
 }
@@ -180,12 +236,21 @@ interface EditableStudioBodyProps extends StudioBodyProps {
 function EditableStudioBody({
     onRetryOptions,
     options,
+    pendingMember,
+    setPendingMember,
     studio,
     validationRef,
     workflow,
+    workflowDetailsFocusRequest,
+    workflowDetailsOpen,
+    setWorkflowDetailsOpen,
 }: EditableStudioBodyProps) {
     const { snapshot, actions } = studio;
     const issues = selectValidationIssues(snapshot);
+    const summaryIssues = issues.filter(
+        (issue) =>
+            !(issue.source === "controller" && issue.target !== undefined),
+    );
     const selectedMember = selectMember(snapshot);
     const editingDisabled = selectEditingDisabled(snapshot);
     const selectedMemberId = selectedMember?.id ?? workflow.lead.id;
@@ -212,6 +277,17 @@ function EditableStudioBody({
             ),
         [collapsedMemberIds, workflow.lead],
     );
+
+    useEffect(() => {
+        if (!workflowDetailsOpen) {
+            return;
+        }
+        const frame = requestAnimationFrame(() => {
+            setDetailsOpen(false);
+            setOutlineOpen(false);
+        });
+        return () => cancelAnimationFrame(frame);
+    }, [workflowDetailsOpen]);
 
     const requestMemberFocus = useCallback(
         (
@@ -288,6 +364,7 @@ function EditableStudioBody({
         memberId: string,
         openDetails: boolean,
     ): void => {
+        setWorkflowDetailsOpen(false);
         actions.selectMember(memberId);
         if (openDetails) {
             setOutlineOpen(false);
@@ -296,6 +373,7 @@ function EditableStudioBody({
     };
 
     const openMemberDetails = (memberId: string): void => {
+        setWorkflowDetailsOpen(false);
         actions.selectMember(memberId);
         setOutlineOpen(false);
         setDetailsOpen(true);
@@ -324,24 +402,37 @@ function EditableStudioBody({
     };
 
     return (
-        <div className="page-frame studio__body">
+        <div className="studio__body">
             <ConflictNotice {...studio} />
-            <ValidationSummary issues={issues} validationRef={validationRef} />
+            <ValidationSummary
+                issues={summaryIssues}
+                validationRef={validationRef}
+            />
             <div className="studio__workspace">
                 <TeamCanvas
                     collapsedMemberIds={visibleCollapsedMemberIds}
-                    detailsOpen={detailsOpen}
+                    detailsOpen={detailsOpen || workflowDetailsOpen}
                     disabled={editingDisabled}
                     focusRequest={memberFocusRequest}
                     issues={issues}
                     lead={workflow.lead}
+                    localAddOpen={pendingMember !== null}
                     onAddChild={(memberId) => {
+                        setWorkflowDetailsOpen(false);
                         setOutlineOpen(false);
                         actions.selectMember(memberId);
-                        void actions.addChild(memberId);
+                        setPendingMember({
+                            parentMemberId: memberId,
+                            member: {},
+                        });
+                        setDetailsOpen(true);
+                        setDetailsFocusRequest((request) => request + 1);
                     }}
                     onEdit={openMemberDetails}
                     onOutlineOpenChange={(open) => {
+                        if (open) {
+                            setWorkflowDetailsOpen(false);
+                        }
                         setOutlineOpen(open);
                         if (open) {
                             setDetailsOpen(false);
@@ -358,26 +449,101 @@ function EditableStudioBody({
                     pendingStructure={snapshot.pendingStructure}
                     selectedMemberId={selectedMemberId}
                 />
-                {selectedMember === null ? null : (
+                {workflowDetailsOpen ||
+                (selectedMember === null && pendingMember === null) ? null : (
                     <MemberDetailsSurface
-                        disabled={editingDisabled}
+                        createState={
+                            pendingMember === null
+                                ? undefined
+                                : {
+                                      canSubmit: hasPendingMemberContent(
+                                          pendingMember.member,
+                                      ),
+                                      error: addMemberError(snapshot),
+                                      onSubmit: () => {
+                                          void actions
+                                              .addChild(
+                                                  pendingMember.parentMemberId,
+                                                  pendingMember.member,
+                                              )
+                                              .then((memberId) => {
+                                                  if (memberId === null) {
+                                                      return;
+                                                  }
+                                                  setPendingMember(null);
+                                                  setDetailsFocusRequest(
+                                                      (request) => request + 1,
+                                                  );
+                                              });
+                                      },
+                                      submitting:
+                                          snapshot.exclusiveOperation ===
+                                          "adding_child",
+                                  }
+                        }
+                        disabled={
+                            pendingMember === null
+                                ? editingDisabled
+                                : snapshot.exclusiveOperation === "adding_child"
+                        }
                         focusRequest={detailsFocusRequest}
                         issues={issues}
-                        member={selectedMember}
-                        onClose={() => {
-                            setDetailsOpen(false);
-                            requestMemberFocus(selectedMember.id, "canvas");
-                        }}
-                        onEditMember={(patch) =>
-                            actions.editMember(selectedMember.id, patch)
+                        member={
+                            pendingMember === null
+                                ? selectedMember!
+                                : pendingMemberView(pendingMember)
                         }
-                        onEditWorkflow={actions.editWorkflow.bind(actions)}
+                        onClose={() => {
+                            const focusMemberId =
+                                pendingMember?.parentMemberId ??
+                                selectedMember?.id ??
+                                workflow.lead.id;
+                            setPendingMember(null);
+                            setDetailsOpen(false);
+                            requestMemberFocus(focusMemberId, "canvas");
+                        }}
+                        onEditMember={(patch) => {
+                            if (pendingMember !== null) {
+                                setPendingMember({
+                                    ...pendingMember,
+                                    member: {
+                                        ...pendingMember.member,
+                                        ...patch,
+                                    },
+                                });
+                                return;
+                            }
+                            if (selectedMember !== null) {
+                                actions.editMember(selectedMember.id, patch);
+                            }
+                        }}
+                        onRemove={
+                            // The lead owns the Workflow and has no parent to
+                            // return to, so it is the one Member that stays.
+                            pendingMember !== null ||
+                            selectedMember === null ||
+                            selectedMember.id === workflow.lead.id
+                                ? undefined
+                                : () => setRemovalMemberId(selectedMember.id)
+                        }
                         onRetryOptions={onRetryOptions}
                         open={detailsOpen}
                         options={options}
                         workflow={workflow}
                     />
                 )}
+                <WorkflowDetailsSurface
+                    disabled={editingDisabled}
+                    focusRequest={workflowDetailsFocusRequest}
+                    issues={issues}
+                    onClose={() => {
+                        setWorkflowDetailsOpen(false);
+                        requestMemberFocus(selectedMemberId, "canvas");
+                    }}
+                    onEdit={actions.editWorkflow.bind(actions)}
+                    open={workflowDetailsOpen}
+                    workflow={workflow}
+                />
             </div>
             <RemoveBranchDialog
                 isOpen={removalMemberId !== null}
@@ -458,8 +624,8 @@ function DiscardDraftDialog({
                     ? "This Workflow exists only as a draft. Discarding removes it from the library."
                     : "Discarding removes these draft changes and returns to the published Workflow."}
             </p>
-            <div className="workflow-dialog__actions">
-                <Button disabled={isSaving} onClick={onClose} tone="quiet">
+            <DialogFooter>
+                <Button disabled={isSaving} onClick={onClose} tone="secondary">
                     Keep editing
                 </Button>
                 <Button
@@ -477,7 +643,7 @@ function DiscardDraftDialog({
                 >
                     {isSaving ? "Discarding…" : "Discard draft"}
                 </Button>
-            </div>
+            </DialogFooter>
         </Dialog>
     );
 }
@@ -513,14 +679,14 @@ function RemoveBranchDialog({
             onClose={onClose}
             title={`Remove ${title}?`}
         >
-            <p>
-                This removes the selected teammate and every teammate below it.
-                The change is applied only after Banksia accepts the updated
-                team.
-            </p>
-            <div className="workflow-dialog__actions">
-                <Button disabled={isRemoving} onClick={onClose} tone="quiet">
-                    Keep branch
+            <p>This also removes every Member below it.</p>
+            <DialogFooter>
+                <Button
+                    disabled={isRemoving}
+                    onClick={onClose}
+                    tone="secondary"
+                >
+                    Cancel
                 </Button>
                 <Button
                     disabled={isRemoving || memberId === null}
@@ -531,9 +697,9 @@ function RemoveBranchDialog({
                     }}
                     tone="danger"
                 >
-                    {isRemoving ? "Removing…" : "Remove branch"}
+                    {isRemoving ? "Removing…" : "Remove member"}
                 </Button>
-            </div>
+            </DialogFooter>
         </Dialog>
     );
 }
@@ -551,4 +717,39 @@ function isMemberDescendantOf(
         parentId = findMember(root, parentId)?.parentId ?? null;
     }
     return false;
+}
+
+function pendingMemberView(pending: PendingMemberDraft): NormalizedMember {
+    const { capabilities, description, instruction, provider, title } =
+        pending.member;
+    return {
+        id: `pending-${pending.parentMemberId}`,
+        children: [],
+        ...(title === undefined ? {} : { title }),
+        ...(description === undefined ? {} : { description }),
+        ...(instruction === undefined ? {} : { instruction }),
+        ...(provider === undefined || provider === null ? {} : { provider }),
+        ...(capabilities === undefined || capabilities === null
+            ? {}
+            : { capabilities }),
+    };
+}
+
+function hasPendingMemberContent(member: NewMember): boolean {
+    return (member.title?.trim() ?? "") !== "";
+}
+
+function addMemberError(
+    snapshot: StudioContextValue["snapshot"],
+): string | null {
+    if (snapshot.save.kind === "failed" || snapshot.save.kind === "offline") {
+        return snapshot.save.message;
+    }
+    if (
+        snapshot.recovery?.kind === "check_current" &&
+        snapshot.recovery.operation === "adding_child"
+    ) {
+        return "Banksia could not confirm whether this member was added. Check the current Workflow before trying again.";
+    }
+    return null;
 }

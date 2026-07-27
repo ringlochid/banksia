@@ -13,10 +13,17 @@ from banksia.interfaces.cli.commands.bootstrap import (
     cmd_serve,
 )
 from banksia.interfaces.cli.commands.config_view import cmd_config_path, cmd_config_show
-from banksia.interfaces.cli.commands.guided_setup import (
+from banksia.interfaces.cli.commands.initialization import (
     guide_local_initialization,
+)
+from banksia.interfaces.cli.commands.operator import (
+    cmd_operator_disable,
+    cmd_operator_setup,
+    cmd_operator_status,
+    guide_operator_setup,
+)
+from banksia.interfaces.cli.commands.provider_setup import (
     guide_provider_setup,
-    should_run_guided_flow,
 )
 from banksia.interfaces.cli.commands.providers import (
     cmd_providers_check,
@@ -27,15 +34,9 @@ from banksia.interfaces.cli.commands.providers import (
     cmd_providers_status,
     cmd_setup,
 )
-from banksia.interfaces.cli.commands.service import (
-    DEFAULT_SERVICE_NAME,
-    cmd_service_install,
-    cmd_service_render,
-    cmd_service_restart,
-    cmd_service_start,
-    cmd_service_status,
-    cmd_service_stop,
-    cmd_service_uninstall,
+from banksia.interfaces.cli.commands.settings import (
+    guide_settings,
+    should_run_guided_flow,
 )
 from banksia.interfaces.cli.commands.status import cmd_status
 from banksia.interfaces.cli.commands.task import cmd_task_start
@@ -55,8 +56,10 @@ from .root_support import (
     output_options,
     package_version,
 )
+from .service_commands import service_group
 
 PROVIDER_CHOICE = click.Choice([provider.value for provider in PROVIDER_ORDER])
+OPERATOR_PROVIDER_CHOICE = click.Choice(("codex", "claude"))
 
 
 @click.group(
@@ -82,7 +85,15 @@ def cli(ctx: click.Context, is_debug: bool) -> int | None:
     return None
 
 
-@cli.command("init")
+cli.add_command(service_group)
+
+
+@cli.command(
+    "init",
+    help=(
+        "Initialize local controller state and optionally configure a Task provider and Operator."
+    ),
+)
 @config_option
 @click.option("--data-dir")
 @click.option("--database-url")
@@ -125,8 +136,25 @@ def init_command(**kwargs: Any) -> int:
 
 @cli.command("serve")
 @config_option
-def serve_command(config: str) -> int:
-    return invoke_handler_result(cmd_serve(build_argument_namespace(config=config)))
+@click.option(
+    "--service-log",
+    type=click.Path(
+        file_okay=True,
+        dir_okay=False,
+        resolve_path=True,
+        path_type=Path,
+    ),
+    hidden=True,
+)
+def serve_command(config: str, service_log: Path | None) -> int:
+    return invoke_handler_result(
+        cmd_serve(
+            build_argument_namespace(
+                config=config,
+                service_log=service_log,
+            )
+        )
+    )
 
 
 @cli.command("status")
@@ -138,7 +166,10 @@ def status_command(config: str, is_json_output: bool) -> int:
     )
 
 
-@cli.command("setup")
+@cli.command(
+    "setup",
+    help=("Open the interactive settings hub, or configure one Task provider noninteractively."),
+)
 @config_option
 @click.option("--provider", type=PROVIDER_CHOICE)
 @click.option("--model")
@@ -156,18 +187,85 @@ def status_command(config: str, is_json_output: bool) -> int:
 @click.option("--json", "is_json_output", is_flag=True, help="Emit JSON output only.")
 def setup_command(**kwargs: Any) -> int:
     args = build_argument_namespace(**kwargs, json=kwargs["is_json_output"])
+    is_guided = should_run_guided_flow(
+        is_non_interactive=kwargs["is_non_interactive"],
+        is_json_output=kwargs["is_json_output"],
+    )
+    if is_guided:
+        handler = guide_provider_setup if kwargs["provider"] is not None else guide_settings
+    else:
+        handler = cmd_setup
+    return invoke_handler_result(handler(args))
+
+
+@cli.group("operator", help="Configure and inspect the separate Banksia Operator.")
+def operator_group() -> None:
+    return None
+
+
+@operator_group.command(
+    "setup",
+    help="Select Codex or Claude for Operator and replace its optional overrides.",
+)
+@config_option
+@click.option("--provider", type=OPERATOR_PROVIDER_CHOICE)
+@click.option("--model", help="Optional Operator-specific provider model.")
+@click.option("--effort", help="Optional Operator-specific reasoning effort.")
+@click.option(
+    "--non-interactive",
+    "is_non_interactive",
+    is_flag=True,
+    help="Disable guided prompts for scripts and automation.",
+)
+@click.option("--json", "is_json_output", is_flag=True, help="Emit JSON output only.")
+def operator_setup_command(**kwargs: Any) -> int:
+    args = build_argument_namespace(**kwargs, json=kwargs["is_json_output"])
     handler = (
-        guide_provider_setup
+        guide_operator_setup
         if should_run_guided_flow(
             is_non_interactive=kwargs["is_non_interactive"],
             is_json_output=kwargs["is_json_output"],
         )
-        else cmd_setup
+        else cmd_operator_setup
     )
     return invoke_handler_result(handler(args))
 
 
-@cli.group("providers")
+@operator_group.command(
+    "status",
+    help="Show saved and effective Operator configuration without a provider call.",
+)
+@config_option
+@click.option("--json", "is_json_output", is_flag=True, help="Emit JSON output only.")
+def operator_status_command(config: str, is_json_output: bool) -> int:
+    return invoke_handler_result(
+        cmd_operator_status(
+            build_argument_namespace(
+                config=config,
+                json=is_json_output,
+            )
+        )
+    )
+
+
+@operator_group.command(
+    "disable",
+    help="Remove only the saved Operator selection; keep provider routes enabled.",
+)
+@config_option
+@click.option("--json", "is_json_output", is_flag=True, help="Emit JSON output only.")
+def operator_disable_command(config: str, is_json_output: bool) -> int:
+    return invoke_handler_result(
+        cmd_operator_disable(
+            build_argument_namespace(
+                config=config,
+                json=is_json_output,
+            )
+        )
+    )
+
+
+@cli.group("providers", help="Configure Task provider routes and inspect readiness.")
 def providers_group() -> None:
     return None
 
@@ -420,74 +518,4 @@ def task_group() -> None:
 def task_start_command(config: str, json_sources: tuple[str, ...]) -> int:
     return invoke_handler_result(
         cmd_task_start(build_argument_namespace(config=config, json_sources=json_sources))
-    )
-
-
-@cli.group("service")
-def service_group() -> None:
-    return None
-
-
-@service_group.command("render")
-@config_option
-@click.option("--name", default=DEFAULT_SERVICE_NAME, show_default=True)
-def service_render_command(**kwargs: Any) -> int:
-    return invoke_handler_result(cmd_service_render(build_argument_namespace(**kwargs)))
-
-
-@service_group.command("install")
-@config_option
-@click.option("--name", default=DEFAULT_SERVICE_NAME, show_default=True)
-@click.option("--unit-dir")
-@click.option("--port", type=int)
-@click.option("--no-start", is_flag=True)
-@click.option("--verbose", is_flag=True, help="Show nested command output when available.")
-@click.option("--no-color", is_flag=True, help="Disable ANSI color output.")
-@click.option("--plain", is_flag=True, help="Disable rich styling.")
-def service_install_command(**kwargs: Any) -> int:
-    return invoke_handler_result(cmd_service_install(build_argument_namespace(**kwargs)))
-
-
-@service_group.command("uninstall")
-@config_option
-@click.option("--name", default=DEFAULT_SERVICE_NAME, show_default=True)
-@click.option("--unit-dir")
-@click.option("--remove-env-file", is_flag=True)
-def service_uninstall_command(**kwargs: Any) -> int:
-    return invoke_handler_result(cmd_service_uninstall(build_argument_namespace(**kwargs)))
-
-
-@service_group.command("start")
-@click.option("--name", default=DEFAULT_SERVICE_NAME, show_default=True)
-@click.option("--json", "is_json_output", is_flag=True, help="Emit JSON output only.")
-def service_start_command(name: str, is_json_output: bool) -> int:
-    return invoke_handler_result(
-        cmd_service_start(build_argument_namespace(name=name, json=is_json_output))
-    )
-
-
-@service_group.command("stop")
-@click.option("--name", default=DEFAULT_SERVICE_NAME, show_default=True)
-@click.option("--json", "is_json_output", is_flag=True, help="Emit JSON output only.")
-def service_stop_command(name: str, is_json_output: bool) -> int:
-    return invoke_handler_result(
-        cmd_service_stop(build_argument_namespace(name=name, json=is_json_output))
-    )
-
-
-@service_group.command("restart")
-@click.option("--name", default=DEFAULT_SERVICE_NAME, show_default=True)
-@click.option("--json", "is_json_output", is_flag=True, help="Emit JSON output only.")
-def service_restart_command(name: str, is_json_output: bool) -> int:
-    return invoke_handler_result(
-        cmd_service_restart(build_argument_namespace(name=name, json=is_json_output))
-    )
-
-
-@service_group.command("status")
-@click.option("--name", default=DEFAULT_SERVICE_NAME, show_default=True)
-@click.option("--json", "is_json_output", is_flag=True, help="Emit JSON output only.")
-def service_status_command(name: str, is_json_output: bool) -> int:
-    return invoke_handler_result(
-        cmd_service_status(build_argument_namespace(name=name, json=is_json_output))
     )

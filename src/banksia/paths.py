@@ -4,6 +4,8 @@ from pathlib import Path
 
 from platformdirs import PlatformDirs
 
+from banksia.platform.workspace_files import ensure_private_directory
+
 APP_NAME = "banksia"
 _CONFIG_FILENAME = "config.toml"
 _DATABASE_FILENAME = "banksia.persistence"
@@ -29,7 +31,7 @@ def ensure_runtime_dirs(
         "cache_dir": default_cache_dir(),
     }
     for path in directories.values():
-        path.mkdir(parents=True, exist_ok=True)
+        ensure_private_directory(path)
     return directories
 
 

@@ -23,6 +23,10 @@ from banksia.persistence.session import (
     get_session_factory,
     ping_database,
 )
+from banksia.platform.workspace_files import (
+    ensure_private_directory,
+    protect_private_path,
+)
 from banksia.workflows.bootstrap import seed_starter_workflows
 
 SQLITE_SIDECAR_SUFFIXES = ("-wal", "-shm", "-journal")
@@ -53,6 +57,7 @@ async def ensure_database_ready(
         await _seed_starter_workflows(progress=progress)
     finally:
         await dispose_db_engine()
+    _protect_sqlite_database(database_url)
 
     if progress is not None:
         progress.done("database", "Database ready")
@@ -115,6 +120,7 @@ async def reset_database(
         await _seed_starter_workflows(progress=progress)
     finally:
         await dispose_db_engine()
+    _protect_sqlite_database(database_url)
 
     if progress is not None:
         progress.done("database", "Database reset complete")
@@ -162,7 +168,13 @@ async def _seed_starter_workflows(*, progress: CliProgress | None) -> None:
 def _prepare_sqlite_database_parent(database_url: str) -> None:
     database_path = sqlite_database_path(database_url)
     if database_path is not None:
-        database_path.parent.mkdir(parents=True, exist_ok=True)
+        ensure_private_directory(database_path.parent)
+
+
+def _protect_sqlite_database(database_url: str) -> None:
+    database_path = sqlite_database_path(database_url)
+    if database_path is not None and database_path.exists():
+        protect_private_path(database_path, is_directory=False)
 
 
 def _required_sqlite_database_path(database_url: str) -> Path:
@@ -201,7 +213,7 @@ def _reject_unsafe_sqlite_sidecar(sidecar_path: Path) -> None:
 
 def _replace_sqlite_database(database_path: Path) -> None:
     _validate_sqlite_reset_files(database_path)
-    database_path.parent.mkdir(parents=True, exist_ok=True)
+    ensure_private_directory(database_path.parent)
     for removable_path in _sqlite_database_files(database_path):
         removable_path.unlink(missing_ok=True)
 

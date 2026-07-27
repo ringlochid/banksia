@@ -24,6 +24,8 @@ Existing failures must be reproduced and classified before they become a baselin
 
 Real provider, installed-package, or HTTP proof stays deliberately small. Use one or two Members and one bounded outcome such as a greeting, short brainstorm, council, or narrow research question; Operator proof uses the minimum typed clarification and final answer. Large catalog Workflows are deterministic contract fixtures, not live-provider burn tests.
 
+Platform claims require native installed-wheel proof. A Linux test that monkeypatches `os.name` or `sys.platform` may prove selection/rendering but never substitutes for macOS filesystem, ACL, process, service-manager, or package behavior.
+
 Managed-provider isolation proof uses a disposable provider home and workspace containing sentinel user/project instructions, Skills, plugins or apps, agents, hooks, and external MCP servers. Before a model turn, readback must show no ambient instruction source, no active external server, no extra operation, resource, or resource template, and no provider configuration mutation. Claude proof covers API-key bare mode, Task personal-subscription SDK isolation, Operator personal-subscription safe mode, and fail-closed managed-policy readiness. Codex proof covers global and project guidance, named MCP/Skill disabling, untrusted-project configuration, exact workspace roots, and byte-identical provider configuration before and after.
 
 ## Hidden controller validation guardrails
@@ -261,6 +263,8 @@ Invalid ownership shapes—wrong parent, non-direct child Assignment, boundary f
 - Mutating or removing `output.log` cannot change DB lifecycle. UI identifies bounded views and reports a missing, changed-size, or incomplete current file honestly without claiming immutable audit bytes.
 - Restart never relaunches an ambiguously owned command from file presence.
 - Terminal continuation contains state, summary, optional exit/failure code, timing, one combined log path, observed/written/completeness facts, and provenance exactly once; it contains neither raw output nor split log refs.
+- Linux and macOS child/grandchild process trees terminate and reap on cancel, timeout, clean controller shutdown, and controller-liveness loss. The admitted working-directory identity remains descriptor-backed without a Linux `/proc` dependency.
+- Native quoting, shell selection, environment allowlisting, Unicode/spaced paths, and controller restart readback pass on every supported host.
 
 ## Prompt and current context
 
@@ -382,6 +386,8 @@ The required usability oracle is an independent no-doc evaluator that did not im
 - Docs format, link, authority/front-door, prompt catalog, generated schema/API, examples, and executable command checks pass at final paths.
 - Exact stale searches cover identity plus removed Role/Policy/Task Compose/compiler/criteria/consume/produce/request-file/staged-yield/Flow authority terms with a reviewed narrow allowlist for legitimate dependency language.
 - Distribution-name availability is rechecked immediately before publication.
+- Ubuntu and macOS 13+ native lanes install the built wheel outside the checkout and prove CLI import/help, interactive-safe initialization primitives, exact schema/reset, workspace admission, private-path enforcement, Command Run process-family cleanup, and the native user-service lifecycle.
+- Provider setup always lists the pinned Codex, Claude, and OpenClaw routes documented for that host. Diagnostics separately report installation, identity, reachability, and exact sandbox/network support; failure never disables, rewrites, or silently replaces a route.
 
 ## Required final proof matrix
 

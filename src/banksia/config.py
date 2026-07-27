@@ -3,6 +3,7 @@ from __future__ import annotations
 import ipaddress
 import os
 import re
+import stat
 import tomllib
 from enum import StrEnum
 from functools import lru_cache
@@ -25,6 +26,7 @@ from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, Settings
 
 from banksia.paths import default_config_path, default_data_dir, default_database_url
 from banksia.platform.environment import Environment
+from banksia.platform.workspace_files import read_private_text
 from banksia.providers import ManagedSandboxMode, NetworkAccess, ProviderKind
 
 CONFIG_ENV_VAR = "BANKSIA_CONFIG"
@@ -331,16 +333,17 @@ def normalize_controller_workspace(
         expanded_workspace = Path(raw_workspace).expanduser()
         if not expanded_workspace.is_absolute():
             raise ValueError(_CONTROLLER_WORKSPACE_REQUIREMENT)
-        workspace = expanded_workspace.resolve()
+        workspace = _coerce_path(expanded_workspace)
+        metadata = workspace.stat(follow_symlinks=False)
     except (OSError, RuntimeError, TypeError, ValueError) as exc:
         raise ValueError(f"{_CONTROLLER_WORKSPACE_REQUIREMENT}: {value!s}") from exc
-    if not workspace.is_dir():
+    if not stat.S_ISDIR(metadata.st_mode):
         raise ValueError(f"{_CONTROLLER_WORKSPACE_REQUIREMENT}: {workspace}")
     return workspace
 
 
 def _coerce_path(value: str | os.PathLike[str] | Path) -> Path:
-    return Path(value).expanduser().resolve()
+    return Path(os.path.abspath(Path(value).expanduser()))
 
 
 def _nested_get(data: dict[str, Any], *keys: str) -> Any:
@@ -367,10 +370,11 @@ def _environment_boolean_override(name: str) -> bool | None:
 
 def _load_toml_settings() -> dict[str, Any]:
     config_path = _coerce_path(os.environ.get(CONFIG_ENV_VAR, default_config_path()))
-    if not config_path.is_file():
+    config_text = read_private_text(config_path)
+    if config_text is None:
         return {"config_path": config_path, "data_dir": default_data_dir()}
 
-    payload = tomllib.loads(config_path.read_text(encoding="utf-8"))
+    payload = tomllib.loads(config_text)
     loaded: dict[str, Any] = {
         "config_path": config_path,
         "data_dir": _coerce_path(_nested_get(payload, "paths", "data_dir") or default_data_dir()),

@@ -1,341 +1,207 @@
 from __future__ import annotations
 
 import argparse
-import asyncio
 import json
-import socket
-import tomllib
 from pathlib import Path
 
 import pytest
 
 import banksia.interfaces.cli as cli
-from banksia.config import DEFAULT_API_PORT, get_settings
-from banksia.persistence.session import dispose_db_engine
-from banksia.platform.provider_environment import ProviderEnvironmentError
-
-from .cli_test_support import (
-    build_cli_init_args,
-    find_available_loopback_port,
-    write_systemctl_show_script,
+import banksia.interfaces.cli.commands.service as service_commands
+from banksia.interfaces.cli.errors import unexpected_failure
+from banksia.platform.managed_services import (
+    ManagedServiceCommandError,
+    ManagedServiceExecutionState,
+    ManagedServiceInspection,
+    ManagedServiceInstallationState,
+    ManagedServiceStartupState,
+    ManagedServiceTarget,
 )
 
 
-def test_service_install_and_status_use_systemd_user_surface(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    config_path = tmp_path / "banksia-config.toml"
-    data_dir = tmp_path / "banksia-data"
-    unit_dir = tmp_path / "systemd-user"
-    env_file = tmp_path / "banksia.env"
-    systemctl_log = tmp_path / "systemctl.log"
-    systemctl_bin = tmp_path / "systemctl"
-    write_systemctl_show_script(
-        systemctl_bin,
-        systemctl_log,
-        active_state="active",
-        sub_state="running",
-    )
-    monkeypatch.setenv("BANKSIA_SYSTEMCTL_BIN", str(systemctl_bin))
+class StubManagedServiceManager:
+    manager_name = "test-user-manager"
+    service_name = "banksia"
 
-    try:
-        asyncio.run(cli.cmd_init(build_cli_init_args(config_path, data_dir)))
-        capsys.readouterr()
-        install_result = cli.cmd_service_install(
-            argparse.Namespace(
-                config=str(config_path),
-                name="banksia",
-                unit_dir=str(unit_dir),
-                port=19123,
-                no_start=True,
-            )
+    def __init__(self, inspection: ManagedServiceInspection) -> None:
+        self.inspection = inspection
+
+    def render_definition(self, target: ManagedServiceTarget) -> str:
+        return (
+            f"python={target.python_executable}\n"
+            f"config={target.config_path}\n"
+            f"log={target.log_path}\n"
         )
-        status_result = cli.cmd_service_status(argparse.Namespace(name="banksia", json=True))
-    finally:
-        get_settings.cache_clear()
-        asyncio.run(dispose_db_engine())
 
-    assert install_result == 0
-    assert status_result == 0
-    assert unit_dir.joinpath("banksia.service").exists()
-    assert env_file.exists()
-    config_payload = tomllib.loads(config_path.read_text(encoding="utf-8"))
-    assert config_payload["server"]["port"] == 19123
-    captured = capsys.readouterr()
-    payload = json.loads(captured.out)
-    assert payload["manager"] == "systemd-user"
-    assert payload["installed"] is True
-    assert payload["running"] is True
-    assert payload["healthy"] is None
-    assert "OpenClaw" not in captured.err
-    assert "Checking local API bind target" in captured.err
-    assert "Running" in captured.err
-    assert "daemon-reload" in captured.err
-    assert "enable banksia.service" in captured.err
-    log_lines = systemctl_log.read_text(encoding="utf-8").splitlines()
-    assert "daemon-reload" in log_lines[0]
-    assert any("enable banksia.service" in line for line in log_lines)
+    def inspect(self, target: ManagedServiceTarget) -> ManagedServiceInspection:
+        del target
+        return self.inspection
 
 
-def test_service_install_fails_before_unit_write_when_requested_port_is_busy(
+def test_service_status_uses_product_language_and_controller_truth(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    config_path = tmp_path / "banksia-config.toml"
-    data_dir = tmp_path / "banksia-data"
-    unit_dir = tmp_path / "systemd-user"
-    env_file = tmp_path / "banksia.env"
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as busy_socket:
-        busy_socket.bind(("127.0.0.1", 0))
-        busy_socket.listen(1)
-        busy_port = busy_socket.getsockname()[1]
+    config_path = _write_config(tmp_path, port=65534)
+    manager = StubManagedServiceManager(_installed_stopped_inspection(tmp_path))
+    monkeypatch.setattr(
+        service_commands,
+        "get_managed_service_manager",
+        lambda: manager,
+    )
 
-        try:
-            asyncio.run(cli.cmd_init(build_cli_init_args(config_path, data_dir)))
-            capsys.readouterr()
-            result = cli.cmd_service_install(
-                argparse.Namespace(
-                    config=str(config_path),
-                    name="banksia",
-                    unit_dir=str(unit_dir),
-                    port=busy_port,
-                    no_start=True,
-                )
-            )
-        finally:
-            get_settings.cache_clear()
-            asyncio.run(dispose_db_engine())
+    result = cli.cmd_service_status(argparse.Namespace(config=str(config_path), json=False))
 
     output = capsys.readouterr().out
-    config_payload = tomllib.loads(config_path.read_text(encoding="utf-8"))
-    assert result == 1
-    assert "Local API bind check failed" in output
-    assert config_payload["server"]["port"] == DEFAULT_API_PORT
-    assert not unit_dir.joinpath("banksia.service").exists()
-    assert not env_file.exists()
+    assert result == 0
+    assert "Banksia background service" in output
+    assert "Definition:" in output
+    assert "Starts at sign-in: Enabled" in output
+    assert "Controller: stopped" in output
+    assert "Log:" in output
+    assert "systemd state" not in output
+    assert "journalctl" not in output
 
 
-def test_service_install_rejects_unowned_environment_assignments(
+def test_service_status_json_uses_portable_contract(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
-    config_path = tmp_path / "banksia-config.toml"
-    data_dir = tmp_path / "banksia-data"
-    unit_dir = tmp_path / "systemd-user"
-    env_file = tmp_path / "banksia.env"
-    env_file.write_text("CUSTOM_FLAG=1\n", encoding="utf-8")
+    config_path = _write_config(tmp_path, port=65533)
+    manager = StubManagedServiceManager(_installed_stopped_inspection(tmp_path))
+    monkeypatch.setattr(
+        service_commands,
+        "get_managed_service_manager",
+        lambda: manager,
+    )
 
-    try:
-        init_args = build_cli_init_args(config_path, data_dir)
-        init_args.port = find_available_loopback_port()
-        asyncio.run(cli.cmd_init(init_args))
-        with pytest.raises(ProviderEnvironmentError, match="does not support CUSTOM_FLAG"):
-            cli.cmd_service_install(
-                argparse.Namespace(
-                    config=str(config_path),
-                    name="banksia",
-                    unit_dir=str(unit_dir),
-                    port=None,
-                    no_start=True,
-                )
-            )
-    finally:
-        get_settings.cache_clear()
-        asyncio.run(dispose_db_engine())
+    result = cli.cmd_service_status(argparse.Namespace(config=str(config_path), json=True))
 
-    assert not unit_dir.joinpath("banksia.service").exists()
+    payload = json.loads(capsys.readouterr().out)
+    assert result == 0
+    assert payload == {
+        "api_url": "http://127.0.0.1:65533",
+        "controller_state": "stopped",
+        "definition_path": str(tmp_path / "banksia.definition"),
+        "installation_state": "installed",
+        "log_path": str(service_commands.default_service_log_path()),
+        "manager": "test-user-manager",
+        "ok": True,
+        "service_name": "banksia",
+        "startup_state": "enabled",
+    }
+    assert "active_state" not in payload
+    assert "fragment_path" not in payload
+    assert "healthy" not in payload
 
 
-def test_service_install_reconciles_unit_without_overwriting_private_env_file(
+def test_service_render_uses_selected_native_definition(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    config_path = tmp_path / "config with space" / "config.toml"
+    manager = StubManagedServiceManager(_installed_stopped_inspection(tmp_path))
+    monkeypatch.setattr(
+        service_commands,
+        "get_managed_service_manager",
+        lambda: manager,
+    )
+
+    result = cli.cmd_service_render(argparse.Namespace(config=str(config_path)))
+
+    output = capsys.readouterr().out
+    assert result == 0
+    assert f"config={config_path.resolve()}" in output
+    assert "log=" in output
+
+
+def test_service_target_preserves_the_active_environment_interpreter(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    config_path = tmp_path / "banksia-config.toml"
-    data_dir = tmp_path / "banksia-data"
-    unit_dir = tmp_path / "systemd-user"
-    env_file = tmp_path / "banksia.env"
-    systemctl_log = tmp_path / "systemctl-reconcile.log"
-    systemctl_bin = tmp_path / "systemctl-reconcile"
-    unit_dir.mkdir(parents=True, exist_ok=True)
-    env_file.write_text("# Existing provider credentials stay here.\n", encoding="utf-8")
-    unit_dir.joinpath("banksia.service").write_text("stale unit\n", encoding="utf-8")
-    write_systemctl_show_script(
-        systemctl_bin,
-        systemctl_log,
-        active_state="inactive",
-        sub_state="dead",
-    )
-    monkeypatch.setenv("BANKSIA_SYSTEMCTL_BIN", str(systemctl_bin))
+    environment_python = tmp_path / "venv" / "bin" / "python"
+    environment_python.parent.mkdir(parents=True)
+    environment_python.symlink_to("/usr/bin/python3")
+    monkeypatch.setattr(service_commands.sys, "executable", str(environment_python))
 
-    try:
-        init_args = build_cli_init_args(config_path, data_dir)
-        init_args.port = find_available_loopback_port()
-        asyncio.run(cli.cmd_init(init_args))
-        result = cli.cmd_service_install(
-            argparse.Namespace(
-                config=str(config_path),
-                name="banksia",
-                unit_dir=str(unit_dir),
-                port=None,
-                no_start=True,
-            )
+    target = service_commands.build_managed_service_target(tmp_path / "config.toml")
+
+    assert target.python_executable == environment_python
+
+
+def test_service_logs_returns_a_bounded_tail(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    log_path = tmp_path / "controller.log"
+    log_path.write_text("one\ntwo\nthree\n", encoding="utf-8")
+    monkeypatch.setattr(service_commands, "default_service_log_path", lambda: log_path)
+
+    result = cli.cmd_service_logs(argparse.Namespace(lines=2, follow=False, json=True))
+
+    payload = json.loads(capsys.readouterr().out)
+    assert result == 0
+    assert payload == {
+        "is_missing": False,
+        "lines": ["two", "three"],
+        "log_path": str(log_path),
+        "ok": True,
+    }
+
+
+def test_service_logs_rejects_unbounded_line_request() -> None:
+    with pytest.raises(ValueError, match="between 1 and 2000"):
+        cli.cmd_service_logs(argparse.Namespace(lines=2_001, follow=False, json=False))
+
+
+def test_service_command_failure_is_manager_neutral() -> None:
+    failure = unexpected_failure(
+        ManagedServiceCommandError(
+            manager="launchd-user",
+            operation="start",
+            service_name="io.github.ringlochid.banksia",
+            command=("launchctl", "kickstart", "gui/501/io.github.ringlochid.banksia"),
+            return_code=5,
+            detail="service is disabled",
         )
-    finally:
-        get_settings.cache_clear()
-        asyncio.run(dispose_db_engine())
-
-    assert result == 0
-    assert env_file.read_text(encoding="utf-8") == "# Existing provider credentials stay here.\n"
-    assert env_file.stat().st_mode & 0o777 == 0o600
-    assert "ExecStart=" in unit_dir.joinpath("banksia.service").read_text(encoding="utf-8")
-
-
-def test_service_install_reconciles_a_running_service_without_a_false_port_conflict(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    config_path = tmp_path / "banksia-config.toml"
-    data_dir = tmp_path / "banksia-data"
-    unit_dir = tmp_path / "systemd-user"
-    systemctl_log = tmp_path / "systemctl-running.log"
-    systemctl_bin = tmp_path / "systemctl-running"
-    write_systemctl_show_script(
-        systemctl_bin,
-        systemctl_log,
-        active_state="active",
-        sub_state="running",
     )
-    monkeypatch.setenv("BANKSIA_SYSTEMCTL_BIN", str(systemctl_bin))
 
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as busy_socket:
-        busy_socket.bind(("127.0.0.1", 0))
-        busy_socket.listen(1)
-        busy_port = int(busy_socket.getsockname()[1])
-        try:
-            init_args = build_cli_init_args(config_path, data_dir)
-            init_args.port = busy_port
-            asyncio.run(cli.cmd_init(init_args))
-            capsys.readouterr()
-            result = cli.cmd_service_install(
-                argparse.Namespace(
-                    config=str(config_path),
-                    name="banksia",
-                    unit_dir=str(unit_dir),
-                    port=None,
-                    no_start=True,
-                )
-            )
-        finally:
-            get_settings.cache_clear()
-            asyncio.run(dispose_db_engine())
-
-    output = capsys.readouterr()
-    assert result == 0
-    assert "Reusing the bind target owned by the running managed service" in output.err
-    assert unit_dir.joinpath("banksia.service").exists()
+    assert failure.title == "Background service start failed"
+    assert "operating system could not start" in failure.message
+    assert "service is disabled" in failure.message
+    assert failure.hint is not None
+    assert "banksia service status" in failure.hint
+    assert "banksia service logs --lines 200" in failure.hint
+    assert "systemctl" not in failure.hint
+    assert failure.details["manager"] == "launchd-user"
 
 
-@pytest.mark.asyncio
-async def test_service_start_and_status_use_managed_service_surface(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    config_path = tmp_path / "banksia-config.toml"
-    data_dir = tmp_path / "banksia-data"
-    systemctl_log = tmp_path / "systemctl-start.log"
-    systemctl_bin = tmp_path / "systemctl-start"
-    write_systemctl_show_script(
-        systemctl_bin,
-        systemctl_log,
-        active_state="active",
-        sub_state="running",
-    )
-    monkeypatch.setenv("BANKSIA_SYSTEMCTL_BIN", str(systemctl_bin))
-
-    try:
-        await cli.cmd_init(build_cli_init_args(config_path, data_dir))
-        capsys.readouterr()
-        result = cli.cmd_service_start(argparse.Namespace(name="banksia", json=False))
-        start_output = capsys.readouterr()
-        status_result = cli.cmd_service_status(argparse.Namespace(name="banksia", json=True))
-    finally:
-        get_settings.cache_clear()
-        await dispose_db_engine()
-
-    assert result == 0
-    assert status_result == 0
-    status_payload = json.loads(capsys.readouterr().out)
-    assert status_payload["manager"] == "systemd-user"
-    assert status_payload["installed"] is True
-    assert status_payload["running"] is True
-    assert status_payload["healthy"] is None
-    assert "systemctl --user start banksia.service" in start_output.err
-    log_lines = systemctl_log.read_text(encoding="utf-8").splitlines()
-    assert any("start banksia.service" in line for line in log_lines)
-
-
-@pytest.mark.asyncio
-async def test_service_stop_and_restart_use_managed_service_surface(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    config_path = tmp_path / "banksia-config.toml"
-    data_dir = tmp_path / "banksia-data"
-    systemctl_log = tmp_path / "systemctl-stop.log"
-    systemctl_bin = tmp_path / "systemctl-stop"
-    write_systemctl_show_script(
-        systemctl_bin,
-        systemctl_log,
-        active_state="inactive",
-        sub_state="dead",
-    )
-    monkeypatch.setenv("BANKSIA_SYSTEMCTL_BIN", str(systemctl_bin))
-
-    try:
-        await cli.cmd_init(build_cli_init_args(config_path, data_dir))
-        stop_result = cli.cmd_service_stop(argparse.Namespace(name="banksia", json=False))
-        restart_result = cli.cmd_service_restart(argparse.Namespace(name="banksia", json=False))
-    finally:
-        get_settings.cache_clear()
-        await dispose_db_engine()
-
-    assert stop_result == 0
-    assert restart_result == 0
-    log_lines = systemctl_log.read_text(encoding="utf-8").splitlines()
-    assert any("stop banksia.service" in line for line in log_lines)
-    assert any("restart banksia.service" in line for line in log_lines)
-
-
-def test_service_start_failure_reports_systemd_reason_and_recovery(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    systemctl_bin = tmp_path / "systemctl-failure"
-    systemctl_bin.write_text(
+def _write_config(tmp_path: Path, *, port: int) -> Path:
+    config_path = tmp_path / "config.toml"
+    config_path.write_text(
         "\n".join(
             [
-                "#!/usr/bin/env python3",
-                "import sys",
-                "sys.stderr.write('simulated unit failure\\n')",
-                "sys.exit(1)",
+                "[server]",
+                'host = "127.0.0.1"',
+                f"port = {port}",
             ]
-        ),
+        )
+        + "\n",
         encoding="utf-8",
     )
-    systemctl_bin.chmod(0o755)
-    monkeypatch.setenv("BANKSIA_SYSTEMCTL_BIN", str(systemctl_bin))
+    return config_path
 
-    result = cli.main(["service", "start"])
 
-    output = capsys.readouterr().out
-    assert result == 1
-    assert "Managed service start failed" in output
-    assert "simulated unit failure" in output
-    assert "journalctl --user -u banksia.service -n 50 --no-pager" in output
-    assert "banksia service install" in output
-    assert "Command '['" not in output
+def _installed_stopped_inspection(tmp_path: Path) -> ManagedServiceInspection:
+    return ManagedServiceInspection(
+        manager="test-user-manager",
+        service_name="banksia",
+        definition_path=tmp_path / "banksia.definition",
+        installation_state=ManagedServiceInstallationState.INSTALLED,
+        startup_state=ManagedServiceStartupState.ENABLED,
+        execution_state=ManagedServiceExecutionState.STOPPED,
+    )

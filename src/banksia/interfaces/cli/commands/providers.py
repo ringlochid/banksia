@@ -7,7 +7,12 @@ from typing import Any
 
 import click
 
-from banksia.config import OpenClawGatewayAuthMode, Settings, load_settings
+from banksia.config import (
+    OpenClawGatewayAuthMode,
+    OperatorSettings,
+    Settings,
+    load_settings,
+)
 from banksia.interfaces.cli.bootstrap.config import read_config_sections
 from banksia.interfaces.cli.providers import (
     ProviderConfigurationRequest,
@@ -210,6 +215,8 @@ def build_setup_guide(config_path: Path, settings: Settings) -> dict[str, Any]:
     )
     default_provider = settings.runtime.default_provider
     is_default_configured = default_provider in configured
+    persisted_operator = OperatorSettings.model_validate(persisted_sections.get("operator", {}))
+    effective_operator = settings.operator
 
     if not configured:
         next_actions = []
@@ -232,6 +239,8 @@ def build_setup_guide(config_path: Path, settings: Settings) -> dict[str, Any]:
             f"banksia providers check {default_provider.value}",
             "banksia serve",
         ]
+    if effective_operator.provider is None:
+        next_actions.append("banksia operator setup")
 
     return {
         "ok": True,
@@ -239,6 +248,16 @@ def build_setup_guide(config_path: Path, settings: Settings) -> dict[str, Any]:
         "configured_providers": [provider.value for provider in configured],
         "default_provider": (default_provider.value if default_provider is not None else None),
         "default_provider_configured": is_default_configured,
+        "operator": {
+            "persisted": persisted_operator.model_dump(mode="json"),
+            "effective": effective_operator.model_dump(mode="json"),
+            "environment_override": effective_operator != persisted_operator,
+        },
+        "workspace": (
+            str(settings.controller_workspace)
+            if settings.controller_workspace is not None
+            else None
+        ),
         "next_actions": next_actions,
     }
 
@@ -247,6 +266,7 @@ def emit_setup_guide(payload: dict[str, Any]) -> None:
     configured = payload["configured_providers"]
     default_provider = payload["default_provider"]
     is_default_configured = payload["default_provider_configured"]
+    operator = payload["operator"]
 
     print(
         f"Configured providers: {', '.join(configured)}"
@@ -259,6 +279,11 @@ def emit_setup_guide(payload: dict[str, Any]) -> None:
         print(f"Default provider: {default_provider}")
     else:
         print(f"Default provider: {default_provider} (not enabled)")
+    effective_operator = operator["effective"]
+    operator_provider = effective_operator["provider"]
+    suffix = " (environment override)" if operator["environment_override"] else ""
+    print(f"Operator: {operator_provider or 'not configured'}{suffix}")
+    print(f"Default workspace: {payload['workspace'] or 'not configured'}")
     for action in payload["next_actions"]:
         print(f"Next: {action}")
 

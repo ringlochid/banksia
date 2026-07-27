@@ -20,29 +20,33 @@ def test_build_parser_supports_baseline_commands() -> None:
     result = runner.invoke(parser, ["--help"])
     init_help = runner.invoke(parser, ["init", "--help"])
     setup_help = runner.invoke(parser, ["setup", "--help"])
+    operator_setup_help = runner.invoke(parser, ["operator", "setup", "--help"])
     service_install_help = runner.invoke(parser, ["service", "install", "--help"])
     service_start_help = runner.invoke(parser, ["service", "start", "--help"])
 
     assert result.exit_code == 0
     assert init_help.exit_code == 0
     assert setup_help.exit_code == 0
+    assert operator_setup_help.exit_code == 0
     assert service_install_help.exit_code == 0
     assert "Banksia: an accountable, no-code AI-team runtime for complex work." in result.output
     assert "onboard" not in parser.commands
     assert "configure" not in parser.commands
     assert "doctor" not in parser.commands
-    assert "--port INTEGER" in service_install_help.output
+    assert "--port" not in service_install_help.output
     assert "--data-dir" not in service_install_help.output
     assert "--env-file" not in service_install_help.output
     assert "--force" not in service_install_help.output
-    assert "--config" not in service_start_help.output
+    assert "--config" in service_start_help.output
     assert "--non-interactive" in init_help.output
     assert "--non-interactive" in setup_help.output
     assert "--provider [codex|claude|openclaw]" in setup_help.output
+    assert "--provider [codex|claude]" in operator_setup_help.output
     assert "openclaw" not in parser.commands
     assert "status" in parser.commands
     assert "setup" in parser.commands
     assert "providers" in parser.commands
+    assert "operator" in parser.commands
     assert "service" in parser.commands
     assert "workflow" in parser.commands
     assert "task" in parser.commands
@@ -51,6 +55,7 @@ def test_build_parser_supports_baseline_commands() -> None:
     workflow_group = cast(Group, parser.commands["workflow"])
     task_group = cast(Group, parser.commands["task"])
     providers_group = cast(Group, parser.commands["providers"])
+    operator_group = cast(Group, parser.commands["operator"])
     assert "install" in service_group.commands
     assert "status" in service_group.commands
     assert set(workflow_group.commands) == {"import", "export"}
@@ -64,30 +69,38 @@ def test_build_parser_supports_baseline_commands() -> None:
         "set-default",
         "status",
     }
+    assert set(operator_group.commands) == {"disable", "setup", "status"}
 
 
-def test_render_service_unit_uses_python_module_entrypoint(tmp_path: Path) -> None:
-    rendered = cli.render_service_unit(
-        python_bin=Path("/tmp/banksia-venv/bin/python"),
+def test_render_service_definition_uses_python_module_entrypoint(
+    tmp_path: Path,
+) -> None:
+    rendered = cli.render_service_definition(
+        python_executable=Path("/tmp/banksia-venv/bin/python"),
         config_path=tmp_path / "config.toml",
+        log_path=tmp_path / "controller.log",
     )
 
     assert "openclaw check" not in rendered
-    assert 'ExecStartPre="/tmp/banksia-venv/bin/python" -m banksia db upgrade' in rendered
     assert 'ExecStart="/tmp/banksia-venv/bin/python" -m banksia serve' in rendered
+    assert f'--service-log "{tmp_path}/controller.log"' in rendered
+    assert "KillMode=control-group" in rendered
     assert "BANKSIA_DATA_DIR" not in rendered
-    assert "UnsetEnvironment=CODEX_HOME CLAUDE_CONFIG_DIR OPENCLAW_STATE_DIR" in rendered
+    assert "EnvironmentFile=" not in rendered
 
 
-def test_render_service_unit_quotes_spaces_and_systemd_specifiers(tmp_path: Path) -> None:
-    rendered = cli.render_service_unit(
-        python_bin=tmp_path / "venv with space" / "python%bin",
+def test_render_service_definition_quotes_spaces_and_systemd_specifiers(
+    tmp_path: Path,
+) -> None:
+    rendered = cli.render_service_definition(
+        python_executable=tmp_path / "venv with space" / "python%bin",
         config_path=tmp_path / "config with space%" / "config.toml",
+        log_path=tmp_path / "log with space%" / "controller.log",
     )
 
     assert f'ExecStart="{tmp_path}/venv with space/python%%bin"' in rendered
     assert f'--config "{tmp_path}/config with space%%/config.toml"' in rendered
-    assert f"EnvironmentFile=-{tmp_path}/config\\x20with\\x20space%%/banksia.env" in rendered
+    assert f'--service-log "{tmp_path}/log with space%%/controller.log"' in rendered
 
 
 def test_serve_does_not_run_global_provider_preflight(

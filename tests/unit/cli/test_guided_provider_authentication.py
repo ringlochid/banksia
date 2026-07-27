@@ -7,7 +7,7 @@ import pytest
 from click.testing import CliRunner
 
 from banksia.interfaces.cli import root as cli_root
-from banksia.interfaces.cli.commands import guided_setup
+from banksia.interfaces.cli.commands import provider_setup as guided_setup
 from banksia.interfaces.cli.main import build_parser
 from banksia.interfaces.cli.providers.contracts import (
     ProviderCheckOutcome,
@@ -73,7 +73,7 @@ def test_guided_setup_selects_default_and_offers_codex_login(
 
     result = CliRunner().invoke(
         build_parser(),
-        ["setup", "--config", str(config_path)],
+        ["setup", "--config", str(config_path), "--provider", "codex"],
         input="\n\n\n",
     )
 

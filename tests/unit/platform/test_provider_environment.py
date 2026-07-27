@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import stat
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
@@ -63,6 +64,47 @@ def test_private_provider_environment_replaces_mutually_exclusive_gateway_secret
     assert read_provider_secret_environment(env_file) == {
         OPENCLAW_GATEWAY_PASSWORD: "password-value"
     }
+
+
+def test_concurrent_provider_secret_mutations_preserve_both_updates(tmp_path: Path) -> None:
+    env_file = tmp_path / "banksia.env"
+    mutations = (
+        (ANTHROPIC_API_KEY, "anthropic-value"),
+        (OPENCLAW_GATEWAY_TOKEN, "gateway-value"),
+    )
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        list(
+            executor.map(
+                lambda mutation: persist_provider_secret(
+                    env_file,
+                    key=mutation[0],
+                    value=mutation[1],
+                ),
+                mutations,
+            )
+        )
+
+    assert read_provider_secret_environment(env_file) == dict(mutations)
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX no-follow proof")
+def test_provider_environment_rejects_a_final_symlink(tmp_path: Path) -> None:
+    target = tmp_path / "outside.env"
+    target.write_text(f'{ANTHROPIC_API_KEY}="outside"\n', encoding="utf-8")
+    env_file = tmp_path / "banksia.env"
+    env_file.symlink_to(target)
+
+    with pytest.raises(OSError):
+        read_provider_secret_environment(env_file)
+    with pytest.raises(OSError):
+        persist_provider_secret(
+            env_file,
+            key=ANTHROPIC_API_KEY,
+            value="replacement",
+        )
+
+    assert target.read_text(encoding="utf-8") == f'{ANTHROPIC_API_KEY}="outside"\n'
 
 
 def test_private_provider_environment_rejects_unowned_assignments(tmp_path: Path) -> None:

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import os
+import signal
 import sys
 from collections.abc import Callable
 from contextlib import AbstractAsyncContextManager
@@ -272,6 +274,66 @@ async def test_process_owner_escalates_cancel_and_reaps_ignoring_child(
             assert wait is None
 
 
+@pytest.mark.skipif(os.name != "posix", reason="POSIX process-group proof")
+async def test_process_owner_cancel_terminates_command_grandchild(
+    tmp_path: Path,
+) -> None:
+    grandchild_script = (
+        "import signal, time; signal.signal(signal.SIGTERM, lambda *_: None); time.sleep(60)"
+    )
+    script = (
+        "import os, subprocess, sys, time; "
+        f"child = subprocess.Popen([sys.executable, '-c', {grandchild_script!r}]); "
+        "print(f'leader={os.getpid()} grandchild={child.pid}', flush=True); "
+        "time.sleep(60)"
+    )
+    grandchild_pid: int | None = None
+    try:
+        async with seeded_executor(tmp_path, suffix="command-process-family-cancel") as (
+            executor,
+            session_factory,
+            ids,
+            _,
+        ):
+            run_id = await _open_argv_command(
+                executor,
+                ids,
+                [sys.executable, "-c", script],
+            )
+            driver = _OwnerSignalDriver(session_factory)
+            owner = _command_owner(
+                session_factory,
+                driver,
+                terminate_grace_seconds=0.05,
+            )
+            driver.owner = owner
+            async with owner:
+                await _handle_pending(owner, session_factory, run_id)
+                output_path = (
+                    seeded_task_root(tmp_path, "command-process-family-cancel")
+                    / "command-runs"
+                    / run_id
+                    / "output.log"
+                )
+                await _wait_for_output(output_path, b"grandchild=")
+                grandchild_pid = _read_grandchild_pid(output_path)
+                async with session_factory() as session:
+                    await cancel_command_run(
+                        cast(AsyncSession, session),
+                        task_id=ids.task_id,
+                        run_id=run_id,
+                        actor_ref="local-test",
+                        runtime_effect_publisher=driver,
+                    )
+                await driver.wait_for_terminal()
+
+            assert grandchild_pid is not None
+            await _assert_process_exited(grandchild_pid)
+    finally:
+        if grandchild_pid is not None and _process_exists(grandchild_pid):
+            os.kill(grandchild_pid, signal.SIGKILL)
+
+
 async def test_restart_marks_unprovable_command_ownership_abandoned(
     tmp_path: Path,
 ) -> None:
@@ -441,6 +503,28 @@ async def test_process_owner_reaps_child_when_running_state_persistence_fails(
         assert source.state == "failed"
         assert source.terminal_failure_code == "command_launch_state_failed"
         assert source.process_metadata_json is None
+
+
+def _read_grandchild_pid(output_path: Path) -> int:
+    record = output_path.read_text(encoding="utf-8").strip().splitlines()[0]
+    fields = dict(field.split("=", 1) for field in record.split())
+    return int(fields["grandchild"])
+
+
+async def _assert_process_exited(pid: int) -> None:
+    for _ in range(100):
+        if not _process_exists(pid):
+            return
+        await asyncio.sleep(0.02)
+    raise AssertionError(f"owned command descendant {pid} survived termination")
+
+
+def _process_exists(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    return True
 
 
 __all__ = []

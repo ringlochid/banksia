@@ -22,8 +22,7 @@ PRODUCT_ROUTE_METHODS: dict[str, frozenset[str]] = {
         "/operator/conversations/{conversation_id}": frozenset({"get"}),
         "/operator/conversations/{conversation_id}/messages": frozenset({"post"}),
         (
-            "/operator/conversations/{conversation_id}/question-sets/"
-            "{question_set_id}/answers"
+            "/operator/conversations/{conversation_id}/question-sets/{question_set_id}/answers"
         ): frozenset({"post"}),
         "/workflow-drafts": frozenset({"post"}),
         "/workflow-drafts/{draft_id}": frozenset({"get", "patch", "delete"}),

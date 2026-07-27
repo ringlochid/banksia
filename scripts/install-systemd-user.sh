@@ -2,7 +2,6 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SERVICE_NAME="${BANKSIA_SERVICE_NAME:-banksia}"
 CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
 DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
 CONFIG_DIR="${BANKSIA_CONFIG_DIR:-$CONFIG_HOME/banksia}"
@@ -10,10 +9,7 @@ DATA_DIR="${BANKSIA_DATA_DIR:-$DATA_HOME/banksia}"
 VENV_DIR="${BANKSIA_VENV_DIR:-$DATA_DIR/venv}"
 PYTHON_BIN="${BANKSIA_PYTHON_BIN:-python3}"
 CONFIG_PATH="${BANKSIA_CONFIG:-$CONFIG_DIR/config.toml}"
-ENV_FILE_PATH="$(dirname "$CONFIG_PATH")/banksia.env"
-UNIT_DIR="$CONFIG_HOME/systemd/user"
-UNIT_PATH="$UNIT_DIR/$SERVICE_NAME.service"
-SYSTEMCTL_BIN="${BANKSIA_SYSTEMCTL_BIN:-systemctl}"
+WORKSPACE_PATH="${BANKSIA_WORKSPACE:-$PWD}"
 INSTALL_MODE="source"
 WHEEL_PATH=""
 NO_DEPS=0
@@ -26,23 +22,23 @@ usage() {
   cat <<'EOF'
 Usage: scripts/install-systemd-user.sh [options]
 
-Installs Banksia into a dedicated user venv, initializes config/data,
-renders a user systemd unit, and enables the service.
+Installs Banksia into a dedicated user venv, runs the shipped noninteractive
+initializer, then delegates service ownership to `banksia service install`.
 
 Options:
   --editable       Install from the repo in editable mode
   --wheel PATH     Install an already-built Banksia wheel
   --no-deps        Do not resolve dependencies (for an offline prepared venv)
   --postgres       Install the postgres extra
+  --workspace PATH Persist this existing directory as the default workspace
   --port PORT      Persist this local API port during initialization
   --force-init     Re-write the generated config.toml during banksia init
-  --no-start       Install/enable the unit but do not start it now
+  --no-start       Install the service but do not start it now
   -h, --help       Show this help
 
 Environment overrides:
   BANKSIA_CONFIG_DIR, BANKSIA_DATA_DIR, BANKSIA_VENV_DIR,
-  BANKSIA_CONFIG, BANKSIA_SERVICE_NAME,
-  BANKSIA_SYSTEMCTL_BIN, BANKSIA_PYTHON_BIN
+  BANKSIA_CONFIG, BANKSIA_WORKSPACE, BANKSIA_PYTHON_BIN
 EOF
 }
 
@@ -61,6 +57,11 @@ while (($# > 0)); do
       ;;
     --postgres)
       EXTRA_SPEC="[postgres]"
+      ;;
+    --workspace)
+      shift
+      [[ $# -gt 0 ]] || { echo "--workspace requires a path" >&2; exit 1; }
+      WORKSPACE_PATH="$1"
       ;;
     --port)
       shift
@@ -86,7 +87,16 @@ while (($# > 0)); do
   shift
 done
 
-mkdir -p "$CONFIG_DIR" "$DATA_DIR" "$UNIT_DIR"
+if [[ "$(uname -s)" != Linux* ]]; then
+  echo "This convenience wrapper is Linux-only. Install Banksia, then run 'banksia init' and 'banksia service install' on this host." >&2
+  exit 1
+fi
+if [[ ! -d "$WORKSPACE_PATH" ]]; then
+  echo "Workspace directory not found: $WORKSPACE_PATH" >&2
+  exit 1
+fi
+
+mkdir -p "$CONFIG_DIR" "$DATA_DIR"
 "$PYTHON_BIN" -m venv "$VENV_DIR"
 
 INSTALL_TARGET="$REPO_ROOT"
@@ -106,9 +116,15 @@ fi
 if [[ "$INSTALL_MODE" == "editable" ]]; then
   PIP_ARGS+=(-e)
 fi
-"$VENV_DIR/bin/pip" "${PIP_ARGS[@]}" "$INSTALL_SPEC"
+"$VENV_DIR/bin/python" -m pip "${PIP_ARGS[@]}" "$INSTALL_SPEC"
 
-INIT_ARGS=(init --non-interactive --config "$CONFIG_PATH" --data-dir "$DATA_DIR")
+INIT_ARGS=(
+  init
+  --non-interactive
+  --config "$CONFIG_PATH"
+  --data-dir "$DATA_DIR"
+  --workspace "$WORKSPACE_PATH"
+)
 if [[ -n "$API_PORT" ]]; then
   INIT_ARGS+=(--port "$API_PORT")
 fi
@@ -119,28 +135,19 @@ fi
 
 SERVICE_INSTALL_ARGS=(
   service install
-  --name "$SERVICE_NAME"
   --config "$CONFIG_PATH"
-  --unit-dir "$UNIT_DIR"
 )
-if [[ -n "$API_PORT" ]]; then
-  SERVICE_INSTALL_ARGS+=(--port "$API_PORT")
-fi
 if (( NO_START )); then
   SERVICE_INSTALL_ARGS+=(--no-start)
 fi
-BANKSIA_SYSTEMCTL_BIN="$SYSTEMCTL_BIN" \
-  "$VENV_DIR/bin/banksia" "${SERVICE_INSTALL_ARGS[@]}"
+"$VENV_DIR/bin/banksia" "${SERVICE_INSTALL_ARGS[@]}"
 
-echo "Installed $SERVICE_NAME.service"
-echo "  unit:   $UNIT_PATH"
+echo "Installed Banksia and reconciled its per-user background service."
 echo "  config: $CONFIG_PATH"
 echo "  data:   $DATA_DIR"
 echo "  venv:   $VENV_DIR"
 if (( NO_START )); then
-  echo "Service was not started. Start it with: systemctl --user start $SERVICE_NAME.service"
+  echo "Start it with: $VENV_DIR/bin/banksia service start --config $CONFIG_PATH"
 else
-  echo "Check status with: systemctl --user status $SERVICE_NAME.service --no-pager"
+  echo "Check it with: $VENV_DIR/bin/banksia service status --config $CONFIG_PATH"
 fi
-echo "To keep the user service running after logout, enable linger separately if desired:"
-echo "  sudo loginctl enable-linger $USER"

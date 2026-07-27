@@ -3,215 +3,283 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
-from collections.abc import Callable
 from pathlib import Path
 
 from banksia.platform.managed_services.resources import get_systemd_service_template
-from banksia.platform.provider_environment import (
-    ensure_private_environment_file,
-    provider_environment_file_path,
-    read_provider_secret_environment,
-)
 
 from .contracts import (
     ManagedServiceCommandError,
-    ManagedServiceStatus,
-    ServiceInstallRequest,
-    ServiceUninstallRequest,
+    ManagedServiceCommandObserver,
+    ManagedServiceExecutionState,
+    ManagedServiceInspection,
+    ManagedServiceInstallationState,
+    ManagedServiceStartupState,
+    ManagedServiceTarget,
+    bounded_service_command_detail,
+)
+from .definition_files import (
+    read_service_definition,
+    remove_service_definition,
+    replace_service_definition,
 )
 
-DEFAULT_SERVICE_ENV_TEXT = """# Banksia-managed provider credentials.
-# Use `banksia setup` or `banksia providers login`; do not add other settings.
-"""
-SYSTEMD_TEMPLATE_RESOURCE = ("systemd", "banksia.service")
+SYSTEMD_MANAGER_NAME = "systemd-user"
+SYSTEMD_SERVICE_NAME = "banksia.service"
 
 
 class SystemdUserServiceManager:
-    def render_systemd_service_unit(
+    manager_name = SYSTEMD_MANAGER_NAME
+    service_name = SYSTEMD_SERVICE_NAME
+
+    def __init__(
         self,
         *,
-        python_bin: Path,
-        config_path: Path,
-    ) -> str:
+        definition_dir: Path | None = None,
+        systemctl_bin: str | None = None,
+    ) -> None:
+        self._definition_dir = definition_dir
+        self._systemctl_bin = systemctl_bin
+
+    def render_definition(self, target: ManagedServiceTarget) -> str:
         return render_systemd_service_unit(
-            python_bin=python_bin,
-            config_path=config_path,
+            python_executable=target.python_executable,
+            config_path=target.config_path,
+            log_path=target.log_path,
         )
 
-    def install(self, request: ServiceInstallRequest) -> None:
-        require_supported_systemd()
-        unit_dir = request.unit_dir or get_linux_user_unit_dir()
-        unit_path = unit_dir / build_service_unit_name(request.service_name)
-        env_file = provider_environment_file_path(request.config_path)
-        unit_dir.mkdir(parents=True, exist_ok=True)
-        ensure_private_environment_file(
-            env_file,
-            initial_text=DEFAULT_SERVICE_ENV_TEXT,
+    def install(
+        self,
+        target: ManagedServiceTarget,
+        *,
+        should_start: bool,
+        command_observer: ManagedServiceCommandObserver | None = None,
+    ) -> ManagedServiceInspection:
+        self._require_supported()
+        replace_service_definition(
+            self.definition_path,
+            self.render_definition(target).encode("utf-8"),
         )
-        read_provider_secret_environment(env_file)
-        unit_path.write_text(
-            render_systemd_service_unit(
-                python_bin=Path(sys.executable),
-                config_path=request.config_path,
-            ),
-            encoding="utf-8",
-        )
-        execute_systemctl("daemon-reload", command_observer=request.command_observer)
-        execute_systemctl(
+        self._execute("daemon-reload", command_observer=command_observer)
+        self._execute(
             "enable",
-            build_service_unit_name(request.service_name),
-            command_observer=request.command_observer,
+            self.service_name,
+            command_observer=command_observer,
         )
-        if not request.should_skip_start:
-            execute_systemctl(
+        if should_start:
+            self._execute(
                 "restart",
-                build_service_unit_name(request.service_name),
-                command_observer=request.command_observer,
+                self.service_name,
+                command_observer=command_observer,
             )
+        return self.inspect(target)
 
-    def uninstall(self, request: ServiceUninstallRequest) -> None:
-        require_supported_systemd()
-        unit_dir = request.unit_dir or get_linux_user_unit_dir()
-        unit_path = unit_dir / build_service_unit_name(request.service_name)
-        execute_systemctl(
+    def uninstall(
+        self,
+        target: ManagedServiceTarget,
+        *,
+        command_observer: ManagedServiceCommandObserver | None = None,
+    ) -> ManagedServiceInspection:
+        self._require_supported()
+        del target
+        self._execute(
             "disable",
             "--now",
-            build_service_unit_name(request.service_name),
+            self.service_name,
+            should_check=False,
+            command_observer=command_observer,
+        )
+        remove_service_definition(self.definition_path)
+        self._execute("daemon-reload", command_observer=command_observer)
+        return self._absent_inspection()
+
+    def start(
+        self,
+        target: ManagedServiceTarget,
+        *,
+        command_observer: ManagedServiceCommandObserver | None = None,
+    ) -> ManagedServiceInspection:
+        self._require_current_definition(target)
+        self._execute("start", self.service_name, command_observer=command_observer)
+        return self.inspect(target)
+
+    def stop(
+        self,
+        target: ManagedServiceTarget,
+        *,
+        command_observer: ManagedServiceCommandObserver | None = None,
+    ) -> ManagedServiceInspection:
+        self._require_current_definition(target)
+        self._execute("stop", self.service_name, command_observer=command_observer)
+        return self.inspect(target)
+
+    def restart(
+        self,
+        target: ManagedServiceTarget,
+        *,
+        command_observer: ManagedServiceCommandObserver | None = None,
+    ) -> ManagedServiceInspection:
+        self._require_current_definition(target)
+        self._execute("restart", self.service_name, command_observer=command_observer)
+        return self.inspect(target)
+
+    def inspect(self, target: ManagedServiceTarget) -> ManagedServiceInspection:
+        self._require_supported()
+        del target
+        completed = self._execute(
+            "show",
+            self.service_name,
+            "--property=LoadState,UnitFileState,ActiveState,SubState,FragmentPath",
             should_check=False,
         )
-        unit_path.unlink(missing_ok=True)
-        if request.should_remove_env_file:
-            provider_environment_file_path(request.config_path).unlink(missing_ok=True)
-        execute_systemctl("daemon-reload")
+        values = parse_systemd_show(completed.stdout)
+        load_state = values.get("LoadState")
+        if load_state in {None, "", "not-found"}:
+            return self._absent_inspection()
+        return ManagedServiceInspection(
+            manager=self.manager_name,
+            service_name=self.service_name,
+            definition_path=Path(values.get("FragmentPath") or self.definition_path),
+            installation_state=ManagedServiceInstallationState.INSTALLED,
+            startup_state=_systemd_startup_state(values.get("UnitFileState")),
+            execution_state=_systemd_execution_state(values.get("ActiveState")),
+            technical_state=tuple(
+                (key, value)
+                for key in ("LoadState", "UnitFileState", "ActiveState", "SubState")
+                if (value := values.get(key)) is not None
+            ),
+        )
 
-    def start(self, service_name: str) -> ManagedServiceStatus:
-        require_supported_systemd()
-        execute_systemctl("start", build_service_unit_name(service_name))
-        return read_systemd_status(service_name)
+    @property
+    def definition_path(self) -> Path:
+        definition_dir = self._definition_dir or get_linux_user_unit_dir()
+        return definition_dir / self.service_name
 
-    def stop(self, service_name: str) -> ManagedServiceStatus:
-        require_supported_systemd()
-        execute_systemctl("stop", build_service_unit_name(service_name))
-        return read_systemd_status(service_name)
+    def _require_supported(self) -> None:
+        if not is_systemd_supported():
+            raise RuntimeError(
+                "Banksia background services use systemd --user on Linux; this host is not Linux"
+            )
 
-    def restart(self, service_name: str) -> ManagedServiceStatus:
-        require_supported_systemd()
-        execute_systemctl("restart", build_service_unit_name(service_name))
-        return read_systemd_status(service_name)
+    def _require_current_definition(self, target: ManagedServiceTarget) -> None:
+        current = read_service_definition(self.definition_path)
+        if current is None:
+            raise RuntimeError(
+                "Banksia background service is not installed; run `banksia service install`"
+            )
+        expected = self.render_definition(target).encode("utf-8")
+        if current != expected:
+            raise RuntimeError(
+                "Banksia background service definition is out of date; "
+                "run `banksia service install`"
+            )
 
-    def status(self, service_name: str) -> ManagedServiceStatus:
-        require_supported_systemd()
-        return read_systemd_status(service_name)
+    def _execute(
+        self,
+        *args: str,
+        should_check: bool = True,
+        command_observer: ManagedServiceCommandObserver | None = None,
+    ) -> subprocess.CompletedProcess[str]:
+        operation = args[0] if args else "inspect"
+        command = (self._resolve_systemctl_bin(), "--user", *args)
+        if command_observer is not None:
+            command_observer(command)
+        try:
+            completed = subprocess.run(
+                list(command),
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+        except OSError as exc:
+            raise ManagedServiceCommandError(
+                manager=self.manager_name,
+                operation=operation,
+                service_name=self.service_name,
+                command=command,
+                return_code=-1,
+                detail=str(exc),
+            ) from exc
+        if should_check and completed.returncode != 0:
+            raise ManagedServiceCommandError(
+                manager=self.manager_name,
+                operation=operation,
+                service_name=self.service_name,
+                command=command,
+                return_code=completed.returncode,
+                detail=bounded_service_command_detail(completed.stderr or completed.stdout),
+            )
+        return completed
+
+    def _resolve_systemctl_bin(self) -> str:
+        return self._systemctl_bin or os.environ.get(
+            "BANKSIA_SYSTEMCTL_BIN",
+            "systemctl",
+        )
+
+    def _absent_inspection(self) -> ManagedServiceInspection:
+        return ManagedServiceInspection(
+            manager=self.manager_name,
+            service_name=self.service_name,
+            definition_path=self.definition_path,
+            installation_state=ManagedServiceInstallationState.ABSENT,
+            startup_state=ManagedServiceStartupState.DISABLED,
+            execution_state=ManagedServiceExecutionState.STOPPED,
+        )
 
 
 def render_systemd_service_unit(
     *,
-    python_bin: Path,
+    python_executable: Path,
     config_path: Path,
+    log_path: Path,
 ) -> str:
-    template_path = get_systemd_service_template()
-    rendered = template_path.read_text(encoding="utf-8")
+    rendered = get_systemd_service_template().read_text(encoding="utf-8")
     replacements = {
-        "@BANKSIA_PYTHON@": _escape_systemd_quoted_value(str(python_bin)),
+        "@BANKSIA_PYTHON@": _escape_systemd_quoted_value(str(python_executable)),
         "@BANKSIA_CONFIG@": _escape_systemd_quoted_value(str(config_path)),
-        "@BANKSIA_ENV_FILE@": _escape_systemd_unquoted_path(
-            str(provider_environment_file_path(config_path))
-        ),
+        "@BANKSIA_SERVICE_LOG@": _escape_systemd_quoted_value(str(log_path)),
     }
     for placeholder, value in replacements.items():
         rendered = rendered.replace(placeholder, value)
     return rendered
 
 
-def read_systemd_status(service_name: str) -> ManagedServiceStatus:
-    unit_name = build_service_unit_name(service_name)
-    result = execute_systemctl(
-        "show",
-        unit_name,
-        "--property=LoadState,UnitFileState,ActiveState,SubState,FragmentPath",
-        should_check=False,
-    )
+def parse_systemd_show(output: str) -> dict[str, str]:
     values: dict[str, str] = {}
-    for line in result.stdout.splitlines():
+    for line in output.splitlines():
         if "=" not in line:
             continue
         key, value = line.split("=", 1)
         values[key] = value
-    load_state = values.get("LoadState")
-    unit_file_state = values.get("UnitFileState")
-    active_state = values.get("ActiveState")
-    sub_state = values.get("SubState")
-    fragment_path = values.get("FragmentPath") or None
-    installed = load_state not in {None, "", "not-found"}
-    enabled = unit_file_state in {"enabled", "linked", "static", "generated"}
-    running = active_state == "active"
-    return ManagedServiceStatus(
-        manager="systemd-user",
-        service_name=unit_name,
-        is_installed=installed,
-        is_enabled=enabled,
-        is_running=running,
-        is_healthy=None,
-        fragment_path=fragment_path,
-        active_state=active_state,
-        sub_state=sub_state,
-    )
-
-
-def require_supported_systemd() -> None:
-    if not is_systemd_supported():
-        raise RuntimeError(
-            "Banksia managed service commands currently support Linux systemd --user only"
-        )
-
-
-def execute_systemctl(
-    *args: str,
-    should_check: bool = True,
-    command_observer: Callable[[tuple[str, ...]], None] | None = None,
-) -> subprocess.CompletedProcess[str]:
-    command = (resolve_systemctl_bin(), "--user", *args)
-    if command_observer is not None:
-        command_observer(command)
-    completed = subprocess.run(
-        list(command),
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    if should_check and completed.returncode != 0:
-        detail = _bounded_command_detail(completed.stderr or completed.stdout)
-        raise ManagedServiceCommandError(
-            command=command,
-            return_code=completed.returncode,
-            detail=detail,
-        )
-    return completed
+    return values
 
 
 def get_linux_user_unit_dir() -> Path:
     return Path.home() / ".config" / "systemd" / "user"
 
 
-def build_service_unit_name(name: str) -> str:
-    return name if name.endswith(".service") else f"{name}.service"
-
-
-def resolve_systemctl_bin() -> str:
-    return os.environ.get("BANKSIA_SYSTEMCTL_BIN", "systemctl")
-
-
 def is_systemd_supported() -> bool:
     return os.name != "nt" and sys.platform.startswith("linux")
 
 
-def _bounded_command_detail(value: str, *, limit: int = 600) -> str | None:
-    normalized = " ".join(value.split())
-    if not normalized:
-        return None
-    if len(normalized) <= limit:
-        return normalized
-    return f"{normalized[: limit - 1]}…"
+def _systemd_startup_state(value: str | None) -> ManagedServiceStartupState:
+    if value in {"enabled", "enabled-runtime", "linked", "linked-runtime"}:
+        return ManagedServiceStartupState.ENABLED
+    if value in {"disabled", "masked", "masked-runtime"}:
+        return ManagedServiceStartupState.DISABLED
+    return ManagedServiceStartupState.UNKNOWN
+
+
+def _systemd_execution_state(value: str | None) -> ManagedServiceExecutionState:
+    if value == "active":
+        return ManagedServiceExecutionState.RUNNING
+    if value in {"activating", "reloading"}:
+        return ManagedServiceExecutionState.STARTING
+    if value == "failed":
+        return ManagedServiceExecutionState.FAILED
+    if value in {"inactive", "deactivating"}:
+        return ManagedServiceExecutionState.STOPPED
+    return ManagedServiceExecutionState.UNKNOWN
 
 
 def _escape_systemd_quoted_value(value: str) -> str:
@@ -220,20 +288,12 @@ def _escape_systemd_quoted_value(value: str) -> str:
     return value.replace("\\", "\\\\").replace('"', '\\"').replace("%", "%%")
 
 
-def _escape_systemd_unquoted_path(value: str) -> str:
-    escaped = _escape_systemd_quoted_value(value)
-    return escaped.replace(" ", "\\x20").replace("\t", "\\x09")
-
-
 __all__ = [
-    "DEFAULT_SERVICE_ENV_TEXT",
+    "SYSTEMD_MANAGER_NAME",
+    "SYSTEMD_SERVICE_NAME",
     "SystemdUserServiceManager",
-    "build_service_unit_name",
-    "execute_systemctl",
     "get_linux_user_unit_dir",
     "is_systemd_supported",
-    "read_systemd_status",
+    "parse_systemd_show",
     "render_systemd_service_unit",
-    "require_supported_systemd",
-    "resolve_systemctl_bin",
 ]

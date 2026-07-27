@@ -44,11 +44,12 @@ make backend-install
 make console-install
 make console-package-assets
 ./.venv/bin/banksia init
-./.venv/bin/banksia setup
 ./.venv/bin/banksia serve
 ```
 
-`make console-package-assets` prepares the visual Console served by the source checkout. Open `http://127.0.0.1:18125/`, go to **Runs**, and start a run with the `reviewed-code-change` Starter:
+`make console-package-assets` prepares the visual Console served by the source checkout. `banksia init` prepares local controller state, asks for one Task provider, and offers the separate Operator as an optional final choice. Rerun `banksia setup` later to change Task providers, Operator, or the default workspace.
+
+Open `http://127.0.0.1:18125/`, go to **Runs**, and start a run with the `reviewed-code-change` Starter:
 
 > Add validation for the configuration import failure path without changing
 > accepted behavior. Follow current repository conventions, add focused
@@ -83,12 +84,14 @@ Each Starter separates ownership from independent challenge or verification. Thr
 ## Current scope
 
 - Banksia runs as one loopback-bound process and is local-tool-first.
+- `banksia serve` is the foreground path. `banksia service install` selects a systemd user service on Linux or a current-user LaunchAgent on macOS.
 - Codex and Claude are managed providers. OpenClaw is a compatibility transport that you configure and operate.
 - A run uses one shared provider-visible workspace. Per-Member isolation and automatic merging are not current product behavior.
 - Human Request and Command Run capabilities deny by default. The installed Starters grant neither.
 - File references record a workspace-relative path and optional description, not a snapshot. A referenced file can later change or disappear.
 - External MCP servers, reusable Skills, distributed delivery, and broad multi-user operation are deferred.
 - The Console supports the current authoring and operating paths and is currently desktop-oriented. Mature visual design and mobile/tablet experiences are deferred.
+- The native controller/runtime targets Linux and macOS. Linux is the currently evidenced source-development path; macOS release support still requires its native installed-wheel gate. Native Windows is deferred; WSL2 uses the Linux path.
 
 ## Learn more
 

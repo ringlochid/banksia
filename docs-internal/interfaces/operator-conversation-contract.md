@@ -29,7 +29,7 @@ model = "provider-native-model-id" # optional
 effort = "high" # optional
 ```
 
-Omitted model and effort resolve through the selected provider's existing controller configuration. There is no automatic provider choice or fallback. Missing or unusable configuration produces a human-safe status response and no provider turn.
+Omitted model and effort resolve through the selected provider's existing controller configuration. There is no automatic provider choice or fallback. Missing or unusable configuration produces a human-safe status response naming `banksia operator setup` and no provider turn. Machine-local Operator configuration remains outside the seventeen product operations.
 
 The provider-neutral adapter contract is:
 

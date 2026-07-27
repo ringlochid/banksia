@@ -378,6 +378,8 @@ Operator is a small, separate control-plane agent over existing Banksia product 
 
 The controller supports Claude and pinned Codex 0.144.4 for Operator. Provider selection is explicit, never borrows a Workflow Member's choice, and never silently falls back. Missing configuration produces a concrete setup action. Both adapters return the same provider-native typed result and preserve the opaque provider thread across turns.
 
+Machine-local setup is a separate CLI responsibility: `banksia operator setup|status|disable`. These commands configure or inspect the Operator provider; they are not agent tools, product HTTP mutations, or an extension of the seventeen-operation catalog. Guided `banksia init` offers the same explicit optional choice after local and Task-provider setup, while `banksia setup` provides the rerunnable settings hub.
+
 Operator tools are direct typed calls to existing product services. An adapter may use an invocation-local in-process MCP projection when its SDK benefits from that transport, but no public/static Operator MCP mount or authorable external MCP configuration exists. Workflow drafting is a primary job, and Operator may perform any currently legal operation in the closed catalog when the user's message or typed answer clearly requests it.
 
 ### Complete product-operation coverage

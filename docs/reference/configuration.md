@@ -45,6 +45,8 @@ Guided `banksia init` suggests its invocation directory. Noninteractive setup ca
 banksia init --non-interactive --workspace /absolute/project/path
 ```
 
+For an initialized controller, rerun `banksia setup` and choose **Default workspace**. The settings hub shows the current effective value before prompting.
+
 `BANKSIA_CONTROLLER_WORKSPACE` overrides the TOML value. CLI `banksia task start` deliberately uses its own invocation directory when the request omits `workspace`; it does not use this controller default.
 
 ## TOML sections and fields
@@ -104,7 +106,7 @@ Both managed-provider sections accept:
 - optional exact provider-native `model`; and
 - optional adapter-supported `effort`.
 
-An explicit model or effort never silently falls back. Provider credentials are managed by `banksia providers login`, not public TOML examples.
+An explicit model or effort never silently falls back. Provider credentials are managed by `banksia providers login`, not public TOML examples. `banksia providers check NAME` is a bounded diagnostic: failure does not disable or rewrite the configured route.
 
 ### OpenClaw
 
@@ -129,6 +131,16 @@ effort = "high"
 ```
 
 `operator.provider` may be `codex` or `claude`. `model` and `effort` require a selected Operator provider. The corresponding managed provider must also be enabled and authenticated. Operator is a separate control-plane agent; this section does not set Task-member defaults.
+
+Prefer the focused CLI over manual edits:
+
+```bash
+banksia operator setup
+banksia operator status
+banksia operator disable
+```
+
+Guided initialization offers Operator after Task-provider setup. `banksia setup` reopens the settings hub later. Disabling Operator removes only its persisted selection; it does not disable the provider route or change the default Task provider.
 
 ### Runtime
 
@@ -173,7 +185,7 @@ A Workflow may request a sandbox under an individual Codex or Claude `provider` 
 
 On Linux and WSL2, a Claude Dispatch with effective network `deny` uses Claude Code's native sandbox with fail-closed startup. Install the host packages `bubblewrap` and `socat` before using either `read_only`/`deny` or `workspace_write`/`deny`; otherwise the provider turn does not start. These packages are Claude deny-network sandbox prerequisites, not general Banksia dependencies, and Banksia does not enable this sandbox for Claude's allow-network pairs. See [Claude Code sandboxing](https://code.claude.com/docs/en/sandboxing) for distribution and AppArmor guidance.
 
-`providers configure NAME` enables a provider and fills `runtime.default_provider` only if it is empty. Use `providers set-default NAME` for an intentional replacement. Banksia never falls back silently from an explicit unavailable provider.
+`providers configure NAME` enables a provider and fills `runtime.default_provider` only if it is empty. Use `providers set-default NAME` for an intentional replacement. Banksia never falls back silently from an explicit unavailable provider, and a failed readiness diagnostic never changes the saved route.
 
 ## Environment overrides
 

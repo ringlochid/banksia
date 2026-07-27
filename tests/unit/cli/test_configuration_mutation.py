@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+import stat
 import tomllib
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -174,3 +176,24 @@ def test_concurrent_first_configuration_has_one_stable_default(tmp_path: Path) -
     assert payload["runtime"]["default_provider"] in {"codex", "claude"}
     assert payload["codex"]["enabled"] is True
     assert payload["claude"]["enabled"] is True
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX private-config proof")
+def test_config_mutation_protects_parent_and_rejects_a_final_symlink(
+    tmp_path: Path,
+) -> None:
+    config_directory = tmp_path / "private"
+    config_directory.mkdir(mode=0o777)
+    target = config_directory / "outside.toml"
+    target.write_text('[runtime]\ndefault_provider = "codex"\n', encoding="utf-8")
+    config_path = config_directory / "config.toml"
+    config_path.symlink_to(target)
+
+    with pytest.raises(OSError):
+        configure_provider(
+            config_path,
+            ProviderConfigurationRequest(provider=ProviderKind.CLAUDE),
+        )
+
+    assert stat.S_IMODE(config_directory.stat().st_mode) == 0o700
+    assert target.read_text(encoding="utf-8") == ('[runtime]\ndefault_provider = "codex"\n')

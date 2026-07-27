@@ -6,10 +6,13 @@ from pathlib import Path
 
 import pytest
 
+import banksia.runtime.workspace.admission as admission_module
+from banksia.platform.workspace_files import DirectoryLease
 from banksia.runtime.team import plan_initial_task_team
 from banksia.runtime.workspace.admission import (
     TASK_INITIALIZATION_MARKER,
     accept_task_workspace,
+    cleanup_marked_task_workspace,
     recover_task_workspace_admissions,
     stage_task_workspace,
 )
@@ -146,7 +149,56 @@ async def test_recovery_never_follows_a_marker_symlink(tmp_path: Path) -> None:
     assert outside.is_file()
 
 
-def test_projection_replace_unlinks_a_manifest_symlink_without_following_it(
+@pytest.mark.skipif(os.name != "posix", reason="POSIX retained-directory race proof")
+async def test_cleanup_never_deletes_a_replacement_task_root(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    task_id = "t_01234567"
+    async with initialized_workflow_database(tmp_path) as session_factory:
+        await publish_generic_workflow(session_factory)
+        async with session_factory() as session:
+            workflow = await read_current_published_workflow(
+                session,
+                workflow_id=GENERIC_WORKFLOW_ID,
+            )
+    admission = stage_task_workspace(
+        workspace=workspace,
+        task_id=task_id,
+        workflow_revision=workflow,
+        initial_team=plan_initial_task_team(workflow, task_id),
+    )
+    original_remove = admission_module.remove_task_tree
+    moved_root = admission.task_root.with_name(f"{task_id}-moved")
+
+    def substitute_before_removal(
+        banksia_root: DirectoryLease,
+        selected_task_id: str,
+        retained_task_root: DirectoryLease,
+    ) -> bool:
+        admission.task_root.rename(moved_root)
+        admission.task_root.mkdir()
+        (admission.task_root / "replacement.txt").write_text(
+            "must remain",
+            encoding="utf-8",
+        )
+        return original_remove(
+            banksia_root,
+            selected_task_id,
+            retained_task_root,
+        )
+
+    monkeypatch.setattr(admission_module, "remove_task_tree", substitute_before_removal)
+
+    assert cleanup_marked_task_workspace(admission) is False
+    assert (admission.task_root / "replacement.txt").read_text(encoding="utf-8") == "must remain"
+    assert moved_root.is_dir()
+    assert tuple(moved_root.iterdir()) == ()
+
+
+def test_projection_replace_rejects_a_manifest_symlink_without_following_it(
     tmp_path: Path,
 ) -> None:
     workspace = tmp_path / "workspace"
@@ -158,9 +210,8 @@ def test_projection_replace_unlinks_a_manifest_symlink_without_following_it(
     manifest = task_root / "manifest.md"
     manifest.symlink_to(outside)
 
-    replace_task_text(workspace, task_id, "manifest.md", "projected")
+    with pytest.raises(OSError, match="non-regular filesystem entry"):
+        replace_task_text(workspace, task_id, "manifest.md", "projected")
 
-    assert manifest.is_file()
-    assert not manifest.is_symlink()
-    assert manifest.read_text(encoding="utf-8") == "projected"
+    assert manifest.is_symlink()
     assert outside.read_text(encoding="utf-8") == "external"

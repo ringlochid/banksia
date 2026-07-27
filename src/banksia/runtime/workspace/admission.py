@@ -18,6 +18,7 @@ from banksia.persistence.models import (
     TaskModel,
     WorkspaceBindingModel,
 )
+from banksia.platform.workspace_files import DirectoryLease
 from banksia.runtime.post_commit import DispatchStartDue
 from banksia.runtime.team import (
     InitialTaskTeam,
@@ -147,16 +148,16 @@ def stage_task_workspace(
 
     if workspace_identity is None:
         workspace_identity = capture_workspace_identity(workspace)
-    banksia_root = workspace / ".banksia"
-    task_root = banksia_root / task_id
-    marker = task_root / TASK_INITIALIZATION_MARKER
+    banksia_path = workspace / ".banksia"
+    task_path = banksia_path / task_id
+    marker = task_path / TASK_INITIALIZATION_MARKER
     admission = TaskWorkspaceAdmission(
         task_id=task_id,
         workspace=workspace,
-        task_root=task_root,
-        manifest=task_root / "manifest.md",
+        task_root=task_path,
+        manifest=task_path / "manifest.md",
         workflow_note=(
-            task_root / "workflow-note.md" if workflow_revision.workflow.note is not None else None
+            task_path / "workflow-note.md" if workflow_revision.workflow.note is not None else None
         ),
         marker=marker,
         workspace_identity=workspace_identity,
@@ -166,18 +167,18 @@ def stage_task_workspace(
         workspace,
         task_id,
         expected_workspace_identity=workspace_identity,
-    ) as (banksia_descriptor, task_descriptor):
+    ) as (banksia_root, task_root):
         try:
             write_new_text(
-                task_descriptor,
+                task_root,
                 TASK_INITIALIZATION_MARKER,
                 _marker_body(task_id),
             )
             marker_written = True
             for name in ("notes", "artifacts", "command-runs"):
-                ensure_directory(task_descriptor, name)
+                ensure_directory(task_root, name)
             write_new_text(
-                task_descriptor,
+                task_root,
                 "manifest.md",
                 render_initial_team_manifest(
                     task_id=task_id,
@@ -188,16 +189,16 @@ def stage_task_workspace(
             if admission.workflow_note is not None:
                 assert workflow_revision.workflow.note is not None
                 write_new_text(
-                    task_descriptor,
+                    task_root,
                     "workflow-note.md",
                     workflow_revision.workflow.note,
                 )
         except BaseException:
             if not marker_written or read_small_text(
-                task_descriptor,
+                task_root,
                 TASK_INITIALIZATION_MARKER,
             ) == _marker_body(task_id):
-                remove_task_tree(banksia_descriptor, task_id)
+                remove_task_tree(banksia_root, task_id, task_root)
             raise
     return admission
 
@@ -209,16 +210,16 @@ def accept_task_workspace(admission: TaskWorkspaceAdmission) -> None:
         admission.workspace,
         should_create=False,
         expected_workspace_identity=admission.workspace_identity,
-    ) as banksia_descriptor:
-        if banksia_descriptor is None:
+    ) as banksia_root:
+        if banksia_root is None:
             raise RuntimeError("Task workspace disappeared before acceptance")
-        with open_task_root(banksia_descriptor, admission.task_id) as task_descriptor:
+        with open_task_root(banksia_root, admission.task_id) as task_root:
             if read_small_text(
-                task_descriptor,
+                task_root,
                 TASK_INITIALIZATION_MARKER,
             ) != _marker_body(admission.task_id):
                 raise RuntimeError("Task initialization marker changed before acceptance")
-            unlink_entry(task_descriptor, TASK_INITIALIZATION_MARKER)
+            unlink_entry(task_root, TASK_INITIALIZATION_MARKER)
 
 
 def cleanup_marked_task_workspace(admission: TaskWorkspaceAdmission) -> bool:
@@ -258,18 +259,18 @@ async def recover_task_workspace_admissions(
             workspace,
             should_create=False,
             expected_workspace_identity=expected_identity,
-        ) as banksia_descriptor:
-            if banksia_descriptor is None:
+        ) as banksia_root:
+            if banksia_root is None:
                 continue
-            for task_id in task_root_names(banksia_descriptor):
+            for task_id in task_root_names(banksia_root):
                 if not _is_task_id(task_id) or not is_real_directory(
-                    banksia_descriptor,
+                    banksia_root,
                     task_id,
                 ):
                     continue
-                with open_task_root(banksia_descriptor, task_id) as task_descriptor:
+                with open_task_root(banksia_root, task_id) as task_root_authority:
                     if read_small_text(
-                        task_descriptor,
+                        task_root_authority,
                         TASK_INITIALIZATION_MARKER,
                     ) != _marker_body(task_id):
                         continue
@@ -281,7 +282,7 @@ async def recover_task_workspace_admissions(
                         should_remove = False
                         await _repair_committed_task_workspace(
                             session,
-                            task_descriptor=task_descriptor,
+                            task_root=task_root_authority,
                             task_id=task_id,
                             workflow_key=committed_row.workflow_key,
                             workflow_revision_no=committed_row.workflow_revision_no,
@@ -291,7 +292,7 @@ async def recover_task_workspace_admissions(
                             session,
                             task_id=task_id,
                         )
-                        unlink_entry(task_descriptor, TASK_INITIALIZATION_MARKER)
+                        unlink_entry(task_root_authority, TASK_INITIALIZATION_MARKER)
                         if (
                             provider_start is not None
                             and publish_recovered_provider_start is not None
@@ -301,9 +302,13 @@ async def recover_task_workspace_admissions(
                                 provider_start,
                                 publish=publish_recovered_provider_start,
                             )
-                if should_remove and remove_task_tree(banksia_descriptor, task_id):
-                    recovered.append(task_root)
-                elif not should_remove:
+                    if should_remove and remove_task_tree(
+                        banksia_root,
+                        task_id,
+                        task_root_authority,
+                    ):
+                        recovered.append(task_root)
+                if not should_remove:
                     recovered.append(task_root)
     return tuple(recovered)
 
@@ -350,7 +355,7 @@ async def _read_committed_task_workspaces(
 async def _repair_committed_task_workspace(
     session: AsyncSession,
     *,
-    task_descriptor: int,
+    task_root: DirectoryLease,
     task_id: str,
     workflow_key: str,
     workflow_revision_no: int,
@@ -364,18 +369,18 @@ async def _repair_committed_task_workspace(
     if revision.content_hash != workflow_content_hash:
         raise RuntimeError(f"Task {task_id!r} has an inconsistent Workflow pin")
     for name in ("notes", "artifacts", "command-runs"):
-        ensure_directory(task_descriptor, name)
+        ensure_directory(task_root, name)
     replace_text(
-        task_descriptor,
+        task_root,
         "manifest.md",
         await render_current_team_manifest(session, task_id=task_id),
     )
     note = revision.workflow.note
     if note is not None:
-        replace_text(task_descriptor, "workflow-note.md", note)
+        replace_text(task_root, "workflow-note.md", note)
         return
     try:
-        unlink_entry(task_descriptor, "workflow-note.md")
+        unlink_entry(task_root, "workflow-note.md")
     except FileNotFoundError:
         pass
 
@@ -470,30 +475,32 @@ def _remove_marked_directory(
         workspace,
         should_create=False,
         expected_workspace_identity=workspace_identity,
-    ) as banksia_descriptor:
-        if banksia_descriptor is None or not is_real_directory(
-            banksia_descriptor,
+    ) as banksia_root:
+        if banksia_root is None or not is_real_directory(
+            banksia_root,
             task_id,
         ):
             return False
         try:
-            with open_task_root(banksia_descriptor, task_id) as task_descriptor:
+            with open_task_root(banksia_root, task_id) as task_root:
                 if read_small_text(
-                    task_descriptor,
+                    task_root,
                     TASK_INITIALIZATION_MARKER,
                 ) != _marker_body(task_id):
                     return False
+                return remove_task_tree(banksia_root, task_id, task_root)
         except OSError:
             return False
-        return remove_task_tree(banksia_descriptor, task_id)
 
 
 def _normalized_workspace_roots(
     configured: tuple[Path, ...],
     committed: tuple[str, ...],
 ) -> set[Path]:
-    roots = {workspace.expanduser().resolve(strict=False) for workspace in configured}
-    roots.update(Path(workspace).expanduser().resolve(strict=False) for workspace in committed)
+    roots = {Path(os.path.abspath(os.fspath(workspace.expanduser()))) for workspace in configured}
+    roots.update(
+        Path(os.path.abspath(os.fspath(Path(workspace).expanduser()))) for workspace in committed
+    )
     return roots
 
 

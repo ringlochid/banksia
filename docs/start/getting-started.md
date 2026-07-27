@@ -23,6 +23,8 @@ make console-package-assets
 
 `make backend-install` creates `.venv` and installs the project with its development dependencies. The source tree does not contain a prebuilt Console bundle, so `make console-package-assets` builds `console/` and stages the ignored assets that `banksia serve` needs for browser routes. Run the asset command again after changing the Console.
 
+The commands below target Linux and macOS. Native Windows is not currently supported; WSL2 uses the Linux installation and filesystem path. Source-development Make targets are not a substitute for native installed-wheel release proof.
+
 ## 2. Initialize the workspace
 
 Stay in the Banksia checkout. To use that checkout as the first workspace, run:
@@ -33,7 +35,9 @@ Stay in the Banksia checkout. To use that checkout as the first workspace, run:
 
 Accept the checkout as the default workspace or enter another existing absolute directory. The initializer writes local configuration, prepares controller storage, and publishes the seven provider-neutral Starter Workflows.
 
-When initialization succeeds, the guided flow continues into provider setup. Choose Codex, Claude, or OpenClaw, then follow the authentication and readiness prompts. Choose `cancel` at the provider prompt if you intentionally want to defer that step.
+When local initialization succeeds, the same guided journey asks for one Task provider. Choose Codex, Claude, or OpenClaw, then follow the authentication and readiness prompts. Choose `cancel` to keep local initialization complete and defer provider setup.
+
+The final prompt offers Codex, Claude, or **Not now** for the separate Operator. Selecting a managed provider that is not configured first offers to configure it. Provider checks are diagnostics: a failed check reports **Needs attention** and may make the command exit nonzero, but it does not erase or disable an accepted provider or Operator selection.
 
 To configure another project explicitly without prompts:
 
@@ -41,15 +45,15 @@ To configure another project explicitly without prompts:
 ./.venv/bin/banksia init --workspace /absolute/path/to/project --non-interactive
 ```
 
-## 3. Resume or change provider setup
+## 3. Resume or change settings
 
-If you deferred provider setup during initialization, or want to change the primary provider or add another one, run:
+`banksia setup` is the rerunnable settings hub:
 
 ```bash
 ./.venv/bin/banksia setup
 ```
 
-Choose Codex, Claude, or OpenClaw. Codex and Claude are managed adapters. OpenClaw is a user-operated compatibility transport, so you remain responsible for its CLI, Gateway, profile, authentication, and workspace exposure.
+Use it to configure Task providers, the separate Operator, or the default workspace. Codex and Claude are managed adapters. OpenClaw is a user-operated compatibility transport, so you remain responsible for its CLI, Gateway, profile, authentication, and workspace exposure.
 
 On Linux or WSL2, install `bubblewrap` and `socat` before using a Claude Member whose effective network setting is `deny`. On Ubuntu or Debian:
 
@@ -63,6 +67,7 @@ Confirm current configuration without changing it:
 
 ```bash
 ./.venv/bin/banksia providers status
+./.venv/bin/banksia operator status
 ./.venv/bin/banksia status
 ```
 
@@ -75,6 +80,15 @@ Run:
 ```
 
 Open `http://127.0.0.1:18125/`. The current product surface is loopback-only.
+
+To install the same controller as the current user's background service instead, run:
+
+```bash
+./.venv/bin/banksia service install
+./.venv/bin/banksia service status
+```
+
+Banksia selects a systemd user service on Linux and a current-user LaunchAgent on macOS. Use `banksia serve` when you prefer a foreground process. Native platform release claims still require the installed-wheel gates described in the project status; the presence of a service command alone is not full platform proof.
 
 ## 5. Complete a developer run
 

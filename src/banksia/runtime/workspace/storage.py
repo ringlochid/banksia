@@ -1,40 +1,29 @@
 from __future__ import annotations
 
-import errno
-import os
-import secrets
-import shutil
-import stat
 from collections.abc import Iterator
-from contextlib import contextmanager, suppress
-from dataclasses import dataclass
+from contextlib import contextmanager
 from pathlib import Path
 
-_DIRECTORY_MODE = 0o700
-_FILE_MODE = 0o600
+from banksia.platform.workspace_files import (
+    DirectoryLease,
+    PathIdentity,
+    select_workspace_file_operations,
+)
+
 _MARKER_READ_LIMIT = 4_096
 
-
-@dataclass(frozen=True, slots=True)
-class WorkspaceIdentity:
-    """Stable filesystem identity for one admitted workspace directory."""
-
-    device: int
-    inode: int
+type WorkspaceIdentity = PathIdentity
 
 
 def capture_workspace_identity(workspace: Path) -> WorkspaceIdentity:
-    """Open a real workspace directory and capture its stable identity."""
+    """Capture one all-component no-follow workspace identity."""
 
-    _require_safe_workspace_primitives()
-    descriptor = os.open(workspace, _directory_open_flags())
+    operations = select_workspace_file_operations()
+    workspace_lease = operations.open_workspace(workspace)
     try:
-        metadata = os.fstat(descriptor)
-        if not stat.S_ISDIR(metadata.st_mode):
-            raise NotADirectoryError(workspace)
-        return WorkspaceIdentity(device=metadata.st_dev, inode=metadata.st_ino)
+        return workspace_lease.identity
     finally:
-        os.close(descriptor)
+        workspace_lease.close()
 
 
 def replace_task_text(
@@ -45,11 +34,11 @@ def replace_task_text(
 ) -> None:
     """Replace one controller projection in an existing physical Task root."""
 
-    with open_banksia_root(workspace, should_create=False) as banksia_descriptor:
-        if banksia_descriptor is None:
+    with open_banksia_root(workspace, should_create=False) as banksia_root:
+        if banksia_root is None:
             raise FileNotFoundError(workspace / ".banksia")
-        with open_task_root(banksia_descriptor, task_id) as task_descriptor:
-            replace_text(task_descriptor, name, text)
+        with open_task_root(banksia_root, task_id) as task_root:
+            replace_text(task_root, name, text)
 
 
 @contextmanager
@@ -58,30 +47,21 @@ def reserve_task_root(
     task_id: str,
     *,
     expected_workspace_identity: WorkspaceIdentity | None = None,
-) -> Iterator[tuple[int, int]]:
-    """Exclusively create and open one Task root under the workspace."""
+) -> Iterator[tuple[DirectoryLease, DirectoryLease]]:
+    """Exclusively create and retain one private Task root."""
 
+    operations = select_workspace_file_operations()
     with open_banksia_root(
         workspace,
         should_create=True,
         expected_workspace_identity=expected_workspace_identity,
-    ) as banksia_descriptor:
-        assert banksia_descriptor is not None
-        os.mkdir(task_id, _DIRECTORY_MODE, dir_fd=banksia_descriptor)
+    ) as banksia_root:
+        assert banksia_root is not None
+        task_root = operations.create_child_directory(banksia_root, task_id)
         try:
-            task_descriptor = os.open(
-                task_id,
-                _directory_open_flags(),
-                dir_fd=banksia_descriptor,
-            )
-        except BaseException:
-            remove_task_tree(banksia_descriptor, task_id)
-            raise
-        try:
-            _set_private_directory_mode(task_descriptor)
-            yield banksia_descriptor, task_descriptor
+            yield banksia_root, task_root
         finally:
-            os.close(task_descriptor)
+            task_root.close()
 
 
 @contextmanager
@@ -90,235 +70,119 @@ def open_banksia_root(
     *,
     should_create: bool,
     expected_workspace_identity: WorkspaceIdentity | None = None,
-) -> Iterator[int | None]:
-    """Open the physical Banksia root without following its final component."""
+) -> Iterator[DirectoryLease | None]:
+    """Retain the workspace and its private `.banksia` child without following links."""
 
-    _require_safe_workspace_primitives()
-    workspace_descriptor = os.open(workspace, _directory_open_flags())
+    operations = select_workspace_file_operations()
+    workspace_root = operations.open_workspace(workspace)
+    banksia_root: DirectoryLease | None = None
     try:
-        if expected_workspace_identity is not None:
-            _require_workspace_identity(workspace_descriptor, expected_workspace_identity)
+        if (
+            expected_workspace_identity is not None
+            and workspace_root.identity != expected_workspace_identity
+        ):
+            raise RuntimeError("Task workspace changed identity during admission")
         if should_create:
-            ensure_directory(workspace_descriptor, ".banksia")
+            operations.ensure_child_directory(workspace_root, ".banksia")
         try:
-            banksia_descriptor = os.open(
+            banksia_root = operations.open_child_directory(
+                workspace_root,
                 ".banksia",
-                _directory_open_flags(),
-                dir_fd=workspace_descriptor,
+                should_require_private=True,
             )
         except FileNotFoundError:
             if should_create:
                 raise
             yield None
             return
-        try:
-            _set_private_directory_mode(banksia_descriptor)
-            yield banksia_descriptor
-        finally:
-            os.close(banksia_descriptor)
+        yield banksia_root
     finally:
-        os.close(workspace_descriptor)
+        if banksia_root is not None:
+            banksia_root.close()
+        workspace_root.close()
 
 
 @contextmanager
 def open_task_root(
-    banksia_descriptor: int,
+    banksia_root: DirectoryLease,
     task_id: str,
-) -> Iterator[int]:
-    """Open one existing real Task directory without following a symlink."""
+) -> Iterator[DirectoryLease]:
+    """Retain one existing private Task directory without following a link."""
 
-    with open_child_directory(banksia_descriptor, task_id) as task_descriptor:
-        yield task_descriptor
+    with open_child_directory(banksia_root, task_id) as task_root:
+        yield task_root
 
 
 @contextmanager
 def open_child_directory(
-    parent_descriptor: int,
+    parent: DirectoryLease,
     name: str,
-) -> Iterator[int]:
-    """Open one real child directory without following a symlink."""
+) -> Iterator[DirectoryLease]:
+    """Retain one existing private child directory."""
 
-    descriptor = os.open(
+    child = select_workspace_file_operations().open_child_directory(
+        parent,
         name,
-        _directory_open_flags(),
-        dir_fd=parent_descriptor,
+        should_require_private=True,
     )
     try:
-        yield descriptor
+        yield child
     finally:
-        os.close(descriptor)
+        child.close()
 
 
-def ensure_directory(parent_descriptor: int, name: str) -> None:
-    """Create or validate one private real child directory."""
+def ensure_directory(parent: DirectoryLease, name: str) -> None:
+    """Create or verify one private real child directory."""
 
-    try:
-        os.mkdir(name, _DIRECTORY_MODE, dir_fd=parent_descriptor)
-    except FileExistsError:
-        pass
-    descriptor = os.open(
+    select_workspace_file_operations().ensure_child_directory(parent, name)
+
+
+def replace_text(parent: DirectoryLease, name: str, text: str) -> None:
+    """Atomically replace one private Task projection."""
+
+    select_workspace_file_operations().replace_text(parent, name, text)
+
+
+def write_new_text(parent: DirectoryLease, name: str, text: str) -> None:
+    """Exclusively create and flush one private UTF-8 file."""
+
+    select_workspace_file_operations().write_new_text(parent, name, text)
+
+
+def read_small_text(parent: DirectoryLease, name: str) -> str | None:
+    """Read one bounded private regular UTF-8 file without following links."""
+
+    return select_workspace_file_operations().read_small_text(
+        parent,
         name,
-        _directory_open_flags(),
-        dir_fd=parent_descriptor,
+        byte_limit=_MARKER_READ_LIMIT,
     )
-    try:
-        _set_private_directory_mode(descriptor)
-    finally:
-        os.close(descriptor)
 
 
-def replace_text(parent_descriptor: int, name: str, text: str) -> None:
-    """Atomically replace one Task projection without following its old entry."""
+def remove_task_tree(
+    banksia_root: DirectoryLease,
+    task_id: str,
+    task_root: DirectoryLease,
+) -> bool:
+    """Remove the same retained Task tree whose controller marker was proved."""
 
-    temporary = f".{name}.{secrets.token_hex(8)}.repair"
-    write_new_text(parent_descriptor, temporary, text)
-    try:
-        os.replace(
-            temporary,
-            name,
-            src_dir_fd=parent_descriptor,
-            dst_dir_fd=parent_descriptor,
-        )
-    except BaseException:
-        with suppress(FileNotFoundError):
-            os.unlink(temporary, dir_fd=parent_descriptor)
-        raise
-
-
-def write_new_text(parent_descriptor: int, name: str, text: str) -> None:
-    """Create, flush, and sync one private regular UTF-8 file."""
-
-    descriptor = os.open(
-        name,
-        _file_create_flags(),
-        _FILE_MODE,
-        dir_fd=parent_descriptor,
+    return select_workspace_file_operations().remove_retained_tree(
+        banksia_root,
+        task_id,
+        task_root,
     )
-    try:
-        with os.fdopen(
-            descriptor,
-            "w",
-            encoding="utf-8",
-            newline="",
-            closefd=False,
-        ) as handle:
-            handle.write(text)
-            handle.flush()
-            os.fsync(handle.fileno())
-    finally:
-        os.close(descriptor)
 
 
-def read_small_text(parent_descriptor: int, name: str) -> str | None:
-    """Read one small real regular file without following a symlink."""
-
-    try:
-        descriptor = os.open(
-            name,
-            _file_read_flags(),
-            dir_fd=parent_descriptor,
-        )
-    except OSError as exc:
-        if exc.errno not in {
-            errno.ELOOP,
-            errno.ENOENT,
-            errno.EISDIR,
-            errno.ENOTDIR,
-        }:
-            raise
-        return None
-    try:
-        metadata = os.fstat(descriptor)
-        if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > _MARKER_READ_LIMIT:
-            return None
-        with os.fdopen(
-            descriptor,
-            "r",
-            encoding="utf-8",
-            newline="",
-            closefd=False,
-        ) as handle:
-            try:
-                return handle.read(_MARKER_READ_LIMIT + 1)
-            except UnicodeError:
-                return None
-    finally:
-        os.close(descriptor)
+def unlink_entry(parent: DirectoryLease, name: str) -> None:
+    select_workspace_file_operations().unlink_entry(parent, name)
 
 
-def remove_task_tree(banksia_descriptor: int, task_id: str) -> bool:
-    """Remove one real Task directory using symlink-safe descriptor traversal."""
-
-    try:
-        shutil.rmtree(task_id, dir_fd=banksia_descriptor)
-    except FileNotFoundError:
-        return False
-    return True
+def task_root_names(banksia_root: DirectoryLease) -> tuple[str, ...]:
+    return select_workspace_file_operations().list_directory_names(banksia_root)
 
 
-def unlink_entry(parent_descriptor: int, name: str) -> None:
-    os.unlink(name, dir_fd=parent_descriptor)
-
-
-def task_root_names(banksia_descriptor: int) -> tuple[str, ...]:
-    return tuple(os.listdir(banksia_descriptor))
-
-
-def is_real_directory(parent_descriptor: int, name: str) -> bool:
-    try:
-        metadata = os.stat(
-            name,
-            dir_fd=parent_descriptor,
-            follow_symlinks=False,
-        )
-    except FileNotFoundError:
-        return False
-    return stat.S_ISDIR(metadata.st_mode)
-
-
-def _directory_open_flags() -> int:
-    return os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
-
-
-def _file_create_flags() -> int:
-    return os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
-
-
-def _file_read_flags() -> int:
-    return os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
-
-
-def _set_private_directory_mode(descriptor: int) -> None:
-    if hasattr(os, "fchmod"):
-        os.fchmod(descriptor, _DIRECTORY_MODE)
-
-
-def _require_workspace_identity(
-    descriptor: int,
-    expected: WorkspaceIdentity,
-) -> None:
-    metadata = os.fstat(descriptor)
-    if (
-        not stat.S_ISDIR(metadata.st_mode)
-        or metadata.st_dev != expected.device
-        or metadata.st_ino != expected.inode
-    ):
-        raise RuntimeError("Task workspace changed identity during admission")
-
-
-def _require_safe_workspace_primitives() -> None:
-    required = (
-        hasattr(os, "O_DIRECTORY"),
-        hasattr(os, "O_NOFOLLOW"),
-        os.open in os.supports_dir_fd,
-        os.mkdir in os.supports_dir_fd,
-        os.stat in os.supports_dir_fd,
-        os.stat in os.supports_follow_symlinks,
-        os.unlink in os.supports_dir_fd,
-        shutil.rmtree.avoids_symlink_attacks,
-    )
-    if not all(required):
-        raise RuntimeError("safe Banksia workspace primitives are unavailable")
+def is_real_directory(parent: DirectoryLease, name: str) -> bool:
+    return select_workspace_file_operations().is_real_child_directory(parent, name)
 
 
 __all__ = [

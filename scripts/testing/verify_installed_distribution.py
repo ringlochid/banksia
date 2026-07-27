@@ -69,7 +69,6 @@ def main() -> int:
         installer_smoke = verify_user_service_installer(
             wheel_path=wheel_path,
             workspace=workspace,
-            repo_root=repo_root,
             dependency_site_packages=dependency_site_packages,
         )
     finally:

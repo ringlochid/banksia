@@ -5,7 +5,7 @@ from pathlib import Path
 
 import click
 
-from banksia.interfaces.cli.commands.guided_presentation import emit_step
+from banksia.interfaces.cli.commands.presentation import emit_step
 from banksia.interfaces.cli.providers import (
     authentication_method_choices,
     authentication_method_label,

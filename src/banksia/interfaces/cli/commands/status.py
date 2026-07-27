@@ -4,7 +4,7 @@ import argparse
 
 from banksia.config import load_settings
 from banksia.interfaces.cli.commands.config_view import redact_database_url
-from banksia.interfaces.cli.commands.guided_presentation import emit_key_value_panel
+from banksia.interfaces.cli.commands.presentation import emit_key_value_panel
 from banksia.interfaces.cli.providers import collect_provider_statuses
 from banksia.interfaces.cli.providers.inspection import providers_payload
 from banksia.interfaces.cli.providers.presentation import emit_provider_status

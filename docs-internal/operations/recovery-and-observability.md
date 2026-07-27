@@ -25,6 +25,12 @@ An audit pagination or publication failure prevents a healthy startup. A lost in
 
 Provider-start recovery treats an ambiguous prior start conservatively and retries the same Dispatch with a fresh binding. Command recovery never blindly relaunches a process whose ownership cannot be proved; it records the exact terminal ownership-loss result and lets ordinary continuation handle it.
 
+## Command process ownership
+
+Managed Command Run owns one complete process family, not only the direct child. Linux and macOS use a small POSIX guardian with the already admitted working directory descriptor, a new process session/group, controller-liveness pipe, group termination, bounded escalation, and reap.
+
+Cancel, timeout, controller shutdown, and controller-process loss terminate the owned family and preserve the existing combined-output drain, byte accounting, flush-before-terminal, and no-blind-relaunch rules. Process-group ownership is lifecycle supervision, not a provider sandbox. A command that deliberately escapes an OS containment primitive is outside the ordinary cooperative Command Run guarantee and must not be advertised as adversarial isolation.
+
 ## Runtime health
 
 `GET /healthz` reports process liveness. `GET /readyz` proves database connectivity and returns `503 database_unavailable` when that check fails. Application startup itself also fails if exact schema validation or mandatory recovery cannot complete.

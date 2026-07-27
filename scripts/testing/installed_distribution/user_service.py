@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -13,8 +12,8 @@ from .legacy_state import (
 from .processes import (
     available_loopback_port,
     create_offline_venv,
+    install_wheel,
     isolated_environment,
-    run_checked,
     run_json_command,
     venv_executable,
     venv_python,
@@ -28,6 +27,7 @@ EXPECTED_INSTALL_SYSTEMCTL_CALLS = (
     SYSTEMCTL_STATUS_CALL,
     "--user daemon-reload",
     "--user enable banksia.service",
+    SYSTEMCTL_STATUS_CALL,
 )
 EXPECTED_LIFECYCLE_SYSTEMCTL_CALLS = (
     *EXPECTED_INSTALL_SYSTEMCTL_CALLS,
@@ -62,23 +62,29 @@ def verify_user_service_installer(
     *,
     wheel_path: Path,
     workspace: Path,
-    repo_root: Path,
     dependency_site_packages: Path,
 ) -> dict[str, object]:
     context, legacy_state = prepare_service_probe(
         workspace=workspace,
         dependency_site_packages=dependency_site_packages,
     )
-    install_user_service(context=context, wheel_path=wheel_path, repo_root=repo_root)
+    installation_payload = install_user_service(
+        context=context,
+        wheel_path=wheel_path,
+    )
     verify_service_installation(context)
     lifecycle_payloads = exercise_service_lifecycle(context)
-    final_calls = uninstall_user_service(context)
+    uninstall_payload, final_calls = uninstall_user_service(context)
     assert_legacy_state_unchanged(legacy_state)
     return {
         "config_path": str(context.config_path),
+        "installation": installation_payload,
         "lifecycle": lifecycle_payloads,
+        "uninstall": uninstall_payload,
         "systemctl_calls": final_calls,
         "unit_removed": True,
+        "config_preserved": True,
+        "provider_environment_preserved": True,
         "legacy_state_untouched": True,
     }
 
@@ -94,7 +100,7 @@ def prepare_service_probe(
     data_home = install_root / "data"
     state_home = install_root / "state"
     venv_path = install_root / "venv"
-    unit_dir = config_home / "systemd" / "user"
+    unit_dir = home / ".config" / "systemd" / "user"
     config_path = config_home / "banksia" / "config.toml"
     env_file = config_home / "banksia" / "banksia.env"
     systemctl_log = install_root / "systemctl.log"
@@ -113,11 +119,9 @@ def prepare_service_probe(
         {
             "BANKSIA_CONFIG": str(config_path),
             "BANKSIA_DATA_DIR": str(data_home / "banksia"),
-            "BANKSIA_PYTHON_BIN": sys.executable,
             "BANKSIA_SYSTEMCTL_BIN": str(fake_systemctl),
             "BANKSIA_SYSTEMCTL_LOG": str(systemctl_log),
             "BANKSIA_SYSTEMCTL_STATE": str(systemctl_state),
-            "BANKSIA_VENV_DIR": str(venv_path),
             "PIP_DISABLE_PIP_VERSION_CHECK": "1",
             "PIP_IGNORE_INSTALLED": "1",
             "PIP_NO_INDEX": "1",
@@ -146,23 +150,56 @@ def install_user_service(
     *,
     context: ServiceProbeContext,
     wheel_path: Path,
-    repo_root: Path,
-) -> None:
-    installer = repo_root / "scripts" / "install-systemd-user.sh"
-    run_checked(
+) -> dict[str, Any]:
+    install_wheel(
+        context.venv_path,
+        wheel_path,
+        context.install_root,
+    )
+    initialization = run_json_command(
+        context.executable,
         (
-            "bash",
-            str(installer),
-            "--wheel",
-            str(wheel_path),
-            "--no-deps",
+            "init",
+            "--non-interactive",
+            "--config",
+            str(context.config_path),
+            "--data-dir",
+            str(context.data_home / "banksia"),
+            "--workspace",
+            str(context.install_root),
             "--port",
             str(context.port),
-            "--no-start",
+            "--json",
         ),
         cwd=context.install_root,
         env=context.env,
     )
+    if initialization.get("ok") is not True:
+        raise AssertionError(f"installed initialization returned unexpected data: {initialization}")
+    installation = run_json_command(
+        context.executable,
+        (
+            "service",
+            "install",
+            "--config",
+            str(context.config_path),
+            "--no-start",
+            "--json",
+        ),
+        cwd=context.install_root,
+        env=context.env,
+    )
+    if (
+        installation.get("manager") != "systemd-user"
+        or installation.get("installation_state") != "installed"
+        or installation.get("startup_state") != "enabled"
+        or installation.get("controller_state") != "stopped"
+    ):
+        raise AssertionError(f"installed service setup returned unexpected data: {installation}")
+    return {
+        "initialization": initialization,
+        "service": installation,
+    }
 
 
 def verify_service_installation(context: ServiceProbeContext) -> None:
@@ -191,7 +228,13 @@ def exercise_service_lifecycle(
     lifecycle_payloads = {
         verb: run_json_command(
             context.executable,
-            ("service", verb, "--json"),
+            (
+                "service",
+                verb,
+                "--config",
+                str(context.config_path),
+                "--json",
+            ),
             cwd=context.install_root,
             env=context.env,
         )
@@ -201,41 +244,59 @@ def exercise_service_lifecycle(
         raise AssertionError(
             f"installed service lifecycle returned unexpected data: {lifecycle_payloads}"
         )
-    for verb in ("start", "status", "restart"):
+    for verb, controller_state in {
+        "start": "starting",
+        "status": "starting",
+        "restart": "starting",
+        "stop": "stopped",
+    }.items():
         payload = lifecycle_payloads[verb]
-        if payload.get("running") is not True or payload.get("healthy") is not None:
-            raise AssertionError(
-                f"installed service {verb} did not report the active fake service: {payload}"
-            )
-    stopped = lifecycle_payloads["stop"]
-    if stopped.get("running") is not False or stopped.get("healthy") is not None:
-        raise AssertionError(
-            f"installed service stop did not report the inactive fake service: {stopped}"
-        )
+        if (
+            payload.get("installation_state") != "installed"
+            or payload.get("startup_state") != "enabled"
+            or payload.get("controller_state") != controller_state
+        ):
+            raise AssertionError(f"installed service {verb} returned unexpected state: {payload}")
+    log_payload = run_json_command(
+        context.executable,
+        ("service", "logs", "--lines", "5", "--json"),
+        cwd=context.install_root,
+        env=context.env,
+    )
+    if log_payload.get("ok") is not True or not isinstance(log_payload.get("lines"), list):
+        raise AssertionError(f"installed service logs returned unexpected data: {log_payload}")
+    lifecycle_payloads["logs"] = log_payload
     return lifecycle_payloads
 
 
-def uninstall_user_service(context: ServiceProbeContext) -> list[str]:
-    run_checked(
+def uninstall_user_service(
+    context: ServiceProbeContext,
+) -> tuple[dict[str, Any], list[str]]:
+    payload = run_json_command(
+        context.executable,
         (
-            str(context.executable),
             "service",
             "uninstall",
             "--config",
             str(context.config_path),
-            "--unit-dir",
-            str(context.unit_dir),
-            "--remove-env-file",
+            "--json",
         ),
         cwd=context.install_root,
         env=context.env,
     )
-    if context.unit_path.exists() or context.env_file.exists():
-        raise AssertionError("service uninstall left managed files behind")
+    if (
+        payload.get("installation_state") != "absent"
+        or payload.get("controller_state") != "stopped"
+    ):
+        raise AssertionError(f"service uninstall returned unexpected data: {payload}")
+    if context.unit_path.exists():
+        raise AssertionError("service uninstall left its native definition behind")
+    if not context.config_path.is_file() or not context.env_file.is_file():
+        raise AssertionError("service uninstall removed persistent Banksia settings")
     final_calls = context.systemctl_log.read_text(encoding="utf-8").splitlines()
     if tuple(final_calls) != EXPECTED_LIFECYCLE_SYSTEMCTL_CALLS:
         raise AssertionError(f"unexpected service lifecycle systemctl calls: {final_calls}")
-    return final_calls
+    return payload, final_calls
 
 
 def write_fake_systemctl(path: Path) -> None:
@@ -252,6 +313,11 @@ case "${2:-}" in
     ;;
 esac
 if [ "${2:-}" = "show" ]; then
+  unit="$HOME/.config/systemd/user/banksia.service"
+  if [ ! -f "$unit" ]; then
+    printf '%s\n' 'LoadState=not-found'
+    exit 0
+  fi
   state=inactive
   if [ -f "$BANKSIA_SYSTEMCTL_STATE" ]; then
     state=$(cat "$BANKSIA_SYSTEMCTL_STATE")
@@ -266,7 +332,7 @@ if [ "${2:-}" = "show" ]; then
     'UnitFileState=enabled' \
     "ActiveState=$state" \
     "SubState=$sub_state" \
-    "FragmentPath=$XDG_CONFIG_HOME/systemd/user/banksia.service"
+    "FragmentPath=$unit"
 fi
 """,
         encoding="utf-8",

@@ -22,7 +22,7 @@ from tests.helpers.generic_workflow import GENERIC_WORKFLOW_ID, publish_generic_
 from tests.helpers.workflow_runtime import initialized_workflow_database
 
 
-@pytest.mark.parametrize("note_state", ("missing", "tampered", "symlink", "fifo"))
+@pytest.mark.parametrize("note_state", ("missing", "tampered"))
 async def test_workflow_note_recovery_restores_pinned_projection(
     tmp_path: Path,
     note_state: str,
@@ -51,10 +51,6 @@ async def test_workflow_note_recovery_restores_pinned_projection(
             note_path.unlink()
             if note_state == "tampered":
                 note_path.write_text("tampered", encoding="utf-8")
-            elif note_state == "symlink":
-                note_path.symlink_to(outside)
-            elif note_state == "fifo":
-                os.mkfifo(note_path)
             _write_initialization_marker(task_root, response.task_id)
 
             recovered = await recover_task_workspace_admissions(
@@ -68,6 +64,43 @@ async def test_workflow_note_recovery_restores_pinned_projection(
     assert note_path.read_text(encoding="utf-8") == expected_note
     assert outside.read_text(encoding="utf-8") == "outside"
     assert not (task_root / TASK_INITIALIZATION_MARKER).exists()
+
+
+@pytest.mark.parametrize("note_state", ("symlink", "fifo"))
+async def test_workflow_note_recovery_rejects_nonregular_projection_target(
+    tmp_path: Path,
+    note_state: str,
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    outside = tmp_path / "outside-note.md"
+    outside.write_text("outside", encoding="utf-8")
+
+    async with initialized_workflow_database(tmp_path) as session_factory:
+        await publish_generic_workflow(session_factory)
+        async with session_factory() as session:
+            response = await start_task(
+                _request(workspace),
+                session=session,
+                dependencies=_dependencies(workspace),
+            )
+            task_root = workspace / ".banksia" / response.task_id
+            note_path = task_root / "workflow-note.md"
+            note_path.unlink()
+            if note_state == "symlink":
+                note_path.symlink_to(outside)
+            else:
+                os.mkfifo(note_path)
+            _write_initialization_marker(task_root, response.task_id)
+
+            with pytest.raises(OSError):
+                await recover_task_workspace_admissions(
+                    session,
+                    workspaces=(workspace,),
+                )
+
+    assert outside.read_text(encoding="utf-8") == "outside"
+    assert (task_root / TASK_INITIALIZATION_MARKER).is_file()
 
 
 @pytest.mark.parametrize("extra_state", ("regular", "symlink", "fifo"))

@@ -12,7 +12,8 @@ from banksia.interfaces.cli.bootstrap.config import (
     build_initial_config_sections,
     config_sections_to_text,
 )
-from banksia.interfaces.cli.commands import guided_setup
+from banksia.interfaces.cli.commands import provider_setup as guided_provider_setup
+from banksia.interfaces.cli.commands import settings as guided_setup
 from banksia.interfaces.cli.main import build_parser
 from banksia.interfaces.cli.providers import inspection as provider_inspection
 from banksia.interfaces.cli.providers.contracts import (
@@ -83,7 +84,7 @@ def test_guided_init_confirms_recommended_local_settings(
             "--data-dir",
             str(data_dir),
         ],
-        input="\ny\ncancel\n",
+        input="\ny\ncancel\n\n",
     )
 
     assert result.exit_code == 0, result.output
@@ -93,9 +94,13 @@ def test_guided_init_confirms_recommended_local_settings(
     assert data_dir.joinpath("banksia.persistence").is_file()
     assert "Default workspace" in result.output
     assert "Use these recommended local settings?" in result.output
-    assert "Banksia provider setup" in result.output
-    assert "Primary/default provider (codex, claude, openclaw, cancel)" in result.output
+    assert "Banksia Task provider setup" in result.output
+    assert "Provider to configure (codex, claude, openclaw, cancel)" in result.output
     assert "Provider setup cancelled. No provider changes were made." in result.output
+    assert "Operator provider (Codex, Claude, Not now)" in result.output
+    assert result.output.count("Initialization complete") == 1
+    assert "Local initialization complete" not in result.output
+    assert "Provider setup summary" not in result.output
 
 
 def test_guided_init_runs_provider_diagnostic_outside_database_event_loop(
@@ -144,7 +149,7 @@ def test_guided_init_runs_provider_diagnostic_outside_database_event_loop(
             "--data-dir",
             str(data_dir),
         ],
-        input="\ny\ncodex\n\ny\nn\n",
+        input="\ny\ncodex\n\ny\nn\ncodex\nn\n",
     )
 
     assert result.exit_code == 0, result.output
@@ -154,6 +159,14 @@ def test_guided_init_runs_provider_diagnostic_outside_database_event_loop(
     assert "codex" in output
     assert "ready" in output
     assert "check_failed" not in output
+    assert tomllib.loads(config_path.read_text(encoding="utf-8"))["operator"] == {
+        "provider": "codex"
+    }
+    assert result.output.count("Initialization complete") == 1
+    assert "Local initialization complete" not in result.output
+    assert "Provider setup summary" not in result.output
+    assert "Operator setup complete" not in result.output
+    assert result.output.count("Next: banksia serve") == 1
 
 
 def test_guided_init_rerun_keeps_config_and_verifies_database(
@@ -172,7 +185,10 @@ def test_guided_init_rerun_keeps_config_and_verifies_database(
                 log_level="WARNING",
             )
         )
-        + '\n[codex]\nenabled = true\n\n[runtime]\ndefault_provider = "codex"\n',
+        + (
+            '\n[codex]\nenabled = true\n\n[operator]\nprovider = "codex"\n\n'
+            '[runtime]\ndefault_provider = "codex"\n'
+        ),
         encoding="utf-8",
     )
     previous_config = config_path.read_bytes()
@@ -191,8 +207,9 @@ def test_guided_init_rerun_keeps_config_and_verifies_database(
     assert config_path.read_bytes() == previous_config
     assert data_dir.joinpath("banksia.persistence").is_file()
     assert "Keep and verify" in result.output
-    assert "Banksia provider setup" not in result.output
-    assert "Next: banksia serve" in result.output
+    assert "Banksia Task provider setup" not in result.output
+    assert "optional Operator setup" not in result.output
+    assert "banksia serve" in result.output
 
 
 def test_guided_init_replacement_requires_final_confirmation(
@@ -215,6 +232,56 @@ def test_guided_init_replacement_requires_final_confirmation(
     assert config_path.read_bytes() == previous_config
     assert "Replace the existing local config" in result.output
     assert "Cancelled" in result.output
+
+
+def test_guided_init_replacement_preserves_provider_and_operator_settings(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config_path = write_local_cli_config(tmp_path)
+    replacement_data_dir = tmp_path / "replacement-data"
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    with config_path.open("a", encoding="utf-8") as stream:
+        stream.write(
+            '\n[codex]\nenabled = true\nmodel = "task-model"\n'
+            '\n[claude]\nenabled = true\neffort = "high"\n'
+            '\n[operator]\nprovider = "claude"\nmodel = "operator-model"\neffort = "medium"\n'
+            '\n[runtime]\ndefault_provider = "codex"\n'
+        )
+    monkeypatch.chdir(workspace)
+    monkeypatch.setattr(cli_root, "should_run_guided_flow", lambda **_kwargs: True)
+
+    result = CliRunner().invoke(
+        build_parser(),
+        [
+            "init",
+            "--config",
+            str(config_path),
+            "--data-dir",
+            str(replacement_data_dir),
+            "--port",
+            "19191",
+            "--skip-db-upgrade",
+        ],
+        input="replace\n\ny\ny\n",
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = tomllib.loads(config_path.read_text(encoding="utf-8"))
+    assert payload["paths"]["data_dir"] == str(replacement_data_dir)
+    assert payload["paths"]["workspace"] == str(workspace)
+    assert payload["server"]["port"] == 19191
+    assert payload["codex"] == {"enabled": True, "model": "task-model"}
+    assert payload["claude"] == {"enabled": True, "effort": "high"}
+    assert payload["operator"] == {
+        "provider": "claude",
+        "model": "operator-model",
+        "effort": "medium",
+    }
+    assert payload["runtime"] == {"default_provider": "codex"}
+    assert "Banksia Task provider setup" not in result.output
+    assert "optional Operator setup" not in result.output
 
 
 def test_guided_setup_collects_openclaw_gateway_route_and_token(
@@ -241,7 +308,11 @@ def test_guided_setup_collects_openclaw_gateway_route_and_token(
         )
     )
     monkeypatch.setattr(cli_root, "should_run_guided_flow", lambda **_kwargs: True)
-    monkeypatch.setattr(guided_setup, "collect_provider_check", lambda *_args: next(checks))
+    monkeypatch.setattr(
+        guided_provider_setup,
+        "collect_provider_check",
+        lambda *_args: next(checks),
+    )
 
     result = CliRunner().invoke(
         build_parser(),
@@ -285,7 +356,11 @@ def test_guided_setup_imports_shell_api_key_for_the_managed_service(
     )
     monkeypatch.setenv(ANTHROPIC_API_KEY, "shell-anthropic-secret")
     monkeypatch.setattr(cli_root, "should_run_guided_flow", lambda **_kwargs: True)
-    monkeypatch.setattr(guided_setup, "collect_provider_check", lambda *_args: next(checks))
+    monkeypatch.setattr(
+        guided_provider_setup,
+        "collect_provider_check",
+        lambda *_args: next(checks),
+    )
 
     result = CliRunner().invoke(
         build_parser(),
@@ -310,7 +385,7 @@ def test_guided_setup_confirms_reuse_of_ready_openclaw_service_credential(
     config_path = write_local_cli_config(tmp_path)
     monkeypatch.setattr(cli_root, "should_run_guided_flow", lambda **_kwargs: True)
     monkeypatch.setattr(
-        guided_setup,
+        guided_provider_setup,
         "collect_provider_check",
         lambda *_args: build_provider_check_snapshot(
             ProviderKind.OPENCLAW,
@@ -322,7 +397,7 @@ def test_guided_setup_confirms_reuse_of_ready_openclaw_service_credential(
         ),
     )
     monkeypatch.setattr(
-        guided_setup,
+        guided_provider_setup,
         "invoke_provider_identity_action",
         lambda *_args, **_kwargs: pytest.fail("ready OpenClaw credential was replaced"),
     )
@@ -358,7 +433,11 @@ def test_guided_setup_adds_provider_without_replacing_primary_default(
             detail=f"{provider.value}_available",
         )
 
-    monkeypatch.setattr(guided_setup, "collect_provider_check", ready_check)
+    monkeypatch.setattr(
+        guided_provider_setup,
+        "collect_provider_check",
+        ready_check,
+    )
 
     result = CliRunner().invoke(
         build_parser(),
@@ -401,7 +480,11 @@ def test_guided_setup_points_to_a_nonready_additional_provider(
             detail="claude_not_installed",
         )
 
-    monkeypatch.setattr(guided_setup, "collect_provider_check", provider_state)
+    monkeypatch.setattr(
+        guided_provider_setup,
+        "collect_provider_check",
+        provider_state,
+    )
 
     result = CliRunner().invoke(
         build_parser(),
@@ -415,7 +498,7 @@ def test_guided_setup_points_to_a_nonready_additional_provider(
     assert "Next: banksia serve" not in result.output
 
 
-def test_guided_setup_explicit_primary_choice_replaces_existing_default(
+def test_guided_setup_explicit_provider_preserves_existing_default(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -424,7 +507,7 @@ def test_guided_setup_explicit_primary_choice_replaces_existing_default(
         stream.write('\n[codex]\nenabled = true\n\n[runtime]\ndefault_provider = "codex"\n')
     monkeypatch.setattr(cli_root, "should_run_guided_flow", lambda **_kwargs: True)
     monkeypatch.setattr(
-        guided_setup,
+        guided_provider_setup,
         "collect_provider_check",
         lambda _settings, provider: build_provider_check_snapshot(
             provider,
@@ -436,15 +519,15 @@ def test_guided_setup_explicit_primary_choice_replaces_existing_default(
 
     result = CliRunner().invoke(
         build_parser(),
-        ["setup", "--config", str(config_path)],
-        input="claude\n\n\nn\n",
+        ["setup", "--config", str(config_path), "--provider", "claude"],
+        input="\n\nn\n",
     )
 
     assert result.exit_code == 0, result.output
     payload = tomllib.loads(config_path.read_text(encoding="utf-8"))
     assert payload["codex"]["enabled"] is True
     assert payload["claude"]["enabled"] is True
-    assert payload["runtime"]["default_provider"] == "claude"
+    assert payload["runtime"]["default_provider"] == "codex"
 
 
 def test_guided_setup_discloses_environment_default_override(
@@ -456,7 +539,7 @@ def test_guided_setup_discloses_environment_default_override(
         stream.write('\n[codex]\nenabled = true\n\n[runtime]\ndefault_provider = "codex"\n')
     monkeypatch.setattr(cli_root, "should_run_guided_flow", lambda **_kwargs: True)
     monkeypatch.setattr(
-        guided_setup,
+        guided_provider_setup,
         "collect_provider_check",
         lambda _settings, provider: build_provider_check_snapshot(
             provider,
@@ -482,40 +565,24 @@ def test_guided_setup_discloses_environment_default_override(
     assert "Effective environment-overridden default: claude" in result.output
 
 
-def test_setup_non_interactive_keeps_the_deterministic_command_path(
+def test_guided_setup_routes_through_workspace_and_returns_to_hub(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     config_path = write_local_cli_config(tmp_path)
-    monkeypatch.setattr(
-        cli_root,
-        "guide_provider_setup",
-        lambda _args: pytest.fail("non-interactive setup entered the guided flow"),
-    )
-    monkeypatch.setattr(
-        "banksia.interfaces.cli.commands.providers.collect_provider_check",
-        lambda _settings, provider: build_provider_check_snapshot(
-            provider,
-            outcome=ProviderCheckOutcome.READY,
-            is_ready=True,
-            detail="codex_available",
-            authentication=ProviderCheckAxisStatus.PASSED,
-        ),
-    )
+    workspace = tmp_path / "selected-workspace"
+    workspace.mkdir()
+    monkeypatch.setattr(cli_root, "should_run_guided_flow", lambda **_kwargs: True)
 
     result = CliRunner().invoke(
         build_parser(),
-        [
-            "setup",
-            "--config",
-            str(config_path),
-            "--provider",
-            "codex",
-            "--non-interactive",
-            "--json",
-        ],
+        ["setup", "--config", str(config_path)],
+        input=f"Default workspace\n{workspace}\nDone\n",
     )
 
     assert result.exit_code == 0, result.output
     payload = tomllib.loads(config_path.read_text(encoding="utf-8"))
-    assert payload["runtime"]["default_provider"] == "codex"
+    assert payload["paths"]["workspace"] == str(workspace)
+    assert "Task providers" in result.output
+    assert "Operator" in result.output
+    assert "Default workspace updated" in result.output

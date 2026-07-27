@@ -27,6 +27,7 @@ from banksia.interfaces.cli.bootstrap.database import (
 from banksia.interfaces.cli.progress import CliProgress
 from banksia.interfaces.cli.support import coerce_path, command_env, print_json
 from banksia.paths import default_data_dir, default_database_url, ensure_runtime_dirs
+from banksia.platform.managed_services import configure_service_logging
 
 
 async def cmd_init(args: argparse.Namespace) -> int:
@@ -133,15 +134,31 @@ async def cmd_db_reset(args: argparse.Namespace) -> int:
 
 def cmd_serve(args: argparse.Namespace) -> int:
     config_path = coerce_path(args.config)
+    service_log = getattr(args, "service_log", None)
+    if service_log is not None:
+        service_log_path = coerce_path(service_log)
+        with command_env(config_path=config_path):
+            log_level = load_settings().log_level
+        configure_service_logging(service_log_path, level=log_level)
     with command_env(config_path=config_path, should_load_provider_secrets=True):
         settings = load_settings()
-        uvicorn.run(
-            "banksia.main:app",
-            host=settings.api_host,
-            port=settings.api_port,
-            log_level=settings.log_level.lower(),
-            reload=False,
-        )
+        if service_log is not None:
+            uvicorn.run(
+                "banksia.main:app",
+                host=settings.api_host,
+                port=settings.api_port,
+                log_level=settings.log_level.lower(),
+                log_config=None,
+                reload=False,
+            )
+        else:
+            uvicorn.run(
+                "banksia.main:app",
+                host=settings.api_host,
+                port=settings.api_port,
+                log_level=settings.log_level.lower(),
+                reload=False,
+            )
     return 0
 
 
@@ -199,7 +216,7 @@ def _build_initial_config_candidate(
                 f"Cannot preserve invalid [paths].workspace from {config_path}: {exc}"
             ) from exc
 
-    return build_initial_config_sections(
+    candidate = build_initial_config_sections(
         data_dir=data_dir,
         database_url=database_url,
         host=host,
@@ -207,6 +224,10 @@ def _build_initial_config_candidate(
         log_level=log_level,
         workspace=workspace,
     )
+    for section in ("codex", "claude", "openclaw", "operator", "runtime"):
+        if section in current_sections:
+            candidate[section] = dict(current_sections[section])
+    return candidate
 
 
 __all__ = [

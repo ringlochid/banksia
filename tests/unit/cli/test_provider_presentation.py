@@ -6,7 +6,7 @@ from io import StringIO
 import pytest
 from rich.console import Console
 
-from banksia.interfaces.cli.commands.guided_presentation import (
+from banksia.interfaces.cli.commands.presentation import (
     emit_provider_choices,
     emit_wizard_header,
 )

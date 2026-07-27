@@ -1,25 +1,25 @@
 from __future__ import annotations
 
 import asyncio
+import errno
 import logging
 import os
 from dataclasses import dataclass
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from banksia.runtime.command_run.output_files import (
     CommandOutputFile,
     close_command_output_file,
 )
+from banksia.runtime.command_run.posix_process import spawn_posix_guardian_process
 from banksia.runtime.command_run.task_paths import (
     StableCommandWorkingDirectory,
-    command_working_directory_spawn_path,
 )
 from banksia.runtime.command_run.transitions import CommandRunLaunchClaim
-from banksia.runtime.contracts import (
-    CommandArgvSpec,
-    CommandRunState,
-    CommandShellSpec,
-)
+from banksia.runtime.contracts import CommandRunState
+
+if TYPE_CHECKING:
+    from banksia.runtime.command_run.owned_process import ManagedCommandProcess
 
 type CommandTerminalCause = Literal["cancelled", "launch_failed", "timed_out"]
 
@@ -52,46 +52,41 @@ async def spawn_command_process(
     *,
     working_directory: StableCommandWorkingDirectory,
     environment: dict[str, str],
-) -> asyncio.subprocess.Process:
+) -> ManagedCommandProcess:
     """Spawn in the retained directory identity without resolving the authored path again."""
 
-    command = claim.request.command
-    spawn_cwd = command_working_directory_spawn_path(working_directory)
-    inherited_descriptors = (working_directory.descriptor,)
-    if isinstance(command, CommandArgvSpec):
-        return await asyncio.create_subprocess_exec(
-            *command.argv,
-            cwd=spawn_cwd,
-            env=environment,
-            pass_fds=inherited_descriptors,
-            stdin=asyncio.subprocess.DEVNULL,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.STDOUT,
+    if os.name == "posix":
+        return await spawn_posix_guardian_process(
+            claim,
+            working_directory=working_directory,
+            environment=environment,
         )
-    if isinstance(command, CommandShellSpec):
-        return await asyncio.create_subprocess_shell(
-            command.command,
-            cwd=spawn_cwd,
-            env=environment,
-            pass_fds=inherited_descriptors,
-            stdin=asyncio.subprocess.DEVNULL,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.STDOUT,
-        )
-    raise TypeError(f"unsupported command specification: {type(command).__name__}")
+    raise OSError(
+        errno.ENOTSUP,
+        "Banksia Command Run supervision supports Linux and macOS only",
+    )
 
 
 def resolve_command_environment() -> dict[str, str]:
     """Return the controller-owned non-secret baseline environment."""
 
-    environment = {"PATH": os.defpath}
-    if os.name == "nt" and "SystemRoot" in os.environ:
-        environment["SystemRoot"] = os.environ["SystemRoot"]
+    allowed_keys = (
+        "HOME",
+        "LANG",
+        "LC_ALL",
+        "LC_CTYPE",
+        "PATH",
+        "TEMP",
+        "TMP",
+        "TMPDIR",
+    )
+    environment = {key: value for key in allowed_keys if (value := os.environ.get(key))}
+    environment.setdefault("PATH", os.defpath)
     return environment
 
 
 async def drain_command_output(
-    stream: asyncio.StreamReader,
+    process: ManagedCommandProcess,
     output: CommandOutputFile,
 ) -> CommandOutputCapture:
     """Drain one combined pipe to EOF while preserving truthful write counts."""
@@ -101,7 +96,7 @@ async def drain_command_output(
     is_complete = True
     can_write = True
     try:
-        while chunk := await stream.read(64 * 1024):
+        while chunk := await process.read_output(64 * 1024):
             observed_bytes += len(chunk)
             if not can_write:
                 continue

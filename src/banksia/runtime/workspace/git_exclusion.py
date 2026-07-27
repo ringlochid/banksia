@@ -1,22 +1,22 @@
 from __future__ import annotations
 
-import fcntl
 import os
 import stat
 import subprocess
 from pathlib import Path, PurePosixPath
 
+from banksia.platform.workspace_files import select_workspace_file_operations
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
 from banksia.runtime.errors import RuntimeOperationError
+from banksia.runtime.file_references import validate_workspace
 
 _GIT_MARKER_READ_LIMIT = 4_096
-_READ_CHUNK_SIZE = 64 * 1024
 
 
 def prepare_workspace_git_exclusion(workspace: Path) -> Path | None:
     """Exclude one workspace-local Banksia tree through Git's private metadata."""
 
-    workspace = workspace.expanduser().resolve(strict=True)
+    workspace = validate_workspace(workspace)
     try:
         repository_root_text = _git_output(
             workspace,
@@ -32,7 +32,7 @@ def prepare_workspace_git_exclusion(workspace: Path) -> Path | None:
         return None
     if repository_root_text is None:
         return None
-    repository_root = Path(repository_root_text).resolve(strict=True)
+    repository_root = validate_workspace(Path(repository_root_text))
     try:
         workspace_relative = workspace.relative_to(repository_root)
     except ValueError as exc:
@@ -106,6 +106,8 @@ def _has_git_worktree_marker(workspace: Path) -> bool:
 
 
 def _read_regular_git_marker(marker: Path) -> bool | None:
+    if not hasattr(os, "O_NOFOLLOW"):
+        return None
     flags = os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
     try:
         descriptor = os.open(marker, flags)
@@ -132,81 +134,13 @@ def _read_regular_git_marker(marker: Path) -> bool | None:
 
 
 def _append_exclusion(path: Path, exclusion: str) -> None:
-    if not hasattr(os, "O_NOFOLLOW"):
-        raise _invalid_workspace("This platform cannot safely update the Git exclude file")
-    flags = (
-        os.O_RDWR
-        | os.O_CREAT
-        | os.O_NOFOLLOW
-        | getattr(os, "O_CLOEXEC", 0)
-        | getattr(os, "O_NONBLOCK", 0)
-    )
     try:
-        descriptor = os.open(path, flags, 0o600)
+        select_workspace_file_operations().append_text_line_locked(path, exclusion)
     except OSError as exc:
-        raise _invalid_workspace(f"Git exclude path cannot be opened safely: {path}") from exc
-    is_locked = False
-    try:
-        if not stat.S_ISREG(os.fstat(descriptor).st_mode):
-            raise _invalid_workspace(f"Git exclude path is not a regular file: {path}")
-        fcntl.flock(descriptor, fcntl.LOCK_EX)
-        is_locked = True
-        _require_descriptor_path_identity(path, descriptor)
-        current = _read_exclusion_bytes(descriptor)
-        encoded = exclusion.encode("utf-8")
-        if encoded in current.splitlines():
-            return
-        suffix = (b"\n" if current and not current.endswith(b"\n") else b"") + encoded + b"\n"
-        os.lseek(descriptor, 0, os.SEEK_END)
-        _write_all(descriptor, suffix)
-        os.fsync(descriptor)
-        _require_descriptor_path_identity(path, descriptor)
-    except RuntimeOperationError:
-        raise
-    except OSError as exc:
-        raise _invalid_workspace(f"Git exclude file could not be updated safely: {path}") from exc
-    finally:
-        if is_locked:
-            try:
-                fcntl.flock(descriptor, fcntl.LOCK_UN)
-            except OSError:
-                pass
-        os.close(descriptor)
-
-
-def _require_descriptor_path_identity(path: Path, descriptor: int) -> None:
-    descriptor_metadata = os.fstat(descriptor)
-    try:
-        path_metadata = path.stat(follow_symlinks=False)
-    except OSError as exc:
+        reason = exc.strerror or str(exc)
         raise _invalid_workspace(
-            f"Git exclude path changed while it was being updated: {path}"
+            f"Git exclude file could not be updated safely ({reason}): {path}"
         ) from exc
-    if (
-        not stat.S_ISREG(path_metadata.st_mode)
-        or path_metadata.st_dev != descriptor_metadata.st_dev
-        or path_metadata.st_ino != descriptor_metadata.st_ino
-    ):
-        raise _invalid_workspace(f"Git exclude path changed while it was being updated: {path}")
-
-
-def _read_exclusion_bytes(descriptor: int) -> bytes:
-    os.lseek(descriptor, 0, os.SEEK_SET)
-    payload = bytearray()
-    while True:
-        chunk = os.read(descriptor, _READ_CHUNK_SIZE)
-        if not chunk:
-            return bytes(payload)
-        payload.extend(chunk)
-
-
-def _write_all(descriptor: int, payload: bytes) -> None:
-    remaining = memoryview(payload)
-    while remaining:
-        written = os.write(descriptor, remaining)
-        if written <= 0:
-            raise OSError("Git exclude write made no progress")
-        remaining = remaining[written:]
 
 
 def _git_output(

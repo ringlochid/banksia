@@ -17,7 +17,7 @@ from banksia.platform.provider_environment import (
 
 
 def coerce_path(value: str | os.PathLike[str] | Path) -> Path:
-    return Path(value).expanduser().resolve()
+    return Path(os.path.abspath(Path(value).expanduser()))
 
 
 @contextmanager

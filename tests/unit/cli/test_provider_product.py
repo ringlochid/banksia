@@ -88,10 +88,25 @@ def test_json_setup_without_provider_is_a_zero_write_guide(tmp_path: Path) -> No
         "configured_providers": [],
         "default_provider": None,
         "default_provider_configured": False,
+        "operator": {
+            "effective": {
+                "effort": None,
+                "model": None,
+                "provider": None,
+            },
+            "environment_override": False,
+            "persisted": {
+                "effort": None,
+                "model": None,
+                "provider": None,
+            },
+        },
         "next_actions": [
             "banksia init",
             "banksia providers configure <provider>",
+            "banksia operator setup",
         ],
+        "workspace": None,
     }
     assert not config_path.exists()
 
@@ -141,7 +156,8 @@ def test_json_setup_guide_uses_selected_provider_state_without_writes(
     assert payload["configured_provider"] == (configured[0] if len(configured) == 1 else None)
     assert payload["default_provider"] == default_provider
     assert payload["default_provider_configured"] is (default_provider is not None)
-    assert payload["next_actions"] == next_actions
+    expected_actions = [*next_actions, "banksia operator setup"]
+    assert payload["next_actions"] == expected_actions
     assert config_path.read_bytes() == previous_bytes
 
 
@@ -160,5 +176,8 @@ def test_json_setup_guide_configures_environment_only_provider_before_default(
     payload = json.loads(result.output)
     assert payload["configured_providers"] == ["codex"]
     assert payload["default_provider"] is None
-    assert payload["next_actions"] == ["banksia providers configure codex"]
+    assert payload["next_actions"] == [
+        "banksia providers configure codex",
+        "banksia operator setup",
+    ]
     assert not config_path.exists()

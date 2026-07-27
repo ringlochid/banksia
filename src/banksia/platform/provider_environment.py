@@ -3,15 +3,20 @@ from __future__ import annotations
 import os
 import re
 import shlex
-import stat
-import tempfile
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from pathlib import Path
 
+from banksia.platform.workspace_files import (
+    acquire_private_mutation_lock,
+    read_private_text,
+    replace_private_text,
+)
+
 ANTHROPIC_API_KEY = "ANTHROPIC_API_KEY"
 OPENCLAW_GATEWAY_PASSWORD = "OPENCLAW_GATEWAY_PASSWORD"
 OPENCLAW_GATEWAY_TOKEN = "OPENCLAW_GATEWAY_TOKEN"
+PROVIDER_SECRET_MUTATION_LOCK_TIMEOUT_SECONDS = 5.0
 PROVIDER_SECRET_ENVIRONMENT_KEYS = frozenset(
     {
         ANTHROPIC_API_KEY,
@@ -99,41 +104,10 @@ def provider_service_environment(path: Path) -> Iterator[None]:
 def read_provider_secret_environment(path: Path) -> dict[str, str]:
     """Read only supported provider secret assignments from one environment file."""
 
-    if not path.is_file():
+    text = _read_private_environment_text(path)
+    if text is None:
         return {}
-
-    secrets: dict[str, str] = {}
-    for line in path.read_text(encoding="utf-8").splitlines():
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
-            continue
-        match = _ASSIGNMENT_PATTERN.fullmatch(stripped)
-        if match is None:
-            raise ProviderEnvironmentError(
-                "private provider environment contains an invalid assignment"
-            )
-        if match.group(1) not in PROVIDER_SECRET_ENVIRONMENT_KEYS:
-            raise ProviderEnvironmentError(
-                f"private provider environment does not support {match.group(1)}"
-            )
-        key = match.group(1)
-        try:
-            parsed = shlex.split(stripped, comments=False, posix=True)
-        except ValueError as exc:
-            raise ProviderEnvironmentError(
-                f"private provider environment contains an invalid {key} assignment"
-            ) from exc
-        if len(parsed) != 1 or "=" not in parsed[0]:
-            raise ProviderEnvironmentError(
-                f"private provider environment contains an invalid {key} assignment"
-            )
-        _, value = parsed[0].split("=", 1)
-        if not value:
-            raise ProviderEnvironmentError(
-                f"private provider environment contains an empty {key} assignment"
-            )
-        secrets[key] = value
-    return secrets
+    return _parse_provider_secret_environment(text)
 
 
 def persist_provider_secret(
@@ -148,9 +122,10 @@ def persist_provider_secret(
     if key not in PROVIDER_SECRET_ENVIRONMENT_KEYS:
         raise ValueError(f"unsupported provider secret environment key: {key}")
     normalized = _validate_secret_value(value, key=key)
-    retained = _retained_environment_lines(path, remove=remove | {key})
-    retained.append(f"{key}={_quote_environment_value(normalized)}")
-    _write_private_environment(path, retained)
+    with _acquire_provider_environment_mutation_lock(path):
+        retained = _retained_environment_lines(path, remove=remove | {key})
+        retained.append(f"{key}={_quote_environment_value(normalized)}")
+        _write_private_environment(path, retained)
 
 
 def remove_provider_secrets(path: Path, *, keys: frozenset[str]) -> None:
@@ -159,9 +134,10 @@ def remove_provider_secrets(path: Path, *, keys: frozenset[str]) -> None:
     unsupported = keys - PROVIDER_SECRET_ENVIRONMENT_KEYS
     if unsupported:
         raise ValueError(f"unsupported provider secret environment key: {sorted(unsupported)[0]}")
-    if not path.exists():
-        return
-    _write_private_environment(path, _retained_environment_lines(path, remove=keys))
+    with _acquire_provider_environment_mutation_lock(path):
+        if _read_private_environment_text(path) is None:
+            return
+        _write_private_environment(path, _retained_environment_lines(path, remove=keys))
 
 
 def provider_subprocess_environment_overrides(
@@ -199,19 +175,55 @@ def provider_subprocess_environment(
 def ensure_private_environment_file(path: Path, *, initial_text: str) -> None:
     """Create a missing service environment and enforce owner-only permissions."""
 
-    if not path.exists():
+    with _acquire_provider_environment_mutation_lock(path):
+        if _read_private_environment_text(path) is not None:
+            return
         lines = initial_text.rstrip("\n").splitlines()
         _write_private_environment(path, lines)
-        return
-    path.chmod(stat.S_IRUSR | stat.S_IWUSR)
+
+
+def _parse_provider_secret_environment(text: str) -> dict[str, str]:
+    secrets: dict[str, str] = {}
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        match = _ASSIGNMENT_PATTERN.fullmatch(stripped)
+        if match is None:
+            raise ProviderEnvironmentError(
+                "private provider environment contains an invalid assignment"
+            )
+        if match.group(1) not in PROVIDER_SECRET_ENVIRONMENT_KEYS:
+            raise ProviderEnvironmentError(
+                f"private provider environment does not support {match.group(1)}"
+            )
+        key = match.group(1)
+        try:
+            parsed = shlex.split(stripped, comments=False, posix=True)
+        except ValueError as exc:
+            raise ProviderEnvironmentError(
+                f"private provider environment contains an invalid {key} assignment"
+            ) from exc
+        if len(parsed) != 1 or "=" not in parsed[0]:
+            raise ProviderEnvironmentError(
+                f"private provider environment contains an invalid {key} assignment"
+            )
+        _, value = parsed[0].split("=", 1)
+        if not value:
+            raise ProviderEnvironmentError(
+                f"private provider environment contains an empty {key} assignment"
+            )
+        secrets[key] = value
+    return secrets
 
 
 def _retained_environment_lines(path: Path, *, remove: frozenset[str]) -> list[str]:
-    if not path.is_file():
+    text = _read_private_environment_text(path)
+    if text is None:
         return []
-    read_provider_secret_environment(path)
+    _parse_provider_secret_environment(text)
     retained: list[str] = []
-    for line in path.read_text(encoding="utf-8").splitlines():
+    for line in text.splitlines():
         match = _ASSIGNMENT_PATTERN.fullmatch(line.strip())
         if match is not None and match.group(1) in remove:
             continue
@@ -238,25 +250,25 @@ def _quote_environment_value(value: str) -> str:
 
 
 def _write_private_environment(path: Path, lines: list[str]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
     rendered = "\n".join(lines).rstrip("\n") + "\n"
-    descriptor, temporary_name = tempfile.mkstemp(
-        prefix=f".{path.name}.",
-        suffix=".tmp",
-        dir=path.parent,
-    )
-    temporary_path = Path(temporary_name)
-    try:
-        os.fchmod(descriptor, stat.S_IRUSR | stat.S_IWUSR)
-        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
-            stream.write(rendered)
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(temporary_path, path)
-        path.chmod(stat.S_IRUSR | stat.S_IWUSR)
-    except BaseException:
-        temporary_path.unlink(missing_ok=True)
-        raise
+    replace_private_text(path, rendered)
+
+
+def _read_private_environment_text(path: Path) -> str | None:
+    return read_private_text(path)
+
+
+def _provider_environment_mutation_lock_path(path: Path) -> Path:
+    return path.with_name(f"{path.name}.lock")
+
+
+@contextmanager
+def _acquire_provider_environment_mutation_lock(path: Path) -> Iterator[None]:
+    with acquire_private_mutation_lock(
+        _provider_environment_mutation_lock_path(path),
+        timeout_seconds=PROVIDER_SECRET_MUTATION_LOCK_TIMEOUT_SECONDS,
+    ):
+        yield
 
 
 __all__ = [

@@ -140,7 +140,7 @@ async def test_unconfigured_operator_surface_rejects_new_conversation(
         "availability": "unconfigured",
         "configured_provider": None,
         "explanation": "Operator is not configured with a provider.",
-        "setup_action": "Configure Operator provider settings, then restart Banksia.",
+        "setup_action": "Run `banksia operator setup`, then restart Banksia.",
     }
     assert create_response.status_code == 503
 

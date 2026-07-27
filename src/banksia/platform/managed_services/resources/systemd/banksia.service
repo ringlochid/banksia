@@ -5,13 +5,10 @@ After=network-online.target
 
 [Service]
 Type=simple
-Environment="BANKSIA_CONFIG=@BANKSIA_CONFIG@"
-UnsetEnvironment=CODEX_HOME CLAUDE_CONFIG_DIR OPENCLAW_STATE_DIR
-EnvironmentFile=-@BANKSIA_ENV_FILE@
-ExecStartPre="@BANKSIA_PYTHON@" -m banksia db upgrade --config "@BANKSIA_CONFIG@" --revision head
-ExecStart="@BANKSIA_PYTHON@" -m banksia serve --config "@BANKSIA_CONFIG@"
+ExecStart="@BANKSIA_PYTHON@" -m banksia serve --config "@BANKSIA_CONFIG@" --service-log "@BANKSIA_SERVICE_LOG@"
 Restart=on-failure
 RestartSec=5
+KillMode=control-group
 NoNewPrivileges=true
 PrivateTmp=true
 

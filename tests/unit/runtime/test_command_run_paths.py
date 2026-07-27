@@ -7,7 +7,6 @@ import pytest
 
 from banksia.runtime.command_run.task_paths import (
     close_command_working_directory,
-    command_working_directory_spawn_path,
     open_stable_command_working_directory,
 )
 
@@ -29,9 +28,9 @@ def test_stable_command_working_directory_keeps_admitted_identity(
     admitted.rename(moved)
     admitted.symlink_to(outside, target_is_directory=True)
     try:
-        spawn_path = command_working_directory_spawn_path(working_directory)
-        assert os.path.samestat(os.stat(spawn_path), moved.stat())
-        assert not os.path.samestat(os.stat(spawn_path), outside.stat())
+        admitted_metadata = os.fstat(working_directory.descriptor)
+        assert os.path.samestat(admitted_metadata, moved.stat())
+        assert not os.path.samestat(admitted_metadata, outside.stat())
     finally:
         close_command_working_directory(working_directory)
 
@@ -71,7 +70,7 @@ def test_stable_command_working_directory_accepts_workspace_root(tmp_path: Path)
     working_directory = open_stable_command_working_directory(workspace, ".")
     try:
         assert os.path.samestat(
-            os.stat(command_working_directory_spawn_path(working_directory)),
+            os.fstat(working_directory.descriptor),
             workspace.stat(),
         )
     finally:

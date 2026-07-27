@@ -498,10 +498,4 @@ def test_unconfigured_setup_action_names_real_config_and_provider_commands(
     )
 
     assert runner.status.availability == "unconfigured"
-    setup_action = runner.status.setup_action or ""
-    assert str(config_path) in setup_action
-    assert "[operator]" in setup_action
-    assert 'provider = "claude"' in setup_action
-    assert 'provider = "codex"' in setup_action
-    assert "banksia providers configure <provider>" in setup_action
-    assert "banksia providers check <provider>" in setup_action
+    assert runner.status.setup_action == ("Run `banksia operator setup`, then restart Banksia.")

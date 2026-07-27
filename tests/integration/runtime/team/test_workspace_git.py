@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+import banksia.platform.workspace_files.workspace_posix as workspace_posix_module
 import banksia.runtime.task_start as task_start_module
 import banksia.runtime.workspace.git_exclusion as git_exclusion_module
 from banksia.config import CodexSettings, RuntimeSettings, Settings
@@ -207,18 +208,18 @@ def test_git_exclusion_rejects_path_substitution_after_open(
     exclude = _git_path(repository, "info/exclude")
     outside = tmp_path / "outside"
     outside.write_text("outside\n", encoding="utf-8")
-    real_flock = git_exclusion_module.fcntl.flock
+    real_flock = workspace_posix_module.fcntl.flock
     did_substitute = False
 
     def substitute_after_lock(descriptor: int, operation: int) -> None:
         nonlocal did_substitute
         real_flock(descriptor, operation)
-        if operation == git_exclusion_module.fcntl.LOCK_EX and not did_substitute:
+        if operation == workspace_posix_module.fcntl.LOCK_EX and not did_substitute:
             did_substitute = True
             exclude.unlink()
             exclude.symlink_to(outside)
 
-    monkeypatch.setattr(git_exclusion_module.fcntl, "flock", substitute_after_lock)
+    monkeypatch.setattr(workspace_posix_module.fcntl, "flock", substitute_after_lock)
 
     with pytest.raises(RuntimeOperationError, match="changed while"):
         prepare_workspace_git_exclusion(repository)
@@ -244,12 +245,12 @@ def test_concurrent_nested_workspace_exclusions_lock_before_reread(
     lock_attempt_count = 0
     first_reader_thread_id: int | None = None
     has_blocked_first_read = False
-    real_flock = git_exclusion_module.fcntl.flock
-    real_lseek = git_exclusion_module.os.lseek
+    real_flock = workspace_posix_module.fcntl.flock
+    real_lseek = workspace_posix_module.os.lseek
 
     def observed_flock(descriptor: int, operation: int) -> None:
         nonlocal lock_attempt_count
-        if operation == git_exclusion_module.fcntl.LOCK_EX:
+        if operation == workspace_posix_module.fcntl.LOCK_EX:
             with count_lock:
                 lock_attempt_count += 1
                 if lock_attempt_count == 2:
@@ -275,8 +276,8 @@ def test_concurrent_nested_workspace_exclusions_lock_before_reread(
             assert release_first_read.wait(timeout=2)
         return real_lseek(descriptor, position, how)
 
-    monkeypatch.setattr(git_exclusion_module.fcntl, "flock", observed_flock)
-    monkeypatch.setattr(git_exclusion_module.os, "lseek", observed_lseek)
+    monkeypatch.setattr(workspace_posix_module.fcntl, "flock", observed_flock)
+    monkeypatch.setattr(workspace_posix_module.os, "lseek", observed_lseek)
 
     with ThreadPoolExecutor(max_workers=2) as executor:
         first = executor.submit(prepare_workspace_git_exclusion, first_workspace)

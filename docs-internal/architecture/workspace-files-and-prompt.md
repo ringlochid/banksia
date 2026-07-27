@@ -28,6 +28,16 @@ Full native access is the baseline default. Concurrent agents can see and change
 
 OpenClaw is supported only when the user externally configures it to expose `W` and permit the required native access. Banksia does not inspect or mutate OpenClaw configuration and provides no managed file-tool fallback.
 
+## Native filesystem safety
+
+One POSIX path grammar and result contract serves Linux and macOS. Paths are slash-separated and workspace-relative; drive, UNC, absolute, empty, `.`, `..`, NUL, backslash aliases, symbolic-link components, and special files reject. Workspace identity is captured and rechecked before controller mutation.
+
+Linux and macOS use descriptor-relative `openat`-style traversal with `O_NOFOLLOW`, directory descriptors, stable device/inode identity, exclusive creation, and atomic replacement. Native Windows controller/runtime support is deferred; WSL2 uses this Linux boundary.
+
+The backend API is narrow: capture/recheck directory identity, open a safe child, create exclusively, replace atomically, read a bounded regular file, and remove only a controller-proven tree. Raw descriptors do not escape into Task or product contracts. A filesystem that cannot prove the required identity, no-follow, exclusive-create, and access-control properties fails admission with a human recovery action.
+
+Banksia applies private permissions only to its own config/data/secret and Task-directory content, never to the user's whole workspace. Linux uses owner-only modes and ownership verification. macOS additionally rejects or removes inherited ACL entries on newly created Banksia-owned private paths.
+
 ## What belongs where
 
 | Surface | Authority and use |

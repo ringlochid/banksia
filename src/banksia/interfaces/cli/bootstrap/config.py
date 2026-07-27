@@ -2,15 +2,18 @@ from __future__ import annotations
 
 import copy
 import json
-import os
-import stat
-import tempfile
-import time
 import tomllib
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
+
+from banksia.platform.workspace_files import (
+    PrivateMutationTimeoutError,
+    acquire_private_mutation_lock,
+    read_private_text,
+    replace_private_text,
+)
 
 CONFIG_MUTATION_LOCK_TIMEOUT_SECONDS = 5.0
 ConfigSections = dict[str, dict[str, Any]]
@@ -87,7 +90,6 @@ def persist_config_mutation(
 ) -> ConfigSections:
     """Validate and atomically replace one Banksia configuration revision."""
 
-    config_path.parent.mkdir(parents=True, exist_ok=True)
     with acquire_config_mutation_lock(config_path, timeout_seconds=timeout_seconds):
         current_sections = read_config_sections(config_path)
         candidate_sections = mutation(copy.deepcopy(current_sections))
@@ -97,16 +99,23 @@ def persist_config_mutation(
 
 
 def read_config_sections(config_path: Path) -> ConfigSections:
-    if not config_path.is_file():
+    text = read_private_config_text(config_path)
+    if text is None:
         return {}
 
-    parsed = tomllib.loads(config_path.read_text(encoding="utf-8"))
+    parsed = tomllib.loads(text)
     sections: ConfigSections = {}
     for section_name, section_values in parsed.items():
         if not isinstance(section_values, dict):
             raise ValueError(f"config section '{section_name}' must be a TOML table")
         sections[section_name] = dict(section_values)
     return sections
+
+
+def read_private_config_text(config_path: Path) -> str | None:
+    """Read one real owner-only config file without following a final symlink."""
+
+    return read_private_text(config_path)
 
 
 def config_sections_to_text(payload: ConfigSections) -> str:
@@ -166,92 +175,20 @@ def acquire_config_mutation_lock(
     timeout_seconds: float,
 ) -> Iterator[None]:
     lock_path = config_path.with_name(f"{config_path.name}.lock")
-    lock_path.parent.mkdir(parents=True, exist_ok=True)
-    lock_descriptor = os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o600)
-    deadline = time.monotonic() + timeout_seconds
     try:
-        while True:
-            try:
-                acquire_platform_file_lock(lock_descriptor)
-                break
-            except BlockingIOError as exc:
-                if time.monotonic() >= deadline:
-                    raise ConfigMutationTimeoutError(
-                        f"timed out waiting to update Banksia config: {config_path}"
-                    ) from exc
-                time.sleep(0.05)
-        yield
-    finally:
-        release_platform_file_lock(lock_descriptor)
-        os.close(lock_descriptor)
-
-
-def acquire_platform_file_lock(lock_descriptor: int) -> None:
-    if os.name == "nt":
-        import msvcrt
-
-        os.lseek(lock_descriptor, 0, os.SEEK_SET)
-        if os.fstat(lock_descriptor).st_size == 0:
-            os.write(lock_descriptor, b"0")
-        os.lseek(lock_descriptor, 0, os.SEEK_SET)
-        try:
-            msvcrt_api: Any = msvcrt
-            msvcrt_api.locking(lock_descriptor, msvcrt_api.LK_NBLCK, 1)
-        except OSError as exc:
-            raise BlockingIOError from exc
-        return
-
-    import fcntl
-
-    fcntl.flock(lock_descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
-
-
-def release_platform_file_lock(lock_descriptor: int) -> None:
-    if os.name == "nt":
-        import msvcrt
-
-        try:
-            os.lseek(lock_descriptor, 0, os.SEEK_SET)
-            msvcrt_api: Any = msvcrt
-            msvcrt_api.locking(lock_descriptor, msvcrt_api.LK_UNLCK, 1)
-        except OSError:
-            return
-        return
-
-    import fcntl
-
-    fcntl.flock(lock_descriptor, fcntl.LOCK_UN)
+        with acquire_private_mutation_lock(
+            lock_path,
+            timeout_seconds=timeout_seconds,
+        ):
+            yield
+    except PrivateMutationTimeoutError as exc:
+        raise ConfigMutationTimeoutError(
+            f"timed out waiting to update Banksia config: {config_path}"
+        ) from exc
 
 
 def write_config_text_atomically(config_path: Path, rendered: str) -> None:
-    previous_mode = stat.S_IMODE(config_path.stat().st_mode) if config_path.exists() else 0o600
-    file_descriptor, temporary_name = tempfile.mkstemp(
-        prefix=f".{config_path.name}.",
-        suffix=".tmp",
-        dir=config_path.parent,
-    )
-    temporary_path = Path(temporary_name)
-    try:
-        os.fchmod(file_descriptor, previous_mode)
-        with os.fdopen(file_descriptor, "w", encoding="utf-8") as stream:
-            stream.write(rendered)
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(temporary_path, config_path)
-        sync_parent_directory(config_path.parent)
-    except BaseException:
-        temporary_path.unlink(missing_ok=True)
-        raise
-
-
-def sync_parent_directory(directory: Path) -> None:
-    if os.name == "nt":
-        return
-    directory_descriptor = os.open(directory, os.O_RDONLY)
-    try:
-        os.fsync(directory_descriptor)
-    finally:
-        os.close(directory_descriptor)
+    replace_private_text(config_path, rendered)
 
 
 __all__ = [
@@ -263,6 +200,7 @@ __all__ = [
     "config_sections_to_text",
     "persist_config_mutation",
     "read_config_sections",
+    "read_private_config_text",
     "toml_value",
     "update_config_sections",
     "write_config_text_atomically",

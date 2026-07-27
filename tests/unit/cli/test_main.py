@@ -72,7 +72,7 @@ def test_main_accepts_debug_after_a_leaf_command(
     def _boom(_args: Sequence[str]) -> NoReturn:
         raise RuntimeError("service boom")
 
-    monkeypatch.setattr("banksia.interfaces.cli.root.cmd_service_start", _boom)
+    monkeypatch.setattr("banksia.interfaces.cli.service_commands.cmd_service_start", _boom)
 
     result = cli.main(["service", "start", "--debug"])
 

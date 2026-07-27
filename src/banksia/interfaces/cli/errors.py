@@ -12,6 +12,23 @@ from .help import help_command_for
 from .prompts import debug_hint
 
 
+class CliPrerequisiteError(click.ClickException):
+    """Raised when an operation needs a missing setup prerequisite."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        kind: str = "setup_required",
+        title: str = "Setup required",
+        hint: str | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.kind = kind
+        self.title = title
+        self.hint = hint
+
+
 @dataclass(frozen=True)
 class CliFailure:
     kind: str
@@ -24,6 +41,14 @@ class CliFailure:
 
 def failure_from_click_exception(exc: click.ClickException, argv: tuple[str, ...]) -> CliFailure:
     help_hint = f"Try: {help_command_for(argv)}"
+    if isinstance(exc, CliPrerequisiteError):
+        return CliFailure(
+            kind=exc.kind,
+            title=exc.title,
+            message=exc.format_message(),
+            exit_code=exc.exit_code,
+            hint=exc.hint or help_hint,
+        )
     if isinstance(exc, click.exceptions.NoSuchOption):
         option = exc.option_name or exc.format_message()
         return CliFailure(
@@ -100,22 +125,25 @@ def unexpected_failure(exc: BaseException) -> CliFailure:
 
 
 def _managed_service_failure(exc: ManagedServiceCommandError) -> CliFailure:
-    service_name = exc.service_name or "the managed service"
-    detail = f" systemctl reported: {exc.detail}" if exc.detail else ""
+    detail = f" The operating system reported: {exc.detail}" if exc.detail else ""
     return CliFailure(
         kind="managed_service_command_failed",
-        title=f"Managed service {exc.action} failed",
-        message=f"systemd could not {exc.action} {service_name}.{detail}",
+        title=f"Background service {exc.operation} failed",
+        message=(
+            f"The operating system could not {exc.operation} the Banksia "
+            f"background service.{detail}"
+        ),
         exit_code=1,
         hint=(
-            "Inspect the unit:\n"
-            f"  systemctl --user status {service_name} --no-pager\n"
-            f"  journalctl --user -u {service_name} -n 50 --no-pager\n\n"
-            "Reconcile an outdated managed unit:\n"
+            "Inspect Banksia's portable service status and bounded log:\n"
+            "  banksia service status\n"
+            "  banksia service logs --lines 200\n\n"
+            "Reconcile an outdated definition:\n"
             "  banksia service install"
         ),
         details={
-            "action": exc.action,
+            "manager": exc.manager,
+            "operation": exc.operation,
             "service_name": exc.service_name,
             "return_code": exc.return_code,
         },

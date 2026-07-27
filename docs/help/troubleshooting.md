@@ -83,6 +83,32 @@ On Ubuntu 24.04 or later, an installed `bwrap` may still need the AppArmor setup
 
 **Report a defect when.** `providers check` reports ready but an unchanged supported request cannot start, or the explicit route changes without a configuration mutation. Include provider kind, redacted status/check output, Banksia version, and timestamps.
 
+## Operator is not configured or its provider needs attention
+
+**Meaning.** Operator has its own explicit Codex or Claude selection. A Task-provider default does not implicitly configure Operator. The selected Operator route may also be saved while its provider diagnostic reports that installation, authentication, reachability, or the requested configuration needs attention.
+
+**Safe checks.**
+
+```bash
+banksia operator status
+banksia providers status
+```
+
+`operator status` is passive. It shows saved and effective Operator settings, whether an environment override is active, and the next provider diagnostic without starting a model turn.
+
+**Legal action.**
+
+```bash
+banksia operator setup
+banksia providers check codex
+```
+
+Choose the provider named by your intended Operator configuration. A failed check does not remove the saved selection. To remove only the persisted Operator choice, run `banksia operator disable`; this does not disable its provider route. If status still shows an environment override, remove the corresponding `BANKSIA_OPERATOR__*` value explicitly.
+
+**Controller truth.** Operator configuration and Task-provider routing are separate. Setup and diagnostics create no Task or Operator conversation.
+
+**Report a defect when.** Passive status contacts a provider, disabling Operator changes a provider route, or an accepted selection is lost after a diagnostic failure. Include redacted Operator and provider status output.
+
 ## A Workflow draft is invalid or stale
 
 **Meaning.** Invalid means schema or semantic validation found issues. Stale means another edit advanced the draft ETag before your mutation. Validation is not publication.
@@ -156,6 +182,36 @@ Check `output_complete`, `is_missing`, `is_changed`, and `is_bounded` before int
 **Controller truth.** Command state, terminal result, wait, and continuation are controller records. The full log is a loose workspace file. Missing or changed bytes are reported honestly and are not reconstructed from bounded database output.
 
 **Report a defect when.** Terminal state has no continuation after recovery, output facts contradict the current log without reporting change, or a cancelled process remains controller-owned as running.
+
+## The background service is not ready
+
+**Meaning.** The native per-user definition may be absent, stopped, out of date, or running while the controller cannot pass readiness. Banksia uses a systemd user service on Linux and a current-user LaunchAgent on macOS.
+
+**Safe checks.**
+
+```bash
+banksia service status
+banksia service logs --lines 200
+banksia config show
+```
+
+The portable status combines installation, start-at-sign-in, and controller readiness. The log command reads the same bounded controller log on every supported host.
+
+**Legal action.**
+
+```bash
+banksia service install
+banksia service start
+banksia service restart
+```
+
+Re-running install reconciles the fixed native definition with the selected configuration and interpreter. Use `banksia serve` instead when you want a foreground process. Do not pass a raw service name, unit directory, or service-specific port; change controller configuration and rerun install.
+
+`banksia service uninstall` removes only the native background-service definition. It preserves controller configuration, database/data, and the sibling provider environment file.
+
+**Controller truth.** A native process state is not the same as controller readiness. A restart recovers committed controller work through ordinary startup recovery; it does not replay work merely from a log or process record.
+
+**Report a defect when.** A current definition cannot be reinstalled idempotently, status reports ready while `/readyz` fails, uninstall removes persistent settings, or the portable CLI requires direct systemd or launchd commands. Include redacted `service status --json`, bounded service logs, platform, and Banksia version.
 
 ## A provider stopped or a run appears stuck
 

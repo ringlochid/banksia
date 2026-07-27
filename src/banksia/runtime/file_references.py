@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import errno
+import os
 from pathlib import Path
 
 from banksia.runtime.contracts import FileReference
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
 from banksia.runtime.errors import RuntimeOperationError
 from banksia.runtime.workspace.regular_files import validate_workspace_regular_file
+from banksia.runtime.workspace.storage import capture_workspace_identity
 
 
 def validate_file_references(
@@ -45,12 +47,13 @@ def validate_workspace(workspace: Path) -> Path:
     expanded = workspace.expanduser()
     if not expanded.is_absolute():
         raise _invalid_workspace("workspace must be an absolute path")
+    normalized = Path(os.path.abspath(os.fspath(expanded)))
     try:
-        normalized = expanded.resolve(strict=True)
+        capture_workspace_identity(normalized)
     except FileNotFoundError as exc:
-        raise _invalid_workspace(f"workspace does not exist: {expanded}") from exc
-    if not normalized.is_dir():
-        raise _invalid_workspace(f"workspace is not a directory: {normalized}")
+        raise _invalid_workspace(f"workspace does not exist: {normalized}") from exc
+    except OSError as exc:
+        raise _invalid_workspace(f"workspace is not a safe real directory: {normalized}") from exc
     return normalized
 
 

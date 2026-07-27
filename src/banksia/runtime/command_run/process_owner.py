@@ -372,10 +372,8 @@ class CommandProcessOwner:
     ) -> None:
         process = owned.process
         assert process is not None
-        assert process.stdout is not None
-        assert process.stderr is None
         output_task = asyncio.create_task(
-            drain_command_output(process.stdout, output),
+            drain_command_output(process, output),
             name=f"banksia-command-output-{owned.claim.run_id}",
         )
         try:
@@ -414,8 +412,7 @@ class CommandProcessOwner:
             process = owned.process
             if process is None or process.returncode is not None:
                 return
-            with suppress(ProcessLookupError):
-                process.terminate()
+            process.request_termination()
             try:
                 await asyncio.wait_for(
                     asyncio.shield(process.wait()),
@@ -424,8 +421,7 @@ class CommandProcessOwner:
                 return
             except TimeoutError:
                 pass
-            with suppress(ProcessLookupError):
-                process.kill()
+            process.request_kill()
             await asyncio.wait_for(
                 asyncio.shield(process.wait()),
                 timeout=self._kill_wait_seconds,
@@ -532,6 +528,9 @@ class CommandProcessOwner:
             for task in pending_tasks:
                 task.cancel()
             await asyncio.gather(*pending_tasks, return_exceptions=True)
+        for owned in self._owned.values():
+            if owned.process is not None:
+                owned.process.close_controller_liveness()
         self._owned.clear()
 
     def _publish_terminal(self, run_id: str) -> None:

@@ -52,15 +52,29 @@ When no clarification is needed, the Operator returns one human-facing message w
 
 ## Configure the Operator
 
-Set one enabled managed provider in `config.toml`:
+Guided `banksia init` offers Operator as an optional final choice. Configure or replace it later with:
 
-```toml
-[operator]
-provider = "codex"
-model = "gpt-5.6"
-effort = "high"
+```bash
+banksia operator setup
+banksia operator status
 ```
 
-`provider` may be `codex` or `claude`; model and effort are optional. The selected route must already be enabled and authenticated in its provider section.
+Choose Codex or Claude. Model and effort overrides are optional. If the selected managed route is not configured, the interactive flow offers to configure it first. The resulting provider check is diagnostic: a failure reports that the route needs attention without removing the saved Operator choice.
+
+Automation supplies the selection explicitly:
+
+```bash
+banksia operator setup \
+  --provider codex \
+  --non-interactive
+```
+
+Remove only the saved Operator selection with:
+
+```bash
+banksia operator disable
+```
+
+Disabling Operator does not disable its provider route or change the default Task provider. An effective `BANKSIA_OPERATOR__*` environment override remains in effect until you remove that override.
 
 Operator conversations use same-origin local HTTP routes. They do not expose an external MCP server or make Operator operations available to Workflow Members.

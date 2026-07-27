@@ -12,7 +12,7 @@ The installed entry point is `banksia`. Run `banksia COMMAND --help` for the exa
 
 Commands that expose `--json` write one JSON document and suppress styled human output. Failures use a closed shape containing `ok: false` and an `error` object with `kind`, `message`, optional `hint`, and `details`. `config show` always prints the effective redacted configuration as JSON; `--json` is accepted for consistency.
 
-Do not assume every command has `--json`. `workflow export`, `serve`, and some service mutation commands use their documented text/file output instead.
+Do not assume every command has `--json`. `workflow export`, `serve`, and `service render` use their documented text/file output instead.
 
 Guided `init` and `setup` report a deliberate pre-mutation cancellation and exit `0`. A lower-level Click abort that is not handled by the guided command exits `2`.
 
@@ -20,18 +20,19 @@ Guided `init` and `setup` report a deliberate pre-mutation cancellation and exit
 
 | Command | Shipped surface |
 | --- | --- |
-| `banksia init` | Write initial configuration and create or verify the exact database schema. |
-| `banksia setup` | Guide provider configuration, authentication, and readiness. |
+| `banksia init` | Prepare local controller state, then offer first-run Task-provider and optional Operator setup. |
+| `banksia setup` | Reopen the settings hub for Task providers, Operator, or the default workspace. |
 | `banksia status` | Read passive configuration and local provider status. |
 | `banksia config path|show` | Print the selected configuration path or effective redacted settings. |
 | `banksia providers list|status|configure|login|logout|check|set-default` | Inspect and operate provider routes. |
+| `banksia operator setup|status|disable` | Configure or inspect the separate Operator without changing Task-provider routing. |
 | `banksia workflow import|export` | Import one draft or export a published Workflow revision. |
 | `banksia task start` | Start one Task interactively or from strict JSON. |
 | `banksia serve` | Run the loopback application in the foreground. |
-| `banksia service render|install|start|stop|restart|status|uninstall` | Render or operate the Linux user service. |
+| `banksia service render|install|start|stop|restart|status|logs|uninstall` | Render or operate this host's per-user background service. |
 | `banksia db upgrade|reset` | Create or verify exact storage, or destructively reset it. |
 
-Bare `banksia`, `banksia status`, and `banksia providers status` are passive. They do not initialize or upgrade storage, start a service, contact a provider, repair work, or write configuration.
+Bare `banksia`, `banksia status`, `banksia providers status`, and `banksia operator status` are passive. They do not initialize or upgrade storage, start a service, contact a provider, repair work, or write configuration.
 
 Most stateful commands accept `--config PATH`. When omitted, configuration selection follows `BANKSIA_CONFIG` and then the platform default. See [Configuration](configuration.md).
 
@@ -63,9 +64,9 @@ Important flags are:
 
 An existing configuration is not overwritten without `--force`. Forced initialization replaces the managed configuration but preserves an existing valid `paths.workspace` when `--workspace` is omitted. Supplying `--workspace` replaces it. An invalid value that cannot be preserved stops the command before rewrite.
 
-After local configuration, exact-schema setup, and Starter Workflow bootstrap succeed, guided first-run initialization continues directly into the provider chooser when no provider is configured. Choose `cancel` there to keep initialization complete and defer provider configuration. Rerunning initialization with an already configured provider verifies local state without reopening provider setup. Noninteractive and JSON initialization remain prompt-free.
+After local configuration, exact-schema setup, and Starter Workflow bootstrap succeed, guided first-run initialization continues into the Task-provider chooser when no provider is configured. Choose `cancel` there to keep initialization complete and defer provider configuration. It then offers Codex, Claude, or **Not now** for Operator when no Operator is selected. Rerunning initialization preserves existing provider and Operator selections. Noninteractive and JSON initialization remain prompt-free and never configure either lane.
 
-## Provider setup
+## Settings and Task-provider setup
 
 Supported provider names are `codex`, `claude`, and `openclaw`.
 
@@ -79,15 +80,38 @@ banksia providers check codex
 banksia providers set-default codex
 ```
 
-`setup` is guided only when both terminal streams are interactive and neither `--non-interactive` nor `--json` is present. Noninteractive setup needs `--provider`; the provider-specific route flags are `--model`, `--effort`, `--cli-path`, `--gateway-url`, `--gateway-profile`, and `--gateway-auth-mode`.
+Interactive `setup` is a rerunnable hub for **Task providers**, **Operator**, and **Default workspace**. It is guided only when both terminal streams are interactive and neither `--non-interactive` nor `--json` is present.
 
-Run `banksia setup` directly to resume deferred provider setup, change the primary provider, verify authentication, or add another provider.
+Noninteractive `setup` configures one Task provider and therefore needs `--provider`. Its provider-specific route flags are `--model`, `--effort`, `--cli-path`, `--gateway-url`, `--gateway-profile`, and `--gateway-auth-mode`. Use the focused Operator commands for noninteractive Operator configuration.
 
 `providers configure` enables the named provider and fills `runtime.default_provider` only when no default exists. It never silently replaces another default. Use `providers set-default` for that explicit change.
 
 Codex and Claude login methods are `subscription` and `api-key`. OpenClaw methods are `token` and `password`. A secret can be read without echo in a terminal or from standard input with `--secret-stdin`; do not put it on the command line. Subscription login requires a terminal.
 
-An explicitly selected unavailable provider never falls back to another provider. `providers check` is the active route/readiness command; `providers status` remains passive.
+An explicitly selected unavailable provider never falls back to another provider. `providers check` is the active route/readiness diagnostic; `providers status` remains passive. A failed check returns exit `1` but does not disable, rewrite, or replace the saved route.
+
+## Operator setup
+
+Operator is a separate control-plane agent and may use Codex or Claude:
+
+```bash
+banksia operator setup
+banksia operator status
+banksia operator disable
+```
+
+Interactive `operator setup` can configure a missing managed route, asks whether to add optional Operator-specific model or effort values, saves the selection, and runs the existing provider diagnostic. A diagnostic failure may make the command exit `1`; the accepted Operator selection remains saved.
+
+Automation must provide the provider:
+
+```bash
+banksia operator setup \
+  --provider codex \
+  --non-interactive \
+  --json
+```
+
+Noninteractive setup saves configuration without contacting the provider. `operator status` is passive and reports persisted and effective values, environment overrides, route configuration, and the next diagnostic. `operator disable` removes only the persisted Operator selection; it neither disables the provider nor changes `runtime.default_provider`. An effective `BANKSIA_OPERATOR__*` override remains until the environment is corrected.
 
 ## Workflow import
 
@@ -176,7 +200,7 @@ Run the foreground loopback application with:
 banksia serve
 ```
 
-The Linux user-service surface is:
+The per-user background-service surface is:
 
 ```bash
 banksia service render
@@ -185,10 +209,26 @@ banksia service start
 banksia service status
 banksia service restart
 banksia service stop
+banksia service logs --lines 200
 banksia service uninstall
 ```
 
-`render`, `install`, and `uninstall` accept service/configuration flags shown by their help. Start, stop, restart, and status accept `--name` and `--json`. `banksia serve` is the portable foreground path.
+Banksia selects one native current-user manager:
+
+| Host | Background service |
+| --- | --- |
+| Linux | systemd user service |
+| macOS | current-user LaunchAgent |
+
+Native Windows controller/runtime support is deferred. WSL2 uses the Linux lane.
+
+`service install` verifies the selected configuration and exact database schema, creates the private sibling `banksia.env` when needed, atomically reconciles the fixed native definition, enables startup, and starts it unless `--no-start` is supplied. Re-running install reconciles an outdated definition.
+
+`render`, `install`, `start`, `stop`, `restart`, `status`, and `uninstall` accept the normal `--config PATH` where applicable. Lifecycle and status commands offer `--json`; there is no user-authored service name, unit directory, or port override. Change the API port through initialization or configuration, then rerun `service install`.
+
+`service status` combines native definition/startup state with bounded controller health and readiness. `service logs` reads the portable bounded controller log; `--follow` cannot be combined with `--json`. `service uninstall` removes the native definition but preserves controller configuration, database/data, and provider credentials.
+
+`banksia serve` remains the portable foreground path. A native service implementation on a host does not by itself establish full platform readiness; supported-platform claims require the installed-wheel filesystem, private-path, Command Run, reset, and lifecycle gates.
 
 ## Database commands
 

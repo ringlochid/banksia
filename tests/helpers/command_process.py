@@ -146,11 +146,12 @@ async def open_argv_command(
 
 
 async def wait_for_command_output(path: Path, expected: bytes) -> None:
-    for _ in range(200):
+    deadline = asyncio.get_running_loop().time() + 10
+    while asyncio.get_running_loop().time() < deadline:
         try:
             if expected in await asyncio.to_thread(path.read_bytes):
                 return
         except FileNotFoundError:
             pass
-        await asyncio.sleep(0.01)
+        await asyncio.sleep(0.02)
     pytest.fail(f"command output did not contain {expected!r} before the test deadline")

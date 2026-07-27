@@ -111,7 +111,7 @@ class ConfiguredOperatorTurnRunner:
     async def _activate_selected_provider(self) -> OperatorTurnRunner:
         provider = self._settings.operator.provider
         if provider is None:
-            return _unconfigured_runner(self._settings)
+            return _unconfigured_runner()
         overlength_fields = _overlength_provider_options(self._settings)
         if overlength_fields:
             label = " and ".join(overlength_fields)
@@ -256,7 +256,7 @@ async def _read_codex_authentication() -> _AuthenticationReadiness:
 def _initial_runner(settings: Settings) -> OperatorTurnRunner:
     provider = settings.operator.provider
     if provider is None:
-        return _unconfigured_runner(settings)
+        return _unconfigured_runner()
     if not _selected_provider_is_enabled(settings):
         return _unavailable_runner(
             settings,
@@ -272,18 +272,13 @@ def _initial_runner(settings: Settings) -> OperatorTurnRunner:
     )
 
 
-def _unconfigured_runner(settings: Settings) -> OperatorTurnRunner:
+def _unconfigured_runner() -> OperatorTurnRunner:
     return UnavailableOperatorTurnRunner(
         OperatorRunnerStatus(
             availability="unconfigured",
             configured_provider=None,
             explanation="Operator is not configured with a provider.",
-            setup_action=(
-                f'Add `[operator]` with `provider = "claude"` or `provider = "codex"` '
-                f"to `{settings.config_path}`; run `banksia providers configure <provider>` "
-                "and `banksia providers check <provider>` for that provider "
-                "(`banksia providers login <provider>` if prompted), then restart Banksia."
-            ),
+            setup_action="Run `banksia operator setup`, then restart Banksia.",
         )
     )
 

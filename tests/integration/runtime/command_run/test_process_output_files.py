@@ -12,6 +12,7 @@ import banksia.runtime.command_run.process_owner as process_owner_module
 import banksia.runtime.command_run.process_resources as process_resources_module
 from banksia.persistence.models import CommandRunModel
 from banksia.runtime.command_run import read_command_run_log
+from banksia.runtime.command_run.owned_process import ManagedCommandProcess
 from banksia.runtime.command_run.task_paths import StableCommandWorkingDirectory
 from banksia.runtime.command_run.transitions import CommandRunLaunchClaim
 from tests.helpers.command_process import (
@@ -51,7 +52,7 @@ async def test_process_owner_launches_in_admitted_directory_after_path_substitut
         *,
         working_directory: StableCommandWorkingDirectory,
         environment: dict[str, str],
-    ) -> asyncio.subprocess.Process:
+    ) -> ManagedCommandProcess:
         moved = workspace / "admitted-after-check"
         admitted.rename(moved)
         admitted.symlink_to(outside, target_is_directory=True)

@@ -103,7 +103,7 @@ class UnavailableOperatorTurnRunner:
             availability="unconfigured",
             configured_provider=None,
             explanation="Operator is not configured with a provider.",
-            setup_action="Configure Operator provider settings, then restart Banksia.",
+            setup_action="Run `banksia operator setup`, then restart Banksia.",
         )
 
     @property

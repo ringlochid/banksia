@@ -6,7 +6,7 @@ import json
 from dataclasses import dataclass
 from importlib import metadata
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 from xml.etree import ElementTree
 
 from pydantic import BaseModel, ConfigDict
@@ -47,7 +47,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 class EvaluationResponse(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    decision: str
+    choice: str
     stop_now: bool
     rationale: str
 
@@ -63,6 +63,24 @@ class ProviderObservation:
 class PreparedScenario:
     scenario: scenario_catalog.EvaluationScenario
     request: RenderedDispatchRequest
+
+
+def output_schema(
+    scenario: scenario_catalog.EvaluationScenario,
+) -> dict[str, Any]:
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "choice": {"type": "string", "enum": list(scenario.choices)},
+            "stop_now": {
+                "type": "boolean",
+                "description": scenario_catalog.STOP_NOW_RUBRIC,
+            },
+            "rationale": {"type": "string", "minLength": 1, "maxLength": 1_000},
+        },
+        "required": ["choice", "stop_now", "rationale"],
+    }
 
 
 def render_scenario_request(
@@ -147,7 +165,7 @@ def score_response(
     response: EvaluationResponse,
 ) -> dict[str, object]:
     dimensions = {
-        "decision": response.decision in scenario.accepted_decisions,
+        "choice": response.choice in scenario.accepted_choices,
         "stop": response.stop_now is scenario.expected_stop,
     }
     score = sum(dimensions.values())
@@ -157,7 +175,7 @@ def score_response(
         "passed": score == len(dimensions),
         "dimensions": dimensions,
         "expected": {
-            "accepted_decisions": sorted(scenario.accepted_decisions),
+            "accepted_choices": sorted(scenario.accepted_choices),
             "stop_now": scenario.expected_stop,
         },
     }
@@ -261,7 +279,7 @@ async def run_codex_scenarios(
             turn = await thread.turn(
                 item.request.input_text,
                 effort=resolved_effort,
-                output_schema=scenario_catalog.OUTPUT_SCHEMA,
+                output_schema=output_schema(item.scenario),
             )
             result = await turn.run()
             observations.append(
@@ -315,7 +333,7 @@ async def run_claude_scenarios(
             effort=cast(EffortLevel, effort),
             output_format={
                 "type": "json_schema",
-                "schema": scenario_catalog.OUTPUT_SCHEMA,
+                "schema": output_schema(item.scenario),
             },
             env=provider_subprocess_environment_overrides(
                 allowed_keys=frozenset({ANTHROPIC_API_KEY})
@@ -463,8 +481,8 @@ def _evaluation_metadata(args: argparse.Namespace) -> dict[str, object]:
                 "planner"
             ),
             "scoring": (
-                "exact structured good-or-bad decision and stop flag; rationale retained "
-                "for human audit without substring scoring"
+                "scenario-local action choice and stop flag; rationale retained for human "
+                "audit without wording or substring scoring"
             ),
         },
         "versions": provider_versions(args.provider),

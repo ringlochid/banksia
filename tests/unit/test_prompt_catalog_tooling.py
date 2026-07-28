@@ -68,3 +68,28 @@ def test_prompt_behavior_evaluation_uses_packaged_starter_teams(
             for member in team.direct_team
             if member.instruction is not None
         )
+
+
+def test_prompt_behavior_evaluation_uses_scenario_local_action_choices() -> None:
+    ensure_repo_root_on_path()
+    from scripts.docs.prompt_catalog.behavior_scenarios import evaluation_scenarios
+    from scripts.docs.prompt_catalog.evaluation import (
+        EvaluationResponse,
+        output_schema,
+        score_response,
+    )
+
+    for scenario in evaluation_scenarios():
+        schema = output_schema(scenario)
+        properties = schema["properties"]
+
+        assert isinstance(properties, dict)
+        assert properties["choice"]["enum"] == list(scenario.choices)
+        assert 2 <= len(scenario.choices) <= 3
+
+        response = EvaluationResponse(
+            choice=next(iter(scenario.accepted_choices)),
+            stop_now=scenario.expected_stop,
+            rationale="Any non-empty explanation remains audit evidence, not a scored phrase.",
+        )
+        assert score_response(scenario, response)["passed"] is True

@@ -15,6 +15,7 @@ Examples of system-prompt teaching:
 - how a Manager adds value, chooses sequence/parallel/iteration/batch/hybrid, and handles a Wave return;
 - when to record a working note, create a reviewable artifact, or reference a useful loose file;
 - when to use Human Request or Command Run and what happens after either opens a durable wait;
+- how to renew the Dispatch activity lease during extended provider-native work without inventing progress;
 - how to write a teammate-facing Checkpoint and the Task lead's human Result;
 - required child participation and remove-children-before-direct-work; and
 - controller authority, currentness, legal actions, and stop-after-transfer.
@@ -153,10 +154,19 @@ process state, provider success, and filesystem presence are not controller
 truth and cannot complete an Assignment.
 
 The Dispatch input is complete start-time context. Use get_current_context
-only when recovery, uncertain currentness, or an explicit controller result
-makes a fresh snapshot useful. It is not a mandatory opening ritual and does
-not reserve authority. Every controller mutation validates the current
-Dispatch again.
+only when recovery, uncertain currentness, an explicit controller result, or
+quiet activity renewal during extended native work makes a fresh snapshot
+useful. It is not a mandatory opening ritual and does not reserve authority.
+Every controller mutation validates the current Dispatch again.
+
+The standard Dispatch activity lease is fifteen minutes between Banksia tool
+calls; an installation may configure another limit. Provider-native research,
+implementation, and verification do not renew it. During extended native work,
+check in after meaningful chunks and, under the standard lease, before roughly
+ten minutes pass without a Banksia call. Prefer set_work_plan when progress or
+the intended approach changed, a nonterminal checkpoint when durable
+teammate-facing progress exists, or get_current_context when only quiet renewal
+is needed. Never invent plan changes or empty Checkpoints as heartbeats.
 
 Use only controller actions exposed for this Dispatch. Tool definitions own
 their exact inputs and validation. When an action successfully closes,
@@ -306,12 +316,14 @@ transfer this accountability.
 
 The accepted terminal `green` or `blocked` Checkpoint for your Task-level
 Assignment is the user's exact Result. A `retry` Checkpoint is terminal only
-for its current Attempt and never becomes a user Result. Write the Result for
-the person who commissioned the Task: answer their request directly, explain
-the material outcome, include important evidence and remaining uncertainty,
-and link useful files by path. Avoid internal Dispatch, Attempt, Wave, Boundary,
-revision, or provider-routing details unless one is genuinely necessary for the
-user to act.
+for its current Attempt and never becomes a user Result. When finishing with
+`green` or `blocked`, keep `summary` concise and put the complete user-facing
+Result in `details` as clear Markdown. That Markdown must stand alone as the
+final response for the person who commissioned the Task: answer their request
+directly, explain the material outcome, include important evidence and
+remaining uncertainty, and link useful files by path. Avoid internal Dispatch,
+Attempt, Wave, Boundary, revision, or provider-routing details unless one is
+genuinely necessary for the user to act.
 
 Do not forward a child Checkpoint as the Task Result and do not depend on a
 second model summary after completion. If blocked, state the blocker and the
@@ -685,6 +697,8 @@ Do not create a Manager-obligation record, prose-similarity classifier, mandator
 
 Golden rendering tests are necessary but not sufficient. Run scored behavior scenarios across supported provider/model settings.
 
+Each scenario exposes only two or three mutually exclusive action choices. Score the selected action and concrete stop-after-transfer state; retain the free-form rationale for human audit without exact-phrase or substring scoring. Do not use one shared action vocabulary when neighboring labels could describe the same defensible behavior.
+
 1. **Single-child relay trap:** forwarding Assignment A unchanged and returning Checkpoint C unchanged fails. Removing an irrelevant child or assigning a genuinely distinct contribution with retained parent judgment passes.
 2. **Child says only done:** accepting and paraphrasing fails; inspecting workspace or referenced-file evidence, verifying, or asking for a better scoped contribution passes.
 3. **Contradictory reviews:** concatenating both summaries fails; identifying disagreement, checking evidence, and deciding its consequence passes.
@@ -704,7 +718,8 @@ Golden rendering tests are necessary but not sufficient. Run scored behavior sce
 17. **Wait closure:** continuing or polling after Human Request, Command Run, delegate, or terminal Checkpoint succeeds fails; immediate stop passes.
 18. **Capability conditioning:** denied capabilities produce no tool, action teaching, or advertised action; a narrowed grant renders only the effective kinds.
 19. **Terminal retry scope:** treating retry as progress or a completed Assignment fails; closing the current Attempt, preserving the exact Assignment, and awaiting the controller-created replacement passes.
-20. **Exact root Result:** a relayed child summary or second provider answer fails; one human-facing accepted Checkpoint from the Task lead passes.
+20. **Exact root Result:** a relayed child summary, summary-only terminal Checkpoint, or second provider answer fails; one accepted Task-lead Checkpoint with a concise summary and the complete standalone human Result as Markdown in `details` passes.
+21. **Long native work:** remaining silent through the activity lease or fabricating plan/Checkpoint progress fails; a meaningful Work Plan update, a useful nonterminal Checkpoint, or quiet `get_current_context` renewal with safety margin passes.
 
 Rendering tests also cover initial Contributor, initial Manager, Task lead, Wave return, Human Request return, Command Run return, retry, recovery, Unicode, multiline Markdown, code fences, injection-shaped closing tags, illegal XML characters, stable ordering, conditional omission, byte-identical restart, and exactly one behavior block.
 

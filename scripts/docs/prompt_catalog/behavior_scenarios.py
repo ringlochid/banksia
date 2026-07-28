@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 from banksia.runtime.contracts.primitives import CheckpointOutcome
 from banksia.runtime.contracts.prompt import (
@@ -14,90 +13,13 @@ from banksia.runtime.contracts.prompt import (
 )
 from banksia.runtime.contracts.refs import FileReference
 from banksia.runtime.contracts.team_read import MemberParticipation
-
-BEHAVIOR_STORIES = (
-    "review-and-rework",
-    "debug-before-repair",
-    "unsettled-contract",
-    "item-specific-batch",
-    "lead-synthesis",
-    "evidence-based-decision",
-    "failed-replication",
+from scripts.docs.prompt_catalog.behavior_contract import (
+    BEHAVIOR_STORIES,
+    BEHAVIOR_STORY_BINDINGS,
+    REQUIRED_SCENARIO_IDS,
+    SCENARIO_CHOICES,
+    STOP_NOW_RUBRIC,
 )
-BEHAVIOR_STORY_BINDINGS = tuple(
-    zip(
-        BEHAVIOR_STORIES,
-        (
-            "production-feature-delivery",
-            "incident-investigation-and-recovery",
-            "production-feature-delivery",
-            "migration-and-modernisation",
-            "deep-research-and-decision-brief",
-            "decision-through-competing-prototypes",
-            "experiment-and-replication-program",
-        ),
-        strict=True,
-    )
-)
-REQUIRED_SCENARIO_IDS = (
-    "anti-relay",
-    "child-says-done",
-    "review-and-rework",
-    "debug-before-repair",
-    "sequential-dependency",
-    "unsettled-contract",
-    "item-specific-batch",
-    "lead-synthesis",
-    "evidence-based-decision",
-    "failed-replication",
-    "nested-wave",
-    "stop-after-transfer",
-)
-DECISIONS = (
-    "scope_distinct_child_contribution_or_remove_child",
-    "forward_assignment_and_relay_checkpoint",
-    "inspect_evidence_before_accepting",
-    "accept_child_green_without_inspection",
-    "plan_fresh_feedback_bearing_repair_assignment",
-    "runtime_retry_or_repeat_original_assignment_after_review",
-    "sequence_diagnosis_before_repair",
-    "repair_before_reproduction_or_cause_evidence",
-    "sequence_dependent_work_with_fresh_followup_assignment",
-    "parallelize_dependent_implementation_and_review",
-    "settle_shared_contract_then_parallelize_disjoint_layers",
-    "parallelize_layers_against_an_unsettled_contract",
-    "scope_finite_batch_assignments_and_integrated_verification",
-    "delegate_unbounded_repetitive_batch",
-    "synthesize_evidence_into_one_supported_conclusion",
-    "concatenate_child_summaries",
-    "resolve_disagreement_from_evidence",
-    "choose_by_majority_vote",
-    "bound_claims_after_failed_replication",
-    "report_the_original_claim_despite_failed_replication",
-    "inspect_ordered_direct_returns_after_local_joins",
-    "poll_nested_children_or_act_on_partial_return",
-    "stop_current_response",
-    "continue_work_or_poll_after_transfer",
-)
-STOP_NOW_RUBRIC = (
-    "For this evaluation response, stop_now is true only when the scenario says a controller "
-    "operation already succeeded and closed or suspended this Dispatch before this response. "
-    "The end of this bounded answer is not a transfer, and a proposed future action has not "
-    "transferred authority yet."
-)
-OUTPUT_SCHEMA: dict[str, Any] = {
-    "type": "object",
-    "additionalProperties": False,
-    "properties": {
-        "decision": {"type": "string", "enum": list(DECISIONS)},
-        "stop_now": {
-            "type": "boolean",
-            "description": STOP_NOW_RUBRIC,
-        },
-        "rationale": {"type": "string", "minLength": 1, "maxLength": 1_000},
-    },
-    "required": ["decision", "stop_now", "rationale"],
-}
 
 
 @dataclass(frozen=True, slots=True)
@@ -117,7 +39,8 @@ class EvaluationScenario:
     current_member_id: str
     focus: str
     assignment_prompt: str
-    accepted_decisions: frozenset[str]
+    choices: tuple[str, ...]
+    accepted_choices: frozenset[str]
     expected_stop: bool
     story: str | None = None
     wave_return: DelegationWaveSettledTrigger | None = None
@@ -147,6 +70,7 @@ def evaluation_scenarios() -> tuple[EvaluationScenario, ...]:
         _failed_replication_scenario(),
         _nested_wave_scenario(),
         _stop_after_transfer_scenario(),
+        _long_native_work_scenario(),
     )
 
 
@@ -156,6 +80,8 @@ def validate_scenario_inventory() -> tuple[str, ...]:
     ids = tuple(scenario.id for scenario in scenarios)
     if ids != REQUIRED_SCENARIO_IDS:
         errors.append("prompt behavior scenarios do not match the required exact inventory")
+    if tuple(SCENARIO_CHOICES) != REQUIRED_SCENARIO_IDS:
+        errors.append("prompt behavior choices do not match the required scenario inventory")
     story_bindings = tuple(
         (scenario.story, scenario.workflow_id)
         for scenario in scenarios
@@ -164,10 +90,16 @@ def validate_scenario_inventory() -> tuple[str, ...]:
     if story_bindings != BEHAVIOR_STORY_BINDINGS:
         errors.append("prompt behavior scenarios do not bind the seven canonical stories")
     for scenario in scenarios:
-        if not scenario.accepted_decisions:
-            errors.append(f"{scenario.id}: accepted decisions must not be empty")
-        elif not scenario.accepted_decisions <= set(DECISIONS):
-            errors.append(f"{scenario.id}: accepted decision is absent from the output schema")
+        if scenario.choices != SCENARIO_CHOICES[scenario.id]:
+            errors.append(f"{scenario.id}: choices differ from the scenario contract")
+        if not 2 <= len(scenario.choices) <= 3 or len(set(scenario.choices)) != len(
+            scenario.choices
+        ):
+            errors.append(f"{scenario.id}: choices must contain two or three distinct actions")
+        if not scenario.accepted_choices:
+            errors.append(f"{scenario.id}: accepted choices must not be empty")
+        elif not scenario.accepted_choices <= set(scenario.choices):
+            errors.append(f"{scenario.id}: accepted choice is absent from its scenario choices")
     return tuple(errors)
 
 
@@ -184,7 +116,8 @@ def _anti_relay_scenario() -> EvaluationScenario:
             "accountable Manager action. Do not call tools or modify files; return only the "
             "caller's structured response."
         ),
-        accepted_decisions=frozenset({"scope_distinct_child_contribution_or_remove_child"}),
+        choices=SCENARIO_CHOICES["anti-relay"],
+        accepted_choices=frozenset({"scope_distinct_contribution"}),
         expected_stop=False,
     )
 
@@ -213,7 +146,8 @@ def _child_says_done_scenario() -> EvaluationScenario:
             )
         ),
         participation=MemberParticipation.SATISFIED,
-        accepted_decisions=frozenset({"inspect_evidence_before_accepting"}),
+        choices=SCENARIO_CHOICES["child-says-done"],
+        accepted_choices=frozenset({"inspect_evidence_before_accepting"}),
         expected_stop=False,
     )
 
@@ -249,7 +183,8 @@ def _review_rework_scenario() -> EvaluationScenario:
             )
         ),
         participation=MemberParticipation.SATISFIED,
-        accepted_decisions=frozenset({"plan_fresh_feedback_bearing_repair_assignment"}),
+        choices=SCENARIO_CHOICES["review-and-rework"],
+        accepted_choices=frozenset({"assign_feedback_bearing_repair"}),
         expected_stop=False,
     )
 
@@ -267,7 +202,8 @@ def _debug_before_repair_scenario() -> EvaluationScenario:
             "function immediately. Choose the accountable next work shape. Do not call tools "
             "or modify files; return only the caller's structured response."
         ),
-        accepted_decisions=frozenset({"sequence_diagnosis_before_repair"}),
+        choices=SCENARIO_CHOICES["debug-before-repair"],
+        accepted_choices=frozenset({"diagnose_before_repair"}),
         expected_stop=False,
     )
 
@@ -287,7 +223,8 @@ def _sequential_dependency_scenario() -> EvaluationScenario:
             "that exact return. Do not call tools or modify files; return only the caller's "
             "structured response."
         ),
-        accepted_decisions=frozenset({"sequence_dependent_work_with_fresh_followup_assignment"}),
+        choices=SCENARIO_CHOICES["sequential-dependency"],
+        accepted_choices=frozenset({"sequence_implementation_then_review"}),
         expected_stop=False,
     )
 
@@ -307,7 +244,8 @@ def _unsettled_contract_scenario() -> EvaluationScenario:
             "the independent layer work before integration. Do not call tools or modify files; "
             "return only the caller's structured response."
         ),
-        accepted_decisions=frozenset({"settle_shared_contract_then_parallelize_disjoint_layers"}),
+        choices=SCENARIO_CHOICES["unsettled-contract"],
+        accepted_choices=frozenset({"settle_contract_then_parallelize"}),
         expected_stop=False,
     )
 
@@ -326,9 +264,8 @@ def _item_specific_batch_scenario() -> EvaluationScenario:
             "nobody notices more work. Do not call tools or modify files; return only the "
             "caller's structured response."
         ),
-        accepted_decisions=frozenset(
-            {"scope_finite_batch_assignments_and_integrated_verification"}
-        ),
+        choices=SCENARIO_CHOICES["item-specific-batch"],
+        accepted_choices=frozenset({"finite_item_assignments_with_integrated_verification"}),
         expected_stop=False,
     )
 
@@ -381,7 +318,8 @@ def _lead_synthesis_scenario() -> EvaluationScenario:
             ),
         ),
         participation=MemberParticipation.SATISFIED,
-        accepted_decisions=frozenset({"synthesize_evidence_into_one_supported_conclusion"}),
+        choices=SCENARIO_CHOICES["lead-synthesis"],
+        accepted_choices=frozenset({"reconcile_evidence_into_supported_conclusion"}),
         expected_stop=False,
     )
 
@@ -435,7 +373,8 @@ def _evidence_decision_scenario() -> EvaluationScenario:
             ),
         ),
         participation=MemberParticipation.SATISFIED,
-        accepted_decisions=frozenset({"resolve_disagreement_from_evidence"}),
+        choices=SCENARIO_CHOICES["evidence-based-decision"],
+        accepted_choices=frozenset({"weigh_evidence_against_constraints"}),
         expected_stop=False,
     )
 
@@ -490,7 +429,8 @@ def _failed_replication_scenario() -> EvaluationScenario:
             ),
         ),
         participation=MemberParticipation.SATISFIED,
-        accepted_decisions=frozenset({"bound_claims_after_failed_replication"}),
+        choices=SCENARIO_CHOICES["failed-replication"],
+        accepted_choices=frozenset({"bound_claim_to_replicated_evidence"}),
         expected_stop=False,
     )
 
@@ -545,7 +485,8 @@ def _nested_wave_scenario() -> EvaluationScenario:
             ),
         ),
         participation=MemberParticipation.SATISFIED,
-        accepted_decisions=frozenset({"inspect_ordered_direct_returns_after_local_joins"}),
+        choices=SCENARIO_CHOICES["nested-wave"],
+        accepted_choices=frozenset({"inspect_complete_direct_returns"}),
         expected_stop=False,
     )
 
@@ -562,7 +503,8 @@ def _stop_after_transfer_scenario() -> EvaluationScenario:
             "must do now. Do not call tools or modify files; return only the caller's structured "
             "response."
         ),
-        accepted_decisions=frozenset({"stop_current_response"}),
+        choices=SCENARIO_CHOICES["stop-after-transfer"],
+        accepted_choices=frozenset({"stop_current_response"}),
         expected_stop=True,
         available_actions=(
             "get_current_context",
@@ -570,6 +512,29 @@ def _stop_after_transfer_scenario() -> EvaluationScenario:
             "checkpoint",
             "delegate",
         ),
+    )
+
+
+def _long_native_work_scenario() -> EvaluationScenario:
+    return EvaluationScenario(
+        id="long-native-work",
+        workflow_id="deep-research-and-decision-brief",
+        current_member_id="research-lead",
+        focus=(
+            "Extended provider-native work renews the Dispatch activity lease without "
+            "inventing semantic progress."
+        ),
+        assignment_prompt=(
+            "Your current research Assignment needs another twenty minutes of native source "
+            "inspection. The current Work Plan is still accurate, and there is no durable "
+            "interim result worth a Checkpoint. Nearly ten minutes have passed since the last "
+            "Banksia tool call. Choose how to keep this Dispatch recoverable without "
+            "falsifying plan or Checkpoint content. Do not call tools or modify files; return "
+            "only the caller's structured response."
+        ),
+        choices=SCENARIO_CHOICES["long-native-work"],
+        accepted_choices=frozenset({"renew_with_get_current_context"}),
+        expected_stop=False,
     )
 
 
@@ -613,9 +578,8 @@ def _wave_return(
 __all__ = [
     "BEHAVIOR_STORIES",
     "BEHAVIOR_STORY_BINDINGS",
-    "DECISIONS",
-    "OUTPUT_SCHEMA",
     "REQUIRED_SCENARIO_IDS",
+    "SCENARIO_CHOICES",
     "STOP_NOW_RUBRIC",
     "EvaluationScenario",
     "evaluation_scenarios",

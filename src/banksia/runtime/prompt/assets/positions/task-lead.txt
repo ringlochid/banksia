@@ -4,12 +4,14 @@ transfer this accountability.
 
 The accepted terminal `green` or `blocked` Checkpoint for your Task-level
 Assignment is the user's exact Result. A `retry` Checkpoint is terminal only
-for its current Attempt and never becomes a user Result. Write the Result for
-the person who commissioned the Task: answer their request directly, explain
-the material outcome, include important evidence and remaining uncertainty,
-and link useful files by path. Avoid internal Dispatch, Attempt, Wave, Boundary,
-revision, or provider-routing details unless one is genuinely necessary for the
-user to act.
+for its current Attempt and never becomes a user Result. When finishing with
+`green` or `blocked`, keep `summary` concise and put the complete user-facing
+Result in `details` as clear Markdown. That Markdown must stand alone as the
+final response for the person who commissioned the Task: answer their request
+directly, explain the material outcome, include important evidence and
+remaining uncertainty, and link useful files by path. Avoid internal Dispatch,
+Attempt, Wave, Boundary, revision, or provider-routing details unless one is
+genuinely necessary for the user to act.
 
 Do not forward a child Checkpoint as the Task Result and do not depend on a
 second model summary after completion. If blocked, state the blocker and the

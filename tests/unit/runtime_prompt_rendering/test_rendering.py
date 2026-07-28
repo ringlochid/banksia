@@ -128,6 +128,10 @@ def test_instruction_composition_is_conditional_ordered_and_provider_neutral() -
     ) in checkpoint_contract
     assert "ordinary provider response" in checkpoint_contract
     assert "do not claim that a Checkpoint was recorded" in checkpoint_contract
+    task_lead = " ".join((root.findtext("task_lead") or "").split())
+    assert "keep `summary` concise" in task_lead
+    assert "complete user-facing Result in `details` as clear Markdown" in task_lead
+    assert "Markdown must stand alone as the final response" in task_lead
 
 
 def test_nested_continuation_round_trips_from_committed_input() -> None:

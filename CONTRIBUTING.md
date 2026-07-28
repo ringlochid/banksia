@@ -16,7 +16,7 @@ Do not treat code shape, tests, ignored research, or generated output as permiss
 
 ## Prepare a source checkout
 
-The project is not yet published to a package registry. A clean contributor setup uses the repository source:
+The PyPI package is the normal user installation. Contributors should work from a clean repository checkout:
 
 ```bash
 git clone https://github.com/ringlochid/banksia.git

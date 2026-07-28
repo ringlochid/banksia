@@ -4,14 +4,13 @@ The Console and Operator are separate ways to act on the same controller-owned p
 
 ## Console
 
-From a prepared source checkout, stage the visual Console and start Banksia:
+After [installing and initializing Banksia](../start/getting-started.md), start the controller:
 
 ```bash
-make console-package-assets
-./.venv/bin/banksia serve
+banksia serve
 ```
 
-Open `http://127.0.0.1:18125/`. The current routes are:
+The installed package includes the Console. Open `http://127.0.0.1:18125/`. The current routes are:
 
 - `/workflows` — search the library, distinguish Starters and drafts, create a Workflow, or remove one after confirmation;
 - `/workflows/{workflow-id}` — inspect, edit, validate, undo, discard, or publish a draft using its current legal actions;

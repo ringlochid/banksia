@@ -23,14 +23,14 @@ Guided `init` and `setup` report a deliberate pre-mutation cancellation and exit
 | `banksia init` | Prepare local controller state, then offer first-run Task-provider and optional Operator setup. |
 | `banksia setup` | Reopen the settings hub for Task providers, Operator, or the default workspace. |
 | `banksia status` | Read passive configuration and local provider status. |
-| `banksia config path|show` | Print the selected configuration path or effective redacted settings. |
-| `banksia providers list|status|configure|login|logout|check|set-default` | Inspect and operate provider routes. |
-| `banksia operator setup|status|disable` | Configure or inspect the separate Operator without changing Task-provider routing. |
-| `banksia workflow import|export` | Import one draft or export a published Workflow revision. |
+| `banksia config` | `path`, `show` — print the selected configuration path or effective redacted settings. |
+| `banksia providers` | `list`, `status`, `configure`, `login`, `logout`, `check`, `set-default` — inspect and operate provider routes. |
+| `banksia operator` | `setup`, `status`, `disable` — configure or inspect the separate Operator without changing Task-provider routing. |
+| `banksia workflow` | `import`, `export` — import one draft or export a published Workflow revision. |
 | `banksia task start` | Start one Task interactively or from strict JSON. |
 | `banksia serve` | Run the loopback application in the foreground. |
-| `banksia service render|install|start|stop|restart|status|logs|uninstall` | Render or operate this host's per-user background service. |
-| `banksia db upgrade|reset` | Create or verify exact storage, or destructively reset it. |
+| `banksia service` | `render`, `install`, `start`, `stop`, `restart`, `status`, `logs`, `uninstall` — render or operate this host's per-user background service. |
+| `banksia db` | `upgrade`, `reset` — create or verify exact storage, or destructively reset it. |
 
 Bare `banksia`, `banksia status`, `banksia providers status`, and `banksia operator status` are passive. They do not initialize or upgrade storage, start a service, contact a provider, repair work, or write configuration.
 
@@ -61,6 +61,8 @@ Important flags are:
 - `--skip-db-upgrade`;
 - `--non-interactive`; and
 - `--force`.
+
+SQLite is the default. PostgreSQL needs the `banksia[postgres]` installation extra and an explicit `--database-url`; see [Database configuration](configuration.md#database).
 
 An existing guided configuration offers `keep`, `reconfigure`, or `cancel`. **Reconfigure** changes local paths, database, server, and logging settings while keeping provider routes, the Task-provider default, and Operator settings; the final summary labels those values as **kept**. It is not a full configuration reset.
 

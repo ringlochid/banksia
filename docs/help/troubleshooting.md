@@ -40,6 +40,32 @@ For an existing configuration, correct `[paths].workspace` or the environment ov
 
 **Report a defect when.** The effective readback differs from documented precedence, a valid existing absolute directory is rejected, or configuration changes after a rejected preflight. Include redacted `config show` output and the exact environment variable names, never their secrets.
 
+## PostgreSQL cannot initialize or connect
+
+**Meaning.** The optional PostgreSQL driver may be absent, the configured `postgresql+asyncpg` URL may be invalid or unreachable, the role may lack permission on the selected database/schema, or a nonempty schema may not match the exact Banksia schema.
+
+**Safe checks.**
+
+```bash
+banksia config show
+banksia status
+banksia --debug db upgrade
+```
+
+Confirm that the redacted URL names the intended host and database and that `postgres_schema` names the intended dedicated schema. Check `BANKSIA_DATABASE_URL` and `BANKSIA_POSTGRES_SCHEMA` for effective overrides.
+
+**Legal action.** If `asyncpg` is missing from a pipx installation, reinstall the application with the supported extra:
+
+```bash
+pipx install --force "banksia[postgres]"
+```
+
+Correct the selected URL or PostgreSQL role permissions explicitly, then rerun `banksia db upgrade`. That command creates an empty selected schema or verifies an exact existing one; it does not migrate or repair a mismatched schema. Use `banksia db reset` only when the configured schema is intentionally disposable or safely backed up.
+
+**Controller truth.** A connection or schema preflight failure does not create a Task. Changing the effective database or schema selects different controller truth; it does not move history from the previous selection.
+
+**Report a defect when.** A role that can connect and create/use objects in an empty dedicated schema cannot initialize, redacted readback exposes credentials, or an exact current schema is reported as mismatched. Include the Banksia version, PostgreSQL version, redacted URL, schema name, and debug error.
+
 ## A provider is unavailable or authentication is missing
 
 **Meaning.** The requested provider route is disabled, unconfigured, unauthenticated, unavailable, or incompatible with the explicit model, effort, or sandbox request. Banksia does not silently fall back.

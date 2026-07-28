@@ -49,9 +49,70 @@ For an initialized controller, rerun `banksia setup` and choose **Default worksp
 
 `BANKSIA_CONTROLLER_WORKSPACE` overrides the TOML value. CLI `banksia task start` deliberately uses its own invocation directory when the request omits `workspace`; it does not use this controller default.
 
+## Database
+
+Banksia supports SQLite and PostgreSQL through the same controller contract. Choose one database for a controller and keep that selection stable: Banksia verifies an exact schema and does not migrate records between database backends.
+
+### SQLite
+
+SQLite is the default for `banksia init`. It requires no external service and stores controller data beneath the platform data directory:
+
+```toml
+[database]
+url = "sqlite+aiosqlite:////home/me/.local/share/banksia/banksia.persistence"
+echo = false
+```
+
+This is the simplest choice for a local, single-process Banksia installation.
+
+### PostgreSQL
+
+Install Banksia with its PostgreSQL driver:
+
+```bash
+pipx install "banksia[postgres]"
+```
+
+If the base package is already installed:
+
+```bash
+pipx install --force "banksia[postgres]"
+```
+
+Then select PostgreSQL during initialization:
+
+```bash
+banksia init \
+  --database-url "postgresql+asyncpg://banksia@127.0.0.1/banksia"
+```
+
+The URL must use SQLAlchemy's `postgresql+asyncpg` driver. Substitute the host, port, database, role, and credentials required by your PostgreSQL service. Percent-encode reserved characters in credentials and avoid leaving a password in shell history.
+
+Banksia uses a dedicated schema named `banksia` by default. The database role must be able to connect to the selected database and create or use objects in that schema. On first initialization, Banksia creates a missing dedicated schema and creates tables only when that schema is empty. A nonempty schema must match the shipped schema exactly.
+
+```toml
+[database]
+url = "postgresql+asyncpg://banksia@127.0.0.1/banksia"
+postgres_schema = "banksia"
+echo = false
+```
+
+`postgres_schema` must be a dedicated lowercase PostgreSQL identifier, not `public`, `information_schema`, or an identifier beginning with `pg_`. Do not change it casually after initialization: another name selects another schema rather than migrating controller data.
+
+Use passive readback to confirm the selected backend. Passwords in database URLs are redacted:
+
+```bash
+banksia config show
+banksia status
+```
+
+`BANKSIA_DATABASE_URL` and `BANKSIA_POSTGRES_SCHEMA` can override the file configuration for a process. Keep those values stable for a background service; an environment override changes the effective controller database without rewriting the TOML file.
+
+`banksia db upgrade` creates an empty selected schema or verifies an existing exact schema. It is not a migration or repair command. `banksia db reset` is destructive: for PostgreSQL it replaces the configured dedicated schema and removes its controller history. See [Troubleshooting](../help/troubleshooting.md#you-are-considering-database-reset) before using reset.
+
 ## TOML sections and fields
 
-### Paths, database, server, and logging
+### Core controller settings
 
 ```toml
 [paths]
@@ -83,8 +144,6 @@ level = "WARNING"
 | `database` | `url`, `postgres_schema`, `echo` |
 | `server` | `host`, `port`, `console_origins` |
 | `logging` | `level` |
-
-`postgres_schema` must be a dedicated lowercase PostgreSQL identifier, not `public`, `information_schema`, or an identifier beginning with `pg_`.
 
 The server host is loopback-only: `127.0.0.1`, `::1`, another loopback IP, or `localhost`. Console origins must be absolute loopback HTTP or HTTPS origins without credentials, paths, queries, or fragments.
 

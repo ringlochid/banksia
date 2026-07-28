@@ -1,59 +1,98 @@
 # Getting started
 
-This path prepares Banksia from source, configures one provider, and takes a developer from a packaged Starter to an exact Result. A concise researcher path follows.
+Install Banksia, configure an AI provider, and complete a first developer or researcher run.
 
-## 1. Prepare a clean source checkout
+## Before you start
 
-Banksia is not yet published to a package registry. The current first-use path requires:
+You need:
 
 - Python 3.12 or newer;
-- Make;
-- Node.js 20.19 or newer within Node 20, 22.13 or newer within Node 22, or Node 24 or newer; and
-- npm.
+- Linux or macOS; WSL2 uses the Linux path;
+- an existing project or research directory for the team's workspace; and
+- a Codex, Claude, or user-operated OpenClaw account and authentication path.
 
-Clone the repository and prepare both the backend environment and the visual Console:
+Native Windows is not currently supported.
 
-```bash
-git clone https://github.com/ringlochid/banksia.git
-cd banksia
-make backend-install
-make console-install
-make console-package-assets
-```
+## Install Banksia
 
-`make backend-install` creates `.venv` and installs the project with its development dependencies. The source tree does not contain a prebuilt Console bundle, so `make console-package-assets` builds `console/` and stages the ignored assets that `banksia serve` needs for browser routes. Run the asset command again after changing the Console.
-
-The commands below target Linux and macOS. Native Windows is not currently supported; WSL2 uses the Linux installation and filesystem path. Source-development Make targets are not a substitute for native installed-wheel release proof.
-
-## 2. Initialize the workspace
-
-Stay in the Banksia checkout. To use that checkout as the first workspace, run:
+Use [pipx](https://pipx.pypa.io/stable/) to install the command-line application in its own environment:
 
 ```bash
-./.venv/bin/banksia init
+pipx install banksia
+banksia --version
 ```
 
-Accept the checkout as the default workspace or enter another existing absolute directory. The initializer writes local configuration, prepares controller storage, and publishes the eight provider-neutral Starter Workflows.
+If `pipx` is not installed, follow its [platform installation guide](https://pipx.pypa.io/stable/how-to/install-pipx.html). Contributors who need a source checkout should use the [contributing guide](../../CONTRIBUTING.md) instead.
 
-When local initialization succeeds, the same guided journey asks for one Task provider. Choose Codex, Claude, or OpenClaw, then follow the authentication and readiness prompts. Choose `cancel` to keep local initialization complete and defer provider setup.
+### Optional: install with PostgreSQL
 
-The final prompt offers Codex, Claude, or **Not now** for the separate Operator. Selecting a managed provider that is not configured first offers to configure it. Provider checks are diagnostics: a failed check reports **Needs attention** and may make the command exit nonzero, but it does not erase or disable an accepted provider or Operator selection.
-
-To configure another project explicitly without prompts:
+SQLite is the default and needs no database server. Choose PostgreSQL before initialization when you want Banksia controller data in an existing PostgreSQL service:
 
 ```bash
-./.venv/bin/banksia init --workspace /absolute/path/to/project --non-interactive
+pipx install "banksia[postgres]"
 ```
 
-## 3. Resume or change settings
-
-`banksia setup` is the rerunnable settings hub:
+If the base package is already installed, replace that application environment with the PostgreSQL-enabled package:
 
 ```bash
-./.venv/bin/banksia setup
+pipx install --force "banksia[postgres]"
 ```
 
-Use it to configure Task providers, the separate Operator, or the default workspace. Codex and Claude are managed adapters. OpenClaw is a user-operated compatibility transport, so you remain responsible for its CLI, Gateway, profile, authentication, and workspace exposure.
+The PostgreSQL role must be able to connect to the selected database and create or use Banksia's dedicated schema. The [database configuration reference](../reference/configuration.md#database) contains the complete contract.
+
+## Initialize Banksia
+
+Change to the directory you want to use as the default workspace, then run:
+
+```bash
+cd /absolute/path/to/project
+banksia init
+```
+
+Guided initialization:
+
+1. confirms the default workspace and local controller settings;
+2. creates the SQLite database and publishes the Starter Workflows;
+3. configures at least one Task provider; and
+4. optionally configures the separate Operator.
+
+Choose Codex, Claude, or OpenClaw for Task work, then follow its authentication and readiness prompts. Choose **Not now** for Operator if you only want direct Console and CLI control.
+
+To initialize PostgreSQL instead of SQLite, pass the database URL explicitly:
+
+```bash
+banksia init \
+  --database-url "postgresql+asyncpg://banksia@127.0.0.1/banksia"
+```
+
+Use the URL required by your PostgreSQL service. Percent-encode reserved characters in credentials, avoid leaving passwords in shell history, and use `banksia config show` for redacted readback. Initialization creates a missing dedicated `banksia` schema and initializes it only when that schema has no tables and the role has permission.
+
+For an unattended SQLite setup:
+
+```bash
+banksia init \
+  --workspace /absolute/path/to/project \
+  --non-interactive
+```
+
+## Check providers and settings
+
+Rerun the settings journey at any time:
+
+```bash
+banksia setup
+```
+
+Use it to add or change Task providers, choose a different Operator, or update the default workspace. Check the effective configuration without changing it:
+
+```bash
+banksia config show
+banksia providers status
+banksia operator status
+banksia status
+```
+
+Codex and Claude are managed adapters. OpenClaw is a compatibility transport whose CLI, Gateway, profile, authentication, and workspace exposure remain user-operated.
 
 On Linux or WSL2, install `bubblewrap` and `socat` before using a Claude Member whose effective network setting is `deny`. On Ubuntu or Debian:
 
@@ -61,85 +100,84 @@ On Linux or WSL2, install `bubblewrap` and `socat` before using a Claude Member 
 sudo apt-get install bubblewrap socat
 ```
 
-These are host prerequisites for Claude Code's deny-network sandbox, not general Banksia dependencies. Banksia does not request that sandbox for a Claude route with network access allowed. See the [configuration reference](../reference/configuration.md#managed-sandbox-and-network) and [Claude Code sandboxing guide](https://code.claude.com/docs/en/sandboxing) for platform details.
+These packages are Claude Code sandbox prerequisites, not general Banksia dependencies. See [Managed sandbox and network](../reference/configuration.md#managed-sandbox-and-network) and [Claude Code sandboxing](https://code.claude.com/docs/en/sandboxing).
 
-Confirm current configuration without changing it:
+## Open the Console
 
-```bash
-./.venv/bin/banksia providers status
-./.venv/bin/banksia operator status
-./.venv/bin/banksia status
-```
-
-## 4. Start Banksia
-
-Run:
+Start the controller in the foreground:
 
 ```bash
-./.venv/bin/banksia serve
+banksia serve
 ```
 
-Open `http://127.0.0.1:18125/`. The current product surface is loopback-only.
+Open `http://127.0.0.1:18125/`.
 
-To install the same controller as the current user's background service instead, run:
+The Console has three main working areas:
+
+- **Workflows** is the team library. Open a Starter or draft, add and edit Members on the visual responsibility tree, validate the current draft, and publish when it is ready.
+- **Runs** starts work and shows each live or completed team, meaningful Activity, Human Requests, managed Actions, referenced files, and the exact Result.
+- **Operator** is a separate conversational agent for the same product operations. It can help draft or revise a Workflow, find and start a suitable team, inspect current work, and perform an explicitly requested legal action.
+
+Operator and the visual screens use the same controller-owned Workflow and Run truth. A conversational edit does not create a separate copy of the team.
+
+To run Banksia as the current user's background service instead:
 
 ```bash
-./.venv/bin/banksia service install
-./.venv/bin/banksia service status
+banksia service install
+banksia service status
 ```
 
-Banksia selects a systemd user service on Linux and a current-user LaunchAgent on macOS. Use `banksia serve` when you prefer a foreground process. Native platform release claims still require the installed-wheel gates described in the project status; the presence of a service command alone is not full platform proof.
+Banksia uses a systemd user service on Linux and a current-user LaunchAgent on macOS.
 
-## 5. Complete a developer run
+## Complete a developer run
 
 In the Console:
 
 1. Open **Runs** and choose **New run**.
-2. Select the published `production-feature-delivery` Starter.
+2. Select `production-feature-delivery`.
 3. Enter one complete prompt, for example:
 
-   > Add a guided configuration-import recovery experience across the API and
-   > Console. Preserve accepted imports, define the shared error contract,
-   > implement the service and user-facing behavior, verify the integrated
-   > recovery path, repair consequential findings, and return the
+   > Add a guided configuration-import recovery experience across the API and Console. Preserve
+   > accepted imports, define the shared error contract, implement the service and user-facing
+   > behavior, verify the integrated recovery path, repair consequential findings, and return the
    > release-readiness result with referenced files.
 
 4. Start the run and follow **Team**, **Current plan**, and meaningful **Activity**.
-5. Read **Result**. It is the lead's exact final `green` or `blocked` Checkpoint.
-6. Open any referenced paths in the workspace for the detailed change, proof, review, or report.
+5. Answer a Human Request only when a Member genuinely needs your decision.
+6. Read **Result**, then open its referenced workspace files for the detailed change, proof, review, or report.
 
-The responsibility tree tells you who owns each part of the work; it does not force a fixed order. The running team chooses sequential, parallel, iterative, batch, or hybrid work from current evidence.
+The responsibility tree defines ownership, not a fixed timeline. The running team chooses sequential, parallel, iterative, batch, or hybrid work from current evidence.
 
-Starters omit provider settings and use the configured default. They grant Human Request or managed Command Run only to the Members whose responsibility needs a material user decision or a long, supervised process. Every omitted capability denies and children never inherit. A Human Request pauses only its current Member until you answer; a managed Command Run appears as an inspectable Action with retained output.
+Starters omit provider settings and use the configured default. Human Request and managed Command Run capabilities are granted only to Members that need them; every omitted capability denies, and children never inherit capabilities.
 
-## Researcher path
+## Complete a research run
 
 Start another run with `deep-research-and-decision-brief`:
 
-> Determine whether the proposed storage change fits this repository's current
-> recovery contract. Separate local facts, current primary-source claims, and
-> inference; challenge provenance and counterevidence; then return one
-> confidence-calibrated conclusion with limitations and referenced files.
+> Determine whether the proposed storage change fits this repository's recovery contract. Separate
+> local facts, current primary-source claims, and inference; challenge provenance and
+> counterevidence; then return one confidence-calibrated conclusion with limitations and referenced
+> files.
 
-Use **Advanced → Referenced files** on the start form when the team must inspect a particular workspace file. Banksia records each path and optional description, not a copy of the file.
+Use **Advanced → Referenced files** when the team must inspect a particular workspace file. Banksia records its workspace-relative path and optional description, not a copy of its contents.
 
-For a substantial computational or empirical program that needs durable execution and independent replication, choose `experiment-and-replication-program` instead.
+Choose `experiment-and-replication-program` for a substantial computational or empirical program that needs durable execution and independent replication.
 
-## CLI alternative
+## Start a run from the terminal
 
 The Console is the clearest catalog and run view. The terminal can start the same published Workflow interactively:
 
 ```bash
-./.venv/bin/banksia task start
+banksia task start
 ```
 
 Automation can pass one strict JSON object inline, from `@file`, or through standard input:
 
 ```bash
-./.venv/bin/banksia task start --json \
+banksia task start --json \
   '{"workflow":"production-feature-delivery","prompt":"Deliver the cross-layer configuration recovery experience, verify the integrated behavior and release risks, repair accepted findings, and return the result."}'
 ```
 
-The controller must already be running. CLI-started runs use the invocation directory as their workspace. To start from another project, change to that directory and invoke the absolute path to the Banksia checkout's `.venv/bin/banksia`.
+The controller must already be running. CLI-started runs use the invocation directory as their workspace.
 
 Next, [compare every Starter](../../examples/workflows/README.md), learn how to [author a Workflow](../guides/author-a-workflow.md), or learn how to [operate a run](../guides/run-and-operate.md).

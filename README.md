@@ -10,6 +10,10 @@
 
 <p align="center"> <a href="docs/start/getting-started.md">Get started</a> · <a href="docs/README.md">Documentation</a> · <a href="examples/workflows/README.md">Starter teams</a> </p>
 
+<p align="center"> <a href="https://www.youtube.com/watch?v=-prDEZYpx9M"><img src="https://img.youtube.com/vi/-prDEZYpx9M/maxresdefault.jpg" alt="Watch the Banksia tutorial: build and run an accountable AI team" width="720"></a> </p>
+
+<p align="center"><a href="https://www.youtube.com/watch?v=-prDEZYpx9M"><strong>Watch the Banksia tutorial</strong></a></p>
+
 ## Install and start
 
 Banksia requires Python 3.12 or newer and currently supports Linux and macOS. Install the command-line application in an isolated environment with [pipx](https://pipx.pypa.io/stable/):

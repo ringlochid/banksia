@@ -158,7 +158,7 @@ Browser requests and responses use structured JSON. They contain no generic Defi
 - The controller allocates new member IDs for canvas/Operator add operations.
 - IDs cannot be edited after creation.
 - Draft mutations are autosaved to controller truth and return an opaque, controller-issued, single-use Undo receipt bound to the draft and accepted ETag. The browser never computes or submits an inverse mutation.
-- Discard deletes only a mutable draft. **Remove Workflow** is a separate confirmed library operation: it discards any active draft and clears the current published selection so the Workflow cannot be found or used to start new work. It never deletes immutable revisions, changes existing Task revision pins, or permits a removed published ID to be silently reused or restored by starter seeding. Removing a never-published draft releases its unused ID.
+- Discard deletes only a mutable draft. **Remove Workflow** is a separate confirmed library operation: it discards any active draft and clears the current published selection so the Workflow cannot be found or used to start new work. It never deletes immutable revisions or changes existing Task revision pins. Removal releases the Workflow ID for explicit user creation; the new draft has no base revision, and later publication continues the preserved immutable history. Starter seeding never performs that reactivation implicitly.
 - Publish is explicit and creates an immutable revision. Autosave never publishes.
 
 The UI and Operator call the same structured services. Neither maintains a parallel local Workflow truth.

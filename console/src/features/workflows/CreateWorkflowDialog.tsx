@@ -60,7 +60,7 @@ export function CreateWorkflowDialog({
             >
                 <FormField
                     error={idError}
-                    hint="This stable name is used in links and commands. It cannot be renamed later."
+                    hint="This stable name is used in links and commands. Reusing a removed ID continues its preserved revision history."
                     id={`${idPrefix}-workflow-id`}
                     label="Workflow ID"
                 >

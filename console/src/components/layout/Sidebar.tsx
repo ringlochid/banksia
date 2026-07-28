@@ -1,11 +1,4 @@
-import {
-    Bot,
-    ListChecks,
-    PanelLeft,
-    Plus,
-    Sprout,
-    Workflow,
-} from "lucide-react";
+import { Bot, ListChecks, PanelLeft, Plus, Workflow } from "lucide-react";
 import type { ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 
@@ -60,7 +53,11 @@ export function Sidebar({
                         to="/workflows"
                     >
                         <span className="sidebar__mark">
-                            <Sprout aria-hidden="true" size={16} />
+                            <img
+                                alt=""
+                                className="sidebar__mark-image"
+                                src="/assets/banksia-mark.svg"
+                            />
                         </span>
                         <span className="sidebar__wordmark">Banksia</span>
                     </NavLink>

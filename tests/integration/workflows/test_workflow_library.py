@@ -79,7 +79,7 @@ async def test_draft_only_workflow_is_discoverable_by_id_and_description(
 
 
 @pytest.mark.parametrize("database_backend", ("sqlite", "postgresql"))
-async def test_remove_workflow_retires_publication_and_preserves_history(
+async def test_remove_workflow_releases_identity_and_preserves_history(
     tmp_path: Path,
     database_backend: DatabaseBackend,
 ) -> None:
@@ -115,14 +115,6 @@ async def test_remove_workflow_retires_publication_and_preserves_history(
                 f"/api/workflow-drafts/{opened.json()['draft']['draft_id']}"
             )
             search = await client.get("/api/workflows", params={"q": published_id})
-            reused_published_id = await client.post(
-                "/api/workflow-drafts",
-                json={
-                    "kind": "create",
-                    "workflow_id": published_id,
-                    "description": "This must not replace immutable history.",
-                },
-            )
 
         async with session_factory() as session:
             historical = await read_published_workflow_revision(
@@ -141,6 +133,39 @@ async def test_remove_workflow_retires_publication_and_preserves_history(
 
         async with product_http_client(session_factory, tmp_path=tmp_path) as client:
             after_reseed = await client.get("/api/workflows", params={"q": published_id})
+            reused_published_id = await client.post(
+                "/api/workflow-drafts",
+                json={
+                    "kind": "create",
+                    "workflow_id": published_id,
+                    "description": "A deliberate reactivation with preserved history.",
+                },
+            )
+            assert reused_published_id.status_code == 201, reused_published_id.text
+            reused_draft = reused_published_id.json()["draft"]
+            republished = await client.post(
+                f"/api/workflow-drafts/{reused_draft['draft_id']}/publish",
+                headers={"If-Match": reused_published_id.headers["etag"]},
+            )
+
+        async with session_factory() as session:
+            current = await read_current_published_workflow(
+                session,
+                workflow_id=published_id,
+            )
+            preserved = await read_published_workflow_revision(
+                session,
+                workflow_id=published_id,
+                revision_no=1,
+            )
+            await seed_starter_workflows(session)
+            await session.commit()
+
+        async with session_factory() as session:
+            current_after_reseed = await read_current_published_workflow(
+                session,
+                workflow_id=published_id,
+            )
 
     assert created.status_code == 201, created.text
     assert removed_draft.status_code == 200, removed_draft.text
@@ -159,10 +184,16 @@ async def test_remove_workflow_retires_publication_and_preserves_history(
     assert missing_published.status_code == 404
     assert missing_open_draft.status_code == 404
     assert search.json()["items"] == []
-    assert reused_published_id.status_code == 409
     assert historical.workflow_id == published_id
     assert historical.revision_no == 1
     assert after_reseed.json()["items"] == []
+    assert reused_draft["base_revision_no"] is None
+    assert republished.status_code == 200, republished.text
+    assert republished.json()["revision_no"] == 2
+    assert current.revision_no == 2
+    assert current.workflow.description == "A deliberate reactivation with preserved history."
+    assert preserved == historical
+    assert current_after_reseed == current
 
 
 @pytest.mark.parametrize("database_backend", ("sqlite", "postgresql"))

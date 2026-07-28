@@ -130,6 +130,7 @@ describe("Workflow library", () => {
         expect(dialog).toHaveTextContent(
             "Existing runs keep their recorded Workflow revision.",
         );
+        expect(dialog).toHaveTextContent("The ID can be created again");
         await user.click(
             within(dialog).getByRole("button", { name: "Remove Workflow" }),
         );
@@ -305,6 +306,9 @@ describe("Workflow library", () => {
         const dialog = screen.getByRole("dialog", {
             name: "Create a Workflow",
         });
+        expect(dialog).toHaveTextContent(
+            "Reusing a removed ID continues its preserved revision history",
+        );
         await user.type(
             within(dialog).getByLabelText("Workflow ID"),
             "review-team",

@@ -8,6 +8,28 @@ import type { SidebarLayout } from "../../src/components/layout/useSidebarLayout
 import { TooltipProvider } from "../../src/components/ui";
 
 describe("Sidebar", () => {
+    it("uses the Banksia mark in the expanded brand link", () => {
+        render(
+            <MemoryRouter>
+                <TooltipProvider>
+                    <Sidebar
+                        layout={layout(false)}
+                        onCreateWorkflow={vi.fn()}
+                        onToggleOperator={vi.fn()}
+                        operatorOpen={false}
+                    />
+                </TooltipProvider>
+            </MemoryRouter>,
+        );
+
+        const home = screen.getByRole("link", { name: "Banksia home" });
+        expect(home).toHaveTextContent("Banksia");
+        expect(home.querySelector("img")).toHaveAttribute(
+            "src",
+            "/assets/banksia-mark.svg",
+        );
+    });
+
     it("keeps create explicit and does not imply a command search", async () => {
         const onCreateWorkflow = vi.fn();
         const user = userEvent.setup();
@@ -35,9 +57,9 @@ describe("Sidebar", () => {
     });
 });
 
-function layout(): SidebarLayout {
+function layout(isCollapsed = true): SidebarLayout {
     return {
-        isCollapsed: true,
+        isCollapsed,
         isResizing: false,
         startResize: vi.fn(),
         toggleCollapse: vi.fn(),

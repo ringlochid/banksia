@@ -48,7 +48,7 @@ export function RemoveWorkflowDialog({
     const description =
         workflow.published_revision_no === null
             ? "This discards its unpublished draft. The unused ID can be created again."
-            : "This removes it from Workflows and prevents new runs. Existing runs keep their recorded Workflow revision.";
+            : "This removes it from Workflows and prevents new runs. The ID can be created again. Existing runs keep their recorded Workflow revision.";
 
     return (
         <Dialog

@@ -29,6 +29,7 @@ REQUIRED_PACKAGE_MEMBERS = (
     "banksia/config.py",
     "banksia/main.py",
     "banksia/interfaces/web_console/assets/index.html",
+    "banksia/interfaces/web_console/assets/assets/banksia-mark.svg",
     *(f"{STARTER_RESOURCE_PREFIX}{filename}" for filename in STARTER_WORKFLOW_FILENAMES),
     "banksia/platform/managed_services/resources/systemd/banksia.service",
     "banksia/runtime/prompt/assets/shared/core.txt",

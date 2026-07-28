@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">Banksia recursive binary team mark</title>
+  <g stroke="#0B7059" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M150 72 70 190M150 72l95 108M245 180l-73 120M245 180l85 120M330 300l-75 130M330 300l75 130" fill="none"/>
+    <circle cx="150" cy="72" r="34" fill="#0B7059"/>
+    <rect x="41" y="161" width="58" height="58" rx="10" fill="#0B7059" stroke="none"/>
+    <circle cx="245" cy="180" r="26" fill="#FFFFFF"/>
+    <rect x="143" y="271" width="58" height="58" rx="10" fill="#0B7059" stroke="none"/>
+    <circle cx="330" cy="300" r="26" fill="#FFFFFF"/>
+    <rect x="226" y="401" width="58" height="58" rx="10" fill="#0B7059" stroke="none"/>
+    <rect x="376" y="401" width="58" height="58" rx="10" fill="#0B7059" stroke="none"/>
+  </g>
+</svg>

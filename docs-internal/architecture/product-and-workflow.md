@@ -207,6 +207,8 @@ The unified Workflow library includes draft-only, published-only, and published-
 
 The draft-opening response distinguishes creation from idempotent reuse: creation returns HTTP `201 Created` with the draft resource location, while returning an already-active draft uses `200 OK`. HTTP and Operator use the same discriminated request and domain operation. Workflow detail is assembled from one coherent controller snapshot so concurrent open, edit, publish, or discard cannot produce a state/draft/publication combination that never existed.
 
+Removing a Workflow discards its active draft and clears its current-published pointer. This releases the Workflow ID for an explicit user creation while preserving immutable revisions required by existing Task pins. Re-creation opens a fresh draft with no base revision; publishing it appends or reselects immutable user history through the ordinary publication boundary. Starter bootstrap never reactivates a removed Workflow implicitly.
+
 ### Reference examples and packaged Starter Workflows
 
 The maintained [Workflow examples](../../examples/workflows/README.md) are documentation and validation fixtures. They demonstrate the full authoring language, including optional provider, sandbox/network, model/effort, and capability settings. They are never package seeds and are never automatically installed, published, or selected for a user.

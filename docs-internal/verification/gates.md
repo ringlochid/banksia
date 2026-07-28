@@ -81,7 +81,7 @@ A successful final-package completion records **go**. An explicit **no-go** is s
 - Unknown `/api/*`, `/assets/*`, and browser paths return `404`; no catch-all rewrites API or missing-asset requests to HTML.
 - Health/readiness, support, Operator, node, and managed internal mounts retain their separately owned paths and schemas.
 - The generated product OpenAPI document and Console client use `/api` paths, and a created Workflow draft returns an `/api/workflow-drafts/{draft_id}` `Location`.
-- Removing a Workflow discards its active draft and removes it from catalog search, detail, and new Task selection while exact immutable revisions remain readable for existing Task pins. Re-running starter seeding does not restore a removed published Workflow, and ordinary create cannot reuse its retired published ID.
+- Removing a Workflow discards its active draft and removes it from catalog search, detail, and new Task selection while exact immutable revisions remain readable for existing Task pins. Re-running starter seeding does not restore a removed published Workflow. Explicit creation with the same ID returns a fresh base-less draft, and publication continues its preserved immutable revision history without changing existing Task pins.
 - Source-tree development proves the API without requiring staged Console assets; installed wheel/sdist proof includes the exact production bundle and direct-navigation behavior.
 
 ### Mechanical schema proof

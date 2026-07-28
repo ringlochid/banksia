@@ -23,6 +23,10 @@ async def test_explicit_console_routes_serve_only_packaged_pages_and_assets(
         "document.body.dataset.ready = 'true';",
         encoding="utf-8",
     )
+    (asset_directory / "banksia-mark.svg").write_text(
+        '<svg xmlns="http://www.w3.org/2000/svg"></svg>',
+        encoding="utf-8",
+    )
     app = FastAPI()
 
     assert register_web_console_routes(app, assets_root=assets_root)
@@ -39,6 +43,7 @@ async def test_explicit_console_routes_serve_only_packaged_pages_and_assets(
         start_run = await client.get("/runs/new")
         run_studio = await client.get("/runs/t_7m4k2d9x")
         asset = await client.get("/assets/app.js")
+        mark = await client.get("/assets/banksia-mark.svg")
         unknown_browser = await client.get("/not-a-console-route")
         unknown_run_route = await client.get("/runs/t_7m4k2d9x/unknown")
         unknown_asset = await client.get("/assets/missing.js")
@@ -51,6 +56,8 @@ async def test_explicit_console_routes_serve_only_packaged_pages_and_assets(
         assert "Banksia Console" in response.text
     assert asset.status_code == 200
     assert "dataset.ready" in asset.text
+    assert mark.status_code == 200
+    assert mark.headers["content-type"].startswith("image/svg+xml")
     assert unknown_browser.status_code == 404
     assert unknown_run_route.status_code == 404
     assert unknown_asset.status_code == 404

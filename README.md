@@ -1,3 +1,5 @@
+<p align="center"> <img src="console/public/assets/banksia-mark.svg" alt="Banksia recursive team mark" width="128" height="128"> </p>
+
 <h1 align="center">Banksia</h1>
 
 <p align="center"><strong>Accountable AI teams for complex work.</strong></p>
@@ -12,17 +14,13 @@ You operate Banksia as a product rather than embed it as an agent SDK; the contr
 
 Design reusable responsibilities without hard-coding how the work unfolds. Give the team one complete prompt, follow meaningful progress, respond when a real decision needs you, and receive one exact Result.
 
-> [!WARNING]
-> Banksia is in active development. Its public contracts are being stabilized,
-> and it is not yet recommended for production-critical workloads.
-
 ## From ad-hoc subagents to a reusable team
 
-| Ad-hoc subagents | Banksia |
-| --- | --- |
-| Recreate roles and prompts for every job | Publish a reusable tree of named responsibilities |
-| Reconstruct ownership from a transcript | Follow controller-owned team, activity, and wait state |
-| Treat provider completion as the outcome | Accept only the lead's exact `green` or `blocked` Result |
+| Ad-hoc subagents                              | Banksia                                                                                |
+| --------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Recreate roles and prompts for every job      | Publish a reusable tree of named responsibilities                                      |
+| Reconstruct ownership from a transcript       | Follow controller-owned team, activity, and wait state                                 |
+| Treat provider completion as the outcome      | Accept only the lead's exact `green` or `blocked` Result                               |
 | Recover by piecing together terminal sessions | Recover from durable controller records; keep deliverables in ordinary workspace files |
 
 Banksia gives you:
@@ -63,16 +61,16 @@ Watch who owns the work, read meaningful Activity, then read the exact Result an
 
 `banksia init` publishes eight provider-neutral Starters. Choose by the difficulty that makes one agent insufficient:
 
-| Starter | Choose it for |
-| --- | --- |
-| `production-feature-delivery` | A consequential feature crossing contracts, implementation boundaries, integrated verification, and release readiness. |
-| `incident-investigation-and-recovery` | An intermittent or high-impact failure needing competing hypotheses, supported recovery, independent verification, and prevention. |
-| `migration-and-modernisation` | A large migration needing inventory, dependency-aware batches, cutover, and stale-path removal. |
-| `deep-research-and-decision-brief` | A broad, consequential question needing independent evidence, claim verification, and one accountable recommendation. |
-| `decision-through-competing-prototypes` | A choice that should be tested through alternatives under one fair rubric instead of decided from prose alone. |
-| `idea-to-validated-demo` | A product idea that should become an evidence-backed position, working first demo, launch strategy, and credible pitch. |
-| `experiment-and-replication-program` | A substantial empirical or computational program needing explicit methods, durable execution, independent replication, and claim audit. |
-| `security-audit-and-hardening` | A security program needing attack-surface mapping, specialised audits, validated remediation, and adversarial re-verification. |
+| Starter                                 | Choose it for                                                                                                                           |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `production-feature-delivery`           | A consequential feature crossing contracts, implementation boundaries, integrated verification, and release readiness.                  |
+| `incident-investigation-and-recovery`   | An intermittent or high-impact failure needing competing hypotheses, supported recovery, independent verification, and prevention.      |
+| `migration-and-modernisation`           | A large migration needing inventory, dependency-aware batches, cutover, and stale-path removal.                                         |
+| `deep-research-and-decision-brief`      | A broad, consequential question needing independent evidence, claim verification, and one accountable recommendation.                   |
+| `decision-through-competing-prototypes` | A choice that should be tested through alternatives under one fair rubric instead of decided from prose alone.                          |
+| `idea-to-validated-demo`                | A product idea that should become an evidence-backed position, working first demo, launch strategy, and credible pitch.                 |
+| `experiment-and-replication-program`    | A substantial empirical or computational program needing explicit methods, durable execution, independent replication, and claim audit. |
+| `security-audit-and-hardening`          | A security program needing attack-surface mapping, specialised audits, validated remediation, and adversarial re-verification.          |
 
 These are not eight aliases for “implement and review.” Each team exists because parallel breadth, independent judgment, durable work, or evaluator-driven repair can materially improve the outcome. The complete [Workflow catalog](examples/workflows/README.md) includes sample missions, expected deliverables, and guidance on when a simpler Workflow is better.
 

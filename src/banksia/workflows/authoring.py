@@ -370,11 +370,6 @@ async def _create_workflow_draft(
     existing = await _active_draft_row_for_update(session, workflow_id=workflow.id)
     if existing is not None:
         raise WorkflowDraftConflictError(f"Workflow {workflow.id!r} already has an active draft")
-    if owner.current_revision_no is None and await _has_published_revisions(
-        session,
-        workflow_id=workflow.id,
-    ):
-        raise WorkflowDraftConflictError(f"Workflow {workflow.id!r} was removed")
     return await _insert_workflow_draft(
         session,
         workflow=workflow,
@@ -396,8 +391,6 @@ async def _create_new_workflow_draft(
         raise WorkflowDraftConflictError(f"Workflow {workflow.id!r} already has an active draft")
     if owner.current_revision_no is not None:
         raise WorkflowDraftConflictError(f"Workflow {workflow.id!r} is already published")
-    if await _has_published_revisions(session, workflow_id=workflow.id):
-        raise WorkflowDraftConflictError(f"Workflow {workflow.id!r} was removed")
     return await _insert_workflow_draft(
         session,
         workflow=workflow,

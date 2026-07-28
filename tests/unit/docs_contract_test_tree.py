@@ -133,7 +133,6 @@ def _write_internal_docs(root: Path) -> None:
         "[Runtime](architecture/runtime.md)\n"
         "[Runtime tools](interfaces/runtime-tools.md)\n"
         "[Configuration](operations/configuration-and-providers.md)\n"
-        "[Verification](verification/gates.md)\n"
         "[Decisions](adr/README.md)\n",
     )
     write_page(
@@ -150,11 +149,6 @@ def _write_internal_docs(root: Path) -> None:
         root,
         "docs-internal/operations/configuration-and-providers.md",
         "# Configuration and providers\n\nStatus: Reference\n",
-    )
-    write_page(
-        root,
-        "docs-internal/verification/gates.md",
-        "# Verification gates\n\nStatus: Reference\n",
     )
 
 

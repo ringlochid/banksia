@@ -17,31 +17,14 @@ def test_task_member_prompt_contract_validator_passes() -> None:
     assert validate_prompt_contract() == ()
 
 
-def test_task_member_prompt_contract_readback_is_deterministic() -> None:
+def test_task_member_prompt_contract_uses_the_internal_system_prompt_owner() -> None:
     ensure_repo_root_on_path()
-    from scripts.docs.prompt_catalog.render import (
-        PROMPT_CONTRACT_READBACK_PATH,
-        render_prompt_contract_readback,
+    from scripts.docs.prompt_catalog.validation import PROMPT_CONTRACT_PATH
+
+    assert PROMPT_CONTRACT_PATH.relative_to(Path(__file__).resolve().parents[2]).as_posix() == (
+        "docs-internal/architecture/system-prompts.md"
     )
-
-    rendered = render_prompt_contract_readback()
-
-    assert rendered == render_prompt_contract_readback()
-    assert "Status: Reference" in rendered
-    assert "deterministic implementation readback" in rendered
-    assert "not an independent source of product truth" in rendered
-    assert "../../architecture/system-prompts.md" in rendered
-    assert rendered.count(".txt`") == 9
-    assert (
-        "task | dispatch | current_member | assignment | continuation | direct_team | "
-        "work_plan | available_actions | workspace"
-    ) in rendered
-    assert "delegation_wave_settled | human_result | command_result" in rendered
-    assert "root_start" not in rendered
-    assert PROMPT_CONTRACT_READBACK_PATH.relative_to(
-        Path(__file__).resolve().parents[2]
-    ).as_posix() == ("docs-internal/verification/generated/task-member-prompt-contract-readback.md")
-    assert PROMPT_CONTRACT_READBACK_PATH.read_text(encoding="utf-8") == rendered
+    assert PROMPT_CONTRACT_PATH.is_file()
 
 
 def test_prompt_behavior_evaluation_uses_packaged_starter_teams(

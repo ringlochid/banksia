@@ -148,7 +148,7 @@ workflow_draft_publish
 
 Every `draft` value is the compact exact source reference `{kind, workflow_id, draft_id, base_revision_no?, etag}`. `member_added.member_id` is the controller-allocated root ID of the accepted subtree. A stale mutation failure exposes only the current compact draft reference and never an authored Workflow body.
 
-After a leaf handler returns, the provider-neutral Operator boundary serializes its typed result once as compact JSON with `ensure_ascii = false` and counts UTF-16 code units. A result above the controller-owned bound in [Verification gates](../verification/gates.md#hidden-controller-validation-guardrails) fails closed without exposing the body. The guard does not replay the handler: an oversize read may be retried only through a new explicit call, and a failure discovered after a committed mutation is an uncertain effect that is never replayed automatically. Successful results cross the boundary without a JSON parse/round-trip rewrite.
+After a leaf handler returns, the provider-neutral Operator boundary serializes its typed result once as compact JSON with `ensure_ascii = false` and counts UTF-16 code units. A result above 327,680 code units fails closed without exposing the body. The guard does not replay the handler: an oversize read may be retried only through a new explicit call, and a failure discovered after a committed mutation is an uncertain effect that is never replayed automatically. Successful results cross the boundary without a JSON parse/round-trip rewrite.
 
 ## Run projections and receipts
 

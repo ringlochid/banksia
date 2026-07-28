@@ -12,7 +12,7 @@ Use three layers:
 
 1. **Public product and operator docs** teach supported setup, authoring, operation, concepts, and troubleshooting.
 2. **Public reference and internals docs** provide exact CLI, configuration, schema, API, tool, maintainer, and stable implementation lookup.
-3. **Internal docs** own architecture, interface contracts, operational mechanics, verification protocols, generated readbacks, and durable decisions.
+3. **Internal docs** own architecture, interface contracts, operational mechanics, and durable decisions.
 
 ## Maintained layout
 
@@ -23,7 +23,6 @@ Use three layers:
 - `docs-internal/architecture/**` owns runtime and product architecture.
 - `docs-internal/interfaces/**` owns controller, Console, Operator, and tool contracts.
 - `docs-internal/operations/**` owns configuration, recovery, packaging, and reset behavior.
-- `docs-internal/verification/**` owns gates, generated readbacks, and bounded reference protocols.
 - `docs-internal/adr/**` owns durable accepted decisions.
 
 Keep public and internal docs versionless unless the product intentionally supports multiple reader-facing versions at once. Do not create current-versus-target, execution, archive, or version-era authority lanes.
@@ -42,7 +41,7 @@ Put a page in public product or operator docs when a reader needs it to install,
 
 Put a page in public reference or internals when it is stable lookup material for users, integrators, contributors, operators, or maintainers. Examples include exact CLI flags, configuration precedence, schemas, HTTP payloads, controller tools, and testing commands.
 
-Put a page in internal docs when it owns implementation architecture, an exhaustive internal contract, an operational boundary, a verification protocol, a generated implementation readback, or a durable decision.
+Put a page in internal docs when it owns implementation architecture, an exhaustive internal contract, an operational boundary, or a durable decision.
 
 Scratch research and temporary execution notes belong under ignored `tmp/**`, not the maintained documentation tree.
 

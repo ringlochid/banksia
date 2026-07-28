@@ -244,7 +244,7 @@ Prefer:
 
 - `runtime/watchdog/`
 - `registry/revisions/`
-- `docs-internal/verification/`
+- `docs-internal/operations/`
 
 Avoid:
 

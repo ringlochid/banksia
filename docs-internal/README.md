@@ -23,11 +23,8 @@ This is the maintainer-facing source of truth for Banksia's shipped product cont
 - [Recovery and observability](operations/recovery-and-observability.md) owns startup recovery, runtime health, projections, support access, and audit readback.
 - [Package and reset](operations/package-and-reset.md) owns distribution contents, installed proof, schema verification, and destructive reset.
 
-## Verification and decisions
+## Decisions
 
-- [Verification gates](verification/gates.md) owns numeric safety bounds and proof requirements.
-- [n8n interaction-reference protocol](verification/n8n-reference-protocol.md) owns the bounded source-study and provenance rules for UI work.
-- [Generated prompt contract readback](verification/generated/task-member-prompt-contract-readback.md) is regenerated from shipped prompt inputs.
 - [Accepted decisions](adr/README.md) retains durable rationale. Subject owners above remain authoritative for implementation.
 
 ## Ownership rule

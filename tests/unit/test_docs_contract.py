@@ -23,16 +23,11 @@ def test_valid_contract_tree_has_no_findings(tmp_path: Path) -> None:
     assert report.findings == ()
 
 
-def test_discovery_covers_final_doc_lanes_and_excludes_generated_output(
+def test_discovery_covers_final_doc_lanes(
     tmp_path: Path,
 ) -> None:
     validator, markdown_files = contract_modules()
     build_valid_contract_tree(tmp_path)
-    generated = write_page(
-        tmp_path,
-        "docs-internal/verification/generated/readback.md",
-        "# Generated readback\n\nStatus: Reference\n",
-    )
 
     contract_paths = {
         path.relative_to(tmp_path).as_posix()
@@ -48,12 +43,9 @@ def test_discovery_covers_final_doc_lanes_and_excludes_generated_output(
         "docs-internal/architecture/runtime.md",
         "docs-internal/interfaces/runtime-tools.md",
         "docs-internal/operations/configuration-and-providers.md",
-        "docs-internal/verification/gates.md",
         "docs-internal/adr/ADR-0001-controller.md",
     } <= contract_paths
     assert "CONTRIBUTING.md" in formatter_paths
-    assert generated.relative_to(tmp_path).as_posix() in contract_paths
-    assert generated.relative_to(tmp_path).as_posix() not in formatter_paths
 
 
 def test_internal_docs_have_one_front_door(tmp_path: Path) -> None:
@@ -80,7 +72,6 @@ def test_internal_docs_have_one_front_door(tmp_path: Path) -> None:
             ("Reference",),
             "Target",
         ),
-        ("docs-internal/verification/gates.md", ("Reference",), "Target"),
         ("docs-internal/adr/README.md", ("Reference",), "Accepted"),
         (
             "docs-internal/adr/ADR-0001-controller.md",
@@ -156,7 +147,7 @@ def test_links_require_existing_targets_and_human_labels(tmp_path: Path) -> None
     assert finding_categories(report) >= {"link", "link-label"}
 
 
-def test_internal_owners_reject_ignored_dependencies_except_n8n_protocol(
+def test_internal_owners_reject_ignored_dependencies(
     tmp_path: Path,
 ) -> None:
     validator, _ = contract_modules()
@@ -169,19 +160,6 @@ def test_internal_owners_reject_ignored_dependencies_except_n8n_protocol(
         "[Ignored research](../../tmp/codex/research.md)\n\n"
         "Do not make `tmp/private-plan.md` an implementation dependency.\n",
     )
-    protocol = write_page(
-        tmp_path,
-        "docs-internal/verification/n8n-reference-protocol.md",
-        "# n8n protocol\n\nStatus: Reference\n\n"
-        "Recreate `tmp/codex/references/n8n-source/upstream/` from the pinned source.\n",
-    )
-    root_readme = tmp_path / "docs-internal/README.md"
-    root_readme.write_text(
-        root_readme.read_text(encoding="utf-8")
-        + "\n[n8n protocol](verification/n8n-reference-protocol.md)\n",
-        encoding="utf-8",
-    )
-
     report = validator.build_contract_report(tmp_path)
     ignored_findings = [
         finding for finding in report.findings if finding.category == "ignored-dependency"
@@ -191,7 +169,6 @@ def test_internal_owners_reject_ignored_dependencies_except_n8n_protocol(
     assert {finding.path for finding in ignored_findings} == {
         Path("docs-internal/architecture/runtime.md")
     }
-    assert protocol.relative_to(tmp_path) not in {finding.path for finding in ignored_findings}
 
 
 def test_front_door_reports_unreachable_internal_page(tmp_path: Path) -> None:

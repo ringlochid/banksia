@@ -11,7 +11,6 @@ CONTRACT_MARKDOWN_DIRECTORIES = (
     Path("docs-internal/architecture"),
     Path("docs-internal/interfaces"),
     Path("docs-internal/operations"),
-    Path("docs-internal/verification"),
     Path("docs-internal/adr"),
 )
 CONTRACT_MARKDOWN_FILES = (

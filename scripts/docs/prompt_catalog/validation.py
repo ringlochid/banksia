@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from importlib.resources import files
-from pathlib import PurePath
+from pathlib import Path, PurePath
 
 from banksia.runtime.contracts.prompt import (
     PROMPT_DYNAMIC_INPUT_KEYS,
@@ -24,12 +24,9 @@ from banksia.workflows.contracts import (
 )
 from banksia.workflows.ingest import parse_workflow
 from scripts.docs.prompt_catalog import behavior_scenarios as scenario_catalog
-from scripts.docs.prompt_catalog.render import (
-    PROMPT_CONTRACT_READBACK_PATH,
-    render_prompt_contract_readback,
-)
 
-PROMPT_CONTRACT_PATH = PROMPT_CONTRACT_READBACK_PATH.parents[2] / "architecture/system-prompts.md"
+REPO_ROOT = Path(__file__).resolve().parents[3]
+PROMPT_CONTRACT_PATH = REPO_ROOT / "docs-internal/architecture/system-prompts.md"
 EXPECTED_ASSET_PATHS = (
     "shared/core.txt",
     "shared/workspace-and-files.txt",
@@ -60,7 +57,7 @@ class ScenarioTeam:
     direct_team: tuple[NormalizedMember, ...]
 
 
-def validate_prompt_contract(*, should_check_generated_readback: bool = True) -> tuple[str, ...]:
+def validate_prompt_contract() -> tuple[str, ...]:
     errors: list[str] = []
     asset_paths = tuple(instruction_asset_path(asset).as_posix() for asset in INSTRUCTION_ASSETS)
     if asset_paths != EXPECTED_ASSET_PATHS:
@@ -83,15 +80,6 @@ def validate_prompt_contract(*, should_check_generated_readback: bool = True) ->
 
     if len(PROMPT_TRIGGER_KINDS) != 7 or len(set(PROMPT_TRIGGER_KINDS)) != 7:
         errors.append("prompt trigger kinds must contain exactly seven distinct variants")
-
-    if should_check_generated_readback:
-        if not PROMPT_CONTRACT_READBACK_PATH.is_file():
-            errors.append("generated Task-member prompt contract readback is missing")
-        elif (
-            PROMPT_CONTRACT_READBACK_PATH.read_text(encoding="utf-8")
-            != render_prompt_contract_readback()
-        ):
-            errors.append("generated Task-member prompt contract readback is stale")
 
     return tuple(errors)
 

@@ -104,7 +104,7 @@ Rejected because responsibility is reusable while sequence, parallelism, iterati
 
 ## Proof obligations
 
-- Every preserved invariant has an owner and direct proof in the [verification gates](../verification/gates.md).
+- Every preserved invariant has an owner and direct proof through the applicable command matrix in the root agent contract.
 - Workflow schema, maintained reference examples, and packaged seeds validate as distinct inventories; seeds contain no provider or capability fields.
 - Each package proves new authority before deleting the old reader/writer and records any temporary bridge plus its deletion package.
 - Final fresh-clone, reset, SQLite, PostgreSQL, provider, runtime, Console, browser, accessibility, docs, and package lanes pass through shipped paths.
@@ -118,4 +118,4 @@ Rejected because responsibility is reusable while sequence, parallelism, iterati
 - [Runtime](../architecture/runtime.md)
 - [Workspace, files, and prompt](../architecture/workspace-files-and-prompt.md)
 - [Console and Operator](../interfaces/console-and-operator.md)
-- [Verification gates](../verification/gates.md)
+- [Banksia coding agent contract](../../AGENTS.md)

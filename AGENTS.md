@@ -63,7 +63,7 @@ The documentation layout is:
 
 - public docs under `docs/**`
 - maintained examples under `examples/**`
-- factual internal owners under `docs-internal/{architecture,interfaces,operations,verification}/`
+- factual internal owners under `docs-internal/{architecture,interfaces,operations}/`
 - durable accepted decisions under `docs-internal/adr/**`
 
 Rules:
@@ -76,9 +76,9 @@ Rules:
 
 - subject pages routed from `docs-internal/README.md` are the internal product and implementation source of truth
 - public reference owns external schemas and maintained examples; generated readbacks remain subordinate to their named internal owner
-- frontend work consumes the product/interface owner, generated controller contracts, and the tracked n8n reference protocol as its data and study boundaries
+- frontend work consumes the product/interface owner and generated controller contracts as its data boundaries
 - external design repos, ignored source clones, screenshots, and static HTML handoffs are visual, state, and interaction references only; they do not override controller-owned routes, fields, states, or legality
-- n8n material may be ported into `console/` only, which is licensed separately under the Sustainable Use License; everything outside `console/` stays MIT-clean. n8n's product vocabulary and data model are never ported — Banksia's terminology stays authoritative. See `docs-internal/verification/n8n-reference-protocol.md`
+- n8n material may be ported into `console/` only, which is licensed separately under the Sustainable Use License; everything outside `console/` stays MIT-clean. n8n's product vocabulary and data model are never ported — Banksia's terminology stays authoritative. Keep [`console/NOTICE`](console/NOTICE) and source-level provenance accurate
 - code and tests can expose drift, but they do not silently overrule an owning contract; patch the owner and implementation together
 
 ## Mandatory read order
@@ -88,7 +88,7 @@ Read these in order before non-trivial implementation:
 1. `STYLE.md`
 2. `docs-internal/README.md`
 3. the primary internal owner page for the touched surface
-4. named public schema, generated-contract, prompt-readback, or reference-protocol owners when applicable
+4. named public schema or generated-contract owners when applicable
 5. the smallest relevant subset of `.agents/standards/*`
 
 For non-trivial frontend or UI-facing backend implementation, also read the relevant product contract and route sources before touching components:
@@ -97,9 +97,8 @@ For non-trivial frontend or UI-facing backend implementation, also read the rele
 2. `docs-internal/architecture/product-and-workflow.md`
 3. `docs-internal/architecture/runtime.md` and `docs-internal/interfaces/runtime-tools.md`
 4. `docs-internal/architecture/workspace-files-and-prompt.md`
-5. `docs-internal/verification/gates.md`
-6. `docs-internal/verification/n8n-reference-protocol.md`, including the exact packet and upstream files named for the slice
-7. generated product contracts and current route sources for the implementation being changed
+5. `console/NOTICE` and the source-level provenance named by any ported Console code in the slice
+6. generated product contracts and current route sources for the implementation being changed
 
 For non-trivial runtime implementation, start with these owner pages before provider-specific detail:
 
@@ -109,7 +108,6 @@ For non-trivial runtime implementation, start with these owner pages before prov
 4. `docs-internal/architecture/system-prompts.md`
 5. `docs-internal/architecture/product-and-workflow.md`
 6. `docs-internal/operations/recovery-and-observability.md`
-7. `docs-internal/verification/gates.md`
 
 ## Implementation fast path
 
@@ -195,8 +193,7 @@ Docs commands:
 - `make docs-format-check` checks maintained Markdown formatting without writes
 - `make docs-contract-check` validates authority metadata, links, front-door coverage, and docs-layer rules
 - `make docs-inventory` prints maintained-doc and contract-finding counts
-- `make docs-prompt-generate` regenerates prompt-catalog readbacks
-- `make docs-prompt-check` validates prompt-catalog inputs and generated readbacks
+- `make docs-prompt-check` validates prompt assets, canonical source bodies, and behavior scenarios
 - `make test-docs` runs the focused docs-tooling unit lane
 - `make check-docs` runs the complete non-mutating docs gate
 
@@ -235,10 +232,9 @@ For touched Python backend surfaces:
 - the full applicable backend test command matrix
 - exact repo search for retained underscore-private shared helpers, plus explicit review justification for any retained exception
 
-For touched prompt assets, prompt-catalog inputs, or generated prompt pages:
+For touched prompt assets or prompt-catalog inputs:
 
 - `make docs-prompt-check`
-- `make docs-prompt-generate` first when inputs or generated pages changed
 - `ruff check scripts/docs` and `MYPYPATH=src mypy scripts/docs` when the slice touched `scripts/docs/*`
 
 For touched TypeScript, frontend, or plugin surfaces:

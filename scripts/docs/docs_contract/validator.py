@@ -22,13 +22,8 @@ DELETED_ROUTE_PATTERNS = (
     "docs-internal/archive",
     "docs/product",
 )
-N8N_REFERENCE_PROTOCOL_PATH = Path("docs-internal/verification/n8n-reference-protocol.md")
-N8N_PROTOCOL_ALLOWED_IGNORED_PREFIXES = (
-    "tmp/codex/references/n8n-source/",
-    "tmp/codex/references/n8n-ui/",
-)
 IGNORED_PATH_PATTERN = re.compile(r"(?<![A-Za-z0-9_.-])tmp/[A-Za-z0-9_./@-]+")
-INTERNAL_OWNER_FAMILIES = frozenset({"architecture", "interfaces", "operations", "verification"})
+INTERNAL_OWNER_FAMILIES = frozenset({"architecture", "interfaces", "operations"})
 
 
 def build_contract_report(root: Path = ROOT) -> ContractReport:
@@ -197,16 +192,6 @@ def ignored_dependency_findings(
         ignored_paths = IGNORED_PATH_PATTERN.findall(line)
         if not ignored_paths:
             continue
-        disallowed_paths = [
-            ignored_path
-            for ignored_path in ignored_paths
-            if not is_allowed_n8n_protocol_path(
-                relative_path=relative_path,
-                ignored_path=ignored_path,
-            )
-        ]
-        if not disallowed_paths:
-            continue
         findings.append(
             finding(
                 root=root,
@@ -215,7 +200,7 @@ def ignored_dependency_findings(
                 line=line_number,
                 message=(
                     "versionless canon cannot depend on ignored tmp paths: "
-                    + ", ".join(disallowed_paths)
+                    + ", ".join(ignored_paths)
                 ),
             )
         )
@@ -227,12 +212,6 @@ def is_internal_owner_path(relative_path: Path) -> bool:
         len(relative_path.parts) >= 3
         and relative_path.parts[0] == "docs-internal"
         and relative_path.parts[1] in INTERNAL_OWNER_FAMILIES
-    )
-
-
-def is_allowed_n8n_protocol_path(*, relative_path: Path, ignored_path: str) -> bool:
-    return relative_path == N8N_REFERENCE_PROTOCOL_PATH and ignored_path.startswith(
-        N8N_PROTOCOL_ALLOWED_IGNORED_PREFIXES
     )
 
 

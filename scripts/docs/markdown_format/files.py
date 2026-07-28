@@ -9,13 +9,11 @@ from .formatting import format_markdown_text, format_yaml_text, normalize_text
 
 ROOT = Path(__file__).resolve().parents[3]
 FORMAT_SUFFIXES = frozenset({".md", ".yaml", ".yml"})
-EXCLUDED_PROMPT_GENERATED_DIRECTORIES = (Path("docs-internal/verification/generated"),)
 MAINTAINED_MARKDOWN_DIRECTORIES = (
     Path("docs"),
     Path("docs-internal/architecture"),
     Path("docs-internal/interfaces"),
     Path("docs-internal/operations"),
-    Path("docs-internal/verification"),
     Path("docs-internal/adr"),
     Path(".agents/standards"),
 )
@@ -41,24 +39,13 @@ def iter_maintained_markdown_files(root: Path = ROOT) -> list[Path]:
         directory = root / relative_directory
         if not directory.exists():
             continue
-        paths.extend(
-            path
-            for path in sorted(directory.rglob("*.md"))
-            if not is_excluded_prompt_generated_path(path, root=root)
-        )
+        paths.extend(path for path in sorted(directory.rglob("*.md")))
     paths.extend(
         path
         for relative_file in MAINTAINED_MARKDOWN_FILES
         if (path := root / relative_file).exists()
     )
     return deduplicate_paths(paths)
-
-
-def is_excluded_prompt_generated_path(path: Path, *, root: Path = ROOT) -> bool:
-    return any(
-        path.is_relative_to(root / relative_directory)
-        for relative_directory in EXCLUDED_PROMPT_GENERATED_DIRECTORIES
-    )
 
 
 def deduplicate_paths(paths: Iterable[Path]) -> list[Path]:
@@ -125,9 +112,7 @@ def resolve_paths(cli_paths: Sequence[str] | None) -> list[Path]:
             continue
         if path.is_dir():
             resolved.extend(
-                child
-                for child in sorted(path.rglob("*"))
-                if child.suffix in FORMAT_SUFFIXES and not is_excluded_prompt_generated_path(child)
+                child for child in sorted(path.rglob("*")) if child.suffix in FORMAT_SUFFIXES
             )
             continue
         if path.suffix in FORMAT_SUFFIXES:

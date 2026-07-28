@@ -294,7 +294,6 @@ It never installs the maintained `advanced-*` reference examples. Starter cards 
 
 ### Horizontal team hierarchy
 
-- Use the [`add-child-sibling-branch.png` geometry reference](../verification/n8n-reference-protocol.md#visual-reference-packet) as the primary deep-team geometry reference, interpreting every block as one Member and discarding n8n's node, port, and execution semantics.
 - The lead begins on the left.
 - Each hierarchy depth occupies the next column to the right.
 - Direct children stack vertically in authored organizational order.
@@ -429,7 +428,7 @@ command_run_output_read
 command_run_cancel
 ```
 
-`workflow_get` has no unpinned-current or full-tree form. Its required closed selector chooses catalog metadata, one exact published revision, or one exact draft ID/ETag; a Member selector is optional and otherwise selects the lead. One Member result carries only ordered direct-child IDs and preserves omitted versus explicit-empty `children`, so further traversal repeats the same bounded call against the same source. Workflow mutations return compact source/accepted-change/Undo/validation/discard/publication receipts, and a stale failure exposes no Workflow body. The exact shapes and provider-result size guard are owned by the [Operator conversation contract](operator-conversation-contract.md#workflow-projections-and-receipts) and [Verification gates](../verification/gates.md#hidden-controller-validation-guardrails).
+`workflow_get` has no unpinned-current or full-tree form. Its required closed selector chooses catalog metadata, one exact published revision, or one exact draft ID/ETag; a Member selector is optional and otherwise selects the lead. One Member result carries only ordered direct-child IDs and preserves omitted versus explicit-empty `children`, so further traversal repeats the same bounded call against the same source. Workflow mutations return compact source/accepted-change/Undo/validation/discard/publication receipts, and a stale failure exposes no Workflow body. The exact shapes and provider-result size guard are owned by the [Operator conversation contract](operator-conversation-contract.md#workflow-projections-and-receipts).
 
 `workflow_draft_create` accepts one complete structured JSON Workflow candidate and uses the existing normalization and authoring services to create or open its mutable draft. There is no separate import operation. `task_get` defaults to the bounded current overview and uses the exact detail selectors in the Operator conversation contract for owning-message content and loose file references. There is no `artifact_get`, `file_get`, generic file reader, or file CRUD/catalog family. Operator receives no support/audit export, raw runtime record, provider credential/setup, host filesystem, or external-MCP administration tool.
 
@@ -494,11 +493,9 @@ These general rules belong to the Operator's controller-owned system prompt and 
 
 ## n8n reference boundary
 
-The curated screenshots and pinned sparse source snapshot documented in the [tracked n8n reference protocol](../verification/n8n-reference-protocol.md) provide mature implementation-study references for question cards, assistant chat, canvas density/layering, selection, add affordances, horizontal branching, contextual editing, list/run/log views, compact controls, responsive states, accessibility behavior, and tests.
+Banksia may study and port permitted n8n UI material into `console/` under the Console's Sustainable Use License. [`console/NOTICE`](../../console/NOTICE) and source-level headers record the shipped provenance; they must remain accurate whenever derived material changes. Ignored source snapshots and screenshots are optional implementation evidence, never product or controller authority.
 
-Before any UI or UI-facing product-API delegation, the parent selects the matching reference packet and names the exact upstream files in the brief. The slice records what it adopts, adapts, and rejects against the Banksia owner contract. Reading the source is mandatory; treating its data model or visual surface as authority is forbidden.
-
-Implementation is independently authored React/Tailwind Banksia code. Import or copy no n8n Vue/TypeScript components, stores, tests, router, CSS, HTML/markup, tokens, strings, icons/assets, enterprise files, backend, or dataflow/product semantics, and do not translate it line-for-line. The source snapshot remains ignored and unpackaged. Banksia owns its information architecture, contracts, terminology, visual identity, and accessibility behavior. Any desired substantially derived implementation stops for an explicit license/provenance decision.
+No n8n-derived material may land outside `console/`. Do not port enterprise-licensed files, n8n's product vocabulary, data model, backend, icons, logo, or other trademarks. Banksia owns its information architecture, controller contracts, terminology, visual identity, and accessibility behavior.
 
 ## Product acceptance journey
 

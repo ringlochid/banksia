@@ -1,6 +1,5 @@
 from .cli import main
 from .files import (
-    EXCLUDED_PROMPT_GENERATED_DIRECTORIES,
     MAINTAINED_MARKDOWN_DIRECTORIES,
     MAINTAINED_MARKDOWN_FILES,
     ROOT,
@@ -12,7 +11,6 @@ from .files import (
 from .formatting import format_markdown_text, format_yaml_text
 
 __all__ = [
-    "EXCLUDED_PROMPT_GENERATED_DIRECTORIES",
     "MAINTAINED_MARKDOWN_DIRECTORIES",
     "MAINTAINED_MARKDOWN_FILES",
     "ROOT",

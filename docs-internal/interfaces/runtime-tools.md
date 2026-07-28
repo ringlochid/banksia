@@ -317,7 +317,7 @@ Claude uses native structured output. Codex 0.144.4 uses `outputSchema` and `dyn
 
 Explicit user text or a committed typed answer supplies intent for the action it clearly requests. ETags, controller-issued Undo receipts, current opaque legal-action IDs, strict product schemas, and owning service transactions own currentness and acceptance. Model-visible schemas contain no `confirmed`, proposal, effect, replay, or generic execute field.
 
-Every leaf result passes the provider-neutral size guard owned by [Verification gates](../verification/gates.md#hidden-controller-validation-guardrails). The guard compact-serializes once with non-ASCII characters unescaped, counts UTF-16 code units, fails closed above the bound, and never replays the leaf. Operator-private Workflow and Run projections plus compact mutation receipts keep legal results below that boundary; any post-commit boundary failure remains an uncertain effect and is not retried automatically.
+Every leaf result passes the provider-neutral 327,680 UTF-16-code-unit size guard owned by the [Operator conversation contract](operator-conversation-contract.md#workflow-projections-and-receipts). The guard compact-serializes once with non-ASCII characters unescaped, fails closed above the bound, and never replays the leaf. Operator-private Workflow and Run projections plus compact mutation receipts keep legal results below that boundary; any post-commit boundary failure remains an uncertain effect and is not retried automatically.
 
 ## Explicitly absent tools
 

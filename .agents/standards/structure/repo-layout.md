@@ -24,7 +24,6 @@ Use this guide when the work includes moving files, splitting packages, renaming
 - `docs-internal/architecture/**`: runtime and product architecture
 - `docs-internal/interfaces/**`: controller, Console, Operator, and tool contracts
 - `docs-internal/operations/**`: configuration, recovery, packaging, and reset behavior
-- `docs-internal/verification/**`: gates, generated readbacks, and bounded reference protocols
 - `docs-internal/adr/**`: durable accepted decisions
 - `scripts/docs/**`: docs and prompt tooling
 - `scripts/testing/**`: test runners and support scripts
@@ -117,7 +116,7 @@ Extended guidance: [Naming](../code/naming.md)
 - do not use archive pages as living source of truth
 - keep public docs under `docs/**`
 - keep internal canon under `docs-internal/**`
-- keep internal owners in the architecture, interfaces, operations, verification, or ADR lane named by their responsibility
+- keep internal owners in the architecture, interfaces, operations, or ADR lane named by their responsibility
 - keep Banksia owner paths versionless
 - do not use the public docs tree as a catch-all for versioned implementation programs, historical design drafts, or execution artifacts
 

@@ -18,9 +18,9 @@ Start at the [internal documentation router](../../docs-internal/README.md), the
 | Configuration, provider setup, sandbox, and credentials | [Configuration and provider operations](../../docs-internal/operations/configuration-and-providers.md) |
 | Startup recovery, health, Activity, support, and projections | [Recovery and observability operations](../../docs-internal/operations/recovery-and-observability.md) |
 | Installation, upgrade, reset, service, and packaging | [Package and reset operations](../../docs-internal/operations/package-and-reset.md) |
-| Acceptance matrix and exact evidence | [Verification gates](../../docs-internal/verification/gates.md) |
+| Applicable checks and closeout evidence | [Root agent contract](../../AGENTS.md#testing-proof-and-commands) |
 
-Durable accepted decisions live in the [architecture decision records](../../docs-internal/adr/README.md). Public schemas and maintained examples remain the external authoring contract; tracked generated readbacks remain subordinate to their named internal owner.
+Durable accepted decisions live in the [architecture decision records](../../docs-internal/adr/README.md). Public schemas and maintained examples remain the external authoring contract.
 
 ## Documentation gate
 
@@ -47,13 +47,12 @@ git diff --check
 Prompt asset or catalog-input changes additionally require:
 
 ```bash
-make docs-prompt-generate
 make docs-prompt-check
 ruff check scripts/docs
 MYPYPATH=src mypy scripts/docs
 ```
 
-Review generated changes rather than hand-editing the prompt-contract readback.
+The prompt check compares shipped assets with their canonical source bodies and validates the maintained behavior scenarios.
 
 ## Generated API and Console contracts
 

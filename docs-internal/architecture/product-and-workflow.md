@@ -96,7 +96,7 @@ The maintained [Workflow schema](../../docs/reference/workflows/workflow-definit
 - Drafts and revisions store one normalized structured object, not editable YAML plus a JSON shadow.
 - Export renders JSON or YAML from the same normalized object.
 
-Schema validation covers local shape. Semantic validation additionally enforces member-ID uniqueness within the complete Workflow tree, the [hidden controller validation guardrails](../verification/gates.md#hidden-controller-validation-guardrails), currently supported provider settings, and deterministic authored child order.
+Schema validation covers local shape. Semantic validation additionally enforces member-ID uniqueness within the complete Workflow tree, controller-owned input and responsibility-tree bounds, currently supported provider settings, and deterministic authored child order.
 
 All accepted authored and task prose uses one normalization rule: convert CRLF and lone CR to LF; preserve every other whitespace code point and Unicode code point exactly; use trimming only to decide whether a required value is nonblank or an optional value should be omitted; reject NUL and every XML 1.0-illegal character. Never replace, drop, or Unicode-normalize accepted characters. XML rendering later escapes the stored value rather than changing it.
 

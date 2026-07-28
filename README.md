@@ -49,27 +49,32 @@ make console-package-assets
 
 `make console-package-assets` prepares the visual Console served by the source checkout. `banksia init` prepares local controller state, asks for one Task provider, and offers the separate Operator as an optional final choice. Rerun `banksia setup` later to change Task providers, Operator, or the default workspace.
 
-Open `http://127.0.0.1:18125/`, go to **Runs**, and start a run with the `reviewed-code-change` Starter:
+Open `http://127.0.0.1:18125/`, go to **Runs**, and start a run with the `production-feature-delivery` Starter:
 
-> Add validation for the configuration import failure path without changing
-> accepted behavior. Follow current repository conventions, add focused
-> regression proof, independently review the integrated change, repair accepted
-> findings, and return the verified result with referenced files.
+> Add a guided configuration-import recovery experience across the API and
+> Console. Preserve accepted imports, define the shared error contract, implement
+> the service and user-facing behavior, verify the integrated recovery path,
+> repair consequential findings, and return the release-readiness result with
+> referenced files.
 
-Watch who owns the work, read meaningful Activity, then read the exact Result and open its referenced files in your workspace. The [getting-started guide](docs/start/getting-started.md) includes the complete developer path and a researcher path using `evidence-synthesis`.
+Watch who owns the work, read meaningful Activity, then read the exact Result and open its referenced files in your workspace. The [getting-started guide](docs/start/getting-started.md) includes the complete developer path and a researcher path using `deep-research-and-decision-brief`.
 
 ## Start with a team
 
-`banksia init` publishes seven portable Starters:
+`banksia init` publishes eight provider-neutral Starters. Choose by the difficulty that makes one agent insufficient:
 
-| Developer work | Research and decisions |
+| Starter | Choose it for |
 | --- | --- |
-| `reviewed-code-change` | `evidence-synthesis` |
-| `debug-and-verify` | `reproducible-study` |
-| `cross-layer-feature` | `technical-decision` |
-| `bounded-maintenance-batch` |  |
+| `production-feature-delivery` | A consequential feature crossing contracts, implementation boundaries, integrated verification, and release readiness. |
+| `incident-investigation-and-recovery` | An intermittent or high-impact failure needing competing hypotheses, supported recovery, independent verification, and prevention. |
+| `migration-and-modernisation` | A large migration needing inventory, dependency-aware batches, cutover, and stale-path removal. |
+| `deep-research-and-decision-brief` | A broad, consequential question needing independent evidence, claim verification, and one accountable recommendation. |
+| `decision-through-competing-prototypes` | A choice that should be tested through alternatives under one fair rubric instead of decided from prose alone. |
+| `idea-to-validated-demo` | A product idea that should become an evidence-backed position, working first demo, launch strategy, and credible pitch. |
+| `experiment-and-replication-program` | A substantial empirical or computational program needing explicit methods, durable execution, independent replication, and claim audit. |
+| `security-audit-and-hardening` | A security program needing attack-surface mapping, specialised audits, validated remediation, and adversarial re-verification. |
 
-Each Starter separates ownership from independent challenge or verification. Three maintained [advanced references](examples/workflows/README.md) show how to add deliberate provider, sandbox, network, Human Request, and Command Run choices.
+These are not eight aliases for “implement and review.” Each team exists because parallel breadth, independent judgment, durable work, or evaluator-driven repair can materially improve the outcome. The complete [Workflow catalog](examples/workflows/README.md) includes sample missions, expected deliverables, and guidance on when a simpler Workflow is better.
 
 ## The product loop
 
@@ -87,7 +92,7 @@ Each Starter separates ownership from independent challenge or verification. Thr
 - `banksia serve` is the foreground path. `banksia service install` selects a systemd user service on Linux or a current-user LaunchAgent on macOS.
 - Codex and Claude are managed providers. OpenClaw is a compatibility transport that you configure and operate.
 - A run uses one shared provider-visible workspace. Per-Member isolation and automatic merging are not current product behavior.
-- Human Request and Command Run capabilities deny by default. The installed Starters grant neither.
+- Human Request and Command Run capabilities deny by default. Revised Starters grant them only to the Members whose responsibility intrinsically needs a user decision or a long supervised process; capabilities never inherit.
 - File references record a workspace-relative path and optional description, not a snapshot. A referenced file can later change or disappear.
 - External MCP servers, reusable Skills, distributed delivery, and broad multi-user operation are deferred.
 - The Console supports the current authoring and operating paths and is currently desktop-oriented. Mature visual design and mobile/tablet experiences are deferred.

@@ -180,7 +180,7 @@ async def test_seed_refresh_cannot_replace_concurrent_user_current_revision(
         async with session_factory() as session:
             packaged = await read_current_published_workflow(
                 session,
-                workflow_id="reviewed-code-change",
+                workflow_id="production-feature-delivery",
             )
 
         seed_before_owner_lock = asyncio.Event()
@@ -189,7 +189,7 @@ async def test_seed_refresh_cannot_replace_concurrent_user_current_revision(
         monkeypatch.setattr(
             bootstrap_module,
             "STARTER_WORKFLOW_FILENAMES",
-            ("reviewed-code-change.yaml",),
+            ("production-feature-delivery.yaml",),
         )
         seed_gate = ControlledGate(
             arrived=seed_before_owner_lock,
@@ -216,11 +216,11 @@ async def test_seed_refresh_cannot_replace_concurrent_user_current_revision(
         async with session_factory() as session:
             current = await read_current_published_workflow(
                 session,
-                workflow_id="reviewed-code-change",
+                workflow_id="production-feature-delivery",
             )
             history = await list_workflow_revisions(
                 session,
-                workflow_id="reviewed-code-change",
+                workflow_id="production-feature-delivery",
             )
 
     assert user_revision.revision_no == 2

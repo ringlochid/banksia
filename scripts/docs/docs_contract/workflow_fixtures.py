@@ -27,19 +27,20 @@ EXPECTED_WORKFLOW_EXAMPLE_FILES = (
     "advanced-technical-decision.yaml",
 )
 EXPECTED_WORKFLOW_SEED_FILES = (
-    "bounded-maintenance-batch.yaml",
-    "cross-layer-feature.yaml",
-    "debug-and-verify.yaml",
-    "evidence-synthesis.yaml",
-    "reproducible-study.yaml",
-    "reviewed-code-change.yaml",
-    "technical-decision.yaml",
+    "decision-through-competing-prototypes.yaml",
+    "deep-research-and-decision-brief.yaml",
+    "experiment-and-replication-program.yaml",
+    "idea-to-validated-demo.yaml",
+    "incident-investigation-and-recovery.yaml",
+    "migration-and-modernisation.yaml",
+    "production-feature-delivery.yaml",
+    "security-audit-and-hardening.yaml",
 )
 DRAFT_2020_12_SCHEMA_URI = "https://json-schema.org/draft/2020-12/schema"
 
 
 def workflow_fixture_findings(root: Path) -> list[ContractFinding]:
-    """Validate the tracked Workflow schema, examples, and portable seed fixtures."""
+    """Validate the tracked Workflow schema, examples, and provider-neutral seeds."""
 
     findings = inventory_findings(root)
     findings.extend(readme_inventory_findings(root))
@@ -422,14 +423,12 @@ def portable_seed_findings(
     findings: list[ContractFinding] = []
     for member in members:
         member_id = member.get("id", "<unknown>")
-        for prohibited_field in ("provider", "capabilities"):
-            if prohibited_field not in member:
-                continue
+        if "provider" in member:
             findings.append(
                 workflow_finding(
                     root=root,
                     path=path,
-                    message=(f"packaged seed Member {member_id!r} must omit {prohibited_field!r}"),
+                    message=(f"packaged seed Member {member_id!r} must omit 'provider'"),
                 )
             )
     return findings

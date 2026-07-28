@@ -80,17 +80,17 @@ describe("Start Run", () => {
         expect(
             screen.queryByRole("option", { name: /draft-only/ }),
         ).not.toBeInTheDocument();
-        await user.type(search, "reviewed-code");
+        await user.type(search, "production-feature");
         expect(
-            screen.getByRole("option", { name: /reviewed-code-change/ }),
+            screen.getByRole("option", { name: /production-feature-delivery/ }),
         ).toBeVisible();
         expect(
             screen.queryByRole("option", { name: /later-published/ }),
         ).not.toBeInTheDocument();
         await user.click(
-            screen.getByRole("option", { name: /reviewed-code-change/ }),
+            screen.getByRole("option", { name: /production-feature-delivery/ }),
         );
-        expect(picker).toHaveTextContent("reviewed-code-change");
+        expect(picker).toHaveTextContent("production-feature-delivery");
         expect(searchWorkflows.mock.calls.map(([cursor]) => cursor)).toEqual([
             null,
             "page-two",

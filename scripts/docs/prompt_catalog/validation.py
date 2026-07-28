@@ -43,11 +43,12 @@ EXPECTED_ASSET_PATHS = (
 )
 STABLE_TARGET_ASSET_PATHS = EXPECTED_ASSET_PATHS
 _REQUIRED_RETURN_SHAPES = {
-    "child-says-done": ("code-owner",),
+    "child-says-done": ("service-owner",),
     "nested-wave": (
-        "local-fit-analyst",
-        "option-council",
-        "decision-reviewer",
+        "constraint-owner",
+        "prototype-manager",
+        "common-rubric-evaluator",
+        "decision-critic",
     ),
 }
 

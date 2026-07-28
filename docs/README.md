@@ -13,7 +13,7 @@ Banksia upgrades multi-agent work into reusable teams with explicit responsibili
 
 ## Choose a Starter
 
-- [Workflow catalog and advanced references](../examples/workflows/README.md) — compare all seven installed Starters and the three provider-specific references.
+- [Workflow catalog and advanced references](../examples/workflows/README.md) — compare all eight installed Starters and the three provider-specific references.
 
 ## Follow and operate work
 

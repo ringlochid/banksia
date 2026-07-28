@@ -1,1 +1,1 @@
-"""The exact portable Starter Workflow resource set."""
+"""The exact provider-neutral Starter Workflow resource set."""

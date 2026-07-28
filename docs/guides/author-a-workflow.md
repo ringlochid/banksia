@@ -12,7 +12,7 @@ The fastest path is:
 4. Validate the complete draft.
 5. Publish only when the preview and validation findings match the intended team.
 
-For example, `reviewed-code-change` separates a change lead, an implementation manager, code and test owners, and an independent reviewer. That separation is the product value: one Member does not silently implement, approve, and verify the same claim.
+For example, `production-feature-delivery` separates product and contract decisions, service and experience delivery, integration, and independent verification. That separation is the product value: one Member does not silently define, implement, approve, and verify the same claim.
 
 Connections in the team tree describe responsibility and delegation ownership, not time. Array order does not schedule work. At runtime, a Manager can choose sequential, parallel, iterative, batch, or hybrid assignments from the prompt and current evidence.
 
@@ -49,7 +49,7 @@ Validation proves the draft's current authoring rules. It is not publication and
 
 ## Add advanced choices deliberately
 
-The installed Starters omit providers and capabilities so they work with the installation default and deny privileged operations. Add advanced fields only when the responsibility requires them:
+Installed Starters omit providers so they work with the installation default. They demonstrate only narrow built-in capability grants on responsibilities that need user decisions or durable process supervision. Add or remove advanced fields only when the responsibility requires them:
 
 ```yaml
 provider:

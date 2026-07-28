@@ -43,19 +43,22 @@ from banksia.workflows.service_errors import (
 from tests.helpers.workflow_runtime import initialized_workflow_database
 
 
-async def test_bootstrap_exposes_exact_portable_starter_workflow_set(tmp_path: Path) -> None:
+async def test_bootstrap_exposes_exact_provider_neutral_starter_workflow_set(
+    tmp_path: Path,
+) -> None:
     async with initialized_workflow_database(tmp_path) as session_factory:
         async with session_factory() as session:
             workflows = await search_workflows(session)
 
     assert tuple(item.workflow_id for item in workflows.items) == (
-        "bounded-maintenance-batch",
-        "cross-layer-feature",
-        "debug-and-verify",
-        "evidence-synthesis",
-        "reproducible-study",
-        "reviewed-code-change",
-        "technical-decision",
+        "decision-through-competing-prototypes",
+        "deep-research-and-decision-brief",
+        "experiment-and-replication-program",
+        "idea-to-validated-demo",
+        "incident-investigation-and-recovery",
+        "migration-and-modernisation",
+        "production-feature-delivery",
+        "security-audit-and-hardening",
     )
     assert all(item.provenance is WorkflowProvenance.STARTER_SEED for item in workflows.items)
 
@@ -66,7 +69,7 @@ async def test_bootstrap_exposes_exact_portable_starter_workflow_set(tmp_path: P
         )
         packaged_json = packaged.model_dump_json(exclude_none=True)
         assert "provider" not in packaged_json
-        assert "capabilities" not in packaged_json
+        assert "capabilities" in packaged_json
 
 
 async def test_bootstrap_rejects_filename_and_workflow_id_drift(
@@ -176,7 +179,7 @@ async def test_publish_is_immutable_and_seed_refresh_never_replaces_user_current
         async with session_factory() as session:
             seed = await read_current_published_workflow(
                 session,
-                workflow_id="reviewed-code-change",
+                workflow_id="production-feature-delivery",
             )
             user_workflow = seed.workflow.model_copy(
                 update={"description": "User-owned reviewed delivery."}
@@ -198,7 +201,7 @@ async def test_publish_is_immutable_and_seed_refresh_never_replaces_user_current
                 workflow=changed_seed,
                 provenance=WorkflowProvenance.STARTER_SEED,
                 should_update_current=False,
-                source_path="seed://test/reviewed-code-change.yaml",
+                source_path="seed://test/production-feature-delivery.yaml",
             )
             await session.commit()
 
@@ -208,20 +211,20 @@ async def test_publish_is_immutable_and_seed_refresh_never_replaces_user_current
                 workflow=changed_seed,
                 provenance=WorkflowProvenance.STARTER_SEED,
                 should_update_current=False,
-                source_path="seed://test/reviewed-code-change.yaml",
+                source_path="seed://test/production-feature-delivery.yaml",
             )
             await session.commit()
             current = await read_current_published_workflow(
                 session,
-                workflow_id="reviewed-code-change",
+                workflow_id="production-feature-delivery",
             )
             history = await list_workflow_revisions(
                 session,
-                workflow_id="reviewed-code-change",
+                workflow_id="production-feature-delivery",
             )
             current_provenance = await read_current_workflow_provenance(
                 session,
-                workflow_id="reviewed-code-change",
+                workflow_id="production-feature-delivery",
             )
 
     assert user_revision.revision_no == 2

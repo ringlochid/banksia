@@ -1,0 +1,71 @@
+kind: workflow
+id: incident-investigation-and-recovery
+description: >-
+  Use for an intermittent, systemic, or high-impact failure that needs
+  reproduction, competing hypotheses, evidence-supported recovery, independent
+  verification, and prevention actions.
+note: >-
+  A useful default is hybrid and iterative: establish evidence before repair,
+  preserve competing explanations until one is supported, verify recovery
+  independently, and revisit the cause when new observations contradict it.
+lead:
+  id: incident-lead
+  title: Incident lead
+  description: Owns impact, causal judgment, recovery decisions, and the result.
+  instruction: >-
+    Maintain the exact incident boundary and operational stakes. Decide which
+    explanation is supported, authorize a proportionate recovery path, reconcile
+    verification, and ensure prevention actions follow the established cause.
+  capabilities:
+    human_request:
+      - input
+      - direction
+      - approval
+  children:
+    - id: investigation-manager
+      title: Investigation manager
+      description: Coordinates reproduction and adversarial causal analysis.
+      instruction: >-
+        Keep observed behavior separate from explanation. Use independent
+        reproduction and competing hypotheses to eliminate plausible but
+        unsupported causes, and identify the evidence needed to discriminate.
+      children:
+        - id: reproduction-owner
+          title: Reproduction owner
+          description: Reproduces the failure and preserves observable conditions.
+          instruction: >-
+            Establish the smallest credible reproduction and capture timing,
+            environment, inputs, logs, and negative cases without silently
+            changing the failing conditions.
+          capabilities:
+            command_run: allow
+        - id: hypothesis-challenger
+          title: Hypothesis challenger
+          description: Tests competing causes and disconfirming evidence.
+          instruction: >-
+            Challenge the leading explanation with realistic alternatives,
+            counterexamples, and discriminating checks. Reject causes that do
+            not account for the observed failure boundary.
+    - id: recovery-owner
+      title: Recovery owner
+      description: Implements the supported repair, mitigation, or rollback.
+      instruction: >-
+        Apply only a recovery justified by the accepted cause and operational
+        constraints. Preserve unrelated behavior, document necessary tradeoffs,
+        and expose any residual risk or incomplete containment.
+    - id: independent-verifier
+      title: Independent verifier
+      description: Verifies recovery without inheriting the repair owner's assumptions.
+      instruction: >-
+        Recreate the original failure conditions, exercise adjacent risks, and
+        verify that the recovery holds without hiding regressions or unresolved
+        uncertainty. Recheck accepted corrections when needed.
+      capabilities:
+        command_run: allow
+    - id: prevention-owner
+      title: Prevention owner
+      description: Turns the supported cause into durable prevention actions.
+      instruction: >-
+        Produce a concise causal account and prioritize monitoring, tests,
+        safeguards, documentation, or process changes that would prevent or
+        detect recurrence. Do not generalize beyond the available evidence.

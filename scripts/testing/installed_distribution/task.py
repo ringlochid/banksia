@@ -89,7 +89,7 @@ def write_installed_task_request(cwd: Path) -> Path:
     request_path.write_text(
         json.dumps(
             {
-                "workflow": "reviewed-code-change",
+                "workflow": "production-feature-delivery",
                 "prompt": INSTALLED_TASK_PROMPT,
             }
         ),
@@ -154,7 +154,7 @@ def verify_installed_task_start_receipt(
     if not isinstance(task_id, str) or len(task_id) != 10 or not task_id.startswith("t_"):
         raise AssertionError(f"installed Task start returned an unexpected task id: {started}")
     expected_receipt = {
-        "workflow_id": "reviewed-code-change",
+        "workflow_id": "production-feature-delivery",
         "workspace": str(cwd.resolve()),
         "manifest": f".banksia/{task_id}/manifest.md",
         "status": "accepted",
@@ -209,7 +209,7 @@ def verify_installed_task_view(task: dict[str, object], *, task_id: str) -> None
         or task.get("activities_href") != f"/api/tasks/{task_id}/activities"
         or not isinstance(workflow, dict)
         or set(workflow) != {"id", "description"}
-        or workflow.get("id") != "reviewed-code-change"
+        or workflow.get("id") != "production-feature-delivery"
         or not isinstance(workflow.get("description"), str)
         or not workflow["description"]
         or not isinstance(team, dict)

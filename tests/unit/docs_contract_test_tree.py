@@ -12,13 +12,14 @@ WORKFLOW_EXAMPLE_FILES = (
     "advanced-technical-decision.yaml",
 )
 WORKFLOW_SEED_FILES = (
-    "bounded-maintenance-batch.yaml",
-    "cross-layer-feature.yaml",
-    "debug-and-verify.yaml",
-    "evidence-synthesis.yaml",
-    "reproducible-study.yaml",
-    "reviewed-code-change.yaml",
-    "technical-decision.yaml",
+    "decision-through-competing-prototypes.yaml",
+    "deep-research-and-decision-brief.yaml",
+    "experiment-and-replication-program.yaml",
+    "idea-to-validated-demo.yaml",
+    "incident-investigation-and-recovery.yaml",
+    "migration-and-modernisation.yaml",
+    "production-feature-delivery.yaml",
+    "security-audit-and-hardening.yaml",
 )
 
 

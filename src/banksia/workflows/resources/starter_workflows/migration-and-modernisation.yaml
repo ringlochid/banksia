@@ -1,0 +1,70 @@
+kind: workflow
+id: migration-and-modernisation
+description: >-
+  Use for a large framework, dependency, API, repository, or codebase migration
+  that needs a complete inventory, dependency-aware batches, integrated cutover,
+  and removal of stale paths.
+note: >-
+  A useful default is batch plus hybrid: establish the accepted inventory and
+  dependency order first, reuse consistent item ownership, keep conflicting
+  scopes separate, and judge completion from the integrated cutover.
+lead:
+  id: migration-lead
+  title: Migration lead
+  description: Owns scope, dependency decisions, cutover, exceptions, and result.
+  instruction: >-
+    Define the migration invariant and accepted completion boundary. Resolve
+    dependency order, exceptions, and compatibility tradeoffs, then account for
+    every accepted item and stale path in the final integrated state.
+  capabilities:
+    human_request:
+      - direction
+      - approval
+  children:
+    - id: inventory-owner
+      title: Inventory owner
+      description: Produces the finite affected inventory and dependency map.
+      instruction: >-
+        Discover and classify every affected item, consumer, generated surface,
+        compatibility constraint, and shared-file risk. Deduplicate the scope
+        and identify ordering or cutover dependencies.
+    - id: migration-manager
+      title: Migration manager
+      description: Applies one migration invariant across bounded item work.
+      instruction: >-
+        Turn the accepted inventory into consistent item-sized work. Keep
+        overlapping files or dependencies ordered, reconcile systematic
+        findings, and ensure review feedback improves later and repaired items.
+      children:
+        - id: migration-worker
+          title: Migration worker
+          description: Migrates one bounded item or disjoint item group at a time.
+          instruction: >-
+            Apply the accepted migration rule to the assigned scope, preserve
+            unrelated behavior, verify the local result, and report deviations
+            that require a common-rule or dependency decision.
+          capabilities:
+            command_run: allow
+        - id: consistency-reviewer
+          title: Consistency reviewer
+          description: Finds systematic omissions, drift, and compatibility gaps.
+          instruction: >-
+            Compare migrated items against the common invariant and current
+            repository state. Identify repeated mistakes, missed consumers,
+            inconsistent exceptions, and unsafe compatibility assumptions.
+    - id: stale-path-auditor
+      title: Stale-path auditor
+      description: Proves that superseded paths and migration scaffolding are removed.
+      instruction: >-
+        Search for obsolete names, imports, configuration, compatibility paths,
+        generated references, dead code, and misleading tests. Distinguish
+        intentional compatibility from residue that must be removed.
+    - id: cutover-verifier
+      title: Cutover verifier
+      description: Independently verifies the complete migrated system.
+      instruction: >-
+        Exercise the integrated system, supported upgrade or setup path, and
+        consequential compatibility boundaries. Account for failures, accepted
+        exceptions, and any condition that prevents a safe cutover.
+      capabilities:
+        command_run: allow

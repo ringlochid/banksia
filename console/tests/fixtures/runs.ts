@@ -20,7 +20,7 @@ export function taskFixture(overrides: Partial<TaskView> = {}): TaskView {
         id: TEST_TASK_ID,
         prompt_excerpt: "Compare the release candidates and recommend one.",
         workflow: {
-            id: "reviewed-code-change",
+            id: "production-feature-delivery",
             description: "Complete work with independent review.",
         },
         status: "waiting_for_you",
@@ -237,7 +237,7 @@ export function workflowSearchFixture(): WorkflowSearchResponse {
     return {
         items: [
             {
-                workflow_id: "reviewed-code-change",
+                workflow_id: "production-feature-delivery",
                 description: "Complete work with independent review.",
                 state: "published",
                 updated_at: "2026-07-25T23:00:00Z",
@@ -253,7 +253,7 @@ export function workflowSearchFixture(): WorkflowSearchResponse {
 export function taskStartReceiptFixture(): TaskStartReceipt {
     return {
         task_id: TEST_TASK_ID,
-        workflow_id: "reviewed-code-change",
+        workflow_id: "production-feature-delivery",
         workflow_revision: 3,
         workspace: "/workspace/project",
         manifest: `.banksia/${TEST_TASK_ID}/manifest.md`,

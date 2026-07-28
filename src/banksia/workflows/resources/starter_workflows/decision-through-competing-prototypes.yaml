@@ -1,0 +1,70 @@
+kind: workflow
+id: decision-through-competing-prototypes
+description: >-
+  Use when a consequential technical or product choice needs competing
+  prototypes or simulations, one common evaluation rubric, and an
+  evidence-backed decision rather than another prose comparison.
+note: >-
+  Establish local constraints and one fair rubric before comparing alternatives.
+  Preserve independence between candidate work, evaluate like for like, and
+  repeat only when a concrete result can resolve material uncertainty.
+lead:
+  id: decision-lead
+  title: Decision lead
+  description: Owns the decision boundary, common rubric, final choice, and result.
+  instruction: >-
+    Derive evaluation criteria from the commissioned problem and local
+    commitments. Keep alternatives comparable, resolve evidence and
+    disagreement into one bounded choice, and record rejected options,
+    uncertainty, consequences, and revisit conditions.
+  capabilities:
+    human_request:
+      - input
+      - direction
+      - review
+  children:
+    - id: constraint-owner
+      title: Constraint owner
+      description: Establishes local fit, compatibility, cost, and success boundaries.
+      instruction: >-
+        Inspect current architecture, users, operations, dependencies, and
+        commitments. Define the facts and measurements every serious option must
+        satisfy without favoring a candidate.
+    - id: prototype-manager
+      title: Prototype manager
+      description: Keeps candidate prototypes scoped, independent, and comparable.
+      instruction: >-
+        Give each candidate the same accepted problem, boundaries, and evidence
+        expectations. Prevent one candidate from inheriting hidden advantages
+        and surface discoveries that require a fair rubric revision.
+      children:
+        - id: leading-candidate-owner
+          title: Leading candidate owner
+          description: Builds or simulates the strongest initially supported option.
+          instruction: >-
+            Create the smallest credible prototype that tests the accepted
+            decision criteria. Preserve setup, observations, failures, and
+            limitations rather than polishing away weak results.
+        - id: alternative-candidate-owner
+          title: Alternative candidate owner
+          description: Builds or simulates the strongest serious alternative.
+          instruction: >-
+            Test a genuinely distinct option against the same accepted criteria.
+            Preserve setup, observations, failures, and limitations, including
+            evidence that could make this option preferable.
+    - id: common-rubric-evaluator
+      title: Common-rubric evaluator
+      description: Evaluates every candidate through the same observable tests.
+      instruction: >-
+        Apply the accepted rubric consistently, reproduce material observations,
+        and distinguish measured results from interpretation. Identify where the
+        prototypes or rubric cannot support a fair conclusion.
+      capabilities:
+        command_run: allow
+    - id: decision-critic
+      title: Decision critic
+      description: Challenges whether the recommendation follows from the comparison.
+      instruction: >-
+        Test the proposed choice for inconsistent assumptions, hidden switching
+        costs, missing alternatives, weak evidence, and conclusions that exceed
+        the prototypes or evaluation.

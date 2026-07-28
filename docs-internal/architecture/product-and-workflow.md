@@ -211,17 +211,18 @@ The draft-opening response distinguishes creation from idempotent reuse: creatio
 
 The maintained [Workflow examples](../../examples/workflows/README.md) are documentation and validation fixtures. They demonstrate the full authoring language, including optional provider, sandbox/network, model/effort, and capability settings. They are never package seeds and are never automatically installed, published, or selected for a user.
 
-The separate packaged Starter Workflow resources define the seven Workflows installed during bootstrap:
+The separate packaged Starter Workflow resources define the eight Workflows installed during bootstrap:
 
-- `reviewed-code-change`
-- `debug-and-verify`
-- `cross-layer-feature`
-- `bounded-maintenance-batch`
-- `evidence-synthesis`
-- `technical-decision`
-- `reproducible-study`
+- `production-feature-delivery`
+- `incident-investigation-and-recovery`
+- `migration-and-modernisation`
+- `deep-research-and-decision-brief`
+- `decision-through-competing-prototypes`
+- `idea-to-validated-demo`
+- `experiment-and-replication-program`
+- `security-audit-and-hardening`
 
-They upgrade common developer and researcher subagent practices through distinct responsibility and verification boundaries. Every seeded Member omits `provider` and `capabilities`, so the active installation resolves its own default provider and users explicitly add any locally permitted capability grant later.
+They upgrade complex daily and ambitious developer/researcher work through distinct responsibility, evaluation, and verification boundaries. Every seeded Member omits `provider`, so the active installation resolves its own default provider. Starters may include narrow built-in Human Request or managed Command Run grants where interaction or a durable process is intrinsic to that responsibility. Every omitted capability remains denied, capabilities never inherit, and the Workflow library and Task-start selection disclose the effective authored grants before use.
 
 The maintained advanced reference inventory is separate: `advanced-reviewed-code-change`, `advanced-cross-layer-delivery`, and `advanced-technical-decision`. Those files may demonstrate justified provider, sandbox, network, Human Request, and Command Run choices, but bootstrap never installs them.
 

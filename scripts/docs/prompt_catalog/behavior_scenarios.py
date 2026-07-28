@@ -28,13 +28,13 @@ BEHAVIOR_STORY_BINDINGS = tuple(
     zip(
         BEHAVIOR_STORIES,
         (
-            "reviewed-code-change",
-            "debug-and-verify",
-            "cross-layer-feature",
-            "bounded-maintenance-batch",
-            "evidence-synthesis",
-            "technical-decision",
-            "reproducible-study",
+            "production-feature-delivery",
+            "incident-investigation-and-recovery",
+            "production-feature-delivery",
+            "migration-and-modernisation",
+            "deep-research-and-decision-brief",
+            "decision-through-competing-prototypes",
+            "experiment-and-replication-program",
         ),
         strict=True,
     )
@@ -174,8 +174,8 @@ def validate_scenario_inventory() -> tuple[str, ...]:
 def _anti_relay_scenario() -> EvaluationScenario:
     return EvaluationScenario(
         id="anti-relay",
-        workflow_id="reviewed-code-change",
-        current_member_id="change-lead",
+        workflow_id="production-feature-delivery",
+        current_member_id="feature-lead",
         focus="A Manager must add interpretation, scope, inspection, and integration.",
         assignment_prompt=(
             "Deliver a supported compatibility judgment for the account API change. "
@@ -192,21 +192,21 @@ def _anti_relay_scenario() -> EvaluationScenario:
 def _child_says_done_scenario() -> EvaluationScenario:
     return EvaluationScenario(
         id="child-says-done",
-        workflow_id="reviewed-code-change",
-        current_member_id="implementation-manager",
+        workflow_id="production-feature-delivery",
+        current_member_id="delivery-manager",
         focus="A green child claim requires evidence inspection before acceptance.",
         assignment_prompt=(
             "Integrate the production and proof changes. The exact Continuation contains the "
-            "code owner's green claim and a referenced change report. Choose whether to accept "
+            "service owner's green claim and a referenced change report. Choose whether to accept "
             "and paraphrase the claim, or inspect the current files and referenced evidence "
             "before accepting, verifying, or requesting better-scoped work. Do not call tools "
             "or modify files; return only the caller's structured response."
         ),
         wave_return=_wave_return(
             WaveReturnMember(
-                child_id="code-owner",
-                assignment_prompt="Implement the bounded production-code change.",
-                summary="The production change is done and compatible.",
+                child_id="service-owner",
+                assignment_prompt="Implement the bounded service-side feature change.",
+                summary="The service change is done and compatible.",
                 details="The referenced report lists the changed paths and local checks.",
                 file_path=".banksia/t_prompt_eval/artifacts/code-change-report.md",
                 file_description="Code-owner change report requiring Manager inspection.",
@@ -222,8 +222,8 @@ def _review_rework_scenario() -> EvaluationScenario:
     return EvaluationScenario(
         id="review-and-rework",
         story="review-and-rework",
-        workflow_id="reviewed-code-change",
-        current_member_id="change-lead",
+        workflow_id="production-feature-delivery",
+        current_member_id="feature-lead",
         focus="Review findings become a fresh, feedback-bearing repair Assignment.",
         assignment_prompt=(
             "Deliver a verified cancellation fix. The exact Continuation contains the "
@@ -235,7 +235,7 @@ def _review_rework_scenario() -> EvaluationScenario:
         ),
         wave_return=_wave_return(
             WaveReturnMember(
-                child_id="independent-reviewer",
+                child_id="integration-verifier",
                 assignment_prompt=(
                     "Independently review the integrated cancellation change and rank defects."
                 ),
@@ -258,8 +258,8 @@ def _debug_before_repair_scenario() -> EvaluationScenario:
     return EvaluationScenario(
         id="debug-before-repair",
         story="debug-before-repair",
-        workflow_id="debug-and-verify",
-        current_member_id="debug-lead",
+        workflow_id="incident-investigation-and-recovery",
+        current_member_id="incident-lead",
         focus="Reproduction and cause evidence precede a cause-based repair.",
         assignment_prompt=(
             "Repair an intermittent duplicate-write defect. No reliable reproduction or "
@@ -275,13 +275,13 @@ def _debug_before_repair_scenario() -> EvaluationScenario:
 def _sequential_dependency_scenario() -> EvaluationScenario:
     return EvaluationScenario(
         id="sequential-dependency",
-        workflow_id="reviewed-code-change",
-        current_member_id="change-lead",
+        workflow_id="production-feature-delivery",
+        current_member_id="feature-lead",
         focus="A dependent review receives a fresh Assignment shaped by the first return.",
         assignment_prompt=(
             "Deliver an implemented and independently reviewed compatibility patch. The "
-            "independent reviewer cannot inspect or scope meaningful review until the "
-            "implementation manager has returned the integrated patch and proof. Choose "
+            "integration verifier cannot inspect or scope meaningful review until the "
+            "delivery manager has returned the integrated feature and proof. Choose "
             "between preassigning both direct children in one parallel Wave, or receiving and "
             "inspecting implementation first and then creating a fresh review Assignment from "
             "that exact return. Do not call tools or modify files; return only the caller's "
@@ -296,7 +296,7 @@ def _unsettled_contract_scenario() -> EvaluationScenario:
     return EvaluationScenario(
         id="unsettled-contract",
         story="unsettled-contract",
-        workflow_id="cross-layer-feature",
+        workflow_id="production-feature-delivery",
         current_member_id="feature-lead",
         focus="Settle shared assumptions before parallel disjoint implementation.",
         assignment_prompt=(
@@ -316,8 +316,8 @@ def _item_specific_batch_scenario() -> EvaluationScenario:
     return EvaluationScenario(
         id="item-specific-batch",
         story="item-specific-batch",
-        workflow_id="bounded-maintenance-batch",
-        current_member_id="batch-lead",
+        workflow_id="migration-and-modernisation",
+        current_member_id="migration-lead",
         focus="A finite inventory becomes item-specific work plus integrated verification.",
         assignment_prompt=(
             "Migrate twelve named API modules and verify the integrated package. Choose between "
@@ -337,12 +337,12 @@ def _lead_synthesis_scenario() -> EvaluationScenario:
     return EvaluationScenario(
         id="lead-synthesis",
         story="lead-synthesis",
-        workflow_id="evidence-synthesis",
+        workflow_id="deep-research-and-decision-brief",
         current_member_id="research-lead",
         focus="The lead reconciles provenance and conflict instead of concatenating summaries.",
         assignment_prompt=(
             "Answer whether the proposed dependency upgrade is safe for this repository. The "
-            "exact Continuation contains three complete direct returns with different scopes "
+            "exact Continuation contains four complete direct returns with different scopes "
             "and one material limitation. Choose how to produce the final answer. Do not call "
             "tools or modify files; return only the caller's structured response."
         ),
@@ -356,7 +356,7 @@ def _lead_synthesis_scenario() -> EvaluationScenario:
                 file_description="Repository observations and exact locations.",
             ),
             WaveReturnMember(
-                child_id="source-researcher",
+                child_id="primary-source-researcher",
                 assignment_prompt="Review current authoritative upgrade guidance.",
                 summary="The vendor supports the upgrade with one migration step.",
                 details="The compatibility statement excludes the optional plugin.",
@@ -364,7 +364,15 @@ def _lead_synthesis_scenario() -> EvaluationScenario:
                 file_description="Primary-source findings and version scope.",
             ),
             WaveReturnMember(
-                child_id="evidence-critic",
+                child_id="counterevidence-researcher",
+                assignment_prompt="Search independently for consequential counterevidence.",
+                summary="The optional plugin contradicts a blanket compatibility claim.",
+                details="Its current release remains pinned to the previous major version.",
+                file_path=".banksia/t_prompt_eval/artifacts/counterevidence.md",
+                file_description="Contrary evidence and its applicability.",
+            ),
+            WaveReturnMember(
+                child_id="claim-auditor",
                 assignment_prompt="Challenge whether the proposed conclusion is supported.",
                 summary="A blanket safety claim would exceed the available evidence.",
                 details="The plugin path must be tested, upgraded, or explicitly excluded.",
@@ -382,7 +390,7 @@ def _evidence_decision_scenario() -> EvaluationScenario:
     return EvaluationScenario(
         id="evidence-based-decision",
         story="evidence-based-decision",
-        workflow_id="technical-decision",
+        workflow_id="decision-through-competing-prototypes",
         current_member_id="decision-lead",
         focus="The lead resolves disagreement from common evidence, not a vote.",
         assignment_prompt=(
@@ -394,7 +402,7 @@ def _evidence_decision_scenario() -> EvaluationScenario:
         ),
         wave_return=_wave_return(
             WaveReturnMember(
-                child_id="local-fit-analyst",
+                child_id="constraint-owner",
                 assignment_prompt="Establish the repository's operational constraints.",
                 summary="Option B alone satisfies the required offline recovery boundary.",
                 details="The boundary is documented and exercised by current recovery tests.",
@@ -402,7 +410,7 @@ def _evidence_decision_scenario() -> EvaluationScenario:
                 file_description="Local constraints and recovery evidence.",
             ),
             WaveReturnMember(
-                child_id="option-council",
+                child_id="prototype-manager",
                 assignment_prompt="Compare the strongest candidate and countercase.",
                 summary="Option A has the simpler common-case API.",
                 details="Its recovery story depends on an unavailable managed service.",
@@ -410,7 +418,15 @@ def _evidence_decision_scenario() -> EvaluationScenario:
                 file_description="Common-assumption option comparison.",
             ),
             WaveReturnMember(
-                child_id="decision-reviewer",
+                child_id="common-rubric-evaluator",
+                assignment_prompt="Evaluate every prototype against the accepted rubric.",
+                summary="Option B alone passes the required offline recovery test.",
+                details="Option A remains simpler but depends on an unavailable service.",
+                file_path=".banksia/t_prompt_eval/artifacts/prototype-evaluation.md",
+                file_description="Common-rubric prototype observations.",
+            ),
+            WaveReturnMember(
+                child_id="decision-critic",
                 assignment_prompt="Test whether the recommendation follows from evidence.",
                 summary="Popularity does not outweigh the accepted recovery constraint.",
                 details="The final choice must explain this rejected tradeoff.",
@@ -428,7 +444,7 @@ def _failed_replication_scenario() -> EvaluationScenario:
     return EvaluationScenario(
         id="failed-replication",
         story="failed-replication",
-        workflow_id="reproducible-study",
+        workflow_id="experiment-and-replication-program",
         current_member_id="study-lead",
         focus="Failed replication narrows the reported claim and exposes uncertainty.",
         assignment_prompt=(
@@ -447,12 +463,20 @@ def _failed_replication_scenario() -> EvaluationScenario:
                 file_description="Accepted method and validity conditions.",
             ),
             WaveReturnMember(
-                child_id="study-manager",
+                child_id="experiment-manager",
                 assignment_prompt="Coordinate execution and independent replication.",
                 summary="The first run improved 20 percent; replication found no improvement.",
                 details="A runtime version differs and has not been isolated.",
                 file_path=".banksia/t_prompt_eval/artifacts/replication.md",
                 file_description="Execution, replication, and environment observations.",
+            ),
+            WaveReturnMember(
+                child_id="analysis-owner",
+                assignment_prompt="Analyze the complete execution and replication observations.",
+                summary="The observed improvement is environment-dependent and unresolved.",
+                details="The available data cannot isolate the runtime-version difference.",
+                file_path=".banksia/t_prompt_eval/artifacts/analysis.md",
+                file_description="Analysis and unresolved environment sensitivity.",
             ),
             WaveReturnMember(
                 child_id="claim-auditor",
@@ -474,21 +498,21 @@ def _failed_replication_scenario() -> EvaluationScenario:
 def _nested_wave_scenario() -> EvaluationScenario:
     return EvaluationScenario(
         id="nested-wave",
-        workflow_id="technical-decision",
+        workflow_id="decision-through-competing-prototypes",
         current_member_id="decision-lead",
         focus="A Manager consumes ordered direct returns only after nested local joins.",
         assignment_prompt=(
             "Deliver the integrated technical choice. The exact Continuation contains all "
-            "three direct-child returns in delegation order. The option council reports that "
-            "its advocate and countercase Wave joined before it returned; an older transcript "
-            "mentioned the advocate finishing while the countercase was still running. Choose "
+            "four direct-child returns in delegation order. The prototype manager reports that "
+            "its two candidate prototypes joined before it returned; an older transcript "
+            "mentioned one candidate finishing while the alternative was still running. Choose "
             "whether to inspect the complete direct returns now or poll grandchildren and act "
             "on that partial transcript. Do not call tools or modify files; return only the "
             "caller's structured response."
         ),
         wave_return=_wave_return(
             WaveReturnMember(
-                child_id="local-fit-analyst",
+                child_id="constraint-owner",
                 assignment_prompt="Establish the repository's exact local constraints.",
                 summary="The local constraints and migration boundary are established.",
                 details=None,
@@ -496,7 +520,7 @@ def _nested_wave_scenario() -> EvaluationScenario:
                 file_description="Local-fit evidence for the decision lead.",
             ),
             WaveReturnMember(
-                child_id="option-council",
+                child_id="prototype-manager",
                 assignment_prompt="Integrate the candidate case and its countercase.",
                 summary="The nested advocate and countercase Wave joined into one comparison.",
                 details="Both nested contributions were inspected before this return.",
@@ -504,7 +528,15 @@ def _nested_wave_scenario() -> EvaluationScenario:
                 file_description="Option council's integrated nested-Wave comparison.",
             ),
             WaveReturnMember(
-                child_id="decision-reviewer",
+                child_id="common-rubric-evaluator",
+                assignment_prompt="Evaluate the integrated prototypes under one rubric.",
+                summary="The common evaluation identifies one bounded residual uncertainty.",
+                details=None,
+                file_path=".banksia/t_prompt_eval/artifacts/nested-evaluation.md",
+                file_description="Common-rubric evaluation of both candidate prototypes.",
+            ),
+            WaveReturnMember(
+                child_id="decision-critic",
                 assignment_prompt="Independently review the integrated decision evidence.",
                 summary="Independent review identifies one bounded residual uncertainty.",
                 details=None,
@@ -521,8 +553,8 @@ def _nested_wave_scenario() -> EvaluationScenario:
 def _stop_after_transfer_scenario() -> EvaluationScenario:
     return EvaluationScenario(
         id="stop-after-transfer",
-        workflow_id="reviewed-code-change",
-        current_member_id="change-lead",
+        workflow_id="production-feature-delivery",
+        current_member_id="feature-lead",
         focus="A successful transfer closes the current provider response.",
         assignment_prompt=(
             "The controller has just reported that delegate succeeded, atomically created the "

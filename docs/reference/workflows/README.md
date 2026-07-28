@@ -183,15 +183,16 @@ Each Workflow may have at most one active mutable draft. Draft mutations, discar
 
 Fresh/reset controller state contains exactly these installed Starters:
 
-- `bounded-maintenance-batch`;
-- `cross-layer-feature`;
-- `debug-and-verify`;
-- `evidence-synthesis`;
-- `reproducible-study`;
-- `reviewed-code-change`; and
-- `technical-decision`.
+- `decision-through-competing-prototypes`;
+- `deep-research-and-decision-brief`;
+- `experiment-and-replication-program`;
+- `idea-to-validated-demo`;
+- `incident-investigation-and-recovery`;
+- `migration-and-modernisation`;
+- `production-feature-delivery`; and
+- `security-audit-and-hardening`.
 
-They omit `provider` and `capabilities` recursively so they remain portable and default-deny.
+They omit `provider` recursively so they remain portable across configured installations. A Starter may grant a supported Human Request kind or managed Command Run to the exact Member whose responsibility needs it. Omitted grants remain denied and never inherit.
 
 The maintained [advanced reference Workflows](../../../examples/workflows/README.md) are:
 

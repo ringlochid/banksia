@@ -107,7 +107,7 @@ describe("temporary Run Studio", () => {
 
         expect(await screen.findByText("Accepted Run opened")).toBeVisible();
         expect(startRun).toHaveBeenCalledWith({
-            workflow: "reviewed-code-change",
+            workflow: "production-feature-delivery",
             prompt: "Review the release and recommend one.",
             workspace: "/workspace/project",
             files: [

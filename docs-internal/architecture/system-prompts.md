@@ -554,7 +554,7 @@ Render one deterministic `<banksia_dispatch_request>` document. It contains comp
 <banksia_dispatch_request>
   <task>
     <id>t_7m4k2d9x</id>
-    <workflow_id>reviewed-code-change</workflow_id>
+    <workflow_id>production-feature-delivery</workflow_id>
   </task>
   <dispatch>
     <id>dsp_...</id>

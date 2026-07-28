@@ -9,13 +9,14 @@ from pathlib import Path, PurePosixPath
 EXPECTED_DISTRIBUTION_NAME = "banksia"
 EXPECTED_DISTRIBUTION_VERSION = "0.1.0"
 STARTER_WORKFLOW_IDS = (
-    "bounded-maintenance-batch",
-    "cross-layer-feature",
-    "debug-and-verify",
-    "evidence-synthesis",
-    "reproducible-study",
-    "reviewed-code-change",
-    "technical-decision",
+    "decision-through-competing-prototypes",
+    "deep-research-and-decision-brief",
+    "experiment-and-replication-program",
+    "idea-to-validated-demo",
+    "incident-investigation-and-recovery",
+    "migration-and-modernisation",
+    "production-feature-delivery",
+    "security-audit-and-hardening",
 )
 STARTER_WORKFLOW_FILENAMES = tuple(f"{workflow_id}.yaml" for workflow_id in STARTER_WORKFLOW_IDS)
 ADVANCED_REFERENCE_WORKFLOW_IDS = (

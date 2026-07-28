@@ -146,14 +146,14 @@ Without the current ETag, or when another edit has advanced it, the mutation fai
 Export selects the current publication by default or one exact immutable revision:
 
 ```bash
-banksia workflow export reviewed-code-change \
-  --output reviewed-code-change.yaml
+banksia workflow export production-feature-delivery \
+  --output production-feature-delivery.yaml
 
-banksia workflow export reviewed-code-change \
+banksia workflow export production-feature-delivery \
   --revision 1 \
-  --output reviewed-code-change.json
+  --output production-feature-delivery.json
 
-banksia workflow export reviewed-code-change --format yaml
+banksia workflow export production-feature-delivery --format yaml
 ```
 
 The output extension selects JSON or YAML when writing a file. Standard output requires `--format`. Existing files are not overwritten unless `--force` is present.
@@ -174,7 +174,7 @@ Machine mode accepts exactly one strict JSON source: an inline object, `@file`, 
 
 ```bash
 banksia task start \
-  --json '{"workflow":"reviewed-code-change","prompt":"Implement and review the requested change."}'
+  --json '{"workflow":"production-feature-delivery","prompt":"Deliver the consequential cross-layer feature, verify the integrated outcome and release risks, repair accepted findings, and return the result."}'
 
 banksia task start --json @task.json
 banksia task start --json - < task.json
@@ -184,8 +184,8 @@ The object is the exact `TaskStartRequest`:
 
 ```json
 {
-  "workflow": "reviewed-code-change",
-  "prompt": "Implement and independently review the requested change.",
+  "workflow": "production-feature-delivery",
+  "prompt": "Deliver and independently verify the consequential cross-layer feature.",
   "workspace": "/absolute/path/to/project",
   "files": [
     {

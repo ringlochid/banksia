@@ -181,7 +181,7 @@ def verify_installed_console(port: int) -> dict[str, object]:
             f"installed Console root did not redirect to Workflows: {root_status}, {root_headers}"
         )
     page_bodies: dict[str, str] = {}
-    for path in ("/workflows", "/workflows/reviewed-code-change", "/runs"):
+    for path in ("/workflows", "/workflows/production-feature-delivery", "/runs"):
         status_code, headers, body = read_loopback_response(port, path)
         if (
             status_code != 200

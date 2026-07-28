@@ -74,7 +74,7 @@ test("reconnects to controller Run truth without manual refresh", async ({
 async function startTask(request: APIRequestContext): Promise<string> {
     const response = await request.post("/api/tasks", {
         data: {
-            workflow: "debug-and-verify",
+            workflow: "incident-investigation-and-recovery",
             prompt: TASK_PROMPT,
             workspace: REPO_ROOT,
         },

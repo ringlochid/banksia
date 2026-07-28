@@ -67,7 +67,7 @@ lead: {id: lead}
         [
             "workflow",
             "export",
-            "reviewed-code-change",
+            "production-feature-delivery",
             "--config",
             str(config_path),
             "--format",
@@ -76,7 +76,7 @@ lead: {id: lead}
     )
     assert exported.exit_code == 0, exported.output
     exported_payload = yaml.safe_load(exported.output)
-    assert exported_payload["id"] == "reviewed-code-change"
+    assert exported_payload["id"] == "production-feature-delivery"
     assert exported_payload["kind"] == "workflow"
 
 

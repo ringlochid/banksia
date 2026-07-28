@@ -359,7 +359,7 @@ def verify_installed_workflow_import(
                 (
                     "from importlib.resources import files; "
                     "print(files('banksia.workflows.resources.starter_workflows') / "
-                    "'reviewed-code-change.yaml')"
+                    "'production-feature-delivery.yaml')"
                 ),
             ),
             cwd=cwd,
@@ -374,8 +374,8 @@ def verify_installed_workflow_import(
     import_path = cwd / "installed_oracle_workflow.yaml"
     source_text = source_path.read_text(encoding="utf-8")
     imported_text = source_text.replace(
-        "id: reviewed-code-change\n",
-        "id: installed-oracle-reviewed-code-change\n",
+        "id: production-feature-delivery\n",
+        "id: installed-oracle-production-feature-delivery\n",
         1,
     )
     if imported_text == source_text:
@@ -397,7 +397,7 @@ def verify_installed_workflow_import(
     )
     draft = payload.get("draft")
     if not isinstance(draft, dict) or draft.get("workflow_id") != (
-        "installed-oracle-reviewed-code-change"
+        "installed-oracle-production-feature-delivery"
     ):
         raise AssertionError(f"installed Workflow import returned an unexpected shape: {payload}")
     return payload

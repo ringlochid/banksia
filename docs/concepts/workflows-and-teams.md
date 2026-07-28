@@ -105,19 +105,29 @@ An accepted replan creates a fresh Task-local team revision. The provider turn t
 
 ## Start simple; disclose control progressively
 
-Fresh installations include seven provider-neutral, capability-neutral Starters:
+Fresh installations include eight provider-neutral Starters for work whose breadth, independence, duration, or verification can justify a team.
 
-| Starter | Use it for |
+### Daily complex work
+
+| Starter | Use it when |
 | --- | --- |
-| `reviewed-code-change` | Implement, independently review, repair, and recheck one bounded change. |
-| `debug-and-verify` | Reproduce a difficult defect, challenge causes, repair, and verify independently. |
-| `cross-layer-feature` | Coordinate a shared contract, disjoint layers, and end-to-end verification. |
-| `bounded-maintenance-batch` | Process a finite inventory with item ownership and completeness review. |
-| `evidence-synthesis` | Gather local and current evidence, challenge it, and own one supported conclusion. |
-| `technical-decision` | Compare options under local constraints and make an accountable choice. |
-| `reproducible-study` | Separate methods, execution, replication, and claim audit. |
+| `production-feature-delivery` | A consequential feature crosses product or interface contracts, implementation boundaries, integrated verification, and release readiness. |
+| `incident-investigation-and-recovery` | An intermittent, systemic, or high-impact failure needs competing hypotheses, evidence-supported recovery, independent verification, and prevention. |
+| `migration-and-modernisation` | A large framework, dependency, API, repository, or codebase migration needs a complete inventory, dependency-aware batches, cutover, and stale-path removal. |
+| `deep-research-and-decision-brief` | A consequential question needs broad local and external evidence, claim verification, contradiction resolution, and one accountable recommendation. |
+| `decision-through-competing-prototypes` | A choice is too consequential for prose comparison and should be tested through competing prototypes or simulations under one rubric. |
 
-Starters omit `provider` and `capabilities` throughout the tree. Provider selection resolves from controller configuration, while Human Request and Command Run remain denied until a user grants them narrowly in a customized draft.
+### Ambitious work
+
+| Starter | Use it when |
+| --- | --- |
+| `idea-to-validated-demo` | A promising application or product idea should become an evidence-backed position, scoped product, working first demo, launch strategy, and credible pitch. |
+| `experiment-and-replication-program` | A substantial computational, data, benchmark, model, or empirical program needs explicit methods, durable execution, independent replication, and claim audit. |
+| `security-audit-and-hardening` | A consequential system needs attack-surface mapping, specialised audits, finding validation, controlled remediation, and adversarial re-verification. |
+
+Choose a one-Member Workflow when the job is small or tightly coupled. These Starters are designed for missions where independent evidence, disjoint ownership, durable work, or adversarial verification adds material value.
+
+Starters omit `provider`, so selection resolves from controller configuration. They grant Human Request or managed Command Run only to the Members whose responsibility intrinsically needs that operation. Every omitted grant denies, and children never inherit a parent's capabilities. Inspect the team before use; Human Request may pause that Member for your answer, while managed Command Run is intended for long, supervised processes rather than ordinary shell commands.
 
 The three maintained [advanced reference Workflows](../../examples/workflows/README.md) demonstrate deliberate provider, sandbox, network, and capability choices. They are importable examples, not installed Starters.
 

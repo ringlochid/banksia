@@ -24,7 +24,7 @@ For automation, pass strict JSON inline, from `@file`, or through standard input
 
 ```bash
 banksia task start --json \
-  '{"workflow":"debug-and-verify","prompt":"Reproduce the intermittent import failure, compare competing causes, implement only an evidence-supported repair, independently verify the original and adjacent cases, and return the result with referenced proof."}'
+  '{"workflow":"incident-investigation-and-recovery","prompt":"Reproduce the intermittent import failure, compare competing causes, implement only an evidence-supported repair, independently verify the original and adjacent cases, and return the result with referenced proof."}'
 ```
 
 The controller must already be running. CLI-started runs use the invocation directory as their workspace.

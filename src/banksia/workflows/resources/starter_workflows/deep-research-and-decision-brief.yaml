@@ -1,0 +1,51 @@
+kind: workflow
+id: deep-research-and-decision-brief
+description: >-
+  Use for a consequential question that needs broad local and external evidence,
+  counterevidence, claim-level verification, contradiction resolution, and one
+  accountable decision brief.
+note: >-
+  A useful default is independent evidence collection followed by synthesis and
+  criticism. Keep local observations, sourced claims, inference, and unresolved
+  contradiction distinct, and reopen research only for a concrete evidence gap.
+lead:
+  id: research-lead
+  title: Research lead
+  description: Owns the question, evidence standard, synthesis, and result.
+  instruction: >-
+    Maintain the exact research and decision boundary. Reconcile evidence into
+    a useful conclusion, label inference, resolve or expose disagreement, and
+    calibrate confidence to provenance, coverage, recency, and applicability.
+  capabilities:
+    human_request:
+      - input
+      - direction
+  children:
+    - id: local-evidence-researcher
+      title: Local evidence researcher
+      description: Establishes relevant facts from the supplied workspace.
+      instruction: >-
+        Inspect current behavior, constraints, prior decisions, and
+        contradictions. Cite exact locations and distinguish shipped facts from
+        comments, proposals, generated material, or stale plans.
+    - id: primary-source-researcher
+      title: Primary-source researcher
+      description: Finds current authoritative evidence outside the workspace.
+      instruction: >-
+        Locate and compare sources appropriate to the question. Preserve direct
+        provenance, date or version, scope, applicability, and material absence
+        of authoritative evidence.
+    - id: counterevidence-researcher
+      title: Counterevidence researcher
+      description: Searches independently for contradictory evidence and alternatives.
+      instruction: >-
+        Challenge the emerging answer with counterexamples, competing
+        explanations, contrary sources, and boundary cases that could materially
+        change the recommendation.
+    - id: claim-auditor
+      title: Claim auditor
+      description: Verifies consequential claims, citations, and inference boundaries.
+      instruction: >-
+        Test whether material claims follow from suitable evidence, versions and
+        contexts match, citations support the asserted meaning, and uncertainty
+        is not hidden by confident prose.

@@ -65,38 +65,42 @@ class _CompletionCase:
 
 _COMPLETION_CASES = (
     _CompletionCase(
-        workflow_id="reviewed-code-change",
+        workflow_id="production-feature-delivery",
         task_prompt=(
-            "Implement the bounded cancellation repair, prove it with focused regression "
-            "coverage, and independently review the integrated change."
+            "Deliver the cross-layer cancellation recovery experience and independently "
+            "verify the integrated feature."
         ),
         root=_WorkNode(
-            member_id="change-lead",
-            summary="The bounded cancellation repair is implemented, verified, and reviewed.",
+            member_id="feature-lead",
+            summary="The cancellation recovery feature is integrated and verified.",
             children=(
                 _WorkNode(
-                    member_id="implementation-manager",
-                    summary="Production and regression contributions are integrated.",
+                    member_id="contract-owner",
+                    summary="The shared cancellation and compatibility contract is established.",
+                ),
+                _WorkNode(
+                    member_id="delivery-manager",
+                    summary="Service and experience contributions are integrated.",
                     children=(
                         _WorkNode(
-                            member_id="code-owner",
-                            summary="The bounded production repair is complete.",
+                            member_id="service-owner",
+                            summary="The service-side recovery behavior is complete.",
                         ),
                         _WorkNode(
-                            member_id="test-owner",
-                            summary="Focused regression proof is complete.",
+                            member_id="experience-owner",
+                            summary="The user-facing recovery experience is complete.",
                         ),
                     ),
                 ),
                 _WorkNode(
-                    member_id="independent-reviewer",
-                    summary="Independent review found no remaining fix-now defect.",
+                    member_id="integration-verifier",
+                    summary="Independent integration verification found no release blocker.",
                 ),
             ),
         ),
     ),
     _CompletionCase(
-        workflow_id="evidence-synthesis",
+        workflow_id="deep-research-and-decision-brief",
         task_prompt=(
             "Determine whether the proposed dependency upgrade is safe for this repository "
             "using local evidence, current authoritative sources, and independent criticism."
@@ -110,11 +114,15 @@ _COMPLETION_CASES = (
                     summary="Relevant repository constraints and contradictions are recorded.",
                 ),
                 _WorkNode(
-                    member_id="source-researcher",
+                    member_id="primary-source-researcher",
                     summary="Current authoritative guidance and its scope are recorded.",
                 ),
                 _WorkNode(
-                    member_id="evidence-critic",
+                    member_id="counterevidence-researcher",
+                    summary="Material counterevidence and alternative explanations are recorded.",
+                ),
+                _WorkNode(
+                    member_id="claim-auditor",
                     summary="The supported conclusion and material evidence limits are checked.",
                 ),
             ),

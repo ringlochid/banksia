@@ -83,7 +83,7 @@ async def test_remove_workflow_retires_publication_and_preserves_history(
     tmp_path: Path,
     database_backend: DatabaseBackend,
 ) -> None:
-    published_id = "evidence-synthesis"
+    published_id = "deep-research-and-decision-brief"
     async with workflow_database(tmp_path, backend=database_backend) as session_factory:
         async with product_http_client(session_factory, tmp_path=tmp_path) as client:
             created = await client.post(
@@ -182,7 +182,7 @@ async def test_library_states_current_description_pagination_and_discard(
             )
             opened = await client.post(
                 "/api/workflow-drafts",
-                json={"kind": "open", "workflow_id": "reviewed-code-change"},
+                json={"kind": "open", "workflow_id": "production-feature-delivery"},
             )
             edited = await client.patch(
                 f"/api/workflow-drafts/{opened.json()['draft']['draft_id']}",
@@ -202,8 +202,8 @@ async def test_library_states_current_description_pagination_and_discard(
             )
             all_items = await _all_library_items(client, limit=2)
             draft_detail = await client.get("/api/workflows/only-draft")
-            published_detail = await client.get("/api/workflows/evidence-synthesis")
-            combined_detail = await client.get("/api/workflows/reviewed-code-change")
+            published_detail = await client.get("/api/workflows/deep-research-and-decision-brief")
+            combined_detail = await client.get("/api/workflows/production-feature-delivery")
             draft_revision = await client.get(
                 "/api/workflows/only-draft",
                 params={"revision_no": 1},
@@ -218,7 +218,7 @@ async def test_library_states_current_description_pagination_and_discard(
             )
 
     assert edited.status_code == 200, edited.text
-    assert current_search.json()["items"][0]["workflow_id"] == "reviewed-code-change"
+    assert current_search.json()["items"][0]["workflow_id"] == "production-feature-delivery"
     assert stale_search.json()["items"] == []
     ids = [str(item["workflow_id"]) for item in all_items]
     assert ids == sorted(ids)
@@ -226,16 +226,18 @@ async def test_library_states_current_description_pagination_and_discard(
     assert by_id["only-draft"]["state"] == "draft"
     assert by_id["only-draft"]["available_actions"] == ["edit", "remove"]
     assert by_id["only-draft"]["published_revision_no"] is None
-    assert by_id["evidence-synthesis"]["state"] == "published"
-    assert by_id["evidence-synthesis"]["available_actions"] == [
+    assert by_id["deep-research-and-decision-brief"]["state"] == "published"
+    assert by_id["deep-research-and-decision-brief"]["available_actions"] == [
         "edit",
         "start_run",
         "remove",
     ]
-    assert by_id["reviewed-code-change"]["state"] == "published_with_draft"
-    assert by_id["reviewed-code-change"]["description"] == "Current editable description."
-    assert by_id["reviewed-code-change"]["updated_at"] == combined_detail.json()["updated_at"]
-    assert by_id["reviewed-code-change"]["provenance"] == "starter_seed"
+    assert by_id["production-feature-delivery"]["state"] == "published_with_draft"
+    assert by_id["production-feature-delivery"]["description"] == "Current editable description."
+    assert (
+        by_id["production-feature-delivery"]["updated_at"] == combined_detail.json()["updated_at"]
+    )
+    assert by_id["production-feature-delivery"]["provenance"] == "starter_seed"
     assert draft_detail.json()["state"] == "draft"
     assert draft_detail.json()["provenance"] == "user"
     assert draft_detail.json()["published"] is None
@@ -297,7 +299,7 @@ async def test_updated_at_prefers_a_later_current_publication_over_an_older_draf
     database_backend: DatabaseBackend,
 ) -> None:
     old_time = datetime(2020, 1, 1, tzinfo=UTC)
-    workflow_id = "reviewed-code-change"
+    workflow_id = "production-feature-delivery"
     async with workflow_database(tmp_path, backend=database_backend) as session_factory:
         async with session_factory() as session:
             current = await read_workflow_catalog_entry(
@@ -352,7 +354,7 @@ async def test_updated_at_marks_published_draft_discard(
     database_backend: DatabaseBackend,
 ) -> None:
     old_time = datetime(2020, 1, 1, tzinfo=UTC)
-    workflow_id = "reviewed-code-change"
+    workflow_id = "production-feature-delivery"
     async with workflow_database(tmp_path, backend=database_backend) as session_factory:
         async with session_factory() as session:
             opened = await open_workflow_draft(
@@ -396,7 +398,7 @@ async def test_updated_at_marks_reselection_of_an_older_immutable_revision(
     database_backend: DatabaseBackend,
 ) -> None:
     old_time = datetime(2020, 1, 1, tzinfo=UTC)
-    workflow_id = "reviewed-code-change"
+    workflow_id = "production-feature-delivery"
     async with workflow_database(tmp_path, backend=database_backend) as session_factory:
         async with session_factory() as session:
             initial = await read_workflow_catalog_entry(

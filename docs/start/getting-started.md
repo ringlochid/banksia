@@ -33,7 +33,7 @@ Stay in the Banksia checkout. To use that checkout as the first workspace, run:
 ./.venv/bin/banksia init
 ```
 
-Accept the checkout as the default workspace or enter another existing absolute directory. The initializer writes local configuration, prepares controller storage, and publishes the seven provider-neutral Starter Workflows.
+Accept the checkout as the default workspace or enter another existing absolute directory. The initializer writes local configuration, prepares controller storage, and publishes the eight provider-neutral Starter Workflows.
 
 When local initialization succeeds, the same guided journey asks for one Task provider. Choose Codex, Claude, or OpenClaw, then follow the authentication and readiness prompts. Choose `cancel` to keep local initialization complete and defer provider setup.
 
@@ -95,13 +95,14 @@ Banksia selects a systemd user service on Linux and a current-user LaunchAgent o
 In the Console:
 
 1. Open **Runs** and choose **New run**.
-2. Select the published `reviewed-code-change` Starter.
+2. Select the published `production-feature-delivery` Starter.
 3. Enter one complete prompt, for example:
 
-   > Add validation for the configuration import failure path without changing
-   > accepted behavior. Follow current repository conventions, add focused
-   > regression proof, independently review the integrated change, repair
-   > accepted findings, and return the verified result with referenced files.
+   > Add a guided configuration-import recovery experience across the API and
+   > Console. Preserve accepted imports, define the shared error contract,
+   > implement the service and user-facing behavior, verify the integrated
+   > recovery path, repair consequential findings, and return the
+   > release-readiness result with referenced files.
 
 4. Start the run and follow **Team**, **Current plan**, and meaningful **Activity**.
 5. Read **Result**. It is the lead's exact final `green` or `blocked` Checkpoint.
@@ -109,11 +110,11 @@ In the Console:
 
 The responsibility tree tells you who owns each part of the work; it does not force a fixed order. The running team chooses sequential, parallel, iterative, batch, or hybrid work from current evidence.
 
-The installed Starters are capability-neutral: they grant neither Human Request nor Command Run. A normal first run therefore does not promise a question or an Action card. Those surfaces appear only when a custom Workflow explicitly grants the relevant Member capability.
+Starters omit provider settings and use the configured default. They grant Human Request or managed Command Run only to the Members whose responsibility needs a material user decision or a long, supervised process. Every omitted capability denies and children never inherit. A Human Request pauses only its current Member until you answer; a managed Command Run appears as an inspectable Action with retained output.
 
 ## Researcher path
 
-Start another run with `evidence-synthesis`:
+Start another run with `deep-research-and-decision-brief`:
 
 > Determine whether the proposed storage change fits this repository's current
 > recovery contract. Separate local facts, current primary-source claims, and
@@ -122,7 +123,7 @@ Start another run with `evidence-synthesis`:
 
 Use **Advanced → Referenced files** on the start form when the team must inspect a particular workspace file. Banksia records each path and optional description, not a copy of the file.
 
-For a computational or empirical question that needs independent replication, choose `reproducible-study` instead.
+For a substantial computational or empirical program that needs durable execution and independent replication, choose `experiment-and-replication-program` instead.
 
 ## CLI alternative
 
@@ -136,7 +137,7 @@ Automation can pass one strict JSON object inline, from `@file`, or through stan
 
 ```bash
 ./.venv/bin/banksia task start --json \
-  '{"workflow":"reviewed-code-change","prompt":"Implement the bounded validation change, add focused regression proof, independently review the integrated state, repair accepted findings, and return the verified result."}'
+  '{"workflow":"production-feature-delivery","prompt":"Deliver the cross-layer configuration recovery experience, verify the integrated behavior and release risks, repair accepted findings, and return the result."}'
 ```
 
 The controller must already be running. CLI-started runs use the invocation directory as their workspace. To start from another project, change to that directory and invoke the absolute path to the Banksia checkout's `.venv/bin/banksia`.

@@ -6,7 +6,7 @@ import type {
     WorkflowSearchItem,
 } from "../../src/api/types";
 
-export const TEST_WORKFLOW_ID = "evidence-synthesis";
+export const TEST_WORKFLOW_ID = "deep-research-and-decision-brief";
 
 export function workflowFixture(
     description = "Research a question with independent evidence review.",

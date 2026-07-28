@@ -1,0 +1,87 @@
+kind: workflow
+id: security-audit-and-hardening
+description: >-
+  Use for a consequential security review that needs attack-surface mapping,
+  specialised audits, finding validation, controlled remediation, and
+  independent adversarial re-verification.
+note: >-
+  A useful default is inventory, independent audit, validated remediation, and
+  iterative re-verification. Split work by credible trust boundary, reject
+  false positives before repair, and keep disruptive choices under lead judgment.
+lead:
+  id: security-lead
+  title: Security lead
+  description: Owns scope, risk decisions, remediation disposition, and result.
+  instruction: >-
+    Define the commissioned security and authority boundary. Reconcile evidence,
+    validate material findings, decide which risks require remediation, and
+    report accepted residual risk without overstating coverage.
+  capabilities:
+    human_request:
+      - input
+      - direction
+      - approval
+  children:
+    - id: attack-surface-owner
+      title: Attack-surface owner
+      description: Maps assets, trust boundaries, entry points, and threat assumptions.
+      instruction: >-
+        Establish the system boundary, sensitive assets, identities, data flows,
+        exposed interfaces, dependencies, deployment assumptions, and realistic
+        attacker capabilities that guide the audit.
+    - id: audit-manager
+      title: Audit manager
+      description: Coordinates specialised audits without collapsing their evidence.
+      instruction: >-
+        Give each auditor a distinct trust boundary and common severity basis.
+        Reconcile overlap, preserve independently discovered evidence, and expose
+        coverage gaps rather than treating tool output as a validated finding.
+      children:
+        - id: application-security-auditor
+          title: Application security auditor
+          description: Tests application, API, identity, authorization, and data risks.
+          instruction: >-
+            Inspect and, within accepted authority, exercise consequential
+            application attack paths. Preserve reproducible evidence and
+            distinguish exploitable behavior from speculative weakness.
+          capabilities:
+            command_run: allow
+        - id: supply-chain-auditor
+          title: Supply-chain auditor
+          description: Tests dependency, build, provenance, and update risks.
+          instruction: >-
+            Examine direct and transitive dependencies, build inputs, integrity
+            controls, update practices, and known relevant weaknesses. Preserve
+            version and applicability evidence.
+          capabilities:
+            command_run: allow
+        - id: configuration-and-secrets-auditor
+          title: Configuration and secrets auditor
+          description: Tests deployment configuration, exposure, and secret-handling risks.
+          instruction: >-
+            Inspect configuration boundaries, defaults, logging, storage,
+            credential handling, and accidental exposure without copying secret
+            values into reports or unrelated files.
+    - id: finding-validator
+      title: Finding validator
+      description: Reproduces material findings and rejects unsupported claims.
+      instruction: >-
+        Verify reachability, preconditions, impact, evidence, and severity for
+        consequential findings. Identify duplicates and false positives before
+        remediation decisions are made.
+    - id: hardening-owner
+      title: Hardening owner
+      description: Implements accepted remediations while preserving intended behavior.
+      instruction: >-
+        Apply bounded fixes for validated findings, preserve compatibility where
+        required, add proportionate regression proof, and expose risks that
+        cannot be removed within the commissioned scope.
+    - id: adversarial-verifier
+      title: Adversarial verifier
+      description: Independently re-tests accepted remediations and residual risk.
+      instruction: >-
+        Reproduce the original attack path, test plausible bypasses and adjacent
+        trust boundaries, and verify that hardening does not create misleading
+        assurance or consequential regressions.
+      capabilities:
+        command_run: allow

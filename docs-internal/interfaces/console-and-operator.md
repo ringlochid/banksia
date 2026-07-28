@@ -286,9 +286,9 @@ The sidebar exposes explicit create, collapse, navigation, and Operator actions.
 
 Settings needed for controller/provider configuration may be contextual but do not become a third authoring model.
 
-An empty/reset installation shows exactly seven packaged Starter Workflows in the Workflow library as ordinary published teams with a quiet **Starter** label and a plain-language “use when” description: `reviewed-code-change`, `debug-and-verify`, `cross-layer-feature`, `bounded-maintenance-batch`, `evidence-synthesis`, `technical-decision`, and `reproducible-study`.
+An empty/reset installation shows exactly eight packaged Starter Workflows in the Workflow library as ordinary published teams with a quiet **Starter** label and a plain-language “use when” description: `production-feature-delivery`, `incident-investigation-and-recovery`, `migration-and-modernisation`, `deep-research-and-decision-brief`, `decision-through-competing-prototypes`, `idea-to-validated-demo`, `experiment-and-replication-program`, and `security-audit-and-hardening`.
 
-It never installs the maintained `advanced-*` reference examples. Because Starter Workflows omit provider and capability configuration, their cards make no provider or tool availability promise; they use the installation's configured default until a user explicitly customizes a draft.
+It never installs the maintained `advanced-*` reference examples. Starter cards make no provider promise because every Starter omits provider configuration and uses the installation's configured default. Workflow detail and editing plainly disclose which Members may ask the user for decisions or start managed commands; omitted grants remain denied. Advanced provider, sandbox, and per-kind capability editing stays under progressive disclosure.
 
 ## Workflow Studio
 

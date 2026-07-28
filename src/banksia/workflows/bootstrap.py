@@ -10,13 +10,14 @@ from banksia.workflows.ingest import parse_workflow
 from banksia.workflows.publication import publish_workflow_revision
 
 STARTER_WORKFLOW_FILENAMES = (
-    "bounded-maintenance-batch.yaml",
-    "cross-layer-feature.yaml",
-    "debug-and-verify.yaml",
-    "evidence-synthesis.yaml",
-    "reproducible-study.yaml",
-    "reviewed-code-change.yaml",
-    "technical-decision.yaml",
+    "decision-through-competing-prototypes.yaml",
+    "deep-research-and-decision-brief.yaml",
+    "experiment-and-replication-program.yaml",
+    "idea-to-validated-demo.yaml",
+    "incident-investigation-and-recovery.yaml",
+    "migration-and-modernisation.yaml",
+    "production-feature-delivery.yaml",
+    "security-audit-and-hardening.yaml",
 )
 
 
@@ -33,7 +34,7 @@ async def seed_starter_workflows(
                 f"Starter Workflow filename stem {PurePath(filename).stem!r} "
                 f"must equal Workflow id {workflow.id!r}"
             )
-        _verify_portable_seed(workflow.model_dump(mode="json", exclude_none=True))
+        _verify_provider_neutral_seed(workflow.model_dump(mode="json", exclude_none=True))
         results.append(
             await publish_workflow_revision(
                 session,
@@ -47,18 +48,15 @@ async def seed_starter_workflows(
     return tuple(results)
 
 
-def _verify_portable_seed(value: object) -> None:
+def _verify_provider_neutral_seed(value: object) -> None:
     if isinstance(value, dict):
-        forbidden = {"provider", "capabilities"} & value.keys()
-        if forbidden:
-            raise ValueError(
-                "Starter Workflow contains non-portable fields: " + ", ".join(sorted(forbidden))
-            )
+        if "provider" in value:
+            raise ValueError("Starter Workflow contains non-portable field: provider")
         for child in value.values():
-            _verify_portable_seed(child)
+            _verify_provider_neutral_seed(child)
     elif isinstance(value, list):
         for child in value:
-            _verify_portable_seed(child)
+            _verify_provider_neutral_seed(child)
 
 
 __all__ = ["STARTER_WORKFLOW_FILENAMES", "seed_starter_workflows"]

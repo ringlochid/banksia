@@ -51,15 +51,15 @@ Every scenario loads the named packaged Starter through the shipped Workflow par
 
 | Scenario | Starter Workflow | Current Member | Behavior under evaluation |
 | --- | --- | --- | --- |
-| `anti-relay` | `reviewed-code-change` | `change-lead` | A Manager must add interpretation, scope, inspection, and integration. |
-| `child-says-done` | `reviewed-code-change` | `implementation-manager` | A green child claim requires evidence inspection before acceptance. |
-| `review-and-rework` | `reviewed-code-change` | `change-lead` | Review findings become a fresh, feedback-bearing repair Assignment. |
-| `debug-before-repair` | `debug-and-verify` | `debug-lead` | Reproduction and cause evidence precede a cause-based repair. |
-| `sequential-dependency` | `reviewed-code-change` | `change-lead` | A dependent review receives a fresh Assignment shaped by the first return. |
-| `unsettled-contract` | `cross-layer-feature` | `feature-lead` | Settle shared assumptions before parallel disjoint implementation. |
-| `item-specific-batch` | `bounded-maintenance-batch` | `batch-lead` | A finite inventory becomes item-specific work plus integrated verification. |
-| `lead-synthesis` | `evidence-synthesis` | `research-lead` | The lead reconciles provenance and conflict instead of concatenating summaries. |
-| `evidence-based-decision` | `technical-decision` | `decision-lead` | The lead resolves disagreement from common evidence, not a vote. |
-| `failed-replication` | `reproducible-study` | `study-lead` | Failed replication narrows the reported claim and exposes uncertainty. |
-| `nested-wave` | `technical-decision` | `decision-lead` | A Manager consumes ordered direct returns only after nested local joins. |
-| `stop-after-transfer` | `reviewed-code-change` | `change-lead` | A successful transfer closes the current provider response. |
+| `anti-relay` | `production-feature-delivery` | `feature-lead` | A Manager must add interpretation, scope, inspection, and integration. |
+| `child-says-done` | `production-feature-delivery` | `delivery-manager` | A green child claim requires evidence inspection before acceptance. |
+| `review-and-rework` | `production-feature-delivery` | `feature-lead` | Review findings become a fresh, feedback-bearing repair Assignment. |
+| `debug-before-repair` | `incident-investigation-and-recovery` | `incident-lead` | Reproduction and cause evidence precede a cause-based repair. |
+| `sequential-dependency` | `production-feature-delivery` | `feature-lead` | A dependent review receives a fresh Assignment shaped by the first return. |
+| `unsettled-contract` | `production-feature-delivery` | `feature-lead` | Settle shared assumptions before parallel disjoint implementation. |
+| `item-specific-batch` | `migration-and-modernisation` | `migration-lead` | A finite inventory becomes item-specific work plus integrated verification. |
+| `lead-synthesis` | `deep-research-and-decision-brief` | `research-lead` | The lead reconciles provenance and conflict instead of concatenating summaries. |
+| `evidence-based-decision` | `decision-through-competing-prototypes` | `decision-lead` | The lead resolves disagreement from common evidence, not a vote. |
+| `failed-replication` | `experiment-and-replication-program` | `study-lead` | Failed replication narrows the reported claim and exposes uncertainty. |
+| `nested-wave` | `decision-through-competing-prototypes` | `decision-lead` | A Manager consumes ordered direct returns only after nested local joins. |
+| `stop-after-transfer` | `production-feature-delivery` | `feature-lead` | A successful transfer closes the current provider response. |

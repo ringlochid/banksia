@@ -96,16 +96,17 @@ Run every lane applicable under the root contract to the touched boundary. Focus
 
 ## Workflow catalog proof
 
-The shipped inventory is exactly seven provider- and capability-neutral Starters:
+The shipped inventory is exactly eight provider-neutral Starters with narrow built-in grants where the responsibility needs them:
 
 ```text
-bounded-maintenance-batch
-cross-layer-feature
-debug-and-verify
-evidence-synthesis
-reproducible-study
-reviewed-code-change
-technical-decision
+decision-through-competing-prototypes
+deep-research-and-decision-brief
+experiment-and-replication-program
+idea-to-validated-demo
+incident-investigation-and-recovery
+migration-and-modernisation
+production-feature-delivery
+security-audit-and-hardening
 ```
 
 Maintained, non-installed advanced references are exactly:
@@ -121,8 +122,8 @@ Catalog closeout must prove:
 - every YAML file parses through the shipped ingestion path and agrees with JSON serialization;
 - filename stem equals Workflow ID;
 - Starter and reference inventories are disjoint;
-- all Starters recursively omit `provider` and `capabilities`;
-- fresh/reset and installed-distribution libraries contain exactly the seven Starters and no advanced reference; and
+- all Starters recursively omit `provider`, and every capability is a supported narrow built-in grant on its exact Member;
+- fresh/reset and installed-distribution libraries contain exactly the eight Starters and no advanced reference; and
 - definition-backed Manager behavior covers safe sequence/parallel work, feedback-bearing repair, bounded batches, evidence disagreement, anti-relay behavior, nested joins, and failed-replication claim limits.
 
 Use `make docs-contract-check`, `make docs-prompt-check`, `make test-docs`, the applicable Workflow integration/E2E lanes, and package verification together; no one lane proves the whole catalog.
@@ -144,7 +145,7 @@ Database schema, package/install path, or public CLI/API truth also requires the
 
 Live provider proof tests the provider/package/HTTP seam, not the full Starter catalog. For each managed provider claimed by a release, use one disposable one- or two-Member Workflow and one bounded prompt: a greeting, a tiny brainstorm or council question, or a short research question. Prove the exact request and workspace, provider turn, controller records, and HTTP Result/readback boundary. Add at most one Operator clarification and only the minimum answer turn needed to complete it.
 
-Larger Starter journeys, including `reviewed-code-change` and `evidence-synthesis`, belong to deterministic catalog, runtime, and static proof. They still require their distinct responsibility, review, file-reference, and exact-Result oracles, but they are not live-provider release probes. `make package-verify` remains the complete disposable installed-distribution proof; do not expand it into an expensive catalog journey.
+Larger Starter journeys, including `production-feature-delivery` and `deep-research-and-decision-brief`, belong to deterministic catalog, runtime, and static proof. They still require their distinct responsibility, review, file-reference, and exact-Result oracles, but they are not live-provider release probes. `make package-verify` remains the complete disposable installed-distribution proof; do not expand it into an expensive catalog journey.
 
 Provider proof must use configured shipped Codex and Claude paths when the release claims them. Browser proof needs installed Playwright dependencies. PostgreSQL proof needs the repository Docker Compose environment. Service installation needs a supported Linux user-service environment.
 

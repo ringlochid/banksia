@@ -326,7 +326,7 @@ The required usability oracle is an independent no-doc evaluator that did not im
 ### Workflow Studio
 
 - Before implementation, each delegated slice verifies the pinned n8n commit, reads its assigned source packet and screenshots, and returns an adopt/adapt/reject record tied to Banksia contracts. Source reading without this decision record is not proof.
-- Fresh/reset library state shows exactly `bounded-maintenance-batch`, `cross-layer-feature`, `debug-and-verify`, `evidence-synthesis`, `reproducible-study`, `reviewed-code-change`, and `technical-decision`, with human “use when” descriptions and no provider/capability claim where those fields are omitted. The three `advanced-*` reference examples remain absent from installed content.
+- Fresh/reset library state shows exactly `decision-through-competing-prototypes`, `deep-research-and-decision-brief`, `experiment-and-replication-program`, `idea-to-validated-demo`, `incident-investigation-and-recovery`, `migration-and-modernisation`, `production-feature-delivery`, and `security-audit-and-hardening`, with human “use when” descriptions, no provider claim, and exact narrow capability readback for capable Members. The three `advanced-*` reference examples remain absent from installed content.
 - New Workflow starts with one selected lead, one right-side add control, and no type picker.
 - Add opens an ID-less local Member form. A nonblank Name is required. Cancel/close performs no mutation; **Add Member** submits once, returned controller truth selects the accepted child, and the same trailing control follows that child.
 - A rejected add preserves the local form for correction or retry without inserting a blank accepted Member.

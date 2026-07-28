@@ -1,0 +1,124 @@
+kind: workflow
+id: idea-to-validated-demo
+description: >-
+  Use to turn a promising application or product idea into an evidence-backed
+  position, scoped product, working first demo, validation report, launch
+  strategy, and credible pitch.
+note: >-
+  A useful default is hybrid: explore the problem and market independently,
+  derive strategy from accepted evidence, keep coherent product decisions under
+  one owner, and use concrete demo and skeptical-review findings for repair.
+lead:
+  id: venture-lead
+  title: Venture lead
+  description: Owns the opportunity, product coherence, investment of effort, and result.
+  instruction: >-
+    Turn the commissioned idea into one coherent, evidence-backed proposition
+    and working demonstration. Resolve contradictions between discovery,
+    strategy, delivery, launch, and criticism, and state what has and has not
+    been validated.
+  capabilities:
+    human_request:
+      - input
+      - direction
+      - review
+  children:
+    - id: discovery-manager
+      title: Discovery manager
+      description: Coordinates problem, customer, market, and evidence discovery.
+      instruction: >-
+        Keep customer need, market structure, and inference distinct. Reconcile
+        independent findings into a decision-ready opportunity picture and
+        expose weak evidence before product commitments harden.
+      children:
+        - id: customer-problem-researcher
+          title: Customer-problem researcher
+          description: Tests the target user, problem, alternatives, and urgency.
+          instruction: >-
+            Investigate who experiences the problem, how they handle it today,
+            why the problem matters, and what evidence supports willingness to
+            adopt a different solution.
+        - id: market-and-competitor-researcher
+          title: Market and competitor researcher
+          description: Maps alternatives, differentiation, market conditions, and threats.
+          instruction: >-
+            Compare direct and indirect alternatives, positioning, business
+            models, adoption barriers, and market movement. Preserve source
+            context and distinguish observation from speculation.
+        - id: discovery-critic
+          title: Discovery critic
+          description: Challenges problem evidence and attractive but unsupported narratives.
+          instruction: >-
+            Look for weak demand, selection bias, missing alternatives, copied
+            positioning, and evidence that would make the opportunity smaller or
+            materially different.
+    - id: product-strategy-owner
+      title: Product strategy owner
+      description: Owns positioning, first-product scope, value, and business logic.
+      instruction: >-
+        Convert accepted discovery into a focused target user, problem,
+        positioning, product promise, first-demo scope, non-goals, and plausible
+        value or business model. Keep these tightly coupled judgments coherent.
+    - id: demo-delivery-manager
+      title: Demo delivery manager
+      description: Coordinates experience, architecture, implementation, and demo evaluation.
+      instruction: >-
+        Build around the accepted first-demo promise. Keep experience and
+        implementation coherent, then use concrete evaluator findings to direct
+        fresh repair work and re-evaluate the integrated core journey until it
+        works credibly or a blocker or residual risk is explicit.
+      children:
+        - id: experience-owner
+          title: Experience owner
+          description: Defines the smallest coherent user journey that demonstrates value.
+          instruction: >-
+            Design the first-use path, core interaction, information hierarchy,
+            and useful failure behavior needed to demonstrate the product
+            promise without expanding into a production-complete experience.
+        - id: architecture-and-build-owner
+          title: Architecture and build owner
+          description: Owns a coherent, runnable implementation of the scoped demo.
+          instruction: >-
+            Choose proportionate architecture, implement the accepted core
+            journey, preserve setup instructions, and keep the demo workable as
+            a first version rather than adding speculative production systems.
+        - id: demo-evaluator
+          title: Demo evaluator
+          description: Independently verifies that the promised first-version journey works.
+          instruction: >-
+            Exercise setup, the core user journey, and failures that would make
+            the demonstration misleading or unusable. Judge whether it works as
+            a credible first version; do not impose production-grade
+            accessibility, scalability, performance, or hardening unless the
+            commissioned scope specifically requires it.
+          capabilities:
+            command_run: allow
+    - id: launch-and-pitch-owner
+      title: Launch and pitch owner
+      description: Owns audience, message, launch strategy, demo narrative, and pitch.
+      instruction: >-
+        Translate the supported product position and actual demo into a
+        credible launch approach, core message, pitch, and demonstration story.
+        Do not claim validation, traction, or capability the evidence lacks.
+    - id: venture-review-manager
+      title: Venture review manager
+      description: Coordinates independent customer, investor, and competitive criticism.
+      instruction: >-
+        Keep skeptical perspectives independent, identify findings that could
+        change product or launch decisions, and distinguish fixable presentation
+        gaps from evidence that challenges the opportunity itself.
+      children:
+        - id: customer-skeptic
+          title: Customer skeptic
+          description: Challenges adoption, usefulness, trust, and switching assumptions.
+          instruction: >-
+            Assess the proposition and demo from the target customer's position.
+            Identify unclear value, missing workflows, trust barriers, and
+            reasons to keep the current alternative.
+        - id: investor-and-competitor-skeptic
+          title: Investor and competitor skeptic
+          description: Challenges defensibility, economics, execution, and competitive response.
+          instruction: >-
+            Test market size, differentiation, business logic, execution risk,
+            distribution, and likely competitor response. Prioritize objections
+            that could materially change the strategy or pitch.

@@ -84,7 +84,7 @@ Every Operator POST requires an `Idempotency-Key` header from 1 to 200 character
 
 ```json
 {
-  "workflow": "reviewed-code-change",
+  "workflow": "production-feature-delivery",
   "prompt": "Implement and independently review the requested change.",
   "workspace": "/absolute/path/to/project",
   "files": [

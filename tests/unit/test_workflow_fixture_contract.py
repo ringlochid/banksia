@@ -22,7 +22,7 @@ EXAMPLE_ROOT = Path("examples/workflows")
 SEED_ROOT = Path("src/banksia/workflows/resources/starter_workflows")
 REFERENCE_PATH = EXAMPLE_ROOT / "advanced-reviewed-code-change.yaml"
 EXAMPLE_README_PATH = EXAMPLE_ROOT / "README.md"
-SEED_PATH = SEED_ROOT / "reviewed-code-change.yaml"
+SEED_PATH = SEED_ROOT / "production-feature-delivery.yaml"
 
 
 def workflow_modules() -> tuple[Any, Any]:
@@ -101,14 +101,15 @@ def test_workflow_semantics_enforce_tree_and_cross_family_identity(
 
     assert any("duplicate Member id 'change-lead'" in message for message in messages)
     assert any(
-        "packaged seed Member 'change-lead' must omit 'provider'" in message for message in messages
+        "packaged seed Member 'feature-lead' must omit 'provider'" in message
+        for message in messages
     )
     assert any(
         "Workflow id 'advanced-reviewed-code-change' must be distinct" in message
         for message in messages
     )
     assert any(
-        "filename stem 'reviewed-code-change' must equal Workflow id "
+        "filename stem 'production-feature-delivery' must equal Workflow id "
         "'advanced-reviewed-code-change'" in message
         for message in messages
     )

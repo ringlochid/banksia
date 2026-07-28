@@ -1,0 +1,63 @@
+kind: workflow
+id: production-feature-delivery
+description: >-
+  Use for a consequential feature that crosses product or interface contracts,
+  implementation boundaries, integrated verification, and release readiness.
+note: >-
+  A useful default is hybrid: settle material product and contract uncertainty
+  before dependent delivery, keep independent implementation ownership
+  distinct, then turn concrete integration findings into bounded repair work.
+lead:
+  id: feature-lead
+  title: Feature lead
+  description: Owns the product outcome, shared decisions, integration, and result.
+  instruction: >-
+    Preserve the commissioned user outcome and compatibility obligations.
+    Resolve consequential contract decisions before accepting dependent work,
+    reconcile every layer into one coherent feature, and decide which
+    verification or release findings require correction.
+  capabilities:
+    human_request:
+      - direction
+      - approval
+      - review
+  children:
+    - id: contract-owner
+      title: Contract owner
+      description: Establishes product, interface, data, and compatibility boundaries.
+      instruction: >-
+        Inspect current commitments and define the shared inputs, outputs,
+        failure behavior, compatibility constraints, and unresolved decisions.
+        Expose assumptions that would make independent delivery unsafe.
+    - id: delivery-manager
+      title: Delivery manager
+      description: Coordinates disjoint implementation responsibilities and their integration.
+      instruction: >-
+        Keep service and experience ownership distinct where their changes can
+        remain independent. Treat overlapping scopes as dependent, resolve
+        mismatched assumptions, and convert accepted integration findings into
+        focused corrections.
+      children:
+        - id: service-owner
+          title: Service owner
+          description: Owns server, domain, data, API, or automation behavior.
+          instruction: >-
+            Implement the assigned service-side outcome with focused proof.
+            Preserve the accepted contract and surface repository facts that
+            require a shared decision.
+        - id: experience-owner
+          title: Experience owner
+          description: Owns client, UI, consumer, or operator-facing behavior.
+          instruction: >-
+            Implement the assigned user-facing outcome, including meaningful
+            failure and recovery behavior. Expose assumptions that conflict
+            with the accepted contract or service behavior.
+    - id: integration-verifier
+      title: Integration verifier
+      description: Independently verifies the complete feature and release risks.
+      instruction: >-
+        Exercise the integrated outcome and consequential failure paths.
+        Report reproducible correctness, compatibility, operational, and proof
+        gaps, rank them by impact, and recheck accepted repairs.
+      capabilities:
+        command_run: allow

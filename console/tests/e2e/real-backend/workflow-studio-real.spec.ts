@@ -14,13 +14,14 @@ import type {
 
 const WORKFLOW_ID = "browser-research-team";
 const STARTER_WORKFLOW_IDS = [
-    "bounded-maintenance-batch",
-    "cross-layer-feature",
-    "debug-and-verify",
-    "evidence-synthesis",
-    "reproducible-study",
-    "reviewed-code-change",
-    "technical-decision",
+    "decision-through-competing-prototypes",
+    "deep-research-and-decision-brief",
+    "experiment-and-replication-program",
+    "idea-to-validated-demo",
+    "incident-investigation-and-recovery",
+    "migration-and-modernisation",
+    "production-feature-delivery",
+    "security-audit-and-hardening",
 ] as const;
 const INITIAL_PURPOSE =
     "Investigate a complex question with accountable evidence review.";

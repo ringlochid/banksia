@@ -4,13 +4,14 @@ The user-facing runtime story is:
 
 ```text
 Task prompt
-  -> accountable team work
+  -> adaptive, accountable team work
+  -> bounded replan when responsibility must change
   -> questions or managed actions when needed
   -> teammate Checkpoints
   -> exact lead Result
 ```
 
-The controller owns this state. Provider output, a browser connection, and loose workspace files can help perform or inspect the work, but none can declare the Task complete.
+The controller owns this state. Eligible work can pause, wait, replan, retry safely, recover after interruption, and resume without treating provider conversation history as runtime truth. Provider output, a browser connection, and loose workspace files can help perform or inspect the work, but none can declare the Task complete.
 
 ## Task and pinned team
 

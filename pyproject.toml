@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "banksia"
 version = "0.1.0"
-description = "Accountable agent-team runtime for complex work"
+description = "Build adaptable, accountable AI teams in minutes—and run them on complex work."
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]

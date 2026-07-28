@@ -2,7 +2,7 @@
 
 A Banksia Workflow is a reusable team of responsibilities. It answers **who is responsible**. The Task lead decides **what should happen next**, and the controller records **what actually happened**.
 
-That separation is the central design rule. A Workflow is not a pipeline, a schedule, or a list of authored steps.
+That separation is the central design rule. A Workflow is not a pipeline, a schedule, or a list of authored steps. The same team can work sequentially, in parallel, iteratively, in batches, or as a hybrid; when the responsibility tree itself no longer fits, a bounded replan can change it without rewriting earlier Task history.
 
 ## Workflow identity and revisions
 

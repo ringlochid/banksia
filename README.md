@@ -2,9 +2,9 @@
 
 <h1 align="center">Banksia</h1>
 
-<p align="center"><strong>Accountable AI teams for complex work.</strong></p>
+<p align="center"><strong>Build adaptable, accountable AI teams in minutes—and run them on complex work.</strong></p>
 
-<p align="center"> Visually design, publish, run, and inspect reusable AI teams with explicit responsibility, durable progress, human decisions, and one integrated Result. </p>
+<p align="center">Design them easily, run them reliably, and stay in control from the first decision to the final Result.</p>
 
 <p align="center"> <a href="https://pypi.org/project/banksia/"><img src="https://img.shields.io/pypi/v/banksia" alt="PyPI version"></a> <a href="https://pypi.org/project/banksia/"><img src="https://img.shields.io/badge/python-%3E%3D3.12-3776AB?logo=python&logoColor=white" alt="Python 3.12 or newer"></a> </p>
 
@@ -44,9 +44,30 @@ The **Operator** is a separate conversational agent inside the Console. Ask it t
 
 ## Why Banksia
 
-Strong coding and research agents can already delegate work. The difficult part is making a multi-agent effort reusable and accountable: who owns each decision, what is currently happening, where human input is required, what survived an interruption, and which result the team actually stands behind.
+Banksia makes complex multi-agent work easier to create, adapt, recover, and trust:
 
-Banksia is a local AI-team product rather than an agent SDK. You publish a tree of responsibilities, give its lead one complete prompt, and let the team decide whether the current work is best handled sequentially, in parallel, iteratively, in batches, or as a hybrid. The controller records the team, assignments, waits, actions, and final Result independently of any provider transcript.
+- **Create an AI team easily.** Use the visual Console or conversational Operator to shape, publish, and run a reusable team.
+- **Let the team adapt how it works.** Managers choose sequential, parallel, iterative, batch, or hybrid work from the Task and current evidence.
+- **Keep complex work moving.** Durable state lets eligible work pause, wait, replan, retry safely, recover, and resume without discarding accepted history.
+- **Stay accountable from start to Result.** Follow explicit responsibility, team revisions, decisions, Activity, referenced files, managed Actions, and the one Result accepted by the lead.
+
+## What a team can do
+
+A Workflow defines reusable responsibility rather than a fixed schedule. You publish a team, give its lead one complete prompt, and let each Manager choose the approach that fits the work. If the current team itself no longer fits, a bounded replan changes its responsibility tree while preserving earlier revisions and completed work.
+
+- Delegate through a responsibility tree without forcing a fixed sequence into the Workflow.
+- Combine independent research, implementation, criticism, integration, and verification.
+- Ask you a typed question when an authorized Member genuinely needs a decision.
+- Run a managed command when the Workflow explicitly grants that capability.
+- Replan a current responsibility subtree without rewriting the Task's earlier team or work history.
+- Preserve progress across browser or provider interruption.
+- Return one human-readable Result with direct references to detailed workspace files.
+
+Capabilities deny by default and never inherit from a parent. Provider, model, sandbox, and capability choices remain available when a team needs them, without making them mandatory for every Workflow.
+
+## Upgrade ad-hoc delegation
+
+If you already coordinate subagents by hand, Banksia turns those recurring delegation patterns into reusable teams without making subagents the product boundary:
 
 | Ad-hoc subagents                              | Banksia                                                                                |
 | --------------------------------------------- | -------------------------------------------------------------------------------------- |
@@ -54,17 +75,6 @@ Banksia is a local AI-team product rather than an agent SDK. You publish a tree 
 | Reconstruct ownership from a transcript       | Follow controller-owned team, activity, and wait state                                 |
 | Treat provider completion as the outcome      | Accept only the lead's final `green` or `blocked` Result                               |
 | Recover by piecing together terminal sessions | Recover from durable controller records; keep deliverables in ordinary workspace files |
-
-## What a team can do
-
-- Delegate through a responsibility tree without forcing a fixed sequence into the Workflow.
-- Combine independent research, implementation, criticism, integration, and verification.
-- Ask you a typed question when an authorized Member genuinely needs a decision.
-- Run a managed command when the Workflow explicitly grants that capability.
-- Preserve progress across browser or provider interruption.
-- Return one human-readable Result with direct references to detailed workspace files.
-
-Capabilities deny by default and never inherit from a parent. Provider, model, sandbox, and capability choices remain available when a team needs them, without making them mandatory for every Workflow.
 
 ## Start with a proven team
 

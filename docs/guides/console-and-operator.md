@@ -1,6 +1,6 @@
 # Use the Console and Operator
 
-The Console and Operator are separate ways to act on the same controller-owned product truth. Use the Console for direct visual control. Use the Operator to translate ordinary language into the same bounded Workflow and run operations.
+The Console and Operator make the same reusable AI teams easy to create and operate. Use the Console for direct visual control. Use the Operator to translate ordinary language into the same bounded Workflow and run operations. Both act on one controller-owned product truth, so conversational help never creates a second hidden copy of the team or run.
 
 ## Console
 

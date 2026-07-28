@@ -1,6 +1,13 @@
 # Banksia documentation
 
-Banksia turns recurring subagent practices into reusable, accountable AI teams. Start with an installed team, build your own responsibility tree, or go directly to the operating and reference material you need.
+Build adaptable, accountable AI teams in minutes—and run them on complex work. Design them easily, run them reliably, and stay in control from the first decision to the final Result.
+
+## Why Banksia
+
+- **Create an AI team easily** with the visual Console or conversational Operator.
+- **Let the team adapt how it works** through sequential, parallel, iterative, batch, or hybrid execution.
+- **Keep complex work moving** through durable pause, wait, replan, safe retry, recovery, and resume paths.
+- **Stay accountable from start to Result** through explicit responsibility, team revisions, decisions, Activity, referenced files, managed Actions, and one accepted Result.
 
 ## Start here
 

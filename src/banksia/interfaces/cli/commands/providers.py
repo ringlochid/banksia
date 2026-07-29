@@ -295,6 +295,7 @@ def provider_configuration_request_from_args(
         provider=ProviderKind(args.provider),
         model=getattr(args, "model", None),
         effort=getattr(args, "effort", None),
+        extension_mode=getattr(args, "extension_mode", None),
         cli_path=getattr(args, "cli_path", None),
         gateway_url=getattr(args, "gateway_url", None),
         gateway_profile=getattr(args, "gateway_profile", None),

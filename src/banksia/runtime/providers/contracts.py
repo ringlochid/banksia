@@ -17,6 +17,7 @@ from pydantic import (
 )
 
 from banksia.providers import (
+    ManagedExtensionMode,
     ManagedSandboxMode,
     NetworkAccess,
     ProviderKind,
@@ -98,6 +99,7 @@ class DispatchStartRequest(BaseModel):
     provider_native_access: ProviderNativeAccess
     network_access: NetworkAccess
     sandbox_mode: ManagedSandboxMode | None = None
+    extension_mode: ManagedExtensionMode | None = None
     managed_node_mcp: ManagedNodeMcpConnection | None = None
     compatibility_node_mcp: CompatibilityNodeMcpConnection | None = None
 
@@ -108,17 +110,77 @@ class DispatchStartRequest(BaseModel):
                 raise ValueError("managed providers require only a managed Node MCP connection")
             if self.sandbox_mode is None:
                 raise ValueError("managed providers require an exact sandbox mode")
+            if self.extension_mode is None:
+                raise ValueError("managed providers require an exact extension mode")
         elif self.managed_node_mcp is not None or self.compatibility_node_mcp is None:
             raise ValueError("OpenClaw requires only a compatibility Node MCP connection")
         elif self.sandbox_mode is not None:
             raise ValueError("OpenClaw does not carry a controller-managed sandbox mode")
+        elif self.extension_mode is not None:
+            raise ValueError("OpenClaw does not carry a managed extension mode")
         return self
 
 
-class ProviderStartAccepted(BaseModel):
-    """Positive provider submission acceptance without provider output or identity."""
+class ProviderMcpServerInventory(BaseModel):
+    """Sanitized observed provider-home MCP surface."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
+
+    name: StrictStr = Field(min_length=1, max_length=255, pattern=r"\S")
+    tools: tuple[StrictStr, ...] = ()
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        if value.strip() != value:
+            raise ValueError("MCP inventory server names must be trimmed")
+        return value
+
+    @field_validator("tools")
+    @classmethod
+    def validate_tools(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        if any(not item or item.strip() != item or len(item) > 255 for item in value):
+            raise ValueError("MCP inventory tool names must be trimmed and bounded")
+        if tuple(sorted(set(value))) != value:
+            raise ValueError("MCP inventory tool names must be unique and sorted")
+        return value
+
+
+class ProviderExtensionInventory(BaseModel):
+    """Sanitized observed Skill and MCP names without content, paths, or secrets."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    skills: tuple[StrictStr, ...] = ()
+    mcp_servers: tuple[ProviderMcpServerInventory, ...] = ()
+
+    @field_validator("skills")
+    @classmethod
+    def validate_skills(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        if any(not item or item.strip() != item or len(item) > 255 for item in value):
+            raise ValueError("Skill inventory names must be trimmed and bounded")
+        if tuple(sorted(set(value))) != value:
+            raise ValueError("Skill inventory names must be unique and sorted")
+        return value
+
+    @field_validator("mcp_servers")
+    @classmethod
+    def validate_mcp_servers(
+        cls,
+        value: tuple[ProviderMcpServerInventory, ...],
+    ) -> tuple[ProviderMcpServerInventory, ...]:
+        names = tuple(server.name for server in value)
+        if tuple(sorted(set(names))) != names:
+            raise ValueError("MCP inventory servers must be unique and sorted")
+        return value
+
+
+class ProviderStartAccepted(BaseModel):
+    """Positive provider submission acceptance plus sanitized startup observation."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    extension_inventory: ProviderExtensionInventory | None = None
 
 
 class ProviderStartFailureKind(StrEnum):
@@ -213,6 +275,8 @@ __all__ = [
     "ProviderCheckAxisStatus",
     "ProviderCheckResult",
     "ProviderCheckStatus",
+    "ProviderExtensionInventory",
+    "ProviderMcpServerInventory",
     "ProviderStartAccepted",
     "ProviderStartError",
     "ProviderStartErrorCode",

@@ -23,6 +23,7 @@ const options: WorkflowAuthoringOptions = {
         { mode: "read_only", network: "deny" },
         { mode: "workspace_write", network: "deny" },
     ],
+    managed_extension_modes: ["inherit", "isolated"],
     human_request_kinds: ["input", "direction", "approval", "review"],
     command_run_values: ["allow"],
     default_provider: {
@@ -30,6 +31,7 @@ const options: WorkflowAuthoringOptions = {
         model: "gpt-default",
         effort: "high",
         sandbox: { mode: "read_only", network: "deny" },
+        extension_mode: "inherit",
     },
 };
 const readyOptions = { kind: "ready" as const, options };
@@ -284,8 +286,11 @@ describe("Workflow authoring forms", () => {
             screen.getByRole("combobox", { name: /^Sandbox and network/ }),
         ).toHaveTextContent("Provider default");
         expect(
+            screen.getByRole("combobox", { name: /^Skills and MCP/ }),
+        ).toHaveTextContent("Provider default");
+        expect(
             screen.getByText(
-                /Default: Codex · gpt-default · High effort · Read Only · Network deny/,
+                /Default: Codex · gpt-default · High effort · Read Only · Network deny · Provider Skills and MCP/,
             ),
         ).toBeVisible();
     });
@@ -329,6 +334,14 @@ describe("Workflow authoring forms", () => {
         await user.click(screen.getByRole("option", { name: "High" }));
         expect(onEdit).toHaveBeenCalledWith({
             provider: { kind: "codex", effort: "high" },
+        });
+
+        await user.click(
+            screen.getByRole("combobox", { name: /^Skills and MCP/ }),
+        );
+        await user.click(screen.getByRole("option", { name: "Banksia only" }));
+        expect(onEdit).toHaveBeenCalledWith({
+            provider: { kind: "codex", extension_mode: "isolated" },
         });
     });
 

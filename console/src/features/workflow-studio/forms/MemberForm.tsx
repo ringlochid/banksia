@@ -151,6 +151,7 @@ function memberFieldIssues(
         "provider.model",
         "provider.effort",
         "provider.sandbox",
+        "provider.extension_mode",
         "capabilities",
     ] as const;
     return Object.fromEntries(

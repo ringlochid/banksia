@@ -1,4 +1,5 @@
 from banksia.providers.contracts import (
+    ManagedExtensionMode,
     ManagedSandboxMode,
     NetworkAccess,
     ProviderKind,
@@ -6,6 +7,7 @@ from banksia.providers.contracts import (
 )
 
 __all__ = [
+    "ManagedExtensionMode",
     "ManagedSandboxMode",
     "NetworkAccess",
     "ProviderKind",

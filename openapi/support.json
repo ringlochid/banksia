@@ -799,6 +799,15 @@
         "title": "EffectiveProviderNativeAccess",
         "type": "object"
       },
+      "ExtensionModeResolutionSource": {
+        "enum": [
+          "member_configuration",
+          "provider_configuration",
+          "controller"
+        ],
+        "title": "ExtensionModeResolutionSource",
+        "type": "string"
+      },
       "FileReference": {
         "additionalProperties": false,
         "description": "An ordered navigation value to one ordinary workspace file.",
@@ -985,6 +994,15 @@
         "title": "HumanRequestTerminalEventPayload",
         "type": "object"
       },
+      "ManagedExtensionMode": {
+        "description": "Requested or effective managed-provider Skill and MCP visibility.",
+        "enum": [
+          "inherit",
+          "isolated"
+        ],
+        "title": "ManagedExtensionMode",
+        "type": "string"
+      },
       "MemberBehavior": {
         "enum": [
           "manager",
@@ -1001,6 +1019,30 @@
         "title": "NetworkAccess",
         "type": "string"
       },
+      "ProviderExtensionInventory": {
+        "additionalProperties": false,
+        "description": "Sanitized observed Skill and MCP names without content, paths, or secrets.",
+        "properties": {
+          "mcp_servers": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ProviderMcpServerInventory"
+            },
+            "title": "Mcp Servers",
+            "type": "array"
+          },
+          "skills": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Skills",
+            "type": "array"
+          }
+        },
+        "title": "ProviderExtensionInventory",
+        "type": "object"
+      },
       "ProviderKind": {
         "enum": [
           "codex",
@@ -1009,6 +1051,32 @@
         ],
         "title": "ProviderKind",
         "type": "string"
+      },
+      "ProviderMcpServerInventory": {
+        "additionalProperties": false,
+        "description": "Sanitized observed provider-home MCP surface.",
+        "properties": {
+          "name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Name",
+            "type": "string"
+          },
+          "tools": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Tools",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "ProviderMcpServerInventory",
+        "type": "object"
       },
       "ProviderNativeAccess": {
         "description": "Residual adapter projection; ManagedSandboxMode is authored authority.",
@@ -1306,6 +1374,36 @@
           "effective_capabilities": {
             "$ref": "#/components/schemas/SupportEffectiveCapabilityReadback"
           },
+          "effective_extension_mode": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ManagedExtensionMode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "effective_extension_mode_source": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExtensionModeResolutionSource"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "extension_inventory": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProviderExtensionInventory"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "kind": {
             "const": "dispatch",
             "default": "dispatch",
@@ -1347,6 +1445,26 @@
               }
             ],
             "title": "Predecessor Dispatch Id"
+          },
+          "requested_extension_mode": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ManagedExtensionMode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requested_extension_mode_source": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExtensionModeResolutionSource"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "requested_provider": {
             "enum": [

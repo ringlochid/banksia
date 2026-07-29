@@ -6,6 +6,7 @@ from pydantic import SecretStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from banksia.providers import (
+    ManagedExtensionMode,
     ManagedSandboxMode,
     NetworkAccess,
     ProviderKind,
@@ -87,6 +88,11 @@ class ProviderStartRequestBuilder:
                 provider_native_access=native_access,
                 network_access=network_access,
                 sandbox_mode=sandbox_mode,
+                extension_mode=(
+                    ManagedExtensionMode(candidate.effective_extension_mode)
+                    if candidate.effective_extension_mode is not None
+                    else None
+                ),
                 managed_node_mcp=managed_connection,
                 compatibility_node_mcp=compatibility_connection,
             )

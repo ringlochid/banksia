@@ -526,6 +526,11 @@ def _convert_current_dispatch_to_openclaw(connection: Connection, ids: RuntimeId
             resolved_provider="openclaw",
             model_source=None,
             effort_source=None,
+            requested_extension_mode=None,
+            requested_extension_mode_source=None,
+            effective_extension_mode=None,
+            effective_extension_mode_source=None,
+            extension_inventory_json=None,
             gateway_profile="default",
             gateway_profile_source="provider_configuration",
         )

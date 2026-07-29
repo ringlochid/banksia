@@ -22,9 +22,12 @@ from claude_agent_sdk.types import (
 
 from banksia.integrations.claude.isolation import (
     CLAUDE_ALWAYS_DISALLOWED_TOOLS,
+    CLAUDE_INHERITED_DISALLOWED_TOOLS,
+    ClaudeStartupIsolationError,
     claude_isolation_environment,
     claude_isolation_extra_args,
-    claude_isolation_settings,
+    claude_task_settings,
+    read_claude_enabled_plugin_names,
     validate_claude_startup,
 )
 from banksia.integrations.claude.native_identity import (
@@ -37,6 +40,7 @@ from banksia.integrations.claude.native_identity import (
     read_claude_invocation_readiness,
 )
 from banksia.providers import (
+    ManagedExtensionMode,
     ManagedSandboxMode,
     NetworkAccess,
     ProviderKind,
@@ -123,16 +127,23 @@ class ClaudeAdapter:
 
     async def start(self, request: DispatchStartRequest) -> ProviderStartAccepted:
         route, connection = _validate_claude_request(request)
+        assert request.extension_mode is not None
         readiness = await self._read_invocation_readiness()
         if readiness.isolation_mode is None:
             raise _readiness_start_error(readiness)
-        options = _build_claude_options(
-            request,
-            route,
-            connection,
-            request.instructions,
-            readiness.isolation_mode,
-        )
+        try:
+            options = _build_claude_options(
+                request,
+                route,
+                connection,
+                request.instructions,
+                readiness.isolation_mode,
+            )
+        except ClaudeStartupIsolationError as exc:
+            raise ProviderStartError(
+                kind=ProviderStartFailureKind.DEFINITE_FAILURE,
+                code=ProviderStartErrorCode.CONFIGURATION,
+            ) from exc
 
         await self._reserve_start(request.dispatch_id)
         client = self._client_factory(options)
@@ -147,10 +158,11 @@ class ClaudeAdapter:
             ) from exc
 
         try:
-            await validate_claude_startup(
+            extension_inventory = await validate_claude_startup(
                 client,
                 external_mcp_server=MANAGED_NODE_MCP_SERVER_NAME,
                 external_mcp_tools=connection.enabled_tools,
+                extension_mode=request.extension_mode,
             )
         except Exception as exc:
             await _disconnect_client(client)
@@ -179,7 +191,7 @@ class ClaudeAdapter:
             self._starting_dispatches.discard(request.dispatch_id)
             self._executions[request.dispatch_id] = execution
             self._consumer_tasks.add(consumer)
-        return ProviderStartAccepted()
+        return ProviderStartAccepted(extension_inventory=extension_inventory)
 
     async def stop(self, dispatch_id: str) -> ProviderStopOutcome:
         async with self._lock:
@@ -267,6 +279,7 @@ class ClaudeAdapter:
             read_claude_invocation_readiness,
             authentication_reader=self._authentication_reader,
             endpoint_policy_reader=self._endpoint_policy_reader,
+            should_use_standard_mode=True,
         )
 
     async def _consume_response(self, dispatch_id: str, client: ClaudeSDKClient) -> None:
@@ -328,13 +341,22 @@ def _build_claude_options(
     isolation_mode: ClaudeIsolationMode,
 ) -> ClaudeAgentOptions:
     assert request.sandbox_mode is not None
+    assert request.extension_mode is not None
     workspace_root = _resolve_workspace_root(request.working_directory)
     native_tools = _resolve_native_tools(request.sandbox_mode, request.network_access)
     managed_tools = tuple(
         f"mcp__{MANAGED_NODE_MCP_SERVER_NAME}__{tool}" for tool in connection.enabled_tools
     )
-    available_tools = [*native_tools, *managed_tools]
-    disallowed_tools = [*CLAUDE_ALWAYS_DISALLOWED_TOOLS]
+    inherited = request.extension_mode is ManagedExtensionMode.INHERIT
+    enabled_plugin_names = read_claude_enabled_plugin_names(workspace_root) if inherited else ()
+    available_tools = [
+        *native_tools,
+        *managed_tools,
+        *(("mcp__*",) if inherited else ()),
+    ]
+    disallowed_tools = [
+        *(CLAUDE_INHERITED_DISALLOWED_TOOLS if inherited else CLAUDE_ALWAYS_DISALLOWED_TOOLS)
+    ]
     if request.network_access is NetworkAccess.DENY:
         disallowed_tools.extend(_CLAUDE_NETWORK_TOOLS)
 
@@ -348,16 +370,19 @@ def _build_claude_options(
         allowed_tools=available_tools,
         system_prompt=instructions,
         mcp_servers={MANAGED_NODE_MCP_SERVER_NAME: mcp_server},
-        strict_mcp_config=True,
+        strict_mcp_config=not inherited,
         permission_mode="dontAsk",
         disallowed_tools=disallowed_tools,
         model=route.model_override,
         fallback_model=None,
         cwd=request.working_directory,
         add_dirs=[],
-        settings=claude_isolation_settings(),
-        setting_sources=[],
-        skills=[],
+        settings=claude_task_settings(
+            request.extension_mode,
+            enabled_plugin_names=enabled_plugin_names,
+        ),
+        setting_sources=["user", "project"] if inherited else [],
+        skills="all" if inherited else [],
         plugins=[],
         agents={},
         continue_conversation=False,
@@ -369,6 +394,7 @@ def _build_claude_options(
         effort=_resolve_effort(route.effort_override),
         extra_args=claude_isolation_extra_args(
             isolation_mode,
+            extension_mode=request.extension_mode,
             should_persist_session=False,
             should_use_safe_mode=False,
         ),

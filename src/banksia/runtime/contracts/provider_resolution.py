@@ -5,7 +5,12 @@ from typing import Annotated, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from banksia.providers import ManagedSandboxMode, NetworkAccess, ProviderKind
+from banksia.providers import (
+    ManagedExtensionMode,
+    ManagedSandboxMode,
+    NetworkAccess,
+    ProviderKind,
+)
 from banksia.runtime.contracts.common import RuntimeSchemaText
 
 
@@ -23,6 +28,36 @@ class SandboxResolutionSource(StrEnum):
     DEFAULT = "default"
     MEMBER_CONFIGURATION = "member_configuration"
     CONTROLLER = "controller"
+
+
+class ExtensionModeResolutionSource(StrEnum):
+    MEMBER_CONFIGURATION = "member_configuration"
+    PROVIDER_CONFIGURATION = "provider_configuration"
+    CONTROLLER = "controller"
+
+
+class ManagedExtensionResolution(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, from_attributes=True)
+
+    requested_mode: ManagedExtensionMode
+    requested_source: ExtensionModeResolutionSource
+    effective_mode: ManagedExtensionMode
+    effective_source: ExtensionModeResolutionSource
+
+    @model_validator(mode="after")
+    def validate_narrowing(self) -> Self:
+        if self.effective_source is ExtensionModeResolutionSource.CONTROLLER:
+            if (
+                self.requested_mode is not ManagedExtensionMode.INHERIT
+                or self.effective_mode is not ManagedExtensionMode.ISOLATED
+            ):
+                raise ValueError("controller extension resolution may only narrow inheritance")
+        elif (
+            self.effective_mode is not self.requested_mode
+            or self.effective_source is not self.requested_source
+        ):
+            raise ValueError("unchanged extension resolution must preserve mode and source")
+        return self
 
 
 class ManagedSandboxResolution(BaseModel):
@@ -74,6 +109,7 @@ class ProviderResolution(BaseModel):
     selection_basis: ProviderSelectionBasis
     route: ProviderRoute
     sandbox: ManagedSandboxResolution | None
+    extensions: ManagedExtensionResolution | None
     model_source: ProviderRouteValueSource | None
     effort_source: ProviderRouteValueSource | None
     gateway_profile_source: ProviderRouteValueSource | None
@@ -84,10 +120,11 @@ class ProviderResolution(BaseModel):
             raise ValueError("requested_provider must equal resolved_provider")
         if self.route.kind != self.resolved_provider:
             raise ValueError("route.kind must equal resolved_provider")
-        if self.resolved_provider is ProviderKind.OPENCLAW and self.sandbox is not None:
-            raise ValueError("OpenClaw has no controller-managed sandbox resolution")
-        if self.resolved_provider is not ProviderKind.OPENCLAW and self.sandbox is None:
-            raise ValueError("managed providers require exact sandbox resolution")
+        if self.resolved_provider is ProviderKind.OPENCLAW:
+            if self.sandbox is not None or self.extensions is not None:
+                raise ValueError("OpenClaw has no managed-provider resolution")
+        elif self.sandbox is None or self.extensions is None:
+            raise ValueError("managed providers require exact sandbox and extension resolution")
         if self.resolved_provider is ProviderKind.OPENCLAW:
             if self.model_source is not None or self.effort_source is not None:
                 raise ValueError("OpenClaw has no model or effort route source")
@@ -115,6 +152,11 @@ class ProviderResolution(BaseModel):
             if self.selection_basis is ProviderSelectionBasis.DEFAULT and (
                 self.model_source is ProviderRouteValueSource.MEMBER_CONFIGURATION
                 or self.effort_source is ProviderRouteValueSource.MEMBER_CONFIGURATION
+                or (
+                    self.extensions is not None
+                    and self.extensions.requested_source
+                    is ExtensionModeResolutionSource.MEMBER_CONFIGURATION
+                )
             ):
                 raise ValueError("default provider selection has no Member field overrides")
         return self
@@ -123,6 +165,8 @@ class ProviderResolution(BaseModel):
 __all__ = [
     "ClaudeProviderRoute",
     "CodexProviderRoute",
+    "ExtensionModeResolutionSource",
+    "ManagedExtensionResolution",
     "ManagedSandboxResolution",
     "OpenClawProviderRoute",
     "ProviderResolution",

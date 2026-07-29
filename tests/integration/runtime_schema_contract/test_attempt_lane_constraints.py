@@ -17,10 +17,17 @@ from sqlalchemy.orm import Session, sessionmaker
 from banksia.persistence import RuntimeBase
 from banksia.persistence.schema_contract import verify_schema_contract
 from banksia.persistence.session import create_runtime_schema_tables
-from banksia.providers import ManagedSandboxMode, NetworkAccess, ProviderKind
+from banksia.providers import (
+    ManagedExtensionMode,
+    ManagedSandboxMode,
+    NetworkAccess,
+    ProviderKind,
+)
 from banksia.runtime.contracts.capabilities import EffectiveCapabilitySet
 from banksia.runtime.contracts.provider_resolution import (
     CodexProviderRoute,
+    ExtensionModeResolutionSource,
+    ManagedExtensionResolution,
     ManagedSandboxResolution,
     ProviderResolution,
     ProviderRouteValueSource,
@@ -561,6 +568,12 @@ def _prepared_starting_dispatch(dispatch_id: str) -> PreparedDispatchRequest:
                 effective_network=NetworkAccess.ALLOW,
                 effective_mode_source=SandboxResolutionSource.DEFAULT,
                 effective_network_source=SandboxResolutionSource.DEFAULT,
+            ),
+            extensions=ManagedExtensionResolution(
+                requested_mode=ManagedExtensionMode.INHERIT,
+                requested_source=ExtensionModeResolutionSource.PROVIDER_CONFIGURATION,
+                effective_mode=ManagedExtensionMode.INHERIT,
+                effective_source=ExtensionModeResolutionSource.PROVIDER_CONFIGURATION,
             ),
             model_source=ProviderRouteValueSource.PROVIDER_CONFIGURATION,
             effort_source=ProviderRouteValueSource.PROVIDER_CONFIGURATION,

@@ -35,7 +35,7 @@ class ClaudeIsolationMode(StrEnum):
     """Pinned Claude CLI isolation mode legal for one native identity."""
 
     BARE = "bare"
-    SUBSCRIPTION = "subscription"
+    STANDARD = "standard"
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,6 +67,7 @@ def read_claude_invocation_readiness(
     *,
     authentication_reader: Callable[[], ClaudeAuthenticationState] | None = None,
     endpoint_policy_reader: Callable[[], ClaudeEndpointPolicyState] | None = None,
+    should_use_standard_mode: bool = False,
 ) -> ClaudeInvocationReadiness:
     """Select a documented isolation mode or return one sanitized failure."""
 
@@ -86,24 +87,28 @@ def read_claude_invocation_readiness(
             isolation_mode=None,
             code=authentication.code,
         )
-    if authentication.method is ProviderAuthenticationMethod.API_KEY:
+    if (
+        authentication.method is ProviderAuthenticationMethod.API_KEY
+        and not should_use_standard_mode
+    ):
         return ClaudeInvocationReadiness(
             method=authentication.method,
             isolation_mode=ClaudeIsolationMode.BARE,
             code="claude_available",
         )
-    if authentication.subscription_class is ClaudeSubscriptionClass.MANAGED:
-        return ClaudeInvocationReadiness(
-            method=authentication.method,
-            isolation_mode=None,
-            code="claude_managed_subscription_unsupported",
-        )
-    if authentication.subscription_class is not ClaudeSubscriptionClass.PERSONAL:
-        return ClaudeInvocationReadiness(
-            method=authentication.method,
-            isolation_mode=None,
-            code="claude_subscription_unverified",
-        )
+    if authentication.method is ProviderAuthenticationMethod.SUBSCRIPTION:
+        if authentication.subscription_class is ClaudeSubscriptionClass.MANAGED:
+            return ClaudeInvocationReadiness(
+                method=authentication.method,
+                isolation_mode=None,
+                code="claude_managed_subscription_unsupported",
+            )
+        if authentication.subscription_class is not ClaudeSubscriptionClass.PERSONAL:
+            return ClaudeInvocationReadiness(
+                method=authentication.method,
+                isolation_mode=None,
+                code="claude_subscription_unverified",
+            )
 
     try:
         endpoint_policy = read_endpoint_policy()
@@ -120,7 +125,7 @@ def read_claude_invocation_readiness(
         )
     return ClaudeInvocationReadiness(
         method=authentication.method,
-        isolation_mode=ClaudeIsolationMode.SUBSCRIPTION,
+        isolation_mode=ClaudeIsolationMode.STANDARD,
         code="claude_available",
     )
 

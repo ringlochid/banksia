@@ -22,6 +22,7 @@ lead:
     sandbox:
       mode: workspace_write
       network: deny
+    extension_mode: isolated
   capabilities:
     human_request:
       - direction
@@ -108,9 +109,10 @@ provider:
   sandbox:
     mode: workspace_write
     network: deny
+  extension_mode: isolated
 ```
 
-Allowed Codex effort values are `none`, `minimal`, `low`, `medium`, `high`, and `xhigh`.
+Allowed Codex effort values are `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, and `max`. `ultra` is not a Task effort because its provider-owned proactive delegation would bypass the Banksia team controller.
 
 ### Claude
 
@@ -126,7 +128,7 @@ provider:
 
 Allowed Claude effort values are `low`, `medium`, `high`, `xhigh`, and `max`.
 
-Codex and Claude accept optional exact `model`, `effort`, and `sandbox`. Portable sandbox pairs are:
+Codex and Claude accept optional exact `model`, `effort`, `sandbox`, and `extension_mode`. Portable sandbox pairs are:
 
 | `mode` | `network` |
 | --- | --- |
@@ -135,6 +137,13 @@ Codex and Claude accept optional exact `model`, `effort`, and `sandbox`. Portabl
 | `full_access` | `allow` |
 
 Network is nested inside `sandbox`; there is no standalone Workflow network field. When the authored sandbox block is omitted, managed-provider resolution forms a `full_access` plus `allow` request. The configured `[runtime]` sandbox pair is a controller ceiling, not the omitted authored request: it may narrow either the default request or an explicit authored request, but it never widens one. Each Dispatch records the requested and effective pairs, and the managed provider receives the effective pair.
+
+`extension_mode` accepts:
+
+- `inherit` — use enabled user and project Skills plus configured MCP servers from the selected provider; or
+- `isolated` — expose only Banksia's Dispatch-scoped controller tools alongside the provider's permitted native tools.
+
+Omission resolves from the selected provider's machine-local setting, whose shipped default is `inherit`. Inheritance remains effective only with `full_access` plus network `allow`; a narrower effective sandbox or denied network silently narrows the Dispatch to `isolated`. Implicit project instructions, plugins, hooks, subagents, apps, memory, and background workflows remain disabled. Banksia does not define or install the inherited extensions, and their activity may not be fully observable or reproducible in Banksia.
 
 ### OpenClaw
 
@@ -206,8 +215,8 @@ They demonstrate meaningful provider, sandbox, network, and capability choices. 
 
 The Workflow contract has no:
 
-- Role, Policy, or Skill definition system;
-- external MCP server, resource, prompt, elicitation, or plugin field;
+- Role, Policy, or Skill definition/registry system;
+- MCP server definition, resource, prompt, elicitation, or plugin field;
 - authored steps, phases, edges, modes, loops, or schedules;
 - `criteria`, `consume`, `produce`, expected-output, or task-array fields; or
 - managed Artifact identity, version, hash, approval, or lifecycle.

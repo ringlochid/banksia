@@ -14,10 +14,17 @@ from banksia.config import (
     Settings,
     load_settings,
 )
-from banksia.providers import ManagedSandboxMode, NetworkAccess, ProviderKind, ProviderNativeAccess
+from banksia.providers import (
+    ManagedExtensionMode,
+    ManagedSandboxMode,
+    NetworkAccess,
+    ProviderKind,
+    ProviderNativeAccess,
+)
 from banksia.runtime.contracts import (
     CapabilitySource,
     EffectiveCapabilitySet,
+    ExtensionModeResolutionSource,
     ProviderResolution,
     ProviderRoute,
     ProviderRouteValueSource,
@@ -284,11 +291,13 @@ gateway_profile = "tested-local"
         "enabled": True,
         "model": "gpt-5",
         "effort": "high",
+        "extension_mode": "inherit",
     }
     assert settings.claude.model_dump(mode="json") == {
         "enabled": False,
         "model": None,
         "effort": None,
+        "extension_mode": "inherit",
     }
     assert settings.openclaw.model_dump(mode="json") == {
         "enabled": True,
@@ -373,6 +382,13 @@ def test_explicit_provider_resolution_constructs_exact_non_secret_route(
         assert resolution.model_source is ProviderRouteValueSource.PROVIDER_CONFIGURATION
         assert resolution.effort_source is ProviderRouteValueSource.PROVIDER_CONFIGURATION
         assert resolution.gateway_profile_source is None
+        assert resolution.extensions is not None
+        assert resolution.extensions.requested_mode is ManagedExtensionMode.INHERIT
+        assert resolution.extensions.effective_mode is ManagedExtensionMode.INHERIT
+        assert (
+            resolution.extensions.requested_source
+            is ExtensionModeResolutionSource.PROVIDER_CONFIGURATION
+        )
     else:
         assert resolution.model_source is None
         assert resolution.effort_source is None
@@ -397,6 +413,34 @@ def test_omitted_selection_resolves_only_the_configured_default() -> None:
     assert resolution.selection_basis == ProviderSelectionBasis.DEFAULT
     assert resolution.route.kind == ProviderKind.CLAUDE
     assert resolution.model_source is ProviderRouteValueSource.PROVIDER_CONFIGURATION
+
+
+def test_member_extension_mode_is_exact_and_restricted_access_narrows_inherit() -> None:
+    isolated = resolve_provider_route(
+        provider=CodexProviderSelection(kind="codex", extension_mode="isolated"),
+        settings=_settings(codex=CodexSettings(enabled=True)),
+        available_adapter_kinds={ProviderKind.CODEX},
+    )
+    assert isolated.extensions is not None
+    assert isolated.extensions.requested_mode is ManagedExtensionMode.ISOLATED
+    assert isolated.extensions.effective_mode is ManagedExtensionMode.ISOLATED
+    assert (
+        isolated.extensions.requested_source is ExtensionModeResolutionSource.MEMBER_CONFIGURATION
+    )
+
+    narrowed = resolve_provider_route(
+        provider=CodexProviderSelection(
+            kind="codex",
+            extension_mode="inherit",
+            sandbox=ProviderSandbox(mode="workspace_write", network="deny"),
+        ),
+        settings=_settings(codex=CodexSettings(enabled=True)),
+        available_adapter_kinds={ProviderKind.CODEX},
+    )
+    assert narrowed.extensions is not None
+    assert narrowed.extensions.requested_mode is ManagedExtensionMode.INHERIT
+    assert narrowed.extensions.effective_mode is ManagedExtensionMode.ISOLATED
+    assert narrowed.extensions.effective_source is ExtensionModeResolutionSource.CONTROLLER
 
 
 def test_experimental_openclaw_route_remains_default_eligible() -> None:
@@ -534,6 +578,12 @@ def test_provider_resolution_rejects_non_exact_provenance() -> None:
                     "effective_network": "allow",
                     "effective_mode_source": "default",
                     "effective_network_source": "default",
+                },
+                "extensions": {
+                    "requested_mode": "inherit",
+                    "requested_source": "provider_configuration",
+                    "effective_mode": "inherit",
+                    "effective_source": "provider_configuration",
                 },
                 "model_source": "provider_configuration",
                 "effort_source": "provider_configuration",

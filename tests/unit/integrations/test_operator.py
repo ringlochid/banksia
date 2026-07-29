@@ -86,7 +86,7 @@ async def test_claude_selection_resolves_options_and_uses_stable_working_directo
         "read_claude_invocation_readiness",
         lambda: ClaudeInvocationReadiness(
             method=ProviderAuthenticationMethod.SUBSCRIPTION,
-            isolation_mode=ClaudeIsolationMode.SUBSCRIPTION,
+            isolation_mode=ClaudeIsolationMode.STANDARD,
             code="claude_available",
         ),
     )
@@ -384,7 +384,7 @@ async def test_invalid_effective_claude_effort_fails_before_readiness(
         readiness_checks.append("claude")
         return ClaudeInvocationReadiness(
             method=ProviderAuthenticationMethod.SUBSCRIPTION,
-            isolation_mode=ClaudeIsolationMode.SUBSCRIPTION,
+            isolation_mode=ClaudeIsolationMode.STANDARD,
             code="claude_available",
         )
 

@@ -254,7 +254,7 @@ input
 
 Adapters map instructions to the strongest provider-supported system/developer lane and input to the task/user lane. Native tool definitions carry exact action schemas separately. Tool results stay in provider-native tool-result lanes.
 
-Provider-native filesystem access does not opt into provider-authored workspace instructions. `AGENTS.md`, `CLAUDE.md`, provider Skills, provider memory, provider settings, and similar files remain ordinary loose workspace content unless the exact Banksia Assignment or a referenced file tells the Member to read them. The managed adapter disables their automatic instruction and extension semantics before the model turn.
+Provider-native filesystem access does not opt into provider-authored workspace instructions. `AGENTS.md`, `CLAUDE.md`, provider memory, provider settings, and similar files remain ordinary loose workspace content unless the exact Banksia Assignment or a referenced file tells the Member to read them. An effective inherited extension mode may expose enabled user and project Skills plus configured MCP servers, but it does not turn other workspace files into implicit instruction or controller truth.
 
 ### Instruction precedence
 

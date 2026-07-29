@@ -106,6 +106,17 @@ $defs:
                   network:
                       const: allow
 
+    managedExtensionMode:
+        type: string
+        enum:
+            - inherit
+            - isolated
+        description: >-
+            Skill and MCP behavior for a managed provider. Inherit uses enabled
+            user and project Skills plus configured MCP servers only when the
+            effective sandbox is full_access with network allow; narrower
+            execution is isolated automatically.
+
     providerSelection:
         oneOf:
             - $ref: "#/$defs/codexProviderSelection"
@@ -156,6 +167,8 @@ $defs:
                 description: Value supported by the active Codex adapter descriptor.
             sandbox:
                 $ref: "#/$defs/providerSandbox"
+            extension_mode:
+                $ref: "#/$defs/managedExtensionMode"
 
     claudeProviderSelection:
         type: object
@@ -173,6 +186,8 @@ $defs:
                 description: Value supported by the active Claude adapter descriptor.
             sandbox:
                 $ref: "#/$defs/providerSandbox"
+            extension_mode:
+                $ref: "#/$defs/managedExtensionMode"
 
     openclawProviderSelection:
         type: object

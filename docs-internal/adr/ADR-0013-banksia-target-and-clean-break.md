@@ -43,7 +43,7 @@ Controller authority, exact lineage, currentness, commit-before-effect, duplicat
 
 Workflow is the only authored, draftable, publishable definition. It is one recursive Member responsibility hierarchy with optional team guidance, per-Member provider intent, and narrow default-deny Human Request and managed Command Run grants. JSON and YAML are encodings of the same normalized schema.
 
-Banksia has no released Role, Policy, Skill, generic Definition, external MCP, authored step/stage/schedule graph, Task Compose, criteria, consume, produce, generic capability, or compatibility authoring model. Published Workflow revisions are immutable and Tasks pin one exact revision.
+Banksia has no released Role, Policy, Skill definition or registry, generic Definition, Banksia-authored external MCP configuration, authored step/stage/schedule graph, Task Compose, criteria, consume, produce, generic capability, or compatibility authoring model. Published Workflow revisions are immutable and Tasks pin one exact revision.
 
 The Banksia schema starts from reset state. AutoClaw databases, definitions, configuration, state directories, imports, commands, and public payloads are not migrated or accepted through aliases. A temporary internal adapter is legal only when a work package names and tests it and a later package deletes it before release.
 
@@ -69,7 +69,7 @@ The Console is an independently authored React/Tailwind product for nontechnical
 
 The final repository has one Banksia implementation and one live documentation system. No AutoClaw import, CLI, environment, config, database, service, generated-contract, UI, or documentation alias ships. No V1/V2/vnext/current target lane remains live. Git history is the historical archive.
 
-External MCP integration, Skills, distributed execution, a Task-wide provider queue, isolated worktrees and automatic merge, directory/remote file references, authored execution phases, and free-positioned canvas nodes remain deferred without placeholder schema.
+Banksia-managed MCP installation/configuration and Skill definition/registry surfaces, distributed execution, a Task-wide provider queue, isolated worktrees and automatic merge, directory/remote file references, authored execution phases, and free-positioned canvas nodes remain deferred without placeholder schema. Optional user-home Skill and MCP inheritance for trusted managed-provider Tasks is a provider execution choice owned by [ADR-0016](ADR-0016-managed-provider-skill-and-mcp-inheritance.md), not a Workflow extension-definition system.
 
 ## Consequences
 

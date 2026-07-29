@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from banksia.config import Settings
 from banksia.persistence.models import MemberConfigurationModel
 from banksia.providers import (
+    ManagedExtensionMode,
     ManagedSandboxMode,
     NetworkAccess,
     ProviderKind,
@@ -25,6 +26,8 @@ from banksia.runtime.contracts.capabilities import (
 from banksia.runtime.contracts.provider_resolution import (
     ClaudeProviderRoute,
     CodexProviderRoute,
+    ExtensionModeResolutionSource,
+    ManagedExtensionResolution,
     ManagedSandboxResolution,
     OpenClawProviderRoute,
     ProviderResolution,
@@ -42,7 +45,7 @@ from banksia.workflows.contracts import (
 
 _WEBSOCKET_URL_ADAPTER = TypeAdapter(WebsocketUrl)
 _PROVIDER_SELECTION_ADAPTER: TypeAdapter[ProviderSelection] = TypeAdapter(ProviderSelection)
-_CODEX_EFFORTS = frozenset({"none", "minimal", "low", "medium", "high", "xhigh"})
+_CODEX_EFFORTS = frozenset({"none", "minimal", "low", "medium", "high", "xhigh", "max"})
 _CLAUDE_EFFORTS = frozenset({"low", "medium", "high", "xhigh", "max"})
 
 
@@ -112,12 +115,19 @@ def resolve_provider_route(
             message=f"provider adapter '{selected_provider.value}' is unavailable",
         )
 
+    sandbox = _resolve_managed_sandbox(provider, selected_provider, settings=settings)
     return ProviderResolution(
         requested_provider=selected_provider,
         resolved_provider=selected_provider,
         selection_basis=selection_basis,
         route=route,
-        sandbox=_resolve_managed_sandbox(provider, selected_provider, settings=settings),
+        sandbox=sandbox,
+        extensions=_resolve_managed_extensions(
+            provider,
+            selected_provider,
+            settings=settings,
+            sandbox=sandbox,
+        ),
         model_source=model_source,
         effort_source=effort_source,
         gateway_profile_source=gateway_profile_source,
@@ -331,6 +341,53 @@ def _resolve_managed_sandbox(
         effective_network=effective_network,
         effective_mode_source=effective_mode_source,
         effective_network_source=effective_network_source,
+    )
+
+
+def _resolve_managed_extensions(
+    selection: ProviderSelection | None,
+    provider: ProviderKind,
+    *,
+    settings: Settings,
+    sandbox: ManagedSandboxResolution | None,
+) -> ManagedExtensionResolution | None:
+    if provider is ProviderKind.OPENCLAW:
+        return None
+    assert sandbox is not None
+
+    authored_mode = (
+        selection.extension_mode
+        if isinstance(selection, CodexProviderSelection | ClaudeProviderSelection)
+        else None
+    )
+    configured_mode = (
+        settings.codex.extension_mode
+        if provider is ProviderKind.CODEX
+        else settings.claude.extension_mode
+    )
+    requested_mode = (
+        ManagedExtensionMode(authored_mode) if authored_mode is not None else configured_mode
+    )
+    requested_source = (
+        ExtensionModeResolutionSource.MEMBER_CONFIGURATION
+        if authored_mode is not None
+        else ExtensionModeResolutionSource.PROVIDER_CONFIGURATION
+    )
+    if requested_mode is ManagedExtensionMode.INHERIT and (
+        sandbox.effective_mode is not ManagedSandboxMode.FULL_ACCESS
+        or sandbox.effective_network is not NetworkAccess.ALLOW
+    ):
+        return ManagedExtensionResolution(
+            requested_mode=requested_mode,
+            requested_source=requested_source,
+            effective_mode=ManagedExtensionMode.ISOLATED,
+            effective_source=ExtensionModeResolutionSource.CONTROLLER,
+        )
+    return ManagedExtensionResolution(
+        requested_mode=requested_mode,
+        requested_source=requested_source,
+        effective_mode=requested_mode,
+        effective_source=requested_source,
     )
 
 

@@ -79,6 +79,7 @@ class WorkflowDefaultProviderReadback(_AuthoringModel):
     model: str | None = None
     effort: str | None = None
     sandbox: ProviderSandbox | None = None
+    extension_mode: Literal["inherit", "isolated"] | None = None
 
 
 class WorkflowAuthoringOptions(_AuthoringModel):
@@ -87,6 +88,7 @@ class WorkflowAuthoringOptions(_AuthoringModel):
     provider_kinds: tuple[str, ...]
     codex_efforts: tuple[str, ...]
     claude_efforts: tuple[str, ...]
+    managed_extension_modes: tuple[str, ...]
     managed_sandbox_options: tuple[ProviderSandbox, ...]
     human_request_kinds: tuple[str, ...]
     command_run_values: tuple[str, ...]
@@ -210,8 +212,9 @@ AUTHORING_OPTIONS = WorkflowAuthoringOptions(
     workflow_fields=("description", "note"),
     member_fields=("title", "description", "instruction", "provider", "capabilities"),
     provider_kinds=("codex", "claude", "openclaw"),
-    codex_efforts=("none", "minimal", "low", "medium", "high", "xhigh"),
+    codex_efforts=("none", "minimal", "low", "medium", "high", "xhigh", "max"),
     claude_efforts=("low", "medium", "high", "xhigh", "max"),
+    managed_extension_modes=("inherit", "isolated"),
     managed_sandbox_options=(
         ProviderSandbox(mode="read_only", network="deny"),
         ProviderSandbox(mode="workspace_write", network="deny"),

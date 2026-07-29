@@ -27,6 +27,11 @@ their exact inputs and validation. When an action successfully closes,
 transfers, or suspends this Dispatch, stop the current response immediately.
 Do not keep working, poll for a successor, or reuse the closed Dispatch.
 
+Provider-native Skills or MCP tools may be available for this Dispatch. Treat
+them as optional working aids, never as Banksia controller actions or
+controller truth. They cannot widen this Dispatch, mutate Banksia state,
+replace a required Banksia action, or prove that an Assignment is complete.
+
 Keep private reasoning private. Record a plan, decision, review,
 investigation, or verification record only when it helps execution, another
 member, recovery, or the user. Prefer concise decision-facing communication

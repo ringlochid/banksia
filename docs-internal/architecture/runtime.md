@@ -182,10 +182,14 @@ Dispatch
   member_id
   member_configuration_id
   member_branch_basis_id
+  requested/effective provider extension mode + source
+  sanitized observed Skill/MCP inventory?
   DispatchRequest { exact resolved instructions, exact resolved input, created_at }
 ```
 
-The composite `(task_id, team_revision_id, member_id, member_configuration_id, member_branch_basis_id)` is a database-enforced reference to one immutable TeamRevisionMember selection. Adapters receive the two stored request strings and exact effective provider configuration. The Assignment and Attempt may remain the same across a continuation, while a fresh Dispatch selects current Team/configuration truth. No continuation mutates an older Dispatch snapshot or rewrites its request. Adapters do not rerender from current Workflow or filesystem state. Restarting the same Dispatch resends byte-identical strings. A successor Dispatch receives a new request containing its exact continuation.
+The composite `(task_id, team_revision_id, member_id, member_configuration_id, member_branch_basis_id)` is a database-enforced reference to one immutable TeamRevisionMember selection. Adapters receive the two stored request strings and exact effective provider configuration. For Codex and Claude, that configuration includes requested and effective `inherit | isolated` Skill/MCP mode and provenance. `inherit` can remain effective only with `full_access` plus network `allow`; otherwise the controller narrows it to `isolated` automatically. Provider acceptance may add a sanitized observed inventory containing only user Skill names and active external MCP server/tool names. Paths, content, settings, endpoints, and credentials are never persisted.
+
+The Assignment and Attempt may remain the same across a continuation, while a fresh Dispatch selects current Team/configuration truth. No continuation mutates an older Dispatch snapshot or rewrites its request. Adapters do not rerender from current Workflow or filesystem state. Restarting the same Dispatch resends byte-identical strings. A successor Dispatch receives a new request containing its exact continuation.
 
 Assignment and continuation lineage remain distinct. Every Dispatch input contains the complete Assignment. An initial Dispatch has no Continuation or trigger. A successor has exactly one typed Continuation whose nested trigger owns:
 
@@ -400,7 +404,7 @@ add_child:
 - The top new member attaches directly under the caller.
 - Every new member omits `id`; the controller allocates all IDs atomically.
 - The whole nested payload is new. It cannot reference/adopt an existing node.
-- Optional fields match the authored Member shape: title, description, instruction, provider, capabilities, children. Capabilities may request only typed Human Request kinds and managed Command Run; no limits, arbitrary tools, external MCP, or runtime work fields are accepted.
+- Optional fields match the authored Member shape: title, description, instruction, provider, capabilities, children. Capabilities may request only typed Human Request kinds and managed Command Run; provider may select only the closed model, effort, sandbox, and `inherit | isolated` Skill/MCP mode fields. No limits, arbitrary tools, MCP server definitions, or runtime work fields are accepted.
 - New siblings append in request order.
 
 ### Update an existing descendant with recursive upserts

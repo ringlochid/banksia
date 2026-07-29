@@ -22,6 +22,7 @@ lead:
     sandbox:
       mode: workspace_write
       network: allow
+    extension_mode: isolated
   capabilities:
     human_request:
       - input
@@ -41,6 +42,7 @@ lead:
         sandbox:
           mode: read_only
           network: deny
+        extension_mode: isolated
     - id: source-researcher
       title: Source researcher
       description: Establishes current primary evidence for the serious options.
@@ -62,6 +64,7 @@ lead:
         sandbox:
           mode: read_only
           network: deny
+        extension_mode: isolated
     - id: decision-reviewer
       title: Decision reviewer
       description: Tests whether the recommendation follows from a fair comparison.
@@ -74,3 +77,4 @@ lead:
         sandbox:
           mode: read_only
           network: deny
+        extension_mode: isolated

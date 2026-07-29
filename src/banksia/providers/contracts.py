@@ -28,7 +28,15 @@ class NetworkAccess(StrEnum):
     DENY = "deny"
 
 
+class ManagedExtensionMode(StrEnum):
+    """Requested or effective managed-provider Skill and MCP visibility."""
+
+    INHERIT = "inherit"
+    ISOLATED = "isolated"
+
+
 __all__ = [
+    "ManagedExtensionMode",
     "ManagedSandboxMode",
     "NetworkAccess",
     "ProviderKind",

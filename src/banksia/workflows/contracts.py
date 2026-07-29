@@ -33,8 +33,9 @@ BoundedProviderValue = Annotated[
     str,
     Field(min_length=1, pattern=r"\S"),
 ]
-CodexEffort = Literal["none", "minimal", "low", "medium", "high", "xhigh"]
+CodexEffort = Literal["none", "minimal", "low", "medium", "high", "xhigh", "max"]
 ClaudeEffort = Literal["low", "medium", "high", "xhigh", "max"]
+ManagedExtensionModeValue = Literal["inherit", "isolated"]
 
 
 class _WorkflowModel(BaseModel):
@@ -78,11 +79,15 @@ class CodexProviderSelection(_WorkflowModel):
     model: BoundedProviderValue | SkipJsonSchema[None] = None
     effort: CodexEffort | SkipJsonSchema[None] = None
     sandbox: ProviderSandbox | SkipJsonSchema[None] = None
+    extension_mode: ManagedExtensionModeValue | SkipJsonSchema[None] = None
 
     @model_validator(mode="before")
     @classmethod
     def reject_explicit_nulls(cls, value: Any) -> Any:
-        return _reject_explicit_nulls(value, fields=("model", "effort", "sandbox"))
+        return _reject_explicit_nulls(
+            value,
+            fields=("model", "effort", "sandbox", "extension_mode"),
+        )
 
     @field_validator("model")
     @classmethod
@@ -97,7 +102,7 @@ class CodexProviderSelection(_WorkflowModel):
     ) -> JsonSchemaValue:
         return _without_null_defaults(
             handler(core_schema),
-            fields=("model", "effort", "sandbox"),
+            fields=("model", "effort", "sandbox", "extension_mode"),
         )
 
 
@@ -106,11 +111,15 @@ class ClaudeProviderSelection(_WorkflowModel):
     model: BoundedProviderValue | SkipJsonSchema[None] = None
     effort: ClaudeEffort | SkipJsonSchema[None] = None
     sandbox: ProviderSandbox | SkipJsonSchema[None] = None
+    extension_mode: ManagedExtensionModeValue | SkipJsonSchema[None] = None
 
     @model_validator(mode="before")
     @classmethod
     def reject_explicit_nulls(cls, value: Any) -> Any:
-        return _reject_explicit_nulls(value, fields=("model", "effort", "sandbox"))
+        return _reject_explicit_nulls(
+            value,
+            fields=("model", "effort", "sandbox", "extension_mode"),
+        )
 
     @field_validator("model")
     @classmethod
@@ -125,7 +134,7 @@ class ClaudeProviderSelection(_WorkflowModel):
     ) -> JsonSchemaValue:
         return _without_null_defaults(
             handler(core_schema),
-            fields=("model", "effort", "sandbox"),
+            fields=("model", "effort", "sandbox", "extension_mode"),
         )
 
 

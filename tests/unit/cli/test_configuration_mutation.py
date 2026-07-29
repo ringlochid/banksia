@@ -13,7 +13,7 @@ from banksia.interfaces.cli.providers.configuration import (
     configure_provider,
     set_default_provider,
 )
-from banksia.providers import ProviderKind
+from banksia.providers import ManagedExtensionMode, ProviderKind
 
 
 def test_first_configuration_sets_default_and_later_configuration_preserves_it(
@@ -23,7 +23,11 @@ def test_first_configuration_sets_default_and_later_configuration_preserves_it(
 
     first = configure_provider(
         config_path,
-        ProviderConfigurationRequest(provider=ProviderKind.CODEX, model="gpt-5"),
+        ProviderConfigurationRequest(
+            provider=ProviderKind.CODEX,
+            model="gpt-5",
+            extension_mode=ManagedExtensionMode.ISOLATED,
+        ),
     )
     second = configure_provider(
         config_path,
@@ -36,7 +40,11 @@ def test_first_configuration_sets_default_and_later_configuration_preserves_it(
     assert first.model_dump(mode="json")["default_changed"] is True
     assert second.default_provider == ProviderKind.CODEX
     assert second.is_default_changed is False
-    assert payload["codex"] == {"enabled": True, "model": "gpt-5"}
+    assert payload["codex"] == {
+        "enabled": True,
+        "model": "gpt-5",
+        "extension_mode": "isolated",
+    }
     assert payload["claude"] == {"enabled": True, "effort": "high"}
     assert payload["runtime"]["default_provider"] == "codex"
 

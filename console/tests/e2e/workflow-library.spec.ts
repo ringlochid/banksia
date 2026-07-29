@@ -68,6 +68,7 @@ const authoringOptions = {
     codex_efforts: ["low", "medium", "high"],
     claude_efforts: ["low", "medium", "high", "max"],
     managed_sandbox_options: [],
+    managed_extension_modes: ["inherit", "isolated"],
     human_request_kinds: ["input", "direction", "approval", "review"],
     command_run_values: ["allow"],
     default_provider: null,

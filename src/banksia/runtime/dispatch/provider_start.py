@@ -18,6 +18,7 @@ from banksia.providers import ProviderKind
 from banksia.runtime.contracts import TaskEventSource, TaskEventType
 from banksia.runtime.dispatch.currentness import dispatch_attempt_is_current
 from banksia.runtime.post_commit import DispatchStartDue
+from banksia.runtime.providers.contracts import ProviderExtensionInventory
 from banksia.runtime.task_events import append_task_event
 from banksia.runtime.team.currentness import dispatch_team_selection_is_current
 
@@ -37,6 +38,7 @@ class ProviderStartCandidate:
     provider_kind: ProviderKind | None
     model_override: str | None
     effort_override: str | None
+    effective_extension_mode: str | None
     gateway_profile: str | None
     provider_start_attempt_count: int
     persisted_due_at: datetime
@@ -70,6 +72,7 @@ async def accept_provider_start_if_current(
     expected_provider_start_attempt_count: int,
     expected_due_at: datetime,
     accepted_at: datetime,
+    extension_inventory: ProviderExtensionInventory | None = None,
 ) -> ProviderStartAcceptanceResult:
     """Accept one exact generation; a zero-row update is an ordinary loser."""
 
@@ -100,6 +103,7 @@ async def accept_provider_start_if_current(
                 next_provider_start_at=None,
                 provider_start_retry_kind=None,
                 provider_start_last_error_code=None,
+                extension_inventory_json=_serialize_extension_inventory(extension_inventory),
             )
             .returning(
                 DispatchTurnModel.dispatch_id,
@@ -232,6 +236,7 @@ async def read_provider_start_candidate(
                     DispatchTurnModel.resolved_provider.label("resolved_provider"),
                     DispatchTurnModel.model_override.label("model_override"),
                     DispatchTurnModel.effort_override.label("effort_override"),
+                    DispatchTurnModel.effective_extension_mode.label("effective_extension_mode"),
                     DispatchTurnModel.gateway_profile.label("gateway_profile"),
                     DispatchTurnModel.provider_start_attempt_count.label(
                         "provider_start_attempt_count"
@@ -384,6 +389,12 @@ async def rotate_provider_start_after_failure(
     return True
 
 
+def _serialize_extension_inventory(
+    inventory: ProviderExtensionInventory | None,
+) -> str | None:
+    return inventory.model_dump_json() if inventory is not None else None
+
+
 async def _append_provider_start_accepted_event(
     session: AsyncSession,
     *,
@@ -433,6 +444,7 @@ def _build_provider_start_candidate(row: RowMapping) -> ProviderStartCandidate:
         provider_kind=provider_kind,
         model_override=row["model_override"],
         effort_override=row["effort_override"],
+        effective_extension_mode=row["effective_extension_mode"],
         gateway_profile=row["gateway_profile"],
         provider_start_attempt_count=row["provider_start_attempt_count"],
         persisted_due_at=row["persisted_due_at"],

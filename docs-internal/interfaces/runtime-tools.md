@@ -11,9 +11,9 @@ Banksia has two separate built-in agent tool catalogs:
 - **Task-member tools** are controller operations used by a current Task Dispatch. Managed Codex and Claude turns receive them through a private Dispatch-scoped MCP binding. OpenClaw may use the explicit-ID compatibility projection of the same logical catalog.
 - **Operator tools** act on user-facing Workflow and Task product services. They never inherit Task-member authority and are not injected into a Task Dispatch.
 
-The deferred external-MCP decision does not remove either built-in catalog. It means a Workflow cannot add arbitrary MCP servers or tools, and Banksia has no external-MCP registry, credential, discovery, approval, replan, or UI shape in this baseline.
+The absence of Banksia-managed external-MCP authoring does not remove either built-in catalog. A Workflow cannot define arbitrary MCP servers or tools, and Banksia has no external-MCP registry, credential, installation, approval, or replan shape. A managed Member may request inherited visibility of enabled user and project Skills plus configured MCP servers through its provider settings; those provider-native extensions never gain Banksia controller authority.
 
-For a managed Task Dispatch, the provider must report exactly one active MCP server: the Dispatch-bound `banksia_node`. Its operation names must equal the exact controller binding, and it must expose no MCP resources or resource templates. Ambient provider MCP configuration is enumerated and disabled in an invocation-only overlay; an adapter that cannot prove the resulting inventory fails before the first model turn.
+For every managed Task Dispatch, the provider must report the Dispatch-bound `banksia_node`. Its operation names must equal the exact controller binding, and it must expose no MCP resources or resource templates. Isolated mode admits no other active server. Inherited mode may additionally expose user-home MCP servers after the controller has resolved an effective `full_access` plus network `allow` pair. The adapter records their sanitized server/tool inventory before the first model turn.
 
 ## Exact final Task-member catalog
 

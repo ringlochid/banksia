@@ -5,14 +5,17 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from banksia.providers import ManagedExtensionMode
 from banksia.runtime.contracts.capabilities import (
     EffectiveNetworkAccess,
     EffectiveProviderNativeAccess,
 )
 from banksia.runtime.contracts.primitives import CheckpointOutcome
+from banksia.runtime.contracts.provider_resolution import ExtensionModeResolutionSource
 from banksia.runtime.contracts.refs import FileReference
 from banksia.runtime.contracts.task_events import TaskEventRecord
 from banksia.runtime.contracts.team_read import MemberBehavior
+from banksia.runtime.providers.contracts import ProviderExtensionInventory
 from banksia.runtime.task_control.contracts import (
     ControllerTaskState,
     ControllerTaskSummary,
@@ -60,6 +63,11 @@ class SupportDispatchTraceEntry(_SupportModel):
     requested_provider: Literal["codex", "claude", "openclaw"]
     resolved_provider: Literal["codex", "claude", "openclaw"]
     selection_basis: Literal["explicit", "default"]
+    requested_extension_mode: ManagedExtensionMode | None = None
+    requested_extension_mode_source: ExtensionModeResolutionSource | None = None
+    effective_extension_mode: ManagedExtensionMode | None = None
+    effective_extension_mode_source: ExtensionModeResolutionSource | None = None
+    extension_inventory: ProviderExtensionInventory | None = None
     adapter_started_at: datetime | None = None
     last_node_activity_at: datetime | None = None
     node_activity_revision: int = Field(ge=0)

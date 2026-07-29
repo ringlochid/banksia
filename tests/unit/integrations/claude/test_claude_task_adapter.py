@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import asyncio
 import json
-from collections.abc import AsyncIterator, Callable
+from collections.abc import Callable
 from pathlib import Path
 from typing import cast
 
@@ -15,7 +14,6 @@ from claude_agent_sdk.types import (
     PreToolUseHookSpecificOutput,
     SyncHookJSONOutput,
 )
-from pydantic import SecretStr
 
 from banksia.integrations.claude import ClaudeAdapter
 from banksia.integrations.claude.native_identity import (
@@ -23,11 +21,13 @@ from banksia.integrations.claude.native_identity import (
     ClaudeEndpointPolicyState,
     ClaudeSubscriptionClass,
 )
-from banksia.providers import ManagedSandboxMode, NetworkAccess, ProviderKind, ProviderNativeAccess
-from banksia.runtime.contracts.provider_resolution import ClaudeProviderRoute
+from banksia.providers import (
+    ManagedSandboxMode,
+    NetworkAccess,
+    ProviderNativeAccess,
+)
 from banksia.runtime.providers.contracts import (
     DispatchStartRequest,
-    ManagedNodeMcpConnection,
     ProviderAuthenticationMethod,
     ProviderCheckAxisStatus,
     ProviderCheckStatus,
@@ -35,88 +35,12 @@ from banksia.runtime.providers.contracts import (
     ProviderStartErrorCode,
     ProviderStopOutcome,
 )
-
-
-class _FakeClaudeClient:
-    def __init__(self, options: ClaudeAgentOptions) -> None:
-        self.options = options
-        self.query_input: str | None = None
-        self.was_connected = False
-        self.was_interrupted = False
-        self.was_disconnected = False
-        self.mcp_status_reads = 0
-        self._done = asyncio.Event()
-
-    async def connect(self) -> None:
-        self.was_connected = True
-
-    async def get_server_info(self) -> dict[str, object]:
-        return {"commands": []}
-
-    async def get_context_usage(self) -> dict[str, object]:
-        return {
-            "memoryFiles": [],
-            "agents": [],
-            "mcpTools": [
-                {
-                    "name": "checkpoint",
-                    "serverName": "banksia_node",
-                },
-                {
-                    "name": "delegate",
-                    "serverName": "banksia_node",
-                },
-            ],
-        }
-
-    async def get_mcp_status(self) -> dict[str, object]:
-        self.mcp_status_reads += 1
-        return {
-            "mcpServers": [
-                {
-                    "name": "banksia_node",
-                    "status": "pending" if self.mcp_status_reads == 1 else "connected",
-                    "tools": [{"name": "checkpoint"}, {"name": "delegate"}],
-                }
-            ]
-        }
-
-    async def query(self, dispatch_input: str) -> None:
-        self.query_input = dispatch_input
-
-    async def receive_response(self) -> AsyncIterator[object]:
-        await self._done.wait()
-        if False:
-            yield object()
-
-    async def interrupt(self) -> None:
-        self.was_interrupted = True
-        self._done.set()
-
-    async def disconnect(self) -> None:
-        self.was_disconnected = True
-
-
-def _authentication(
-    method: ProviderAuthenticationMethod = ProviderAuthenticationMethod.SUBSCRIPTION,
-) -> ClaudeAuthenticationState:
-    return ClaudeAuthenticationState(
-        is_authenticated=True,
-        method=method,
-        code="claude_available",
-        subscription_class=(
-            ClaudeSubscriptionClass.PERSONAL
-            if method is ProviderAuthenticationMethod.SUBSCRIPTION
-            else None
-        ),
-    )
-
-
-def _clear_policy() -> ClaudeEndpointPolicyState:
-    return ClaudeEndpointPolicyState(
-        is_installed=False,
-        code="claude_endpoint_policy_clear",
-    )
+from tests.unit.integrations.claude.task_adapter_test_support import (
+    FakeClaudeClient,
+    authentication,
+    clear_policy,
+    task_request,
+)
 
 
 @pytest.mark.asyncio
@@ -131,8 +55,8 @@ async def test_claude_check_confirms_supported_native_authentication(
     method: ProviderAuthenticationMethod,
 ) -> None:
     adapter = ClaudeAdapter(
-        authentication_reader=lambda: _authentication(method),
-        endpoint_policy_reader=_clear_policy,
+        authentication_reader=lambda: authentication(method),
+        endpoint_policy_reader=clear_policy,
     )
 
     async with adapter.lifespan():
@@ -152,7 +76,7 @@ async def test_claude_check_rejects_missing_native_authentication() -> None:
             method=None,
             code="claude_authentication_required",
         ),
-        endpoint_policy_reader=_clear_policy,
+        endpoint_policy_reader=clear_policy,
     )
 
     async with adapter.lifespan():
@@ -162,50 +86,26 @@ async def test_claude_check_rejects_missing_native_authentication() -> None:
     assert result.authentication is ProviderCheckAxisStatus.FAILED
 
 
-def _request(*, working_directory: Path | None = None) -> DispatchStartRequest:
-    return DispatchStartRequest(
-        task_id="task-1",
-        dispatch_id="dispatch-1",
-        provider_start_revision=0,
-        working_directory=working_directory or Path.cwd(),
-        instructions="exact instructions",
-        input="exact input",
-        provider_route=ClaudeProviderRoute(
-            kind=ProviderKind.CLAUDE,
-            model_override="claude-sonnet-4-5",
-            effort_override="high",
-        ),
-        provider_native_access=ProviderNativeAccess.RESTRICTED,
-        network_access=NetworkAccess.DENY,
-        sandbox_mode=ManagedSandboxMode.WORKSPACE_WRITE,
-        managed_node_mcp=ManagedNodeMcpConnection(
-            url="http://127.0.0.1:8123/_internal/node/mcp",
-            bearer_token=SecretStr("binding-secret"),
-            enabled_tools=("checkpoint", "delegate"),
-        ),
-    )
-
-
 @pytest.mark.asyncio
 async def test_claude_start_uses_disposable_scoped_client_and_returns_before_output(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    clients: list[_FakeClaudeClient] = []
+    clients: list[FakeClaudeClient] = []
     monkeypatch.setenv("OPENCLAW_GATEWAY_TOKEN", "must-not-reach-claude")
 
-    def build_client(options: ClaudeAgentOptions) -> _FakeClaudeClient:
-        client = _FakeClaudeClient(options)
+    def build_client(options: ClaudeAgentOptions) -> FakeClaudeClient:
+        client = FakeClaudeClient(options)
         clients.append(client)
         return client
 
     adapter = ClaudeAdapter(
         client_factory=cast(Callable[[ClaudeAgentOptions], ClaudeSDKClient], build_client),
-        authentication_reader=_authentication,
-        endpoint_policy_reader=_clear_policy,
+        authentication_reader=authentication,
+        endpoint_policy_reader=clear_policy,
     )
 
     async with adapter.lifespan():
-        await adapter.start(_request())
+        await adapter.start(task_request())
         client = clients[0]
 
         assert client.was_connected is True
@@ -268,35 +168,46 @@ async def test_claude_start_uses_disposable_scoped_client_and_returns_before_out
 
 
 @pytest.mark.asyncio
-async def test_claude_api_key_start_uses_bare_mode_even_with_endpoint_policy() -> None:
-    clients: list[_FakeClaudeClient] = []
+async def test_claude_api_key_task_uses_standard_mode_and_rejects_endpoint_policy() -> None:
+    clients: list[FakeClaudeClient] = []
 
-    def build_client(options: ClaudeAgentOptions) -> _FakeClaudeClient:
-        client = _FakeClaudeClient(options)
+    def build_client(options: ClaudeAgentOptions) -> FakeClaudeClient:
+        client = FakeClaudeClient(options)
         clients.append(client)
         return client
 
     adapter = ClaudeAdapter(
         client_factory=cast(Callable[[ClaudeAgentOptions], ClaudeSDKClient], build_client),
-        authentication_reader=lambda: _authentication(ProviderAuthenticationMethod.API_KEY),
+        authentication_reader=lambda: authentication(ProviderAuthenticationMethod.API_KEY),
+        endpoint_policy_reader=clear_policy,
+    )
+
+    async with adapter.lifespan():
+        await adapter.start(task_request())
+        assert "bare" not in clients[0].options.extra_args
+        assert "safe-mode" not in clients[0].options.extra_args
+        assert await adapter.stop("dispatch-1") is ProviderStopOutcome.STOPPED
+
+    blocked = ClaudeAdapter(
+        client_factory=cast(Callable[[ClaudeAgentOptions], ClaudeSDKClient], build_client),
+        authentication_reader=lambda: authentication(ProviderAuthenticationMethod.API_KEY),
         endpoint_policy_reader=lambda: ClaudeEndpointPolicyState(
             is_installed=True,
             code="claude_endpoint_policy_unsupported",
         ),
     )
-
-    async with adapter.lifespan():
-        await adapter.start(_request())
-        assert "bare" in clients[0].options.extra_args
-        assert "safe-mode" not in clients[0].options.extra_args
-        assert await adapter.stop("dispatch-1") is ProviderStopOutcome.STOPPED
+    async with blocked.lifespan():
+        with pytest.raises(ProviderStartError) as error:
+            await blocked.start(task_request())
+    assert error.value.code is ProviderStartErrorCode.UNAVAILABLE
+    assert len(clients) == 1
 
 
 @pytest.mark.asyncio
 async def test_claude_start_fails_before_query_for_managed_identity_or_wrong_mcp_readback() -> None:
-    clients: list[_FakeClaudeClient] = []
+    clients: list[FakeClaudeClient] = []
 
-    class WrongMcpClient(_FakeClaudeClient):
+    class WrongMcpClient(FakeClaudeClient):
         async def get_mcp_status(self) -> dict[str, object]:
             status = await super().get_mcp_status()
             server = cast(dict[str, object], cast(list[object], status["mcpServers"])[0])
@@ -307,7 +218,7 @@ async def test_claude_start_fails_before_query_for_managed_identity_or_wrong_mcp
             ]
             return status
 
-    def build_client(options: ClaudeAgentOptions) -> _FakeClaudeClient:
+    def build_client(options: ClaudeAgentOptions) -> FakeClaudeClient:
         client = WrongMcpClient(options)
         clients.append(client)
         return client
@@ -320,23 +231,23 @@ async def test_claude_start_fails_before_query_for_managed_identity_or_wrong_mcp
             code="claude_available",
             subscription_class=ClaudeSubscriptionClass.MANAGED,
         ),
-        endpoint_policy_reader=_clear_policy,
+        endpoint_policy_reader=clear_policy,
     )
     async with managed_adapter.lifespan():
         with pytest.raises(ProviderStartError) as managed_error:
-            await managed_adapter.start(_request())
+            await managed_adapter.start(task_request())
 
     assert managed_error.value.code is ProviderStartErrorCode.UNAVAILABLE
     assert clients == []
 
     wrong_mcp_adapter = ClaudeAdapter(
         client_factory=cast(Callable[[ClaudeAgentOptions], ClaudeSDKClient], build_client),
-        authentication_reader=_authentication,
-        endpoint_policy_reader=_clear_policy,
+        authentication_reader=authentication,
+        endpoint_policy_reader=clear_policy,
     )
     async with wrong_mcp_adapter.lifespan():
         with pytest.raises(ProviderStartError) as wrong_mcp_error:
-            await wrong_mcp_adapter.start(_request())
+            await wrong_mcp_adapter.start(task_request())
 
     assert wrong_mcp_error.value.code is ProviderStartErrorCode.UNAVAILABLE
     assert clients[0].query_input is None
@@ -345,19 +256,19 @@ async def test_claude_start_fails_before_query_for_managed_identity_or_wrong_mcp
 
 @pytest.mark.asyncio
 async def test_claude_read_only_mode_has_a_distinct_native_tool_projection() -> None:
-    clients: list[_FakeClaudeClient] = []
+    clients: list[FakeClaudeClient] = []
 
-    def build_client(options: ClaudeAgentOptions) -> _FakeClaudeClient:
-        client = _FakeClaudeClient(options)
+    def build_client(options: ClaudeAgentOptions) -> FakeClaudeClient:
+        client = FakeClaudeClient(options)
         clients.append(client)
         return client
 
     adapter = ClaudeAdapter(
         client_factory=cast(Callable[[ClaudeAgentOptions], ClaudeSDKClient], build_client),
-        authentication_reader=_authentication,
-        endpoint_policy_reader=_clear_policy,
+        authentication_reader=authentication,
+        endpoint_policy_reader=clear_policy,
     )
-    request = _request().model_copy(
+    request = task_request().model_copy(
         update={
             "sandbox_mode": ManagedSandboxMode.READ_ONLY,
             "provider_native_access": ProviderNativeAccess.DENIED,
@@ -387,7 +298,7 @@ async def test_claude_workspace_write_hook_denies_every_outside_target(
 ) -> None:
     workspace = tmp_path / "workspace"
     workspace.mkdir()
-    options = await _started_options(_request(working_directory=workspace))
+    options = await _started_options(task_request(working_directory=workspace))
     hook = _pre_tool_hook(options)
 
     for target in (
@@ -411,7 +322,7 @@ async def test_claude_workspace_write_hook_denies_symlink_escape_and_allows_regu
     workspace.mkdir()
     outside.mkdir()
     (workspace / "escape").symlink_to(outside, target_is_directory=True)
-    options = await _started_options(_request(working_directory=workspace))
+    options = await _started_options(task_request(working_directory=workspace))
     hook = _pre_tool_hook(options)
 
     escaped = await hook(
@@ -441,7 +352,7 @@ async def test_claude_workspace_write_hook_denies_existing_hardlink_target(
     outside = tmp_path / "outside.txt"
     outside.write_text("outside", encoding="utf-8")
     (workspace / "linked.txt").hardlink_to(outside)
-    options = await _started_options(_request(working_directory=workspace))
+    options = await _started_options(task_request(working_directory=workspace))
     hook = _pre_tool_hook(options)
 
     outcome = await hook(
@@ -458,7 +369,7 @@ async def test_claude_workspace_write_network_allow_exposes_network_tools_honest
     tmp_path: Path,
 ) -> None:
     options = await _started_options(
-        _request(working_directory=tmp_path).model_copy(
+        task_request(working_directory=tmp_path).model_copy(
             update={"network_access": NetworkAccess.ALLOW}
         )
     )
@@ -474,38 +385,38 @@ async def test_claude_workspace_write_network_allow_exposes_network_tools_honest
 async def test_claude_lifespan_disconnects_without_waiting_for_interrupt(
     tmp_path: Path,
 ) -> None:
-    clients: list[_FakeClaudeClient] = []
+    clients: list[FakeClaudeClient] = []
 
-    def build_client(options: ClaudeAgentOptions) -> _FakeClaudeClient:
-        client = _FakeClaudeClient(options)
+    def build_client(options: ClaudeAgentOptions) -> FakeClaudeClient:
+        client = FakeClaudeClient(options)
         clients.append(client)
         return client
 
     adapter = ClaudeAdapter(
         client_factory=cast(Callable[[ClaudeAgentOptions], ClaudeSDKClient], build_client),
-        authentication_reader=_authentication,
-        endpoint_policy_reader=_clear_policy,
+        authentication_reader=authentication,
+        endpoint_policy_reader=clear_policy,
     )
 
     async with adapter.lifespan():
-        await adapter.start(_request().model_copy(update={"working_directory": tmp_path}))
+        await adapter.start(task_request().model_copy(update={"working_directory": tmp_path}))
 
     assert clients[0].was_disconnected is True
     assert clients[0].was_interrupted is False
 
 
 async def _started_options(request: DispatchStartRequest) -> ClaudeAgentOptions:
-    clients: list[_FakeClaudeClient] = []
+    clients: list[FakeClaudeClient] = []
 
-    def build_client(options: ClaudeAgentOptions) -> _FakeClaudeClient:
-        client = _FakeClaudeClient(options)
+    def build_client(options: ClaudeAgentOptions) -> FakeClaudeClient:
+        client = FakeClaudeClient(options)
         clients.append(client)
         return client
 
     adapter = ClaudeAdapter(
         client_factory=cast(Callable[[ClaudeAgentOptions], ClaudeSDKClient], build_client),
-        authentication_reader=_authentication,
-        endpoint_policy_reader=_clear_policy,
+        authentication_reader=authentication,
+        endpoint_policy_reader=clear_policy,
     )
     async with adapter.lifespan():
         await adapter.start(request)

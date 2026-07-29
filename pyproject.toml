@@ -32,7 +32,7 @@ dependencies = [
   "platformdirs>=4.3.7,<5.0.0",
   "aiosqlite>=0.21.0,<1.0.0",
   "openai-codex==0.144.4",
-  "claude-agent-sdk==0.2.122",
+  "claude-agent-sdk==0.2.128",
 ]
 
 [project.optional-dependencies]

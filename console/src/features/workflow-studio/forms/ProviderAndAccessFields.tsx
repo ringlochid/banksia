@@ -194,6 +194,15 @@ function ManagedProviderFields({
             ? []
             : [provider.sandbox]),
     ]);
+    const extensionModes = [
+        ...new Set([
+            ...(options?.managed_extension_modes ?? []),
+            ...(provider.extension_mode === undefined ||
+            provider.extension_mode === null
+                ? []
+                : [provider.extension_mode]),
+        ]),
+    ];
 
     return (
         <>
@@ -222,6 +231,15 @@ function ManagedProviderFields({
                 prefix={prefix}
                 provider={provider}
                 sandboxes={sandboxes}
+            />
+            <ManagedExtensionModeField
+                disabled={disabled}
+                error={fieldIssue(issues, "provider.extension_mode")}
+                extensionModes={extensionModes}
+                memberId={memberId}
+                onEdit={onEdit}
+                prefix={prefix}
+                provider={provider}
             />
         </>
     );
@@ -366,6 +384,55 @@ function ManagedSandboxField({
     );
 }
 
+interface ManagedExtensionModeFieldProps extends ManagedFieldProps {
+    readonly extensionModes: readonly string[];
+}
+
+function ManagedExtensionModeField({
+    disabled,
+    error,
+    extensionModes,
+    memberId,
+    onEdit,
+    prefix,
+    provider,
+}: ManagedExtensionModeFieldProps) {
+    return (
+        <FormField
+            error={error}
+            hint="Inherit uses enabled user and project Skills plus configured MCP servers for trusted full-access work. Restricted access is isolated automatically."
+            id={`${prefix}-extension-mode`}
+            label="Skills and MCP"
+            optional
+        >
+            <Select
+                dataFieldPath={`$.members.${memberId}.provider.extension_mode`}
+                disabled={disabled}
+                onValueChange={(value) =>
+                    onEdit({
+                        provider: withProviderValue(
+                            provider,
+                            "extension_mode",
+                            value === "default" ? undefined : value,
+                        ),
+                    })
+                }
+                options={[
+                    { value: "default", label: "Provider default" },
+                    ...extensionModes.map((mode) => ({
+                        value: mode,
+                        label:
+                            mode === "inherit"
+                                ? "Use provider Skills and MCP"
+                                : "Banksia only",
+                    })),
+                ]}
+                value={provider.extension_mode ?? "default"}
+            />
+        </FormField>
+    );
+}
+
 function providerForKind(kind: string): ProviderSelection | null {
     switch (kind) {
         case "codex":
@@ -403,11 +470,16 @@ function providerOptions(kinds: readonly string[]): readonly SelectOption[] {
 
 function withProviderValue(
     provider: Extract<ProviderSelection, { kind: "codex" | "claude" }>,
-    field: "model" | "effort" | "sandbox",
+    field: "model" | "effort" | "sandbox" | "extension_mode",
     value: string | ProviderSandbox | undefined,
 ): ProviderSelection {
     const next: Record<string, unknown> = { kind: provider.kind };
-    for (const providerField of ["model", "effort", "sandbox"] as const) {
+    for (const providerField of [
+        "model",
+        "effort",
+        "sandbox",
+        "extension_mode",
+    ] as const) {
         const currentValue = provider[providerField];
         if (currentValue !== undefined && currentValue !== null) {
             next[providerField] = currentValue;
@@ -483,6 +555,12 @@ function defaultProviderHint(
         provider.sandbox === null || provider.sandbox === undefined
             ? null
             : sandboxLabel(provider.sandbox),
+        provider.extension_mode === null ||
+        provider.extension_mode === undefined
+            ? null
+            : provider.extension_mode === "inherit"
+              ? "Provider Skills and MCP"
+              : "Banksia-only extensions",
     ].filter((detail): detail is string => detail !== null);
     return `Default: ${details.join(" · ")}`;
 }

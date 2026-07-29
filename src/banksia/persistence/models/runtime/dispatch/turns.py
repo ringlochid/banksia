@@ -24,6 +24,8 @@ from banksia.persistence.models.runtime.common import (
     DISPATCH_OPENED_REASON_VALUES,
     DISPATCH_STARTING_CLOSE_REASON_VALUES,
     DISPATCH_STATUS_VALUES,
+    EXTENSION_MODE_SOURCE_VALUES,
+    MANAGED_EXTENSION_MODE_VALUES,
     PROVIDER_ROUTE_VALUE_SOURCE_VALUES,
     PROVIDER_SELECTION_BASIS_VALUES,
     PROVIDER_START_RETRY_KIND_VALUES,
@@ -154,14 +156,32 @@ class DispatchTurnModel(RuntimeBase):
             "(effort_source = 'provider_configuration' OR effort_override IS NOT NULL) AND "
             "(provider_selection_basis = 'explicit' OR "
             "(model_source = 'provider_configuration' AND "
-            "effort_source = 'provider_configuration')) AND "
+            "effort_source = 'provider_configuration' AND "
+            "requested_extension_mode_source = 'provider_configuration')) AND "
             "(model_override IS NULL OR length(trim(model_override)) > 0) AND "
-            "(effort_override IS NULL OR length(trim(effort_override)) > 0)) OR "
+            "(effort_override IS NULL OR length(trim(effort_override)) > 0) AND "
+            "requested_extension_mode IS NOT NULL AND "
+            "requested_extension_mode_source IS NOT NULL AND "
+            "effective_extension_mode IS NOT NULL AND "
+            "effective_extension_mode_source IS NOT NULL AND "
+            f"requested_extension_mode IN ({sql_in(MANAGED_EXTENSION_MODE_VALUES)}) AND "
+            f"effective_extension_mode IN ({sql_in(MANAGED_EXTENSION_MODE_VALUES)}) AND "
+            "requested_extension_mode_source IN "
+            f"({sql_in(PROVIDER_ROUTE_VALUE_SOURCE_VALUES)}) AND "
+            f"effective_extension_mode_source IN ({sql_in(EXTENSION_MODE_SOURCE_VALUES)}) AND "
+            "((effective_extension_mode_source = 'controller' AND "
+            "requested_extension_mode = 'inherit' AND "
+            "effective_extension_mode = 'isolated') OR "
+            "(effective_extension_mode_source = requested_extension_mode_source AND "
+            "effective_extension_mode = requested_extension_mode))) OR "
             "(resolved_provider = 'openclaw' AND gateway_profile IS NOT NULL AND "
             "length(trim(gateway_profile)) > 0 AND "
             "gateway_profile_source = 'provider_configuration' AND "
             "model_override IS NULL AND effort_override IS NULL AND "
-            "model_source IS NULL AND effort_source IS NULL))",
+            "model_source IS NULL AND effort_source IS NULL AND "
+            "requested_extension_mode IS NULL AND requested_extension_mode_source IS NULL AND "
+            "effective_extension_mode IS NULL AND effective_extension_mode_source IS NULL AND "
+            "extension_inventory_json IS NULL))",
             name="ck_dispatch_turns_provider_route",
         ),
         CheckConstraint(
@@ -303,6 +323,17 @@ class DispatchTurnModel(RuntimeBase):
     model_source: Mapped[str | None] = mapped_column(String(64), nullable=True)
     effort_override: Mapped[str | None] = mapped_column(String(255), nullable=True)
     effort_source: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    requested_extension_mode: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    requested_extension_mode_source: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+    )
+    effective_extension_mode: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    effective_extension_mode_source: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+    )
+    extension_inventory_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     gateway_profile: Mapped[str | None] = mapped_column(String(255), nullable=True)
     gateway_profile_source: Mapped[str | None] = mapped_column(String(64), nullable=True)
     provider_start_revision: Mapped[int] = mapped_column(Integer, default=0, server_default="0")

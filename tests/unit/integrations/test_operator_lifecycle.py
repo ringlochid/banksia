@@ -126,7 +126,7 @@ async def test_cancelled_claude_readiness_does_not_outlive_lifespan(
         readiness_finished.set()
         return ClaudeInvocationReadiness(
             method=ProviderAuthenticationMethod.SUBSCRIPTION,
-            isolation_mode=ClaudeIsolationMode.SUBSCRIPTION,
+            isolation_mode=ClaudeIsolationMode.STANDARD,
             code="claude_available",
         )
 

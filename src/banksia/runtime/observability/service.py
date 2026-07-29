@@ -23,11 +23,13 @@ from banksia.persistence.models import (
     TaskModel,
     TeamRevisionMemberModel,
 )
+from banksia.providers import ManagedExtensionMode
 from banksia.runtime.contracts import CheckpointOutcome, FileReference
 from banksia.runtime.contracts.capabilities import (
     EffectiveNetworkAccess,
     EffectiveProviderNativeAccess,
 )
+from banksia.runtime.contracts.provider_resolution import ExtensionModeResolutionSource
 from banksia.runtime.contracts.support import (
     SupportActionableItem,
     SupportBoundaryTraceEntry,
@@ -41,6 +43,7 @@ from banksia.runtime.contracts.support import (
 )
 from banksia.runtime.contracts.team_read import MemberBehavior
 from banksia.runtime.errors import illegal_state_error, invalid_request_shape_error
+from banksia.runtime.providers.contracts import ProviderExtensionInventory
 from banksia.runtime.task_control.contracts import ControllerTaskState
 from banksia.runtime.task_control.reads import read_runtime_task
 from banksia.runtime.task_events import latest_task_event
@@ -423,6 +426,25 @@ def _dispatch_entry(
         ),
         resolved_provider=cast(Literal["codex", "claude", "openclaw"], dispatch.resolved_provider),
         selection_basis=cast(Literal["explicit", "default"], dispatch.provider_selection_basis),
+        requested_extension_mode=cast(
+            ManagedExtensionMode | None, dispatch.requested_extension_mode
+        ),
+        requested_extension_mode_source=cast(
+            ExtensionModeResolutionSource | None,
+            dispatch.requested_extension_mode_source,
+        ),
+        effective_extension_mode=cast(
+            ManagedExtensionMode | None, dispatch.effective_extension_mode
+        ),
+        effective_extension_mode_source=cast(
+            ExtensionModeResolutionSource | None,
+            dispatch.effective_extension_mode_source,
+        ),
+        extension_inventory=(
+            ProviderExtensionInventory.model_validate_json(dispatch.extension_inventory_json)
+            if dispatch.extension_inventory_json is not None
+            else None
+        ),
         adapter_started_at=_as_utc_optional(dispatch.adapter_started_at),
         last_node_activity_at=_as_utc_optional(dispatch.last_node_activity_at),
         node_activity_revision=dispatch.node_activity_revision,

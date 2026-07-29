@@ -133,7 +133,12 @@ class FakeCodexClient:
                         cwd=SimpleNamespace(root=cwd),
                         errors=list(self.skill_errors),
                         skills=[
-                            SimpleNamespace(path=SimpleNamespace(root=path))
+                            SimpleNamespace(
+                                enabled=True,
+                                name=Path(path).parent.name,
+                                path=SimpleNamespace(root=path),
+                                scope=SimpleNamespace(value="user"),
+                            )
                             for path in self.skill_paths
                         ],
                     )

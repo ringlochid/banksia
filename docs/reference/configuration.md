@@ -154,6 +154,7 @@ The server host is loopback-only: `127.0.0.1`, `::1`, another loopback IP, or `l
 enabled = true
 model = "gpt-5.6"
 effort = "high"
+extension_mode = "inherit"
 
 [claude]
 enabled = false
@@ -163,9 +164,20 @@ Both managed-provider sections accept:
 
 - `enabled`;
 - optional exact provider-native `model`; and
-- optional adapter-supported `effort`.
+- optional adapter-supported `effort`; and
+- `extension_mode = "inherit" | "isolated"`.
 
 An explicit model or effort never silently falls back. Provider credentials are managed by `banksia providers login`, not public TOML examples. `banksia providers check NAME` is a bounded diagnostic: failure does not disable or rewrite the configured route.
+
+`extension_mode` defaults to `inherit`. It makes enabled user and project Skills plus configured MCP servers available to trusted Task Members while implicit workspace instructions and general plugins remain disabled. An effective sandbox narrower than `full_access` plus network `allow` is isolated automatically. Operator is always isolated and does not use this setting.
+
+Configure the value without editing TOML directly:
+
+```bash
+banksia providers configure codex --extension-mode isolated
+```
+
+Codex Task effort also accepts `max`; `ultra` remains unavailable to Task Members. Native Codex configuration not overridden by Banksia, including `service_tier = "fast"`, remains effective beside explicit Banksia model and effort choices.
 
 ### OpenClaw
 

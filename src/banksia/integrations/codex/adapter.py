@@ -15,7 +15,6 @@ from openai_codex import (
 from openai_codex.client import CodexClient
 from openai_codex.generated.v2_all import (
     GetAccountResponse,
-    ReasoningEffort,
     TurnCompletedNotification,
 )
 from openai_codex.models import JsonObject
@@ -25,13 +24,13 @@ from banksia.integrations.codex.isolation import (
     CodexServerRequestHandler,
     CodexTaskThreadStartResponse,
     build_codex_client,
-    build_codex_task_isolation_config,
+    build_codex_task_config,
     deny_codex_task_server_request,
     read_codex_ambient_state,
-    require_codex_task_mcp_isolation,
     require_codex_task_thread_isolation,
+    validate_codex_task_extensions,
 )
-from banksia.providers import ManagedSandboxMode, ProviderKind
+from banksia.providers import ManagedExtensionMode, ManagedSandboxMode, ProviderKind
 from banksia.runtime.contracts.provider_resolution import CodexProviderRoute
 from banksia.runtime.providers.contracts import (
     DispatchStartRequest,
@@ -40,6 +39,7 @@ from banksia.runtime.providers.contracts import (
     ProviderCheckAxisStatus,
     ProviderCheckResult,
     ProviderCheckStatus,
+    ProviderExtensionInventory,
     ProviderStartAccepted,
     ProviderStartError,
     ProviderStartErrorCode,
@@ -56,6 +56,7 @@ type _CodexClientFactory = Callable[[CodexServerRequestHandler], CodexClient]
 class _StartedTurn:
     thread_id: str
     turn_id: str
+    extension_inventory: ProviderExtensionInventory
 
 
 @dataclass(slots=True)
@@ -71,7 +72,7 @@ class CodexAdapter:
     kind = ProviderKind.CODEX
 
     def __init__(self, *, codex_factory: _CodexClientFactory | None = None) -> None:
-        self._codex_factory = codex_factory or build_codex_client
+        self._codex_factory = codex_factory
         self._executions: dict[str, _CodexExecution] = {}
         self._consumer_tasks: set[asyncio.Task[None]] = set()
         self._starting_dispatches: set[str] = set()
@@ -88,7 +89,7 @@ class CodexAdapter:
         client: CodexClient | None = None
         accepted = False
         try:
-            client = self._codex_factory(deny_codex_task_server_request)
+            client = self._build_task_client(request.extension_mode)
             started = await self._start_client_turn(
                 client,
                 request=request,
@@ -131,7 +132,7 @@ class CodexAdapter:
                 if client is not None:
                     await _close_client(client)
                 await self._release_start_reservation(request.dispatch_id)
-        return ProviderStartAccepted()
+        return ProviderStartAccepted(extension_inventory=started.extension_inventory)
 
     async def stop(self, dispatch_id: str) -> ProviderStopOutcome:
         async with self._lock:
@@ -161,7 +162,7 @@ class CodexAdapter:
                 return _unavailable_check("codex_check_failed")
         client: CodexClient | None = None
         try:
-            client = self._codex_factory(deny_codex_task_server_request)
+            client = self._build_isolated_client()
             account = await asyncio.to_thread(_read_codex_account, client)
         except Exception:
             return _unavailable_check("codex_check_failed")
@@ -246,6 +247,20 @@ class CodexAdapter:
                 )
             self._starting_dispatches.add(dispatch_id)
 
+    def _build_task_client(self, extension_mode: ManagedExtensionMode | None) -> CodexClient:
+        assert extension_mode is not None
+        if self._codex_factory is not None:
+            return self._codex_factory(deny_codex_task_server_request)
+        return build_codex_client(
+            deny_codex_task_server_request,
+            extension_mode=extension_mode,
+        )
+
+    def _build_isolated_client(self) -> CodexClient:
+        if self._codex_factory is not None:
+            return self._codex_factory(deny_codex_task_server_request)
+        return build_codex_client(deny_codex_task_server_request)
+
     async def _release_start_reservation(self, dispatch_id: str) -> None:
         async with self._lock:
             self._starting_dispatches.discard(dispatch_id)
@@ -298,7 +313,7 @@ def _start_codex_turn(
     workspace: Path,
 ) -> _StartedTurn:
     try:
-        thread_id = _start_isolated_codex_thread(
+        thread_id, extension_inventory = _start_codex_thread(
             client,
             request=request,
             route=route,
@@ -333,24 +348,30 @@ def _start_codex_turn(
             kind=ProviderStartFailureKind.UNCERTAIN_ACCEPTANCE,
             code=ProviderStartErrorCode.UNCERTAIN,
         ) from exc
-    return _StartedTurn(thread_id=thread_id, turn_id=turn.turn.id)
+    return _StartedTurn(
+        thread_id=thread_id,
+        turn_id=turn.turn.id,
+        extension_inventory=extension_inventory,
+    )
 
 
-def _start_isolated_codex_thread(
+def _start_codex_thread(
     client: CodexClient,
     *,
     request: DispatchStartRequest,
     route: CodexProviderRoute,
     connection: ManagedNodeMcpConnection,
     workspace: Path,
-) -> str:
+) -> tuple[str, ProviderExtensionInventory]:
     client.start()
     client.initialize()
     ambient = read_codex_ambient_state(client, workspace)
     assert request.sandbox_mode is not None
-    config = build_codex_task_isolation_config(
+    assert request.extension_mode is not None
+    config = build_codex_task_config(
         ambient,
         connection=connection,
+        extension_mode=request.extension_mode,
         network_access=request.network_access,
         sandbox_mode=request.sandbox_mode,
         workspace=workspace,
@@ -383,12 +404,14 @@ def _start_isolated_codex_thread(
         workspace=workspace,
     )
     thread_id = response.thread.id
-    require_codex_task_mcp_isolation(
+    extension_inventory = validate_codex_task_extensions(
         client,
+        ambient=ambient,
         enabled_tools=connection.enabled_tools,
+        extension_mode=request.extension_mode,
         thread_id=thread_id,
     )
-    return thread_id
+    return thread_id, extension_inventory
 
 
 def _read_codex_account(client: CodexClient) -> GetAccountResponse:
@@ -434,10 +457,9 @@ def _resolve_workspace(path: Path) -> Path:
 def _resolve_effort(value: str | None) -> str | None:
     if value is None:
         return None
-    try:
-        return ReasoningEffort(value).value
-    except ValueError as exc:
-        raise _definite_error(ProviderStartErrorCode.CONFIGURATION) from exc
+    if value not in {"none", "minimal", "low", "medium", "high", "xhigh", "max"}:
+        raise _definite_error(ProviderStartErrorCode.CONFIGURATION)
+    return value
 
 
 def _sandbox_value(sandbox_mode: ManagedSandboxMode) -> str:

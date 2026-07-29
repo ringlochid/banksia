@@ -8,6 +8,7 @@ import pytest
 from pydantic import SecretStr, ValidationError
 
 from banksia.providers import (
+    ManagedExtensionMode,
     ManagedSandboxMode,
     NetworkAccess,
     ProviderKind,
@@ -59,6 +60,7 @@ def test_dispatch_start_request_requires_provider_projection() -> None:
             provider_native_access=ProviderNativeAccess.FULL,
             network_access=NetworkAccess.ALLOW,
             sandbox_mode=ManagedSandboxMode.FULL_ACCESS,
+            extension_mode=ManagedExtensionMode.INHERIT,
             compatibility_node_mcp=CompatibilityNodeMcpConnection(
                 url="http://127.0.0.1:8123/node/mcp"
             ),

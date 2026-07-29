@@ -78,7 +78,7 @@ The adapter sends `instructions` through the strongest provider-supported applic
 
 Tool definitions own names, input schemas, bounds, enums, and result schemas. System-prompt text must not duplicate those details. Provider-specific role mapping belongs to the adapter.
 
-Provider homes, workspace instruction files, Skills, plugins, subagents, apps, external MCP servers, hooks, memory, and equivalent ambient configuration are never implicit prompt layers. Managed adapters disable them and validate the provider's effective instruction and extension readback before the first model turn. A provider configuration that cannot satisfy that proof is unavailable; it is not merged below the Banksia instruction lane.
+Provider homes and workspace instruction files are never implicit Banksia prompt layers. A managed Task may receive enabled user and project Skills plus configured MCP servers only when its effective provider extension mode is `inherit`; they remain optional provider-native helpers, not controller truth or Banksia actions. Plugins, subagents, apps, hooks, memory, and equivalent ambient behavior remain disabled. Operator is always isolated. Adapters validate the effective instruction and extension readback before the first model turn.
 
 ## Source assets and composition
 
@@ -172,6 +172,11 @@ Use only controller actions exposed for this Dispatch. Tool definitions own
 their exact inputs and validation. When an action successfully closes,
 transfers, or suspends this Dispatch, stop the current response immediately.
 Do not keep working, poll for a successor, or reuse the closed Dispatch.
+
+Provider-native Skills or MCP tools may be available for this Dispatch. Treat
+them as optional working aids, never as Banksia controller actions or
+controller truth. They cannot widen this Dispatch, mutate Banksia state,
+replace a required Banksia action, or prove that an Assignment is complete.
 
 Keep private reasoning private. Record a plan, decision, review,
 investigation, or verification record only when it helps execution, another

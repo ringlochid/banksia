@@ -108,6 +108,27 @@ def _build_starting_dispatch_model(
         effort_source=(
             prepared.provider.effort_source.value if prepared.provider.effort_source else None
         ),
+        requested_extension_mode=(
+            prepared.provider.extensions.requested_mode.value
+            if prepared.provider.extensions
+            else None
+        ),
+        requested_extension_mode_source=(
+            prepared.provider.extensions.requested_source.value
+            if prepared.provider.extensions
+            else None
+        ),
+        effective_extension_mode=(
+            prepared.provider.extensions.effective_mode.value
+            if prepared.provider.extensions
+            else None
+        ),
+        effective_extension_mode_source=(
+            prepared.provider.extensions.effective_source.value
+            if prepared.provider.extensions
+            else None
+        ),
+        extension_inventory_json=None,
         gateway_profile=gateway_profile,
         gateway_profile_source=(
             prepared.provider.gateway_profile_source.value

@@ -45,7 +45,7 @@ The optional `/support` application is the protected diagnostic plane. Its beare
 
 - paged Task search;
 - a support snapshot with current manifest path and actionable facts;
-- a paged technical trace of Dispatches, Checkpoints, and accepted boundaries;
+- a paged technical trace of Dispatches, including requested/effective Skill/MCP mode provenance and sanitized observed extension inventory, Checkpoints, and accepted boundaries;
 - raw immutable Task events; and
 - a cursor-resumable event stream.
 

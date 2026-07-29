@@ -192,7 +192,7 @@ def test_claude_endpoint_policy_detects_macos_and_windows_native_policy(
                 is_installed=False,
                 code="claude_endpoint_policy_clear",
             ),
-            ClaudeIsolationMode.SUBSCRIPTION,
+            ClaudeIsolationMode.STANDARD,
             "claude_available",
         ),
         (
@@ -238,3 +238,32 @@ def test_claude_invocation_mode_fails_closed_for_managed_subscription_boundaries
 
     assert readiness.isolation_mode is expected_mode
     assert readiness.code == expected_code
+
+
+def test_claude_standard_mode_requires_clear_policy_for_api_key_tasks() -> None:
+    authentication = ClaudeAuthenticationState(
+        is_authenticated=True,
+        method=ProviderAuthenticationMethod.API_KEY,
+        code="claude_available",
+    )
+
+    ready = read_claude_invocation_readiness(
+        authentication_reader=lambda: authentication,
+        endpoint_policy_reader=lambda: ClaudeEndpointPolicyState(
+            is_installed=False,
+            code="claude_endpoint_policy_clear",
+        ),
+        should_use_standard_mode=True,
+    )
+    blocked = read_claude_invocation_readiness(
+        authentication_reader=lambda: authentication,
+        endpoint_policy_reader=lambda: ClaudeEndpointPolicyState(
+            is_installed=True,
+            code="claude_endpoint_policy_unsupported",
+        ),
+        should_use_standard_mode=True,
+    )
+
+    assert ready.isolation_mode is ClaudeIsolationMode.STANDARD
+    assert blocked.isolation_mode is None
+    assert blocked.code == "claude_endpoint_policy_unsupported"

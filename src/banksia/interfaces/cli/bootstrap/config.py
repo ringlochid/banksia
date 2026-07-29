@@ -143,6 +143,12 @@ def config_sections_to_text(payload: ConfigSections) -> str:
                 *(key for key in ("provider", "model", "effort") if key in values),
                 *(key for key in values if key not in {"provider", "model", "effort"}),
             ]
+        elif section in {"codex", "claude"}:
+            preferred = ("enabled", "model", "effort", "extension_mode")
+            ordered_keys = [
+                *(key for key in preferred if key in values),
+                *(key for key in values if key not in preferred),
+            ]
         rendered_values = [
             (key, values[key])
             for key in ordered_keys

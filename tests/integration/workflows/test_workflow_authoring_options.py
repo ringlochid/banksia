@@ -37,6 +37,7 @@ from banksia.providers import ManagedSandboxMode, NetworkAccess, ProviderKind
                 "model": "gpt-controller",
                 "effort": "high",
                 "sandbox": {"mode": "read_only", "network": "deny"},
+                "extension_mode": "inherit",
             },
         ),
         (
@@ -57,6 +58,7 @@ from banksia.providers import ManagedSandboxMode, NetworkAccess, ProviderKind
                 "model": "claude-controller",
                 "effort": "max",
                 "sandbox": {"mode": "workspace_write", "network": "allow"},
+                "extension_mode": "inherit",
             },
         ),
         (
@@ -74,6 +76,7 @@ from banksia.providers import ManagedSandboxMode, NetworkAccess, ProviderKind
                 "model": None,
                 "effort": None,
                 "sandbox": None,
+                "extension_mode": None,
             },
         ),
     ),

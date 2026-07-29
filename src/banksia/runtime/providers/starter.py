@@ -36,6 +36,7 @@ from banksia.runtime.post_commit import (
 from banksia.runtime.providers.contracts import (
     DEFAULT_PROVIDER_STOP_TIMEOUT_SECONDS,
     ProviderAdapter,
+    ProviderStartAccepted,
     ProviderStartError,
     ProviderStartErrorCode,
     ProviderStartFailureKind,
@@ -262,7 +263,7 @@ class DispatchStarter:
             return
 
         try:
-            await adapter.start(prepared.request)
+            accepted = await adapter.start(prepared.request)
         except asyncio.CancelledError:
             self._revoke(prepared.binding)
             await self._bounded_stop(adapter, signal.dispatch_id)
@@ -296,6 +297,7 @@ class DispatchStarter:
             candidate=candidate,
             adapter=adapter,
             binding=prepared.binding,
+            accepted=accepted,
         )
 
     async def _stop_watchdog_predecessor(
@@ -329,6 +331,7 @@ class DispatchStarter:
         candidate: ProviderStartCandidate,
         adapter: ProviderAdapter,
         binding: DispatchMcpBinding | None,
+        accepted: ProviderStartAccepted,
     ) -> None:
         accepted_at = self._clock()
         try:
@@ -340,6 +343,7 @@ class DispatchStarter:
                 expected_provider_start_attempt_count=(candidate.provider_start_attempt_count),
                 expected_due_at=candidate.persisted_due_at,
                 accepted_at=accepted_at,
+                extension_inventory=accepted.extension_inventory,
             )
             await session.commit()
         except Exception:

@@ -46,6 +46,7 @@ def build_workflow_authoring_options(settings: Settings) -> WorkflowAuthoringOpt
             kind="codex",
             model=settings.codex.model or None,
             effort=settings.codex.effort or None,
+            extension_mode=settings.codex.extension_mode.value,
             sandbox=ProviderSandbox(
                 mode=settings.runtime.managed_provider_sandbox_mode.value,
                 network=settings.runtime.managed_provider_network_access.value,
@@ -56,6 +57,7 @@ def build_workflow_authoring_options(settings: Settings) -> WorkflowAuthoringOpt
             kind="claude",
             model=settings.claude.model or None,
             effort=settings.claude.effort or None,
+            extension_mode=settings.claude.extension_mode.value,
             sandbox=ProviderSandbox(
                 mode=settings.runtime.managed_provider_sandbox_mode.value,
                 network=settings.runtime.managed_provider_network_access.value,

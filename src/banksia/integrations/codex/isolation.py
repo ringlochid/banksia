@@ -21,10 +21,12 @@ from openai_codex.models import JsonObject
 from pydantic import BaseModel, ConfigDict, Field
 
 from banksia.platform.provider_environment import provider_subprocess_environment_overrides
-from banksia.providers import ManagedSandboxMode, NetworkAccess
+from banksia.providers import ManagedExtensionMode, ManagedSandboxMode, NetworkAccess
 from banksia.runtime.providers.contracts import (
     MANAGED_NODE_MCP_SERVER_NAME,
     ManagedNodeMcpConnection,
+    ProviderExtensionInventory,
+    ProviderMcpServerInventory,
 )
 
 _CONFIG_READ_METHOD = "config/read"
@@ -62,7 +64,7 @@ _INSTRUCTION_CONFIG_KEYS = frozenset(
         "model_instructions_file",
     }
 )
-_PROCESS_ISOLATION_SCALAR_OVERRIDES = (
+_PROCESS_COMMON_SCALAR_OVERRIDES = (
     "allow_login_shell=false",
     "apps._default.enabled=false",
     "check_for_update_on_startup=false",
@@ -73,7 +75,6 @@ _PROCESS_ISOLATION_SCALAR_OVERRIDES = (
     "orchestrator.skills.enabled=false",
     "project_doc_max_bytes=0",
     "skills.bundled.enabled=false",
-    "skills.include_instructions=false",
     "tools.experimental_request_user_input.enabled=false",
     'web_search="disabled"',
 )
@@ -108,17 +109,29 @@ class CodexOperatorThreadResponse(_CodexThreadIsolationResponse):
 
 
 @dataclass(frozen=True, slots=True)
+class CodexAmbientSkill:
+    name: str
+    path: Path
+    scope: str
+    is_enabled: bool
+
+
+@dataclass(frozen=True, slots=True)
 class CodexAmbientState:
     mcp_server_names: tuple[str, ...]
-    skill_paths: tuple[Path, ...]
+    skills: tuple[CodexAmbientSkill, ...]
 
 
-def build_codex_client(handler: CodexServerRequestHandler) -> CodexClient:
+def build_codex_client(
+    handler: CodexServerRequestHandler,
+    *,
+    extension_mode: ManagedExtensionMode = ManagedExtensionMode.ISOLATED,
+) -> CodexClient:
     """Launch against the real provider home while isolating one invocation."""
 
     return CodexClient(
         CodexConfig(
-            config_overrides=codex_process_isolation_overrides(),
+            config_overrides=codex_process_isolation_overrides(extension_mode),
             env=provider_subprocess_environment_overrides(),
             experimental_api=True,
         ),
@@ -126,14 +139,24 @@ def build_codex_client(handler: CodexServerRequestHandler) -> CodexClient:
     )
 
 
-def codex_process_isolation_overrides() -> tuple[str, ...]:
+def codex_process_isolation_overrides(
+    extension_mode: ManagedExtensionMode = ManagedExtensionMode.ISOLATED,
+) -> tuple[str, ...]:
     """Return fixed process-start isolation that precedes effective-config readback."""
 
     feature_overrides = (
         *(f"features.{feature}=false" for feature in sorted(_MANAGED_DISABLED_CODEX_FEATURES)),
         *(f"features.{feature}=true" for feature in sorted(_TASK_ENABLED_CODEX_FEATURES)),
     )
-    return (*_PROCESS_ISOLATION_SCALAR_OVERRIDES, *feature_overrides)
+    return (
+        *_PROCESS_COMMON_SCALAR_OVERRIDES,
+        (
+            "skills.include_instructions=true"
+            if extension_mode is ManagedExtensionMode.INHERIT
+            else "skills.include_instructions=false"
+        ),
+        *feature_overrides,
+    )
 
 
 def read_codex_ambient_state(
@@ -172,22 +195,39 @@ def read_codex_ambient_state(
     if _canonical_path(entry.cwd) != workspace or entry.errors:
         raise CodexIsolationError("Codex could not prove its Skill inventory")
 
-    skill_paths: set[Path] = set()
+    skills: dict[Path, CodexAmbientSkill] = {}
     for skill in entry.skills:
         path = _path_value(skill.path)
         if not path.is_absolute() or path.name != "SKILL.md":
             raise CodexIsolationError("Codex returned an invalid Skill path")
-        skill_paths.add(path)
+        name = getattr(skill, "name", None)
+        raw_scope = getattr(skill, "scope", None)
+        scope = getattr(raw_scope, "value", raw_scope)
+        is_enabled = getattr(skill, "enabled", None)
+        if (
+            not isinstance(name, str)
+            or not name.strip()
+            or not isinstance(scope, str)
+            or not isinstance(is_enabled, bool)
+        ):
+            raise CodexIsolationError("Codex returned invalid Skill metadata")
+        skills[path] = CodexAmbientSkill(
+            name=name.strip(),
+            path=path,
+            scope=scope,
+            is_enabled=is_enabled,
+        )
     return CodexAmbientState(
         mcp_server_names=tuple(sorted(configured_mcp)),
-        skill_paths=tuple(sorted(skill_paths)),
+        skills=tuple(skills[path] for path in sorted(skills)),
     )
 
 
-def build_codex_task_isolation_config(
+def build_codex_task_config(
     ambient: CodexAmbientState,
     *,
     connection: ManagedNodeMcpConnection,
+    extension_mode: ManagedExtensionMode,
     network_access: NetworkAccess,
     sandbox_mode: ManagedSandboxMode,
     workspace: Path,
@@ -196,6 +236,7 @@ def build_codex_task_isolation_config(
         ambient,
         disabled_features=_MANAGED_DISABLED_CODEX_FEATURES,
         enabled_features=_TASK_ENABLED_CODEX_FEATURES,
+        extension_mode=extension_mode,
         workspace=workspace,
     )
     mcp_servers = cast(dict[str, object], config["mcp_servers"])
@@ -223,6 +264,7 @@ def build_codex_operator_isolation_config(
         ambient,
         disabled_features=_MANAGED_DISABLED_CODEX_FEATURES | _TASK_ENABLED_CODEX_FEATURES,
         enabled_features=frozenset(),
+        extension_mode=ManagedExtensionMode.ISOLATED,
         workspace=workspace,
     )
     config["include_environment_context"] = False
@@ -277,15 +319,19 @@ def require_codex_operator_thread_isolation(
     )
 
 
-def require_codex_task_mcp_isolation(
+def validate_codex_task_extensions(
     client: CodexClient,
     *,
+    ambient: CodexAmbientState,
     enabled_tools: tuple[str, ...],
+    extension_mode: ManagedExtensionMode,
     thread_id: str,
-) -> None:
+) -> ProviderExtensionInventory:
     servers = _read_codex_mcp_servers(client, thread_id)
     active = {name for name, server in servers.items() if _codex_mcp_server_is_active(server)}
-    if active != {MANAGED_NODE_MCP_SERVER_NAME}:
+    if MANAGED_NODE_MCP_SERVER_NAME not in active:
+        raise CodexIsolationError("Codex did not expose the Banksia Node surface")
+    if extension_mode is ManagedExtensionMode.ISOLATED and active != {MANAGED_NODE_MCP_SERVER_NAME}:
         raise CodexIsolationError("Codex exposed an inexact MCP server surface")
     node = servers[MANAGED_NODE_MCP_SERVER_NAME]
     if (
@@ -295,6 +341,26 @@ def require_codex_task_mcp_isolation(
         or node.resource_templates
     ):
         raise CodexIsolationError("Codex exposed an inexact Banksia Node surface")
+    if extension_mode is ManagedExtensionMode.ISOLATED:
+        return ProviderExtensionInventory()
+    return ProviderExtensionInventory(
+        skills=tuple(
+            sorted(
+                {
+                    skill.name
+                    for skill in ambient.skills
+                    if skill.scope in {"user", "repo"} and skill.is_enabled
+                }
+            )
+        ),
+        mcp_servers=tuple(
+            ProviderMcpServerInventory(
+                name=name,
+                tools=tuple(sorted(servers[name].tools)),
+            )
+            for name in sorted(active - {MANAGED_NODE_MCP_SERVER_NAME})
+        ),
+    )
 
 
 def require_codex_inert_mcp_isolation(
@@ -335,8 +401,10 @@ def _build_codex_isolation_config(
     *,
     disabled_features: frozenset[str],
     enabled_features: frozenset[str],
+    extension_mode: ManagedExtensionMode,
     workspace: Path,
 ) -> dict[str, object]:
+    inherited = extension_mode is ManagedExtensionMode.INHERIT
     return {
         "allow_login_shell": False,
         "apps": {"_default": {"enabled": False}},
@@ -347,7 +415,9 @@ def _build_codex_isolation_config(
         },
         "include_apps_instructions": False,
         "include_collaboration_mode_instructions": False,
-        "mcp_servers": {name: {"enabled": False} for name in ambient.mcp_server_names},
+        "mcp_servers": (
+            {} if inherited else {name: {"enabled": False} for name in ambient.mcp_server_names}
+        ),
         "notify": [],
         "orchestrator": {
             "mcp": {"enabled": False},
@@ -357,8 +427,12 @@ def _build_codex_isolation_config(
         "projects": {str(workspace): {"trust_level": "untrusted"}},
         "skills": {
             "bundled": {"enabled": False},
-            "config": [{"enabled": False, "path": str(path)} for path in ambient.skill_paths],
-            "include_instructions": False,
+            "config": [
+                {"enabled": False, "path": str(skill.path)}
+                for skill in ambient.skills
+                if not inherited or skill.scope not in {"user", "repo"}
+            ],
+            "include_instructions": inherited,
         },
         "tools": {"experimental_request_user_input": {"enabled": False}},
         "web_search": "disabled",
@@ -454,6 +528,7 @@ def _path_value(value: object) -> Path:
 
 
 __all__ = [
+    "CodexAmbientSkill",
     "CodexAmbientState",
     "CodexIsolationError",
     "CodexOperatorThreadResponse",
@@ -461,12 +536,12 @@ __all__ = [
     "CodexTaskThreadStartResponse",
     "build_codex_client",
     "build_codex_operator_isolation_config",
-    "build_codex_task_isolation_config",
+    "build_codex_task_config",
     "codex_process_isolation_overrides",
     "deny_codex_task_server_request",
     "read_codex_ambient_state",
     "require_codex_inert_mcp_isolation",
     "require_codex_operator_thread_isolation",
-    "require_codex_task_mcp_isolation",
     "require_codex_task_thread_isolation",
+    "validate_codex_task_extensions",
 ]

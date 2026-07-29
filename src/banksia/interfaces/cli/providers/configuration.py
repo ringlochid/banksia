@@ -22,7 +22,7 @@ from banksia.interfaces.cli.providers.contracts import (
     ProviderConfigurationSnapshot,
     ProviderProductStatus,
 )
-from banksia.providers import ProviderKind
+from banksia.providers import ManagedExtensionMode, ProviderKind
 from banksia.runtime.providers import provider_selection_from_kind, resolve_provider_route
 
 
@@ -32,6 +32,7 @@ class ProviderConfigurationRequest(BaseModel):
     provider: ProviderKind
     model: str | None = None
     effort: str | None = None
+    extension_mode: ManagedExtensionMode | None = None
     cli_path: str | None = None
     gateway_url: str | None = None
     gateway_profile: str | None = None
@@ -40,8 +41,10 @@ class ProviderConfigurationRequest(BaseModel):
     @model_validator(mode="after")
     def validate_provider_fields(self) -> ProviderConfigurationRequest:
         if self.provider == ProviderKind.OPENCLAW:
-            if self.model is not None or self.effort is not None:
-                raise ValueError("OpenClaw configuration does not accept model or effort")
+            if self.model is not None or self.effort is not None or self.extension_mode is not None:
+                raise ValueError(
+                    "OpenClaw configuration does not accept model, effort, or extension mode"
+                )
             return self
         if (
             self.cli_path is not None
@@ -136,6 +139,8 @@ def update_provider_route_section(
             section["model"] = request.model
         if request.effort is not None:
             section["effort"] = request.effort
+        if request.extension_mode is not None:
+            section["extension_mode"] = request.extension_mode.value
         return
 
     if request.cli_path is not None:

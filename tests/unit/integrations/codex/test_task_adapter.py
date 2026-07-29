@@ -13,7 +13,13 @@ from openai_codex.models import JsonObject, Notification
 from pydantic import SecretStr
 
 from banksia.integrations.codex import CodexAdapter
-from banksia.providers import ManagedSandboxMode, NetworkAccess, ProviderKind, ProviderNativeAccess
+from banksia.providers import (
+    ManagedExtensionMode,
+    ManagedSandboxMode,
+    NetworkAccess,
+    ProviderKind,
+    ProviderNativeAccess,
+)
 from banksia.runtime.contracts.provider_resolution import CodexProviderRoute
 from banksia.runtime.providers.contracts import (
     DispatchStartRequest,
@@ -44,6 +50,7 @@ class _FakeCodexClient:
         suffix: int,
         ambient_config: dict[str, object] | None = None,
         thread_overrides: dict[str, object] | None = None,
+        ambient_mcp_tool_names: tuple[str, ...] = (),
         mcp_tool_names: tuple[str, ...] = ("checkpoint", "delegate"),
         account: object | None = None,
         requires_openai_auth: bool = False,
@@ -52,6 +59,7 @@ class _FakeCodexClient:
         self.suffix = suffix
         self.ambient_config = ambient_config or {"mcp_servers": {"ambient_docs": {"enabled": True}}}
         self.thread_overrides = thread_overrides or {}
+        self.ambient_mcp_tool_names = ambient_mcp_tool_names
         self.mcp_tool_names = mcp_tool_names
         self.account_result = SimpleNamespace(
             account=account,
@@ -87,9 +95,20 @@ class _FakeCodexClient:
             return SimpleNamespace(config=_DumpableConfig(self.ambient_config))
         if method == "skills/list":
             cwd = cast(list[str], cast(dict[str, Any], params)["cwds"])[0]
-            skill_path = str(Path(cwd) / ".codex" / "skills" / "ambient" / "SKILL.md")
-            skill = SimpleNamespace(path=SimpleNamespace(root=skill_path))
-            return SimpleNamespace(data=[SimpleNamespace(cwd=cwd, errors=[], skills=[skill])])
+            skill_specs = (
+                ("ambient-skill", ".codex/skills/ambient/SKILL.md", "user"),
+                ("project-review", ".agents/skills/review/SKILL.md", "repo"),
+            )
+            skills = [
+                SimpleNamespace(
+                    enabled=True,
+                    name=name,
+                    path=SimpleNamespace(root=str(Path(cwd) / relative_path)),
+                    scope=SimpleNamespace(value=scope),
+                )
+                for name, relative_path, scope in skill_specs
+            ]
+            return SimpleNamespace(data=[SimpleNamespace(cwd=cwd, errors=[], skills=skills)])
         if method == "thread/start":
             assert params is not None
             self.thread_params = params
@@ -100,13 +119,10 @@ class _FakeCodexClient:
                 "workspace-write": "workspaceWrite",
                 "danger-full-access": "dangerFullAccess",
             }[sandbox]
-            network_access = False
             config = cast(dict[str, Any], params["config"])
-            if sandbox == "workspace-write":
-                network_access = cast(
-                    bool,
-                    config["sandbox_workspace_write"]["network_access"],
-                )
+            network_access = sandbox == "workspace-write" and bool(
+                config["sandbox_workspace_write"]["network_access"]
+            )
             response: dict[str, object] = {
                 "approval_policy": SimpleNamespace(root="never"),
                 "cwd": SimpleNamespace(root=cwd),
@@ -114,10 +130,7 @@ class _FakeCodexClient:
                 "model": params["model"],
                 "runtime_workspace_roots": [SimpleNamespace(root=cwd)],
                 "sandbox": SimpleNamespace(
-                    root=SimpleNamespace(
-                        type=sandbox_type,
-                        network_access=network_access,
-                    )
+                    root=SimpleNamespace(type=sandbox_type, network_access=network_access)
                 ),
                 "thread": SimpleNamespace(
                     cwd=SimpleNamespace(root=cwd),
@@ -134,8 +147,8 @@ class _FakeCodexClient:
                         name="ambient_docs",
                         resource_templates=[],
                         resources=[],
-                        server_info=None,
-                        tools={},
+                        server_info=object() if self.ambient_mcp_tool_names else None,
+                        tools={name: object() for name in self.ambient_mcp_tool_names},
                     ),
                     SimpleNamespace(
                         name="banksia_node",
@@ -218,6 +231,8 @@ def _request(
     dispatch_id: str = "dispatch-1",
     sandbox_mode: ManagedSandboxMode = ManagedSandboxMode.WORKSPACE_WRITE,
     network_access: NetworkAccess = NetworkAccess.DENY,
+    extension_mode: ManagedExtensionMode = ManagedExtensionMode.ISOLATED,
+    effort: str = "high",
 ) -> DispatchStartRequest:
     native_access = {
         ManagedSandboxMode.READ_ONLY: ProviderNativeAccess.DENIED,
@@ -234,11 +249,12 @@ def _request(
         provider_route=CodexProviderRoute(
             kind=ProviderKind.CODEX,
             model_override="gpt-5",
-            effort_override="high",
+            effort_override=effort,
         ),
         provider_native_access=native_access,
         network_access=network_access,
         sandbox_mode=sandbox_mode,
+        extension_mode=extension_mode,
         managed_node_mcp=ManagedNodeMcpConnection(
             url="http://127.0.0.1:8123/_internal/node/mcp",
             bearer_token=SecretStr("binding-secret"),
@@ -293,8 +309,12 @@ def _assert_isolated_codex_start(
         "config": [
             {
                 "enabled": False,
+                "path": str(workspace / ".agents" / "skills" / "review" / "SKILL.md"),
+            },
+            {
+                "enabled": False,
                 "path": str(workspace / ".codex" / "skills" / "ambient" / "SKILL.md"),
-            }
+            },
         ],
         "include_instructions": False,
     }
@@ -451,6 +471,49 @@ async def test_codex_start_isolates_each_dispatch_before_starting_its_turn(
         assert all(client.was_interrupted for client in factory.clients)
 
     assert all(client.was_closed for client in factory.clients)
+
+
+@pytest.mark.asyncio
+async def test_codex_inherits_skills_mcp_and_accepts_max(tmp_path: Path) -> None:
+    factory = _FakeClientFactory(
+        ambient_config={
+            "mcp_servers": {"ambient_docs": {"enabled": True}},
+            "service_tier": "fast",
+        },
+        ambient_mcp_tool_names=("search",),
+    )
+    adapter = CodexAdapter(codex_factory=factory)
+
+    async with adapter.lifespan():
+        accepted = await adapter.start(
+            _request(
+                tmp_path,
+                sandbox_mode=ManagedSandboxMode.FULL_ACCESS,
+                network_access=NetworkAccess.ALLOW,
+                extension_mode=ManagedExtensionMode.INHERIT,
+                effort="max",
+            )
+        )
+        client = factory.clients[0]
+        assert accepted.extension_inventory is not None
+        assert accepted.extension_inventory.model_dump(mode="json") == {
+            "skills": ["ambient-skill", "project-review"],
+            "mcp_servers": [{"name": "ambient_docs", "tools": ["search"]}],
+        }
+        assert client.thread_params is not None
+        config = cast(dict[str, Any], client.thread_params["config"])
+        assert config["mcp_servers"] == {
+            "banksia_node": cast(dict[str, object], config["mcp_servers"])["banksia_node"]
+        }
+        assert config["skills"] == {
+            "bundled": {"enabled": False},
+            "config": [],
+            "include_instructions": True,
+        }
+        assert client.turn_params == {"approvalPolicy": "never", "effort": "max"}
+        assert "service_tier" not in config
+        assert "serviceTier" not in client.thread_params
+        assert await adapter.stop("dispatch-1") is ProviderStopOutcome.STOPPED
 
 
 @pytest.mark.asyncio

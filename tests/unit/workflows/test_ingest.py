@@ -5,6 +5,7 @@ import json
 import pytest
 
 from banksia.workflows import WorkflowInputError, canonical_workflow_bytes, parse_workflow
+from banksia.workflows.contracts import CodexProviderSelection
 
 MINIMAL_WORKFLOW = {
     "kind": "workflow",
@@ -127,7 +128,7 @@ def test_excessive_parser_nesting_and_invalid_unicode_have_stable_errors() -> No
 
 @pytest.mark.parametrize(
     ("provider", "effort"),
-    [("codex", "max"), ("claude", "minimal")],
+    [("codex", "ultra"), ("claude", "minimal")],
 )
 def test_provider_effort_rejects_values_outside_its_adapter_descriptor(
     provider: str,
@@ -144,6 +145,20 @@ def test_provider_effort_rejects_values_outside_its_adapter_descriptor(
         parse_workflow(json.dumps(document), source_format="json")
 
     assert raised.value.issues[0].path == "$.lead.provider.effort"
+
+
+def test_codex_max_effort_is_valid_for_task_members() -> None:
+    document = MINIMAL_WORKFLOW | {
+        "lead": {
+            "id": "lead",
+            "provider": {"kind": "codex", "effort": "max"},
+        }
+    }
+
+    workflow = parse_workflow(json.dumps(document), source_format="json")
+
+    assert isinstance(workflow.lead.provider, CodexProviderSelection)
+    assert workflow.lead.provider.effort == "max"
 
 
 def test_hidden_direct_child_guard_rejects_without_becoming_authored_schema() -> None:

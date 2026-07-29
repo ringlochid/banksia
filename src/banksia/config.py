@@ -27,7 +27,12 @@ from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, Settings
 from banksia.paths import default_config_path, default_data_dir, default_database_url
 from banksia.platform.environment import Environment
 from banksia.platform.workspace_files import read_private_text
-from banksia.providers import ManagedSandboxMode, NetworkAccess, ProviderKind
+from banksia.providers import (
+    ManagedExtensionMode,
+    ManagedSandboxMode,
+    NetworkAccess,
+    ProviderKind,
+)
 
 CONFIG_ENV_VAR = "BANKSIA_CONFIG"
 CONTROLLER_WORKSPACE_ENV_VAR = "BANKSIA_CONTROLLER_WORKSPACE"
@@ -52,6 +57,7 @@ class CodexSettings(BaseModel):
     enabled: bool = False
     model: ProviderConfigText | None = None
     effort: ProviderConfigText | None = None
+    extension_mode: ManagedExtensionMode = ManagedExtensionMode.INHERIT
 
 
 class ClaudeSettings(BaseModel):
@@ -60,6 +66,7 @@ class ClaudeSettings(BaseModel):
     enabled: bool = False
     model: ProviderConfigText | None = None
     effort: ProviderConfigText | None = None
+    extension_mode: ManagedExtensionMode = ManagedExtensionMode.INHERIT
 
 
 class OperatorProvider(StrEnum):

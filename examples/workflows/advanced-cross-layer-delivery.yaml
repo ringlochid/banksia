@@ -23,6 +23,7 @@ lead:
     sandbox:
       mode: full_access
       network: allow
+    extension_mode: inherit
   capabilities:
     human_request:
       - direction
@@ -41,6 +42,7 @@ lead:
         sandbox:
           mode: read_only
           network: deny
+        extension_mode: isolated
     - id: layer-delivery-manager
       title: Layer delivery manager
       description: Coordinates disjoint layer changes and resolves interface collisions.
@@ -55,6 +57,7 @@ lead:
         sandbox:
           mode: full_access
           network: allow
+        extension_mode: inherit
       capabilities:
         command_run: allow
       children:
@@ -70,6 +73,7 @@ lead:
             sandbox:
               mode: workspace_write
               network: deny
+            extension_mode: isolated
         - id: experience-layer-owner
           title: Experience layer owner
           description: Owns client, UI, or consumer-side behavior.
@@ -82,6 +86,7 @@ lead:
             sandbox:
               mode: workspace_write
               network: allow
+            extension_mode: isolated
     - id: integration-reviewer
       title: Integration reviewer
       description: Independently exercises the complete accepted feature boundary.
@@ -94,3 +99,4 @@ lead:
         sandbox:
           mode: read_only
           network: deny
+        extension_mode: isolated

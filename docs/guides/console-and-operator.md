@@ -32,7 +32,7 @@ Its exact product-operation boundary lets it:
 - answer or cancel an open Human Request using its current action; and
 - inspect a Command Run, read bounded output, or request cancellation using its current action.
 
-The Operator has no generic filesystem or file-content operations, shell, network, provider setup, external MCP, support/audit, runtime delegation, Checkpoint, or Task-member context authority. Its links and file references come from product readbacks; they do not grant another read path.
+The Operator has no generic filesystem or file-content operations, shell, network, provider setup, inherited Skills or MCP servers, support/audit, runtime delegation, Checkpoint, or Task-member context authority. Its links and file references come from product readbacks; they do not grant another read path. Operator remains isolated even when Task Members use provider-native Skill/MCP inheritance.
 
 “Create a Workflow” authorizes a draft, not publication or a run. Mutations use controller currentness and accepted receipts. When a later claim depends on the change, the Operator rereads current product truth.
 

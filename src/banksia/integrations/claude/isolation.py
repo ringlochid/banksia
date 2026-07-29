@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 from collections.abc import Sequence
+from pathlib import Path
 
 from claude_agent_sdk import ClaudeSDKClient
 
@@ -11,21 +13,31 @@ from banksia.platform.provider_environment import (
     ANTHROPIC_API_KEY,
     provider_subprocess_environment_overrides,
 )
+from banksia.providers import ManagedExtensionMode
+from banksia.runtime.providers.contracts import (
+    MANAGED_NODE_MCP_SERVER_NAME,
+    ProviderExtensionInventory,
+    ProviderMcpServerInventory,
+)
 
 CLAUDE_EXTENSION_TOOLS = ("Agent", "Artifact", "Skill", "SlashCommand")
 CLAUDE_ALWAYS_DISALLOWED_TOOLS = (*CLAUDE_EXTENSION_TOOLS, "AskUserQuestion")
+CLAUDE_INHERITED_DISALLOWED_TOOLS = ("Agent", "Artifact", "SlashCommand", "AskUserQuestion")
 CLAUDE_MCP_STARTUP_TIMEOUT_SECONDS = 5.0
 _CLAUDE_MCP_POLL_INTERVAL_SECONDS = 0.05
 
+_COMMON_SETTINGS = {
+    "attribution": {"commit": "", "pr": ""},
+    "autoMemoryEnabled": False,
+    "disableAgentView": True,
+    "disableArtifact": True,
+    "disableClaudeAiConnectors": True,
+    "disableWorkflows": True,
+}
 _ISOLATION_SETTINGS = json.dumps(
     {
-        "attribution": {"commit": "", "pr": ""},
-        "autoMemoryEnabled": False,
-        "disableAgentView": True,
-        "disableArtifact": True,
+        **_COMMON_SETTINGS,
         "disableBundledSkills": True,
-        "disableClaudeAiConnectors": True,
-        "disableWorkflows": True,
     },
     separators=(",", ":"),
     sort_keys=True,
@@ -42,6 +54,7 @@ _ISOLATION_ENVIRONMENT = {
     "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
     "CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL": "1",
     "CLAUDE_CODE_DISABLE_WORKFLOWS": "1",
+    "CLAUDE_CODE_SKIP_PLUGIN_MCP_SERVERS": "1",
     "ENABLE_CLAUDEAI_MCP_SERVERS": "false",
 }
 
@@ -54,7 +67,29 @@ def claude_isolation_settings() -> str:
     return _ISOLATION_SETTINGS
 
 
-def claude_isolation_environment(*, should_persist_session: bool) -> dict[str, str]:
+def claude_task_settings(
+    extension_mode: ManagedExtensionMode,
+    *,
+    enabled_plugin_names: Sequence[str] = (),
+) -> str:
+    if extension_mode is ManagedExtensionMode.ISOLATED:
+        return _ISOLATION_SETTINGS
+    return json.dumps(
+        {
+            **_COMMON_SETTINGS,
+            "disableAllHooks": True,
+            "disableBundledSkills": True,
+            "enabledPlugins": {name: False for name in enabled_plugin_names},
+        },
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+
+
+def claude_isolation_environment(
+    *,
+    should_persist_session: bool,
+) -> dict[str, str]:
     environment = provider_subprocess_environment_overrides(
         allowed_keys=frozenset({ANTHROPIC_API_KEY})
     )
@@ -67,13 +102,15 @@ def claude_isolation_environment(*, should_persist_session: bool) -> dict[str, s
 def claude_isolation_extra_args(
     mode: ClaudeIsolationMode,
     *,
+    extension_mode: ManagedExtensionMode = ManagedExtensionMode.ISOLATED,
     should_persist_session: bool,
     should_use_safe_mode: bool,
 ) -> dict[str, str | None]:
     arguments: dict[str, str | None] = {
-        "disable-slash-commands": None,
         "no-chrome": None,
     }
+    if extension_mode is ManagedExtensionMode.ISOLATED:
+        arguments["disable-slash-commands"] = None
     if mode is ClaudeIsolationMode.BARE:
         arguments = {"bare": None, **arguments}
     elif should_use_safe_mode:
@@ -83,16 +120,52 @@ def claude_isolation_extra_args(
     return arguments
 
 
+def read_claude_enabled_plugin_names(workspace: Path) -> tuple[str, ...]:
+    """Read only plugin keys needed to negate lower-priority plugin settings."""
+
+    config_dir = Path(os.environ.get("CLAUDE_CONFIG_DIR", Path.home() / ".claude"))
+    settings_paths = (config_dir / "settings.json", workspace / ".claude" / "settings.json")
+    names: set[str] = set()
+    for path in settings_paths:
+        try:
+            text = path.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            continue
+        except OSError as exc:
+            raise ClaudeStartupIsolationError(
+                "Claude plugin configuration could not be inspected"
+            ) from exc
+        try:
+            document = json.loads(text)
+        except json.JSONDecodeError as exc:
+            raise ClaudeStartupIsolationError(
+                "Claude plugin configuration could not be inspected"
+            ) from exc
+        if not isinstance(document, dict):
+            raise ClaudeStartupIsolationError("Claude plugin configuration could not be inspected")
+        enabled_plugins = document.get("enabledPlugins", {})
+        if not isinstance(enabled_plugins, dict) or any(
+            not isinstance(name, str) or not isinstance(enabled, bool)
+            for name, enabled in enabled_plugins.items()
+        ):
+            raise ClaudeStartupIsolationError("Claude plugin configuration could not be inspected")
+        names.update(enabled_plugins)
+    return tuple(sorted(names))
+
+
 async def validate_claude_startup(
     client: ClaudeSDKClient,
     *,
     external_mcp_server: str | None,
     external_mcp_tools: Sequence[str] = (),
-) -> None:
+    extension_mode: ManagedExtensionMode = ManagedExtensionMode.ISOLATED,
+) -> ProviderExtensionInventory:
     """Validate only effective surfaces exposed by the pinned SDK before query."""
 
     server_info = await client.get_server_info()
-    if not isinstance(server_info, dict) or server_info.get("commands") != []:
+    if not isinstance(server_info, dict):
+        raise ClaudeStartupIsolationError("Claude returned no server readback")
+    if extension_mode is ManagedExtensionMode.ISOLATED and server_info.get("commands") != []:
         raise ClaudeStartupIsolationError("Claude exposed ambient commands")
 
     mcp_status = await _read_settled_mcp_status(
@@ -116,17 +189,16 @@ async def validate_claude_startup(
     if external_mcp_server is None:
         if servers or context_tools:
             raise ClaudeStartupIsolationError("Claude exposed an external MCP surface")
-        return
+        return ProviderExtensionInventory()
 
     expected_tools = tuple(external_mcp_tools)
-    if len(servers) != 1:
+    servers_by_name = _mcp_servers_by_name(servers)
+    if extension_mode is ManagedExtensionMode.ISOLATED and set(servers_by_name) != {
+        external_mcp_server
+    }:
         raise ClaudeStartupIsolationError("Claude exposed the wrong MCP server set")
-    server = servers[0]
-    if (
-        not isinstance(server, dict)
-        or server.get("name") != external_mcp_server
-        or server.get("status") != "connected"
-    ):
+    server = servers_by_name.get(external_mcp_server)
+    if not isinstance(server, dict) or server.get("status") != "connected":
         raise ClaudeStartupIsolationError("Claude did not connect the Banksia MCP server")
     if not _has_exact_names(_mcp_status_tool_names(server.get("tools")), expected_tools):
         raise ClaudeStartupIsolationError("Claude exposed the wrong MCP tool set")
@@ -135,6 +207,25 @@ async def validate_claude_startup(
         expected_tools,
     ):
         raise ClaudeStartupIsolationError("Claude loaded the wrong MCP context")
+    if extension_mode is ManagedExtensionMode.ISOLATED:
+        if any(
+            item.get("serverName") != external_mcp_server
+            for item in context_tools
+            if isinstance(item, dict)
+        ):
+            raise ClaudeStartupIsolationError("Claude loaded an external MCP context")
+        return ProviderExtensionInventory()
+    return ProviderExtensionInventory(
+        skills=_context_skill_names(context.get("skills")),
+        mcp_servers=tuple(
+            ProviderMcpServerInventory(
+                name=name,
+                tools=tuple(sorted(_mcp_status_tool_names(item.get("tools")))),
+            )
+            for name, item in sorted(servers_by_name.items())
+            if name != MANAGED_NODE_MCP_SERVER_NAME and item.get("status") == "connected"
+        ),
+    )
 
 
 async def _read_settled_mcp_status(
@@ -178,6 +269,28 @@ def _mcp_status_tool_names(value: object) -> tuple[str, ...]:
     return tuple(names)
 
 
+def _mcp_servers_by_name(value: Sequence[object]) -> dict[str, dict[str, object]]:
+    servers: dict[str, dict[str, object]] = {}
+    for item in value:
+        if not isinstance(item, dict):
+            raise ClaudeStartupIsolationError("Claude returned an invalid MCP server")
+        name = item.get("name")
+        if not isinstance(name, str) or not name.strip() or name in servers:
+            raise ClaudeStartupIsolationError("Claude returned an invalid MCP server name")
+        servers[name] = item
+    return servers
+
+
+def _context_skill_names(value: object) -> tuple[str, ...]:
+    if value is None:
+        return ()
+    if not isinstance(value, dict) or not all(
+        isinstance(name, str) and name.strip() for name in value
+    ):
+        raise ClaudeStartupIsolationError("Claude returned an invalid Skill inventory")
+    return tuple(sorted(value))
+
+
 def _context_mcp_tool_names(
     value: Sequence[object],
     *,
@@ -186,11 +299,11 @@ def _context_mcp_tool_names(
     names: list[str] = []
     prefix = f"mcp__{server_name}__"
     for item in value:
-        if (
-            not isinstance(item, dict)
-            or item.get("serverName") != server_name
-            or not isinstance(item.get("name"), str)
-        ):
+        if not isinstance(item, dict):
+            return ()
+        if item.get("serverName") != server_name:
+            continue
+        if not isinstance(item.get("name"), str):
             return ()
         names.append(item["name"].removeprefix(prefix))
     return tuple(names)
@@ -199,10 +312,13 @@ def _context_mcp_tool_names(
 __all__ = [
     "CLAUDE_ALWAYS_DISALLOWED_TOOLS",
     "CLAUDE_EXTENSION_TOOLS",
+    "CLAUDE_INHERITED_DISALLOWED_TOOLS",
     "CLAUDE_MCP_STARTUP_TIMEOUT_SECONDS",
     "ClaudeStartupIsolationError",
     "claude_isolation_environment",
     "claude_isolation_extra_args",
     "claude_isolation_settings",
+    "claude_task_settings",
+    "read_claude_enabled_plugin_names",
     "validate_claude_startup",
 ]

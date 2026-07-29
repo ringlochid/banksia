@@ -63,7 +63,7 @@ Every product mutation returns controller truth plus an opaque receipt or curren
 | HTTP method and path | Domain operation | Response owner | Consumers |
 | --- | --- | --- | --- |
 | `GET /api/workflows` | Search the unified Workflow library across published Workflows and active drafts. | `WorkflowSearchResponse` | Console, Operator `workflow_search` |
-| `GET /api/workflows/authoring-options` | Read supported provider, sandbox, model/effort, and built-in capability authoring choices. | `WorkflowAuthoringOptions` | Console, Operator `workflow_authoring_options` |
+| `GET /api/workflows/authoring-options` | Read supported provider, sandbox, model/effort, Skill/MCP mode, and built-in capability authoring choices. | `WorkflowAuthoringOptions` | Console, Operator `workflow_authoring_options` |
 | `GET /api/workflows/{workflow_id}` | Read current published Workflow when present, bounded immutable history, and active draft/ETag when present. At least one of published or draft truth must exist. | `WorkflowGetResponse` | Console, Operator `workflow_get` |
 | `DELETE /api/workflows/{workflow_id}` | Remove a Workflow from the active library and discard its active draft while preserving every immutable revision referenced by existing Tasks. | `WorkflowRemovalResult` | Console |
 | `POST /api/workflow-drafts` | Create a new draft from a minimal browser request or complete structured JSON candidate, or atomically open an existing Workflow for editing. Return `201 Created` with `Location` only when a draft is created and `200 OK` when the existing active draft is returned. | `WorkflowDraftOpenResult` | Console, Operator `workflow_draft_create` |
@@ -142,7 +142,7 @@ The product API is Workflow-specific. It exposes:
 - explicitly publish a draft; and
 - start a Task from one published Workflow.
 
-Browser requests and responses use structured JSON. They contain no generic Definition kind switch, Role/Policy route, source-text YAML body, compiler preview, external MCP configuration, or arbitrary tool configuration. The Member shape includes only the narrow Human Request/Command Run capability grants defined by the Workflow schema.
+Browser requests and responses use structured JSON. They contain no generic Definition kind switch, Role/Policy route, source-text YAML body, compiler preview, MCP server/Skill definition, plugin configuration, or arbitrary tool configuration. The Member shape includes only the narrow Human Request/Command Run capability grants and managed-provider `inherit | isolated` Skill/MCP choice defined by the Workflow schema.
 
 ### Draft concurrency and identity
 
@@ -163,7 +163,7 @@ Browser requests and responses use structured JSON. They contain no generic Defi
 
 The UI and Operator call the same structured services. Neither maintains a parallel local Workflow truth.
 
-`WorkflowAuthoringOptions` includes the nonsecret configured default-provider selection when one exists: kind, optional model/effort, and managed sandbox pair. Omission is rendered honestly as no configured default. This is passive readback only; credentials, provider health, and provider mutation remain outside Workflow Studio.
+`WorkflowAuthoringOptions` includes the nonsecret configured default-provider selection when one exists: kind, optional model/effort, managed sandbox pair, and managed Skill/MCP mode. Omission is rendered honestly as no configured default. This is passive readback only; credentials, provider health, provider mutation, and native extension inventory remain outside Workflow Studio.
 
 ## Task start API
 
@@ -386,6 +386,8 @@ Task-start file entries are labeled **Referenced files**, live under Advanced, a
 Operator is a small, separate control-plane agent over existing Banksia product services. Conceptually it is one configured `Agent` with the controller-owned Operator prompt and exact Operator tool catalog. It is not a Workflow Member, Task, Assignment, Attempt, Dispatch, second Banksia runtime, queue, coordinator, or LangGraph graph.
 
 The controller supports Claude and pinned Codex 0.144.4 for Operator. Provider selection is explicit, never borrows a Workflow Member's choice, and never silently falls back. Missing configuration produces a concrete setup action. Both adapters return the same provider-native typed result and preserve the opaque provider thread across turns.
+
+Operator always uses isolated provider extensions. Task Member `inherit | isolated` choices never expose user or project Skills, or configured MCP servers, to Operator.
 
 Machine-local setup is a separate CLI responsibility: `banksia operator setup|status|disable`. These commands configure or inspect the Operator provider; they are not agent tools, product HTTP mutations, or an extension of the seventeen-operation catalog. Guided `banksia init` offers the same explicit optional choice after local and Task-provider setup, while `banksia setup` provides the rerunnable settings hub.
 

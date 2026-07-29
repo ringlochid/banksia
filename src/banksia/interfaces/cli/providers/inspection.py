@@ -305,12 +305,14 @@ def provider_route_readback(
                 "enabled": settings.codex.enabled,
                 "model": settings.codex.model,
                 "effort": settings.codex.effort,
+                "extension_mode": settings.codex.extension_mode.value,
             }
         case ProviderKind.CLAUDE:
             return {
                 "enabled": settings.claude.enabled,
                 "model": settings.claude.model,
                 "effort": settings.claude.effort,
+                "extension_mode": settings.claude.extension_mode.value,
             }
         case ProviderKind.OPENCLAW:
             return {

@@ -23,6 +23,7 @@ lead:
     sandbox:
       mode: full_access
       network: allow
+    extension_mode: inherit
   capabilities:
     human_request:
       - input
@@ -43,6 +44,7 @@ lead:
         sandbox:
           mode: full_access
           network: allow
+        extension_mode: inherit
       capabilities:
         command_run: allow
       children:
@@ -59,6 +61,7 @@ lead:
             sandbox:
               mode: workspace_write
               network: deny
+            extension_mode: isolated
         - id: test-owner
           title: Test owner
           description: Owns focused behavioral and regression proof.
@@ -71,6 +74,7 @@ lead:
             sandbox:
               mode: workspace_write
               network: deny
+            extension_mode: isolated
     - id: independent-reviewer
       title: Independent reviewer
       description: Challenges the integrated change without editing it.
@@ -83,3 +87,4 @@ lead:
         sandbox:
           mode: read_only
           network: deny
+        extension_mode: isolated

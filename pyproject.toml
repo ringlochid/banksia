@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "banksia"
-version = "0.1.1"
+version = "0.1.2"
 description = "Build adaptable, accountable AI teams in minutes—and run them on complex work."
 readme = "README.md"
 license = "MIT"

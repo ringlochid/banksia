@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Ask a usage question
+    url: https://github.com/ringlochid/banksia/discussions/categories/q-a
+    about: Ask for help when you are unsure whether the behavior is a defect.
+  - name: Discuss a manual agent workflow
+    url: https://github.com/ringlochid/banksia/discussions/categories/general
+    about: Share work you currently coordinate across Codex or Claude by hand.
+  - name: Show a Result
+    url: https://github.com/ringlochid/banksia/discussions/categories/show-and-tell
+    about: Share what a Banksia team accomplished or learned.

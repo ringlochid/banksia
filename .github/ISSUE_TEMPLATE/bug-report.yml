@@ -1,0 +1,115 @@
+name: Report a Banksia problem
+description: Report a reproducible defect or a blocker in the first-run path.
+title: "[Bug] "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Banksia.
+
+        Use this form for a reproducible defect or a concrete first-run blocker.
+        Use [Discussions](https://github.com/ringlochid/banksia/discussions) for
+        open-ended questions, workflow ideas, and Results you want to share.
+
+        This issue will be public. Include only the smallest redacted evidence
+        needed to understand the problem.
+
+  - type: dropdown
+    id: stopped-at
+    attributes:
+      label: Where did you encounter the problem?
+      options:
+        - Installation
+        - Provider configuration or readiness
+        - Workflow drafting or validation
+        - Workflow publication
+        - Run start
+        - Running work or Needs your attention
+        - Result or referenced files
+        - Second run or Workflow reuse
+        - Another part of Banksia
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened, and what did you expect?
+      description: Describe the observed behavior, the expected behavior, and why this stopped or harmed the work.
+      placeholder: |
+        Observed:
+
+        Expected:
+
+        Impact:
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: How can we reproduce it?
+      description: Give the smallest exact sequence. If it is intermittent, say so and describe the pattern you have observed.
+      placeholder: |
+        1. Run ...
+        2. Open ...
+        3. Select ...
+        4. Observe ...
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Banksia version
+      description: Paste the output of `banksia --version`.
+      placeholder: "banksia 0.x.y"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - Linux
+        - macOS
+        - WSL2
+        - Native Windows (not currently supported)
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Provider route
+      description: Choose the route involved, or say that the problem is not provider-related.
+      options:
+        - Codex
+        - Claude
+        - OpenClaw
+        - Not configured yet
+        - Not provider-related
+    validations:
+      required: true
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Smallest redacted diagnostic evidence
+      description: Paste only relevant errors or redacted output from commands such as `banksia status --json` or `banksia providers status`. Do not include credentials, private file contents, full provider transcripts, or a database dump.
+      render: shell
+
+  - type: checkboxes
+    id: public-report-safety
+    attributes:
+      label: Public report safety
+      description: Confirm both items before submitting this public issue.
+      options:
+        - label: I searched existing issues for the same problem.
+          required: true
+        - label: I removed credentials, tokens, sensitive paths or content, and unnecessary private data.
+          required: true

@@ -3,9 +3,10 @@
 .env.development
 venv/
 
-# Hidden local state (covers .venv, .vscode, caches, etc.); keep agent standards tracked
+# Hidden local state (covers .venv, .vscode, caches, etc.); keep intentional repo metadata tracked
 .*/
 !.agents/
+!.github/
 
 # Python caches and coverage
 __pycache__/

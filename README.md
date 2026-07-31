@@ -10,7 +10,7 @@
 
 <p align="center"> <a href="docs/start/getting-started.md">Get started</a> · <a href="docs/README.md">Documentation</a> · <a href="examples/workflows/README.md">Starter teams</a> </p>
 
-<p align="center"> <a href="https://www.youtube.com/watch?v=-prDEZYpx9M"><img src="https://img.youtube.com/vi/-prDEZYpx9M/maxresdefault.jpg" alt="Watch the Banksia tutorial: build and run an accountable AI team" width="720"></a> </p>
+<p align="center"> <img src="docs/assets/banksia-intro.gif" alt="Banksia Console walkthrough: choose an accountable AI team, start a run, and review its progress and Result" width="720"> </p>
 
 <p align="center"><a href="https://www.youtube.com/watch?v=-prDEZYpx9M"><strong>Watch the Banksia tutorial</strong></a></p>
 

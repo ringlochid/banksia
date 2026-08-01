@@ -10,6 +10,7 @@ from click import Group
 from click.testing import CliRunner
 
 import banksia.interfaces.cli as cli
+from banksia.platform.managed_services import SystemdUserServiceManager
 from banksia.platform.provider_environment import ANTHROPIC_API_KEY, persist_provider_secret
 
 
@@ -79,6 +80,7 @@ def test_render_service_definition_uses_python_module_entrypoint(
         python_executable=Path("/tmp/banksia-venv/bin/python"),
         config_path=tmp_path / "config.toml",
         log_path=tmp_path / "controller.log",
+        manager=SystemdUserServiceManager(),
     )
 
     assert "openclaw check" not in rendered
@@ -96,6 +98,7 @@ def test_render_service_definition_quotes_spaces_and_systemd_specifiers(
         python_executable=tmp_path / "venv with space" / "python%bin",
         config_path=tmp_path / "config with space%" / "config.toml",
         log_path=tmp_path / "log with space%" / "controller.log",
+        manager=SystemdUserServiceManager(),
     )
 
     assert f'ExecStart="{tmp_path}/venv with space/python%%bin"' in rendered

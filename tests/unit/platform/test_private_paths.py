@@ -11,6 +11,7 @@ from unittest.mock import Mock
 import pytest
 
 import banksia.platform.private_paths as private_paths
+import banksia.platform.workspace_files.posix as posix_private_files
 from banksia.platform.private_paths import (
     protect_private_directory_descriptor,
     protect_private_file_descriptor,
@@ -147,6 +148,42 @@ def test_private_mutation_lock_times_out_and_releases(tmp_path: Path) -> None:
 
     with acquire_private_mutation_lock(lock_path, timeout_seconds=1):
         pass
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX lock proof")
+def test_private_mutation_lock_retries_a_transient_create_race(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    lock_path = tmp_path / "private" / "settings.lock"
+    real_open = posix_private_files.os.open
+    lock_open_attempts = 0
+
+    def open_with_one_transient_failure(
+        path: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+        flags: int,
+        mode: int = 0o777,
+        *,
+        dir_fd: int | None = None,
+    ) -> int:
+        nonlocal lock_open_attempts
+        if path == lock_path.name:
+            lock_open_attempts += 1
+            if lock_open_attempts == 1:
+                raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), path)
+        return real_open(path, flags, mode, dir_fd=dir_fd)
+
+    monkeypatch.setattr(posix_private_files.os, "open", open_with_one_transient_failure)
+    monkeypatch.setattr(
+        posix_private_files.os,
+        "supports_dir_fd",
+        {*os.supports_dir_fd, open_with_one_transient_failure},
+    )
+
+    with acquire_private_mutation_lock(lock_path, timeout_seconds=1):
+        pass
+
+    assert lock_open_attempts == 2
 
 
 def _install_fake_macos_acl_library(

@@ -192,7 +192,7 @@ def read_codex_ambient_state(
     if len(skills_response.data) != 1:
         raise CodexIsolationError("Codex returned an incomplete Skill inventory")
     entry = skills_response.data[0]
-    if _canonical_path(entry.cwd) != workspace or entry.errors:
+    if _canonical_path(entry.cwd) != _resolved_path(workspace) or entry.errors:
         raise CodexIsolationError("Codex could not prove its Skill inventory")
 
     skills: dict[Path, CodexAmbientSkill] = {}
@@ -451,16 +451,14 @@ def _require_codex_thread_isolation(
 ) -> None:
     if response.instruction_sources:
         raise CodexIsolationError("Codex loaded an external instruction source")
-    if _canonical_path(response.cwd) != workspace:
+    if _canonical_path(response.cwd) != _resolved_path(workspace):
         raise CodexIsolationError("Codex changed the working directory")
-    if (
-        expected_thread_cwd is not None
-        and _canonical_path(response.thread.cwd) != expected_thread_cwd
+    if expected_thread_cwd is not None and _canonical_path(response.thread.cwd) != _resolved_path(
+        expected_thread_cwd
     ):
         raise CodexIsolationError("Codex changed the thread working directory")
-    if (
-        tuple(_canonical_path(path) for path in response.runtime_workspace_roots)
-        != expected_runtime_roots
+    if tuple(_canonical_path(path) for path in response.runtime_workspace_roots) != tuple(
+        _resolved_path(path) for path in expected_runtime_roots
     ):
         raise CodexIsolationError("Codex changed the runtime workspace roots")
     if response.thread.ephemeral is not expected_ephemeral:
@@ -518,6 +516,10 @@ def _codex_mcp_server_is_active(server: Any) -> bool:
 
 def _canonical_path(value: object) -> Path:
     return _path_value(value).resolve(strict=False)
+
+
+def _resolved_path(path: Path) -> Path:
+    return path.resolve(strict=False)
 
 
 def _path_value(value: object) -> Path:

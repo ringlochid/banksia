@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 import banksia.platform.managed_services.launchd as launchd_module
+import banksia.platform.managed_services.systemd as systemd_module
 from banksia.platform.managed_services import (
     LAUNCHD_SERVICE_NAME,
     ManagedServiceCommandError,
@@ -54,10 +55,12 @@ def test_systemd_definition_is_fixed_and_service_scoped(tmp_path: Path) -> None:
 
 def test_systemd_manager_reconciles_one_fixed_unit(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     command_log = tmp_path / "systemctl.log"
     systemctl = tmp_path / "systemctl"
     _write_fake_systemctl(systemctl, command_log)
+    monkeypatch.setattr(systemd_module.sys, "platform", "linux")
     target = _target(tmp_path)
     manager = SystemdUserServiceManager(
         definition_dir=tmp_path / "units",
@@ -161,6 +164,7 @@ def test_launch_agent_lifecycle_uses_current_gui_domain(
 
 def test_native_command_error_carries_explicit_operation_and_manager(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     systemctl = tmp_path / "systemctl"
     systemctl.write_text(
@@ -168,6 +172,7 @@ def test_native_command_error_carries_explicit_operation_and_manager(
         encoding="utf-8",
     )
     systemctl.chmod(0o755)
+    monkeypatch.setattr(systemd_module.sys, "platform", "linux")
     manager = SystemdUserServiceManager(
         definition_dir=tmp_path / "units",
         systemctl_bin=str(systemctl),

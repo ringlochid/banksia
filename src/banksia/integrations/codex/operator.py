@@ -191,7 +191,7 @@ class CodexOperatorTurnRunner:
         client.initialize()
 
         with tempfile.TemporaryDirectory(prefix="banksia-operator-codex-") as directory:
-            working_directory = Path(directory)
+            working_directory = Path(directory).resolve(strict=False)
             ambient = read_codex_ambient_state(client, working_directory)
             isolation_config = build_codex_operator_isolation_config(
                 ambient,

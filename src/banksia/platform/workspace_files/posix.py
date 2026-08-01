@@ -18,6 +18,9 @@ from banksia.platform.workspace_files.contracts import (
 )
 from banksia.platform.workspace_files.workspace_posix import PosixWorkspaceFileOperations
 
+_PRIVATE_LOCK_OPEN_ATTEMPTS = 3
+_PRIVATE_LOCK_OPEN_RETRY_SECONDS = 0.01
+
 
 class PosixPrivateFileOperations:
     """Owner-only private text operations for Linux and macOS."""
@@ -137,13 +140,26 @@ class PosixPrivateFileOperations:
     @staticmethod
     def _open_private_lock(parent_descriptor: int, name: str) -> int:
         flags = os.O_CREAT | os.O_RDWR | getattr(os, "O_CLOEXEC", 0) | _no_follow_flag()
-        descriptor = os.open(name, flags, 0o600, dir_fd=parent_descriptor)
+        descriptor = _open_lock_descriptor(parent_descriptor, name, flags)
         try:
             protect_private_file_descriptor(descriptor)
         except BaseException:
             os.close(descriptor)
             raise
         return descriptor
+
+
+def _open_lock_descriptor(parent_descriptor: int, name: str, flags: int) -> int:
+    # Darwin can surface a transient ENOENT after its internal concurrent-create
+    # retries even though the retained parent descriptor is still valid.
+    for attempt in range(_PRIVATE_LOCK_OPEN_ATTEMPTS):
+        try:
+            return os.open(name, flags, 0o600, dir_fd=parent_descriptor)
+        except FileNotFoundError:
+            if attempt == _PRIVATE_LOCK_OPEN_ATTEMPTS - 1:
+                raise
+            time.sleep(_PRIVATE_LOCK_OPEN_RETRY_SECONDS)
+    raise RuntimeError("private lock open attempts were not executed")
 
 
 def _no_follow_flag() -> int:

@@ -1,0 +1,45 @@
+name: macOS full backend sweep
+
+on:
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+concurrency:
+    group: macos-full-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    backend:
+        name: ${{ matrix.name }}
+        runs-on: macos-26
+        timeout-minutes: 60
+
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - name: Backend unit tests
+                      make_target: test-backend
+                    - name: Backend integration tests
+                      make_target: test-backend-integration
+
+        steps:
+            - name: Check out repository
+              uses: actions/checkout@v7
+              with:
+                  persist-credentials: false
+
+            - name: Set up Python
+              uses: actions/setup-python@v7
+              with:
+                  python-version: "3.13"
+
+            - name: Install backend dependencies
+              run: make backend-install
+
+            - name: Run ${{ matrix.name }}
+              env:
+                  TEST_TARGET: ${{ matrix.make_target }}
+              run: make "$TEST_TARGET"

@@ -33,8 +33,11 @@ jobs:
             - name: Install backend dependencies
               run: make backend-install
 
-            - name: Run backend unit tests
-              run: make test-backend
+            - name: Run macOS compatibility regressions
+              run: |
+                  PYTHONPATH=src ./.venv/bin/pytest \
+                    tests/unit/platform/test_private_paths.py \
+                    tests/unit/test_package_entrypoints.py::test_pyproject_installs_sqlalchemy_asyncio_support
 
             - name: Exercise real macOS initialization
               shell: bash

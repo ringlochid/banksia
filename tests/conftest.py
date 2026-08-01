@@ -14,7 +14,9 @@ import pytest_asyncio
 
 os.environ["BANKSIA_ENV"] = "test"
 os.environ["BANKSIA_DEBUG"] = "false"
-_TEST_CONFIG_PATH = Path(gettempdir()) / (f"banksia-pytest-{os.getpid()}-{uuid4().hex}.toml")
+_TEST_CONFIG_PATH = Path(gettempdir()).resolve() / (
+    f"banksia-pytest-{os.getpid()}-{uuid4().hex}.toml"
+)
 if _TEST_CONFIG_PATH.exists():
     raise RuntimeError(f"pytest config isolation path unexpectedly exists: {_TEST_CONFIG_PATH}")
 os.environ["BANKSIA_CONFIG"] = str(_TEST_CONFIG_PATH)

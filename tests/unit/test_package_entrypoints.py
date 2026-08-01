@@ -138,8 +138,8 @@ def test_pyproject_ships_canonical_packages_only() -> None:
     scripts = cast(dict[str, str], project_config["scripts"])
 
     assert project_config["name"] == "banksia"
-    assert project_config["version"] == "0.1.2"
-    assert version("banksia") == "0.1.2"
+    assert project_config["version"] == "0.1.3"
+    assert version("banksia") == "0.1.3"
     assert package_dir == {"": "src"}
     assert packages_find == {
         "where": ["src"],

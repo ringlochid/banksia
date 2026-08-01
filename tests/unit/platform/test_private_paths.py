@@ -1,17 +1,23 @@
 from __future__ import annotations
 
+import ctypes
+import errno
 import os
 import stat
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 
+import banksia.platform.private_paths as private_paths
 from banksia.platform.private_paths import (
     protect_private_directory_descriptor,
     protect_private_file_descriptor,
 )
 from banksia.platform.workspace_files import (
     PrivateMutationTimeoutError,
+    PrivatePathError,
     acquire_private_mutation_lock,
     ensure_private_directory,
     read_private_text,
@@ -51,6 +57,44 @@ def test_private_path_policy_rejects_the_wrong_file_kind(tmp_path: Path) -> None
             protect_private_file_descriptor(descriptor)
     finally:
         os.close(descriptor)
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX permission proof")
+def test_macos_private_path_accepts_absent_extended_acl(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    directory = tmp_path / "private"
+    directory.mkdir(mode=0o777)
+    directory.chmod(0o777)
+    descriptor = os.open(directory, os.O_RDONLY | os.O_DIRECTORY)
+    _install_fake_macos_acl_library(monkeypatch, acl_get_error=errno.ENOENT)
+
+    try:
+        protect_private_directory_descriptor(descriptor)
+    finally:
+        os.close(descriptor)
+
+    assert stat.S_IMODE(directory.stat().st_mode) == 0o700
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX permission proof")
+def test_macos_private_path_rejects_unexpected_acl_read_error(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    directory = tmp_path / "private"
+    directory.mkdir()
+    descriptor = os.open(directory, os.O_RDONLY | os.O_DIRECTORY)
+    _install_fake_macos_acl_library(monkeypatch, acl_get_error=errno.EOPNOTSUPP)
+
+    try:
+        with pytest.raises(PrivatePathError, match="could not verify the macOS ACL") as captured:
+            protect_private_directory_descriptor(descriptor)
+    finally:
+        os.close(descriptor)
+
+    assert captured.value.errno == errno.EOPNOTSUPP
 
 
 @pytest.mark.skipif(os.name != "posix", reason="POSIX no-follow proof")
@@ -103,3 +147,23 @@ def test_private_mutation_lock_times_out_and_releases(tmp_path: Path) -> None:
 
     with acquire_private_mutation_lock(lock_path, timeout_seconds=1):
         pass
+
+
+def _install_fake_macos_acl_library(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    acl_get_error: int,
+) -> None:
+    def get_absent_acl(_descriptor: int, _acl_type: int) -> None:
+        ctypes.set_errno(acl_get_error)
+        return None
+
+    library = SimpleNamespace(
+        acl_init=Mock(return_value=1),
+        acl_set_fd_np=Mock(return_value=0),
+        acl_get_fd_np=Mock(side_effect=get_absent_acl),
+        acl_get_entry=Mock(side_effect=AssertionError("no ACL should have no entries")),
+        acl_free=Mock(return_value=0),
+    )
+    monkeypatch.setattr(private_paths.sys, "platform", "darwin")
+    monkeypatch.setattr(private_paths.ctypes, "CDLL", lambda *_args, **_kwargs: library)

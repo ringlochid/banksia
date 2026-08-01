@@ -114,7 +114,7 @@ def _clear_macos_extended_acl(descriptor: int) -> None:
     current_acl = acl_get_fd_np(descriptor, _MACOS_ACL_TYPE_EXTENDED)
     if not current_acl:
         error_number = ctypes.get_errno()
-        if error_number:
+        if error_number not in {0, errno.ENOENT}:
             _raise_macos_acl_error("could not verify the macOS ACL")
         return
     try:

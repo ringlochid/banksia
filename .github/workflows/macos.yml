@@ -1,0 +1,62 @@
+name: macOS compatibility
+
+on:
+    pull_request:
+    push:
+        branches:
+            - main
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+concurrency:
+    group: macos-${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    backend:
+        runs-on: macos-26
+        timeout-minutes: 30
+
+        steps:
+            - name: Check out repository
+              uses: actions/checkout@v7
+              with:
+                  persist-credentials: false
+
+            - name: Set up Python
+              uses: actions/setup-python@v7
+              with:
+                  python-version: "3.13"
+
+            - name: Install backend dependencies
+              run: make backend-install
+
+            - name: Run backend unit tests
+              run: make test-backend
+
+            - name: Exercise real macOS initialization
+              shell: bash
+              run: |
+                  probe_dir="$(mktemp -d "${RUNNER_TEMP}/banksia-macos.XXXXXX")"
+                  mkdir -p "$probe_dir/workspace"
+
+                  XDG_CONFIG_HOME="$probe_dir/config" \
+                  XDG_DATA_HOME="$probe_dir/data" \
+                  XDG_STATE_HOME="$probe_dir/state" \
+                  XDG_CACHE_HOME="$probe_dir/cache" \
+                  ./.venv/bin/banksia init \
+                    --non-interactive \
+                    --config "$probe_dir/config/banksia/config.toml" \
+                    --data-dir "$probe_dir/data/banksia" \
+                    --workspace "$probe_dir/workspace" \
+                    --json
+
+                  XDG_CONFIG_HOME="$probe_dir/config" \
+                  XDG_DATA_HOME="$probe_dir/data" \
+                  XDG_STATE_HOME="$probe_dir/state" \
+                  XDG_CACHE_HOME="$probe_dir/cache" \
+                  ./.venv/bin/banksia config show \
+                    --config "$probe_dir/config/banksia/config.toml" \
+                    --json

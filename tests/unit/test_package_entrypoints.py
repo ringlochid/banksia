@@ -120,6 +120,13 @@ def test_cli_and_main_entrypoints_use_only_canonical_modules() -> None:
     )
 
 
+def test_pyproject_installs_sqlalchemy_asyncio_support() -> None:
+    project_config = _load_project_configuration()
+    dependencies = cast(list[str], project_config["dependencies"])
+
+    assert "sqlalchemy[asyncio]>=2.0.40,<3.0.0" in dependencies
+
+
 def test_pyproject_ships_canonical_packages_only() -> None:
     setuptools_config = _load_setuptools_configuration()
     project_config = _load_project_configuration()

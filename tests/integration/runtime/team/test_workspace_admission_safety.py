@@ -6,8 +6,15 @@ from pathlib import Path
 
 import pytest
 
+import banksia.runtime.task_start as task_start_module
 import banksia.runtime.workspace.admission as admission_module
+from banksia.config import CodexSettings, RuntimeSettings, Settings
 from banksia.platform.workspace_files import DirectoryLease
+from banksia.providers import ProviderKind
+from banksia.runtime.contracts import TaskStartRequest
+from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
+from banksia.runtime.post_commit import CapturedRuntimeEffectPublisher
+from banksia.runtime.task_start import start_task
 from banksia.runtime.team import plan_initial_task_team
 from banksia.runtime.workspace.admission import (
     TASK_INITIALIZATION_MARKER,
@@ -16,7 +23,7 @@ from banksia.runtime.workspace.admission import (
     recover_task_workspace_admissions,
     stage_task_workspace,
 )
-from banksia.runtime.workspace.storage import replace_task_text
+from banksia.runtime.workspace.storage import WorkspaceIdentity, replace_task_text
 from banksia.workflows.catalog import read_current_published_workflow
 from tests.helpers.generic_workflow import GENERIC_WORKFLOW_ID, publish_generic_workflow
 from tests.helpers.workflow_runtime import initialized_workflow_database
@@ -61,6 +68,93 @@ async def test_task_workspace_has_private_target_layout(tmp_path: Path) -> None:
 
     assert not admission.marker.exists()
     assert not (admission.task_root / "_runtime").exists()
+
+
+async def test_task_start_preserves_existing_banksia_content_and_permissions(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    banksia_root = workspace / ".banksia"
+    banksia_root.mkdir(mode=0o755)
+    banksia_root.chmod(0o755)
+    project_file = banksia_root / ".tickets" / "README.md"
+    project_file.parent.mkdir()
+    project_file.write_text("project-owned\n", encoding="utf-8")
+
+    async with initialized_workflow_database(tmp_path) as session_factory:
+        await publish_generic_workflow(session_factory)
+        async with session_factory() as session:
+            response = await start_task(
+                TaskStartRequest(
+                    workflow=GENERIC_WORKFLOW_ID,
+                    prompt="Work without changing project-owned Banksia content.",
+                    workspace=workspace,
+                ),
+                session=session,
+                dependencies=DispatchOpeningDependencies.create(
+                    settings=Settings(
+                        controller_workspace=workspace,
+                        runtime=RuntimeSettings(default_provider=ProviderKind.CODEX),
+                        codex=CodexSettings(enabled=True),
+                    ),
+                    available_adapter_kinds={ProviderKind.CODEX},
+                    post_commit_publisher=CapturedRuntimeEffectPublisher(),
+                ),
+            )
+
+    assert project_file.read_text(encoding="utf-8") == "project-owned\n"
+    if os.name == "posix":
+        assert stat.S_IMODE(banksia_root.stat().st_mode) == 0o755
+        assert stat.S_IMODE((banksia_root / response.task_id).stat().st_mode) == 0o700
+    assert (banksia_root / response.task_id / "manifest.md").is_file()
+
+
+async def test_task_start_rejects_workspace_identity_substitution_before_mutation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    original_workspace = tmp_path / "workspace-before-swap"
+    real_capture = task_start_module.capture_workspace_identity
+
+    def substitute_during_capture(selected_workspace: Path) -> WorkspaceIdentity:
+        identity = real_capture(selected_workspace)
+        selected_workspace.rename(original_workspace)
+        selected_workspace.mkdir()
+        return identity
+
+    monkeypatch.setattr(
+        task_start_module,
+        "capture_workspace_identity",
+        substitute_during_capture,
+    )
+
+    async with initialized_workflow_database(tmp_path) as session_factory:
+        await publish_generic_workflow(session_factory)
+        async with session_factory() as session:
+            with pytest.raises(RuntimeError, match="changed identity"):
+                await start_task(
+                    TaskStartRequest(
+                        workflow=GENERIC_WORKFLOW_ID,
+                        prompt="Reject a substituted workspace.",
+                        workspace=workspace,
+                    ),
+                    session=session,
+                    dependencies=DispatchOpeningDependencies.create(
+                        settings=Settings(
+                            controller_workspace=workspace,
+                            runtime=RuntimeSettings(default_provider=ProviderKind.CODEX),
+                            codex=CodexSettings(enabled=True),
+                        ),
+                        available_adapter_kinds={ProviderKind.CODEX},
+                        post_commit_publisher=CapturedRuntimeEffectPublisher(),
+                    ),
+                )
+
+    assert not (workspace / ".banksia").exists()
+    assert not (original_workspace / ".banksia").exists()
 
 
 @pytest.mark.parametrize("kind", ("symlink", "file"))

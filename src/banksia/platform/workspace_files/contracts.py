@@ -66,6 +66,8 @@ class WorkspaceFileOperations(Protocol):
         self,
         parent: DirectoryLease,
         name: str,
+        *,
+        should_require_private: bool,
     ) -> None: ...
 
     def write_new_text(

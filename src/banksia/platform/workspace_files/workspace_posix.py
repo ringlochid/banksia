@@ -79,13 +79,21 @@ class PosixWorkspaceFileOperations:
         self,
         parent: DirectoryLease,
         name: str,
+        *,
+        should_require_private: bool,
     ) -> None:
         parent_lease = require_posix_directory_lease(parent)
+        was_created = False
         try:
             os.mkdir(name, PRIVATE_DIRECTORY_MODE, dir_fd=parent_lease.descriptor)
+            was_created = True
         except FileExistsError:
             pass
-        child = self.open_child_directory(parent, name, should_require_private=True)
+        child = self.open_child_directory(
+            parent,
+            name,
+            should_require_private=should_require_private or was_created,
+        )
         child.close()
 
     def write_new_text(

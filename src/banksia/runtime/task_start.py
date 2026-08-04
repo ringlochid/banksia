@@ -41,7 +41,6 @@ from banksia.runtime.workspace.admission import (
     recover_task_workspace_admissions,
     stage_task_workspace,
 )
-from banksia.runtime.workspace.git_exclusion import prepare_workspace_git_exclusion
 from banksia.runtime.workspace.storage import WorkspaceIdentity, capture_workspace_identity
 from banksia.workflows.catalog import read_current_published_workflow
 from banksia.workflows.contracts import NormalizedMember, PublishedWorkflowRevision
@@ -140,7 +139,6 @@ async def _admit_task_in_workspace_lane(
     _validate_workflow_execution(workflow_revision, dependencies=dependencies)
     assignment = AssignmentBody(prompt=request.prompt, files=files)
     workspace_identity = await asyncio.to_thread(capture_workspace_identity, workspace)
-    await asyncio.to_thread(prepare_workspace_git_exclusion, workspace)
     await recover_task_workspace_admissions(
         session,
         workspaces=(workspace,),

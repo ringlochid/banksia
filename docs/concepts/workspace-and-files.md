@@ -77,15 +77,10 @@ Validation proves only what existed at the owning boundary. A file reference doe
 
 When exact byte-for-byte reconstruction matters, the workspace's version control, dataset preservation, or another user-owned archival system must provide it.
 
-## Git safety
+## Version control
 
-If the workspace is inside a Git worktree, Task admission:
+Banksia does not detect repositories, inspect tracked paths, run Git, or change `.gitignore`, `.git/info/exclude`, or another version-control setting. A Task's `.banksia/t_<id>/` directory is ordinary workspace content: you may commit it, ignore it, archive it, or remove it according to your own workspace policy.
 
-1. rejects a workspace whose relevant `.banksia` path already contains tracked content; and
-2. adds the workspace-local `.banksia/` path to Git's private `.git/info/exclude`.
-
-This keeps controller support files out of ordinary commits without modifying the repository's tracked `.gitignore`. It does not protect project files from concurrent Member edits and does not commit, branch, stash, or roll back work.
-
-If Git identifies a worktree but Git is unavailable, or its private exclude file cannot be updated safely, Task admission fails instead of continuing with an ambiguous repository boundary. Outside a Git repository, the workspace still uses the same shared-file model without a Git exclusion.
+An existing `.banksia/` directory may contain unrelated project files. Banksia preserves those files and owns only the collision-safe `t_<id>/` directories it creates. This does not protect project files from concurrent Member edits and does not commit, branch, stash, or roll back work.
 
 See [Runtime and results](runtime-and-results.md) for controller ownership and [Run and operate Tasks](../guides/run-and-operate.md) for inspecting Results and referenced files.

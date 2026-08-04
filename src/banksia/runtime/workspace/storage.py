@@ -71,7 +71,7 @@ def open_banksia_root(
     should_create: bool,
     expected_workspace_identity: WorkspaceIdentity | None = None,
 ) -> Iterator[DirectoryLease | None]:
-    """Retain the workspace and its private `.banksia` child without following links."""
+    """Retain the workspace and its shared `.banksia` child without following links."""
 
     operations = select_workspace_file_operations()
     workspace_root = operations.open_workspace(workspace)
@@ -83,12 +83,16 @@ def open_banksia_root(
         ):
             raise RuntimeError("Task workspace changed identity during admission")
         if should_create:
-            operations.ensure_child_directory(workspace_root, ".banksia")
+            operations.ensure_child_directory(
+                workspace_root,
+                ".banksia",
+                should_require_private=False,
+            )
         try:
             banksia_root = operations.open_child_directory(
                 workspace_root,
                 ".banksia",
-                should_require_private=True,
+                should_require_private=False,
             )
         except FileNotFoundError:
             if should_create:
@@ -134,7 +138,11 @@ def open_child_directory(
 def ensure_directory(parent: DirectoryLease, name: str) -> None:
     """Create or verify one private real child directory."""
 
-    select_workspace_file_operations().ensure_child_directory(parent, name)
+    select_workspace_file_operations().ensure_child_directory(
+        parent,
+        name,
+        should_require_private=True,
+    )
 
 
 def replace_text(parent: DirectoryLease, name: str, text: str) -> None:

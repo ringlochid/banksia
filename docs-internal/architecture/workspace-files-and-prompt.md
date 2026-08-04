@@ -63,18 +63,11 @@ Task and Command IDs use a product-readable opaque form:
 
 Authorization always comes from the controller-bound current Dispatch.
 
-## Git safety
+## Version-control neutrality
 
-For a Git worktree, Task workspace preparation:
+Task admission does not detect a version-control worktree, run Git, inspect tracked paths, or edit `.gitignore`, `.git/info/exclude`, or another repository setting. `.banksia/t_<id>/` is ordinary workspace content and may be committed, ignored, archived, or removed according to the user's own workspace policy. That choice does not change controller authority.
 
-1. discovers the actual worktree root with `git rev-parse --show-toplevel` and the exclude file for that linked or main worktree with `git rev-parse --git-path info/exclude`;
-2. computes the selected workspace relative to that worktree root and idempotently adds an anchored ignore entry for exactly that workspace's `.banksia/` (`/.banksia/` at the root or `/<workspace-relative>/.banksia/` for a nested workspace);
-3. never edits the user’s tracked `.gitignore`;
-4. rejects Task start if any `.banksia` path is already tracked;
-5. does not follow symlinks while creating controller-owned paths; and
-6. creates the Task directory without overwriting an existing path.
-
-Non-Git workspaces need no pretend ignore file. The Task path remains visible and user-owned for cleanup policy, while DB lifecycle truth remains in the controller data boundary.
+The `.banksia/` container may already contain unrelated project-owned content. Banksia preserves that content and the existing container permissions. It owns only the collision-safe `t_<id>/` directories that it creates exclusively, keeps those Task directories private, never follows symbolic links while opening them, and ignores unrelated container entries during recovery.
 
 Task admission creates the collision-safe directory with a controller-owned initialization marker, writes only the manifest/optional Workflow-note projections plus empty conventional directories, commits controller truth, then clears the marker before provider-start publication. Recovery may remove only a stale marked directory with no committed Task; it repairs a committed marked Task in place. Reset and generic cleanup never recursively delete an accepted `.banksia/t_<id>/` directory.
 

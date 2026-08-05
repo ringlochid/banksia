@@ -79,10 +79,13 @@ function WorkflowStudioContent({ api }: WorkflowStudioPageProps) {
     // once per page so a failure surfaces instead of retrying forever.
     const autoOpenedRef = useRef(false);
     useEffect(() => {
+        if (snapshot.workingWorkflow !== null) {
+            autoOpenedRef.current = false;
+            return;
+        }
         if (
             autoOpenedRef.current ||
             snapshot.load.kind !== "ready" ||
-            snapshot.workingWorkflow !== null ||
             snapshot.catalog === null ||
             snapshot.recovery !== null ||
             !snapshot.catalog.available_actions.includes("edit")

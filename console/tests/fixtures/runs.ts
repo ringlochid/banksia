@@ -33,6 +33,17 @@ export function taskFixture(overrides: Partial<TaskView> = {}): TaskView {
             purpose: "Own the recommendation.",
             state: "waiting",
             latest_update: null,
+            plan: {
+                explanation: "Compare, review, then integrate.",
+                updated_at: "2026-07-26T01:02:00Z",
+                steps: [
+                    { text: "Compare candidates", status: "completed" },
+                    {
+                        text: "Resolve the final choice",
+                        status: "in_progress",
+                    },
+                ],
+            },
             children: [
                 {
                     id: "member-review",
@@ -49,16 +60,23 @@ export function taskFixture(overrides: Partial<TaskView> = {}): TaskView {
                             },
                         ],
                     },
+                    plan: {
+                        explanation:
+                            "Challenge the recommendation independently.",
+                        updated_at: "2026-07-26T01:06:00Z",
+                        steps: [
+                            {
+                                text: "Inspect the supporting evidence",
+                                status: "completed",
+                            },
+                            {
+                                text: "Report material weaknesses",
+                                status: "completed",
+                            },
+                        ],
+                    },
                     children: [],
                 },
-            ],
-        },
-        plan: {
-            explanation: "Compare, review, then integrate.",
-            updated_at: "2026-07-26T01:02:00Z",
-            steps: [
-                { text: "Compare candidates", status: "completed" },
-                { text: "Resolve the final choice", status: "in_progress" },
             ],
         },
         attention: [

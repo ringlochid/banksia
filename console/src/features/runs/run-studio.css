@@ -348,9 +348,26 @@
 
 .run-team__member {
     display: grid;
+    width: 100%;
     grid-template-columns: auto minmax(0, 1fr);
     gap: var(--spacing--2xs);
     padding-block: var(--spacing--2xs);
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+    background: transparent;
+    border: 0;
+    border-radius: var(--radius--3xs);
+}
+
+.run-team__member:hover,
+.run-team__member[aria-pressed="true"] {
+    background: var(--background--surface);
+}
+
+.run-team__member:focus-visible {
+    outline: 2px solid var(--focus-ring--color);
+    outline-offset: 1px;
 }
 
 .run-team__state {
@@ -382,6 +399,38 @@
     gap: var(--spacing--3xs);
     align-items: baseline;
     justify-content: space-between;
+}
+
+.run-member-context__eyebrow {
+    display: block;
+    margin-bottom: var(--spacing--5xs);
+    font-size: var(--font-size--2xs);
+    color: var(--text-color--subtler);
+}
+
+.run-member-context > .run-section-heading > span {
+    font-size: var(--font-size--2xs);
+    color: var(--text-color--subtler);
+}
+
+.run-member-update {
+    display: grid;
+    gap: var(--spacing--3xs);
+    margin-top: var(--spacing--xs);
+}
+
+.run-member-update strong,
+.run-member-update time {
+    font-size: var(--font-size--2xs);
+}
+
+.run-member-update time {
+    color: var(--text-color--subtler);
+}
+
+.run-member-update .prose > :first-child,
+.run-member-update .prose > :last-child {
+    margin-block: 0;
 }
 
 .run-team__name span {

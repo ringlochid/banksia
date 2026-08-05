@@ -21,6 +21,7 @@ import {
 import {
     ActivitySection,
     FileReferences,
+    MemberContextSection,
     PlanSection,
     RunResult,
     TeamSection,
@@ -30,6 +31,7 @@ import type {
     HumanRequestResponseInput,
     ProductAction,
     RunApi,
+    TaskMemberView,
 } from "./run-api";
 import { useRunLive } from "./use-run-live";
 
@@ -70,6 +72,9 @@ function RunStudioTask({ api, taskId }: RunStudioTaskProps) {
         task,
     } = useRunLive(api, taskId);
     const [operationError, setOperationError] = useState<string | null>(null);
+    const [selectedMemberId, setSelectedMemberId] = useState<string | null>(
+        null,
+    );
     const [receipt, setReceipt] = useState<string | null>(null);
     const [pendingControl, setPendingControl] = useState<ProductAction | null>(
         null,
@@ -166,6 +171,8 @@ function RunStudioTask({ api, taskId }: RunStudioTaskProps) {
     const otherAttention = task.attention.filter(
         (attention) => attention.kind !== "human_request",
     );
+    const selectedMember =
+        findTaskMember(task.team, selectedMemberId) ?? task.team;
 
     return (
         <section className="run-studio">
@@ -254,9 +261,22 @@ function RunStudioTask({ api, taskId }: RunStudioTaskProps) {
 
             <div className="run-studio__workspace">
                 <aside aria-label="Run context" className="run-studio__sidebar">
-                    <TeamSection team={task.team} />
-                    {task.plan === null || task.plan === undefined ? null : (
-                        <PlanSection plan={task.plan} />
+                    <TeamSection
+                        onSelect={setSelectedMemberId}
+                        selectedMemberId={selectedMember.id}
+                        team={task.team}
+                    />
+                    <MemberContextSection member={selectedMember} />
+                    {selectedMember.plan === null ||
+                    selectedMember.plan === undefined ? (
+                        <section className="run-side-section">
+                            <h2>Plan</h2>
+                            <p className="run-section__empty">
+                                No current plan.
+                            </p>
+                        </section>
+                    ) : (
+                        <PlanSection plan={selectedMember.plan} />
                     )}
                 </aside>
 
@@ -407,6 +427,22 @@ function RunStudioTask({ api, taskId }: RunStudioTaskProps) {
             </Dialog>
         </section>
     );
+}
+
+function findTaskMember(
+    team: TaskMemberView,
+    memberId: string | null,
+): TaskMemberView | null {
+    if (memberId === null || team.id === memberId) {
+        return memberId === null ? null : team;
+    }
+    for (const child of team.children) {
+        const match = findTaskMember(child, memberId);
+        if (match !== null) {
+            return match;
+        }
+    }
+    return null;
 }
 
 function ActionIcon({ kind }: { readonly kind: string }): ReactNode {

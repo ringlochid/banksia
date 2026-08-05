@@ -44,48 +44,109 @@ export function RunResult({ result }: { readonly result: TaskResultView }) {
     );
 }
 
-export function TeamSection({ team }: { readonly team: TaskMemberView }) {
+export function TeamSection({
+    onSelect,
+    selectedMemberId,
+    team,
+}: {
+    readonly onSelect: (memberId: string) => void;
+    readonly selectedMemberId: string;
+    readonly team: TaskMemberView;
+}) {
     return (
         <section aria-labelledby="run-team-title" className="run-side-section">
             <header>
                 <h2 id="run-team-title">Team</h2>
             </header>
             <ul aria-label="Run team" className="run-team">
-                <TeamMember member={team} />
+                <TeamMember
+                    member={team}
+                    onSelect={onSelect}
+                    selectedMemberId={selectedMemberId}
+                />
             </ul>
         </section>
     );
 }
 
-function TeamMember({ member }: { readonly member: TaskMemberView }) {
+function TeamMember({
+    member,
+    onSelect,
+    selectedMemberId,
+}: {
+    readonly member: TaskMemberView;
+    readonly onSelect: (memberId: string) => void;
+    readonly selectedMemberId: string;
+}) {
     return (
         <li>
-            <div className="run-team__member">
+            <button
+                aria-pressed={member.id === selectedMemberId}
+                className="run-team__member"
+                onClick={() => onSelect(member.id)}
+                type="button"
+            >
                 <span
                     aria-hidden="true"
                     className={`run-team__state run-team__state--${member.state}`}
                 />
-                <div>
-                    <div className="run-team__name">
-                        <strong>{member.name}</strong>
-                        <span>{memberStateLabel(member.state)}</span>
-                    </div>
-                    {member.purpose === null ||
-                    member.purpose === undefined ? null : (
-                        <Prose className="run-team__purpose">
-                            {member.purpose}
-                        </Prose>
-                    )}
-                </div>
-            </div>
+                <span className="run-team__name">
+                    <strong>{member.name}</strong>
+                    <span>{memberStateLabel(member.state)}</span>
+                </span>
+            </button>
             {member.children.length === 0 ? null : (
                 <ul>
                     {member.children.map((child) => (
-                        <TeamMember key={child.id} member={child} />
+                        <TeamMember
+                            key={child.id}
+                            member={child}
+                            onSelect={onSelect}
+                            selectedMemberId={selectedMemberId}
+                        />
                     ))}
                 </ul>
             )}
         </li>
+    );
+}
+
+export function MemberContextSection({
+    member,
+}: {
+    readonly member: TaskMemberView;
+}) {
+    const update = member.latest_update;
+    return (
+        <section
+            aria-labelledby="run-member-title"
+            className="run-side-section run-member-context"
+        >
+            <header className="run-section-heading">
+                <div>
+                    <span className="run-member-context__eyebrow">Member</span>
+                    <h2 id="run-member-title">{member.name}</h2>
+                </div>
+                <span>{memberStateLabel(member.state)}</span>
+            </header>
+            {member.purpose === null || member.purpose === undefined ? null : (
+                <Prose className="run-team__purpose">{member.purpose}</Prose>
+            )}
+            {update === null || update === undefined ? (
+                <p className="run-section__empty">No update yet.</p>
+            ) : (
+                <div className="run-member-update">
+                    <div className="run-section-heading">
+                        <strong>Latest update</strong>
+                        <time dateTime={update.occurred_at}>
+                            {formatRunDate(update.occurred_at)}
+                        </time>
+                    </div>
+                    <Prose>{update.summary}</Prose>
+                    <FileReferences compact files={update.files} />
+                </div>
+            )}
+        </section>
     );
 }
 

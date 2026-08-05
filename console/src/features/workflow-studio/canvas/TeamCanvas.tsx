@@ -16,6 +16,7 @@ import {
 import {
     useCallback,
     useEffect,
+    useLayoutEffect,
     useMemo,
     useRef,
     useState,
@@ -82,6 +83,11 @@ export interface TeamMemberFocusRequest {
     readonly surface: "canvas" | "outline";
 }
 
+interface CollapseAnchor {
+    readonly memberId: string;
+    readonly screenPosition: { readonly x: number; readonly y: number };
+}
+
 export function TeamCanvas({
     collapsedMemberIds,
     detailsOpen,
@@ -123,10 +129,25 @@ export function TeamCanvas({
         ResponsibilityEdgeModel
     > | null>(null);
     const activeDragId = useRef<string | null>(null);
+    const pendingCollapseAnchor = useRef<CollapseAnchor | null>(null);
     const measurementFrame = useRef<number | null>(null);
     const pendingMeasurements = useRef(new Map<string, TeamNodeDimensions>());
     const visibleMemberIds = useMemo(() => new Set(memberIds(lead)), [lead]);
     const structure = useMemo(() => teamStructure(lead), [lead]);
+    const toggleCollapse = useCallback(
+        (memberId: string) => {
+            const flow = flowRef.current;
+            const node = flow?.getNode(memberId);
+            if (flow !== null && node !== undefined) {
+                pendingCollapseAnchor.current = {
+                    memberId,
+                    screenPosition: flow.flowToScreenPosition(node.position),
+                };
+            }
+            onToggleCollapse(memberId);
+        },
+        [onToggleCollapse],
+    );
 
     useEffect(
         () => () => {
@@ -209,7 +230,7 @@ export function TeamCanvas({
                         member: node.member,
                         onSelect: (memberId: string) =>
                             onSelect(memberId, true),
-                        onToggleCollapse,
+                        onToggleCollapse: toggleCollapse,
                         pending: isMemberPending(
                             pendingStructure,
                             node.member.id,
@@ -242,7 +263,7 @@ export function TeamCanvas({
             localAddOpen,
             onAddChild,
             onSelect,
-            onToggleCollapse,
+            toggleCollapse,
             pendingStructure,
             positionOverrides,
             selectedMemberId,
@@ -252,29 +273,58 @@ export function TeamCanvas({
         ...authoredNodes,
     ]);
 
-    useEffect(() => {
+    useLayoutEffect(() => {
         if (activeDragId.current !== null) {
             return;
         }
         setFlowNodes((current) =>
             reconcileAuthoredNodes(current, authoredNodes),
         );
+        const anchor = pendingCollapseAnchor.current;
+        const flow = flowRef.current;
+        if (anchor === null || flow === null) {
+            return;
+        }
+        const nextNode = authoredNodes.find(
+            (node) => node.id === anchor.memberId,
+        );
+        pendingCollapseAnchor.current = null;
+        if (nextNode === undefined) {
+            return;
+        }
+        const nextScreenPosition = flow.flowToScreenPosition(nextNode.position);
+        const viewport = flow.getViewport();
+        void flow.setViewport({
+            x: viewport.x + anchor.screenPosition.x - nextScreenPosition.x,
+            y: viewport.y + anchor.screenPosition.y - nextScreenPosition.y,
+            zoom: viewport.zoom,
+        });
     }, [authoredNodes]);
 
+    const renderedNodeIds = useMemo(
+        () => new Set(flowNodes.map((node) => node.id)),
+        [flowNodes],
+    );
     const edges = useMemo<ResponsibilityEdgeModel[]>(
         () =>
-            layout.edges.map((edge) => ({
-                data: { relationship: edge.kind },
-                deletable: false,
-                focusable: false,
-                id: edge.id,
-                reconnectable: false,
-                selectable: false,
-                source: edge.source,
-                target: edge.target,
-                type: "responsibility",
-            })),
-        [layout.edges],
+            layout.edges
+                .filter(
+                    (edge) =>
+                        renderedNodeIds.has(edge.source) &&
+                        renderedNodeIds.has(edge.target),
+                )
+                .map((edge) => ({
+                    data: { relationship: edge.kind },
+                    deletable: false,
+                    focusable: false,
+                    id: edge.id,
+                    reconnectable: false,
+                    selectable: false,
+                    source: edge.source,
+                    target: edge.target,
+                    type: "responsibility",
+                })),
+        [layout.edges, renderedNodeIds],
     );
 
     const onNodesChange = useCallback(
@@ -429,7 +479,7 @@ export function TeamCanvas({
                     onEdit={onEdit}
                     onRemove={onRemove}
                     onSelect={(memberId) => onSelect(memberId, false)}
-                    onToggleCollapse={onToggleCollapse}
+                    onToggleCollapse={toggleCollapse}
                     requestedFocus={
                         focusRequest?.surface === "outline"
                             ? focusRequest

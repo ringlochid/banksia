@@ -365,7 +365,7 @@ def _build_task_overview(view: TaskView) -> OperatorTaskOverview:
         started_at=view.started_at,
         updated_at=view.updated_at,
         team=tuple(_flatten_task_team(view.team)),
-        plan=view.plan,
+        plan=view.team.plan,
         attention=tuple(_attention_summary(item) for item in attention),
         attention_count=len(view.attention),
         is_attention_truncated=len(view.attention) > len(attention),

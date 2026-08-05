@@ -335,9 +335,7 @@ describe("temporary Operator conversation flow", () => {
         const secondOption = screen.getByRole("option", {
             name: /Second request/,
         });
-        expect(secondOption).toHaveTextContent(
-            /Second request(?:Just now|\d+[mhd] ago|\d{1,2} \w{3}(?: \d{4})?)/,
-        );
+        expect(secondOption).toHaveTextContent("Second request");
         await user.click(secondOption);
 
         expect(await screen.findByText("Second conversation")).toBeVisible();

@@ -3,6 +3,7 @@ import {
     expect,
     test,
     type APIRequestContext,
+    type Locator,
     type Page,
 } from "@playwright/test";
 
@@ -37,16 +38,17 @@ test("authors and publishes a Workflow against disposable controller truth", asy
     await editLeadAndWorkflow(page, request);
     const childId = await addAndEditChild(page, request);
     await proveAcceptedReload(page, childId);
+    await proveStableCollapseAndConnectors(page);
     await proveConflictAndRecovery(page, request);
     const published = await publishThroughBrowser(page, request);
     await provePublishedReopen(page, request, published);
 
-    const accessibility = await new AxeBuilder({ page }).analyze();
-    expect(accessibility.violations).toEqual([]);
     await page.screenshot({
         fullPage: true,
         path: testInfo.outputPath("workflow-studio-real-controller.png"),
     });
+    const accessibility = await new AxeBuilder({ page }).analyze();
+    expect(accessibility.violations).toEqual([]);
 });
 
 async function proveSeededLibraryReadback(
@@ -72,10 +74,13 @@ async function proveSeededLibraryReadback(
 }
 
 async function createWorkflowThroughBrowser(page: Page): Promise<void> {
-    await page.getByRole("button", { name: "Create Workflow" }).click();
+    await page
+        .getByRole("main")
+        .getByRole("button", { name: "Create workflow", exact: true })
+        .click();
     const dialog = page.getByRole("dialog", { name: "Create a Workflow" });
     await dialog.getByLabel("Workflow ID").fill(WORKFLOW_ID);
-    await dialog.getByLabel("Use this team when…").fill(INITIAL_PURPOSE);
+    await dialog.getByLabel("Purpose").fill(INITIAL_PURPOSE);
     const createResponse = page.waitForResponse(
         (response) =>
             response.request().method() === "POST" &&
@@ -97,9 +102,9 @@ async function editLeadAndWorkflow(
     request: APIRequestContext,
 ): Promise<void> {
     await page
-        .getByRole("button", { name: /Untitled teammate.*Contributor/ })
+        .getByRole("button", { name: "Untitled teammate", exact: true })
         .click();
-    const details = page.getByRole("complementary", { name: "Details" });
+    const details = page.locator("[data-details-surface]");
     await details.getByRole("textbox", { name: /Name/ }).fill("Research lead");
     await details
         .getByRole("textbox", { name: /Responsibility/ })
@@ -107,11 +112,13 @@ async function editLeadAndWorkflow(
     await details
         .getByRole("textbox", { name: /Instruction/ })
         .fill("Synthesize findings, resolve conflicts, and verify the result.");
-    await details.getByText("Workflow purpose and shared note").click();
-    await details.getByLabel("Use this team when…").fill(FINAL_PURPOSE);
-    await details.getByText("Shared note", { exact: true }).click();
-    await details
-        .getByLabel("Note")
+    await page.getByRole("button", { name: "Workflow settings" }).click();
+    const workflowDetails = page.getByRole("complementary", {
+        name: "Workflow settings",
+    });
+    await workflowDetails.getByLabel("Purpose").fill(FINAL_PURPOSE);
+    await workflowDetails
+        .getByLabel("Shared note")
         .fill("Prefer primary sources and record material uncertainty.");
 
     await expect
@@ -128,8 +135,8 @@ async function editLeadAndWorkflow(
             leadTitle: "Research lead",
             note: "Prefer primary sources and record material uncertainty.",
         });
-    await details
-        .getByRole("button", { name: "Close teammate details" })
+    await workflowDetails
+        .getByRole("button", { name: "Close Workflow settings" })
         .click();
 }
 
@@ -137,27 +144,13 @@ async function addAndEditChild(
     page: Page,
     request: APIRequestContext,
 ): Promise<string> {
-    const addResponse = page.waitForResponse(
-        (response) =>
-            response.request().method() === "PATCH" &&
-            new URL(response.url()).pathname.startsWith(
-                "/api/workflow-drafts/",
-            ),
-    );
     await page
         .getByRole("button", { name: "Add child to Research lead" })
         .click();
-    const accepted = (await (await addResponse).json()) as {
-        readonly draft: WorkflowDraftReadback;
-    };
-    const child = accepted.draft.workflow.lead.children?.[0];
-    expect(child?.id).toBeTruthy();
-    expect(child?.id).not.toBe(accepted.draft.workflow.lead.id);
-
-    await page
-        .getByRole("button", { name: /Untitled teammate.*Contributor/ })
-        .click();
-    const details = page.getByRole("complementary", { name: "Details" });
+    const details = page.locator("[data-details-surface]");
+    await expect(
+        details.getByRole("heading", { name: "New member" }),
+    ).toBeVisible();
     await details
         .getByRole("textbox", { name: /Name/ })
         .fill("Evidence reviewer");
@@ -167,6 +160,20 @@ async function addAndEditChild(
     await details
         .getByRole("textbox", { name: /Instruction/ })
         .fill("Review independently and rank findings by impact.");
+    const addResponse = page.waitForResponse(
+        (response) =>
+            response.request().method() === "PATCH" &&
+            new URL(response.url()).pathname.startsWith(
+                "/api/workflow-drafts/",
+            ),
+    );
+    await details.getByRole("button", { name: "Add member" }).click();
+    const accepted = (await (await addResponse).json()) as {
+        readonly draft: WorkflowDraftReadback;
+    };
+    const child = accepted.draft.workflow.lead.children?.[0];
+    expect(child?.id).toBeTruthy();
+    expect(child?.id).not.toBe(accepted.draft.workflow.lead.id);
 
     await expect
         .poll(async () => {
@@ -190,19 +197,57 @@ async function addAndEditChild(
 async function proveAcceptedReload(page: Page, childId: string): Promise<void> {
     await page.reload();
     await expect(
-        page.getByRole("button", { name: /Research lead.*Manager/ }),
+        page.getByRole("button", { name: "Research lead", exact: true }),
     ).toBeVisible();
     await expect(
-        page.getByRole("button", { name: /Evidence reviewer.*Contributor/ }),
+        page.getByRole("button", { name: "Evidence reviewer", exact: true }),
     ).toBeVisible();
     await expect(
         page.getByRole("button", { name: /^Add child to / }),
     ).toHaveCount(1);
     expect(
         await page
-            .getByRole("button", { name: /Evidence reviewer.*Contributor/ })
+            .getByRole("button", { name: "Evidence reviewer", exact: true })
             .getAttribute("data-member-focus"),
     ).toBe(childId);
+}
+
+async function proveStableCollapseAndConnectors(page: Page): Promise<void> {
+    const lead = page.getByRole("button", {
+        name: "Research lead",
+        exact: true,
+    });
+    const child = page.getByRole("button", {
+        name: "Evidence reviewer",
+        exact: true,
+    });
+    const ownershipEdge = page.locator('.react-flow__edge[data-id^="owns:"]');
+    const initialBounds = await lead.boundingBox();
+    if (initialBounds === null) {
+        throw new Error("Research lead is not visible");
+    }
+
+    for (let iteration = 0; iteration < 3; iteration += 1) {
+        await page
+            .getByRole("button", { name: "Collapse team under Research lead" })
+            .click();
+        await expect(child).toHaveCount(0);
+        await expect
+            .poll(async () => positionDelta(lead, initialBounds))
+            .toBeLessThanOrEqual(3);
+
+        await page
+            .getByRole("button", { name: "Expand team under Research lead" })
+            .click();
+        await expect(child).toBeVisible();
+        await expect(ownershipEdge).toHaveCount(1);
+        await expect(
+            ownershipEdge.locator("path.team-responsibility-edge"),
+        ).toHaveAttribute("d", /^M/);
+        await expect
+            .poll(async () => positionDelta(lead, initialBounds))
+            .toBeLessThanOrEqual(3);
+    }
 }
 
 async function proveConflictAndRecovery(
@@ -228,8 +273,10 @@ async function proveConflictAndRecovery(
     );
     expect(externalResponse.status()).toBe(200);
 
-    await page.getByRole("button", { name: /Research lead.*Manager/ }).click();
-    const details = page.getByRole("complementary", { name: "Details" });
+    await page
+        .getByRole("button", { name: "Research lead", exact: true })
+        .click();
+    const details = page.locator("[data-details-surface]");
     const staleResponse = page.waitForResponse(
         (response) =>
             response.status() === 412 &&
@@ -252,11 +299,9 @@ async function proveConflictAndRecovery(
         }),
     ).toHaveCount(0);
 
-    const recoveredDetails = page.getByRole("complementary", {
-        name: "Details",
-    });
+    const recoveredDetails = page.locator("[data-details-surface]");
     await expect(
-        page.getByRole("button", { name: /Research lead.*Manager/ }),
+        page.getByRole("button", { name: "Research lead", exact: true }),
     ).toHaveAttribute("aria-pressed", "true");
     await expect(recoveredDetails.getByLabel("Name")).toBeFocused();
     await recoveredDetails
@@ -285,15 +330,23 @@ async function publishThroughBrowser(page: Page, request: APIRequestContext) {
                 new URL(response.url()).pathname,
             ),
     );
+    const reopenResponse = page.waitForResponse(
+        (response) =>
+            response.request().method() === "POST" &&
+            new URL(response.url()).pathname === "/api/workflow-drafts",
+    );
     await page.getByRole("button", { name: "Publish" }).click();
     expect((await publishResponse).status()).toBe(200);
+    expect((await reopenResponse).status()).toBe(201);
     await expect(
-        page.getByText("Published Workflow", { exact: true }),
+        page.getByRole("region", { name: "Team hierarchy canvas" }),
     ).toBeVisible();
 
     const current = await getWorkflow(request);
-    expect(current.active_draft).toBeNull();
-    expect(current.state).toBe("published");
+    expect(current.active_draft?.base_revision_no).toBe(
+        current.published?.revision_no,
+    );
+    expect(current.state).toBe("published_with_draft");
     expect(current.published?.workflow.lead.children?.[0]?.title).toBe(
         "Evidence reviewer",
     );
@@ -307,10 +360,6 @@ async function provePublishedReopen(
 ): Promise<void> {
     await page.reload();
     await expect(
-        page.getByText("Published Workflow", { exact: true }),
-    ).toBeVisible();
-    await page.getByRole("button", { name: "Edit Workflow" }).click();
-    await expect(
         page.getByRole("region", { name: "Team hierarchy canvas" }),
     ).toBeVisible();
 
@@ -318,6 +367,20 @@ async function provePublishedReopen(
     expect(reopened.published).toEqual(published);
     expect(reopened.active_draft?.base_revision_no).toBe(published.revision_no);
     expect(reopened.active_draft?.workflow).toEqual(published.workflow);
+}
+
+async function positionDelta(
+    locator: Locator,
+    expected: NonNullable<Awaited<ReturnType<Locator["boundingBox"]>>>,
+): Promise<number> {
+    const current = await locator.boundingBox();
+    if (current === null) {
+        return Number.POSITIVE_INFINITY;
+    }
+    return Math.max(
+        Math.abs(current.x - expected.x),
+        Math.abs(current.y - expected.y),
+    );
 }
 
 async function getWorkflow(

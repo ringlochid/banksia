@@ -27,6 +27,7 @@ import {
     response,
     TEST_WORKFLOW_ID,
     workflowApiStub,
+    workflowFixture,
 } from "../fixtures/workflows";
 
 describe("Workflow Studio page", () => {
@@ -169,6 +170,51 @@ describe("Workflow Studio page", () => {
             "Research a question with independent evidence review.",
         );
         expect(openWorkflow).toHaveBeenCalledWith(TEST_WORKFLOW_ID);
+    });
+
+    it("opens a fresh editable draft after publishing without freezing", async () => {
+        const openWorkflow = vi.fn(() =>
+            Promise.resolve(
+                response({ draft: draftFixture(), is_created: false }),
+            ),
+        );
+        const api = workflowApiStub({
+            getWorkflow: () =>
+                Promise.resolve(
+                    response(catalogFixture({ draft: null, published: true })),
+                ),
+            openWorkflow,
+            getAuthoringOptions: () =>
+                Promise.reject(new Error("Choices are unavailable.")),
+            validateDraft: () =>
+                Promise.resolve(
+                    response({
+                        is_valid: true,
+                        issues: [],
+                        draft: draftFixture('"wd-validated"'),
+                    }),
+                ),
+            publishDraft: () =>
+                Promise.resolve(
+                    response({
+                        workflow_id: TEST_WORKFLOW_ID,
+                        revision_no: 2,
+                        workflow: workflowFixture(),
+                    }),
+                ),
+        });
+        const user = userEvent.setup();
+
+        renderStudio(api);
+        await user.click(
+            await screen.findByRole("button", { name: "Publish" }),
+        );
+
+        await waitFor(() => expect(openWorkflow).toHaveBeenCalledTimes(2));
+        expect(
+            screen.getByRole("region", { name: "Team hierarchy canvas" }),
+        ).toBeVisible();
+        expect(screen.queryByText(`Opening ${TEST_WORKFLOW_ID}`)).toBeNull();
     });
 
     it("disables authoring while publish validation is exclusive", async () => {

@@ -15,7 +15,6 @@ from banksia.persistence.models import (
     DispatchTurnModel,
     HumanRequestModel,
     MemberConfigurationModel,
-    TaskModel,
     TeamRevisionMemberModel,
     WorkflowRevisionModel,
 )
@@ -96,6 +95,10 @@ async def read_product_team(
         ).all()
     )
     latest_assignments = await _latest_assignments_by_member(session, task_id=task.task_id)
+    plans_by_assignment = await _read_product_plans_by_assignment(
+        session,
+        latest_assignments.values(),
+    )
     children_by_parent: dict[str | None, list[str]] = {}
     selections: dict[str, tuple[TeamRevisionMemberModel, MemberConfigurationModel]] = {}
     for selection, configuration in rows:
@@ -123,6 +126,11 @@ async def read_product_team(
             latest_update=(
                 await _read_latest_member_update(session, assignment)
                 if assignment is not None and not owns_terminal_result
+                else None
+            ),
+            plan=(
+                plans_by_assignment.get(assignment.assignment_id)
+                if assignment is not None
                 else None
             ),
             children=tuple(
@@ -159,42 +167,6 @@ async def read_product_task_workflow(
     return TaskWorkflowView(
         id=workflow_id,
         description=description,
-    )
-
-
-async def read_product_root_plan(
-    session: AsyncSession,
-    task: TaskModel,
-) -> TaskPlanView | None:
-    if task.root_assignment_id is None:
-        return None
-    plan = await session.scalar(
-        select(AssignmentWorkPlanModel).where(
-            AssignmentWorkPlanModel.assignment_id == task.root_assignment_id
-        )
-    )
-    if plan is None:
-        return None
-    steps = tuple(
-        await session.scalars(
-            select(AssignmentWorkPlanStepModel)
-            .where(AssignmentWorkPlanStepModel.assignment_id == task.root_assignment_id)
-            .order_by(AssignmentWorkPlanStepModel.order_index)
-        )
-    )
-    return TaskPlanView(
-        explanation=plan.explanation,
-        steps=tuple(
-            TaskPlanStep(
-                text=step.step,
-                status=cast(
-                    Literal["pending", "in_progress", "completed"],
-                    step.status,
-                ),
-            )
-            for step in steps
-        ),
-        updated_at=plan.committed_at,
     )
 
 
@@ -288,6 +260,52 @@ async def _latest_assignments_by_member(
     return {assignment.member_id: assignment for assignment in assignments}
 
 
+async def _read_product_plans_by_assignment(
+    session: AsyncSession,
+    assignments: Iterable[AssignmentModel],
+) -> dict[str, TaskPlanView]:
+    assignment_ids = tuple(assignment.assignment_id for assignment in assignments)
+    if not assignment_ids:
+        return {}
+    plans = tuple(
+        await session.scalars(
+            select(AssignmentWorkPlanModel).where(
+                AssignmentWorkPlanModel.assignment_id.in_(assignment_ids)
+            )
+        )
+    )
+    steps = tuple(
+        await session.scalars(
+            select(AssignmentWorkPlanStepModel)
+            .where(AssignmentWorkPlanStepModel.assignment_id.in_(assignment_ids))
+            .order_by(
+                AssignmentWorkPlanStepModel.assignment_id,
+                AssignmentWorkPlanStepModel.order_index,
+            )
+        )
+    )
+    steps_by_assignment: dict[str, list[AssignmentWorkPlanStepModel]] = {}
+    for step in steps:
+        steps_by_assignment.setdefault(step.assignment_id, []).append(step)
+    return {
+        plan.assignment_id: TaskPlanView(
+            explanation=plan.explanation,
+            steps=tuple(
+                TaskPlanStep(
+                    text=step.step,
+                    status=cast(
+                        Literal["pending", "in_progress", "completed"],
+                        step.status,
+                    ),
+                )
+                for step in steps_by_assignment.get(plan.assignment_id, ())
+            ),
+            updated_at=plan.committed_at,
+        )
+        for plan in plans
+    }
+
+
 async def _read_member_work_state(
     session: AsyncSession,
     *,
@@ -334,7 +352,6 @@ async def _read_latest_member_update(
 __all__ = [
     "build_task_attention",
     "product_task_result",
-    "read_product_root_plan",
     "read_product_task_status",
     "read_product_task_workflow",
     "read_product_team",

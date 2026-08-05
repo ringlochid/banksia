@@ -9,6 +9,8 @@ from sqlalchemy import event, update
 from banksia.persistence.models import (
     AcceptedBoundaryModel,
     AssignmentModel,
+    AssignmentWorkPlanModel,
+    AssignmentWorkPlanStepModel,
     AttemptCheckpointModel,
     AttemptModel,
     DispatchTurnModel,
@@ -55,6 +57,32 @@ async def test_http_product_task_read_uses_bounded_product_truth(
         ids,
         _signals,
     ):
+        committed_at = utc_now()
+        async with session_factory() as session:
+            await session.execute(
+                update(AssignmentModel)
+                .where(AssignmentModel.assignment_id == ids.child_assignment_id)
+                .values(work_plan_revision=1)
+            )
+            session.add(
+                AssignmentWorkPlanModel(
+                    assignment_id=ids.child_assignment_id,
+                    revision=1,
+                    explanation="Review the evidence independently.",
+                    authoring_dispatch_id=ids.child_dispatch_id,
+                    committed_at=committed_at,
+                )
+            )
+            session.add(
+                AssignmentWorkPlanStepModel(
+                    work_plan_step_id="work-plan-step.product-read-parity.child.1",
+                    assignment_id=ids.child_assignment_id,
+                    order_index=0,
+                    step="Challenge unsupported claims.",
+                    status="in_progress",
+                )
+            )
+            await session.commit()
         async with product_http_client(session_factory, tmp_path=tmp_path) as client:
             response = await client.get(f"/api/tasks/{ids.task_id}")
             search = await client.get("/api/tasks", params={"q": "root assignment"})
@@ -65,6 +93,10 @@ async def test_http_product_task_read_uses_bounded_product_truth(
     assert [item["id"] for item in search.json()["items"]] == [ids.task_id]
     assert http_task.team.name == "Root Member"
     assert [child.name for child in http_task.team.children] == ["Child Member"]
+    child_plan = http_task.team.children[0].plan
+    assert child_plan is not None
+    assert child_plan.explanation == "Review the evidence independently."
+    assert [step.text for step in child_plan.steps] == ["Challenge unsupported claims."]
     assert {action.kind for action in http_task.actions} == {"pause", "cancel"}
     assert http_task.result is None
 

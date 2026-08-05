@@ -185,13 +185,12 @@ TaskView
   status_message
   started_at / updated_at
   team: recursive TaskMemberView
-  plan?
   attention[]
   actions[]                         actions currently legal for the user
   result?                           singular exact root Result
 ```
 
-`TaskMemberView` contains opaque navigation identity, title/fallback name, purpose, recursive children, and plain work state such as not started, working, waiting, done, or blocked. It may contain one latest human update. It does not contain Assignment, Attempt, Dispatch, Boundary, Wave, configuration revision, provider route, or watchdog fields.
+`TaskMemberView` contains opaque navigation identity, title/fallback name, purpose, recursive children, and plain work state such as not started, working, waiting, done, or blocked. It may contain one latest human update and that Member's optional current human-readable Work Plan. It does not contain Assignment, Attempt, Dispatch, Boundary, Wave, configuration revision, provider route, or watchdog fields.
 
 `attention[]` contains actionable human facts such as an open Human Request or an Action whose failure requires a decision. Each item has human copy, relevant member, typed answer/action controls, and legal operation URLs/guards. It is not a raw wait row.
 
@@ -353,13 +352,13 @@ Run Studio reuses the horizontal hierarchy as a read-only organization view. It 
 
 - plain Task status and meaningful message;
 - pinned attention and exact Result before lower-priority details;
-- Member work states and optional human-readable current plan;
+- selectable Member work states, latest updates, referenced files, and optional human-readable current plans;
 - semantic Activity;
 - generic file references and managed Action output;
 - legal Task controls; and
 - the Operator as a separate contextual agent.
 
-It does not show Assignments, Attempts, Dispatches, Boundaries, Waves, Checkpoints as machinery, revisions, routes, watchdogs, raw refs, technical events, or raw JSON. A selected Member can focus relevant Activity but never replace the Task-level attention or Result.
+It does not show Assignments, Attempts, Dispatches, Boundaries, Waves, Checkpoints as machinery, revisions, routes, watchdogs, raw refs, technical events, or raw JSON. Selecting a Member changes only the Member context and plan being inspected; it never replaces Task-level attention, Activity, or Result.
 
 ## Shared QuestionCard
 

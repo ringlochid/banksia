@@ -119,6 +119,42 @@ describe("temporary Run Studio", () => {
         });
     });
 
+    it("selects a teammate to inspect their update, files, and current plan", async () => {
+        const api = runApiStub({
+            getRun: () => Promise.resolve(response(taskFixture())),
+        });
+        const user = userEvent.setup();
+
+        renderRun(api);
+
+        const lead = await screen.findByRole("button", {
+            name: /Delivery lead.*Waiting/,
+        });
+        expect(lead).toHaveAttribute("aria-pressed", "true");
+        expect(screen.getByText("Compare candidates")).toBeVisible();
+        expect(
+            screen.queryByText("Inspect the supporting evidence"),
+        ).toBeNull();
+
+        const reviewer = screen.getByRole("button", {
+            name: /Independent reviewer.*Done/,
+        });
+        await user.click(reviewer);
+
+        expect(reviewer).toHaveAttribute("aria-pressed", "true");
+        expect(screen.getByText("Challenge the evidence.")).toBeVisible();
+        expect(
+            screen.getByText("Independent review is complete."),
+        ).toBeVisible();
+        expect(
+            screen.getByText(".banksia/t_7m4k2d9x/artifacts/review.md"),
+        ).toBeVisible();
+        expect(
+            screen.getByText("Inspect the supporting evidence"),
+        ).toBeVisible();
+        expect(screen.queryByText("Compare candidates")).toBeNull();
+    });
+
     it("answers a Human Request and opens bounded Action output from controller truth", async () => {
         const initialTask = taskFixture();
         const getRun = vi

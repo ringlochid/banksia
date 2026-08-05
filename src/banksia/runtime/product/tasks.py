@@ -47,7 +47,6 @@ from banksia.runtime.product.paths import build_product_api_path
 from banksia.runtime.product.task_projection import (
     build_task_attention,
     product_task_result,
-    read_product_root_plan,
     read_product_task_status,
     read_product_task_workflow,
     read_product_team,
@@ -257,7 +256,6 @@ async def read_product_task(session: AsyncSession, task_id: str) -> TaskView:
         started_at=controller.created_at,
         updated_at=controller.updated_at,
         team=team,
-        plan=await read_product_root_plan(session, task_row),
         attention=attention,
         actions=actions,
         result=result,

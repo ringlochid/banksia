@@ -2556,6 +2556,16 @@
             "title": "Name",
             "type": "string"
           },
+          "plan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskPlanView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "purpose": {
             "anyOf": [
               {
@@ -2971,16 +2981,6 @@
           "id": {
             "title": "Id",
             "type": "string"
-          },
-          "plan": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/TaskPlanView"
-              },
-              {
-                "type": "null"
-              }
-            ]
           },
           "prompt_excerpt": {
             "title": "Prompt Excerpt",

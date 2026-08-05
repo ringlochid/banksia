@@ -107,15 +107,6 @@ class TaskMemberUpdate(_ProductModel):
     files: tuple[FileReference, ...] = ()
 
 
-class TaskMemberView(_ProductModel):
-    id: str
-    name: str
-    purpose: str | None = None
-    state: TaskMemberWorkState
-    latest_update: TaskMemberUpdate | None = None
-    children: tuple[TaskMemberView, ...] = ()
-
-
 class TaskPlanStep(_ProductModel):
     text: str
     status: Literal["pending", "in_progress", "completed"]
@@ -125,6 +116,16 @@ class TaskPlanView(_ProductModel):
     explanation: str | None = None
     steps: tuple[TaskPlanStep, ...]
     updated_at: datetime
+
+
+class TaskMemberView(_ProductModel):
+    id: str
+    name: str
+    purpose: str | None = None
+    state: TaskMemberWorkState
+    latest_update: TaskMemberUpdate | None = None
+    plan: TaskPlanView | None = None
+    children: tuple[TaskMemberView, ...] = ()
 
 
 class TaskResultView(_ProductModel):
@@ -216,7 +217,6 @@ class TaskView(_ProductModel):
     started_at: datetime
     updated_at: datetime
     team: TaskMemberView
-    plan: TaskPlanView | None = None
     attention: tuple[TaskAttention, ...] = ()
     actions: tuple[ProductAction, ...] = ()
     result: TaskResultView | None = None

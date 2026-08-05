@@ -1291,6 +1291,7 @@ export interface components {
             latest_update?: components["schemas"]["TaskMemberUpdate"] | null;
             /** Name */
             name: string;
+            plan?: components["schemas"]["TaskPlanView"] | null;
             /** Purpose */
             purpose?: string | null;
             state: components["schemas"]["TaskMemberWorkState"];
@@ -1474,7 +1475,6 @@ export interface components {
             human_requests_truncated: boolean;
             /** Id */
             id: string;
-            plan?: components["schemas"]["TaskPlanView"] | null;
             /** Prompt Excerpt */
             prompt_excerpt: string;
             result?: components["schemas"]["TaskResultView"] | null;

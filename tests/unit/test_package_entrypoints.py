@@ -20,6 +20,10 @@ from banksia.main import app, create_app
 from banksia.platform.managed_services.resources import get_managed_service_resources_root
 from banksia.workflows.bootstrap import STARTER_WORKFLOW_FILENAMES
 from scripts.testing.installed_distribution.processes import validate_external_workspace
+from scripts.testing.installed_distribution.task import (
+    INSTALLED_TASK_PROMPT,
+    verify_installed_task_view,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPO_ROOT / "src"
@@ -318,4 +322,45 @@ def test_installed_distribution_workspace_must_be_external(tmp_path: Path) -> No
     validate_external_workspace(
         workspace=tmp_path / "external-installed-proof",
         repo_root=repo_root,
+    )
+
+
+def test_installed_task_verifier_matches_current_member_plan_contract() -> None:
+    task_id = "t_12345678"
+
+    verify_installed_task_view(
+        {
+            "id": task_id,
+            "prompt_excerpt": INSTALLED_TASK_PROMPT,
+            "workflow": {
+                "id": "production-feature-delivery",
+                "description": "Deliver and independently verify a consequential feature.",
+            },
+            "status": "starting",
+            "status_message": "The run was accepted.",
+            "started_at": "2026-08-05T00:00:00Z",
+            "updated_at": "2026-08-05T00:00:00Z",
+            "team": {
+                "id": "lead",
+                "name": "Lead",
+                "purpose": None,
+                "state": "working",
+                "latest_update": None,
+                "plan": None,
+                "children": [],
+            },
+            "attention": [],
+            "actions": [],
+            "result": None,
+            "activities": [],
+            "activities_href": f"/api/tasks/{task_id}/activities",
+            "activities_truncated": False,
+            "human_requests": [],
+            "human_request_count": 0,
+            "human_requests_truncated": False,
+            "command_runs": [],
+            "command_run_count": 0,
+            "command_runs_truncated": False,
+        },
+        task_id=task_id,
     )

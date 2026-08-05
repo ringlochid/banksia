@@ -21,7 +21,6 @@ TASK_VIEW_KEYS = frozenset(
         "started_at",
         "updated_at",
         "team",
-        "plan",
         "attention",
         "actions",
         "result",
@@ -213,7 +212,8 @@ def verify_installed_task_view(task: dict[str, object], *, task_id: str) -> None
         or not isinstance(workflow.get("description"), str)
         or not workflow["description"]
         or not isinstance(team, dict)
-        or set(team) != {"id", "name", "purpose", "state", "latest_update", "children"}
+        or set(team)
+        != {"id", "name", "purpose", "state", "latest_update", "plan", "children"}
     ):
         raise AssertionError(
             f"installed Task readback was not the durable product TaskView: {task}"

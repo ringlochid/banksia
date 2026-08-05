@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Outlet, useNavigate } from "react-router-dom";
+import { Outlet, useNavigate } from "react-router";
 
 import { operatorApi } from "../../app/api";
 import { OperatorPanel } from "../../features/operator/OperatorPanel";

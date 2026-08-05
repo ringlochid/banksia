@@ -1,6 +1,6 @@
 import { Plus } from "lucide-react";
 import { useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router";
 
 import type { WorkflowApi } from "../../api/client";
 import type { WorkflowSearchItem } from "../../api/types";

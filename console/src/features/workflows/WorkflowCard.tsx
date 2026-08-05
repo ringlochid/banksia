@@ -1,6 +1,6 @@
 import * as Popover from "@radix-ui/react-popover";
 import { EllipsisVertical, Sparkles, Trash2 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 
 import type { WorkflowSearchItem } from "../../api/types";
 import { Badge, Button } from "../../components/ui";

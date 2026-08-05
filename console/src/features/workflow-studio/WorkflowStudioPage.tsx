@@ -1,6 +1,6 @@
 import { ArrowLeft, CircleAlert } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { Link, useBlocker, useNavigate, useParams } from "react-router-dom";
+import { Link, useBlocker, useNavigate, useParams } from "react-router";
 
 import type { WorkflowApi } from "../../api/client";
 import {

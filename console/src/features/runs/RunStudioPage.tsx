@@ -1,6 +1,6 @@
 import { ArrowLeft, Pause, Play, RefreshCw, Square } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router";
 
 import {
     Button,

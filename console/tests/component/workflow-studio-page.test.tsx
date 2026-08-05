@@ -11,7 +11,7 @@ import {
     createMemoryRouter,
     RouterProvider,
     type RouteObject,
-} from "react-router-dom";
+} from "react-router";
 import { describe, expect, it, vi } from "vitest";
 
 import {

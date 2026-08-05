@@ -1,5 +1,5 @@
 import { RotateCw } from "lucide-react";
-import { Link, useRouteError } from "react-router-dom";
+import { Link, useRouteError } from "react-router";
 
 import { Button, PageState } from "../components/ui";
 

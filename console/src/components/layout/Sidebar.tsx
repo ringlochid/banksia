@@ -1,6 +1,6 @@
 import { Bot, ListChecks, PanelLeft, Plus, Workflow } from "lucide-react";
 import type { ReactNode } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink } from "react-router";
 
 import { Tooltip } from "../ui";
 import type { SidebarLayout } from "./useSidebarLayout";

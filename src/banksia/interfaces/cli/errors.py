@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shlex
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -98,8 +99,13 @@ def failure_from_click_exception(exc: click.ClickException, argv: tuple[str, ...
     )
 
 
-def unexpected_failure(exc: BaseException) -> CliFailure:
+def unexpected_failure(
+    exc: BaseException,
+    argv: tuple[str, ...] = (),
+) -> CliFailure:
     from banksia.interfaces.cli.commands.task import TaskStartCliError
+    from banksia.persistence.forward_upgrade import DatabaseSchemaUpgradeUnavailableError
+    from banksia.persistence.schema_contract import DatabaseSchemaMismatchError
 
     if isinstance(exc, TaskStartCliError):
         return CliFailure(
@@ -108,6 +114,31 @@ def unexpected_failure(exc: BaseException) -> CliFailure:
             message=str(exc),
             exit_code=1,
             hint=exc.hint,
+        )
+    if isinstance(exc, DatabaseSchemaUpgradeUnavailableError):
+        return CliFailure(
+            kind="database_upgrade_unavailable",
+            title="Database upgrade unavailable",
+            message=str(exc),
+            exit_code=1,
+            hint=(
+                "Banksia made no schema changes. Back up the database and inspect the "
+                "reported differences. Use `banksia db reset` only if you accept deletion "
+                "of controller history."
+            ),
+            details={"difference_count": len(exc.messages)},
+        )
+    if isinstance(exc, DatabaseSchemaMismatchError):
+        return CliFailure(
+            kind="database_upgrade_required",
+            title="Database upgrade required",
+            message=str(exc),
+            exit_code=1,
+            hint=(
+                "Preserve the database and run:\n"
+                f"  {_database_upgrade_command(argv)}\n\n"
+                "Use `banksia db reset` only if you accept deletion of controller history."
+            ),
         )
     if isinstance(exc, ManagedServiceCommandError):
         return _managed_service_failure(exc)
@@ -122,6 +153,18 @@ def unexpected_failure(exc: BaseException) -> CliFailure:
         hint=debug_hint(),
         details={"error_type": exc.__class__.__name__},
     )
+
+
+def _database_upgrade_command(argv: tuple[str, ...]) -> str:
+    command = ["banksia", "db", "upgrade"]
+    for index, argument in enumerate(argv):
+        if argument == "--config" and index + 1 < len(argv):
+            command.extend(("--config", argv[index + 1]))
+            break
+        if argument.startswith("--config="):
+            command.extend(("--config", argument.partition("=")[2]))
+            break
+    return shlex.join(command)
 
 
 def _managed_service_failure(exc: ManagedServiceCommandError) -> CliFailure:

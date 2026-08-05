@@ -4,7 +4,7 @@ Status: Accepted
 
 ## Decision summary
 
-Banksia is the product identity, and the maintained subject owners routed from the [internal documentation](../README.md) are its implementation authority. Banksia is a reset-only clean break: one authored Workflow definition, Task/Attempt/Delegation Wave runtime ownership, one shared native workspace, semantic product interfaces, and no AutoClaw compatibility aliases or version-era canon.
+Banksia is the product identity, and the maintained subject owners routed from the [internal documentation](../README.md) are its implementation authority. Banksia is a clean break from AutoClaw: one authored Workflow definition, Task/Attempt/Delegation Wave runtime ownership, one shared native workspace, semantic product interfaces, and no AutoClaw compatibility aliases or version-era canon.
 
 ## Context
 
@@ -39,13 +39,15 @@ Banksia is reached through evolutionary replacement, not a second runtime and no
 
 Controller authority, exact lineage, currentness, commit-before-effect, duplicate/lost-signal recovery, provider-start retry, watchdog recovery, typed waits, terminal relation selection, structural compare-and-swap, lifecycle controls, and raw audit chronology remain protected properties even when their record names or owners change.
 
-### One authored Workflow and reset-only state
+### One authored Workflow and clean-break state
 
 Workflow is the only authored, draftable, publishable definition. It is one recursive Member responsibility hierarchy with optional team guidance, per-Member provider intent, and narrow default-deny Human Request and managed Command Run grants. JSON and YAML are encodings of the same normalized schema.
 
 Banksia has no released Role, Policy, Skill definition or registry, generic Definition, Banksia-authored external MCP configuration, authored step/stage/schedule graph, Task Compose, criteria, consume, produce, generic capability, or compatibility authoring model. Published Workflow revisions are immutable and Tasks pin one exact revision.
 
 The Banksia schema starts from reset state. AutoClaw databases, definitions, configuration, state directories, imports, commands, and public payloads are not migrated or accepted through aliases. A temporary internal adapter is legal only when a work package names and tests it and a later package deletes it before release.
+
+This clean-break decision governs AutoClaw-to-Banksia legacy state. It does not require destructive reset between released Banksia schemas. Banksia may provide strict named forward upgrades that recognize one exact predecessor, preserve controller truth, and finish at the one current schema without aliases or parallel runtime models.
 
 ### Task, Attempt, and Delegation Wave ownership
 
@@ -75,7 +77,7 @@ Banksia-managed MCP installation/configuration and Skill definition/registry sur
 
 - Implementation can retain robust controller mechanics without forcing users to author or understand those mechanics.
 - Every removed concept needs an explicit writer/read/deletion ledger and replacement proof; clean break does not mean unsafe bulk deletion.
-- Reset is required at Banksia identity and schema cutover. Existing AutoClaw state remains historical data, not an input accepted by the new product.
+- AutoClaw state remains historical data, not an input accepted by Banksia's forward schema-upgrade path.
 - Reference examples and packaged Starter Workflow seeds remain separate. Only the provider-neutral seed inventory is eligible for bootstrap.
 - Git history preserves deleted migration evidence without creating a second live authority.
 - Release is blocked by any surviving compatibility bridge, target-authority fork, unowned invariant, or unexplained required-proof gap.
@@ -92,7 +94,7 @@ Rejected because it would discard proven concurrency, recovery, source lineage, 
 
 ### Ship compatibility aliases or migrate AutoClaw state
 
-Rejected because dual names and schemas create parallel authority, enlarge the test matrix, and obscure whether runtime behavior follows the old or new contract. This first Banksia baseline is reset-only.
+Rejected because dual names and schemas create parallel authority, enlarge the test matrix, and obscure whether runtime behavior follows the old or new contract. The Banksia baseline is legacy-import-free; later exact Banksia schema upgrades do not alter that boundary.
 
 ### Keep V1/V2/current as parallel live canon
 

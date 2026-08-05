@@ -70,6 +70,16 @@ Noninteractive initialization does not overwrite an existing configuration witho
 
 After local configuration, exact-schema setup, and Starter Workflow bootstrap succeed, guided first-run initialization continues into the Task-provider chooser when no provider is configured. Choose `cancel` there to keep initialization complete and defer provider configuration. It then offers Codex, Claude, or **Not now** for Operator when no Operator is selected.
 
+Initialization never guesses how to change a nonexact existing database. When a supported older Banksia schema is found, preserve it and run the upgrade with the same configuration:
+
+```bash
+banksia db upgrade
+```
+
+An applied upgrade reports a private backup path. SQLite uses an adjacent integrity-checked online backup; PostgreSQL writes a nonempty custom-format dump of the dedicated Banksia schema under `paths.data_dir/database-backups/` and requires a compatible `pg_dump` client. Unknown or locally changed schemas are refused.
+
+`banksia db reset` is still destructive, but it now creates the same backup before deleting controller-owned Task roots or replacing an existing database/schema. The command reports `backup_path` in JSON and prints it in ordinary output. If backup creation fails, reset stops before deletion. Preserve that file until you have verified the replacement and no longer need rollback.
+
 Operator may use a different provider. For example, selecting Codex for Tasks and then Claude for Operator offers to configure Claude, keeps Codex as the Task default, and saves Claude only for Operator. Selecting the same provider reuses the check already performed by that initialization call rather than repeating it. This does not create a persisted readiness cache.
 
 Rerunning initialization preserves existing provider and Operator selections. Noninteractive and JSON initialization remain prompt-free and never configure either lane.

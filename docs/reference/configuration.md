@@ -108,7 +108,7 @@ banksia status
 
 `BANKSIA_DATABASE_URL` and `BANKSIA_POSTGRES_SCHEMA` can override the file configuration for a process. Keep those values stable for a background service; an environment override changes the effective controller database without rewriting the TOML file.
 
-`banksia db upgrade` creates an empty selected schema or verifies an existing exact schema. It is not a migration or repair command. `banksia db reset` is destructive: for PostgreSQL it replaces the configured dedicated schema and removes its controller history. See [Troubleshooting](../help/troubleshooting.md#you-are-considering-database-reset) before using reset.
+`banksia db upgrade` creates an empty selected schema, verifies the current exact schema, or applies a registered forward upgrade from one exact supported Banksia predecessor. It never guesses how to repair an unknown or locally changed schema. Every schema-changing upgrade first reports a private backup; PostgreSQL also uses transactional DDL. `banksia db reset` remains destructive, but it must create a backup before replacing an existing SQLite database or dedicated PostgreSQL schema. PostgreSQL backup requires a compatible `pg_dump` client. See [Troubleshooting](../help/troubleshooting.md#you-are-considering-database-reset) before using reset.
 
 ## TOML sections and fields
 

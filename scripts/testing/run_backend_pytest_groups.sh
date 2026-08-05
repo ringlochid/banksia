@@ -49,6 +49,7 @@ list_suite() {
         tests/integration/runtime_schema_contract \
         tests/integration/test_readyz_real_db.py \
         tests/integration/test_startup_schema_guard.py \
+        tests/integration/test_db_upgrade_db.py \
         tests/integration/test_db_reset_db.py
       describe_group "bootstrap" tests/integration/bootstrap
       describe_group "runtime" tests/integration/runtime
@@ -90,6 +91,7 @@ run_integration_groups() {
     tests/integration/runtime_schema_contract \
     tests/integration/test_readyz_real_db.py \
     tests/integration/test_startup_schema_guard.py \
+    tests/integration/test_db_upgrade_db.py \
     tests/integration/test_db_reset_db.py
   run_group "bootstrap" tests/integration/bootstrap
   run_group "runtime" tests/integration/runtime

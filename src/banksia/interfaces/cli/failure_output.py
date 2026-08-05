@@ -18,7 +18,7 @@ def emit_click_exception(
 
 
 def emit_unexpected_exception(context: CliContext, exc: BaseException) -> None:
-    failure = unexpected_failure(exc)
+    failure = unexpected_failure(exc, context.argv)
     debug_exception = None if failure.kind == "configuration_invalid" else exc
     _emit_failure(context, failure, exc=debug_exception)
 

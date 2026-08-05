@@ -29,11 +29,17 @@ It contains no environment file, provider credential, Python cache, ignored rese
 
 The installed-distribution verifier installs the wheel into a fresh virtual environment outside the repository and exercises imports, CLI, initialization, exact schema setup, provider configuration, Workflow bootstrap, Task start, server health/readiness, restart, and the isolated user-service command path.
 
-## Exact schema admission
+## Schema admission and forward upgrade
 
-Startup and `banksia db upgrade` create the schema only when the configured database is genuinely empty. Otherwise they compare the complete registered metadata contract with the selected SQLite database or dedicated PostgreSQL schema. Missing, unexpected, or changed tables, columns, keys, constraints, indexes, defaults, and computed expressions stop admission with guidance to run `banksia db reset`.
+Startup and initialization create the schema only when the configured database is genuinely empty. Otherwise they compare the complete registered metadata contract with the selected SQLite database or dedicated PostgreSQL schema. Missing, unexpected, or changed tables, columns, keys, constraints, indexes, defaults, and computed expressions stop admission without issuing DDL. The CLI directs the operator to run `banksia db upgrade` with the same configuration before considering destructive reset.
 
-`db upgrade` retains its conventional command name but does not migrate or repair a nonexact schema. Banksia has no legacy-state import path.
+`banksia db upgrade` applies only an explicitly registered, sequential Banksia schema upgrade whose complete starting-schema differences match the expected predecessor exactly. An unknown, skipped, partially changed, locally modified, or already-corrupt schema is never guessed or repaired. Every supported upgrade runs transactionally where the database supports transactional DDL, ends with the same complete exact-schema verifier used at startup, and preserves controller rows unless its named contract explicitly says otherwise.
+
+Before an eligible upgrade changes an existing database, Banksia must create a backup or abort without DDL. SQLite uses an adjacent owner-private backup through SQLite's online backup facility and requires a successful integrity check. PostgreSQL uses `pg_dump` to create a nonempty custom-format archive of the dedicated Banksia schema under the configured data directory. The CLI reports the resulting path. PostgreSQL additionally keeps upgrade DDL in one transaction.
+
+The first supported forward upgrade adds the Attempt watchdog replacement budget. Existing Attempts receive `0`, which grants one fresh recovery budget at the upgrade boundary, while historical Dispatches and every other controller record remain unchanged.
+
+Banksia has no AutoClaw or other legacy-state import path. Supported Banksia schema upgrades do not introduce compatibility aliases, dual runtime truth, or acceptance of nonexact schemas.
 
 After schema creation or verification, bootstrap transactionally validates and publishes the packaged Starter Workflow set. Identical package-owned content is idempotent, and reseeding never replaces a user-authored current revision.
 
@@ -44,6 +50,8 @@ After schema creation or verification, bootstrap transactionally validates and p
 - SQLite requires a configured file-backed database, rejects a symlinked or nonregular database, and removes only that file plus known regular/symlink sidecars before recreating the schema.
 - PostgreSQL drops and recreates only the configured dedicated non-system schema and requires operator-assured exclusive ownership.
 - Both backends recreate the exact schema and reseed Starter Workflows.
+
+Before reset deletes a controller-owned Task root or replaces an existing database/schema, Banksia must create the same backup used by forward upgrade and report its path. Backup failure is a hard stop. A nonexistent SQLite database or PostgreSQL schema has nothing to preserve, so reset may initialize it without creating an empty backup artifact. PostgreSQL reset and upgrade therefore require a compatible `pg_dump` client on the controller host.
 
 Reset may delete controller-owned Task roots recorded inside the configured data boundary. It deliberately preserves accepted workspace Task directories matching `.banksia/t_<id>/`; shared user workspaces and their loose files are never recursively deleted by database reset.
 

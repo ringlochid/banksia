@@ -60,7 +60,7 @@ Confirm that the redacted URL names the intended host and database and that `pos
 pipx install --force "banksia[postgres]"
 ```
 
-Correct the selected URL or PostgreSQL role permissions explicitly, then rerun `banksia db upgrade`. That command creates an empty selected schema or verifies an exact existing one; it does not migrate or repair a mismatched schema. Use `banksia db reset` only when the configured schema is intentionally disposable or safely backed up.
+Correct the selected URL or PostgreSQL role permissions explicitly, then rerun `banksia db upgrade`. That command creates an empty selected schema, verifies the current schema, or applies a registered forward upgrade from one exact supported predecessor. It refuses unknown or locally changed schemas rather than repairing them heuristically. Before changing an existing supported schema, it creates a backup or stops. PostgreSQL requires a compatible `pg_dump` client.
 
 **Controller truth.** A connection or schema preflight failure does not create a Task. Changing the effective database or schema selects different controller truth; it does not move history from the previous selection.
 
@@ -303,7 +303,9 @@ banksia db reset --help
 
 Confirm the selected database, data directory, workspace, and whether the actual problem is configuration, exact-schema verification, service readiness, or one Task.
 
-**Legal action.** Use `db upgrade` only to create a genuinely empty database or verify that a nonempty database already matches the exact shipped schema. It never migrates or repairs nonexact storage and stops with reset guidance when any schema detail differs. For recovery, use current Task controls and documented service restart first. Reset only in an intentionally disposable or backed-up environment when losing controller history is the desired outcome.
+**Legal action.** Run `db upgrade` before considering reset. It creates a genuinely empty database, verifies the exact current schema, or applies a registered forward upgrade only when the complete starting schema matches one supported predecessor. An unknown or locally changed schema remains untouched and needs inspection. Before changing an eligible existing database, upgrade creates a backup. For recovery, use current Task controls and documented service restart first.
+
+Reset automatically creates a backup before it deletes controller-owned Task roots or replaces an existing database/schema. The reported backup path is the rollback artifact: adjacent to SQLite, or under `paths.data_dir/database-backups/` for PostgreSQL. Keep it until the replacement is verified. If PostgreSQL reports that `pg_dump` is missing, install the matching PostgreSQL client tools and rerun; Banksia has made no destructive change.
 
 **Controller truth.** Reset destroys controller records and recreates the schema/catalog. It cannot convert blocked work to success, reconstruct loose files, or make old workspace Task directories canonical to the new database.
 

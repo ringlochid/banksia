@@ -97,12 +97,11 @@ def list_schema_table_names(
 
 
 def raise_schema_mismatch(messages: list[str]) -> None:
-    """Raise the reset-only schema mismatch error with actionable guidance."""
+    """Raise an exact-schema mismatch without issuing repair DDL."""
 
     joined = "; ".join(messages)
     raise DatabaseSchemaMismatchError(
-        "existing database does not match the current reset-only runtime schema: "
-        f"{joined}. Run `banksia db reset`."
+        f"existing database does not match the current runtime schema: {joined}"
     )
 
 

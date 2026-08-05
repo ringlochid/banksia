@@ -8,7 +8,14 @@ from pathlib import Path
 import pytest
 
 import banksia.interfaces.cli as cli
+from banksia.persistence.forward_upgrade import DatabaseSchemaUpgradeUnavailableError
 from banksia.persistence.session import dispose_db_engine
+from tests.helpers.catalog_seed import seed_catalog
+from tests.helpers.lineage_seed import seed_runtime_scope
+from tests.helpers.sqlite_runtime import (
+    create_runtime_schema_engine,
+    rewrite_sqlite_table_preserving_rows,
+)
 
 from .cli_test_support import assert_seeded_registry_is_bootstrapped, build_cli_init_args
 
@@ -18,18 +25,12 @@ async def test_db_reset_recreates_sqlite_database(tmp_path: Path) -> None:
     config_path = tmp_path / "banksia-config.toml"
     data_dir = tmp_path / "banksia-data"
     database_path = data_dir / "banksia.persistence"
-    sidecar_paths = tuple(
-        Path(f"{database_path}{suffix}") for suffix in ("-wal", "-shm", "-journal")
-    )
-    external_sidecar_target = tmp_path / "external-sidecar-target"
-
     try:
         await cli.cmd_init(build_cli_init_args(config_path, data_dir))
-        database_path.write_bytes(b"stale")
-        for sidecar_path in sidecar_paths[:-1]:
-            sidecar_path.write_bytes(b"stale-sidecar")
-        external_sidecar_target.write_bytes(b"user-owned")
-        sidecar_paths[-1].symlink_to(external_sidecar_target)
+        with sqlite3.connect(database_path) as connection:
+            connection.execute("CREATE TABLE reset_backup_marker (value TEXT NOT NULL)")
+            connection.execute("INSERT INTO reset_backup_marker VALUES ('preserved')")
+            connection.commit()
 
         result = await cli.cmd_db_reset(
             argparse.Namespace(config=str(config_path), revision="head", json=False)
@@ -39,17 +40,39 @@ async def test_db_reset_recreates_sqlite_database(tmp_path: Path) -> None:
 
     assert result == 0
     assert database_path.exists()
-    assert all(
-        not sidecar_path.exists() or sidecar_path.read_bytes() != b"stale-sidecar"
-        for sidecar_path in sidecar_paths
-    )
-    assert not sidecar_paths[-1].is_symlink()
-    assert external_sidecar_target.read_bytes() == b"user-owned"
     assert_seeded_registry_is_bootstrapped(database_path)
+    backup_paths = tuple(data_dir.glob("banksia.persistence.before-reset-*.backup"))
+    assert len(backup_paths) == 1
+    with sqlite3.connect(backup_paths[0]) as connection:
+        assert connection.execute("SELECT value FROM reset_backup_marker").fetchone() == (
+            "preserved",
+        )
 
 
 @pytest.mark.asyncio
-async def test_db_upgrade_rejects_stale_sqlite_schema_with_reset_guidance(
+async def test_db_reset_aborts_when_sqlite_backup_cannot_be_created(tmp_path: Path) -> None:
+    config_path = tmp_path / "banksia-config.toml"
+    data_dir = tmp_path / "banksia-data"
+    database_path = data_dir / "banksia.persistence"
+
+    try:
+        await cli.cmd_init(build_cli_init_args(config_path, data_dir))
+        await dispose_db_engine()
+        database_path.write_bytes(b"not a valid SQLite database")
+
+        with pytest.raises(RuntimeError, match="SQLite backup failed before any database change"):
+            await cli.cmd_db_reset(
+                argparse.Namespace(config=str(config_path), revision="head", json=False)
+            )
+    finally:
+        await dispose_db_engine()
+
+    assert database_path.read_bytes() == b"not a valid SQLite database"
+    assert not tuple(data_dir.glob("banksia.persistence.before-reset-*.backup"))
+
+
+@pytest.mark.asyncio
+async def test_db_upgrade_rejects_unknown_sqlite_schema_without_mutation(
     tmp_path: Path,
 ) -> None:
     config_path = tmp_path / "banksia-config.toml"
@@ -66,10 +89,10 @@ async def test_db_upgrade_rejects_stale_sqlite_schema_with_reset_guidance(
             )
             connection.commit()
 
-        with pytest.raises(RuntimeError, match=r"Run `banksia db reset`"):
+        with pytest.raises(DatabaseSchemaUpgradeUnavailableError, match="no supported"):
             await asyncio.to_thread(
                 cli.cmd_db_upgrade,
-                argparse.Namespace(config=str(config_path)),
+                argparse.Namespace(config=str(config_path), revision="head", json=False),
             )
     finally:
         await dispose_db_engine()
@@ -77,6 +100,73 @@ async def test_db_upgrade_rejects_stale_sqlite_schema_with_reset_guidance(
     with sqlite3.connect(database_path) as connection:
         columns = {row[1] for row in connection.execute('PRAGMA table_info("flows")').fetchall()}
     assert columns == {"task_id", "status"}
+
+
+@pytest.mark.asyncio
+async def test_db_upgrade_preserves_sqlite_runtime_rows_and_creates_backup(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "config.toml"
+    data_dir = tmp_path / "data"
+    database_path = data_dir / "banksia.persistence"
+    data_dir.mkdir()
+    engine = create_runtime_schema_engine(data_dir, name=database_path.name)
+    with engine.begin() as connection:
+        seed_catalog(connection)
+        ids = seed_runtime_scope(connection, suffix="upgrade")
+    engine.dispose()
+    rewrite_sqlite_table_preserving_rows(
+        database_path,
+        table_name="attempts",
+        transform=_remove_watchdog_replacement_contract,
+    )
+    config_path.write_text(
+        "\n".join(
+            (
+                "[paths]",
+                f'data_dir = "{data_dir}"',
+                "",
+                "[database]",
+                f'url = "sqlite+aiosqlite:///{database_path}"',
+                "",
+            )
+        ),
+        encoding="utf-8",
+    )
+
+    try:
+        result = await asyncio.to_thread(
+            cli.cmd_db_upgrade,
+            argparse.Namespace(config=str(config_path), revision="head", json=False),
+        )
+    finally:
+        await dispose_db_engine()
+
+    assert result == 0
+    backup_paths = tuple(data_dir.glob("banksia.persistence.before-*.backup"))
+    assert len(backup_paths) == 1
+    with sqlite3.connect(database_path) as connection:
+        attempt_columns = {
+            str(row[1]) for row in connection.execute('PRAGMA table_info("attempts")')
+        }
+        assert "watchdog_replacement_count" in attempt_columns
+        assert connection.execute(
+            "SELECT watchdog_replacement_count FROM attempts WHERE attempt_id = ?",
+            (ids.root_attempt_id,),
+        ).fetchone() == (0,)
+        assert connection.execute(
+            "SELECT COUNT(*) FROM dispatch_turns WHERE task_id = ?",
+            (ids.task_id,),
+        ).fetchone() == (3,)
+    with sqlite3.connect(backup_paths[0]) as connection:
+        backup_columns = {
+            str(row[1]) for row in connection.execute('PRAGMA table_info("attempts")')
+        }
+        assert "watchdog_replacement_count" not in backup_columns
+        assert connection.execute(
+            "SELECT COUNT(*) FROM dispatch_turns WHERE task_id = ?",
+            (ids.task_id,),
+        ).fetchone() == (3,)
 
 
 @pytest.mark.asyncio
@@ -99,6 +189,18 @@ async def test_db_upgrade_bootstraps_empty_sqlite_database(tmp_path: Path) -> No
     assert init_result == 0
     assert upgrade_result == 0
     assert_seeded_registry_is_bootstrapped(database_path)
+    assert not tuple(data_dir.glob("*.backup"))
+
+
+def _remove_watchdog_replacement_contract(ddl: str) -> str:
+    return ddl.replace(
+        "\n\twatchdog_replacement_count INTEGER DEFAULT '0' NOT NULL, ",
+        "",
+    ).replace(
+        ", \n\tCONSTRAINT ck_attempts_watchdog_replacement_count "
+        "CHECK (watchdog_replacement_count >= 0)",
+        "",
+    )
 
 
 @pytest.mark.asyncio

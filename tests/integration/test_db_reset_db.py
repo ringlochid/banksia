@@ -14,7 +14,13 @@ from sqlalchemy.engine import make_url
 
 from banksia.interfaces.cli.bootstrap.database import reset_database
 from banksia.interfaces.cli.support import command_env, temporary_env
+from banksia.persistence.database_backup import DatabaseBackupError
 from banksia.persistence.session import dispose_db_engine, get_async_engine
+from tests.helpers.database_backup import (
+    read_sqlite_backup_marker,
+    read_sqlite_reset_catalog,
+    render_postgres_backup_sql,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPO_ROOT / "src"
@@ -80,32 +86,25 @@ def test_db_reset_recreates_seeded_sqlite_database_on_packaged_cli_path(
         "INFO",
         "--force",
     )
-    database_path.write_bytes(b"stale")
+    with sqlite3.connect(database_path) as connection:
+        connection.execute("CREATE TABLE reset_backup_marker (value TEXT NOT NULL)")
+        connection.execute("INSERT INTO reset_backup_marker VALUES ('packaged-cli')")
+        connection.commit()
 
-    _run_packaged_cli(
+    reset_result = _run_packaged_cli(
         "db",
         "reset",
         "--config",
         str(config_path),
+        "--json",
     )
 
-    with sqlite3.connect(database_path) as connection:
-        table_names = {
-            row[0]
-            for row in connection.execute(
-                "SELECT name FROM sqlite_master WHERE type = 'table'"
-            ).fetchall()
-        }
-        workflow_count = connection.execute("SELECT COUNT(*) FROM workflow_definitions").fetchone()[
-            0
-        ]
-        starter_workflow_ids = tuple(
-            row[0]
-            for row in connection.execute(
-                "SELECT DISTINCT workflow_key FROM workflow_revisions "
-                "WHERE provenance = 'starter_seed' ORDER BY workflow_key"
-            ).fetchall()
-        )
+    reset_payload = json.loads(reset_result.stdout)
+    backup_path = Path(reset_payload["backup_path"])
+    assert backup_path.is_file()
+    assert read_sqlite_backup_marker(backup_path) == "packaged-cli"
+
+    table_names, workflow_count, starter_workflow_ids = read_sqlite_reset_catalog(database_path)
     assert {
         "workflow_definitions",
         "workflow_drafts",
@@ -408,14 +407,25 @@ async def test_postgres_reset_recreates_only_dedicated_schema_and_seeds(
             task_root.mkdir(parents=True)
             await _insert_postgres_reset_task(task_root)
 
+            with temporary_env({"PATH": ""}):
+                with pytest.raises(DatabaseBackupError, match="requires pg_dump"):
+                    await reset_database(data_boundary=data_dir)
+            assert task_root.is_dir()
+            assert await _postgres_task_count() == 1
+
             result = await reset_database(data_boundary=data_dir)
             readback = await _read_postgres_reset_state()
+            assert result.backup_path is not None
+            backup_sql = render_postgres_backup_sql(result.backup_path)
             await _drop_postgres_reset_sentinel()
     finally:
         await dispose_db_engine()
 
     assert result.database_backend == "postgresql"
     assert result.deleted_task_root_count == 1
+    assert result.backup_path is not None
+    assert result.backup_path.is_file()
+    assert "task.postgres" in backup_sql
     assert not task_root.exists()
     assert {"tasks", "workflow_definitions", "members", "team_revisions"}.issubset(
         readback.dedicated_schema_table_names
@@ -502,6 +512,14 @@ async def _read_postgres_reset_state() -> _PostgresResetReadback:
         workflow_definition_count=workflow_definition_count,
         public_schema_table_names=public_schema_table_names,
     )
+
+
+async def _postgres_task_count() -> int:
+    engine = get_async_engine()
+    async with engine.connect() as connection:
+        return int(
+            (await connection.exec_driver_sql("SELECT COUNT(*) FROM banksia.tasks")).scalar_one()
+        )
 
 
 async def _drop_postgres_reset_sentinel() -> None:

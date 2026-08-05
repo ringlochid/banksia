@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Sequence
+from pathlib import Path
 from typing import NoReturn
 
 import click
@@ -10,6 +11,7 @@ from pydantic import ValidationError
 
 import banksia.interfaces.cli as cli
 from banksia.config import Settings
+from banksia.persistence.schema_contract import DatabaseSchemaMismatchError
 
 
 def test_main_renders_friendly_unknown_command(capsys: pytest.CaptureFixture[str]) -> None:
@@ -47,6 +49,26 @@ def test_main_hides_traceback_without_debug(
     assert "Banksia command failed" in output
     assert "Reason: boom" in output
     assert "Traceback" not in output
+
+
+def test_main_directs_schema_mismatch_to_data_preserving_upgrade(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "banksia.toml"
+
+    def _mismatch(_args: Sequence[str]) -> NoReturn:
+        raise DatabaseSchemaMismatchError("attempts missing watchdog replacement state")
+
+    monkeypatch.setattr("banksia.interfaces.cli.root.cmd_init", _mismatch)
+    result = cli.main(["init", "--force", "--config", str(config_path)])
+
+    output = capsys.readouterr().out
+    assert result == 1
+    assert "Database upgrade required" in output
+    assert f"banksia db upgrade --config {config_path}" in output
+    assert "db reset` only if you accept deletion" in output
 
 
 def test_main_shows_traceback_with_debug(

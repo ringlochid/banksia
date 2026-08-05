@@ -23,6 +23,7 @@ from banksia.interfaces.cli.bootstrap.database import (
     ensure_database_ready,
     reset_database,
     sqlite_database_path,
+    upgrade_database,
 )
 from banksia.interfaces.cli.progress import CliProgress
 from banksia.interfaces.cli.support import coerce_path, command_env, print_json
@@ -91,20 +92,28 @@ def cmd_db_upgrade(args: argparse.Namespace) -> int:
     config_path = coerce_path(args.config)
     with command_env(config_path=config_path):
         settings = load_settings()
-        progress.step("database", "Creating or verifying the exact database schema")
-        asyncio.run(
-            ensure_database_ready(
-                progress=progress,
-            )
-        )
+        upgrade_result = asyncio.run(upgrade_database(progress=progress))
     payload = {
         "ok": True,
         "database_url": settings.database_url,
+        "database_backend": upgrade_result.database_backend,
+        "applied_upgrade": upgrade_result.applied_upgrade,
+        "backup_path": (
+            str(upgrade_result.backup_path) if upgrade_result.backup_path is not None else None
+        ),
     }
     if getattr(args, "json", False):
         print_json(payload)
     else:
-        progress.done("database", "Database schema is current")
+        if upgrade_result.applied_upgrade is None:
+            progress.done("database", "Database schema is current")
+        else:
+            progress.done(
+                "database",
+                f"Applied schema upgrade {upgrade_result.applied_upgrade}",
+            )
+            if upgrade_result.backup_path is not None:
+                print(f"Backup: {upgrade_result.backup_path}")
     return 0
 
 
@@ -113,7 +122,7 @@ async def cmd_db_reset(args: argparse.Namespace) -> int:
     config_path = coerce_path(args.config)
     with command_env(config_path=config_path):
         settings = load_settings()
-        progress.step("database", "Destructively resetting the database")
+        progress.step("database", "Preparing the database reset")
         reset_result = await reset_database(
             data_boundary=settings.data_dir,
             progress=progress,
@@ -124,11 +133,16 @@ async def cmd_db_reset(args: argparse.Namespace) -> int:
         "database_url": settings.database_url,
         "database_backend": reset_result.database_backend,
         "deleted_task_root_count": reset_result.deleted_task_root_count,
+        "backup_path": (
+            str(reset_result.backup_path) if reset_result.backup_path is not None else None
+        ),
     }
     if args.json:
         print_json(payload)
     else:
         progress.done("database", "Database reset complete")
+        if reset_result.backup_path is not None:
+            print(f"Backup: {reset_result.backup_path}")
     return 0
 
 

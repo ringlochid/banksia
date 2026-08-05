@@ -21,7 +21,7 @@ Codex Task effort accepts `max`; `ultra` remains excluded because it enables pro
 - Workflow Studio exposes the requested mode as an advanced provider choice and explains automatic narrowing without rejecting the draft.
 - Machine-local `[codex]` and `[claude]` sections may set `extension_mode`.
 - General provider plugins and Banksia-managed external-MCP authoring remain deferred.
-- Changing the Dispatch schema follows Banksia's reset-only database contract.
+- Changing the Dispatch schema follows Banksia's exact-admission and registered forward-upgrade contract.
 
 ## Provider implementation boundary
 

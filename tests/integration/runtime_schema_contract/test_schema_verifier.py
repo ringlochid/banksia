@@ -200,7 +200,7 @@ def test_exact_schema_verifier_rejects_changed_table_contracts(
     try:
         messages = _messages(engine)
         assert any(expected_message in message for message in messages)
-        with pytest.raises(DatabaseSchemaMismatchError, match="banksia db reset"):
+        with pytest.raises(DatabaseSchemaMismatchError, match="does not match"):
             _verify(engine)
     finally:
         engine.dispose()

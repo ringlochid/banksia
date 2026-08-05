@@ -109,6 +109,43 @@ def rewrite_empty_sqlite_table(
     omitted_indexes: frozenset[str] = frozenset(),
     index_transform: Callable[[str, str], str] | None = None,
 ) -> None:
+    _rewrite_sqlite_table(
+        path,
+        table_name=table_name,
+        transform=transform,
+        omitted_indexes=omitted_indexes,
+        index_transform=index_transform,
+        should_preserve_rows=False,
+    )
+
+
+def rewrite_sqlite_table_preserving_rows(
+    path: Path,
+    *,
+    table_name: str,
+    transform: Callable[[str], str],
+) -> None:
+    """Rewrite one SQLite table while copying every shared ordinary column."""
+
+    _rewrite_sqlite_table(
+        path,
+        table_name=table_name,
+        transform=transform,
+        omitted_indexes=frozenset(),
+        index_transform=None,
+        should_preserve_rows=True,
+    )
+
+
+def _rewrite_sqlite_table(
+    path: Path,
+    *,
+    table_name: str,
+    transform: Callable[[str], str],
+    omitted_indexes: frozenset[str],
+    index_transform: Callable[[str, str], str] | None,
+    should_preserve_rows: bool,
+) -> None:
     replacement_name = f"{table_name}__replacement"
     with sqlite_connection(path) as connection:
         connection.execute("PRAGMA foreign_keys = OFF")
@@ -130,6 +167,12 @@ def rewrite_empty_sqlite_table(
         )
         replacement_ddl = transform(replacement_ddl)
         connection.execute(replacement_ddl)
+        if should_preserve_rows:
+            _copy_shared_table_columns(
+                connection,
+                source_table=table_name,
+                target_table=replacement_name,
+            )
         connection.execute(f'DROP TABLE "{table_name}"')
         connection.execute(f'ALTER TABLE "{replacement_name}" RENAME TO "{table_name}"')
         for index_name, index_sql in index_rows:
@@ -140,8 +183,29 @@ def rewrite_empty_sqlite_table(
         connection.commit()
 
 
+def _copy_shared_table_columns(
+    connection: sqlite3.Connection,
+    *,
+    source_table: str,
+    target_table: str,
+) -> None:
+    source_columns = {
+        str(row[1]) for row in connection.execute(f'PRAGMA table_info("{source_table}")')
+    }
+    target_columns = {
+        str(row[1]) for row in connection.execute(f'PRAGMA table_info("{target_table}")')
+    }
+    shared_columns = sorted(source_columns & target_columns)
+    quoted_columns = ", ".join(f'"{column}"' for column in shared_columns)
+    connection.execute(
+        f'INSERT INTO "{target_table}" ({quoted_columns}) '
+        f'SELECT {quoted_columns} FROM "{source_table}"'
+    )
+
+
 __all__ = [
     "SyncSessionAdapter",
     "create_runtime_schema_engine",
     "rewrite_empty_sqlite_table",
+    "rewrite_sqlite_table_preserving_rows",
 ]

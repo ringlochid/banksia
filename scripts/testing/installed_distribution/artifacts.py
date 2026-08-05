@@ -7,7 +7,7 @@ from email.parser import Parser
 from pathlib import Path, PurePosixPath
 
 EXPECTED_DISTRIBUTION_NAME = "banksia"
-EXPECTED_DISTRIBUTION_VERSION = "0.1.3"
+EXPECTED_DISTRIBUTION_VERSION = "0.1.4"
 STARTER_WORKFLOW_IDS = (
     "decision-through-competing-prototypes",
     "deep-research-and-decision-brief",

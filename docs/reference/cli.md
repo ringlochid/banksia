@@ -242,7 +242,7 @@ Banksia selects one native current-user manager:
 
 Native Windows controller/runtime support is deferred. WSL2 uses the Linux lane.
 
-`service install` verifies the selected configuration and exact database schema, creates the private sibling `banksia.env` when needed, atomically reconciles the fixed native definition, enables startup, and starts it unless `--no-start` is supplied. Re-running install reconciles an outdated definition.
+`service install` verifies the selected configuration and exact database schema, creates the private sibling `banksia.env` when needed, atomically reconciles the fixed native definition, enables startup, and starts it unless `--no-start` is supplied. Re-running install reconciles an outdated definition. A schema mismatch stops before service changes and directs you to run `banksia db upgrade` with the same `--config` before considering reset.
 
 `render`, `install`, `start`, `stop`, `restart`, `status`, and `uninstall` accept the normal `--config PATH` where applicable. Lifecycle and status commands offer `--json`; there is no user-authored service name, unit directory, or port override. Change the API port through initialization or configuration, then rerun `service install`.
 
@@ -257,6 +257,6 @@ banksia db upgrade
 banksia db reset
 ```
 
-Both accept `--revision`, `--json`, `--plain`, `--no-color`, and `--verbose`. `upgrade` creates the exact shipped schema only when the database is genuinely empty. For a nonempty database, it verifies the complete exact schema and issues no migration or repair DDL. Any missing, unexpected, or changed schema detail stops with guidance to use `reset`.
+Both accept `--revision`, `--json`, `--plain`, `--no-color`, and `--verbose`. `upgrade` creates the exact shipped schema when the database is genuinely empty, verifies an exact current schema, or applies a registered forward upgrade from one exact supported predecessor after creating a backup. Unknown, skipped, partially changed, or locally modified schemas remain untouched. Inspect an unavailable upgrade before using destructive `reset`, and use reset only when you accept replacing controller history.
 
 `reset` is destructive controller-storage initialization, not a generic recovery or retry command. It can remove controller data and controller-owned task roots outside accepted workspace Task directories. Back up and verify the selected configuration and data boundary before intentionally using it.

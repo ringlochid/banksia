@@ -66,6 +66,10 @@ async def test_lifespan_fails_closed_on_stale_runtime_schema(
             assert "unexpected table flows" in message
             assert "missing table tasks" in message
             assert "existing database does not match the current runtime schema" in message
+            assert (
+                "Run `banksia db upgrade` with the same configuration before considering reset."
+            ) in message
+            assert message.index("banksia db upgrade") < message.index("reset")
     finally:
         await dispose_test_db_engine()
 

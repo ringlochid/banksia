@@ -6,7 +6,7 @@ This page owns distribution contents, installed verification, exact schema admis
 
 ## Distribution boundary
 
-`pyproject.toml` is the package contract. The distribution, Python package, and console command are `banksia` at version `0.1.3`, and Python 3.12 or newer is required.
+`pyproject.toml` is the package contract. The distribution, Python package, and console command are `banksia` at version `0.1.4`, and Python 3.12 or newer is required.
 
 The built wheel contains:
 
@@ -31,7 +31,7 @@ The installed-distribution verifier installs the wheel into a fresh virtual envi
 
 ## Schema admission and forward upgrade
 
-Startup and initialization create the schema only when the configured database is genuinely empty. Otherwise they compare the complete registered metadata contract with the selected SQLite database or dedicated PostgreSQL schema. Missing, unexpected, or changed tables, columns, keys, constraints, indexes, defaults, and computed expressions stop admission without issuing DDL. The CLI directs the operator to run `banksia db upgrade` with the same configuration before considering destructive reset.
+Startup and initialization create the schema only when the configured database is genuinely empty. Otherwise they compare the complete registered metadata contract with the selected SQLite database or dedicated PostgreSQL schema. Missing, unexpected, or changed tables, columns, keys, constraints, indexes, defaults, and computed expressions stop admission without issuing DDL. The CLI and raw foreground/background startup failure direct the operator to run `banksia db upgrade` with the same configuration before considering destructive reset.
 
 `banksia db upgrade` applies only an explicitly registered, sequential Banksia schema upgrade whose complete starting-schema differences match the expected predecessor exactly. An unknown, skipped, partially changed, locally modified, or already-corrupt schema is never guessed or repaired. Every supported upgrade runs transactionally where the database supports transactional DDL, ends with the same complete exact-schema verifier used at startup, and preserves controller rows unless its named contract explicitly says otherwise.
 

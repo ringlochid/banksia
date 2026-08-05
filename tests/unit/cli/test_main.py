@@ -71,6 +71,29 @@ def test_main_directs_schema_mismatch_to_data_preserving_upgrade(
     assert "db reset` only if you accept deletion" in output
 
 
+def test_service_install_directs_schema_mismatch_to_selected_config_upgrade(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "service-config.toml"
+
+    def mismatch(_args: Sequence[str]) -> NoReturn:
+        raise DatabaseSchemaMismatchError("attempts missing watchdog replacement state")
+
+    monkeypatch.setattr(
+        "banksia.interfaces.cli.service_commands.cmd_service_install",
+        mismatch,
+    )
+    result = cli.main(["service", "install", "--no-start", "--config", str(config_path)])
+
+    output = capsys.readouterr().out
+    assert result == 1
+    upgrade_command = f"banksia db upgrade --config {config_path}"
+    assert upgrade_command in output
+    assert output.index(upgrade_command) < output.index("banksia db reset")
+
+
 def test_main_shows_traceback_with_debug(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],

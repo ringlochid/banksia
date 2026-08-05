@@ -47,6 +47,8 @@ Publishing creates an immutable Workflow revision and makes it current for new r
 
 Validation proves the draft's current authoring rules. It is not publication and does not prove that a future provider route, Human Request, Command Run, or run start will be legal.
 
+Choose **Export YAML** in Workflow Studio to download the draft exactly as it currently appears, including edits still waiting for autosave. Export is always available while the draft is open and does not save, validate, or publish anything. Finish **Add member** first if a new Member should appear in the file; an unfinished local Member form is not part of the Workflow yet.
+
 ## Add advanced choices deliberately
 
 Installed Starters omit providers so they work with the installation default. They demonstrate only narrow built-in capability grants on responsibilities that need user decisions or durable process supervision. Add or remove advanced fields only when the responsibility requires them:

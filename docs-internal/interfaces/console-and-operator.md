@@ -336,6 +336,8 @@ Workflow purpose and shared note never appear inside a Member drawer. A separate
 
 ID is visible only when support/import needs it and is never editable. Every removable non-lead Member keeps **Remove member** visible in the fixed drawer footer; the lead has no removal action because it owns the Workflow. Removal states the full subtree consequence. After accepted removal, selection and focus move to the removed Member's surviving direct parent; the browser derives that destination from the pre-mutation accepted tree and confirms it still exists in returned controller truth. Changes autosave through structured JSON with ETag conflict handling, receipts, and controller-issued single-use Undo; publish is explicit. Discard applies only to the mutable draft. Workflow removal lives in Workflow-level library or settings actions, requires confirmation, and preserves published revision history used by existing Tasks.
 
+**Export YAML** is an always-available browser-local snapshot of the currently visible Workflow draft, including field edits still waiting for autosave. Export does not save, validate, publish, or change controller truth. A local **New member** form is not part of the Workflow until **Add member** accepts it. The browser renders the structured Workflow without YAML aliases and downloads `<workflow-id>.yaml` through its ordinary download behavior.
+
 ### Canvas and drawer
 
 The canvas owns the page body. One contextual surface displays Member details, Operator, and later Run context:

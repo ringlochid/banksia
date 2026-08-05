@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+
 import AxeBuilder from "@axe-core/playwright";
 import {
     expect,
@@ -6,6 +8,7 @@ import {
     type Locator,
     type Page,
 } from "@playwright/test";
+import { load } from "js-yaml";
 
 import type {
     WorkflowDraftReadback,
@@ -36,6 +39,7 @@ test("authors and publishes a Workflow against disposable controller truth", asy
     await proveSeededLibraryReadback(page, request);
     await createWorkflowThroughBrowser(page);
     await editLeadAndWorkflow(page, request);
+    await proveYamlExport(page);
     const childId = await addAndEditChild(page, request);
     await proveAcceptedReload(page, childId);
     await proveStableCollapseAndConnectors(page);
@@ -50,6 +54,26 @@ test("authors and publishes a Workflow against disposable controller truth", asy
     const accessibility = await new AxeBuilder({ page }).analyze();
     expect(accessibility.violations).toEqual([]);
 });
+
+async function proveYamlExport(page: Page): Promise<void> {
+    const downloadPromise = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Export YAML" }).click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toBe(`${WORKFLOW_ID}.yaml`);
+    const downloadPath = await download.path();
+    if (downloadPath === null) {
+        throw new Error("Workflow YAML download did not produce a local file");
+    }
+    expect(load(await readFile(downloadPath, "utf8"))).toMatchObject({
+        kind: "workflow",
+        id: WORKFLOW_ID,
+        description: FINAL_PURPOSE,
+        note: "Prefer primary sources and record material uncertainty.",
+        lead: {
+            title: "Research lead",
+        },
+    });
+}
 
 async function proveSeededLibraryReadback(
     page: Page,

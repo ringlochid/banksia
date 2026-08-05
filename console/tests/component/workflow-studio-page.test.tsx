@@ -253,6 +253,52 @@ describe("Workflow Studio page", () => {
         await waitFor(() => expect(purpose).toBeEnabled());
     });
 
+    it("exports the current visible draft while autosave is pending", async () => {
+        const api = workflowApiStub({
+            getWorkflow: () => Promise.resolve(response(catalogFixture())),
+            getAuthoringOptions: () =>
+                Promise.reject(new Error("Choices are unavailable.")),
+        });
+        const createObjectUrl = vi
+            .spyOn(URL, "createObjectURL")
+            .mockReturnValue("blob:workflow-yaml");
+        const revokeObjectUrl = vi
+            .spyOn(URL, "revokeObjectURL")
+            .mockImplementation(() => undefined);
+        const click = vi
+            .spyOn(HTMLAnchorElement.prototype, "click")
+            .mockImplementation(() => undefined);
+        const user = userEvent.setup();
+
+        try {
+            renderStudio(api);
+            const purpose = await openWorkflowPurpose(user);
+            await user.clear(purpose);
+            await user.type(purpose, "The visible draft, before autosave.");
+
+            const exportButton = screen.getByRole("button", {
+                name: "Export YAML",
+            });
+            expect(exportButton).toBeEnabled();
+            await user.click(exportButton);
+
+            expect(createObjectUrl).toHaveBeenCalledWith(expect.any(Blob));
+            expect(click).toHaveBeenCalledOnce();
+            const anchor = click.mock.instances[0] as HTMLAnchorElement;
+            expect(anchor.download).toBe(`${TEST_WORKFLOW_ID}.yaml`);
+            expect(anchor.href).toBe("blob:workflow-yaml");
+            await waitFor(() => {
+                expect(revokeObjectUrl).toHaveBeenCalledWith(
+                    "blob:workflow-yaml",
+                );
+            });
+        } finally {
+            click.mockRestore();
+            createObjectUrl.mockRestore();
+            revokeObjectUrl.mockRestore();
+        }
+    });
+
     it("retries a failed authoring-options read without reloading the page", async () => {
         let optionReads = 0;
         const api = workflowApiStub({

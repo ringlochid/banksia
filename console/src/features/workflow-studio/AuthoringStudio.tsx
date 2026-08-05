@@ -1,4 +1,4 @@
-import { ArrowLeft, RotateCcw, Settings2 } from "lucide-react";
+import { ArrowLeft, Download, RotateCcw, Settings2 } from "lucide-react";
 import {
     useCallback,
     useEffect,
@@ -30,6 +30,7 @@ import {
     selectValidationIssues,
 } from "./state/selectors";
 import { findMember } from "./state/tree";
+import { downloadWorkflowYaml } from "./workflow-export";
 
 export interface AuthoringStudioProps {
     readonly isDiscardOpen: boolean;
@@ -77,7 +78,7 @@ export function AuthoringStudio({
                 }}
                 studio={studio}
                 validationRef={validationRef}
-                workflowId={workflow.id}
+                workflow={workflow}
             />
             <StudioBody
                 options={options}
@@ -106,7 +107,7 @@ interface StudioHeaderProps {
     readonly onOpenWorkflowSettings: () => void;
     readonly studio: StudioContextValue;
     readonly validationRef: RefObject<HTMLDivElement | null>;
-    readonly workflowId: string;
+    readonly workflow: NormalizedWorkflow;
 }
 
 function StudioHeader({
@@ -115,7 +116,7 @@ function StudioHeader({
     onOpenWorkflowSettings,
     studio,
     validationRef,
-    workflowId,
+    workflow,
 }: StudioHeaderProps) {
     const { snapshot, actions } = studio;
     const isChecking = snapshot.validation.kind === "checking";
@@ -136,7 +137,7 @@ function StudioHeader({
                     <span aria-hidden="true" className="studio__crumb-sep">
                         /
                     </span>
-                    <h1 className="studio__title">{workflowId}</h1>
+                    <h1 className="studio__title">{workflow.id}</h1>
                 </div>
                 <div className="studio__actions">
                     <Button
@@ -155,6 +156,13 @@ function StudioHeader({
                     >
                         <RotateCcw aria-hidden="true" size={16} />
                         Undo
+                    </Button>
+                    <Button
+                        onClick={() => downloadWorkflowYaml(workflow)}
+                        tone="quiet"
+                    >
+                        <Download aria-hidden="true" size={16} />
+                        Export YAML
                     </Button>
                     <Button
                         disabled={actionBlocked}

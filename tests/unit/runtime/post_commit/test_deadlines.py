@@ -52,6 +52,14 @@ class RecordingDeadlinePublisher:
         return True
 
 
+@dataclass
+class RecordingClock:
+    current: datetime
+
+    def __call__(self) -> datetime:
+        return self.current
+
+
 async def test_scheduler_publishes_overdue_exact_signal_without_sleeping() -> None:
     now = datetime(2030, 1, 1, 12, tzinfo=UTC)
     factory = RecordingTimerFactory()
@@ -73,6 +81,7 @@ async def test_scheduler_publishes_overdue_exact_signal_without_sleeping() -> No
 
 async def test_scheduler_replaces_only_newer_revision_and_stale_timer_is_harmless() -> None:
     now = datetime(2030, 1, 1, 12, tzinfo=UTC)
+    clock = RecordingClock(now)
     factory = RecordingTimerFactory()
     publisher = RecordingDeadlinePublisher()
     first = WatchdogDue("dispatch.alpha", 1, now + timedelta(seconds=30))
@@ -80,7 +89,7 @@ async def test_scheduler_replaces_only_newer_revision_and_stale_timer_is_harmles
     stale = WatchdogDue("dispatch.alpha", 1, now + timedelta(seconds=90))
     scheduler = DeadlineScheduler(
         publish=publisher.publish,
-        now=lambda: now,
+        now=clock,
         schedule_later=factory,
     )
 
@@ -92,6 +101,7 @@ async def test_scheduler_replaces_only_newer_revision_and_stale_timer_is_harmles
         assert factory.timers[0].is_cancelled is True
 
         factory.timers[0].fire()
+        clock.current = current.due_at
         factory.timers[1].fire()
 
     assert publisher.signals == [current]
@@ -99,13 +109,14 @@ async def test_scheduler_replaces_only_newer_revision_and_stale_timer_is_harmles
 
 async def test_scheduler_isolates_source_families_and_cancels_exact_slot() -> None:
     now = datetime(2030, 1, 1, 12, tzinfo=UTC)
+    clock = RecordingClock(now)
     factory = RecordingTimerFactory()
     publisher = RecordingDeadlinePublisher()
     command = CommandRunDue("shared-id", now + timedelta(seconds=10))
     provider = DispatchStartDue("shared-id", 1, now + timedelta(seconds=20))
     scheduler = DeadlineScheduler(
         publish=publisher.publish,
-        now=lambda: now,
+        now=clock,
         schedule_later=factory,
     )
 
@@ -116,10 +127,42 @@ async def test_scheduler_isolates_source_families_and_cancels_exact_slot() -> No
         assert scheduler.cancel_source(CommandRunDue, "shared-id") is False
 
         factory.timers[0].fire()
+        clock.current = provider.due_at
         factory.timers[1].fire()
 
     assert factory.timers[0].is_cancelled is True
     assert publisher.signals == [provider]
+
+
+async def test_scheduler_rearms_an_early_callback_and_newer_generation_wins() -> None:
+    now = datetime(2030, 1, 1, 12, tzinfo=UTC)
+    clock = RecordingClock(now)
+    factory = RecordingTimerFactory()
+    publisher = RecordingDeadlinePublisher()
+    first = WatchdogDue("dispatch.alpha", 1, now + timedelta(seconds=10))
+    newer = WatchdogDue("dispatch.alpha", 2, now + timedelta(seconds=20))
+    scheduler = DeadlineScheduler(
+        publish=publisher.publish,
+        now=clock,
+        schedule_later=factory,
+    )
+
+    async with scheduler:
+        assert scheduler.register(first) is True
+        clock.current = first.due_at - timedelta(microseconds=1)
+        factory.timers[0].fire()
+
+        assert publisher.signals == []
+        assert len(factory.timers) == 2
+        assert factory.timers[1].delay_seconds == pytest.approx(0.000001)
+
+        assert scheduler.register(newer) is True
+        assert factory.timers[1].is_cancelled is True
+        factory.timers[1].fire()
+        clock.current = newer.due_at
+        factory.timers[2].fire()
+
+    assert publisher.signals == [newer]
 
 
 async def test_scheduler_shutdown_cancels_pending_timers_and_has_no_manual_lifecycle() -> None:

@@ -48,6 +48,7 @@ from banksia.runtime.watchdog import (
 )
 from tests.helpers.executor_harness import (
     SessionFactory,
+    make_seed_child_terminal,
     seeded_executor,
 )
 from tests.helpers.lineage_seed import RuntimeIds
@@ -114,6 +115,7 @@ async def test_watchdog_replaces_one_stale_dispatch_and_duplicate_signal_loses(
     assert successor.attempt_id == ids.root_attempt_id
     assert task is not None and task.status == "running"
     assert attempt is not None and attempt.current_dispatch_id == first.dispatch_id
+    assert attempt.watchdog_replacement_count == 1
     assert dispatch_count == 4
     assert dispatch_request is not None
     request_root = ElementTree.fromstring(dispatch_request.input)
@@ -198,7 +200,12 @@ async def test_watchdog_preparation_failure_closes_authority_and_pauses(
     ):
         signal = await _stale_signal(session_factory, ids, activity_revision=1)
         dependencies = DispatchOpeningDependencies.create(
-            settings=Settings(runtime=RuntimeSettings(default_provider=ProviderKind.CODEX)),
+            settings=Settings(
+                runtime=RuntimeSettings(
+                    default_provider=ProviderKind.CODEX,
+                    watchdog_inactivity_timeout_seconds=900,
+                )
+            ),
             available_adapter_kinds={ProviderKind.CODEX},
             post_commit_publisher=publisher,
             clock=clock,
@@ -323,6 +330,8 @@ async def test_third_same_attempt_stale_dispatch_pauses_without_successor(
         ids,
         _,
     ):
+        async with session_factory() as session:
+            await make_seed_child_terminal(session, ids)
         dependencies = _opening_dependencies(clock=clock, publisher=publisher)
         current_dispatch_id = ids.current_dispatch_id
         for replacement_index in range(2):
@@ -374,6 +383,7 @@ async def test_third_same_attempt_stale_dispatch_pauses_without_successor(
     assert task is not None and task.status == "paused"
     assert task.pause_reason == "runtime_recovery_exhausted"
     assert attempt is not None and attempt.current_dispatch_id is None
+    assert attempt.watchdog_replacement_count == 2
     assert dispatch is not None and dispatch.closed_reason == "control_failed"
     assert replacement_count == 2
     assert dispatch_count == 5

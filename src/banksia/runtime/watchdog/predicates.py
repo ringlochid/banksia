@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import exists, func, select
+from sqlalchemy import exists
 from sqlalchemy.orm import InstrumentedAttribute, aliased
 from sqlalchemy.sql.elements import ColumnElement
 
@@ -78,19 +78,12 @@ def watchdog_replacement_count_matches(
     snapshot: WatchdogRecoverySnapshot,
 ) -> ColumnElement[bool]:
     prompt = snapshot.dispatch.prompt
-    lineage = aliased(DispatchTurnModel, name="watchdog_recovery_lineage")
-    count = (
-        select(func.count())
-        .select_from(lineage)
-        .where(
-            lineage.task_id == prompt.task_id,
-            lineage.assignment_id == prompt.assignment_id,
-            lineage.attempt_id == prompt.attempt_id,
-            lineage.opened_reason == "watchdog_recovery",
-        )
-        .scalar_subquery()
+    return exists().where(
+        AttemptModel.task_id == prompt.task_id,
+        AttemptModel.assignment_id == prompt.assignment_id,
+        AttemptModel.attempt_id == prompt.attempt_id,
+        AttemptModel.watchdog_replacement_count == snapshot.watchdog_replacement_count,
     )
-    return count == snapshot.same_attempt_replacement_count
 
 
 def dispatch_has_no_external_source(dispatch_id: str) -> ColumnElement[bool]:

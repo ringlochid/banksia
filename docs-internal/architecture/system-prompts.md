@@ -159,11 +159,11 @@ quiet activity renewal during extended native work makes a fresh snapshot
 useful. It is not a mandatory opening ritual and does not reserve authority.
 Every controller mutation validates the current Dispatch again.
 
-The standard Dispatch activity lease is fifteen minutes between Banksia tool
+The standard Dispatch activity lease is forty-five minutes between Banksia tool
 calls; an installation may configure another limit. Provider-native research,
 implementation, and verification do not renew it. During extended native work,
 check in after meaningful chunks and, under the standard lease, before roughly
-ten minutes pass without a Banksia call. Prefer set_work_plan when progress or
+forty minutes pass without a Banksia call. Prefer set_work_plan when progress or
 the intended approach changed, a nonterminal checkpoint when durable
 teammate-facing progress exists, or get_current_context when only quiet renewal
 is needed. Never invent plan changes or empty Checkpoints as heartbeats.

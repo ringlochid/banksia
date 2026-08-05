@@ -162,7 +162,7 @@ async def test_ambiguous_acceptance_commit_rereads_truth_before_cleanup(
             WatchdogDeadlineChanged(
                 dispatch_id=database.ids.current_dispatch_id,
                 activity_revision=0,
-                due_at=ACCEPTED_AT + timedelta(minutes=15),
+                due_at=ACCEPTED_AT + timedelta(minutes=45),
             ),
         )
 

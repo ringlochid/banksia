@@ -130,6 +130,15 @@ class DeadlineScheduler:
         current = self._deadlines.get(slot)
         if current is None or current.signal != signal:
             return
+        remaining_seconds = (_as_utc(signal.due_at) - _as_utc(self._now())).total_seconds()
+        if remaining_seconds > 0:
+            assert self._schedule_later is not None
+            timer = self._schedule_later(
+                remaining_seconds,
+                lambda: self._publish_if_current(slot, signal),
+            )
+            self._deadlines[slot] = _ScheduledDeadline(signal=signal, timer=timer)
+            return
         del self._deadlines[slot]
         self._publish(signal)
 

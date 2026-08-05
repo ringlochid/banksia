@@ -107,6 +107,7 @@ async def commit_paused_continuations(
     )
     if task_id is None:
         raise paused_continuation_conflict("another controller transition won during continue")
+    await _reset_watchdog_replacement_counts(session, plan=plan)
     for item in prepared:
         if not await item.claim(session, item.snapshot, item.prepared):
             raise paused_continuation_conflict("a paused Attempt source changed during continue")
@@ -127,6 +128,33 @@ async def commit_paused_continuations(
     except Exception:
         await session.rollback()
         raise
+
+
+async def _reset_watchdog_replacement_counts(
+    session: AsyncSession,
+    *,
+    plan: PausedTaskContinuationPlan,
+) -> None:
+    reset_lanes = {
+        (assignment_id, attempt_id)
+        for assignment_id, attempt_id in (
+            await session.execute(
+                update(AttemptModel)
+                .where(
+                    AttemptModel.task_id == plan.task.task_id,
+                    AttemptModel.status == "running",
+                    AttemptModel.current_dispatch_id.is_(None),
+                )
+                .values(watchdog_replacement_count=0)
+                .returning(AttemptModel.assignment_id, AttemptModel.attempt_id)
+            )
+        ).all()
+    }
+    expected_lanes = {(lane.assignment_id, lane.attempt_id) for lane in plan.task.lanes}
+    if reset_lanes != expected_lanes:
+        raise paused_continuation_conflict(
+            "paused Attempt lanes changed while resetting watchdog recovery budgets"
+        )
 
 
 def _paused_task_is_current(

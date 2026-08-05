@@ -114,7 +114,7 @@ class RuntimeSettings(BaseModel):
     managed_provider_network_access: NetworkAccess = NetworkAccess.ALLOW
     dispatch_launch_retry_initial_backoff_seconds: float = Field(default=1.0, ge=0.0)
     dispatch_launch_retry_max_backoff_seconds: float = Field(default=30.0, ge=0.0)
-    watchdog_inactivity_timeout_seconds: int = Field(default=900, ge=1)
+    watchdog_inactivity_timeout_seconds: int = Field(default=2700, ge=1)
     watchdog_same_attempt_replacement_limit: int = Field(default=2, ge=0)
 
     @model_validator(mode="after")

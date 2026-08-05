@@ -9,7 +9,7 @@ from uuid import uuid4
 from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from banksia.persistence.models import DispatchTurnModel, TaskModel
+from banksia.persistence.models import AttemptModel, DispatchTurnModel, TaskModel
 from banksia.runtime.dispatch.opening import StartingDispatchBasis, stage_starting_dispatch
 from banksia.runtime.dispatch.preparation import (
     DispatchOpeningDependencies,
@@ -87,7 +87,7 @@ async def recover_stale_dispatch(
         if snapshot is None:
             await session.rollback()
             return WatchdogRecoveryResult(outcome="skipped")
-        if snapshot.same_attempt_replacement_count >= replacement_limit:
+        if snapshot.watchdog_replacement_count >= replacement_limit:
             await session.rollback()
             closed_dispatch_ids = await pause_watchdog_snapshot(
                 session,
@@ -163,6 +163,9 @@ async def _commit_watchdog_replacement(
         closed_at=committed_at,
     ):
         return False
+    if not await _increment_watchdog_replacement_count(session, snapshot=snapshot):
+        await session.rollback()
+        return False
 
     await stage_starting_dispatch(
         session,
@@ -186,6 +189,31 @@ async def _commit_watchdog_replacement(
         await session.rollback()
         raise
     return True
+
+
+async def _increment_watchdog_replacement_count(
+    session: AsyncSession,
+    *,
+    snapshot: WatchdogRecoverySnapshot,
+) -> bool:
+    prompt = snapshot.dispatch.prompt
+    incremented_attempt_id = await session.scalar(
+        update(AttemptModel)
+        .where(
+            AttemptModel.task_id == prompt.task_id,
+            AttemptModel.assignment_id == prompt.assignment_id,
+            AttemptModel.attempt_id == prompt.attempt_id,
+            AttemptModel.status == "running",
+            AttemptModel.current_dispatch_id == prompt.predecessor_dispatch_id,
+            AttemptModel.current_wait_id.is_(None),
+            AttemptModel.watchdog_replacement_count == snapshot.watchdog_replacement_count,
+        )
+        .values(
+            watchdog_replacement_count=AttemptModel.watchdog_replacement_count + 1,
+        )
+        .returning(AttemptModel.attempt_id)
+    )
+    return incremented_attempt_id is not None
 
 
 async def _close_watchdog_source_dispatch(

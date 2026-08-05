@@ -266,6 +266,10 @@ class AttemptModel(RuntimeBase):
             "status = 'running' OR (current_dispatch_id IS NULL AND current_wait_id IS NULL)",
             name="ck_attempts_nonrunning_has_no_current_authority",
         ),
+        CheckConstraint(
+            "watchdog_replacement_count >= 0",
+            name="ck_attempts_watchdog_replacement_count",
+        ),
         ForeignKeyConstraint(
             ["task_id", "assignment_id"],
             ["assignments.task_id", "assignments.assignment_id"],
@@ -333,6 +337,11 @@ class AttemptModel(RuntimeBase):
     latest_checkpoint_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     current_dispatch_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     current_wait_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    watchdog_replacement_count: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+        server_default="0",
+    )
     current_dispatch_presence_marker: Mapped[int] = mapped_column(
         Integer,
         Computed(

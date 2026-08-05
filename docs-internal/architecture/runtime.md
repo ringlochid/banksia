@@ -157,6 +157,7 @@ Attempt is one execution attempt at an Assignment. It owns one local lane:
 ```text
 running Attempt
   current Dispatch XOR one AttemptWait
+  watchdog replacement count since the last user Resume
 
 terminal Attempt
   neither current Dispatch nor wait
@@ -255,6 +256,8 @@ Green additionally enforces current direct-child participation. Blocked is a rea
 Retry is legal only while the snapshotted Assignment retry budget remains. One transaction records a terminal retry Checkpoint plus internal accepted retry Boundary, closes the current Dispatch and Attempt, and creates the next Attempt and exact first Dispatch from that retry source. The Assignment remains open. A retry is therefore terminal for the current execution attempt, not terminal for the semantic work. It never settles participation or a Wave member and never becomes the Task Result.
 
 Provider-start retries and watchdog replacement are infrastructure behavior on the same Dispatch/Attempt semantics; they are not semantic retry.
+
+Watchdog replacement consumes a nonnegative mutable counter owned by the current Attempt. The configured replacement limit applies between successful user Resume boundaries, not across the Attempt's immutable lifetime history. When one Attempt needs another replacement after consuming that limit, the controller pauses the whole Task and closes every current runnable Dispatch. A successful Resume atomically resets the counter for every retained running Attempt before opening their continuations. Historical Dispatch rows remain unchanged audit evidence and a fresh semantic-retry Attempt begins at zero.
 
 ### Task result
 

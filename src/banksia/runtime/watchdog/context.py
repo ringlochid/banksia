@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from sqlalchemy import exists, func, select
+from sqlalchemy import exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import raiseload
 
@@ -52,7 +52,7 @@ class WatchdogRecoverySnapshot:
     last_node_activity_at: datetime | None
     activity_revision: int
     authoritative_due_at: datetime
-    same_attempt_replacement_count: int
+    watchdog_replacement_count: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -86,10 +86,7 @@ async def read_watchdog_recovery_snapshot(
     if await dispatch_owns_external_source(session, dispatch_id=source.dispatch_id):
         return None
 
-    replacement_count = await _read_same_attempt_replacement_count(
-        session,
-        source_dispatch=source,
-    )
+    replacement_count = context.attempt.watchdog_replacement_count
     dispatch = await _build_watchdog_replacement_dispatch(
         session,
         context=context,
@@ -104,7 +101,7 @@ async def read_watchdog_recovery_snapshot(
         last_node_activity_at=source.last_node_activity_at,
         activity_revision=source.node_activity_revision,
         authoritative_due_at=candidate.authoritative_due_at,
-        same_attempt_replacement_count=replacement_count,
+        watchdog_replacement_count=replacement_count,
     )
 
 
@@ -147,24 +144,6 @@ async def _read_watchdog_recovery_candidate(
         context=context,
         authoritative_due_at=due_at,
     )
-
-
-async def _read_same_attempt_replacement_count(
-    session: AsyncSession,
-    *,
-    source_dispatch: DispatchTurnModel,
-) -> int:
-    count = await session.scalar(
-        select(func.count())
-        .select_from(DispatchTurnModel)
-        .where(
-            DispatchTurnModel.task_id == source_dispatch.task_id,
-            DispatchTurnModel.assignment_id == source_dispatch.assignment_id,
-            DispatchTurnModel.attempt_id == source_dispatch.attempt_id,
-            DispatchTurnModel.opened_reason == "watchdog_recovery",
-        )
-    )
-    return int(count or 0)
 
 
 async def _build_watchdog_replacement_dispatch(

@@ -471,7 +471,7 @@ def test_runtime_deadline_defaults_match_target_contract() -> None:
 
     settings = config_module.RuntimeSettings()
 
-    assert settings.watchdog_inactivity_timeout_seconds == 900
+    assert settings.watchdog_inactivity_timeout_seconds == 2700
     assert settings.watchdog_same_attempt_replacement_limit == 2
     assert settings.dispatch_launch_retry_initial_backoff_seconds == 1.0
     assert settings.dispatch_launch_retry_max_backoff_seconds == 30.0

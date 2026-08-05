@@ -186,7 +186,10 @@ async def _pause_all_runnable_lanes(
 ) -> int:
     invalid_dependencies = DispatchOpeningDependencies.create(
         settings=Settings(
-            runtime=RuntimeSettings(default_provider=ProviderKind.CODEX),
+            runtime=RuntimeSettings(
+                default_provider=ProviderKind.CODEX,
+                watchdog_inactivity_timeout_seconds=900,
+            ),
         ),
         available_adapter_kinds=(ProviderKind.CODEX,),
         post_commit_publisher=publisher,

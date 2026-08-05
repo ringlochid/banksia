@@ -57,7 +57,7 @@ async def test_accepted_start_opens_once_retains_binding_and_publishes_watchdog(
             WatchdogDeadlineChanged(
                 dispatch_id=database.ids.current_dispatch_id,
                 activity_revision=0,
-                due_at=ACCEPTED_AT + timedelta(minutes=15),
+                due_at=ACCEPTED_AT + timedelta(minutes=45),
             ),
         )
 

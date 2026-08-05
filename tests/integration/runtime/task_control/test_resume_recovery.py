@@ -76,6 +76,12 @@ async def test_resume_opens_every_runnable_attempt_lane_in_one_task_transition(
     ):
         async with session_factory() as session:
             await _activate_seed_child_lane(session, ids)
+            root_attempt = await session.get(AttemptModel, ids.root_attempt_id)
+            child_attempt = await session.get(AttemptModel, ids.child_attempt_id)
+            assert root_attempt is not None and child_attempt is not None
+            root_attempt.watchdog_replacement_count = 2
+            child_attempt.watchdog_replacement_count = 1
+            await session.commit()
             task = await session.get(TaskModel, ids.task_id)
             assert task is not None
             paused = await pause_runtime_task(
@@ -114,6 +120,8 @@ async def test_resume_opens_every_runnable_attempt_lane_in_one_task_transition(
     assert resumed.control_revision == paused.task.control_revision + 1
     assert root_attempt is not None and root_attempt.current_dispatch_id is not None
     assert child_attempt is not None and child_attempt.current_dispatch_id is not None
+    assert root_attempt.watchdog_replacement_count == 0
+    assert child_attempt.watchdog_replacement_count == 0
     assert {
         root_attempt.current_dispatch_id,
         child_attempt.current_dispatch_id,

@@ -25,6 +25,8 @@ An audit pagination or publication failure prevents a healthy startup. A lost in
 
 Provider-start recovery treats an ambiguous prior start conservatively and retries the same Dispatch with a fresh binding. Command recovery never blindly relaunches a process whose ownership cannot be proved; it records the exact terminal ownership-loss result and lets ordinary continuation handle it.
 
+The watchdog gives each Attempt a bounded number of same-Attempt replacements between successful user Resume boundaries. Exhaustion pauses the whole Task and settles every current runnable Dispatch. Resume preserves immutable Dispatch history, resets the live replacement counter of every retained running Attempt, and then opens exact continuations. The deadline scheduler rechecks the authoritative UTC deadline when a process-local timer fires and rearms the same generation when the event loop invokes it early.
+
 ## Command process ownership
 
 Managed Command Run owns one complete process family, not only the direct child. Linux and macOS use a small POSIX guardian with the already admitted working directory descriptor, a new process session/group, controller-liveness pipe, group termination, bounded escalation, and reap.

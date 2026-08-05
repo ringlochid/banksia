@@ -33,11 +33,20 @@ class _FakeTimer:
         self.is_cancelled = True
 
 
+@dataclass
+class _ManualClock:
+    current: datetime
+
+    def __call__(self) -> datetime:
+        return self.current
+
+
 async def test_first_open_deadline_uses_later_adapter_acceptance_anchor(
     tmp_path: Path,
 ) -> None:
     adapter_started_at = _BASE_TIME + timedelta(minutes=10)
     expected_due_at = adapter_started_at + timedelta(minutes=15)
+    clock = _ManualClock(adapter_started_at)
     published: list[object] = []
     scheduled: list[tuple[float, Callable[[], None], _FakeTimer]] = []
 
@@ -69,7 +78,7 @@ async def test_first_open_deadline_uses_later_adapter_acceptance_anchor(
 
         scheduler = DeadlineScheduler(
             publish=capture_due,
-            now=lambda: adapter_started_at,
+            now=clock,
             schedule_later=schedule_later,
         )
         async with scheduler:
@@ -89,6 +98,7 @@ async def test_first_open_deadline_uses_later_adapter_acceptance_anchor(
             assert len(scheduled) == 1
             assert scheduled[0][0] == 900
 
+            clock.current = expected_due_at
             scheduled[0][1]()
 
     assert published == [

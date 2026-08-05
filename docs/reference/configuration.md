@@ -225,7 +225,7 @@ max_wave_members = 8
 max_retries_per_assignment = 1
 dispatch_launch_retry_initial_backoff_seconds = 1.0
 dispatch_launch_retry_max_backoff_seconds = 30.0
-watchdog_inactivity_timeout_seconds = 900
+watchdog_inactivity_timeout_seconds = 2700
 watchdog_same_attempt_replacement_limit = 2
 ```
 
@@ -239,8 +239,8 @@ watchdog_same_attempt_replacement_limit = 2
 | `max_retries_per_assignment` | `1` | Semantic retry budget snapshotted for an Assignment. |
 | `dispatch_launch_retry_initial_backoff_seconds` | `1.0` | Initial retry delay for provider launch handling. |
 | `dispatch_launch_retry_max_backoff_seconds` | `30.0` | Maximum provider-launch retry delay. |
-| `watchdog_inactivity_timeout_seconds` | `900` | Inactivity duration before watchdog handling. |
-| `watchdog_same_attempt_replacement_limit` | `2` | Bounded same-Attempt watchdog replacement count. |
+| `watchdog_inactivity_timeout_seconds` | `2700` | Inactivity duration before watchdog handling. |
+| `watchdog_same_attempt_replacement_limit` | `2` | Same-Attempt watchdog replacements available between successful user Resumes. |
 
 ### Managed sandbox and network
 

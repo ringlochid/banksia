@@ -26,7 +26,7 @@ from banksia.runtime.product.command_runs import (
     read_product_command_output,
     read_product_command_run,
 )
-from banksia.runtime.product.tasks import read_product_task
+from banksia.runtime.product.tasks import read_product_task, search_product_tasks
 from tests.helpers.executor_harness import (
     AsyncSessionFactory,
     seeded_async_executor,
@@ -190,7 +190,7 @@ async def test_command_output_pages_are_utf8_safe_and_strip_hostile_terminal_con
     assert "secret" not in rendered
 
 
-async def test_live_elapsed_ignores_cancellation_time_and_failed_attention_links_output(
+async def test_live_elapsed_and_failed_command_stays_out_of_attention(
     tmp_path: Path,
 ) -> None:
     suffix = "product-command-fidelity"
@@ -236,12 +236,16 @@ async def test_live_elapsed_ignores_cancellation_time_and_failed_attention_links
             assert won is True
         async with session_factory() as session:
             task = await read_product_task(session, ids.task_id)
+            search = await search_product_tasks(session, q=ids.task_id)
 
     assert cancelling.state == "cancelling"
     assert cancelling.elapsed_seconds == 30
-    failed = next(item for item in task.attention if item.kind == "action_failed")
-    assert failed.link is not None
-    assert failed.link.href.endswith(f"/command-runs/{command_id}/output")
+    failed = next(command for command in task.command_runs if command.id == command_id)
+    assert failed.state == "failed"
+    assert failed.output_href.endswith(f"/command-runs/{command_id}/output")
+    assert task.attention == ()
+    assert len(search.items) == 1
+    assert search.items[0].attention_count == 0
 
 
 async def _open_running_command_and_request_cancellation(

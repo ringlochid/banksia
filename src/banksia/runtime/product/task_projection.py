@@ -20,9 +20,7 @@ from banksia.persistence.models import (
 )
 from banksia.runtime.checkpoint import read_checkpoint_file_references
 from banksia.runtime.contracts.task import (
-    CommandRunView,
     HumanRequestView,
-    TaskActivityLink,
     TaskAttention,
     TaskMemberUpdate,
     TaskMemberView,
@@ -186,7 +184,6 @@ def build_task_attention(
     *,
     task_id: str,
     human_requests: Iterable[HumanRequestView],
-    command_runs: Iterable[CommandRunView],
     result: TaskResultView | None,
 ) -> tuple[TaskAttention, ...]:
     attention: list[TaskAttention] = []
@@ -202,22 +199,6 @@ def build_task_attention(
                 member=request.member,
                 files=request.files,
                 action=request.action,
-            )
-        )
-    for command in command_runs:
-        if command.state not in {"failed", "timed_out"}:
-            continue
-        attention.append(
-            TaskAttention(
-                id=command.id,
-                kind="action_failed",
-                title="An action needs review",
-                summary=command.outcome_summary or command.purpose,
-                member=command.member,
-                link=TaskActivityLink(
-                    label="View output",
-                    href=command.output_href,
-                ),
             )
         )
     if result is not None and result.status == "blocked":

@@ -1237,7 +1237,7 @@ export interface components {
             title: string;
         };
         /** @enum {string} */
-        TaskAttentionKind: "human_request" | "action_failed" | "blocked_result";
+        TaskAttentionKind: "human_request" | "blocked_result";
         /** @enum {string} */
         TaskControlKind: "pause" | "resume" | "cancel";
         /** TaskControlReceipt */

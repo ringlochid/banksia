@@ -192,7 +192,7 @@ TaskView
 
 `TaskMemberView` contains opaque navigation identity, title/fallback name, purpose, recursive children, and plain work state such as not started, working, waiting, done, or blocked. It may contain one latest human update and that Member's optional current human-readable Work Plan. It does not contain Assignment, Attempt, Dispatch, Boundary, Wave, configuration revision, provider route, or watchdog fields.
 
-`attention[]` contains actionable human facts such as an open Human Request or an Action whose failure requires a decision. Each item has human copy, relevant member, typed answer/action controls, and legal operation URLs/guards. It is not a raw wait row.
+`attention[]` contains actionable human facts such as an open Human Request or an accepted blocked Result that leaves the person with the next decision. Each item has human copy, relevant member, typed answer/action controls, and legal operation URLs/guards. It is not a raw wait row. A managed Command Run state never becomes attention by itself; its running or terminal outcome remains visible in Commands and semantic Activity.
 
 `actions[]` is the backend-owned legal control set. The browser does not derive pause/resume/cancel/answer/cancel-action legality from controller internals.
 
@@ -252,6 +252,8 @@ Cursor reset triggers silent authoritative refetch. The UI only reports a live u
 ### Managed Command Run -> Action
 
 A controller-managed Command Run appears as one evolving **Action** with a human purpose, member, running/terminal outcome, elapsed time, `View output`, and Cancel only when legal. It does not show argv, cwd, process state, exit code, physical log path, ownership revision, or runtime ID by default.
+
+A failed, timed-out, abandoned, or cancelled Command Run remains part of Commands and semantic Activity. It does not create a `Needs your attention` item unless a separate controller-owned Human Request or Task outcome actually asks the person for a decision.
 
 `View output` opens a scoped contextual view with sanitized bounded tail, search, copy, optional download, and explicit bounded-view/incomplete notices. Routine provider-native shell calls do not become product Activity.
 

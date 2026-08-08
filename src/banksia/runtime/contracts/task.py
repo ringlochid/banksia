@@ -48,7 +48,6 @@ type TaskActivityOutcome = Literal["completed", "blocked", "failed", "cancelled"
 type TaskControlKind = Literal["pause", "resume", "cancel"]
 type TaskAttentionKind = Literal[
     "human_request",
-    "action_failed",
     "blocked_result",
 ]
 type CommandRunProductState = Literal[

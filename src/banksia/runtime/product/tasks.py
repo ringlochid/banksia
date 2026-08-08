@@ -13,7 +13,6 @@ from sqlalchemy.sql.elements import ColumnElement
 
 from banksia.persistence.models import (
     AssignmentModel,
-    CommandRunModel,
     DispatchTurnModel,
     HumanRequestModel,
     TaskModel,
@@ -244,7 +243,6 @@ async def read_product_task(session: AsyncSession, task_id: str) -> TaskView:
     attention = build_task_attention(
         task_id=task_id,
         human_requests=human_requests.items,
-        command_runs=command_runs.items,
         result=result,
     )
     return TaskView(
@@ -401,21 +399,8 @@ def _task_attention_count_expression() -> ColumnElement[int]:
         .correlate(TaskModel)
         .scalar_subquery()
     )
-    failed_command_count = (
-        select(func.count())
-        .select_from(CommandRunModel)
-        .where(
-            CommandRunModel.task_id == TaskModel.task_id,
-            CommandRunModel.state.in_(("failed", "timed_out", "abandoned")),
-        )
-        .correlate(TaskModel)
-        .scalar_subquery()
-    )
-    return (
-        open_request_count
-        + failed_command_count
-        + case((TaskModel.terminal_outcome == "blocked", 1), else_=0)
-    ).label("attention_count")
+    blocked_result_count = case((TaskModel.terminal_outcome == "blocked", 1), else_=0)
+    return (open_request_count + blocked_result_count).label("attention_count")
 
 
 def _task_summary(

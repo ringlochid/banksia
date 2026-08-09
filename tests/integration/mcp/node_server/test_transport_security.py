@@ -150,31 +150,6 @@ async def test_managed_transport_rejects_non_loopback_peer_forged_host_and_origi
     assert allowed_origin.status_code == 200
 
 
-async def test_compatibility_transport_requires_exact_host_origin_without_bearer() -> None:
-    applications, _registry = create_test_node_mcp_apps(RecordingNodeOperationExecutor())
-
-    async with applications.compatibility.router.lifespan_context(applications.compatibility):
-        admitted = await _initialize(applications.compatibility)
-        forged_host = await _initialize(
-            applications.compatibility,
-            headers={"Host": "attacker.example"},
-        )
-        disallowed_origin = await _initialize(
-            applications.compatibility,
-            headers={"Origin": "https://attacker.example"},
-        )
-        allowed_origin = await _initialize(
-            applications.compatibility,
-            headers={"Origin": "http://127.0.0.1:5173"},
-        )
-
-    assert admitted.status_code == 200
-    assert "www-authenticate" not in admitted.headers
-    assert forged_host.status_code == 421
-    assert disallowed_origin.status_code == 403
-    assert allowed_origin.status_code == 200
-
-
 async def test_managed_app_shutdown_revokes_every_issued_binding() -> None:
     applications, registry = create_test_node_mcp_apps(RecordingNodeOperationExecutor())
     first = issue_test_binding(

@@ -74,25 +74,7 @@ async def test_managed_projection_lists_only_binding_scoped_semantic_tools() -> 
         assert "session_key" not in schema["properties"]
 
 
-async def test_compatibility_projection_lists_static_strict_explicit_id_catalog() -> None:
-    applications, _registry = create_test_node_mcp_apps(RecordingNodeOperationExecutor())
-
-    async with node_mcp_client_session(applications.compatibility) as session:
-        tools_result = await session.list_tools()
-
-    assert tool_names(tools_result) == NODE_TOOL_NAMES
-    assert len(NODE_TOOL_NAMES) == len(NODE_OPERATION_CATALOG) == 9
-    assert set(tool_names(tools_result)).isdisjoint(_OPERATOR_ONLY_NAMES)
-    for tool_name in NODE_TOOL_NAMES:
-        schema = tool_input_schema(tools_result, tool_name)
-        assert schema["type"] == "object"
-        assert schema["additionalProperties"] is False
-        assert {"task_id", "dispatch_id"} <= set(schema["required"])
-        assert {"task_id", "dispatch_id"} <= set(schema["properties"])
-        assert "session_key" not in schema["properties"]
-
-
-async def test_managed_and_compatibility_schemas_preserve_semantic_and_result_parity() -> None:
+async def test_managed_schemas_preserve_catalog_semantics_and_results() -> None:
     executor = RecordingNodeOperationExecutor()
     applications, registry = create_test_node_mcp_apps(executor)
     issued = issue_test_binding(
@@ -107,36 +89,20 @@ async def test_managed_and_compatibility_schemas_preserve_semantic_and_result_pa
         headers=managed_headers(issued),
     ) as managed_session:
         managed_tools = await managed_session.list_tools()
-    async with node_mcp_client_session(applications.compatibility) as compatibility_session:
-        compatibility_tools = await compatibility_session.list_tools()
-
-    assert tool_names(managed_tools) == tool_names(compatibility_tools) == NODE_TOOL_NAMES
+    assert tool_names(managed_tools) == NODE_TOOL_NAMES
+    assert len(NODE_TOOL_NAMES) == len(NODE_OPERATION_CATALOG) == 9
     descriptors_by_name = {
         str(descriptor.name): descriptor for descriptor in NODE_OPERATION_CATALOG
     }
     for tool_name in NODE_TOOL_NAMES:
         managed_schema = tool_input_schema(managed_tools, tool_name)
-        compatibility_schema = tool_input_schema(compatibility_tools, tool_name)
-        compatibility_properties = dict(compatibility_schema["properties"])
-        compatibility_properties.pop("task_id")
-        compatibility_properties.pop("dispatch_id")
-        compatibility_required = set(compatibility_schema.get("required", ())) - {
-            "task_id",
-            "dispatch_id",
-        }
-
-        assert compatibility_properties == managed_schema["properties"]
-        assert compatibility_required == set(managed_schema.get("required", ()))
-        assert tool_output_schema(compatibility_tools, tool_name) == tool_output_schema(
-            managed_tools,
-            tool_name,
-        )
+        assert managed_schema["type"] == "object"
+        assert managed_schema["additionalProperties"] is False
+        assert "task_id" not in managed_schema["properties"]
+        assert "dispatch_id" not in managed_schema["properties"]
+        assert tool_output_schema(managed_tools, tool_name) is not None
         assert (
             tool_description(managed_tools, tool_name) == descriptors_by_name[tool_name].description
-        )
-        assert (
-            tool_description(compatibility_tools, tool_name)
-            == descriptors_by_name[tool_name].description
         )
 
     delegate_description = tool_description(managed_tools, "delegate")
@@ -162,17 +128,13 @@ async def test_replan_projections_hide_recursive_controller_guardrails() -> None
         headers=managed_headers(issued),
     ) as managed_session:
         managed_tools = await managed_session.list_tools()
-    async with node_mcp_client_session(applications.compatibility) as compatibility_session:
-        compatibility_tools = await compatibility_session.list_tools()
-
     expected_children_fields = {"add_child": 1, "update_child": 3}
-    for tools in (managed_tools, compatibility_tools):
-        for operation in replan_operations:
-            schema = tool_input_schema(tools, operation.value)
-            _assert_no_hidden_replan_guardrails(schema)
-            children_fields = _collect_property_schemas(schema, "children")
-            assert len(children_fields) == expected_children_fields[operation.value]
-            assert all("maxItems" not in field for field in children_fields)
+    for operation in replan_operations:
+        schema = tool_input_schema(managed_tools, operation.value)
+        _assert_no_hidden_replan_guardrails(schema)
+        children_fields = _collect_property_schemas(schema, "children")
+        assert len(children_fields) == expected_children_fields[operation.value]
+        assert all("maxItems" not in field for field in children_fields)
 
 
 async def test_work_message_file_limits_are_hidden_from_tool_schemas() -> None:
@@ -225,7 +187,7 @@ async def test_managed_human_request_schema_exposes_only_allowed_kinds() -> None
     }
 
 
-async def test_both_projections_call_one_executor_with_the_same_semantic_arguments() -> None:
+async def test_managed_projection_calls_the_executor_with_semantic_arguments() -> None:
     response = SetWorkPlanResponse(changed=False, plan=None)
     executor = RecordingNodeOperationExecutor(
         results_by_name={NodeOperationName.SET_WORK_PLAN: response}
@@ -247,31 +209,14 @@ async def test_both_projections_call_one_executor_with_the_same_semantic_argumen
             "set_work_plan",
             {},
         )
-    async with node_mcp_client_session(applications.compatibility) as compatibility_session:
-        compatibility_result = await call_tool_structured(
-            compatibility_session,
-            "set_work_plan",
-            {
-                "task_id": "task.call-parity",
-                "dispatch_id": "dispatch.call-parity",
-            },
-        )
-
-    assert managed_result == compatibility_result == response.model_dump(mode="json")
+    assert managed_result == response.model_dump(mode="json")
     assert [call.scope.model_dump(mode="json") for call in executor.calls] == [
         {
             "task_id": "task.call-parity",
             "dispatch_id": "dispatch.call-parity",
         },
-        {
-            "task_id": "task.call-parity",
-            "dispatch_id": "dispatch.call-parity",
-        },
     ]
-    assert [call.arguments for call in executor.calls] == [
-        {},
-        {},
-    ]
+    assert [call.arguments for call in executor.calls] == [{}]
 
 
 async def test_concurrent_managed_clients_keep_scope_and_tool_ceiling_isolated() -> None:

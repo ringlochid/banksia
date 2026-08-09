@@ -128,6 +128,10 @@ async def continue_task(
         expected_control_revision=expected_control_revision,
         allowed_statuses={"paused"},
     )
+    if task.pause_reason == "provider_retired":
+        raise _task_control_conflict(
+            "the current Team selects retired provider OpenClaw and cannot be resumed"
+        )
     await continue_paused_task(
         session,
         task_id=task_id,

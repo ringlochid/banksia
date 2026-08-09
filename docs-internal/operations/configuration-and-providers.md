@@ -21,7 +21,7 @@ The TOML owners are:
 - `[database]`: URL, dedicated PostgreSQL schema, and echo setting;
 - `[server]`: loopback host, port, and exact development Console origins;
 - `[logging]`: level;
-- `[codex]`, `[claude]`, and `[openclaw]`: enabled state plus nonsecret route settings;
+- `[codex]` and `[claude]`: enabled state plus nonsecret route settings;
 - `[operator]`: explicit Operator provider plus optional model and effort; and
 - `[runtime]`: default provider, concurrency and retry bounds, managed sandbox ceiling, provider-start retry, and watchdog settings.
 
@@ -51,7 +51,7 @@ The optional support API is a separate nonbrowser boundary. It is mounted only w
 
 ## Provider configuration and selection
 
-Codex and Claude are managed provider integrations. OpenClaw is an explicitly selected, user-managed compatibility integration. `banksia providers configure` enables one route and fills `runtime.default_provider` only when the default is empty. Configuring another provider preserves the existing default. `banksia providers set-default` is the only operation that replaces it.
+Codex and Claude are the complete active provider catalog. `banksia providers configure` enables one route and fills `runtime.default_provider` when the default is empty or names the retired OpenClaw route. Configuring another active provider preserves an existing active default. `banksia providers set-default` is the only ordinary operation that replaces it.
 
 Each Dispatch resolves exactly one provider:
 
@@ -61,9 +61,9 @@ Each Dispatch resolves exactly one provider:
 
 Banksia never scans for a fallback provider after selection. Authentication, reachability, start rejection, timeout, and uncertain acceptance do not change the route; the same committed Dispatch retries with bounded exponential delay.
 
-Provider availability and platform support are separate facts. Banksia offers every pinned Codex, Claude, and OpenClaw route on every host documented by that integration. It does not maintain a second OS denylist, remove a route after a failed diagnostic, or rewrite a saved route to obtain readiness. A check may report separately that the integration is installed, authenticated, reachable, and able to honor the exact requested sandbox/network configuration. An unsupported exact configuration fails before provider work begins with an actionable explanation; it never silently widens sandbox/network access or falls back to another provider.
+Provider availability and platform support are separate facts. Banksia offers every pinned Codex and Claude route on every host documented by that integration. It does not maintain a second OS denylist, remove a route after a failed diagnostic, or rewrite a saved route to obtain readiness. A check may report separately that the integration is installed, authenticated, reachable, and able to honor the exact requested sandbox/network configuration. An unsupported exact configuration fails before provider work begins with an actionable explanation; it never silently widens sandbox/network access or falls back to another provider.
 
-Workflow provider settings remain portable: managed providers may request model, effort, a legal sandbox/network pair, and `extension_mode`. Credentials, executable paths, provider homes, endpoints, sessions, and fallback lists stay machine-local. OpenClaw authoring accepts only its provider kind.
+Workflow provider settings remain portable: providers may request model, effort, a legal sandbox/network pair, and `extension_mode`. Credentials, executable paths, provider homes, endpoints, sessions, and fallback lists stay machine-local.
 
 ## Provider status, checks, and identity
 
@@ -75,13 +75,15 @@ Bare `banksia`, `banksia status`, and `banksia providers status` are passive. Th
 
 Interactive `operator setup` defaults to the saved Operator provider, not a hard-coded provider. Keeping the same provider and declining override changes preserves the saved model and effort. Choosing to edit them uses the current values as defaults and accepts `-` as an explicit return to the provider default. Changing provider does not carry provider-specific overrides to the new route unless the user explicitly supplies replacements. A no-op reports **Operator already configured** and offers, rather than forces, the shared provider readiness diagnostic. A changed selection runs that diagnostic. Diagnostic failure is “needs attention” and does not erase or disable the accepted selection.
 
-Provider configuration and identity mutation are CLI-owned. Codex and Claude support subscription and API-key identity flows; OpenClaw supports a selected Gateway token or password. When a check finds a working credential, guided setup first offers to keep it; only declining that confirmation opens authentication-method selection or replacement. The config-adjacent `banksia.env` file may contain only `ANTHROPIC_API_KEY`, `OPENCLAW_GATEWAY_TOKEN`, or `OPENCLAW_GATEWAY_PASSWORD`. It is owner-only, rejects unrelated assignments, and keeps the two OpenClaw credentials mutually exclusive.
+Provider configuration and identity mutation are CLI-owned. Codex and Claude support subscription and API-key identity flows. When a check finds a working credential, guided setup first offers to keep it; only declining that confirmation opens authentication-method selection or replacement. The config-adjacent `banksia.env` file may contain only `ANTHROPIC_API_KEY`. It is owner-only and rejects unrelated assignments.
 
 ## Adapter boundary
 
 One committed current Dispatch supplies exact instruction and input strings, workspace, resolved provider configuration, and allowed Task-member tools to one adapter start. Adapters do not rerender requests or interpret provider output as completion.
 
-Managed Codex and Claude starts receive an ephemeral Dispatch-scoped Node MCP binding and exact tool ceiling. The credential is injected for that invocation, never written to user configuration, and revoked when Dispatch authority ends. OpenClaw uses the explicit-ID `/node/mcp` compatibility projection configured by the user; Banksia does not edit `openclaw.json` or weaken its sandbox, tool, execution, or approval policy.
+Codex and Claude starts receive an ephemeral Dispatch-scoped Node MCP binding and exact tool ceiling. The credential is injected for that invocation, never written to user configuration, and revoked when Dispatch authority ends. Banksia exposes no user-configured Node MCP compatibility projection.
+
+A stale `[openclaw]` section is ignored and removed the next time guided setup rewrites provider configuration. A stale `runtime.default_provider = "openclaw"` is not rerouted silently: authoring reports no usable default and execution rejects the route until setup selects Codex or Claude. Banksia never mutates an external OpenClaw installation or state directory.
 
 Managed-provider authentication state is not an instruction or extension source. A managed Task preserves the provider's supported native authentication location and resolves one requested and effective Skill/MCP extension mode. `inherit` admits enabled user and project Skills plus configured MCP servers only for effective `full_access` plus network `allow`; every narrower Dispatch is automatically isolated. Operator is always isolated. Banksia never rewrites a user's provider configuration to obtain either mode.
 

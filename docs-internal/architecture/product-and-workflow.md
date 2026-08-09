@@ -112,7 +112,7 @@ The schema repeats the Member and provider shapes recursively, so it names them 
 
 ## Provider configuration
 
-`provider.kind` is the closed adapter discriminator. `name` is not used because Codex, Claude, and OpenClaw are implementation kinds, while title is human display text and model is provider-native selection.
+`provider.kind` is the closed adapter discriminator. `name` is not used because Codex and Claude are implementation kinds, while title is human display text and model is provider-native selection.
 
 Managed providers:
 
@@ -136,14 +136,7 @@ Rules:
 - The Workflow contains no credentials, endpoint, executable, environment, provider home, CLI arguments, session IDs, or fallback routes.
 - Controller/deployment enforcement can narrow a request and every Dispatch records the exact requested/resolved provider configuration and provenance.
 
-OpenClaw is deliberately narrower:
-
-```yaml
-provider:
-  kind: openclaw
-```
-
-The user must disable or configure the OpenClaw sandbox and expose the selected workspace correctly through externally managed `openclaw.json`. Banksia does not inspect, detect, validate, mutate, or provide a managed-file fallback for that configuration.
+Existing immutable Workflow revisions or drafts may still contain the retired `openclaw` discriminator. That value is readback-only historical truth. It is not present in authoring options, cannot be supplied by an import or mutation, and makes the draft invalid until the affected Member selects Codex, Claude, or no explicit provider. Banksia never rewrites the old value automatically.
 
 ## Built-in capabilities
 

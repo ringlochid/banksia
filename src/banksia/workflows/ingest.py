@@ -16,6 +16,7 @@ from banksia.workflows.errors import (
     WorkflowValidationIssue,
     workflow_input_error,
 )
+from banksia.workflows.provider_retirement import require_active_providers
 
 MAX_RAW_BYTES = 1024 * 1024
 MAX_COLLECTION_DEPTH = 32
@@ -86,6 +87,7 @@ def _normalize_validated_workflow_object(payload: object) -> NormalizedWorkflow:
     except ValidationError as exc:
         raise WorkflowInputError(*_pydantic_issues(exc)) from exc
     _validate_workflow_semantics(workflow)
+    require_active_providers(workflow)
     return workflow
 
 

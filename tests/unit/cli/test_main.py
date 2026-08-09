@@ -160,7 +160,7 @@ def test_main_redacts_invalid_configuration_inputs_even_with_debug(
 ) -> None:
     with pytest.raises(ValidationError) as captured:
         Settings.model_validate(
-            {"openclaw": {"gateway_token": "must-not-appear"}},
+            {"claude": {"api_key": "must-not-appear"}},
         )
 
     def _boom(_args: Sequence[str]) -> NoReturn:
@@ -173,7 +173,7 @@ def test_main_redacts_invalid_configuration_inputs_even_with_debug(
     output = capsys.readouterr().out
     assert result == 1
     assert "Configuration invalid" in output
-    assert "openclaw.gateway_token" in output
+    assert "claude.api_key" in output
     assert "Extra inputs are not permitted" in output
     assert "must-not-appear" not in output
     assert "input_value" not in output

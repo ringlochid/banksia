@@ -101,10 +101,6 @@ def _canonical_contract_naming_exceptions() -> frozenset[tuple[Path, str]]:
         (ROOT / "src/banksia/config.py", "enabled"),
         (ROOT / "src/banksia/config.py", "value_is_complex"),
         (ROOT / "src/banksia/operator/contracts.py", "allow_skip"),
-        (
-            ROOT / "src/banksia/integrations/openclaw/gateway/adapter.py",
-            "check",
-        ),
         (ROOT / "src/banksia/persistence/datetimes.py", "cache_ok"),
         (
             ROOT / "src/banksia/persistence/datetimes.py",

@@ -114,9 +114,7 @@ watchdog_same_attempt_replacement_limit = 3
     assert settings.codex.model == "gpt-5"
     assert settings.codex.effort == "high"
     assert settings.claude.enabled is False
-    assert settings.openclaw.enabled is True
-    assert settings.openclaw.gateway_url == "wss://gateway.example.test/banksia"
-    assert settings.openclaw.gateway_profile == "tested-local"
+    assert not hasattr(settings, "openclaw")
     assert settings.operator.provider == "claude"
     assert settings.operator.model == "claude-operator"
     assert settings.operator.effort is None
@@ -195,8 +193,6 @@ watchdog_inactivity_timeout_seconds = 1200
     monkeypatch.setenv("BANKSIA_DATABASE_ECHO", "true")
     monkeypatch.setenv("BANKSIA_API_HOST", "::1")
     monkeypatch.setenv("BANKSIA_API_PORT", "9001")
-    monkeypatch.setenv("BANKSIA_OPENCLAW__GATEWAY_URL", "wss://gateway.example.test")
-    monkeypatch.setenv("BANKSIA_OPENCLAW__GATEWAY_PROFILE", "environment-profile")
     monkeypatch.setenv("BANKSIA_OPERATOR__PROVIDER", "codex")
     monkeypatch.setenv("BANKSIA_OPERATOR__MODEL", "gpt-operator")
     monkeypatch.setenv("BANKSIA_OPERATOR__EFFORT", "medium")
@@ -221,8 +217,7 @@ watchdog_inactivity_timeout_seconds = 1200
     assert settings.api_port == 9001
     assert settings.config_path == config_path
     assert settings.controller_workspace == environment_workspace.resolve()
-    assert settings.openclaw.gateway_url == "wss://gateway.example.test"
-    assert settings.openclaw.gateway_profile == "environment-profile"
+    assert not hasattr(settings, "openclaw")
     assert settings.operator.provider == "codex"
     assert settings.operator.model == "gpt-operator"
     assert settings.operator.effort == "medium"
@@ -422,7 +417,7 @@ def test_removed_runtime_key_fails_fast(
         config_module.get_settings()
 
 
-@pytest.mark.parametrize("section_name", ["codex", "claude", "openclaw", "operator", "runtime"])
+@pytest.mark.parametrize("section_name", ["codex", "claude", "operator", "runtime"])
 def test_structured_config_sections_reject_non_table_values(
     monkeypatch: MonkeyPatch,
     tmp_path: Path,

@@ -127,7 +127,6 @@ def config_sections_to_text(payload: ConfigSections) -> str:
         "logging",
         "codex",
         "claude",
-        "openclaw",
         "operator",
         "runtime",
     )

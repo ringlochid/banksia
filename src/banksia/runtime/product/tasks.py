@@ -274,7 +274,7 @@ def task_control_actions(task: ControllerTaskState) -> tuple[ProductAction, ...]
     if task.status.value == "running":
         kinds = ("pause", "cancel")
     elif task.status.value == "paused":
-        kinds = ("resume", "cancel")
+        kinds = ("cancel",) if task.pause_reason == "provider_retired" else ("resume", "cancel")
     else:
         kinds = ()
     return tuple(_task_control_action(task, kind=kind) for kind in kinds)

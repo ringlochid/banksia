@@ -17,7 +17,11 @@ export type ProviderSandbox = components["schemas"]["ProviderSandbox"];
 export type ProviderSelection =
     | components["schemas"]["CodexProviderSelection"]
     | components["schemas"]["ClaudeProviderSelection"]
-    | components["schemas"]["OpenClawProviderSelection"];
+    | components["schemas"]["RetiredOpenClawProviderSelection"];
+export type AuthoredProviderSelection = Exclude<
+    ProviderSelection,
+    components["schemas"]["RetiredOpenClawProviderSelection"]
+>;
 export type WorkflowAuthoringOptions =
     components["schemas"]["WorkflowAuthoringOptions"];
 export type WorkflowDraftDiscardResult =

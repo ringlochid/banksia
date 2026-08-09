@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import re
 from datetime import UTC, datetime
-from secrets import token_urlsafe
 from typing import Any, cast
 
 from sqlalchemy import Table, delete, select, update
@@ -27,6 +25,12 @@ from banksia.workflows.authoring_contracts import (
     WorkflowDraftValidationResult,
     WorkflowRemovalResult,
 )
+from banksia.workflows.authoring_identifiers import (
+    new_workflow_draft_etag,
+    new_workflow_draft_id,
+    new_workflow_undo_receipt_id,
+    next_workflow_member_sequence,
+)
 from banksia.workflows.canonical import canonical_workflow_hash
 from banksia.workflows.catalog import read_published_workflow_revision
 from banksia.workflows.contracts import (
@@ -44,6 +48,7 @@ from banksia.workflows.library import (
     map_workflow_draft_readback,
     read_workflow_catalog_entry,
     read_workflow_draft,
+    reload_workflow_draft,
     search_workflow_catalog,
 )
 from banksia.workflows.operations import (
@@ -51,6 +56,7 @@ from banksia.workflows.operations import (
     build_new_workflow,
     edit_normalized_workflow,
 )
+from banksia.workflows.provider_retirement import retired_provider_issues
 from banksia.workflows.publication import acquire_workflow_owner, publish_workflow_revision
 from banksia.workflows.service_errors import (
     WorkflowDraftConflictError,
@@ -158,8 +164,12 @@ async def validate_workflow_draft(
     draft_id: str,
 ) -> WorkflowDraftValidationResult:
     draft = await read_workflow_draft(session, draft_id=draft_id)
-    normalize_workflow_object(draft.workflow.model_dump(mode="json", exclude_none=True))
-    return WorkflowDraftValidationResult(is_valid=True, draft=draft)
+    issues = retired_provider_issues(draft.workflow)
+    return WorkflowDraftValidationResult(
+        is_valid=not issues,
+        issues=issues,
+        draft=draft,
+    )
 
 
 async def undo_workflow_draft(
@@ -185,7 +195,7 @@ async def undo_workflow_draft(
         expected_workflow_id=row.workflow_key,
         source="Workflow undo receipt",
     )
-    new_etag = _etag()
+    new_etag = new_workflow_draft_etag()
     consumed = await session.execute(
         update(WorkflowUndoReceiptModel)
         .where(
@@ -214,7 +224,7 @@ async def undo_workflow_draft(
         if current is None:
             raise WorkflowNotFoundError(f"Workflow draft {draft_id!r} does not exist")
         raise WorkflowStaleDraftError(map_workflow_draft_readback(current))
-    return await _reload_draft(session, draft_id=draft_id)
+    return await reload_workflow_draft(session, draft_id=draft_id)
 
 
 async def discard_workflow_draft(
@@ -321,8 +331,8 @@ async def _replace_draft_content(
     previous_etag = row.etag
     previous_content_hash = row.content_hash
     previous_content_json = row.content_json
-    next_etag = _etag()
-    receipt_id = _opaque_id("workflow-undo")
+    next_etag = new_workflow_draft_etag()
+    receipt_id = new_workflow_undo_receipt_id()
     changed = await session.execute(
         update(WorkflowDraftModel)
         .where(
@@ -335,7 +345,7 @@ async def _replace_draft_content(
             etag=next_etag,
             next_member_sequence=max(
                 row.next_member_sequence,
-                next_member_sequence or _next_member_sequence(workflow),
+                next_member_sequence or next_workflow_member_sequence(workflow),
             ),
         )
     )
@@ -440,13 +450,13 @@ async def _insert_workflow_draft(
     base_revision_no: int | None,
 ) -> WorkflowDraftReadback:
     row = WorkflowDraftModel(
-        draft_id=_opaque_id("workflow-draft"),
+        draft_id=new_workflow_draft_id(),
         workflow_key=workflow.id,
         base_revision_no=base_revision_no,
         content_hash=canonical_workflow_hash(workflow),
         content_json=workflow.model_dump(mode="json", exclude_none=True),
-        etag=_etag(),
-        next_member_sequence=_next_member_sequence(workflow),
+        etag=new_workflow_draft_etag(),
+        next_member_sequence=next_workflow_member_sequence(workflow),
     )
     try:
         async with session.begin_nested():
@@ -572,41 +582,6 @@ async def _lock_sqlite_draft_rows(
         .where(where_clause)
         .values(draft_id=table.c.draft_id, updated_at=table.c.updated_at)
     )
-
-
-async def _reload_draft(session: AsyncSession, *, draft_id: str) -> WorkflowDraftReadback:
-    row = await session.get(WorkflowDraftModel, draft_id)
-    if row is None:  # pragma: no cover - caller owns the row
-        raise WorkflowNotFoundError(f"Workflow draft {draft_id!r} does not exist")
-    await session.refresh(row)
-    return map_workflow_draft_readback(row)
-
-
-def _etag() -> str:
-    return f'"wd-{token_urlsafe(24)}"'
-
-
-def _opaque_id(prefix: str) -> str:
-    return f"{prefix}.{token_urlsafe(24)}"
-
-
-def _next_member_sequence(workflow: NormalizedWorkflow) -> int:
-    highest_sequence = 0
-
-    def visit(member: object) -> None:
-        nonlocal highest_sequence
-        if not isinstance(member, dict):
-            return
-        member_id = member.get("id")
-        if isinstance(member_id, str) and (match := re.fullmatch(r"member-(\d+)", member_id)):
-            highest_sequence = max(highest_sequence, int(match.group(1)))
-        children = member.get("children", ())
-        if isinstance(children, (list, tuple)):
-            for child in children:
-                visit(child)
-
-    visit(workflow.lead.model_dump(mode="json", exclude_none=True))
-    return highest_sequence + 1
 
 
 __all__ = [

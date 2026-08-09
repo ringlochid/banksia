@@ -147,7 +147,7 @@ These three YAML definitions are maintained schema and authoring references. The
 | --- | --- |
 | [`advanced-reviewed-code-change.yaml`](advanced-reviewed-code-change.yaml) | Codex owns lead, management, and code responsibilities; Claude owns focused tests and read-only review. The lead can open Human Requests, and the implementation manager can create managed Command Runs. |
 | [`advanced-cross-layer-delivery.yaml`](advanced-cross-layer-delivery.yaml) | Codex owns the lead, delivery manager, and service layer; Claude owns read-only contract and integration review plus the write-capable experience layer. Network and capability grants differ by responsibility. |
-| [`advanced-technical-decision.yaml`](advanced-technical-decision.yaml) | Claude leads and challenges the decision, Codex inspects local fit read-only, and an externally configured OpenClaw route researches current upstream sources. Banksia does not configure or verify that external OpenClaw access. |
+| [`advanced-technical-decision.yaml`](advanced-technical-decision.yaml) | Claude leads and challenges the decision while Codex separately inspects local fit and researches current primary sources under distinct read-only network boundaries. |
 
 Inspect every provider, sandbox, network, and capability choice before import. Provider and capability settings apply only to the Member where they appear; children do not inherit them.
 

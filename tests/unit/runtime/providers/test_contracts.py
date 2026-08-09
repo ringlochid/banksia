@@ -14,12 +14,8 @@ from banksia.providers import (
     ProviderKind,
     ProviderNativeAccess,
 )
-from banksia.runtime.contracts.provider_resolution import (
-    CodexProviderRoute,
-    OpenClawProviderRoute,
-)
+from banksia.runtime.contracts.provider_resolution import CodexProviderRoute
 from banksia.runtime.providers.contracts import (
-    CompatibilityNodeMcpConnection,
     DispatchStartRequest,
     ManagedNodeMcpConnection,
     ProviderCheckResult,
@@ -47,23 +43,22 @@ def test_managed_connection_redacts_credential_and_requires_loopback() -> None:
         )
 
 
-def test_dispatch_start_request_requires_provider_projection() -> None:
-    with pytest.raises(ValidationError, match="managed providers require"):
-        DispatchStartRequest(
-            task_id="task-1",
-            dispatch_id="dispatch-1",
-            provider_start_revision=0,
-            working_directory=Path("/tmp/workspace"),
-            instructions="instructions",
-            input="input",
-            provider_route=CodexProviderRoute(kind=ProviderKind.CODEX),
-            provider_native_access=ProviderNativeAccess.FULL,
-            network_access=NetworkAccess.ALLOW,
-            sandbox_mode=ManagedSandboxMode.FULL_ACCESS,
-            extension_mode=ManagedExtensionMode.INHERIT,
-            compatibility_node_mcp=CompatibilityNodeMcpConnection(
-                url="http://127.0.0.1:8123/node/mcp"
-            ),
+def test_dispatch_start_request_requires_managed_connection_and_strict_text() -> None:
+    with pytest.raises(ValidationError, match="managed_node_mcp"):
+        DispatchStartRequest.model_validate(
+            {
+                "task_id": "task-1",
+                "dispatch_id": "dispatch-1",
+                "provider_start_revision": 0,
+                "working_directory": Path("/tmp/workspace"),
+                "instructions": "instructions",
+                "input": "input",
+                "provider_route": CodexProviderRoute(kind=ProviderKind.CODEX),
+                "provider_native_access": ProviderNativeAccess.FULL,
+                "network_access": NetworkAccess.ALLOW,
+                "sandbox_mode": ManagedSandboxMode.FULL_ACCESS,
+                "extension_mode": ManagedExtensionMode.INHERIT,
+            }
         )
 
     request = DispatchStartRequest(
@@ -73,16 +68,19 @@ def test_dispatch_start_request_requires_provider_projection() -> None:
         working_directory=Path("/tmp/workspace"),
         instructions="instructions",
         input="input",
-        provider_route=OpenClawProviderRoute(
-            kind=ProviderKind.OPENCLAW,
-            gateway_profile="default",
-        ),
+        provider_route=CodexProviderRoute(kind=ProviderKind.CODEX),
         provider_native_access=ProviderNativeAccess.FULL,
         network_access=NetworkAccess.ALLOW,
-        compatibility_node_mcp=CompatibilityNodeMcpConnection(url="http://127.0.0.1:8123/node/mcp"),
+        sandbox_mode=ManagedSandboxMode.FULL_ACCESS,
+        extension_mode=ManagedExtensionMode.INHERIT,
+        managed_node_mcp=ManagedNodeMcpConnection(
+            url="http://127.0.0.1:8123/_internal/node/mcp",
+            bearer_token=SecretStr("dispatch-secret"),
+            enabled_tools=("checkpoint",),
+        ),
     )
 
-    assert request.compatibility_node_mcp is not None
+    assert request.managed_node_mcp.enabled_tools == ("checkpoint",)
     invalid_lanes = request.model_dump()
     invalid_lanes["instructions"] = b"implicit decoding is forbidden"
     with pytest.raises(ValidationError, match="valid string"):

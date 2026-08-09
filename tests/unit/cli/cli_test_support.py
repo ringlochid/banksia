@@ -73,11 +73,7 @@ def build_provider_check_snapshot(
     authentication_method: ProviderAuthenticationMethod | None = None,
 ) -> ProviderCheckSnapshot:
     if is_ready and authentication_method is None:
-        authentication_method = (
-            ProviderAuthenticationMethod.TOKEN
-            if provider is ProviderKind.OPENCLAW
-            else ProviderAuthenticationMethod.SUBSCRIPTION
-        )
+        authentication_method = ProviderAuthenticationMethod.SUBSCRIPTION
     return ProviderCheckSnapshot(
         kind=provider,
         outcome=outcome,

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import subprocess
-import tomllib
 from pathlib import Path
 
 import pytest
@@ -16,8 +15,6 @@ from banksia.interfaces.cli.providers.contracts import ProviderIdentityOutcome
 from banksia.interfaces.cli.providers.identity import invoke_provider_identity_action
 from banksia.platform.provider_environment import (
     ANTHROPIC_API_KEY,
-    OPENCLAW_GATEWAY_PASSWORD,
-    OPENCLAW_GATEWAY_TOKEN,
     read_provider_secret_environment,
 )
 from banksia.providers import ProviderKind
@@ -112,46 +109,6 @@ def test_claude_subscription_identity_uses_sdk_bundled_native_login(
     assert read_provider_secret_environment(tmp_path / "banksia.env") == {}
 
 
-def test_openclaw_token_identity_uses_private_service_environment(tmp_path: Path) -> None:
-    snapshot = invoke_provider_identity_action(
-        ProviderKind.OPENCLAW,
-        "login",
-        is_json_output=True,
-        config_path=tmp_path / "config.toml",
-        authentication_method=ProviderAuthenticationMethod.TOKEN,
-        secret="gateway-secret",
-    )
-
-    assert snapshot.outcome == ProviderIdentityOutcome.SUCCEEDED
-    assert read_provider_secret_environment(tmp_path / "banksia.env") == {
-        OPENCLAW_GATEWAY_TOKEN: "gateway-secret"
-    }
-    assert "gateway-secret" not in snapshot.model_dump_json()
-
-
-def test_openclaw_login_requires_route_before_reading_or_saving_secret(tmp_path: Path) -> None:
-    config_path = tmp_path / "config.toml"
-
-    result = CliRunner().invoke(
-        build_parser(),
-        [
-            "providers",
-            "login",
-            "openclaw",
-            "--config",
-            str(config_path),
-            "--method",
-            "token",
-            "--secret-stdin",
-        ],
-        input="gateway-secret\n",
-    )
-
-    assert result.exit_code != 0
-    assert "Configure the OpenClaw Gateway route" in result.output
-    assert not (tmp_path / "banksia.env").exists()
-
-
 def test_provider_login_cli_reads_claude_api_key_from_stdin_without_echo(
     tmp_path: Path,
 ) -> None:
@@ -207,43 +164,8 @@ def test_provider_login_rejects_method_owned_by_another_provider(tmp_path: Path)
     )
 
     assert result.exit_code != 0
-    assert "Claude authentication uses subscription or api-key" in result.output
+    assert "'token' is not one of 'subscription', 'api-key'" in result.output
     assert not (tmp_path / "banksia.env").exists()
-
-
-def test_provider_login_cli_keeps_openclaw_auth_mode_and_secret_consistent(
-    tmp_path: Path,
-) -> None:
-    config_path = tmp_path / "config.toml"
-    configure_provider(
-        config_path,
-        ProviderConfigurationRequest(provider=ProviderKind.OPENCLAW),
-    )
-
-    result = CliRunner().invoke(
-        build_parser(),
-        [
-            "providers",
-            "login",
-            "openclaw",
-            "--config",
-            str(config_path),
-            "--method",
-            "password",
-            "--secret-stdin",
-        ],
-        input="gateway-password\n",
-    )
-
-    assert result.exit_code == 0, result.output
-    assert "gateway-password" not in result.output
-    assert (
-        tomllib.loads(config_path.read_text(encoding="utf-8"))["openclaw"]["gateway_auth_mode"]
-        == "password"
-    )
-    assert read_provider_secret_environment(tmp_path / "banksia.env") == {
-        OPENCLAW_GATEWAY_PASSWORD: "gateway-password"
-    }
 
 
 def test_noninteractive_provider_login_requires_an_explicit_method(tmp_path: Path) -> None:

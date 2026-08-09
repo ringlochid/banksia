@@ -111,6 +111,7 @@ export function catalogFixture(
         updated_at: "2026-07-25T05:00:00Z",
         provenance: "starter_seed",
         published_revision_no: published ? 1 : null,
+        has_retired_provider_selection: false,
         available_actions: published ? ["edit", "start_run"] : ["edit"],
         published: published
             ? {
@@ -142,6 +143,7 @@ export function searchItemFixture(
         updated_at: "2026-07-25T05:00:00Z",
         provenance: "starter_seed",
         published_revision_no: 1,
+        has_retired_provider_selection: false,
         available_actions: ["edit", "start_run", "remove"],
         ...overrides,
     };

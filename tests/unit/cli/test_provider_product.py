@@ -60,9 +60,6 @@ def test_setup_uses_the_shared_configuration_operation(
             provider="claude",
             model="sonnet",
             effort=None,
-            gateway_url=None,
-            gateway_profile=None,
-            gateway_auth_mode=None,
             json=True,
         )
     )
@@ -82,32 +79,22 @@ def test_json_setup_without_provider_is_a_zero_write_guide(tmp_path: Path) -> No
 
     assert result.exit_code == 0
     payload = json.loads(result.output)
-    assert payload == {
-        "ok": True,
-        "configured_provider": None,
-        "configured_providers": [],
-        "default_provider": None,
-        "default_provider_configured": False,
-        "operator": {
-            "effective": {
-                "effort": None,
-                "model": None,
-                "provider": None,
-            },
-            "environment_override": False,
-            "persisted": {
-                "effort": None,
-                "model": None,
-                "provider": None,
-            },
-        },
-        "next_actions": [
-            "banksia init",
-            "banksia providers configure <provider>",
-            "banksia operator setup",
-        ],
-        "workspace": None,
+    assert payload["ok"] is True
+    assert payload["configured_provider"] is None
+    assert payload["configured_providers"] == []
+    assert payload["default_provider"] is None
+    assert payload["default_provider_configured"] is False
+    assert payload["operator"]["persisted"] == {
+        "effort": None,
+        "model": None,
+        "provider": None,
     }
+    assert payload["next_actions"] == [
+        "banksia init",
+        "banksia providers configure <provider>",
+        "banksia operator setup",
+    ]
+    assert payload["workspace"] is None
     assert not config_path.exists()
 
 

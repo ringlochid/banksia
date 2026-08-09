@@ -7,12 +7,7 @@ from typing import Any
 
 import click
 
-from banksia.config import (
-    OpenClawGatewayAuthMode,
-    OperatorSettings,
-    Settings,
-    load_settings,
-)
+from banksia.config import OperatorSettings, Settings, load_settings
 from banksia.interfaces.cli.bootstrap.config import read_config_sections
 from banksia.interfaces.cli.providers import (
     ProviderConfigurationRequest,
@@ -24,7 +19,6 @@ from banksia.interfaces.cli.providers import (
     configure_provider,
     invoke_provider_identity_action,
     set_default_provider,
-    set_openclaw_gateway_auth_mode,
 )
 from banksia.interfaces.cli.providers.contracts import (
     ProviderConfigurationSnapshot,
@@ -47,7 +41,7 @@ from banksia.interfaces.cli.support import (
     service_provider_check_env,
     service_provider_identity_env,
 )
-from banksia.providers import ProviderKind
+from banksia.providers import ACTIVE_PROVIDER_KINDS, ProviderKind
 from banksia.runtime.providers import ProviderAuthenticationMethod
 
 
@@ -113,8 +107,6 @@ def cmd_providers_set_default(args: argparse.Namespace) -> int:
 def cmd_providers_identity(args: argparse.Namespace, action: str) -> int:
     provider = ProviderKind(args.provider)
     config_path = coerce_path(args.config)
-    if action == "login" and provider is ProviderKind.OPENCLAW:
-        _require_configured_openclaw_route(config_path)
     can_prompt = not args.json and sys.stdin.isatty() and sys.stdout.isatty()
     authentication_method = (
         _resolve_identity_method(
@@ -142,16 +134,6 @@ def cmd_providers_identity(args: argparse.Namespace, action: str) -> int:
             config_path=config_path,
             authentication_method=authentication_method,
             secret=secret,
-        )
-    if (
-        action == "login"
-        and provider is ProviderKind.OPENCLAW
-        and authentication_method is not None
-        and snapshot.outcome == ProviderIdentityOutcome.SUCCEEDED
-    ):
-        set_openclaw_gateway_auth_mode(
-            config_path,
-            OpenClawGatewayAuthMode(authentication_method.value),
         )
     payload = {
         "ok": snapshot.outcome == ProviderIdentityOutcome.SUCCEEDED,
@@ -210,7 +192,7 @@ def build_setup_guide(config_path: Path, settings: Settings) -> dict[str, Any]:
     persisted_sections = read_config_sections(config_path)
     persisted = tuple(
         provider
-        for provider in ProviderKind
+        for provider in ACTIVE_PROVIDER_KINDS
         if persisted_sections.get(provider.value, {}).get("enabled") is True
     )
     default_provider = settings.runtime.default_provider
@@ -296,10 +278,6 @@ def provider_configuration_request_from_args(
         model=getattr(args, "model", None),
         effort=getattr(args, "effort", None),
         extension_mode=getattr(args, "extension_mode", None),
-        cli_path=getattr(args, "cli_path", None),
-        gateway_url=getattr(args, "gateway_url", None),
-        gateway_profile=getattr(args, "gateway_profile", None),
-        gateway_auth_mode=getattr(args, "gateway_auth_mode", None),
     )
 
 
@@ -357,15 +335,6 @@ def _read_identity_secret(
     if can_prompt:
         return str(click.prompt(authentication_method_label(method), hide_input=True))
     raise click.UsageError("--secret-stdin is required when login cannot prompt for a secret")
-
-
-def _require_configured_openclaw_route(config_path: Path) -> None:
-    openclaw_section = read_config_sections(config_path).get(ProviderKind.OPENCLAW.value, {})
-    if openclaw_section.get("enabled") is not True:
-        raise click.ClickException(
-            "Configure the OpenClaw Gateway route before saving its credential: "
-            "banksia providers configure openclaw"
-        )
 
 
 __all__ = [

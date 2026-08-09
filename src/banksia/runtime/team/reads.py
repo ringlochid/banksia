@@ -16,9 +16,6 @@ from banksia.runtime.capabilities import resolve_effective_capabilities_from_mem
 from banksia.runtime.contracts.capabilities import EffectiveCapabilitySet
 from banksia.runtime.contracts.primitives import CapabilityDecision, HumanRequestKind
 from banksia.runtime.contracts.provider_resolution import (
-    ClaudeProviderRoute,
-    CodexProviderRoute,
-    OpenClawProviderRoute,
     ProviderResolution,
 )
 from banksia.runtime.contracts.team_read import (
@@ -141,15 +138,12 @@ def resolved_provider_read(provider: ProviderResolution) -> ResolvedProviderRead
         if provider.sandbox is not None
         else None
     )
-    if isinstance(route, CodexProviderRoute | ClaudeProviderRoute):
-        return ResolvedProviderRead(
-            kind=route.kind.value,
-            model=route.model_override,
-            effort=route.effort_override,
-            sandbox=sandbox,
-        )
-    assert isinstance(route, OpenClawProviderRoute)
-    return ResolvedProviderRead(kind=route.kind.value, gateway_profile=route.gateway_profile)
+    return ResolvedProviderRead(
+        kind=route.kind.value,
+        model=route.model_override,
+        effort=route.effort_override,
+        sandbox=sandbox,
+    )
 
 
 def persisted_provider_read(

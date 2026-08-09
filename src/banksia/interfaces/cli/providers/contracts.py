@@ -11,7 +11,6 @@ from banksia.runtime.providers import ProviderAuthenticationMethod, ProviderChec
 
 class ProviderProductStatus(StrEnum):
     MANAGED_TARGET = "managed_target"
-    EXPERIMENTAL = "experimental"
 
 
 class ProviderCheckOutcome(StrEnum):

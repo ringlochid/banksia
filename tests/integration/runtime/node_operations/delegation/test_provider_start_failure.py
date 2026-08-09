@@ -230,7 +230,6 @@ def _build_starter(
             session_factory(),
         ),
         managed_node_mcp_url="http://127.0.0.1:18125/_internal/node/mcp",
-        compatibility_node_mcp_url="http://127.0.0.1:18125/node/mcp",
         clock=clock,
     )
 

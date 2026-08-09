@@ -64,6 +64,7 @@ async def test_draft_only_workflow_is_discoverable_by_id_and_description(
         "state": "draft",
         "published_revision_no": None,
         "provenance": "user",
+        "has_retired_provider_selection": False,
         "available_actions": ["edit", "remove"],
     }
     assert search_by_id.json()["items"] == [

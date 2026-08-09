@@ -322,10 +322,6 @@ def _provider_setup_args(
         provider=provider.value,
         model=None,
         effort=None,
-        cli_path=None,
-        gateway_url=None,
-        gateway_profile=None,
-        gateway_auth_mode=None,
     )
 
 

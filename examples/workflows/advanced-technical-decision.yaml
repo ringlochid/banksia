@@ -6,9 +6,8 @@ description: >-
   under deliberately different access boundaries.
 note: >-
   Compare serious options against the same accepted local constraints. The
-  upstream-source responsibility requires an externally configured OpenClaw
-  route that exposes the Task workspace and required source access; Banksia
-  does not configure or verify that external access.
+  source researcher has workspace-scoped access and network access for
+  current primary-source research.
 lead:
   id: decision-lead
   title: Decision lead
@@ -51,7 +50,12 @@ lead:
         notes, and maintainer guidance. Preserve direct locators, version or date
         context, scope, disagreement, and material absence of evidence.
       provider:
-        kind: openclaw
+        kind: codex
+        effort: high
+        sandbox:
+          mode: workspace_write
+          network: allow
+        extension_mode: isolated
     - id: countercase-analyst
       title: Countercase analyst
       description: Tests hidden costs, failure conditions, and contrary evidence.

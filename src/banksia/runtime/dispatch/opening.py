@@ -13,7 +13,6 @@ from banksia.runtime.contracts import TaskEventSource, TaskEventType
 from banksia.runtime.contracts.provider_resolution import (
     ClaudeProviderRoute,
     CodexProviderRoute,
-    OpenClawProviderRoute,
 )
 from banksia.runtime.dispatch.currentness import (
     AttemptDispatchConflictError,
@@ -83,7 +82,7 @@ def _build_starting_dispatch_model(
     basis: StartingDispatchBasis,
     prepared: PreparedDispatchRequest,
 ) -> DispatchTurnModel:
-    model_override, effort_override, gateway_profile = _provider_route_overrides(prepared)
+    model_override, effort_override = _provider_route_overrides(prepared)
     return DispatchTurnModel(
         dispatch_id=prepared.dispatch_id,
         task_id=basis.task_id,
@@ -129,12 +128,8 @@ def _build_starting_dispatch_model(
             else None
         ),
         extension_inventory_json=None,
-        gateway_profile=gateway_profile,
-        gateway_profile_source=(
-            prepared.provider.gateway_profile_source.value
-            if prepared.provider.gateway_profile_source
-            else None
-        ),
+        gateway_profile=None,
+        gateway_profile_source=None,
         provider_start_revision=0,
         provider_start_attempt_count=0,
         next_provider_start_at=prepared.due_at,
@@ -151,13 +146,10 @@ def _build_starting_dispatch_model(
 
 def _provider_route_overrides(
     prepared: PreparedDispatchRequest,
-) -> tuple[str | None, str | None, str | None]:
+) -> tuple[str | None, str | None]:
     route = prepared.provider.route
-    match route:
-        case CodexProviderRoute() | ClaudeProviderRoute():
-            return route.model_override, route.effort_override, None
-        case OpenClawProviderRoute():
-            return None, None, route.gateway_profile
+    assert isinstance(route, CodexProviderRoute | ClaudeProviderRoute)
+    return route.model_override, route.effort_override
 
 
 async def _append_dispatch_opened_event(

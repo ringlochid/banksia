@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from collections.abc import Collection, Mapping
 from enum import StrEnum
-from urllib.parse import urlsplit
+from typing import Never
 
-from pydantic import TypeAdapter, ValidationError, WebsocketUrl
+from pydantic import TypeAdapter
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -29,7 +29,6 @@ from banksia.runtime.contracts.provider_resolution import (
     ExtensionModeResolutionSource,
     ManagedExtensionResolution,
     ManagedSandboxResolution,
-    OpenClawProviderRoute,
     ProviderResolution,
     ProviderRoute,
     ProviderRouteValueSource,
@@ -39,11 +38,9 @@ from banksia.runtime.contracts.provider_resolution import (
 from banksia.workflows.contracts import (
     ClaudeProviderSelection,
     CodexProviderSelection,
-    OpenClawProviderSelection,
     ProviderSelection,
 )
 
-_WEBSOCKET_URL_ADAPTER = TypeAdapter(WebsocketUrl)
 _PROVIDER_SELECTION_ADAPTER: TypeAdapter[ProviderSelection] = TypeAdapter(ProviderSelection)
 _CODEX_EFFORTS = frozenset({"none", "minimal", "low", "medium", "high", "xhigh", "max"})
 _CLAUDE_EFFORTS = frozenset({"low", "medium", "high", "xhigh", "max"})
@@ -54,6 +51,7 @@ class ProviderResolutionErrorCode(StrEnum):
     PROVIDER_DISABLED = "provider_disabled"
     INVALID_CONFIGURATION = "provider_invalid_configuration"
     ADAPTER_UNAVAILABLE = "provider_adapter_unavailable"
+    PROVIDER_RETIRED = "provider_retired"
 
 
 class ProviderResolutionError(ValueError):
@@ -103,7 +101,7 @@ def resolve_provider_route(
             provider=selected_provider,
             message=f"provider '{selected_provider.value}' is disabled",
         )
-    route, model_source, effort_source, gateway_profile_source = _build_provider_route(
+    route, model_source, effort_source = _build_provider_route(
         provider,
         selected_provider,
         settings=settings,
@@ -130,7 +128,6 @@ def resolve_provider_route(
         ),
         model_source=model_source,
         effort_source=effort_source,
-        gateway_profile_source=gateway_profile_source,
     )
 
 
@@ -164,7 +161,7 @@ def provider_selection_from_kind(
         case ProviderKind.CLAUDE:
             return ClaudeProviderSelection(kind="claude")
         case ProviderKind.OPENCLAW:
-            return OpenClawProviderSelection(kind="openclaw")
+            _raise_provider_retired()
 
 
 def provider_selection_from_mapping(
@@ -174,6 +171,8 @@ def provider_selection_from_mapping(
 
     if provider is None:
         return None
+    if provider.get("kind") == ProviderKind.OPENCLAW.value:
+        _raise_provider_retired()
     return _PROVIDER_SELECTION_ADAPTER.validate_python(provider)
 
 
@@ -186,14 +185,6 @@ def validate_provider_execution_configuration(
 ) -> None:
     """Reject deterministic adapter-configuration gaps before creating a Dispatch."""
 
-    if route.kind is ProviderKind.OPENCLAW:
-        if sandbox_mode is not None:
-            raise ProviderResolutionError(
-                code=ProviderResolutionErrorCode.INVALID_CONFIGURATION,
-                provider=route.kind,
-                message="OpenClaw dispatches do not carry a controller-managed sandbox",
-            )
-        return
     if sandbox_mode is None:
         return
     expected_native = _native_access_for_sandbox(sandbox_mode)
@@ -226,7 +217,7 @@ def narrow_provider_capabilities(
 ) -> EffectiveCapabilitySet:
     """Narrow effective capabilities to one provider-local hard ceiling."""
 
-    if route.kind is ProviderKind.OPENCLAW or sandbox is None:
+    if sandbox is None:
         return capabilities
     return capabilities.model_copy(
         update={
@@ -265,6 +256,8 @@ def _select_provider(
             provider=None,
             message="runtime.default_provider is not configured",
         )
+    if settings.runtime.default_provider is ProviderKind.OPENCLAW:
+        _raise_provider_retired()
     return settings.runtime.default_provider, ProviderSelectionBasis.DEFAULT
 
 
@@ -275,7 +268,7 @@ def _provider_is_enabled(provider: ProviderKind, *, settings: Settings) -> bool:
         case ProviderKind.CLAUDE:
             return settings.claude.enabled
         case ProviderKind.OPENCLAW:
-            return settings.openclaw.enabled
+            return False
 
 
 def _resolve_managed_sandbox(
@@ -283,10 +276,7 @@ def _resolve_managed_sandbox(
     provider: ProviderKind,
     *,
     settings: Settings,
-) -> ManagedSandboxResolution | None:
-    if provider is ProviderKind.OPENCLAW:
-        return None
-
+) -> ManagedSandboxResolution:
     authored_sandbox = (
         selection.sandbox
         if isinstance(selection, CodexProviderSelection | ClaudeProviderSelection)
@@ -350,9 +340,7 @@ def _resolve_managed_extensions(
     *,
     settings: Settings,
     sandbox: ManagedSandboxResolution | None,
-) -> ManagedExtensionResolution | None:
-    if provider is ProviderKind.OPENCLAW:
-        return None
+) -> ManagedExtensionResolution:
     assert sandbox is not None
 
     authored_mode = (
@@ -397,8 +385,7 @@ def _build_provider_route(
     *,
     settings: Settings,
 ) -> tuple[
-    CodexProviderRoute | ClaudeProviderRoute | OpenClawProviderRoute,
-    ProviderRouteValueSource | None,
+    CodexProviderRoute | ClaudeProviderRoute,
     ProviderRouteValueSource | None,
     ProviderRouteValueSource | None,
 ]:
@@ -426,7 +413,6 @@ def _build_provider_route(
                 ),
                 _route_value_source(model_is_authored),
                 _route_value_source(effort_is_authored),
-                None,
             )
         case ProviderKind.CLAUDE:
             claude_selection = selection if isinstance(selection, ClaudeProviderSelection) else None
@@ -453,23 +439,9 @@ def _build_provider_route(
                 ),
                 _route_value_source(model_is_authored),
                 _route_value_source(effort_is_authored),
-                None,
             )
         case ProviderKind.OPENCLAW:
-            _validate_openclaw_gateway_url(settings.openclaw.gateway_url)
-            return (
-                OpenClawProviderRoute(
-                    kind=ProviderKind.OPENCLAW,
-                    gateway_profile=_validate_required_value(
-                        settings.openclaw.gateway_profile,
-                        provider=ProviderKind.OPENCLAW,
-                        field_name="openclaw.gateway_profile",
-                    ),
-                ),
-                None,
-                None,
-                ProviderRouteValueSource.PROVIDER_CONFIGURATION,
-            )
+            _raise_provider_retired()
 
 
 def _route_value_source(is_authored: bool) -> ProviderRouteValueSource:
@@ -528,41 +500,12 @@ def _validate_required_value(
     return value
 
 
-def _validate_openclaw_gateway_url(value: str) -> None:
-    try:
-        raw_url = urlsplit(value)
-    except ValueError as exc:
-        raise ProviderResolutionError(
-            code=ProviderResolutionErrorCode.INVALID_CONFIGURATION,
-            provider=ProviderKind.OPENCLAW,
-            message="openclaw.gateway_url must be a valid ws or wss URL",
-        ) from exc
-    if raw_url.scheme not in {"ws", "wss"} or not raw_url.netloc:
-        raise ProviderResolutionError(
-            code=ProviderResolutionErrorCode.INVALID_CONFIGURATION,
-            provider=ProviderKind.OPENCLAW,
-            message="openclaw.gateway_url must be an absolute ws or wss URL with a host",
-        )
-    try:
-        parsed = _WEBSOCKET_URL_ADAPTER.validate_python(value)
-    except ValidationError as exc:
-        raise ProviderResolutionError(
-            code=ProviderResolutionErrorCode.INVALID_CONFIGURATION,
-            provider=ProviderKind.OPENCLAW,
-            message="openclaw.gateway_url must be a valid ws or wss URL",
-        ) from exc
-    if parsed.username is not None or parsed.password is not None:
-        raise ProviderResolutionError(
-            code=ProviderResolutionErrorCode.INVALID_CONFIGURATION,
-            provider=ProviderKind.OPENCLAW,
-            message="openclaw.gateway_url must not contain credentials",
-        )
-    if parsed.fragment:
-        raise ProviderResolutionError(
-            code=ProviderResolutionErrorCode.INVALID_CONFIGURATION,
-            provider=ProviderKind.OPENCLAW,
-            message="openclaw.gateway_url must not contain a fragment",
-        )
+def _raise_provider_retired() -> Never:
+    raise ProviderResolutionError(
+        code=ProviderResolutionErrorCode.PROVIDER_RETIRED,
+        provider=ProviderKind.OPENCLAW,
+        message="provider 'openclaw' is retired; choose Codex or Claude",
+    )
 
 
 __all__ = [

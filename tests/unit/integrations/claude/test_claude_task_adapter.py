@@ -91,7 +91,6 @@ async def test_claude_start_uses_disposable_scoped_client_and_returns_before_out
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     clients: list[FakeClaudeClient] = []
-    monkeypatch.setenv("OPENCLAW_GATEWAY_TOKEN", "must-not-reach-claude")
 
     def build_client(options: ClaudeAgentOptions) -> FakeClaudeClient:
         client = FakeClaudeClient(options)
@@ -140,7 +139,6 @@ async def test_claude_start_uses_disposable_scoped_client_and_returns_before_out
         assert client.options.env["CLAUDE_CODE_DISABLE_CLAUDE_MDS"] == "1"
         assert client.options.env["CLAUDE_CODE_DISABLE_GIT_INSTRUCTIONS"] == "1"
         assert client.options.env["CLAUDE_CODE_SKIP_PROMPT_HISTORY"] == "1"
-        assert client.options.env["OPENCLAW_GATEWAY_TOKEN"] == ""
         assert {"Agent", "Artifact", "Skill", "SlashCommand"} <= set(
             client.options.disallowed_tools
         )

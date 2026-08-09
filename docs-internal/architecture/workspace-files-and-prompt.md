@@ -6,7 +6,7 @@ This page owns the shared provider-visible workspace, physical Task directory, l
 
 ## One provider-visible workspace
 
-Every Task binds one user-selected workspace `W`. Every Codex, Claude, or OpenClaw Dispatch for that Task receives `W` as its execution working directory or provider-visible equivalent. All members share the same project files and the same Task directory.
+Every Task binds one user-selected workspace `W`. Every Codex or Claude Dispatch for that Task receives `W` as its execution working directory. All members share the same project files and the same Task directory.
 
 ```text
 W/
@@ -25,8 +25,6 @@ W/
 This choice optimizes for native shell/editor/compiler/provider use and simple agent collaboration. It deliberately does not provide per-member worktrees, read-only isolation, path leases, automatic diff transfer, or merge automation.
 
 Full native access is the baseline default. Concurrent agents can see and change the same files. Banksia therefore does not claim deterministic or conflict-free replay of concurrent writes. The accountable Manager must avoid parallel overlapping edits unless scopes are credibly disjoint, inspect the integrated shared state, and sequence work when the risk is material.
-
-OpenClaw is supported only when the user externally configures it to expose `W` and permit the required native access. Banksia does not inspect or mutate OpenClaw configuration and provides no managed file-tool fallback.
 
 ## Native filesystem safety
 

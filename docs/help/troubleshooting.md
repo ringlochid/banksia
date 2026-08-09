@@ -95,7 +95,7 @@ banksia providers set-default codex
 banksia providers check codex
 ```
 
-Choose the real provider and authentication method. For OpenClaw, also verify the user-operated CLI, Gateway URL/profile, authentication mode, Gateway health, provider-visible workspace, and source access outside Banksia.
+Choose the real provider and authentication method, then run the matching readiness check.
 
 For Claude deny-network execution on Ubuntu or Debian, install the missing host packages:
 

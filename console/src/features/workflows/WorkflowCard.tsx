@@ -46,6 +46,9 @@ export function WorkflowCard({ onRemove, workflow }: WorkflowCardProps) {
                                 Starter
                             </Badge>
                         ) : null}
+                        {workflow.has_retired_provider_selection ? (
+                            <Badge>Provider repair needed</Badge>
+                        ) : null}
                         <Badge tone={badgeTone(workflow.state)}>
                             {stateLabel(workflow.state)}
                         </Badge>

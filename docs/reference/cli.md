@@ -86,7 +86,7 @@ Rerunning initialization preserves existing provider and Operator selections. No
 
 ## Settings and Task-provider setup
 
-Supported provider names are `codex`, `claude`, and `openclaw`.
+Supported provider names are `codex` and `claude`.
 
 ```bash
 banksia setup
@@ -100,11 +100,11 @@ banksia providers set-default codex
 
 Interactive `setup` is a rerunnable hub for **Task providers**, **Operator**, and **Default workspace**. It is guided only when both terminal streams are interactive and neither `--non-interactive` nor `--json` is present.
 
-Noninteractive `setup` configures one Task provider and therefore needs `--provider`. Its provider-specific route flags are `--model`, `--effort`, `--cli-path`, `--gateway-url`, `--gateway-profile`, and `--gateway-auth-mode`. Use the focused Operator commands for noninteractive Operator configuration.
+Noninteractive `setup` configures one Task provider and therefore needs `--provider`. Its provider-specific route flags are `--model`, `--effort`, and `--extension-mode`. Use the focused Operator commands for noninteractive Operator configuration.
 
 `providers configure` enables the named provider and fills `runtime.default_provider` only when no default exists. It never silently replaces another default. Use `providers set-default` for that explicit change.
 
-Codex and Claude login methods are `subscription` and `api-key`. OpenClaw methods are `token` and `password`. A secret can be read without echo in a terminal or from standard input with `--secret-stdin`; do not put it on the command line. Subscription login requires a terminal.
+Codex and Claude login methods are `subscription` and `api-key`. An API key can be read without echo in a terminal or from standard input with `--secret-stdin`; do not put it on the command line. Subscription login requires a terminal.
 
 An explicitly selected unavailable provider never falls back to another provider. `providers check` is the active route/readiness diagnostic; `providers status` remains passive. **Ready for first task** means local prerequisites and credentials passed while live reachability remains for the first Task. A failed check returns exit `1` but does not disable, rewrite, or replace the saved route.
 

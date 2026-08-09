@@ -275,27 +275,6 @@ async def test_rotated_managed_generation_rejects_inflight_old_binding_before_ad
                 )
 
 
-async def test_compatibility_call_rejects_missing_explicit_scope_before_execution() -> None:
-    executor = RecordingNodeOperationExecutor(
-        results_by_name={
-            NodeOperationName.SET_WORK_PLAN: SetWorkPlanResponse(changed=False, plan=None)
-        }
-    )
-    applications, _registry = create_test_node_mcp_apps(executor)
-
-    async with node_mcp_client_session(applications.compatibility) as session:
-        result = await call_tool_result(
-            session,
-            "set_work_plan",
-            {"task_id": "task.compatibility-missing-dispatch"},
-        )
-
-    failure = tool_failure(result)
-    assert failure["code"] == "invalid_request"
-    assert failure["field_path"] == "dispatch_id"
-    assert executor.calls == []
-
-
 async def _post_node_request(
     client: httpx.AsyncClient,
     *,

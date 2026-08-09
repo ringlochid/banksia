@@ -2,11 +2,9 @@ from __future__ import annotations
 
 import asyncio
 import importlib.util
-import shutil
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from urllib.parse import urlsplit, urlunsplit
 
 from banksia.config import Settings
 from banksia.integrations.claude.native_identity import bundled_claude_path
@@ -22,7 +20,7 @@ from banksia.interfaces.cli.providers.identity import (
     provider_native_home,
     service_identity,
 )
-from banksia.providers import ProviderKind
+from banksia.providers import ACTIVE_PROVIDER_KINDS, ProviderKind
 from banksia.runtime.providers import (
     ProviderAuthenticationMethod,
     ProviderCheckAxisStatus,
@@ -33,7 +31,7 @@ from banksia.runtime.providers import (
     resolve_provider_route,
 )
 
-PROVIDER_ORDER = (ProviderKind.CODEX, ProviderKind.CLAUDE, ProviderKind.OPENCLAW)
+PROVIDER_ORDER = ACTIVE_PROVIDER_KINDS
 PROVIDER_CHECK_TIMEOUT_SECONDS = 15.0
 
 
@@ -95,7 +93,7 @@ def collect_provider_check(
         resolve_provider_route(
             provider=provider_selection_from_kind(provider),
             settings=settings,
-            available_adapter_kinds=set(ProviderKind),
+            available_adapter_kinds=ACTIVE_PROVIDER_KINDS,
         )
     except ProviderResolutionError as exc:
         return basis.snapshot(
@@ -128,7 +126,7 @@ def collect_provider_definitions() -> tuple[ProviderDefinitionSnapshot, ...]:
                 "integration": integration_name(provider),
                 "product_status": product_status_for(provider),
                 "integration_available": is_provider_integration_available(provider),
-                "setup_owner": ("shared" if provider is ProviderKind.OPENCLAW else "banksia"),
+                "setup_owner": "banksia",
             }
         )
         for provider in PROVIDER_ORDER
@@ -244,13 +242,14 @@ def integration_name(provider: ProviderKind) -> str:
         case ProviderKind.CLAUDE:
             return "Claude managed Agent SDK"
         case ProviderKind.OPENCLAW:
-            return "OpenClaw external Gateway compatibility"
+            raise ValueError("OpenClaw is retired")
 
 
 def is_provider_integration_available(
     provider: ProviderKind,
     settings: Settings | None = None,
 ) -> bool:
+    del settings
     match provider:
         case ProviderKind.CODEX:
             return module_is_available("openai_codex") and _bundled_cli_is_available(
@@ -261,8 +260,7 @@ def is_provider_integration_available(
                 bundled_claude_path
             )
         case ProviderKind.OPENCLAW:
-            command = settings.openclaw.cli_path if settings is not None else "openclaw"
-            return shutil.which(command) is not None
+            return False
 
 
 def module_is_available(module_name: str) -> bool:
@@ -277,12 +275,7 @@ def provider_fields_are_present(settings: Settings, provider: ProviderKind) -> b
         case ProviderKind.CODEX | ProviderKind.CLAUDE:
             return provider_is_enabled(settings, provider)
         case ProviderKind.OPENCLAW:
-            return bool(
-                settings.openclaw.enabled
-                and settings.openclaw.cli_path.strip()
-                and settings.openclaw.gateway_url.strip()
-                and settings.openclaw.gateway_profile.strip()
-            )
+            return False
 
 
 def provider_is_enabled(settings: Settings, provider: ProviderKind) -> bool:
@@ -292,7 +285,7 @@ def provider_is_enabled(settings: Settings, provider: ProviderKind) -> bool:
         case ProviderKind.CLAUDE:
             return settings.claude.enabled
         case ProviderKind.OPENCLAW:
-            return settings.openclaw.enabled
+            return False
 
 
 def provider_route_readback(
@@ -315,30 +308,7 @@ def provider_route_readback(
                 "extension_mode": settings.claude.extension_mode.value,
             }
         case ProviderKind.OPENCLAW:
-            return {
-                "enabled": settings.openclaw.enabled,
-                "cli_path": settings.openclaw.cli_path,
-                "gateway_url": redact_url_userinfo(settings.openclaw.gateway_url),
-                "gateway_profile": settings.openclaw.gateway_profile,
-                "gateway_auth_mode": settings.openclaw.gateway_auth_mode.value,
-            }
-
-
-def redact_url_userinfo(value: str) -> str:
-    try:
-        parsed = urlsplit(value)
-    except ValueError:
-        return "__BANKSIA_REDACTED__" if "@" in value else value
-    if parsed.username is None and parsed.password is None:
-        return value
-    host = parsed.hostname or ""
-    try:
-        port = parsed.port
-    except ValueError:
-        return "__BANKSIA_REDACTED__"
-    if port is not None:
-        host = f"{host}:{port}"
-    return urlunsplit((parsed.scheme, host, parsed.path, parsed.query, parsed.fragment))
+            raise ValueError("OpenClaw is retired")
 
 
 def provider_limitations(provider: ProviderKind) -> tuple[str, ...]:
@@ -348,15 +318,6 @@ def provider_limitations(provider: ProviderKind) -> tuple[str, ...]:
             "access denied; that route is rejected before dispatch creation",
             "when network access is denied, the pinned Codex sandbox narrows full "
             "provider-native access to restricted with controller provenance",
-        )
-    if provider == ProviderKind.OPENCLAW:
-        return (
-            "experimental selectable lane",
-            "the OpenClaw Gateway process and compatibility MCP setup remain user-managed",
-            "Banksia setup stores the selected Gateway credential in its private service "
-            "environment",
-            "the ordinary Gateway CLI cannot transmit the dispatch cwd; only its local "
-            "subprocess cwd is set",
         )
     return ()
 
@@ -389,6 +350,5 @@ __all__ = [
     "module_is_available",
     "provider_native_home",
     "providers_payload",
-    "redact_url_userinfo",
     "service_identity",
 ]

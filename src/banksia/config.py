@@ -88,21 +88,6 @@ class OperatorSettings(BaseModel):
         return self
 
 
-class OpenClawGatewayAuthMode(StrEnum):
-    TOKEN = "token"
-    PASSWORD = "password"
-
-
-class OpenClawSettings(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    enabled: bool = False
-    cli_path: ProviderConfigText = "openclaw"
-    gateway_url: ProviderConfigText = "ws://127.0.0.1:18789"
-    gateway_profile: ProviderConfigText = "default"
-    gateway_auth_mode: OpenClawGatewayAuthMode = OpenClawGatewayAuthMode.TOKEN
-
-
 class RuntimeSettings(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -176,7 +161,6 @@ class Settings(BaseSettings):
     )
     codex: CodexSettings = Field(default_factory=CodexSettings)
     claude: ClaudeSettings = Field(default_factory=ClaudeSettings)
-    openclaw: OpenClawSettings = Field(default_factory=OpenClawSettings)
     operator: OperatorSettings = Field(default_factory=OperatorSettings)
     runtime: RuntimeSettings = Field(default_factory=RuntimeSettings)
 
@@ -401,7 +385,7 @@ def _load_toml_settings() -> dict[str, Any]:
         value = _nested_get(payload, *key_path)
         if value is not None:
             loaded[field_name] = value
-    for provider in ("codex", "claude", "openclaw"):
+    for provider in ("codex", "claude"):
         if provider in payload:
             loaded[provider] = payload[provider]
     if "operator" in payload:
@@ -420,8 +404,6 @@ __all__ = [
     "ClaudeSettings",
     "CodexSettings",
     "Environment",
-    "OpenClawGatewayAuthMode",
-    "OpenClawSettings",
     "OperatorProvider",
     "OperatorSettings",
     "RuntimeSettings",

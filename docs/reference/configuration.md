@@ -179,19 +179,6 @@ banksia providers configure codex --extension-mode isolated
 
 Codex Task effort also accepts `max`; `ultra` remains unavailable to Task Members. Native Codex configuration not overridden by Banksia, including `service_tier = "fast"`, remains effective beside explicit Banksia model and effort choices.
 
-### OpenClaw
-
-```toml
-[openclaw]
-enabled = false
-cli_path = "openclaw"
-gateway_url = "ws://127.0.0.1:18789"
-gateway_profile = "default"
-gateway_auth_mode = "token"
-```
-
-OpenClaw is a user-operated transport. Its fields are `enabled`, `cli_path`, `gateway_url`, `gateway_profile`, and `gateway_auth_mode` (`token` or `password`). Banksia does not configure or prove the Gateway's model, provider-visible workspace, sandbox, or network access.
-
 ### Operator
 
 ```toml

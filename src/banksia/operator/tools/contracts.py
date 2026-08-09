@@ -12,7 +12,7 @@ from banksia.runtime.contracts.common import RuntimeSchemaText
 from banksia.runtime.contracts.human_requests import HumanRequestItemAnswer
 from banksia.runtime.contracts.primitives import TaskIdentifier
 from banksia.runtime.contracts.task import HumanRequestAnswerInput
-from banksia.workflows.contracts import Identifier, NormalizedWorkflow
+from banksia.workflows.contracts import AuthoredWorkflow, Identifier
 from banksia.workflows.ingest import normalize_bounded_workflow_object
 from banksia.workflows.operations import DraftOperation
 
@@ -144,13 +144,16 @@ class WorkflowGetInput(OperatorToolInput):
 
 
 class WorkflowDraftCreateInput(OperatorToolInput):
-    workflow: NormalizedWorkflow
+    workflow: AuthoredWorkflow
     etag: RuntimeSchemaText | None = None
 
     @field_validator("workflow", mode="before")
     @classmethod
-    def normalize_complete_workflow(cls, value: object) -> NormalizedWorkflow:
-        return normalize_bounded_workflow_object(value)
+    def normalize_complete_workflow(cls, value: object) -> AuthoredWorkflow:
+        normalized = normalize_bounded_workflow_object(value)
+        return AuthoredWorkflow.model_validate(
+            normalized.model_dump(mode="json", exclude_none=True)
+        )
 
 
 class WorkflowDraftEditInput(OperatorToolInput):

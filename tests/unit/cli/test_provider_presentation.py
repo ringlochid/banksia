@@ -80,7 +80,8 @@ def test_guided_setup_uses_rich_hierarchy(
     assert "Banksia" in rendered
     assert "Provider routes" in rendered
     assert "Managed" in rendered
-    assert "Experimental" in rendered
+    assert "Codex" in rendered
+    assert "Claude" in rendered
     assert "╭" in rendered
 
 

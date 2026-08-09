@@ -65,7 +65,7 @@ No additional top-level properties are accepted.
 | `title` | no | Display title. |
 | `description` | no | Responsibility and routing hint. |
 | `instruction` | no | Reusable team-specific contribution guidance. |
-| `provider` | no | One discriminated Codex, Claude, or OpenClaw selection. |
+| `provider` | no | One discriminated Codex or Claude selection. |
 | `capabilities` | no | Narrow Human Request and Command Run grants. |
 | `children` | no | Ordered direct responsibilities, each using this same Member shape. |
 
@@ -144,15 +144,6 @@ Network is nested inside `sandbox`; there is no standalone Workflow network fiel
 - `isolated` — expose only Banksia's Dispatch-scoped controller tools alongside the provider's permitted native tools.
 
 Omission resolves from the selected provider's machine-local setting, whose shipped default is `inherit`. Inheritance remains effective only with `full_access` plus network `allow`; a narrower effective sandbox or denied network silently narrows the Dispatch to `isolated`. Implicit project instructions, plugins, hooks, subagents, apps, memory, and background workflows remain disabled. Banksia does not define or install the inherited extensions, and their activity may not be fully observable or reproducible in Banksia.
-
-### OpenClaw
-
-```yaml
-provider:
-  kind: openclaw
-```
-
-OpenClaw accepts no Workflow-authored model, effort, sandbox, Gateway, or network fields. Those properties remain user-operated outside the Workflow.
 
 When `provider` is omitted, Task start resolves the controller's configured default. Provider settings do not inherit from a parent Member.
 

@@ -12,7 +12,7 @@ from mcp.client.streamable_http import streamable_http_client
 from pydantic import BaseModel
 from starlette.applications import Starlette
 
-from banksia.interfaces.mcp.node import NodeMcpApplications, create_node_mcp_apps
+from banksia.interfaces.mcp.node import create_managed_node_mcp_app
 from banksia.interfaces.mcp.transport import node_mcp_transport_policy
 from banksia.runtime.node_mcp import (
     DispatchMcpBindingRegistry,
@@ -26,6 +26,11 @@ from banksia.runtime.node_operations import (
     NodeOperationScope,
     get_node_operation_descriptor,
 )
+
+
+@dataclass(frozen=True, slots=True)
+class NodeMcpApplications:
+    managed: Starlette
 
 
 @dataclass(frozen=True, slots=True)
@@ -95,14 +100,16 @@ def create_test_node_mcp_apps(
     registry: DispatchMcpBindingRegistry | None = None,
 ) -> tuple[NodeMcpApplications, DispatchMcpBindingRegistry]:
     binding_registry = registry or DispatchMcpBindingRegistry()
-    applications = create_node_mcp_apps(
-        binding_registry=binding_registry,
-        operation_executor=cast(NodeOperationExecutor, executor),
-        transport_policy=node_mcp_transport_policy(
-            host="127.0.0.1",
-            port=18125,
-            allowed_origins=("http://127.0.0.1:5173",),
-        ),
+    applications = NodeMcpApplications(
+        managed=create_managed_node_mcp_app(
+            binding_registry=binding_registry,
+            operation_executor=cast(NodeOperationExecutor, executor),
+            transport_policy=node_mcp_transport_policy(
+                host="127.0.0.1",
+                port=18125,
+                allowed_origins=("http://127.0.0.1:5173",),
+            ),
+        )
     )
     return applications, binding_registry
 

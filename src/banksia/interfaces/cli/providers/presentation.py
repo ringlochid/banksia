@@ -77,8 +77,6 @@ def emit_provider_configuration(
         print(f"Configured provider: {snapshot.provider.value}")
         print(f"Default provider: {snapshot.default_provider.value}")
         print(f"Default changed: {str(snapshot.is_default_changed).lower()}")
-        if snapshot.product_status is ProviderProductStatus.EXPERIMENTAL:
-            print("Product status: experimental selectable lane")
         return
     facts = Table.grid(padding=(0, 2))
     facts.add_column(style="muted", no_wrap=True)
@@ -183,8 +181,6 @@ def emit_provider_check(
 
 
 def provider_display_name(provider: ProviderKind) -> str:
-    if provider is ProviderKind.OPENCLAW:
-        return "OpenClaw"
     return provider.value.title()
 
 
@@ -422,13 +418,11 @@ def _display_authentication_method_label(method: ProviderAuthenticationMethod) -
 
 
 def _product_status_text(status: ProviderProductStatus) -> Text:
-    style = "warn" if status is ProviderProductStatus.EXPERIMENTAL else "success"
-    return _styled_state(_product_status_label(status).title(), style)
+    return _styled_state(_product_status_label(status).title(), "success")
 
 
 def _product_status_label(status: ProviderProductStatus) -> str:
-    if status is ProviderProductStatus.EXPERIMENTAL:
-        return "experimental"
+    assert status is ProviderProductStatus.MANAGED_TARGET
     return "managed"
 
 
@@ -455,8 +449,6 @@ def _provider_check_next_step(snapshot: ProviderCheckSnapshot) -> str | None:
     if snapshot.outcome is ProviderCheckOutcome.LOCAL_PREREQUISITES_READY:
         return f"banksia providers login {snapshot.kind.value}"
     if snapshot.outcome is ProviderCheckOutcome.NOT_INSTALLED:
-        if snapshot.kind is ProviderKind.OPENCLAW:
-            return f"Install OpenClaw, then rerun: {command}"
         return f"Repair the Banksia installation, then rerun: {command}"
     if snapshot.outcome is ProviderCheckOutcome.UNREACHABLE:
         return f"Check provider connectivity, then rerun: {command}"

@@ -29,6 +29,7 @@ from banksia.runtime.launch.service import launch_task_runtime
 from banksia.runtime.providers import (
     ProviderResolutionError,
     narrow_provider_capabilities,
+    provider_selection_from_mapping,
     resolve_provider_route,
     validate_provider_execution_configuration,
 )
@@ -297,7 +298,9 @@ def _validate_workflow_execution(
     for member in _walk_members(workflow_revision.workflow.lead):
         try:
             provider = resolve_provider_route(
-                provider=member.provider,
+                provider=provider_selection_from_mapping(
+                    member.provider.model_dump(mode="json") if member.provider is not None else None
+                ),
                 settings=dependencies.settings,
                 available_adapter_kinds=dependencies.available_adapter_kinds,
             )

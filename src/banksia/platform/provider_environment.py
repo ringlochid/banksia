@@ -14,21 +14,19 @@ from banksia.platform.workspace_files import (
 )
 
 ANTHROPIC_API_KEY = "ANTHROPIC_API_KEY"
-OPENCLAW_GATEWAY_PASSWORD = "OPENCLAW_GATEWAY_PASSWORD"
-OPENCLAW_GATEWAY_TOKEN = "OPENCLAW_GATEWAY_TOKEN"
 PROVIDER_SECRET_MUTATION_LOCK_TIMEOUT_SECONDS = 5.0
 PROVIDER_SECRET_ENVIRONMENT_KEYS = frozenset(
     {
         ANTHROPIC_API_KEY,
-        OPENCLAW_GATEWAY_PASSWORD,
-        OPENCLAW_GATEWAY_TOKEN,
     }
+)
+_RETIRED_PROVIDER_SECRET_ENVIRONMENT_KEYS = frozenset(
+    {"OPENCLAW_GATEWAY_PASSWORD", "OPENCLAW_GATEWAY_TOKEN"}
 )
 PROVIDER_NATIVE_HOME_ENVIRONMENT_KEYS = frozenset(
     {
         "CLAUDE_CONFIG_DIR",
         "CODEX_HOME",
-        "OPENCLAW_STATE_DIR",
     }
 )
 _ASSIGNMENT_PATTERN = re.compile(r"^([A-Z][A-Z0-9_]*)=(.*)$")
@@ -193,6 +191,8 @@ def _parse_provider_secret_environment(text: str) -> dict[str, str]:
             raise ProviderEnvironmentError(
                 "private provider environment contains an invalid assignment"
             )
+        if match.group(1) in _RETIRED_PROVIDER_SECRET_ENVIRONMENT_KEYS:
+            continue
         if match.group(1) not in PROVIDER_SECRET_ENVIRONMENT_KEYS:
             raise ProviderEnvironmentError(
                 f"private provider environment does not support {match.group(1)}"
@@ -273,8 +273,6 @@ def _acquire_provider_environment_mutation_lock(path: Path) -> Iterator[None]:
 
 __all__ = [
     "ANTHROPIC_API_KEY",
-    "OPENCLAW_GATEWAY_PASSWORD",
-    "OPENCLAW_GATEWAY_TOKEN",
     "PROVIDER_NATIVE_HOME_ENVIRONMENT_KEYS",
     "PROVIDER_SECRET_ENVIRONMENT_KEYS",
     "ProviderEnvironmentError",

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import shutil
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, model_validator
@@ -8,8 +7,6 @@ from pydantic import BaseModel, ConfigDict, model_validator
 from banksia.config import (
     ClaudeSettings,
     CodexSettings,
-    OpenClawGatewayAuthMode,
-    OpenClawSettings,
     OperatorSettings,
     RuntimeSettings,
     Settings,
@@ -22,7 +19,7 @@ from banksia.interfaces.cli.providers.contracts import (
     ProviderConfigurationSnapshot,
     ProviderProductStatus,
 )
-from banksia.providers import ManagedExtensionMode, ProviderKind
+from banksia.providers import ACTIVE_PROVIDER_KINDS, ManagedExtensionMode, ProviderKind
 from banksia.runtime.providers import provider_selection_from_kind, resolve_provider_route
 
 
@@ -33,26 +30,11 @@ class ProviderConfigurationRequest(BaseModel):
     model: str | None = None
     effort: str | None = None
     extension_mode: ManagedExtensionMode | None = None
-    cli_path: str | None = None
-    gateway_url: str | None = None
-    gateway_profile: str | None = None
-    gateway_auth_mode: OpenClawGatewayAuthMode | None = None
 
     @model_validator(mode="after")
-    def validate_provider_fields(self) -> ProviderConfigurationRequest:
-        if self.provider == ProviderKind.OPENCLAW:
-            if self.model is not None or self.effort is not None or self.extension_mode is not None:
-                raise ValueError(
-                    "OpenClaw configuration does not accept model, effort, or extension mode"
-                )
-            return self
-        if (
-            self.cli_path is not None
-            or self.gateway_url is not None
-            or self.gateway_profile is not None
-            or self.gateway_auth_mode is not None
-        ):
-            raise ValueError(f"{self.provider.value} configuration does not accept Gateway fields")
+    def require_active_provider(self) -> ProviderConfigurationRequest:
+        if self.provider not in ACTIVE_PROVIDER_KINDS:
+            raise ValueError("OpenClaw is retired; configure Codex or Claude")
         return self
 
 
@@ -70,10 +52,11 @@ def configure_provider(
         payload[request.provider.value] = provider_section
 
         runtime_section = dict(payload.get("runtime", {}))
-        if not runtime_section.get("default_provider"):
+        if runtime_section.get("default_provider") in {None, ProviderKind.OPENCLAW.value}:
             runtime_section["default_provider"] = request.provider.value
             default_changed = True
         payload["runtime"] = runtime_section
+        payload.pop(ProviderKind.OPENCLAW.value, None)
         validate_provider_config(payload, requested_provider=request.provider)
         return payload
 
@@ -97,11 +80,14 @@ def set_default_provider(
 
     def build_candidate(payload: ConfigSections) -> ConfigSections:
         nonlocal previous_default
+        if provider not in ACTIVE_PROVIDER_KINDS:
+            raise ValueError("OpenClaw is retired; select Codex or Claude")
         runtime_section = dict(payload.get("runtime", {}))
         raw_previous = runtime_section.get("default_provider")
         previous_default = ProviderKind(raw_previous) if raw_previous else None
         runtime_section["default_provider"] = provider.value
         payload["runtime"] = runtime_section
+        payload.pop(ProviderKind.OPENCLAW.value, None)
         validate_provider_config(payload, requested_provider=provider)
         return payload
 
@@ -116,46 +102,16 @@ def set_default_provider(
     )
 
 
-def set_openclaw_gateway_auth_mode(
-    config_path: Path,
-    mode: OpenClawGatewayAuthMode,
-) -> None:
-    def build_candidate(payload: ConfigSections) -> ConfigSections:
-        provider_section = dict(payload.get(ProviderKind.OPENCLAW.value, {}))
-        provider_section["gateway_auth_mode"] = mode.value
-        payload[ProviderKind.OPENCLAW.value] = provider_section
-        validate_provider_config(payload, requested_provider=ProviderKind.OPENCLAW)
-        return payload
-
-    persist_config_mutation(config_path, build_candidate)
-
-
 def update_provider_route_section(
     section: dict[str, object],
     request: ProviderConfigurationRequest,
 ) -> None:
-    if request.provider in {ProviderKind.CODEX, ProviderKind.CLAUDE}:
-        if request.model is not None:
-            section["model"] = request.model
-        if request.effort is not None:
-            section["effort"] = request.effort
-        if request.extension_mode is not None:
-            section["extension_mode"] = request.extension_mode.value
-        return
-
-    if request.cli_path is not None:
-        section["cli_path"] = _resolved_executable(request.cli_path)
-    elif "cli_path" not in section:
-        section["cli_path"] = _resolved_executable(OpenClawSettings().cli_path)
-    if request.gateway_url is not None:
-        section["gateway_url"] = request.gateway_url
-    section.setdefault("gateway_url", OpenClawSettings().gateway_url)
-    if request.gateway_profile is not None:
-        section["gateway_profile"] = request.gateway_profile
-    section.setdefault("gateway_profile", OpenClawSettings().gateway_profile)
-    if request.gateway_auth_mode is not None:
-        section["gateway_auth_mode"] = request.gateway_auth_mode.value
-    section.setdefault("gateway_auth_mode", OpenClawSettings().gateway_auth_mode.value)
+    if request.model is not None:
+        section["model"] = request.model
+    if request.effort is not None:
+        section["effort"] = request.effort
+    if request.extension_mode is not None:
+        section["extension_mode"] = request.extension_mode.value
 
 
 def validate_provider_config(
@@ -167,13 +123,13 @@ def validate_provider_config(
     resolve_provider_route(
         provider=provider_selection_from_kind(requested_provider),
         settings=settings,
-        available_adapter_kinds=set(ProviderKind),
+        available_adapter_kinds=ACTIVE_PROVIDER_KINDS,
     )
     if settings.runtime.default_provider is not None:
         resolve_provider_route(
             provider=None,
             settings=settings,
-            available_adapter_kinds=set(ProviderKind),
+            available_adapter_kinds=ACTIVE_PROVIDER_KINDS,
         )
 
 
@@ -182,7 +138,6 @@ def settings_from_config_sections(payload: ConfigSections) -> Settings:
         {
             "codex": CodexSettings.model_validate(payload.get("codex", {})),
             "claude": ClaudeSettings.model_validate(payload.get("claude", {})),
-            "openclaw": OpenClawSettings.model_validate(payload.get("openclaw", {})),
             "operator": OperatorSettings.model_validate(payload.get("operator", {})),
             "runtime": RuntimeSettings.model_validate(payload.get("runtime", {})),
         }
@@ -190,14 +145,9 @@ def settings_from_config_sections(payload: ConfigSections) -> Settings:
 
 
 def product_status_for(provider: ProviderKind) -> ProviderProductStatus:
-    if provider == ProviderKind.OPENCLAW:
-        return ProviderProductStatus.EXPERIMENTAL
+    if provider not in ACTIVE_PROVIDER_KINDS:
+        raise ValueError("OpenClaw is retired; select Codex or Claude")
     return ProviderProductStatus.MANAGED_TARGET
-
-
-def _resolved_executable(value: str) -> str:
-    resolved = shutil.which(value)
-    return str(Path(resolved).resolve()) if resolved is not None else value
 
 
 __all__ = [
@@ -205,7 +155,6 @@ __all__ = [
     "configure_provider",
     "product_status_for",
     "set_default_provider",
-    "set_openclaw_gateway_auth_mode",
     "settings_from_config_sections",
     "update_provider_route_section",
     "validate_provider_config",

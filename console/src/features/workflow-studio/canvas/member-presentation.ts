@@ -16,7 +16,7 @@ export function providerSummary(member: NormalizedMember): string | null {
     }
     const name =
         provider.kind === "openclaw"
-            ? "OpenClaw"
+            ? "OpenClaw (retired)"
             : provider.kind.charAt(0).toUpperCase() + provider.kind.slice(1);
     if (
         (provider.kind === "codex" || provider.kind === "claude") &&

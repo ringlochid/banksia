@@ -158,7 +158,7 @@ Use [`.agents/standards/`](.agents/standards/README.md) when the root contract i
 - [Repo layout standard](.agents/standards/structure/repo-layout.md) — repo tree, package splitting, family-stem cleanup, and ownership-by-path guidance. Go here when moving files, splitting directories, or cleaning flat-tree sprawl.
 - [Source layout standard](.agents/standards/structure/source-layout.md) — monorepo root ownership, canonical backend package direction, transport thinness, and steady-state source layout. Go here when deciding long-term package roots, transport layering, or source-tree convergence.
 - [Test structure standard](.agents/standards/structure/test-structure.md) — proof-lane ownership and where unit, integration, and e2e tests belong. Go here when adding tests, reorganizing test trees, or deciding what evidence is acceptable for a touched slice.
-- [Integration boundaries standard](.agents/standards/structure/integration-boundaries.md) — seam ownership between API, services, runtime, registry, DB, CLI, OpenClaw, and support-state surfaces. Go here when a change crosses subsystem boundaries or risks putting logic in the wrong layer.
+- [Integration boundaries standard](.agents/standards/structure/integration-boundaries.md) — seam ownership between API, services, runtime, registry, DB, CLI, provider, and support-state surfaces. Go here when a change crosses subsystem boundaries or risks putting logic in the wrong layer.
 - [Docs structure guide](.agents/standards/docs/docs-structure.md) — public-versus-internal docs placement, page types, versioning, and docs information architecture. Go here when adding, moving, splitting, or reclassifying docs.
 
 ## Testing, proof, and commands

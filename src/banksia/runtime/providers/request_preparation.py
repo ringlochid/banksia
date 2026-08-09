@@ -15,18 +15,13 @@ from banksia.providers import (
 from banksia.runtime.contracts.provider_resolution import (
     ClaudeProviderRoute,
     CodexProviderRoute,
-    OpenClawProviderRoute,
     ProviderRoute,
 )
 from banksia.runtime.dispatch.provider_start import ProviderStartCandidate
 from banksia.runtime.node_mcp import DispatchMcpBinding, DispatchMcpBindingRegistry
 from banksia.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
 from banksia.runtime.post_commit import DispatchStartDue
-from banksia.runtime.providers.contracts import (
-    CompatibilityNodeMcpConnection,
-    DispatchStartRequest,
-    ManagedNodeMcpConnection,
-)
+from banksia.runtime.providers.contracts import DispatchStartRequest, ManagedNodeMcpConnection
 from banksia.runtime.providers.resolution import validate_provider_execution_configuration
 from banksia.runtime.task_root import read_task_root_paths
 
@@ -34,7 +29,7 @@ from banksia.runtime.task_root import read_task_root_paths
 @dataclass(frozen=True, slots=True)
 class PreparedProviderStart:
     request: DispatchStartRequest
-    binding: DispatchMcpBinding | None
+    binding: DispatchMcpBinding
 
 
 class ProviderStartRequestBuilder:
@@ -46,12 +41,10 @@ class ProviderStartRequestBuilder:
         binding_registry: DispatchMcpBindingRegistry,
         operation_executor: NodeOperationExecutor,
         managed_node_mcp_url: str,
-        compatibility_node_mcp_url: str,
     ) -> None:
         self._binding_registry = binding_registry
         self._operation_executor = operation_executor
         self._managed_node_mcp_url = managed_node_mcp_url
-        self._compatibility_node_mcp_url = compatibility_node_mcp_url
 
     async def prepare_provider_start(
         self,
@@ -64,6 +57,7 @@ class ProviderStartRequestBuilder:
             native_access,
             network_access,
             sandbox_mode,
+            extension_mode,
             instructions,
             input_text,
         ) = _validate_candidate(candidate)
@@ -72,11 +66,7 @@ class ProviderStartRequestBuilder:
 
         binding: DispatchMcpBinding | None = None
         try:
-            (
-                binding,
-                managed_connection,
-                compatibility_connection,
-            ) = await self._prepare_node_connections(signal, candidate)
+            binding, managed_connection = await self._prepare_node_connection(signal, candidate)
             request = DispatchStartRequest(
                 task_id=candidate.task_id,
                 dispatch_id=signal.dispatch_id,
@@ -88,55 +78,40 @@ class ProviderStartRequestBuilder:
                 provider_native_access=native_access,
                 network_access=network_access,
                 sandbox_mode=sandbox_mode,
-                extension_mode=(
-                    ManagedExtensionMode(candidate.effective_extension_mode)
-                    if candidate.effective_extension_mode is not None
-                    else None
-                ),
+                extension_mode=extension_mode,
                 managed_node_mcp=managed_connection,
-                compatibility_node_mcp=compatibility_connection,
             )
         except Exception:
             if binding is not None:
                 self._binding_registry.revoke_binding(binding)
             raise
+        assert binding is not None
         return PreparedProviderStart(request=request, binding=binding)
 
-    async def _prepare_node_connections(
+    async def _prepare_node_connection(
         self,
         signal: DispatchStartDue,
         candidate: ProviderStartCandidate,
-    ) -> tuple[
-        DispatchMcpBinding | None,
-        ManagedNodeMcpConnection | None,
-        CompatibilityNodeMcpConnection | None,
-    ]:
-        if candidate.provider_kind in {ProviderKind.CODEX, ProviderKind.CLAUDE}:
-            descriptors = await self._operation_executor.list_operations(
-                NodeOperationScope(
-                    task_id=candidate.task_id,
-                    dispatch_id=signal.dispatch_id,
-                    provider_start_revision=signal.provider_start_revision,
-                )
-            )
-            operation_names = tuple(str(descriptor.name) for descriptor in descriptors)
-            issued = self._binding_registry.issue_binding(
+    ) -> tuple[DispatchMcpBinding, ManagedNodeMcpConnection]:
+        descriptors = await self._operation_executor.list_operations(
+            NodeOperationScope(
                 task_id=candidate.task_id,
                 dispatch_id=signal.dispatch_id,
                 provider_start_revision=signal.provider_start_revision,
-                exposure_ceiling=operation_names,
             )
-            managed_connection = ManagedNodeMcpConnection(
-                url=self._managed_node_mcp_url,
-                bearer_token=SecretStr(issued.credential),
-                enabled_tools=operation_names,
-            )
-            return issued.binding, managed_connection, None
-
-        compatibility_connection = CompatibilityNodeMcpConnection(
-            url=self._compatibility_node_mcp_url
         )
-        return None, None, compatibility_connection
+        operation_names = tuple(str(descriptor.name) for descriptor in descriptors)
+        issued = self._binding_registry.issue_binding(
+            task_id=candidate.task_id,
+            dispatch_id=signal.dispatch_id,
+            provider_start_revision=signal.provider_start_revision,
+            exposure_ceiling=operation_names,
+        )
+        return issued.binding, ManagedNodeMcpConnection(
+            url=self._managed_node_mcp_url,
+            bearer_token=SecretStr(issued.credential),
+            enabled_tools=operation_names,
+        )
 
 
 def _validate_candidate(
@@ -145,7 +120,8 @@ def _validate_candidate(
     ProviderRoute,
     ProviderNativeAccess,
     NetworkAccess,
-    ManagedSandboxMode | None,
+    ManagedSandboxMode,
+    ManagedExtensionMode,
     str,
     str,
 ]:
@@ -159,9 +135,10 @@ def _validate_candidate(
     route = _provider_route(candidate)
     native_access = ProviderNativeAccess(candidate.provider_native_access)
     network_access = NetworkAccess(candidate.network_access)
-    sandbox_mode = (
-        ManagedSandboxMode(candidate.sandbox_mode) if candidate.sandbox_mode is not None else None
-    )
+    if candidate.sandbox_mode is None or candidate.effective_extension_mode is None:
+        raise ValueError("current starting dispatch is missing managed provider records")
+    sandbox_mode = ManagedSandboxMode(candidate.sandbox_mode)
+    extension_mode = ManagedExtensionMode(candidate.effective_extension_mode)
     validate_provider_execution_configuration(
         route=route,
         provider_native_access=native_access,
@@ -173,6 +150,7 @@ def _validate_candidate(
         native_access,
         network_access,
         sandbox_mode,
+        extension_mode,
         candidate.instructions,
         candidate.input,
     )
@@ -194,11 +172,8 @@ def _provider_route(candidate: ProviderStartCandidate) -> ProviderRoute:
                 model_override=candidate.model_override,
                 effort_override=candidate.effort_override,
             )
-        case ProviderKind.OPENCLAW:
-            return OpenClawProviderRoute(
-                kind=ProviderKind.OPENCLAW,
-                gateway_profile=candidate.gateway_profile or "",
-            )
+        case _:
+            raise ValueError("current starting dispatch selects a retired provider")
 
 
 __all__ = ["PreparedProviderStart", "ProviderStartRequestBuilder"]

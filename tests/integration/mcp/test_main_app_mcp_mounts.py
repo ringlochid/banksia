@@ -49,7 +49,7 @@ def test_sync_app_construction_defers_loop_scoped_session_factory(
     assert isinstance(app.state.dispatch_mcp_binding_registry, DispatchMcpBindingRegistry)
     assert app.state.node_operation_executor is not None
     assert app.state.dispatch_starter is not None
-    assert len(app.state.mcp_lifespan_apps) == 2
+    assert len(app.state.mcp_lifespan_apps) == 1
 
 
 async def _post_initialize(
@@ -84,6 +84,10 @@ def _install_lifespan_mocks(
         startup_calls.append("operator_repair")
         return 0
 
+    async def pause_retired_provider_tasks(*_args: object, **_kwargs: object) -> int:
+        startup_calls.append("provider_retirement")
+        return 0
+
     async def audit_runtime(**kwargs: object) -> dict[str, object]:
         del kwargs
         assert isinstance(app.state.runtime_effect_router, RuntimeEffectRouter)
@@ -110,6 +114,11 @@ def _install_lifespan_mocks(
     )
     monkeypatch.setattr(
         main_module,
+        "pause_tasks_using_retired_providers",
+        pause_retired_provider_tasks,
+    )
+    monkeypatch.setattr(
+        main_module,
         "recover_task_workspace_admissions",
         recover_task_workspaces,
     )
@@ -118,7 +127,7 @@ def _install_lifespan_mocks(
     monkeypatch.setattr(main_module, "dispose_db_engine", dispose_engine)
 
 
-async def test_main_app_mounts_one_managed_and_one_compatibility_node_mcp_app(
+async def test_main_app_mounts_only_the_managed_node_mcp_app(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     startup_calls: list[str] = []
@@ -135,18 +144,16 @@ async def test_main_app_mounts_one_managed_and_one_compatibility_node_mcp_app(
     )
 
     mounts = {route.path: route.app for route in app.routes if isinstance(route, Mount)}
-    assert {"/_internal/node", "/node"} <= set(mounts)
+    assert "/_internal/node" in mounts
+    assert "/node" not in mounts
     assert "/operator" not in mounts
-    assert len({id(mounts["/_internal/node"]), id(mounts["/node"])}) == 2
-    assert app.state.mcp_lifespan_apps == (
-        mounts["/_internal/node"],
-        mounts["/node"],
-    )
+    assert app.state.mcp_lifespan_apps == (mounts["/_internal/node"],)
 
     async with app.router.lifespan_context(app):
         assert startup_calls == [
             "schema",
             "operator_repair",
+            "provider_retirement",
             "workspace_recovery",
             "runtime_audit",
             "projection_audit",
@@ -162,15 +169,13 @@ async def test_main_app_mounts_one_managed_and_one_compatibility_node_mcp_app(
                 "/_internal/node/mcp",
                 headers={"Authorization": f"Bearer {issued.credential}"},
             )
-            compatibility = await _post_initialize(client, "/node/mcp")
-
             assert managed.status_code == 200
-            assert compatibility.status_code == 200
             assert registry.authenticate(issued.credential) == issued.binding
 
     assert startup_calls == [
         "schema",
         "operator_repair",
+        "provider_retirement",
         "workspace_recovery",
         "runtime_audit",
         "projection_audit",

@@ -218,7 +218,7 @@ Use these long-form guides when the measurable rules above are not enough to mak
 - [Repo layout standard](.agents/standards/structure/repo-layout.md) — repo tree, package splits, module-family cleanup, and ownership-by-path. Go here when moving files or cleaning structural sprawl.
 - [Source layout standard](.agents/standards/structure/source-layout.md) — canonical backend package direction, transport-layer thinness, and long-term source-tree convergence. Go here when deciding package roots or steady-state source layout.
 - [Test structure standard](.agents/standards/structure/test-structure.md) — proof-lane ownership and test placement. Go here when deciding unit versus integration versus e2e evidence or reorganizing test trees.
-- [Integration boundaries standard](.agents/standards/structure/integration-boundaries.md) — seam ownership across API, services, runtime, registry, DB, CLI, OpenClaw, and support-state surfaces. Go here when logic placement across layers is ambiguous.
+- [Integration boundaries standard](.agents/standards/structure/integration-boundaries.md) — seam ownership across API, services, runtime, registry, DB, CLI, providers, and support-state surfaces. Go here when logic placement across layers is ambiguous.
 - [Docs structure guide](.agents/standards/docs/docs-structure.md) — public/internal docs placement, page types, versioning, and docs information architecture. Go here when docs scope or location is the real issue.
 
 ## Review exception rule

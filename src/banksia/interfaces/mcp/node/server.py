@@ -3,14 +3,11 @@ from __future__ import annotations
 import json
 from collections.abc import AsyncIterator, Mapping
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
-from enum import StrEnum
 from typing import Any
 
 from mcp import types
 from mcp.server.lowlevel import Server
 from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
-from pydantic import BaseModel, ConfigDict, Field
 from pydantic import ValidationError as PydanticValidationError
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
@@ -38,33 +35,11 @@ from banksia.runtime.node_operations import (
 from banksia.runtime.node_operations.catalog import select_node_operation_descriptors
 
 from .http_admission import ManagedNodeMcpHttpAdmission, current_managed_binding
-from .schema_projection import (
-    compatibility_input_schema,
-    managed_input_schema,
-    operation_output_schema,
-)
+from .schema_projection import managed_input_schema, operation_output_schema
 
 NODE_TOOL_NAMES: tuple[str, ...] = tuple(
     str(descriptor.name) for descriptor in select_node_operation_descriptors()
 )
-
-
-class NodeMcpProjectionKind(StrEnum):
-    MANAGED = "managed"
-    COMPATIBILITY = "compatibility"
-
-
-@dataclass(frozen=True, slots=True)
-class NodeMcpApplications:
-    managed: Starlette
-    compatibility: Starlette
-
-
-class _CompatibilityScopeRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    task_id: str = Field(min_length=1)
-    dispatch_id: str = Field(min_length=1)
 
 
 class _StreamableHttpRequestApp:
@@ -79,34 +54,27 @@ class _NodeMcpProjection:
     def __init__(
         self,
         *,
-        kind: NodeMcpProjectionKind,
         operation_executor: NodeOperationExecutor,
-        binding_registry: DispatchMcpBindingRegistry | None,
+        binding_registry: DispatchMcpBindingRegistry,
     ) -> None:
-        self._kind = kind
         self._operation_executor = operation_executor
         self._binding_registry = binding_registry
         self._descriptors_by_name = {
             str(descriptor.name): descriptor for descriptor in NODE_OPERATION_CATALOG
         }
-        server_name = (
-            "banksia-node-managed" if kind is NodeMcpProjectionKind.MANAGED else "banksia-node"
-        )
-        self.server = Server(server_name, instructions=_server_instructions(kind))
+        self.server = Server("banksia-node", instructions=_server_instructions())
         self.server.list_tools()(self.list_tools)
         self.server.call_tool(validate_input=False)(self.call_tool)
 
     async def list_tools(self) -> list[types.Tool]:
         descriptors = await self._listed_descriptors()
-        human_request_kinds: tuple[str, ...] | None = None
-        if self._kind is NodeMcpProjectionKind.MANAGED:
-            binding = current_managed_binding()
-            scope = NodeOperationScope(
-                task_id=binding.task_id,
-                dispatch_id=binding.dispatch_id,
-                provider_start_revision=binding.provider_start_revision,
-            )
-            human_request_kinds = await self._operation_executor.allowed_human_request_kinds(scope)
+        binding = current_managed_binding()
+        scope = NodeOperationScope(
+            task_id=binding.task_id,
+            dispatch_id=binding.dispatch_id,
+            provider_start_revision=binding.provider_start_revision,
+        )
+        human_request_kinds = await self._operation_executor.allowed_human_request_kinds(scope)
         return [
             self._tool_from_descriptor(
                 descriptor,
@@ -149,11 +117,8 @@ class _NodeMcpProjection:
         return _success_tool_result(result.model_dump(mode="json"))
 
     async def _listed_descriptors(self) -> tuple[NodeOperationDescriptor, ...]:
-        if self._kind is NodeMcpProjectionKind.COMPATIBILITY:
-            return select_node_operation_descriptors()
-
         binding = current_managed_binding()
-        if self._binding_registry is None or not self._binding_registry.is_active(binding):
+        if not self._binding_registry.is_active(binding):
             return ()
         scope = NodeOperationScope(
             task_id=binding.task_id,
@@ -173,11 +138,8 @@ class _NodeMcpProjection:
         descriptor: NodeOperationDescriptor,
         arguments: Mapping[str, object],
     ) -> tuple[NodeOperationScope, dict[str, object]]:
-        if self._kind is NodeMcpProjectionKind.COMPATIBILITY:
-            return _extract_compatibility_scope(arguments)
-
         binding = current_managed_binding()
-        if self._binding_registry is None or not self._binding_registry.is_active(binding):
+        if not self._binding_registry.is_active(binding):
             raise _managed_authentication_error()
         if str(descriptor.name) not in binding.exposure_ceiling:
             raise illegal_caller_error(
@@ -200,13 +162,9 @@ class _NodeMcpProjection:
         human_request_kinds: tuple[str, ...] | None = None,
     ) -> types.Tool:
         is_read_only = descriptor.mutation_kind is NodeOperationMutationKind.READ
-        input_schema = (
-            managed_input_schema(
-                descriptor,
-                human_request_kinds=human_request_kinds,
-            )
-            if self._kind is NodeMcpProjectionKind.MANAGED
-            else compatibility_input_schema(descriptor)
+        input_schema = managed_input_schema(
+            descriptor,
+            human_request_kinds=human_request_kinds,
         )
         return types.Tool(
             name=str(descriptor.name),
@@ -221,25 +179,6 @@ class _NodeMcpProjection:
         )
 
 
-def create_node_mcp_apps(
-    *,
-    binding_registry: DispatchMcpBindingRegistry,
-    operation_executor: NodeOperationExecutor,
-    transport_policy: NodeMcpTransportPolicy,
-) -> NodeMcpApplications:
-    return NodeMcpApplications(
-        managed=create_managed_node_mcp_app(
-            binding_registry=binding_registry,
-            operation_executor=operation_executor,
-            transport_policy=transport_policy,
-        ),
-        compatibility=create_compatibility_node_mcp_app(
-            operation_executor=operation_executor,
-            transport_policy=transport_policy,
-        ),
-    )
-
-
 def create_managed_node_mcp_app(
     *,
     binding_registry: DispatchMcpBindingRegistry,
@@ -247,7 +186,6 @@ def create_managed_node_mcp_app(
     transport_policy: NodeMcpTransportPolicy,
 ) -> Starlette:
     projection = _NodeMcpProjection(
-        kind=NodeMcpProjectionKind.MANAGED,
         operation_executor=operation_executor,
         binding_registry=binding_registry,
     )
@@ -255,23 +193,6 @@ def create_managed_node_mcp_app(
         projection=projection,
         transport_policy=transport_policy,
         binding_registry=binding_registry,
-    )
-
-
-def create_compatibility_node_mcp_app(
-    *,
-    operation_executor: NodeOperationExecutor,
-    transport_policy: NodeMcpTransportPolicy,
-) -> Starlette:
-    projection = _NodeMcpProjection(
-        kind=NodeMcpProjectionKind.COMPATIBILITY,
-        operation_executor=operation_executor,
-        binding_registry=None,
-    )
-    return _create_projection_app(
-        projection=projection,
-        transport_policy=transport_policy,
-        binding_registry=None,
     )
 
 
@@ -279,7 +200,7 @@ def _create_projection_app(
     *,
     projection: _NodeMcpProjection,
     transport_policy: NodeMcpTransportPolicy,
-    binding_registry: DispatchMcpBindingRegistry | None,
+    binding_registry: DispatchMcpBindingRegistry,
 ) -> Starlette:
     session_manager = StreamableHTTPSessionManager(
         app=projection.server,
@@ -294,42 +215,18 @@ def _create_projection_app(
             try:
                 yield
             finally:
-                if binding_registry is not None:
-                    binding_registry.revoke_all()
+                binding_registry.revoke_all()
 
-    middleware = (
-        [
-            Middleware(
-                ManagedNodeMcpHttpAdmission,
-                binding_registry=binding_registry,
-            )
-        ]
-        if binding_registry is not None
-        else []
-    )
+    middleware = [
+        Middleware(
+            ManagedNodeMcpHttpAdmission,
+            binding_registry=binding_registry,
+        )
+    ]
     return Starlette(
         routes=[Route("/mcp", endpoint=_StreamableHttpRequestApp(session_manager))],
         middleware=middleware,
         lifespan=lifespan,
-    )
-
-
-def _extract_compatibility_scope(
-    arguments: Mapping[str, object],
-) -> tuple[NodeOperationScope, dict[str, object]]:
-    semantic_arguments = dict(arguments)
-    scope_request = _CompatibilityScopeRequest.model_validate(
-        {
-            "task_id": semantic_arguments.pop("task_id", None),
-            "dispatch_id": semantic_arguments.pop("dispatch_id", None),
-        }
-    )
-    return (
-        NodeOperationScope(
-            task_id=scope_request.task_id,
-            dispatch_id=scope_request.dispatch_id,
-        ),
-        semantic_arguments,
     )
 
 
@@ -349,23 +246,14 @@ def _success_tool_result(payload: dict[str, Any]) -> types.CallToolResult:
     )
 
 
-def _server_instructions(kind: NodeMcpProjectionKind) -> str:
-    if kind is NodeMcpProjectionKind.MANAGED:
-        return (
-            "Dispatch-scoped Banksia Node tools. Scope and exposure come from the private "
-            "managed binding; tool arguments contain semantic fields only."
-        )
+def _server_instructions() -> str:
     return (
-        "Explicit-ID Banksia Node compatibility tools for user-configured OpenClaw. Every "
-        "call requires the full current task_id and dispatch_id."
+        "Dispatch-scoped Banksia Node tools. Scope and exposure come from the private "
+        "managed binding; tool arguments contain semantic fields only."
     )
 
 
 __all__ = [
     "NODE_TOOL_NAMES",
-    "NodeMcpApplications",
-    "NodeMcpProjectionKind",
-    "create_compatibility_node_mcp_app",
     "create_managed_node_mcp_app",
-    "create_node_mcp_apps",
 ]

@@ -280,59 +280,40 @@ def verify_installed_provider_configuration(
         cwd=cwd,
         env=env,
     )
-    openclaw = run_json_command(
+    claude = run_json_command(
         executable,
-        (
-            "providers",
-            "configure",
-            "openclaw",
-            "--config",
-            str(config_path),
-            "--gateway-url",
-            "ws://127.0.0.1:9",
-            "--gateway-profile",
-            "installed-wheel-oracle",
-            "--json",
-        ),
+        ("providers", "configure", "claude", "--config", str(config_path), "--json"),
         cwd=cwd,
         env=env,
     )
     selected = run_json_command(
         executable,
-        ("providers", "set-default", "openclaw", "--config", str(config_path), "--json"),
+        ("providers", "set-default", "claude", "--config", str(config_path), "--json"),
         cwd=cwd,
         env=env,
     )
     status = run_json_command(
         executable,
-        ("providers", "status", "openclaw", "--config", str(config_path), "--json"),
+        ("providers", "status", "claude", "--config", str(config_path), "--json"),
         cwd=cwd,
         env=env,
     )
     if codex.get("default_provider") != "codex":
         raise AssertionError(f"first installed provider was not selected by default: {codex}")
-    if openclaw.get("default_provider") != "codex":
-        raise AssertionError(
-            f"second installed provider replaced the default implicitly: {openclaw}"
-        )
-    if (
-        selected.get("default_provider") != "openclaw"
-        or selected.get("default_changed") is not True
-    ):
+    if claude.get("default_provider") != "codex":
+        raise AssertionError(f"second installed provider replaced the default implicitly: {claude}")
+    if selected.get("default_provider") != "claude" or selected.get("default_changed") is not True:
         raise AssertionError(f"installed provider default selection failed: {selected}")
     statuses = status.get("providers")
     if not isinstance(statuses, list) or len(statuses) != 1:
         raise AssertionError(f"installed provider status returned an unexpected shape: {status}")
-    openclaw_status = statuses[0]
-    if not isinstance(openclaw_status, dict):
+    claude_status = statuses[0]
+    if not isinstance(claude_status, dict):
         raise AssertionError(f"installed provider status returned a non-object: {status}")
-    if (
-        openclaw_status.get("configured") is not True
-        or openclaw_status.get("is_default") is not True
-    ):
-        raise AssertionError(f"installed OpenClaw configuration was not persisted: {status}")
+    if claude_status.get("configured") is not True or claude_status.get("is_default") is not True:
+        raise AssertionError(f"installed Claude configuration was not persisted: {status}")
     return {
-        "configured": [codex, openclaw],
+        "configured": [codex, claude],
         "selected_default": selected,
         "status": status,
         "omitted_external_actions": [

@@ -8,7 +8,7 @@ This page owns the exact shipped Task-member and Operator operation catalogs, th
 
 Banksia has two separate built-in agent tool catalogs:
 
-- **Task-member tools** are controller operations used by a current Task Dispatch. Managed Codex and Claude turns receive them through a private Dispatch-scoped MCP binding. OpenClaw may use the explicit-ID compatibility projection of the same logical catalog.
+- **Task-member tools** are controller operations used by a current Task Dispatch. Codex and Claude turns receive them through a private Dispatch-scoped MCP binding.
 - **Operator tools** act on user-facing Workflow and Task product services. They never inherit Task-member authority and are not injected into a Task Dispatch.
 
 The absence of Banksia-managed external-MCP authoring does not remove either built-in catalog. A Workflow cannot define arbitrary MCP servers or tools, and Banksia has no external-MCP registry, credential, installation, approval, or replan shape. A managed Member may request inherited visibility of enabled user and project Skills plus configured MCP servers through its provider settings; those provider-native extensions never gain Banksia controller authority.
@@ -46,7 +46,7 @@ The managed binding exposes a stable ceiling for one exact Dispatch. Fresh contr
 
 `add_child` is deliberately available to a Contributor: adding its first child changes its next fresh context to Manager behavior. Task lead is a position, not a separate tool role, and receives no secret completion operation.
 
-The tool ceiling is not completion authority. For example, `checkpoint` stays available for progress while the controller may reject a terminal green outcome until current direct-child participation is satisfied. A managed Human Request schema should narrow its `kind` enum to the exact granted kinds for that binding; the compatibility catalog may advertise the complete enum but must enforce the selected Dispatch's grant at call time.
+The tool ceiling is not completion authority. For example, `checkpoint` stays available for progress while the controller may reject a terminal green outcome until current direct-child participation is satisfied. A Human Request schema narrows its `kind` enum to the exact granted kinds for that binding.
 
 An accepted structural replan closes its source Dispatch, so a change from Contributor to Manager, or the reverse, always receives a fresh binding and fresh tool ceiling on the successor.
 
@@ -239,14 +239,11 @@ This metadata belongs beside the operation contract and drives descriptions, pro
 
 ## MCP projections and binding
 
-Preserve one logical catalog with two Node projections:
-
-- managed `/_internal/node/mcp`: semantic arguments only, direct loopback peer, Host/Origin checks, opaque bearer bound to exact Task, Dispatch, and provider-start revision, and a Dispatch-specific exposure ceiling;
-- compatibility `/node/mcp`: the same semantic schemas prefixed with required full `task_id` and `dispatch_id`, complete static discovery, and fresh call-time legality. This remains the weaker user-configured OpenClaw lane.
+Preserve one private managed Node projection at `/_internal/node/mcp`: semantic arguments only, direct loopback peer, Host/Origin checks, opaque bearer bound to exact Task, Dispatch, and provider-start revision, and a Dispatch-specific exposure ceiling.
 
 Concurrent Attempt lanes receive independent bindings to the same application. The executor must validate Attempt-local current Dispatch authority; it must no longer consult a Flow-wide current pointer. Binding credentials, Task/Dispatch selectors, provider sessions, and controller revisions never enter managed model-visible schemas.
 
-Implementation identities are `banksia_node`, `banksia-node-managed`, and `banksia-node`. The endpoint paths remain stable because they describe the two transport projections.
+Implementation identities are `banksia_node` and `banksia-node-managed`.
 
 Every tool provides deterministic ordering, detailed bounded teaching, strict input and output schemas, structured content plus JSON text compatibility, and the shared structured execution failure. Set accurate `readOnlyHint`, `destructiveHint`, `idempotentHint`, and `openWorldHint` values; treat them only as client hints, never authorization. Where the pinned SDK exposes MCP task support, mark every Banksia operation `forbidden`: Banksia's Dispatch, wait, Wave, Human Request, and Command Run records own resumability. Do not add MCP resources, prompts, elicitation, or protocol-task dependencies.
 
@@ -254,7 +251,7 @@ Every tool provides deterministic ordering, detailed bounded teaching, strict in
 
 ## Provider integration
 
-The provider-start request carries an ephemeral managed connection for Codex and Claude or the compatibility endpoint for OpenClaw:
+The provider-start request carries one ephemeral managed connection for Codex or Claude:
 
 - provider-side enabled-tool lists use the exact current ceiling;
 - Claude names use `mcp__banksia_node__*`;
@@ -337,7 +334,7 @@ Do not add:
 
 - exact final Node inventory equals the nine names above, in deterministic order, with no stale alias;
 - exact final Operator inventory equals its seventeen approved names and has no `artifact_get`;
-- managed and compatibility Node projections share semantic schemas/results, differing only by hidden versus explicit Task/Dispatch scope;
+- the managed Node projection exposes only semantic schemas and derives Task/Dispatch scope from its exact binding;
 - Contributor, Manager, capability-granted, denied, stale, and post-replan discovery/call matrices are correct;
 - every transfer operation commits authority loss before success returns and duplicate/stale calls cannot mutate a successor;
 - nested parallel Attempt bindings cannot cross Task, Attempt, Dispatch, tool ceiling, or provider-start generation;

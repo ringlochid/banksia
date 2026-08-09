@@ -390,7 +390,7 @@ async function loadPublishedWorkflows(
     do {
         const { body } = await api.searchWorkflows(cursor, signal);
         for (const workflow of body.items) {
-            if (workflow.published_revision_no !== null) {
+            if (workflow.available_actions.includes("start_run")) {
                 publishedById.set(workflow.workflow_id, workflow);
             }
         }

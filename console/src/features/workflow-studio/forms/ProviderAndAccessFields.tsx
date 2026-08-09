@@ -1,6 +1,7 @@
 import { LoaderCircle } from "lucide-react";
 
 import type {
+    AuthoredProviderSelection,
     NormalizedMember,
     ProviderSandbox,
     ProviderSelection,
@@ -106,14 +107,7 @@ function ProviderFields({
     const providerKind = provider?.kind ?? "default";
     const managedProvider =
         provider?.kind === "codex" || provider?.kind === "claude";
-    const providerKinds = [
-        ...new Set([
-            ...(options?.provider_kinds ?? []),
-            ...(provider === undefined || provider === null
-                ? []
-                : [provider.kind]),
-        ]),
-    ];
+    const providerKinds = [...new Set(options?.provider_kinds ?? [])];
 
     return (
         <>
@@ -131,7 +125,10 @@ function ProviderFields({
                             provider: providerForKind(value),
                         });
                     }}
-                    options={providerOptions(providerKinds)}
+                    options={providerOptions(
+                        providerKinds,
+                        provider?.kind === "openclaw",
+                    )}
                     value={providerKind}
                 />
             </FormField>
@@ -147,11 +144,13 @@ function ProviderFields({
                 />
             ) : null}
             {provider?.kind === "openclaw" ? (
-                <p className="studio-form__explanation">
-                    OpenClaw owns its sandbox and workspace access outside
-                    Banksia. Make the selected workspace available in
-                    OpenClaw&apos;s configuration before using this team.
-                </p>
+                <Notice tone="warning">
+                    <Prose>
+                        OpenClaw is retired. Choose Codex, Claude, or the
+                        installation default before publishing or running this
+                        Workflow.
+                    </Prose>
+                </Notice>
             ) : null}
         </>
     );
@@ -433,24 +432,24 @@ function ManagedExtensionModeField({
     );
 }
 
-function providerForKind(kind: string): ProviderSelection | null {
+function providerForKind(kind: string): AuthoredProviderSelection | null {
     switch (kind) {
         case "codex":
             return { kind: "codex" };
         case "claude":
             return { kind: "claude" };
-        case "openclaw":
-            return { kind: "openclaw" };
         default:
             return null;
     }
 }
 
-function providerOptions(kinds: readonly string[]): readonly SelectOption[] {
+function providerOptions(
+    kinds: readonly string[],
+    includeRetiredSelection: boolean,
+): readonly SelectOption[] {
     const descriptions: Readonly<Record<string, string>> = {
         codex: "Use the configured Codex provider.",
         claude: "Use the configured Claude provider.",
-        openclaw: "Use the configured OpenClaw provider.",
     };
     return [
         {
@@ -458,6 +457,16 @@ function providerOptions(kinds: readonly string[]): readonly SelectOption[] {
             label: "Installation default",
             hint: "Use the provider configured for Banksia.",
         },
+        ...(includeRetiredSelection
+            ? [
+                  {
+                      value: "openclaw",
+                      label: "OpenClaw (retired)",
+                      hint: "Choose an active provider to repair this Member.",
+                      disabled: true,
+                  },
+              ]
+            : []),
         ...kinds.map((kind) => ({
             value: kind,
             label: providerLabel(kind),
@@ -472,7 +481,7 @@ function withProviderValue(
     provider: Extract<ProviderSelection, { kind: "codex" | "claude" }>,
     field: "model" | "effort" | "sandbox" | "extension_mode",
     value: string | ProviderSandbox | undefined,
-): ProviderSelection {
+): AuthoredProviderSelection {
     const next: Record<string, unknown> = { kind: provider.kind };
     for (const providerField of [
         "model",
@@ -490,7 +499,7 @@ function withProviderValue(
     } else {
         next[field] = value;
     }
-    return next as ProviderSelection;
+    return next as AuthoredProviderSelection;
 }
 
 function sandboxFromValue(value: string): ProviderSandbox | undefined {
@@ -571,7 +580,7 @@ function optionalValue(value: string): string | undefined {
 
 function providerLabel(value: string): string {
     if (value === "openclaw") {
-        return "OpenClaw";
+        return "OpenClaw (retired)";
     }
     return value
         .split(/[_-]/)

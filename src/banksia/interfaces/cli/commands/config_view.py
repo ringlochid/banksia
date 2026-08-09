@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlsplit
 
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import ArgumentError
@@ -60,11 +59,10 @@ def build_settings_payload(settings: Any, config_path: Path) -> dict[str, Any]:
         },
         "codex": settings.codex.model_dump(mode="json"),
         "claude": settings.claude.model_dump(mode="json"),
-        "openclaw": settings.openclaw.model_dump(mode="json"),
         "operator": settings.operator.model_dump(mode="json"),
         "runtime": settings.runtime.model_dump(mode="json"),
     }
-    return _redact_config_payload(payload)
+    return payload
 
 
 def redact_database_url(value: str) -> str:
@@ -73,26 +71,6 @@ def redact_database_url(value: str) -> str:
         return make_url(value).render_as_string(hide_password=True)
     except (ArgumentError, ValueError):
         return REDACTED_VALUE if "@" in value else value
-
-
-def _redact_config_payload(payload: dict[str, Any]) -> dict[str, Any]:
-    redacted = dict(payload)
-    openclaw = redacted.get("openclaw")
-    if isinstance(openclaw, dict):
-        openclaw = dict(openclaw)
-        gateway_url = openclaw.get("gateway_url")
-        if isinstance(gateway_url, str) and _url_contains_userinfo(gateway_url):
-            openclaw["gateway_url"] = REDACTED_VALUE
-        redacted["openclaw"] = openclaw
-    return redacted
-
-
-def _url_contains_userinfo(value: str) -> bool:
-    try:
-        parsed = urlsplit(value)
-    except ValueError:
-        return "@" in value
-    return parsed.username is not None or parsed.password is not None
 
 
 __all__ = [

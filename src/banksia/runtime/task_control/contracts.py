@@ -15,6 +15,7 @@ type ControllerTaskPauseReason = Literal[
     "paused_by_operator",
     "runtime_recovery_exhausted",
     "runtime_transition_failed",
+    "provider_retired",
 ]
 
 

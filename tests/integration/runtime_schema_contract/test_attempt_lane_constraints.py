@@ -577,7 +577,6 @@ def _prepared_starting_dispatch(dispatch_id: str) -> PreparedDispatchRequest:
             ),
             model_source=ProviderRouteValueSource.PROVIDER_CONFIGURATION,
             effort_source=ProviderRouteValueSource.PROVIDER_CONFIGURATION,
-            gateway_profile_source=None,
         ),
         capabilities=EffectiveCapabilitySet(),
         instructions="Controller instructions.\n",

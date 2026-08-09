@@ -57,7 +57,6 @@ def emit_provider_choices() -> None:
         print("Available provider routes")
         print("  codex     Managed Codex SDK integration")
         print("  claude    Managed Claude SDK integration")
-        print("  openclaw  Experimental client; Gateway and MCP are user-managed")
         return
     table = Table(
         box=box.SIMPLE_HEAD,
@@ -70,11 +69,6 @@ def emit_provider_choices() -> None:
     table.add_column("Ownership")
     table.add_row("Codex", Text("Managed", style="success"), "Banksia SDK integration")
     table.add_row("Claude", Text("Managed", style="success"), "Banksia SDK integration")
-    table.add_row(
-        "OpenClaw",
-        Text("Experimental", style="warn"),
-        "Banksia client; user-managed Gateway/MCP",
-    )
     context.console().print(
         Panel(
             table,

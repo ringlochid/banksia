@@ -49,60 +49,27 @@ def test_first_configuration_sets_default_and_later_configuration_preserves_it(
     assert payload["runtime"]["default_provider"] == "codex"
 
 
-def test_openclaw_is_configurable_and_default_eligible(tmp_path: Path) -> None:
+def test_active_configuration_replaces_a_stale_openclaw_default_and_section(
+    tmp_path: Path,
+) -> None:
     config_path = tmp_path / "config.toml"
-    configure_provider(
-        config_path,
-        ProviderConfigurationRequest(provider=ProviderKind.CODEX),
+    config_path.write_text(
+        '[openclaw]\nenabled = true\n\n[runtime]\ndefault_provider = "openclaw"\n',
+        encoding="utf-8",
     )
     configured = configure_provider(
         config_path,
-        ProviderConfigurationRequest(
-            provider=ProviderKind.OPENCLAW,
-            cli_path="/opt/openclaw/bin/openclaw",
-            gateway_url="ws://127.0.0.1:18789",
-            gateway_profile="user-maintained",
-        ),
-    )
-
-    changed = set_default_provider(config_path, ProviderKind.OPENCLAW)
-
-    payload = tomllib.loads(config_path.read_text(encoding="utf-8"))
-    assert configured.product_status.value == "experimental"
-    assert configured.default_provider == ProviderKind.CODEX
-    assert changed.default_provider == ProviderKind.OPENCLAW
-    assert changed.is_default_changed is True
-    assert payload["runtime"]["default_provider"] == "openclaw"
-    assert payload["openclaw"] == {
-        "enabled": True,
-        "cli_path": "/opt/openclaw/bin/openclaw",
-        "gateway_url": "ws://127.0.0.1:18789",
-        "gateway_profile": "user-maintained",
-        "gateway_auth_mode": "token",
-    }
-
-
-def test_openclaw_configuration_records_the_discovered_cli_path(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    config_path = tmp_path / "config.toml"
-    executable = tmp_path / "openclaw"
-    monkeypatch.setattr(
-        "banksia.interfaces.cli.providers.configuration.shutil.which",
-        lambda _command: str(executable),
-    )
-
-    configure_provider(
-        config_path,
-        ProviderConfigurationRequest(provider=ProviderKind.OPENCLAW),
+        ProviderConfigurationRequest(provider=ProviderKind.CLAUDE),
     )
 
     payload = tomllib.loads(config_path.read_text(encoding="utf-8"))
-    assert payload["openclaw"]["cli_path"] == str(executable)
+    assert configured.default_provider == ProviderKind.CLAUDE
+    assert configured.is_default_changed is True
+    assert payload["runtime"]["default_provider"] == "claude"
+    assert "openclaw" not in payload
 
 
-def test_failed_configuration_preserves_previous_bytes_and_default(tmp_path: Path) -> None:
+def test_retired_provider_configuration_is_rejected_without_rewrite(tmp_path: Path) -> None:
     config_path = tmp_path / "config.toml"
     configure_provider(
         config_path,
@@ -110,14 +77,14 @@ def test_failed_configuration_preserves_previous_bytes_and_default(tmp_path: Pat
     )
     previous_bytes = config_path.read_bytes()
 
-    with pytest.raises(ValueError, match="gateway_url"):
+    with pytest.raises(ValueError, match="retired"):
         configure_provider(
             config_path,
-            ProviderConfigurationRequest(
-                provider=ProviderKind.OPENCLAW,
-                gateway_url="ws://user:secret@127.0.0.1:18789",
-            ),
+            ProviderConfigurationRequest(provider=ProviderKind.OPENCLAW),
         )
+
+    with pytest.raises(ValueError, match="retired"):
+        set_default_provider(config_path, ProviderKind.OPENCLAW)
 
     assert config_path.read_bytes() == previous_bytes
     assert tomllib.loads(previous_bytes.decode())["runtime"]["default_provider"] == "codex"

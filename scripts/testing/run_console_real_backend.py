@@ -100,13 +100,9 @@ def _initialize_runtime(
     _run_cli(
         "providers",
         "configure",
-        "openclaw",
+        "codex",
         "--config",
         str(config_path),
-        "--gateway-url",
-        "ws://127.0.0.1:9",
-        "--gateway-profile",
-        "real-browser-smoke",
         "--json",
         environment=environment,
     )

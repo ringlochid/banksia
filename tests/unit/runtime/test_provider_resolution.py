@@ -9,7 +9,6 @@ from banksia.config import (
     CONFIG_ENV_VAR,
     ClaudeSettings,
     CodexSettings,
-    OpenClawSettings,
     RuntimeSettings,
     Settings,
     load_settings,
@@ -34,13 +33,13 @@ from banksia.runtime.providers import (
     ProviderResolutionError,
     ProviderResolutionErrorCode,
     narrow_provider_capabilities,
+    provider_selection_from_mapping,
     resolve_provider_route,
     validate_provider_execution_configuration,
 )
 from banksia.workflows.contracts import (
     ClaudeProviderSelection,
     CodexProviderSelection,
-    OpenClawProviderSelection,
     ProviderSandbox,
 )
 
@@ -50,13 +49,11 @@ def _settings(
     default_provider: ProviderKind | None = None,
     codex: CodexSettings | None = None,
     claude: ClaudeSettings | None = None,
-    openclaw: OpenClawSettings | None = None,
 ) -> Settings:
     return Settings(
         runtime=RuntimeSettings(default_provider=default_provider),
         codex=codex or CodexSettings(),
         claude=claude or ClaudeSettings(),
-        openclaw=openclaw or OpenClawSettings(),
     )
 
 
@@ -66,60 +63,12 @@ def test_sparse_settings_allow_zero_providers_and_no_default() -> None:
     assert settings.runtime.default_provider is None
     assert not settings.codex.enabled
     assert not settings.claude.enabled
-    assert not settings.openclaw.enabled
-
-
-@pytest.mark.parametrize(
-    "gateway_url",
-    [
-        "not-a-url",
-        "  ",
-        "http://127.0.0.1:18789",
-        "ws://host name",
-        "ws:///missing-host",
-        "ws://[::1",
-        "ws://user:secret@127.0.0.1:18789",
-        "ws://127.0.0.1:18789/#fragment",
-    ],
-)
-def test_openclaw_gateway_url_rejects_invalid_or_secret_bearing_values(
-    gateway_url: str,
-) -> None:
-    settings = _settings(
-        openclaw=OpenClawSettings(enabled=True, gateway_url=gateway_url),
-    )
-
-    with pytest.raises(ProviderResolutionError) as error:
-        resolve_provider_route(
-            provider=OpenClawProviderSelection(kind="openclaw"),
-            settings=settings,
-            available_adapter_kinds={ProviderKind.OPENCLAW},
-        )
-
-    assert error.value.code == ProviderResolutionErrorCode.INVALID_CONFIGURATION
-    assert error.value.provider == ProviderKind.OPENCLAW
-
-
-def test_invalid_unselected_openclaw_config_does_not_block_other_routes() -> None:
-    settings = _settings(
-        codex=CodexSettings(enabled=True),
-        openclaw=OpenClawSettings(enabled=True, gateway_url="not-a-url"),
-    )
-
-    resolution = resolve_provider_route(
-        provider=CodexProviderSelection(kind="codex"),
-        settings=settings,
-        available_adapter_kinds={ProviderKind.CODEX},
-    )
-
-    assert resolution.resolved_provider == ProviderKind.CODEX
 
 
 def test_blank_unselected_provider_values_do_not_block_other_routes() -> None:
     settings = _settings(
         codex=CodexSettings(enabled=True),
         claude=ClaudeSettings(enabled=True, model="  "),
-        openclaw=OpenClawSettings(enabled=True, gateway_url="  ", gateway_profile="  "),
     )
 
     resolution = resolve_provider_route(
@@ -142,20 +91,10 @@ def test_blank_unselected_provider_values_do_not_block_other_routes() -> None:
             ClaudeProviderSelection(kind="claude"),
             _settings(claude=ClaudeSettings(enabled=True, effort="")),
         ),
-        (
-            OpenClawProviderSelection(kind="openclaw"),
-            _settings(
-                openclaw=OpenClawSettings(
-                    enabled=True,
-                    gateway_url="ws://127.0.0.1:18789",
-                    gateway_profile="  ",
-                )
-            ),
-        ),
     ],
 )
 def test_selected_provider_rejects_explicit_blank_values(
-    selection: CodexProviderSelection | ClaudeProviderSelection | OpenClawProviderSelection,
+    selection: CodexProviderSelection | ClaudeProviderSelection,
     settings: Settings,
 ) -> None:
     with pytest.raises(ProviderResolutionError) as error:
@@ -299,13 +238,7 @@ gateway_profile = "tested-local"
         "effort": None,
         "extension_mode": "inherit",
     }
-    assert settings.openclaw.model_dump(mode="json") == {
-        "enabled": True,
-        "cli_path": "openclaw",
-        "gateway_url": "ws://127.0.0.1:18789",
-        "gateway_profile": "tested-local",
-        "gateway_auth_mode": "token",
-    }
+    assert not hasattr(settings, "openclaw")
 
 
 @pytest.mark.parametrize(
@@ -313,15 +246,10 @@ gateway_profile = "tested-local"
     [
         (CodexSettings, {"enabled": True, "api_key": "secret"}, "api_key"),
         (ClaudeSettings, {"enabled": True, "executable": "/bin/claude"}, "executable"),
-        (
-            OpenClawSettings,
-            {"enabled": True, "gateway_token": "secret"},
-            "gateway_token",
-        ),
     ],
 )
 def test_provider_settings_reject_unknown_or_secret_fields(
-    settings_type: type[CodexSettings] | type[ClaudeSettings] | type[OpenClawSettings],
+    settings_type: type[CodexSettings] | type[ClaudeSettings],
     payload: dict[str, object],
     rejected_field: str,
 ) -> None:
@@ -350,21 +278,10 @@ def test_provider_settings_reject_unknown_or_secret_fields(
                 "effort_override": "high",
             },
         ),
-        (
-            OpenClawProviderSelection(kind="openclaw"),
-            _settings(
-                openclaw=OpenClawSettings(
-                    enabled=True,
-                    gateway_url="ws://127.0.0.1:18789",
-                    gateway_profile="tested-local",
-                )
-            ),
-            {"kind": "openclaw", "gateway_profile": "tested-local"},
-        ),
     ],
 )
 def test_explicit_provider_resolution_constructs_exact_non_secret_route(
-    selection: CodexProviderSelection | ClaudeProviderSelection | OpenClawProviderSelection,
+    selection: CodexProviderSelection | ClaudeProviderSelection,
     settings: Settings,
     expected_route: dict[str, object],
 ) -> None:
@@ -378,21 +295,15 @@ def test_explicit_provider_resolution_constructs_exact_non_secret_route(
     assert resolution.resolved_provider == selection.kind
     assert resolution.selection_basis == ProviderSelectionBasis.EXPLICIT
     assert resolution.route.model_dump(mode="json") == expected_route
-    if selection.kind in {ProviderKind.CODEX, ProviderKind.CLAUDE}:
-        assert resolution.model_source is ProviderRouteValueSource.PROVIDER_CONFIGURATION
-        assert resolution.effort_source is ProviderRouteValueSource.PROVIDER_CONFIGURATION
-        assert resolution.gateway_profile_source is None
-        assert resolution.extensions is not None
-        assert resolution.extensions.requested_mode is ManagedExtensionMode.INHERIT
-        assert resolution.extensions.effective_mode is ManagedExtensionMode.INHERIT
-        assert (
-            resolution.extensions.requested_source
-            is ExtensionModeResolutionSource.PROVIDER_CONFIGURATION
-        )
-    else:
-        assert resolution.model_source is None
-        assert resolution.effort_source is None
-        assert resolution.gateway_profile_source is ProviderRouteValueSource.PROVIDER_CONFIGURATION
+    assert resolution.model_source is ProviderRouteValueSource.PROVIDER_CONFIGURATION
+    assert resolution.effort_source is ProviderRouteValueSource.PROVIDER_CONFIGURATION
+    assert resolution.extensions is not None
+    assert resolution.extensions.requested_mode is ManagedExtensionMode.INHERIT
+    assert resolution.extensions.effective_mode is ManagedExtensionMode.INHERIT
+    assert (
+        resolution.extensions.requested_source
+        is ExtensionModeResolutionSource.PROVIDER_CONFIGURATION
+    )
 
 
 def test_omitted_selection_resolves_only_the_configured_default() -> None:
@@ -443,29 +354,29 @@ def test_member_extension_mode_is_exact_and_restricted_access_narrows_inherit() 
     assert narrowed.extensions.effective_source is ExtensionModeResolutionSource.CONTROLLER
 
 
-def test_experimental_openclaw_route_remains_default_eligible() -> None:
+def test_retired_openclaw_default_is_rejected_without_fallback() -> None:
     settings = _settings(
         default_provider=ProviderKind.OPENCLAW,
-        openclaw=OpenClawSettings(
-            enabled=True,
-            gateway_url="ws://127.0.0.1:18789",
-            gateway_profile="experimental",
-        ),
+        codex=CodexSettings(enabled=True),
     )
 
-    resolution = resolve_provider_route(
-        provider=None,
-        settings=settings,
-        available_adapter_kinds={ProviderKind.OPENCLAW},
-    )
+    with pytest.raises(ProviderResolutionError) as error:
+        resolve_provider_route(
+            provider=None,
+            settings=settings,
+            available_adapter_kinds={ProviderKind.CODEX},
+        )
 
-    assert resolution.requested_provider == ProviderKind.OPENCLAW
-    assert resolution.resolved_provider == ProviderKind.OPENCLAW
-    assert resolution.selection_basis == ProviderSelectionBasis.DEFAULT
-    assert resolution.route.model_dump(mode="json") == {
-        "kind": "openclaw",
-        "gateway_profile": "experimental",
-    }
+    assert error.value.code == ProviderResolutionErrorCode.PROVIDER_RETIRED
+    assert error.value.provider == ProviderKind.OPENCLAW
+
+
+def test_retired_openclaw_member_selection_is_not_executable() -> None:
+    with pytest.raises(ProviderResolutionError) as error:
+        provider_selection_from_mapping({"kind": "openclaw"})
+
+    assert error.value.code == ProviderResolutionErrorCode.PROVIDER_RETIRED
+    assert error.value.provider == ProviderKind.OPENCLAW
 
 
 def test_missing_default_is_a_route_error() -> None:
@@ -496,24 +407,6 @@ def test_disabled_default_fails_without_scanning_for_fallback() -> None:
 
     assert error.value.code == ProviderResolutionErrorCode.PROVIDER_DISABLED
     assert error.value.provider == ProviderKind.CODEX
-
-
-def test_invalid_default_fails_without_scanning_for_fallback() -> None:
-    settings = _settings(
-        default_provider=ProviderKind.OPENCLAW,
-        codex=CodexSettings(enabled=True),
-        openclaw=OpenClawSettings(enabled=True, gateway_url="not-a-url"),
-    )
-
-    with pytest.raises(ProviderResolutionError) as error:
-        resolve_provider_route(
-            provider=None,
-            settings=settings,
-            available_adapter_kinds={ProviderKind.CODEX, ProviderKind.OPENCLAW},
-        )
-
-    assert error.value.code == ProviderResolutionErrorCode.INVALID_CONFIGURATION
-    assert error.value.provider == ProviderKind.OPENCLAW
 
 
 def test_explicit_selection_never_falls_back_to_an_enabled_default() -> None:
@@ -587,6 +480,5 @@ def test_provider_resolution_rejects_non_exact_provenance() -> None:
                 },
                 "model_source": "provider_configuration",
                 "effort_source": "provider_configuration",
-                "gateway_profile_source": None,
             }
         )

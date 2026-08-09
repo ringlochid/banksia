@@ -6,7 +6,6 @@ import pytest
 from banksia.config import (
     ClaudeSettings,
     CodexSettings,
-    OpenClawSettings,
     RuntimeSettings,
     Settings,
     get_settings,
@@ -64,20 +63,8 @@ from banksia.providers import ManagedSandboxMode, NetworkAccess, ProviderKind
         (
             Settings(
                 runtime=RuntimeSettings(default_provider=ProviderKind.OPENCLAW),
-                openclaw=OpenClawSettings(
-                    enabled=True,
-                    cli_path="/private/openclaw",
-                    gateway_url="ws://private-host.invalid:18789",
-                    gateway_profile="private-profile",
-                ),
             ),
-            {
-                "kind": "openclaw",
-                "model": None,
-                "effort": None,
-                "sandbox": None,
-                "extension_mode": None,
-            },
+            None,
         ),
     ),
 )
@@ -96,6 +83,3 @@ async def test_authoring_options_read_back_only_the_nonsecret_default_provider(
 
     assert response.status_code == 200, response.text
     assert response.json()["default_provider"] == expected
-    assert "/private/openclaw" not in response.text
-    assert "private-host" not in response.text
-    assert "private-profile" not in response.text

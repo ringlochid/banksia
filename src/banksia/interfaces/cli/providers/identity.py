@@ -14,8 +14,6 @@ from banksia.interfaces.cli.providers.contracts import (
 )
 from banksia.platform.provider_environment import (
     ANTHROPIC_API_KEY,
-    OPENCLAW_GATEWAY_PASSWORD,
-    OPENCLAW_GATEWAY_TOKEN,
     persist_provider_secret,
     provider_environment_file_path,
     provider_subprocess_environment,
@@ -79,14 +77,6 @@ def invoke_provider_identity_action(
             identity=identity,
             native_home=native_home,
         )
-    if provider is ProviderKind.OPENCLAW:
-        return _save_openclaw_credential(
-            config_path=config_path,
-            method=method,
-            secret=secret,
-            identity=identity,
-            native_home=native_home,
-        )
     return _run_native_login(
         provider=provider,
         method=method,
@@ -102,14 +92,9 @@ def invoke_provider_identity_action(
 def authentication_method_choices(
     provider: ProviderKind,
 ) -> tuple[ProviderAuthenticationMethod, ...]:
-    if provider in {ProviderKind.CODEX, ProviderKind.CLAUDE}:
-        return (
-            ProviderAuthenticationMethod.SUBSCRIPTION,
-            ProviderAuthenticationMethod.API_KEY,
-        )
     return (
-        ProviderAuthenticationMethod.TOKEN,
-        ProviderAuthenticationMethod.PASSWORD,
+        ProviderAuthenticationMethod.SUBSCRIPTION,
+        ProviderAuthenticationMethod.API_KEY,
     )
 
 
@@ -117,8 +102,6 @@ def authentication_method_label(method: ProviderAuthenticationMethod) -> str:
     return {
         ProviderAuthenticationMethod.SUBSCRIPTION: "subscription login",
         ProviderAuthenticationMethod.API_KEY: "API key",
-        ProviderAuthenticationMethod.TOKEN: "Gateway token",
-        ProviderAuthenticationMethod.PASSWORD: "Gateway password",
     }[method]
 
 
@@ -130,11 +113,6 @@ def provider_secret_environment_key(
 
     if provider is ProviderKind.CLAUDE and method is ProviderAuthenticationMethod.API_KEY:
         return ANTHROPIC_API_KEY
-    if provider is ProviderKind.OPENCLAW:
-        if method is ProviderAuthenticationMethod.TOKEN:
-            return OPENCLAW_GATEWAY_TOKEN
-        if method is ProviderAuthenticationMethod.PASSWORD:
-            return OPENCLAW_GATEWAY_PASSWORD
     return None
 
 
@@ -155,7 +133,7 @@ def provider_native_home(provider: ProviderKind) -> Path:
         case ProviderKind.CLAUDE:
             return Path(os.environ.get("CLAUDE_CONFIG_DIR", user_home / ".claude")).expanduser()
         case ProviderKind.OPENCLAW:
-            return Path(os.environ.get("OPENCLAW_STATE_DIR", user_home / ".openclaw")).expanduser()
+            raise ValueError("OpenClaw is retired and has no Banksia-native home")
 
 
 def bundled_codex_path() -> Path:
@@ -196,39 +174,6 @@ def _save_claude_api_key(
         value=secret,
     )
     return _successful_identity_snapshot(ProviderKind.CLAUDE, method, identity, native_home)
-
-
-def _save_openclaw_credential(
-    *,
-    config_path: Path | None,
-    method: ProviderAuthenticationMethod,
-    secret: str | None,
-    identity: str,
-    native_home: str,
-) -> ProviderIdentitySnapshot:
-    if config_path is None:
-        return _missing_private_environment_snapshot(
-            ProviderKind.OPENCLAW,
-            method,
-            identity,
-            native_home,
-        )
-    assert secret is not None
-    key = (
-        OPENCLAW_GATEWAY_TOKEN
-        if method is ProviderAuthenticationMethod.TOKEN
-        else OPENCLAW_GATEWAY_PASSWORD
-    )
-    opposite = (
-        OPENCLAW_GATEWAY_PASSWORD if key == OPENCLAW_GATEWAY_TOKEN else OPENCLAW_GATEWAY_TOKEN
-    )
-    persist_provider_secret(
-        provider_environment_file_path(config_path),
-        key=key,
-        value=secret,
-        remove=frozenset({opposite}),
-    )
-    return _successful_identity_snapshot(ProviderKind.OPENCLAW, method, identity, native_home)
 
 
 def _run_native_login(
@@ -314,19 +259,6 @@ def _logout_provider_identity(
                 environment_path
             )
             remove_provider_secrets(environment_path, keys=frozenset({ANTHROPIC_API_KEY}))
-        elif provider is ProviderKind.OPENCLAW:
-            remove_provider_secrets(
-                environment_path,
-                keys=frozenset({OPENCLAW_GATEWAY_TOKEN, OPENCLAW_GATEWAY_PASSWORD}),
-            )
-            return ProviderIdentitySnapshot(
-                provider=provider,
-                action="logout",
-                outcome=ProviderIdentityOutcome.SUCCEEDED,
-                service_identity=identity,
-                native_home=native_home,
-                detail="stored OpenClaw Gateway credential removed",
-            )
 
     try:
         command = (

@@ -7,11 +7,7 @@ from pathlib import Path
 
 import click
 
-from banksia.config import (
-    OpenClawGatewayAuthMode,
-    Settings,
-    load_settings,
-)
+from banksia.config import Settings, load_settings
 from banksia.interfaces.cli.bootstrap.config import read_config_sections
 from banksia.interfaces.cli.commands.presentation import (
     emit_completion,
@@ -40,7 +36,6 @@ from banksia.interfaces.cli.providers import (
     collect_provider_statuses,
     configure_provider,
     invoke_provider_identity_action,
-    set_openclaw_gateway_auth_mode,
 )
 from banksia.interfaces.cli.providers.contracts import (
     ProviderCheckOutcome,
@@ -55,7 +50,7 @@ from banksia.interfaces.cli.support import (
     service_provider_check_env,
     service_provider_identity_env,
 )
-from banksia.providers import ProviderKind
+from banksia.providers import ACTIVE_PROVIDER_KINDS, ProviderKind
 from banksia.runtime.providers import (
     ProviderAuthenticationMethod,
     ProviderCheckAxisStatus,
@@ -129,10 +124,6 @@ def guide_provider_setup_with_result(
             provider=extra.value,
             model=None,
             effort=None,
-            cli_path=None,
-            gateway_url=None,
-            gateway_profile=None,
-            gateway_auth_mode=None,
         )
         check_results[extra] = guide_specific_provider(
             extra_args,
@@ -167,7 +158,7 @@ def persisted_provider_kinds(config_path: Path) -> set[ProviderKind]:
     sections = read_config_sections(config_path)
     return {
         provider
-        for provider in ProviderKind
+        for provider in ACTIVE_PROVIDER_KINDS
         if sections.get(provider.value, {}).get("enabled") is True
     }
 
@@ -229,11 +220,14 @@ def _select_primary_provider(
     configured = tuple(
         status.kind for status in collect_provider_statuses(settings) if status.is_configured
     )
-    default_provider = (
-        persisted_default_provider(config_path)
-        or settings.runtime.default_provider
-        or (configured[0] if configured else ProviderKind.CODEX)
-    )
+    saved_default = persisted_default_provider(config_path) or settings.runtime.default_provider
+    if saved_default in ACTIVE_PROVIDER_KINDS:
+        assert saved_default is not None
+        default_provider = saved_default
+    elif configured:
+        default_provider = configured[0]
+    else:
+        default_provider = ProviderKind.CODEX
     selected = click.prompt(
         "Provider to configure",
         type=click.Choice((*_PROVIDER_CHOICES.choices, "cancel")),
@@ -248,18 +242,10 @@ def _configure_and_check_provider(
 ) -> ProviderCheckSnapshot:
     configure_provider(config_path, request)
     emit_success(f"Saved provider route: {request.provider.value}")
-    if request.provider == ProviderKind.OPENCLAW:
-        emit_warning(
-            "OpenClaw is experimental; the Gateway process and compatibility MCP "
-            "configuration remain user-managed."
-        )
-    preferred_method = None
-    if request.gateway_auth_mode is not None:
-        preferred_method = ProviderAuthenticationMethod(request.gateway_auth_mode.value)
     return _check_provider_with_identity(
         config_path,
         request.provider,
-        preferred_method=preferred_method,
+        preferred_method=None,
     )
 
 
@@ -320,11 +306,6 @@ def _check_provider_with_identity(
                 "authentication_method": method,
                 "detail": "selected_provider_authentication_failed",
             }
-        )
-    if provider is ProviderKind.OPENCLAW:
-        set_openclaw_gateway_auth_mode(
-            config_path,
-            OpenClawGatewayAuthMode(method.value),
         )
     return _recheck_effective_authentication(config_path, provider, method)
 
@@ -460,25 +441,8 @@ def _provider_request_for_selection(
     provider: ProviderKind,
     settings: Settings,
 ) -> ProviderConfigurationRequest:
-    selected_args = clone_namespace(args, provider=provider.value)
-    if provider is ProviderKind.OPENCLAW:
-        selected_args.gateway_url = click.prompt(
-            "Gateway URL",
-            default=(getattr(args, "gateway_url", None) or settings.openclaw.gateway_url),
-        )
-        selected_args.gateway_profile = click.prompt(
-            "Gateway profile",
-            default=(getattr(args, "gateway_profile", None) or settings.openclaw.gateway_profile),
-        )
-        selected_args.gateway_auth_mode = click.prompt(
-            "Gateway authentication",
-            type=click.Choice(("token", "password")),
-            default=(
-                getattr(args, "gateway_auth_mode", None)
-                or settings.openclaw.gateway_auth_mode.value
-            ),
-        )
-    return provider_configuration_request_from_args(selected_args)
+    del settings
+    return provider_configuration_request_from_args(clone_namespace(args, provider=provider.value))
 
 
 def _provider_text(provider: ProviderKind | None) -> str:

@@ -41,7 +41,7 @@ def test_build_parser_supports_baseline_commands() -> None:
     assert "--config" in service_start_help.output
     assert "--non-interactive" in init_help.output
     assert "--non-interactive" in setup_help.output
-    assert "--provider [codex|claude|openclaw]" in setup_help.output
+    assert "--provider [codex|claude]" in setup_help.output
     assert "--provider [codex|claude]" in operator_setup_help.output
     assert "openclaw" not in parser.commands
     assert "status" in parser.commands
@@ -112,16 +112,7 @@ def test_serve_does_not_run_global_provider_preflight(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     config_path = tmp_path / "banksia-config.toml"
-    config_path.write_text(
-        """
-[openclaw]
-enabled = true
-gateway_url = "not-a-websocket-url"
-gateway_profile = "experimental"
-""".strip()
-        + "\n",
-        encoding="utf-8",
-    )
+    config_path.write_text("[codex]\nenabled = true\n", encoding="utf-8")
     run_called = False
     persist_provider_secret(
         tmp_path / "banksia.env",

@@ -59,6 +59,7 @@ from banksia.workflows.catalog import (
     read_published_workflow_revision,
     read_workflow_catalog_snapshot,
 )
+from banksia.workflows.contracts import NormalizedWorkflow
 from banksia.workflows.cursors import (
     decode_workflow_revision_cursor,
     encode_workflow_revision_cursor,
@@ -181,7 +182,9 @@ class _WorkflowOperatorLeaves:
                 write_session_operation(
                     lambda db: import_workflow_draft(
                         db,
-                        workflow=request.workflow,
+                        workflow=NormalizedWorkflow.model_validate(
+                            request.workflow.model_dump(mode="json", exclude_none=True)
+                        ),
                         expected_etag=request.etag,
                     ),
                     session=session,

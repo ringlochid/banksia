@@ -22,7 +22,6 @@ from banksia.interfaces.cli.providers.contracts import (
 from banksia.persistence.session import dispose_db_engine
 from banksia.platform.provider_environment import (
     ANTHROPIC_API_KEY,
-    OPENCLAW_GATEWAY_TOKEN,
     read_provider_secret_environment,
 )
 from banksia.providers import ProviderKind
@@ -92,7 +91,7 @@ def test_guided_init_confirms_recommended_local_settings(
     assert "Default workspace" in result.output
     assert "Use these recommended local settings?" in result.output
     assert "Banksia Task provider setup" in result.output
-    assert "Provider to configure (codex, claude, openclaw, cancel)" in result.output
+    assert "Provider to configure (codex, claude, cancel)" in result.output
     assert "Provider setup cancelled. No provider changes were made." in result.output
     assert "Operator provider (Codex, Claude, Not now)" in result.output
     assert result.output.count("Initialization complete") == 1
@@ -217,52 +216,6 @@ def test_guided_init_reconfiguration_marks_retained_provider_and_operator_settin
     assert "claude (kept)" in result.output
 
 
-def test_guided_setup_collects_openclaw_gateway_route_and_token(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    config_path = write_local_cli_config(tmp_path)
-    checks = iter(
-        (
-            build_provider_check_snapshot(
-                ProviderKind.OPENCLAW,
-                outcome=ProviderCheckOutcome.AUTHENTICATION_FAILED,
-                is_ready=False,
-                detail="openclaw_authentication_failed",
-                authentication=ProviderCheckAxisStatus.FAILED,
-            ),
-            build_provider_check_snapshot(
-                ProviderKind.OPENCLAW,
-                outcome=ProviderCheckOutcome.READY,
-                is_ready=True,
-                detail="openclaw_experimental",
-                authentication=ProviderCheckAxisStatus.PASSED,
-            ),
-        )
-    )
-    monkeypatch.setattr(cli_root, "should_run_guided_flow", lambda **_kwargs: True)
-    monkeypatch.setattr(
-        guided_provider_setup,
-        "collect_provider_check",
-        lambda *_args: next(checks),
-    )
-
-    result = CliRunner().invoke(
-        build_parser(),
-        ["setup", "--config", str(config_path), "--provider", "openclaw"],
-        input="\n\n\ngateway-secret\nn\n",
-    )
-
-    assert result.exit_code == 0, result.output
-    payload = tomllib.loads(config_path.read_text(encoding="utf-8"))
-    assert payload["openclaw"]["gateway_url"] == "ws://127.0.0.1:18789"
-    assert payload["openclaw"]["gateway_auth_mode"] == "token"
-    assert read_provider_secret_environment(config_path.parent / "banksia.env") == {
-        OPENCLAW_GATEWAY_TOKEN: "gateway-secret"
-    }
-    assert "gateway-secret" not in result.output
-
-
 def test_guided_setup_imports_shell_api_key_for_the_managed_service(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -311,44 +264,6 @@ def test_guided_setup_imports_shell_api_key_for_the_managed_service(
     assert "shell-anthropic-secret" not in result.output
 
 
-def test_guided_setup_confirms_reuse_of_ready_openclaw_service_credential(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    config_path = write_local_cli_config(tmp_path)
-    monkeypatch.setattr(cli_root, "should_run_guided_flow", lambda **_kwargs: True)
-    monkeypatch.setattr(
-        guided_provider_setup,
-        "collect_provider_check",
-        lambda *_args: build_provider_check_snapshot(
-            ProviderKind.OPENCLAW,
-            outcome=ProviderCheckOutcome.READY,
-            is_ready=True,
-            detail="openclaw_experimental",
-            authentication=ProviderCheckAxisStatus.PASSED,
-            authentication_method=ProviderAuthenticationMethod.TOKEN,
-        ),
-    )
-    monkeypatch.setattr(
-        guided_provider_setup,
-        "invoke_provider_identity_action",
-        lambda *_args, **_kwargs: pytest.fail("ready OpenClaw credential was replaced"),
-    )
-
-    result = CliRunner().invoke(
-        build_parser(),
-        ["setup", "--config", str(config_path), "--provider", "openclaw"],
-        input="\n\n\n\nn\n",
-    )
-
-    assert result.exit_code == 0, result.output
-    assert "Using existing openclaw Gateway token" in result.output
-    assert (
-        "Existing OpenClaw Gateway token stored for the Banksia service. Use it? [Y/n]"
-        in result.output
-    )
-
-
 def test_guided_setup_adds_provider_without_replacing_primary_default(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -374,17 +289,16 @@ def test_guided_setup_adds_provider_without_replacing_primary_default(
 
     result = CliRunner().invoke(
         build_parser(),
-        ["setup", "--config", str(config_path), "--provider", "claude"],
-        input="\ny\nopenclaw\n\n\n\n\nn\n",
+        ["setup", "--config", str(config_path), "--provider", "codex"],
+        input="\ny\nclaude\n\n\nn\n",
     )
 
     assert result.exit_code == 0, result.output
     payload = tomllib.loads(config_path.read_text(encoding="utf-8"))
-    assert payload["runtime"]["default_provider"] == "claude"
+    assert payload["runtime"]["default_provider"] == "codex"
+    assert payload["codex"]["enabled"] is True
     assert payload["claude"]["enabled"] is True
-    assert payload["openclaw"]["enabled"] is True
-    assert checked == [ProviderKind.CLAUDE, ProviderKind.OPENCLAW]
-    assert "OpenClaw is experimental" in result.output
+    assert checked == [ProviderKind.CODEX, ProviderKind.CLAUDE]
 
 
 def test_guided_setup_points_to_a_nonready_additional_provider(

@@ -4,9 +4,14 @@ from enum import StrEnum
 
 
 class ProviderKind(StrEnum):
+    """Persisted provider discriminator, including retired historical values."""
+
     CODEX = "codex"
     CLAUDE = "claude"
     OPENCLAW = "openclaw"
+
+
+ACTIVE_PROVIDER_KINDS = (ProviderKind.CODEX, ProviderKind.CLAUDE)
 
 
 class ManagedSandboxMode(StrEnum):
@@ -36,6 +41,7 @@ class ManagedExtensionMode(StrEnum):
 
 
 __all__ = [
+    "ACTIVE_PROVIDER_KINDS",
     "ManagedExtensionMode",
     "ManagedSandboxMode",
     "NetworkAccess",

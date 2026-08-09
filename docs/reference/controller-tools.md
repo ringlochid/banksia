@@ -11,8 +11,6 @@ They are not interchangeable. Operator is not a Workflow Member, and the Task-me
 
 Every Task-member call is authorized against the current controller state for one Task and one Dispatch. Managed Codex and Claude bindings carry that scope implicitly. The model does not submit a Task ID, Dispatch ID, capability token, or parent selector in the operation body.
 
-The compatibility endpoint used by OpenClaw requires full `task_id` and `dispatch_id` selectors on every call and rereads current authority. A stale, closed, superseded, paused, cancelled, or otherwise illegal Dispatch cannot mutate work.
-
 `get_current_context.available_actions` is the exact current action ceiling. Operations are exposed only when runtime legality permits:
 
 - direct-team operations require a current direct team;
@@ -142,8 +140,8 @@ Opaque action IDs are currentness capabilities, not predictable commands. Operat
 
 ## Transport and authority limits
 
-Managed Codex and Claude Dispatches receive a short-lived scoped MCP connection at `/_internal/node/mcp`. Banksia does not persist that endpoint in provider configuration. OpenClaw uses `/node/mcp` for compatibility with the same semantic Task-member operations.
+Managed Codex and Claude Dispatches receive a short-lived scoped MCP connection at `/_internal/node/mcp`. Banksia does not persist that endpoint in provider configuration.
 
 These endpoints are transport for Banksia-owned operations. Workflow definitions cannot add arbitrary external MCP servers, resources, prompts, elicitation, Skills, plugins, or tools.
 
-Neither Banksia catalog contains generic file listing/reading/writing, note writing, managed Artifact operations, support traces, database operations, or host shell/network operations. This catalog boundary does not remove a managed Task Member's independent provider-native filesystem, search, editor, shell, or network access under the Dispatch's effective sandbox. OpenClaw native access remains externally configured. Operator sees only semantic product readbacks and their owning file references; it receives no generic host authority.
+Neither Banksia catalog contains generic file listing/reading/writing, note writing, managed Artifact operations, support traces, database operations, or host shell/network operations. This catalog boundary does not remove a managed Task Member's independent provider-native filesystem, search, editor, shell, or network access under the Dispatch's effective sandbox. Operator sees only semantic product readbacks and their owning file references; it receives no generic host authority.

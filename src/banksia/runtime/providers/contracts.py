@@ -3,7 +3,7 @@ from __future__ import annotations
 from contextlib import AbstractAsyncContextManager
 from enum import StrEnum
 from pathlib import Path
-from typing import Protocol, Self
+from typing import Protocol
 from urllib.parse import urlsplit
 
 from pydantic import (
@@ -13,7 +13,6 @@ from pydantic import (
     SecretStr,
     StrictStr,
     field_validator,
-    model_validator,
 )
 
 from banksia.providers import (
@@ -64,26 +63,6 @@ class ManagedNodeMcpConnection(BaseModel):
         return f"Bearer {self.bearer_token.get_secret_value()}"
 
 
-class CompatibilityNodeMcpConnection(BaseModel):
-    """User-managed compatibility connection selected for an OpenClaw dispatch."""
-
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    url: str
-
-    @field_validator("url")
-    @classmethod
-    def validate_http_url(cls, value: str) -> str:
-        parsed = urlsplit(value)
-        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-            raise ValueError("compatibility Node MCP URL must be absolute HTTP(S)")
-        if parsed.username is not None or parsed.password is not None or parsed.fragment:
-            raise ValueError(
-                "compatibility Node MCP URL must not contain credentials or a fragment"
-            )
-        return value
-
-
 class DispatchStartRequest(BaseModel):
     """Exact committed request and policy supplied to one provider start attempt."""
 
@@ -98,27 +77,9 @@ class DispatchStartRequest(BaseModel):
     provider_route: ProviderRoute
     provider_native_access: ProviderNativeAccess
     network_access: NetworkAccess
-    sandbox_mode: ManagedSandboxMode | None = None
-    extension_mode: ManagedExtensionMode | None = None
-    managed_node_mcp: ManagedNodeMcpConnection | None = None
-    compatibility_node_mcp: CompatibilityNodeMcpConnection | None = None
-
-    @model_validator(mode="after")
-    def validate_connection_projection(self) -> Self:
-        if self.provider_route.kind in {ProviderKind.CODEX, ProviderKind.CLAUDE}:
-            if self.managed_node_mcp is None or self.compatibility_node_mcp is not None:
-                raise ValueError("managed providers require only a managed Node MCP connection")
-            if self.sandbox_mode is None:
-                raise ValueError("managed providers require an exact sandbox mode")
-            if self.extension_mode is None:
-                raise ValueError("managed providers require an exact extension mode")
-        elif self.managed_node_mcp is not None or self.compatibility_node_mcp is None:
-            raise ValueError("OpenClaw requires only a compatibility Node MCP connection")
-        elif self.sandbox_mode is not None:
-            raise ValueError("OpenClaw does not carry a controller-managed sandbox mode")
-        elif self.extension_mode is not None:
-            raise ValueError("OpenClaw does not carry a managed extension mode")
-        return self
+    sandbox_mode: ManagedSandboxMode
+    extension_mode: ManagedExtensionMode
+    managed_node_mcp: ManagedNodeMcpConnection
 
 
 class ProviderMcpServerInventory(BaseModel):
@@ -235,8 +196,6 @@ class ProviderCheckAxisStatus(StrEnum):
 class ProviderAuthenticationMethod(StrEnum):
     SUBSCRIPTION = "subscription"
     API_KEY = "api_key"
-    TOKEN = "token"
-    PASSWORD = "password"
 
 
 class ProviderCheckResult(BaseModel):
@@ -267,7 +226,6 @@ class ProviderAdapter(Protocol):
 __all__ = [
     "DEFAULT_PROVIDER_STOP_TIMEOUT_SECONDS",
     "MANAGED_NODE_MCP_SERVER_NAME",
-    "CompatibilityNodeMcpConnection",
     "DispatchStartRequest",
     "ManagedNodeMcpConnection",
     "ProviderAdapter",

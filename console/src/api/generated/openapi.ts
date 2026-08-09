@@ -731,7 +731,7 @@ export interface components {
             /** Instruction */
             instruction?: string | null;
             /** Provider */
-            provider?: (components["schemas"]["CodexProviderSelection"] | components["schemas"]["ClaudeProviderSelection"] | components["schemas"]["OpenClawProviderSelection"]) | null;
+            provider?: (components["schemas"]["CodexProviderSelection"] | components["schemas"]["ClaudeProviderSelection"]) | null;
             /** Title */
             title?: string | null;
         };
@@ -745,7 +745,7 @@ export interface components {
             /** Instruction */
             instruction?: string | null;
             /** Provider */
-            provider?: (components["schemas"]["CodexProviderSelection"] | components["schemas"]["ClaudeProviderSelection"] | components["schemas"]["OpenClawProviderSelection"]) | null;
+            provider?: (components["schemas"]["CodexProviderSelection"] | components["schemas"]["ClaudeProviderSelection"]) | null;
             /** Title */
             title?: string | null;
         };
@@ -762,7 +762,7 @@ export interface components {
             /** Instruction */
             instruction?: string | null;
             /** Provider */
-            provider?: components["schemas"]["CodexProviderSelection"] | components["schemas"]["ClaudeProviderSelection"] | components["schemas"]["OpenClawProviderSelection"];
+            provider?: components["schemas"]["CodexProviderSelection"] | components["schemas"]["ClaudeProviderSelection"] | components["schemas"]["RetiredOpenClawProviderSelection"];
             /** Title */
             title?: string | null;
         };
@@ -780,14 +780,6 @@ export interface components {
             lead: components["schemas"]["NormalizedMember"];
             /** Note */
             note?: string | null;
-        };
-        /** OpenClawProviderSelection */
-        OpenClawProviderSelection: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            kind: "openclaw";
         };
         /** OpenWorkflowDraftRequest */
         OpenWorkflowDraftRequest: {
@@ -1177,6 +1169,17 @@ export interface components {
             /** Member Id */
             member_id: string;
         };
+        /**
+         * RetiredOpenClawProviderSelection
+         * @description Readback-only provider selection retained for historical Workflows.
+         */
+        RetiredOpenClawProviderSelection: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "openclaw";
+        };
         /** TaskActivity */
         TaskActivity: {
             action?: components["schemas"]["TaskActivityLink"] | null;
@@ -1553,7 +1556,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "codex" | "claude" | "openclaw";
+            kind: "codex" | "claude";
             /** Model */
             model?: string | null;
             sandbox?: components["schemas"]["ProviderSandbox"] | null;
@@ -1607,6 +1610,11 @@ export interface components {
             available_actions: components["schemas"]["WorkflowLibraryAction"][];
             /** Description */
             description: string;
+            /**
+             * Has Retired Provider Selection
+             * @default false
+             */
+            has_retired_provider_selection: boolean;
             provenance: components["schemas"]["WorkflowProvenance"];
             published?: components["schemas"]["WorkflowPublishedReadback"] | null;
             /** Published Revision No */
@@ -1688,6 +1696,11 @@ export interface components {
             available_actions: components["schemas"]["WorkflowLibraryAction"][];
             /** Description */
             description: string;
+            /**
+             * Has Retired Provider Selection
+             * @default false
+             */
+            has_retired_provider_selection: boolean;
             provenance: components["schemas"]["WorkflowProvenance"];
             /** Published Revision No */
             published_revision_no?: number | null;

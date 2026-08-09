@@ -175,10 +175,6 @@ def status_command(config: str, is_json_output: bool) -> int:
 @click.option("--model")
 @click.option("--effort")
 @click.option("--extension-mode", type=click.Choice(("inherit", "isolated")))
-@click.option("--cli-path", help="OpenClaw CLI command or absolute executable path.")
-@click.option("--gateway-url")
-@click.option("--gateway-profile")
-@click.option("--gateway-auth-mode", type=click.Choice(("token", "password")))
 @click.option(
     "--non-interactive",
     "is_non_interactive",
@@ -319,10 +315,6 @@ def providers_check_command(config: str, provider: str, is_json_output: bool) ->
 @click.option("--model")
 @click.option("--effort")
 @click.option("--extension-mode", type=click.Choice(("inherit", "isolated")))
-@click.option("--cli-path", help="OpenClaw CLI command or absolute executable path.")
-@click.option("--gateway-url")
-@click.option("--gateway-profile")
-@click.option("--gateway-auth-mode", type=click.Choice(("token", "password")))
 @click.option("--json", "is_json_output", is_flag=True, help="Emit JSON output only.")
 def providers_configure_command(**kwargs: Any) -> int:
     return invoke_handler_result(
@@ -355,13 +347,13 @@ def providers_set_default_command(
 @click.argument("provider", type=PROVIDER_CHOICE)
 @click.option(
     "--method",
-    type=click.Choice(("subscription", "api-key", "token", "password")),
-    help="Codex/Claude: subscription or api-key. OpenClaw: token or password.",
+    type=click.Choice(("subscription", "api-key")),
+    help="Use a provider subscription login or API key.",
 )
 @click.option(
     "--secret-stdin",
     is_flag=True,
-    help="Read an API key, Gateway token, or Gateway password from standard input.",
+    help="Read an API key from standard input.",
 )
 @click.option("--json", "is_json_output", is_flag=True, help="Emit JSON output only.")
 def providers_login_command(**kwargs: Any) -> int:

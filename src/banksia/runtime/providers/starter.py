@@ -66,7 +66,6 @@ class DispatchStarter:
         runtime_settings: RuntimeSettings,
         session_factory: AsyncSessionContextFactory,
         managed_node_mcp_url: str,
-        compatibility_node_mcp_url: str,
         clock: Callable[[], datetime] = utc_now,
         stop_timeout_seconds: float = DEFAULT_PROVIDER_STOP_TIMEOUT_SECONDS,
     ) -> None:
@@ -78,7 +77,6 @@ class DispatchStarter:
             binding_registry=binding_registry,
             operation_executor=operation_executor,
             managed_node_mcp_url=managed_node_mcp_url,
-            compatibility_node_mcp_url=compatibility_node_mcp_url,
         )
         self._scheduler = scheduler
         self._runtime_effect_publisher = runtime_effect_publisher
@@ -178,6 +176,15 @@ class DispatchStarter:
                 candidate=candidate,
                 failed_at=self._clock(),
                 failure_code="dispatch_provider_route_invalid",
+            )
+            return None
+        if candidate.provider_kind is ProviderKind.OPENCLAW:
+            await self._pause_invalid_provider_start(
+                session,
+                signal=signal,
+                candidate=candidate,
+                failed_at=self._clock(),
+                failure_code="provider_retired",
             )
             return None
         try:

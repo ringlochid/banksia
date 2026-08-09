@@ -40,8 +40,8 @@ def build_workflow_authoring_options(settings: Settings) -> WorkflowAuthoringOpt
     if provider_kind is None:
         return AUTHORING_OPTIONS
     if provider_kind is ProviderKind.OPENCLAW:
-        default_provider = WorkflowDefaultProviderReadback(kind="openclaw")
-    elif provider_kind is ProviderKind.CODEX:
+        return AUTHORING_OPTIONS
+    if provider_kind is ProviderKind.CODEX:
         default_provider = WorkflowDefaultProviderReadback(
             kind="codex",
             model=settings.codex.model or None,
@@ -96,8 +96,10 @@ async def search_workflow_catalog(
                 updated_at=item.updated_at,
                 provenance=item.provenance,
                 published_revision_no=item.published_revision_no,
+                has_retired_provider_selection=item.has_retired_provider_selection,
                 available_actions=derive_workflow_library_actions(
-                    has_published_workflow=item.published_revision_no is not None
+                    has_published_workflow=item.published_revision_no is not None,
+                    has_retired_provider_selection=item.has_retired_provider_selection,
                 ),
             )
             for item in page.items
@@ -160,8 +162,10 @@ async def read_workflow_catalog_entry(
         updated_at=summary.updated_at,
         provenance=summary.provenance,
         published_revision_no=summary.published_revision_no,
+        has_retired_provider_selection=summary.has_retired_provider_selection,
         available_actions=derive_workflow_library_actions(
-            has_published_workflow=has_published_workflow
+            has_published_workflow=has_published_workflow,
+            has_retired_provider_selection=summary.has_retired_provider_selection,
         ),
         published=(map_workflow_published_readback(published) if published is not None else None),
         revisions=tuple(map_workflow_revision_readback(item) for item in revision_page.items)
@@ -187,6 +191,18 @@ async def read_workflow_draft(
     row = await session.get(WorkflowDraftModel, draft_id)
     if row is None:
         raise WorkflowNotFoundError(f"Workflow draft {draft_id!r} does not exist")
+    return map_workflow_draft_readback(row)
+
+
+async def reload_workflow_draft(
+    session: AsyncSession,
+    *,
+    draft_id: str,
+) -> WorkflowDraftReadback:
+    row = await session.get(WorkflowDraftModel, draft_id)
+    if row is None:  # pragma: no cover - mutation caller owns the row
+        raise WorkflowNotFoundError(f"Workflow draft {draft_id!r} does not exist")
+    await session.refresh(row)
     return map_workflow_draft_readback(row)
 
 
@@ -221,8 +237,9 @@ def derive_workflow_library_state(
 def derive_workflow_library_actions(
     *,
     has_published_workflow: bool,
+    has_retired_provider_selection: bool = False,
 ) -> tuple[WorkflowLibraryAction, ...]:
-    if has_published_workflow:
+    if has_published_workflow and not has_retired_provider_selection:
         return (
             WorkflowLibraryAction.EDIT,
             WorkflowLibraryAction.START_RUN,
@@ -241,5 +258,6 @@ __all__ = [
     "map_workflow_draft_readback",
     "read_workflow_catalog_entry",
     "read_workflow_draft",
+    "reload_workflow_draft",
     "search_workflow_catalog",
 ]

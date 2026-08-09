@@ -9,7 +9,7 @@ You need:
 - Python 3.12 or newer;
 - Linux or macOS; WSL2 uses the Linux path;
 - an existing project or research directory for the team's workspace; and
-- a Codex, Claude, or user-operated OpenClaw account and authentication path.
+- a Codex or Claude account and authentication path.
 
 Native Windows is not currently supported.
 
@@ -56,7 +56,7 @@ Guided initialization:
 3. configures at least one Task provider; and
 4. optionally configures the separate Operator.
 
-Choose Codex, Claude, or OpenClaw for Task work, then follow its authentication and readiness prompts. Choose **Not now** for Operator if you only want direct Console and CLI control.
+Choose Codex or Claude for Task work, then follow its authentication and readiness prompts. Choose **Not now** for Operator if you only want direct Console and CLI control.
 
 To initialize PostgreSQL instead of SQLite, pass the database URL explicitly:
 
@@ -92,7 +92,7 @@ banksia operator status
 banksia status
 ```
 
-Codex and Claude are managed adapters. OpenClaw is a compatibility transport whose CLI, Gateway, profile, authentication, and workspace exposure remain user-operated.
+Codex and Claude are the supported Task-provider adapters.
 
 On Linux or WSL2, install `bubblewrap` and `socat` before using a Claude Member whose effective network setting is `deny`. On Ubuntu or Debian:
 

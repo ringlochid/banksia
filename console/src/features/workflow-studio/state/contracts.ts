@@ -1,9 +1,9 @@
 import type {
+    AuthoredProviderSelection,
     MemberCapabilities,
     NewMember,
     NormalizedMember,
     NormalizedWorkflow,
-    ProviderSelection,
     WorkflowAuthoringOptions,
     WorkflowDraftReadback,
     WorkflowGetResponse,
@@ -23,7 +23,7 @@ export interface MemberEdit {
     readonly title?: string | null;
     readonly description?: string | null;
     readonly instruction?: string | null;
-    readonly provider?: ProviderSelection | null;
+    readonly provider?: AuthoredProviderSelection | null;
     readonly capabilities?: MemberCapabilities | null;
 }
 

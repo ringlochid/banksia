@@ -121,7 +121,6 @@ $defs:
         oneOf:
             - $ref: "#/$defs/codexProviderSelection"
             - $ref: "#/$defs/claudeProviderSelection"
-            - $ref: "#/$defs/openclawProviderSelection"
 
     memberCapabilities:
         type: object
@@ -188,15 +187,6 @@ $defs:
                 $ref: "#/$defs/providerSandbox"
             extension_mode:
                 $ref: "#/$defs/managedExtensionMode"
-
-    openclawProviderSelection:
-        type: object
-        additionalProperties: false
-        required:
-            - kind
-        properties:
-            kind:
-                const: openclaw
 
     workflowMember:
         type: object

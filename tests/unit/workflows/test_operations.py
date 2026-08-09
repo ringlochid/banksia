@@ -105,3 +105,50 @@ def test_remove_member_rejects_lead() -> None:
         )
 
     assert raised.value.issues[0].source == "operation.remove_member"
+
+
+def test_legacy_workflow_can_be_repaired_one_member_at_a_time() -> None:
+    workflow = NormalizedWorkflow.model_validate(
+        {
+            "kind": "workflow",
+            "id": "legacy-openclaw",
+            "description": "Repairable historical Workflow.",
+            "lead": {
+                "id": "lead",
+                "provider": {"kind": "openclaw"},
+                "children": [
+                    {"id": "child", "provider": {"kind": "openclaw"}},
+                ],
+            },
+        }
+    )
+
+    partly_repaired = edit_normalized_workflow(
+        workflow,
+        UpdateMemberOperation.model_validate(
+            {
+                "kind": "update_member",
+                "member_id": "lead",
+                "patch": {"provider": {"kind": "codex"}},
+            }
+        ),
+    )
+    repaired = edit_normalized_workflow(
+        partly_repaired,
+        UpdateMemberOperation.model_validate(
+            {
+                "kind": "update_member",
+                "member_id": "child",
+                "patch": {"provider": {"kind": "claude"}},
+            }
+        ),
+    )
+
+    assert partly_repaired.lead.provider is not None
+    assert partly_repaired.lead.provider.kind == "codex"
+    assert partly_repaired.lead.children is not None
+    assert partly_repaired.lead.children[0].provider is not None
+    assert partly_repaired.lead.children[0].provider.kind == "openclaw"
+    assert repaired.lead.children is not None
+    assert repaired.lead.children[0].provider is not None
+    assert repaired.lead.children[0].provider.kind == "claude"

@@ -16,7 +16,7 @@ const options: WorkflowAuthoringOptions = {
         "provider",
         "capabilities",
     ],
-    provider_kinds: ["codex", "claude", "openclaw"],
+    provider_kinds: ["codex", "claude"],
     codex_efforts: ["low", "medium", "high"],
     claude_efforts: ["low", "medium", "high", "max"],
     managed_sandbox_options: [
@@ -248,8 +248,8 @@ describe("Workflow authoring forms", () => {
         expect(retry).toHaveBeenCalledOnce();
         expect(
             screen.getByRole("combobox", { name: "Provider" }),
-        ).toHaveTextContent("OpenClaw");
-        expect(screen.getByText(/OpenClaw owns its sandbox/)).toBeVisible();
+        ).toHaveTextContent("OpenClaw (retired)");
+        expect(screen.getByText(/OpenClaw is retired/)).toBeVisible();
         expect(
             screen.queryByLabelText(
                 "Allow this teammate to ask you for approval",

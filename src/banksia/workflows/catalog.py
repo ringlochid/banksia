@@ -4,12 +4,10 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, NamedTuple
 
-from sqlalchemy import Select, case, func, or_, select
+from sqlalchemy import Select, func, or_, select
 from sqlalchemy.engine import RowMapping
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
-from sqlalchemy.sql.elements import ColumnElement
-from sqlalchemy.sql.selectable import Subquery
 
 from banksia.persistence.models import (
     WorkflowDefinitionModel,
@@ -26,6 +24,11 @@ from banksia.workflows.contracts import (
 from banksia.workflows.integrity import (
     read_persisted_workflow,
     validate_persisted_workflow_identity,
+)
+from banksia.workflows.library_query_expressions import (
+    retired_provider_expression,
+    visible_workflow_updated_at,
+    workflow_library_ids,
 )
 from banksia.workflows.service_errors import WorkflowNotFoundError
 
@@ -139,6 +142,7 @@ async def search_workflows(
         (
             await session.execute(
                 _workflow_library_query(
+                    dialect_name=session.get_bind().dialect.name,
                     query=normalized_query or None,
                     after_workflow_id=after_workflow_id,
                 ).limit(limit + 1)
@@ -164,6 +168,7 @@ async def read_workflow_detail_snapshot(
         (
             await session.execute(
                 _workflow_detail_query(
+                    dialect_name=session.get_bind().dialect.name,
                     workflow_id=workflow_id,
                     selected_revision_no=revision_no,
                 )
@@ -191,6 +196,7 @@ async def read_workflow_catalog_snapshot(
         (
             await session.execute(
                 _workflow_catalog_query(
+                    dialect_name=session.get_bind().dialect.name,
                     workflow_id=workflow_id,
                 )
             )
@@ -284,15 +290,16 @@ def _workflow_revision_summary_query() -> Select[Any]:
 
 def _workflow_library_query(
     *,
+    dialect_name: str,
     query: str | None = None,
     after_workflow_id: str | None = None,
     workflow_id: str | None = None,
 ) -> Select[Any]:
-    library_ids = _workflow_library_ids()
+    library_ids = workflow_library_ids()
     draft_description = WorkflowDraftModel.content_json["description"].as_string()
     published_description = WorkflowRevisionModel.content_json["description"].as_string()
     current_description = func.coalesce(draft_description, published_description)
-    visible_updated_at = _visible_workflow_updated_at()
+    visible_updated_at = visible_workflow_updated_at()
     statement = (
         select(
             library_ids.c.workflow_id.label("workflow_id"),
@@ -305,6 +312,10 @@ def _workflow_library_query(
             WorkflowRevisionModel.content_json["id"]
             .as_string()
             .label("published_content_workflow_id"),
+            retired_provider_expression(
+                WorkflowRevisionModel.content_json,
+                dialect_name=dialect_name,
+            ).label("has_retired_provider_selection"),
         )
         .outerjoin(
             WorkflowDraftModel,
@@ -335,7 +346,7 @@ def _workflow_library_query(
     return statement
 
 
-def _workflow_catalog_query(*, workflow_id: str) -> Select[Any]:
+def _workflow_catalog_query(*, dialect_name: str, workflow_id: str) -> Select[Any]:
     history_revision = aliased(
         WorkflowRevisionModel,
         name="workflow_catalog_history_revision",
@@ -348,7 +359,10 @@ def _workflow_catalog_query(*, workflow_id: str) -> Select[Any]:
         )
         .scalar_subquery()
     )
-    return _workflow_library_query(workflow_id=workflow_id).add_columns(
+    return _workflow_library_query(
+        dialect_name=dialect_name,
+        workflow_id=workflow_id,
+    ).add_columns(
         WorkflowDraftModel.draft_id.label("draft_id"),
         WorkflowDraftModel.base_revision_no.label("draft_base_revision_no"),
         WorkflowDraftModel.etag.label("draft_etag"),
@@ -358,26 +372,18 @@ def _workflow_catalog_query(*, workflow_id: str) -> Select[Any]:
 
 def _workflow_detail_query(
     *,
+    dialect_name: str,
     workflow_id: str,
     selected_revision_no: int | None,
 ) -> Select[Any]:
-    library_ids = _workflow_library_ids()
-    current_revision = aliased(
-        WorkflowRevisionModel,
-        name="workflow_detail_current_revision",
-    )
-    selected_revision = aliased(
-        WorkflowRevisionModel,
-        name="workflow_detail_selected_revision",
-    )
-    history_revision = aliased(
-        WorkflowRevisionModel,
-        name="workflow_detail_history_revision",
-    )
+    library_ids = workflow_library_ids()
+    current_revision = aliased(WorkflowRevisionModel, name="workflow_detail_current_revision")
+    selected_revision = aliased(WorkflowRevisionModel, name="workflow_detail_selected_revision")
+    history_revision = aliased(WorkflowRevisionModel, name="workflow_detail_history_revision")
     draft_description = WorkflowDraftModel.content_json["description"].as_string()
     published_description = current_revision.content_json["description"].as_string()
     current_description = func.coalesce(draft_description, published_description)
-    visible_updated_at = _visible_workflow_updated_at()
+    visible_updated_at = visible_workflow_updated_at()
     maximum_revision_no = (
         select(func.max(history_revision.revision_no))
         .where(
@@ -401,6 +407,10 @@ def _workflow_detail_query(
             WorkflowDraftModel.draft_id.is_not(None).label("has_active_draft"),
             WorkflowDraftModel.content_json["id"].as_string().label("draft_content_workflow_id"),
             current_revision.content_json["id"].as_string().label("published_content_workflow_id"),
+            retired_provider_expression(
+                current_revision.content_json,
+                dialect_name=dialect_name,
+            ).label("has_retired_provider_selection"),
             WorkflowDraftModel.draft_id.label("draft_id"),
             WorkflowDraftModel.base_revision_no.label("draft_base_revision_no"),
             WorkflowDraftModel.etag.label("draft_etag"),
@@ -431,25 +441,6 @@ def _workflow_detail_query(
             & selected_revision.provenance.is_not(None),
         )
         .where(library_ids.c.workflow_id == workflow_id)
-    )
-
-
-def _workflow_library_ids() -> Subquery:
-    active_draft_ids = select(WorkflowDraftModel.workflow_key.label("workflow_id"))
-    current_published_ids = select(WorkflowDefinitionModel.workflow_key.label("workflow_id")).where(
-        WorkflowDefinitionModel.current_revision_no.is_not(None)
-    )
-    return active_draft_ids.union(current_published_ids).subquery("workflow_library_ids")
-
-
-def _visible_workflow_updated_at() -> ColumnElement[datetime]:
-    draft_updated_at = WorkflowDraftModel.updated_at
-    workflow_updated_at = WorkflowDefinitionModel.updated_at
-    return case(
-        (draft_updated_at.is_(None), workflow_updated_at),
-        (workflow_updated_at.is_(None), draft_updated_at),
-        (draft_updated_at >= workflow_updated_at, draft_updated_at),
-        else_=workflow_updated_at,
     )
 
 
@@ -560,6 +551,9 @@ def _workflow_summary(row: RowMapping) -> WorkflowSummary:
             expected_workflow_id=workflow_id,
             source="published Workflow",
         )
+        has_retired_provider_selection = bool(row["has_retired_provider_selection"])
+    else:
+        has_retired_provider_selection = False
     if published_revision_no is None:
         provenance = WorkflowProvenance.USER
     elif isinstance(published_provenance, str):
@@ -573,6 +567,7 @@ def _workflow_summary(row: RowMapping) -> WorkflowSummary:
         provenance=provenance,
         published_revision_no=published_revision_no,
         has_active_draft=has_active_draft,
+        has_retired_provider_selection=has_retired_provider_selection,
     )
 
 

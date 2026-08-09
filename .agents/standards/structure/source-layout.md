@@ -120,11 +120,12 @@ Example steady-state pattern:
 
 ```text
 integrations/
-  openclaw/
+  codex/
+  claude/
 
 runtime/
   dispatch/
-    openclaw/
+  providers/
 ```
 
 Do not scatter the same provider boundary across unrelated runtime, CLI, and wrapper owners without an explicit split.

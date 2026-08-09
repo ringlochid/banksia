@@ -127,6 +127,7 @@ async def test_catalog_is_exact_ordered_direct_and_strict(tmp_path: Path) -> Non
         assert schema["additionalProperties"] is False
         _assert_object_schemas_are_closed(schema)
         serialized = json.dumps(schema).casefold()
+        assert '"openclaw"' not in serialized
         for forbidden_field in ("confirmed", "proposal", "effect", "replay"):
             assert f'"{forbidden_field}"' not in serialized
 
@@ -378,8 +379,8 @@ def test_full_json_workflow_schema_is_definition_usable(tmp_path: Path) -> None:
         }
     )
 
-    workflow = schema["$defs"]["NormalizedWorkflow"]["properties"]
-    member = schema["$defs"]["NormalizedMember"]["properties"]
+    workflow = schema["$defs"]["AuthoredWorkflow"]["properties"]
+    member = schema["$defs"]["AuthoredMember"]["properties"]
     assert tuple(workflow) == ("kind", "id", "description", "note", "lead")
     assert {
         "id",

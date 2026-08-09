@@ -144,10 +144,6 @@ def test_build_audit_settings_exposes_exact_public_naming_exceptions() -> None:
         (Path("src/banksia/config.py"), "enabled"),
         (Path("src/banksia/config.py"), "value_is_complex"),
         (Path("src/banksia/operator/contracts.py"), "allow_skip"),
-        (
-            Path("src/banksia/integrations/openclaw/gateway/adapter.py"),
-            "check",
-        ),
         (Path("src/banksia/persistence/datetimes.py"), "cache_ok"),
         (Path("src/banksia/persistence/datetimes.py"), "process_bind_param"),
         (Path("src/banksia/persistence/datetimes.py"), "process_result_value"),

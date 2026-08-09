@@ -179,6 +179,7 @@ def normalized_pause_reason(
         "paused_by_operator",
         "runtime_recovery_exhausted",
         "runtime_transition_failed",
+        "provider_retired",
     }:
         raise illegal_state_error(f"Task has unsupported pause reason '{pause_reason}'")
     return cast(ControllerTaskPauseReason, pause_reason)

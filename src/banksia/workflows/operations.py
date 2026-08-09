@@ -99,7 +99,7 @@ def build_new_workflow(
     }
     if note is not None:
         payload["note"] = note
-    return normalize_workflow_object(payload)
+    return _normalize_edited_workflow(payload)
 
 
 def edit_normalized_workflow(
@@ -135,7 +135,18 @@ def edit_normalized_workflow(
             )
         if not _remove_member(payload["lead"], operation.member_id):
             raise _missing_member(operation.member_id)
-    return normalize_workflow_object(payload)
+    return _normalize_edited_workflow(payload)
+
+
+def _normalize_edited_workflow(payload: object) -> NormalizedWorkflow:
+    """Validate an edited draft while allowing other retired Members to remain repairable."""
+
+    try:
+        return normalize_workflow_object(payload)
+    except WorkflowInputError as exc:
+        if not exc.issues or any(issue.source != "provider.retired" for issue in exc.issues):
+            raise
+        return NormalizedWorkflow.model_validate(payload)
 
 
 def _apply_patch(payload: dict[str, object], patch: BaseModel) -> None:

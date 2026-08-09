@@ -4,6 +4,7 @@ import { Check, ChevronDown } from "lucide-react";
 export interface SelectOption {
     readonly value: string;
     readonly label: string;
+    readonly disabled?: boolean;
     /**
      * Secondary line rendered under the label. Long descriptions belong here,
      * never appended to the label — a native select truncates the whole row
@@ -69,6 +70,9 @@ export function Select({
                         {options.map((option) => (
                             <RadixSelect.Item
                                 className="ui-select__item"
+                                {...(option.disabled === undefined
+                                    ? {}
+                                    : { disabled: option.disabled })}
                                 key={option.value}
                                 value={option.value}
                             >

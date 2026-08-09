@@ -927,8 +927,7 @@
                 "discriminator": {
                   "mapping": {
                     "claude": "#/components/schemas/ClaudeProviderSelection",
-                    "codex": "#/components/schemas/CodexProviderSelection",
-                    "openclaw": "#/components/schemas/OpenClawProviderSelection"
+                    "codex": "#/components/schemas/CodexProviderSelection"
                   },
                   "propertyName": "kind"
                 },
@@ -938,9 +937,6 @@
                   },
                   {
                     "$ref": "#/components/schemas/ClaudeProviderSelection"
-                  },
-                  {
-                    "$ref": "#/components/schemas/OpenClawProviderSelection"
                   }
                 ]
               },
@@ -1020,8 +1016,7 @@
                 "discriminator": {
                   "mapping": {
                     "claude": "#/components/schemas/ClaudeProviderSelection",
-                    "codex": "#/components/schemas/CodexProviderSelection",
-                    "openclaw": "#/components/schemas/OpenClawProviderSelection"
+                    "codex": "#/components/schemas/CodexProviderSelection"
                   },
                   "propertyName": "kind"
                 },
@@ -1031,9 +1026,6 @@
                   },
                   {
                     "$ref": "#/components/schemas/ClaudeProviderSelection"
-                  },
-                  {
-                    "$ref": "#/components/schemas/OpenClawProviderSelection"
                   }
                 ]
               },
@@ -1108,7 +1100,7 @@
               "mapping": {
                 "claude": "#/components/schemas/ClaudeProviderSelection",
                 "codex": "#/components/schemas/CodexProviderSelection",
-                "openclaw": "#/components/schemas/OpenClawProviderSelection"
+                "openclaw": "#/components/schemas/RetiredOpenClawProviderSelection"
               },
               "propertyName": "kind"
             },
@@ -1120,7 +1112,7 @@
                 "$ref": "#/components/schemas/ClaudeProviderSelection"
               },
               {
-                "$ref": "#/components/schemas/OpenClawProviderSelection"
+                "$ref": "#/components/schemas/RetiredOpenClawProviderSelection"
               }
             ],
             "title": "Provider"
@@ -1189,21 +1181,6 @@
           "lead"
         ],
         "title": "NormalizedWorkflow",
-        "type": "object"
-      },
-      "OpenClawProviderSelection": {
-        "additionalProperties": false,
-        "properties": {
-          "kind": {
-            "const": "openclaw",
-            "title": "Kind",
-            "type": "string"
-          }
-        },
-        "required": [
-          "kind"
-        ],
-        "title": "OpenClawProviderSelection",
         "type": "object"
       },
       "OpenWorkflowDraftRequest": {
@@ -2201,6 +2178,22 @@
           "member_id"
         ],
         "title": "RemoveMemberOperation",
+        "type": "object"
+      },
+      "RetiredOpenClawProviderSelection": {
+        "additionalProperties": false,
+        "description": "Readback-only provider selection retained for historical Workflows.",
+        "properties": {
+          "kind": {
+            "const": "openclaw",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "RetiredOpenClawProviderSelection",
         "type": "object"
       },
       "TaskActivity": {
@@ -3221,8 +3214,7 @@
           "kind": {
             "enum": [
               "codex",
-              "claude",
-              "openclaw"
+              "claude"
             ],
             "title": "Kind",
             "type": "string"
@@ -3402,6 +3394,11 @@
           "description": {
             "title": "Description",
             "type": "string"
+          },
+          "has_retired_provider_selection": {
+            "default": false,
+            "title": "Has Retired Provider Selection",
+            "type": "boolean"
           },
           "provenance": {
             "$ref": "#/components/schemas/WorkflowProvenance"
@@ -3649,6 +3646,11 @@
           "description": {
             "title": "Description",
             "type": "string"
+          },
+          "has_retired_provider_selection": {
+            "default": false,
+            "title": "Has Retired Provider Selection",
+            "type": "boolean"
           },
           "provenance": {
             "$ref": "#/components/schemas/WorkflowProvenance"

@@ -71,7 +71,7 @@ capabilities:
 
 Provider and capability choices apply to that Member; children do not inherit them. Codex and Claude support managed model, effort, sandbox, network, and Skill/MCP mode choices. Choose `inherit` when a trusted, full-access Member should use enabled user and project Skills plus MCP servers already configured in that provider. Choose `isolated` for an exact Banksia-only extension surface. Banksia automatically isolates narrower sandbox or network-denied execution, so the Workflow stays portable instead of failing validation. Implicit workspace instructions, plugins, hooks, apps, and provider subagents remain disabled.
 
-Codex accepts `max` reasoning for Task Members. Native Codex settings that Banksia does not override, such as `service_tier = "fast"`, continue to apply. `openclaw` selects a user-operated route whose external access Banksia does not configure or verify.
+Codex accepts `max` reasoning for Task Members. Native Codex settings that Banksia does not override, such as `service_tier = "fast"`, continue to apply.
 
 Human Request kinds are `input`, `direction`, `approval`, and `review`. Command Run is a separate allow-or-deny capability. Both deny when omitted. Grant the smallest capability to the Member that owns the decision or managed command.
 

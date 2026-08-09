@@ -110,7 +110,7 @@ Banksia is best suited to complex developer and researcher work on a trusted loc
 
 Codex and Claude are managed providers. Trusted full-access Task Members can use enabled user and project Skills plus configured MCP servers from those providers; narrower execution is isolated automatically, and Operator always stays isolated. Banksia does not yet define, install, or manage Skills, MCP servers, or general plugins itself.
 
-OpenClaw is a user-operated compatibility transport. Native Windows is not currently supported; WSL2 uses the Linux path. Distributed delivery, broad multi-user operation, and per-Member isolated workspaces are outside the current product boundary.
+Native Windows is not currently supported; WSL2 uses the Linux path. Distributed delivery, broad multi-user operation, and per-Member isolated workspaces are outside the current product boundary.
 
 ## Documentation
 

@@ -161,6 +161,21 @@ def test_codex_max_effort_is_valid_for_task_members() -> None:
     assert workflow.lead.provider.effort == "max"
 
 
+def test_retired_openclaw_provider_is_rejected_at_authored_input() -> None:
+    document = MINIMAL_WORKFLOW | {
+        "lead": {
+            "id": "lead",
+            "provider": {"kind": "openclaw"},
+        }
+    }
+
+    with pytest.raises(WorkflowInputError) as raised:
+        parse_workflow(json.dumps(document), source_format="json")
+
+    assert raised.value.issues[0].source == "provider.retired"
+    assert raised.value.issues[0].path == "$.lead.provider.kind"
+
+
 def test_hidden_direct_child_guard_rejects_without_becoming_authored_schema() -> None:
     document = MINIMAL_WORKFLOW | {
         "lead": {

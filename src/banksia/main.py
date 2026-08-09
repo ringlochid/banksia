@@ -26,7 +26,7 @@ from banksia.interfaces.http.local_admission import add_local_control_plane_midd
 from banksia.interfaces.http.router import api_router
 from banksia.interfaces.http.routers.health import router as health_router
 from banksia.interfaces.http.support import create_support_app
-from banksia.interfaces.mcp.node.server import create_node_mcp_apps
+from banksia.interfaces.mcp.node.server import create_managed_node_mcp_app
 from banksia.interfaces.mcp.transport import node_mcp_transport_policy
 from banksia.interfaces.web_console import register_web_console_routes
 from banksia.operator import OperatorConversationService
@@ -83,6 +83,7 @@ from banksia.runtime.post_commit.bootstrap import audit_startup_runtime_effects
 from banksia.runtime.projection import SupportProjectionOwner
 from banksia.runtime.providers.cleanup import create_provider_dispatch_cleanup_handler
 from banksia.runtime.providers.registry import ProviderAdapterRegistry
+from banksia.runtime.providers.retirement import pause_tasks_using_retired_providers
 from banksia.runtime.providers.starter import DispatchStarter
 from banksia.runtime.replan.continuation import create_replan_committed_handler
 from banksia.runtime.startup_audit import audit_startup_support_projections
@@ -234,7 +235,6 @@ def _build_application_runtime(settings: Settings) -> _ApplicationRuntime:
         runtime_settings=settings.runtime,
         session_factory=_runtime_session_context,
         managed_node_mcp_url=_node_mcp_url(settings, path="/_internal/node/mcp"),
-        compatibility_node_mcp_url=_node_mcp_url(settings, path="/node/mcp"),
     )
     operator_turn_runner = build_operator_turn_runner(
         settings=settings,
@@ -312,7 +312,7 @@ def _mount_mcp_apps(
     settings: Settings,
     runtime: _ApplicationRuntime,
 ) -> None:
-    node_mcp_apps = create_node_mcp_apps(
+    node_mcp_app = create_managed_node_mcp_app(
         binding_registry=runtime.binding_registry,
         operation_executor=runtime.node_operation_executor,
         transport_policy=node_mcp_transport_policy(
@@ -321,12 +321,8 @@ def _mount_mcp_apps(
             allowed_origins=settings.console_origins,
         ),
     )
-    app.state.mcp_lifespan_apps = (
-        node_mcp_apps.managed,
-        node_mcp_apps.compatibility,
-    )
-    app.mount("/_internal/node", node_mcp_apps.managed)
-    app.mount("/node", node_mcp_apps.compatibility)
+    app.state.mcp_lifespan_apps = (node_mcp_app,)
+    app.mount("/_internal/node", node_mcp_app)
 
 
 @asynccontextmanager
@@ -341,6 +337,9 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         )
         settings = get_settings()
         async with _runtime_session_context() as recovery_session:
+            app.state.retired_provider_task_pause_count = await pause_tasks_using_retired_providers(
+                recovery_session
+            )
             app.state.task_workspace_recovery = await recover_task_workspace_admissions(
                 recovery_session,
                 workspaces=(

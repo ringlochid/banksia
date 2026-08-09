@@ -112,7 +112,7 @@ def read_shell_authentication_method(
 def provider_display_name(provider: ProviderKind) -> str:
     """Return the stable human product spelling for a provider."""
 
-    return "OpenClaw" if provider is ProviderKind.OPENCLAW else provider.value.title()
+    return provider.value.title()
 
 
 __all__ = [

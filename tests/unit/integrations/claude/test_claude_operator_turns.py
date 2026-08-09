@@ -143,7 +143,6 @@ async def test_claude_operator_turn_uses_only_exact_private_tools_and_native_out
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("OPENCLAW_GATEWAY_TOKEN", "must-not-reach-claude")
     factory = FakeClaudeOperatorClientFactory(
         (_result(structured_output=_message_output("The workflow draft is ready for review.")),)
     )
@@ -194,7 +193,6 @@ async def test_claude_operator_turn_uses_only_exact_private_tools_and_native_out
     assert options.env["CLAUDE_CODE_DISABLE_GIT_INSTRUCTIONS"] == "1"
     assert "CLAUDE_CODE_SKIP_PROMPT_HISTORY" not in options.env
     assert "no-session-persistence" not in options.extra_args
-    assert options.env["OPENCLAW_GATEWAY_TOKEN"] == ""
     _assert_native_output_schema(options.output_format)
 
 

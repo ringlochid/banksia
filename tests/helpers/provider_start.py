@@ -175,7 +175,6 @@ def create_dispatch_starter(
             SyncSessionAdapter(database.session_factory),
         ),
         managed_node_mcp_url="http://127.0.0.1:18125/_internal/node/mcp",
-        compatibility_node_mcp_url="http://127.0.0.1:18125/node/mcp",
         clock=lambda: now,
     )
     return starter, binding_registry, scheduler, publisher

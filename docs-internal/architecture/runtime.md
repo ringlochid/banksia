@@ -204,6 +204,10 @@ For example, a child-Wave result contains every complete returned child Assignme
 
 Provider terminal success never implies Assignment success. Only a successful controller action can record a Checkpoint, open a wait, or complete the work.
 
+### Retired provider state
+
+OpenClaw is not an executable provider. Existing immutable Team and Dispatch records may retain its provider literal for audit. Startup pauses a nonterminal Task whose current Team still selects it, records `provider_retired`, and closes current Dispatch authority without rewriting Assignments, Attempts, Dispatches, events, or files. Such a Task may be cancelled but not resumed; the user repairs the Workflow and starts a new Run. New Task start and replan input cannot select OpenClaw.
+
 ## One Checkpoint action
 
 A Checkpoint is Banksia's durable, teammate-facing work report for an exact Assignment execution. It is not a saved workflow-state snapshot or provider transcript. Controller state remains in the records that own it; the Checkpoint communicates the result, evidence, limits, and next relevant action.

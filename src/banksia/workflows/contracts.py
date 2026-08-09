@@ -138,12 +138,19 @@ class ClaudeProviderSelection(_WorkflowModel):
         )
 
 
-class OpenClawProviderSelection(_WorkflowModel):
+class RetiredOpenClawProviderSelection(_WorkflowModel):
+    """Readback-only provider selection retained for historical Workflows."""
+
     kind: Literal["openclaw"]
 
 
 ProviderSelection = Annotated[
-    CodexProviderSelection | ClaudeProviderSelection | OpenClawProviderSelection,
+    CodexProviderSelection | ClaudeProviderSelection,
+    Field(discriminator="kind"),
+]
+
+StoredProviderSelection = Annotated[
+    CodexProviderSelection | ClaudeProviderSelection | RetiredOpenClawProviderSelection,
     Field(discriminator="kind"),
 ]
 
@@ -196,7 +203,7 @@ class NormalizedMember(_WorkflowModel):
     title: Annotated[str, Field(max_length=16384)] | None = None
     description: Annotated[str, Field(max_length=16384)] | None = None
     instruction: Annotated[str, Field(max_length=16384)] | None = None
-    provider: ProviderSelection | SkipJsonSchema[None] = None
+    provider: StoredProviderSelection | SkipJsonSchema[None] = None
     capabilities: MemberCapabilities | SkipJsonSchema[None] = None
     children: tuple[NormalizedMember, ...] | SkipJsonSchema[None] = None
 
@@ -238,6 +245,57 @@ class NormalizedWorkflow(_WorkflowModel):
     lead: NormalizedMember
 
 
+class AuthoredMember(_WorkflowModel):
+    """Normalized authored Member whose provider must be active."""
+
+    id: Identifier
+    title: Annotated[str, Field(max_length=16384)] | None = None
+    description: Annotated[str, Field(max_length=16384)] | None = None
+    instruction: Annotated[str, Field(max_length=16384)] | None = None
+    provider: ProviderSelection | SkipJsonSchema[None] = None
+    capabilities: MemberCapabilities | SkipJsonSchema[None] = None
+    children: tuple[AuthoredMember, ...] | SkipJsonSchema[None] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_explicit_structural_nulls(cls, value: Any) -> Any:
+        return _reject_explicit_nulls(
+            value,
+            fields=("provider", "capabilities", "children"),
+        )
+
+    @field_validator("children")
+    @classmethod
+    def enforce_hidden_direct_child_limit(
+        cls,
+        value: tuple[AuthoredMember, ...] | None,
+    ) -> tuple[AuthoredMember, ...] | None:
+        if value is not None and len(value) > _MAX_DIRECT_CHILDREN:
+            raise ValueError("Member exceeds the controller direct-child limit")
+        return value
+
+    @classmethod
+    def __get_pydantic_json_schema__(
+        cls,
+        core_schema: CoreSchema,
+        handler: GetJsonSchemaHandler,
+    ) -> JsonSchemaValue:
+        return _without_null_defaults(
+            handler(core_schema),
+            fields=("provider", "capabilities", "children"),
+        )
+
+
+class AuthoredWorkflow(_WorkflowModel):
+    """Normalized Workflow accepted at a complete authoring boundary."""
+
+    kind: Literal["workflow"]
+    id: Identifier
+    description: Annotated[str, Field(min_length=1, max_length=1024, pattern=r"\S")]
+    note: Annotated[str, Field(max_length=8192)] | None = None
+    lead: AuthoredMember
+
+
 class WorkflowProvenance(StrEnum):
     STARTER_SEED = "starter_seed"
     USER = "user"
@@ -257,6 +315,7 @@ class WorkflowSummary(_WorkflowModel):
     provenance: WorkflowProvenance
     published_revision_no: Annotated[int, Field(ge=1)] | None = None
     has_active_draft: bool
+    has_retired_provider_selection: bool = False
 
 
 class WorkflowRevisionSummary(_WorkflowModel):
@@ -317,16 +376,19 @@ def _closed_object_schema(
 
 
 __all__ = [
+    "AuthoredMember",
+    "AuthoredWorkflow",
     "ClaudeProviderSelection",
     "CodexProviderSelection",
     "Identifier",
     "MemberCapabilities",
     "NormalizedMember",
     "NormalizedWorkflow",
-    "OpenClawProviderSelection",
     "ProviderSandbox",
     "ProviderSelection",
     "PublishedWorkflowRevision",
+    "RetiredOpenClawProviderSelection",
+    "StoredProviderSelection",
     "WorkflowProvenance",
     "WorkflowRevisionSummary",
     "WorkflowSummary",

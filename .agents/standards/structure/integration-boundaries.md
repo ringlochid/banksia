@@ -2,7 +2,7 @@
 
 Status: Reference
 
-Use this guide when a change touches seams between backend layers, OpenClaw integration, CLI surfaces, operator lanes, node-tool lanes, or support-state readbacks.
+Use this guide when a change touches seams between backend layers, provider integrations, CLI surfaces, operator lanes, node-tool lanes, or support-state readbacks.
 
 ## Core boundary rules
 
@@ -29,7 +29,7 @@ Use this guide when a change touches seams between backend layers, OpenClaw inte
 
 These paths are relative to the canonical `src/banksia/**` package.
 
-## OpenClaw and support-state boundaries
+## Provider and support-state boundaries
 
 - gateway/session continuity questions route to the gateway/session owner docs
 - watchdog, operator lanes, node-tool lanes, and support-state readbacks route to the watchdog/operator owner docs

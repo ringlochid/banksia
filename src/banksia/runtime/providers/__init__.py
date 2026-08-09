@@ -1,6 +1,5 @@
 from banksia.runtime.providers.contracts import (
     DEFAULT_PROVIDER_STOP_TIMEOUT_SECONDS,
-    CompatibilityNodeMcpConnection,
     DispatchStartRequest,
     ManagedNodeMcpConnection,
     ProviderAdapter,
@@ -31,7 +30,6 @@ from banksia.runtime.providers.resolution import (
 
 __all__ = [
     "DEFAULT_PROVIDER_STOP_TIMEOUT_SECONDS",
-    "CompatibilityNodeMcpConnection",
     "DispatchStartRequest",
     "ManagedNodeMcpConnection",
     "ProviderAdapter",

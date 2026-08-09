@@ -228,7 +228,8 @@ async def test_workflow_catalog_reads_metadata_only_and_keeps_cursor_source_cohe
     assert "draft_content_json" not in catalog_sql
     assert "selected_content_json" not in catalog_sql
     assert "workflow_drafts.content_json as" not in catalog_sql
-    assert "workflow_revisions.content_json as" not in catalog_sql
+    assert "workflow_revisions.content_json as published_content_json" not in catalog_sql
+    assert "json_tree(cast(workflow_revisions.content_json as json))" in catalog_sql
     assert "json_extract(workflow_revisions.content_json" in history_sql
     assert "workflow_revisions.content_json as" not in history_sql
 

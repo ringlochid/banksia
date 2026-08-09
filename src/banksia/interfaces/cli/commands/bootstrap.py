@@ -238,7 +238,7 @@ def _build_initial_config_candidate(
         log_level=log_level,
         workspace=workspace,
     )
-    for section in ("codex", "claude", "openclaw", "operator", "runtime"):
+    for section in ("codex", "claude", "operator", "runtime"):
         if section in current_sections:
             candidate[section] = dict(current_sections[section])
     return candidate

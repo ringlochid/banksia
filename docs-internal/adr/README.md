@@ -9,3 +9,4 @@ This surface owns durable accepted decisions that still govern Banksia. Current 
 - [ADR-0013 Banksia target and clean break](ADR-0013-banksia-target-and-clean-break.md)
 - [ADR-0015 minimal Operator agent](ADR-0015-minimal-operator-agent.md)
 - [ADR-0016 managed-provider Skill and MCP inheritance](ADR-0016-managed-provider-skill-and-mcp-inheritance.md)
+- [ADR-0017 OpenClaw provider retirement](ADR-0017-openclaw-provider-retirement.md)

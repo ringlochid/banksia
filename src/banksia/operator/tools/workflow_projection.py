@@ -22,8 +22,8 @@ from banksia.workflows.contracts import (
     MemberCapabilities,
     NormalizedMember,
     NormalizedWorkflow,
-    ProviderSelection,
     PublishedWorkflowRevision,
+    StoredProviderSelection,
     WorkflowProvenance,
 )
 from banksia.workflows.errors import WorkflowValidationIssue
@@ -108,7 +108,7 @@ class OperatorWorkflowMember(_WorkflowProjectionModel):
     title: str | None = None
     description: str | None = None
     instruction: str | None = None
-    provider: ProviderSelection | None = None
+    provider: StoredProviderSelection | None = None
     capabilities: MemberCapabilities | None = None
     child_ids: tuple[Identifier, ...] | None = None
 
@@ -216,7 +216,8 @@ def map_operator_workflow_catalog_result(
         available_actions=tuple(
             action
             for action in derive_workflow_library_actions(
-                has_published_workflow=has_published_workflow
+                has_published_workflow=has_published_workflow,
+                has_retired_provider_selection=summary.has_retired_provider_selection,
             )
             if action is not WorkflowLibraryAction.REMOVE
         ),

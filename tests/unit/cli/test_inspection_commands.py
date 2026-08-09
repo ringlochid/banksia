@@ -107,7 +107,7 @@ def test_bare_status_reports_the_managed_service_native_home(
     assert codex["native_home"] == expected_home
 
 
-def test_provider_list_and_status_are_passive_and_mark_openclaw_experimental(
+def test_provider_list_omits_retired_provider_and_ignores_stale_configuration(
     tmp_path: Path,
 ) -> None:
     config_path = tmp_path / "config.toml"
@@ -129,22 +129,18 @@ default_provider = "openclaw"
     parser = build_parser()
 
     listed = runner.invoke(parser, ["providers", "list", "--json"])
-    status = runner.invoke(
-        parser,
-        ["providers", "status", "openclaw", "--config", str(config_path), "--json"],
-    )
+    status = runner.invoke(parser, ["status", "--config", str(config_path), "--json"])
 
     assert listed.exit_code == 0
     assert status.exit_code == 0
     list_payload = json.loads(listed.output)
     status_payload = json.loads(status.output)
-    openclaw_definition = next(
-        provider for provider in list_payload["providers"] if provider["kind"] == "openclaw"
-    )
-    assert openclaw_definition["product_status"] == "experimental"
-    assert openclaw_definition["setup_owner"] == "shared"
-    assert status_payload["providers"][0]["authentication"] == "not_checked"
-    assert status_payload["providers"][0]["reachability"] == "not_checked"
+    assert [provider["kind"] for provider in list_payload["providers"]] == [
+        "codex",
+        "claude",
+    ]
+    assert status_payload["default_provider"] == "openclaw"
+    assert all(not provider["configured"] for provider in status_payload["providers"])
     assert "user:secret" not in status.output
     assert config_path.read_bytes() == previous_bytes
 

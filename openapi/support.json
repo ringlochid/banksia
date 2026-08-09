@@ -449,7 +449,8 @@
         "enum": [
           "paused_by_operator",
           "runtime_recovery_exhausted",
-          "runtime_transition_failed"
+          "runtime_transition_failed",
+          "provider_retired"
         ],
         "type": "string"
       },
@@ -1044,6 +1045,7 @@
         "type": "object"
       },
       "ProviderKind": {
+        "description": "Persisted provider discriminator, including retired historical values.",
         "enum": [
           "codex",
           "claude",
@@ -1889,7 +1891,8 @@
             "enum": [
               "paused_by_operator",
               "runtime_recovery_exhausted",
-              "runtime_transition_failed"
+              "runtime_transition_failed",
+              "provider_retired"
             ],
             "title": "Pause Reason",
             "type": "string"

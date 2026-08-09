@@ -64,7 +64,7 @@ const authoringOptions = {
         "provider",
         "capabilities",
     ],
-    provider_kinds: ["codex", "claude", "openclaw"],
+    provider_kinds: ["codex", "claude"],
     codex_efforts: ["low", "medium", "high"],
     claude_efforts: ["low", "medium", "high", "max"],
     managed_sandbox_options: [],

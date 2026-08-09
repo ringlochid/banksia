@@ -75,7 +75,7 @@ class WorkflowDraftValidationResult(_AuthoringModel):
 
 
 class WorkflowDefaultProviderReadback(_AuthoringModel):
-    kind: Literal["codex", "claude", "openclaw"]
+    kind: Literal["codex", "claude"]
     model: str | None = None
     effort: str | None = None
     sandbox: ProviderSandbox | None = None
@@ -114,6 +114,7 @@ class WorkflowSearchItem(_AuthoringModel):
     updated_at: datetime
     provenance: WorkflowProvenance
     published_revision_no: Annotated[int, Field(ge=1)] | None = None
+    has_retired_provider_selection: bool = False
     available_actions: tuple[WorkflowLibraryAction, ...]
 
 
@@ -141,6 +142,7 @@ class WorkflowGetResponse(_AuthoringModel):
     updated_at: datetime
     provenance: WorkflowProvenance
     published_revision_no: Annotated[int, Field(ge=1)] | None = None
+    has_retired_provider_selection: bool = False
     available_actions: tuple[WorkflowLibraryAction, ...]
     published: WorkflowPublishedReadback | None = None
     revisions: tuple[WorkflowRevisionReadback, ...] = ()
@@ -166,15 +168,16 @@ class WorkflowGetResponse(_AuthoringModel):
             raise ValueError("Workflow detail state contradicts controller truth")
         if (self.published is not None) is not has_published_workflow:
             raise ValueError("Workflow detail publication contradicts its current revision")
-        expected_actions = (
-            (
+        expected_actions: tuple[WorkflowLibraryAction, ...] = (
+            WorkflowLibraryAction.EDIT,
+            WorkflowLibraryAction.REMOVE,
+        )
+        if has_published_workflow and not self.has_retired_provider_selection:
+            expected_actions = (
                 WorkflowLibraryAction.EDIT,
                 WorkflowLibraryAction.START_RUN,
                 WorkflowLibraryAction.REMOVE,
             )
-            if has_published_workflow
-            else (WorkflowLibraryAction.EDIT, WorkflowLibraryAction.REMOVE)
-        )
         if self.available_actions != expected_actions:
             raise ValueError("Workflow detail actions contradict its current publication")
         if self.published is not None and self.published.workflow_id != self.workflow_id:
@@ -211,7 +214,7 @@ class WorkflowRemovalResult(_AuthoringModel):
 AUTHORING_OPTIONS = WorkflowAuthoringOptions(
     workflow_fields=("description", "note"),
     member_fields=("title", "description", "instruction", "provider", "capabilities"),
-    provider_kinds=("codex", "claude", "openclaw"),
+    provider_kinds=("codex", "claude"),
     codex_efforts=("none", "minimal", "low", "medium", "high", "xhigh", "max"),
     claude_efforts=("low", "medium", "high", "xhigh", "max"),
     managed_extension_modes=("inherit", "isolated"),

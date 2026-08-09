@@ -4,7 +4,6 @@ from banksia.interfaces.cli.providers.configuration import (
     ProviderConfigurationRequest,
     configure_provider,
     set_default_provider,
-    set_openclaw_gateway_auth_mode,
 )
 from banksia.interfaces.cli.providers.identity import (
     authentication_method_choices,
@@ -47,5 +46,4 @@ __all__ = [
     "read_operator_selection",
     "save_operator_selection",
     "set_default_provider",
-    "set_openclaw_gateway_auth_mode",
 ]

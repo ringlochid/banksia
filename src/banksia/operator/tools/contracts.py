@@ -55,6 +55,7 @@ class OperatorToolName(StrEnum):
     TASK_GET = "task_get"
     TASK_START = "task_start"
     TASK_CONTROL = "task_control"
+    TASK_MEMBER_STEER = "task_member_steer"
     HUMAN_REQUEST_RESPOND = "human_request_respond"
     COMMAND_RUN_GET = "command_run_get"
     COMMAND_RUN_OUTPUT_READ = "command_run_output_read"
@@ -233,6 +234,13 @@ class TaskControlInput(OperatorToolInput):
     action_id: RuntimeSchemaText
 
 
+class TaskMemberSteerInput(OperatorToolInput):
+    task_id: TaskIdentifier
+    member_id: RuntimeSchemaText
+    action_id: RuntimeSchemaText
+    message: Annotated[str, Field(min_length=1, max_length=4_096)]
+
+
 class OperatorHumanRequestCancelInput(OperatorToolInput):
     kind: Literal["cancel"]
 
@@ -317,6 +325,7 @@ __all__ = [
     "TaskHumanRequestFilesSelection",
     "TaskHumanRequestSelection",
     "TaskMemberSelection",
+    "TaskMemberSteerInput",
     "TaskOverviewSelection",
     "TaskResultSelection",
     "TaskSearchInput",

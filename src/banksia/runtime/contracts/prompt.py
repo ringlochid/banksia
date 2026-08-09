@@ -47,6 +47,7 @@ PROMPT_DYNAMIC_INPUT_KEYS = (
     "dispatch",
     "current_member",
     "assignment",
+    "steering",
     "continuation",
     "direct_team",
     "work_plan",
@@ -96,6 +97,20 @@ class PromptAssignment(PromptContract):
         return normalize_exact_text(
             value,
             label="Assignment prompt",
+            is_nonblank_required=True,
+        )
+
+
+class PromptSteer(PromptContract):
+    message: str
+    occurred_at: datetime
+
+    @field_validator("message", mode="before")
+    @classmethod
+    def normalize_message(cls, value: object) -> str:
+        return normalize_exact_text(
+            value,
+            label="Member steer message",
             is_nonblank_required=True,
         )
 
@@ -334,6 +349,7 @@ class PromptDynamicInput(PromptContract):
     dispatch: PromptDispatch
     current_member: CurrentMemberRead
     assignment: PromptAssignment
+    steering: tuple[PromptSteer, ...] = ()
     continuation: PromptContinuation | None = None
     direct_team: tuple[DirectTeamMemberRead, ...] = ()
     work_plan: WorkPlanView | None = None
@@ -399,6 +415,7 @@ __all__ = [
     "PromptContinuation",
     "PromptDispatch",
     "PromptDynamicInput",
+    "PromptSteer",
     "PromptTask",
     "PromptTrigger",
     "PromptWorkspace",

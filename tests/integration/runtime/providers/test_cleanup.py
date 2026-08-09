@@ -17,6 +17,7 @@ from banksia.runtime.providers import (
     ProviderCheckResult,
     ProviderCheckStatus,
     ProviderStartAccepted,
+    ProviderSteerOutcome,
     ProviderStopOutcome,
 )
 from banksia.runtime.providers.cleanup import create_provider_dispatch_cleanup_handler
@@ -43,6 +44,14 @@ class _StopRecordingAdapter:
     async def stop(self, dispatch_id: str) -> ProviderStopOutcome:
         self.stop_calls.append(dispatch_id)
         return ProviderStopOutcome.STOPPED
+
+    async def can_steer(self, dispatch_id: str) -> bool:
+        del dispatch_id
+        return False
+
+    async def steer(self, dispatch_id: str, message: str) -> ProviderSteerOutcome:
+        del dispatch_id, message
+        return ProviderSteerOutcome.NOT_RUNNING
 
     async def read_availability(self) -> ProviderCheckResult:
         return ProviderCheckResult(

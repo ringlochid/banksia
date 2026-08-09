@@ -19,6 +19,7 @@ from banksia.runtime.contracts.prompt import (
     PromptAssignment,
     PromptContinuation,
     PromptDispatch,
+    PromptSteer,
     PromptTask,
     PromptWorkspace,
 )
@@ -73,6 +74,7 @@ class GetCurrentContextResponse(BaseModel):
     dispatch: PromptDispatch
     current_member: CurrentMemberRead
     assignment: PromptAssignment
+    steering: tuple[PromptSteer, ...] = ()
     continuation: PromptContinuation | None = None
     direct_team: tuple[DirectTeamMemberRead, ...] = ()
     work_plan: WorkPlanView | None = None

@@ -18,10 +18,10 @@
     color-scheme: dark;
 
     /* brand */
-    --background--brand: var(--color--green-600);
-    --background--brand--hover: var(--color--green-500);
-    --background--brand--active: var(--color--green-700);
-    --background--brand--focus: var(--color--green-400);
+    --background--brand: var(--color--green-700);
+    --background--brand--hover: var(--color--green-800);
+    --background--brand--active: var(--color--green-900);
+    --background--brand--focus: var(--color--green-700);
     --background--brand--disabled: var(--color--neutral-800);
     --text-color--brand: var(--color--green-300);
     --border-color--brand: var(--color--green-700);

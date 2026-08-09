@@ -21,6 +21,7 @@ import type { TaskControlReceipt } from "../../src/features/runs/run-api";
 import {
     commandOutputFixture,
     humanResponseReceiptFixture,
+    memberSteerReceiptFixture,
     response,
     runApiStub,
     taskFixture,
@@ -153,6 +154,81 @@ describe("temporary Run Studio", () => {
             screen.getByText("Inspect the supporting evidence"),
         ).toBeVisible();
         expect(screen.queryByText("Compare candidates")).toBeNull();
+        expect(screen.queryByRole("button", { name: "Steer" })).toBeNull();
+    });
+
+    it("steers the selected working Member and shows the exact message in Activity", async () => {
+        const initial = taskFixture();
+        const steerAction = {
+            id: "action-steer-lead",
+            kind: "steer",
+            label: "Steer",
+            href: `/api/tasks/${initial.id}/members/${initial.team.id}/steers`,
+            input_schema: null,
+            confirmation: {
+                required: false,
+                title: "Steer this Member",
+                consequence: "The message updates current work.",
+            },
+        };
+        const workingTask = taskFixture({
+            status: "working",
+            team: {
+                ...initial.team,
+                state: "working",
+                steer_action: steerAction,
+            },
+        });
+        const message =
+            "Re-read AGENTS.md, then keep the repair narrowly scoped.";
+        const steeredTask = taskFixture({
+            ...workingTask,
+            activities: [
+                ...workingTask.activities,
+                {
+                    id: "activity-steered",
+                    kind: "member_steered",
+                    occurred_at: "2026-08-09T02:00:00Z",
+                    title: "Member steered",
+                    summary: message,
+                    member: {
+                        id: workingTask.team.id,
+                        name: workingTask.team.name,
+                    },
+                    outcome: null,
+                    files: [],
+                    action: null,
+                },
+            ],
+        });
+        const steerMember = vi.fn(() =>
+            Promise.resolve(response(memberSteerReceiptFixture(steeredTask))),
+        );
+        const api = runApiStub({
+            getRun: () => Promise.resolve(response(workingTask)),
+            steerMember,
+        });
+        const user = userEvent.setup();
+
+        renderRun(api);
+
+        await user.click(await screen.findByRole("button", { name: "Steer" }));
+        const dialog = screen.getByRole("dialog", {
+            name: "Steer Delivery lead",
+        });
+        await user.type(within(dialog).getByLabelText("Message"), message);
+        await user.click(within(dialog).getByRole("button", { name: "Steer" }));
+
+        await waitFor(() => expect(steerMember).toHaveBeenCalledOnce());
+        expect(steerMember).toHaveBeenCalledWith(
+            workingTask.id,
+            workingTask.team.id,
+            steerAction.id,
+            message,
+        );
+        expect(screen.queryByRole("dialog")).toBeNull();
+        expect(screen.getByText("Member steered")).toBeVisible();
+        expect(screen.getByText(message)).toBeVisible();
     });
 
     it("answers a Human Request and opens bounded Action output from controller truth", async () => {

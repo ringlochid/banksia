@@ -7,6 +7,7 @@ from fastapi import Request
 from banksia.operator import OperatorConversationService
 from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
 from banksia.runtime.post_commit import RuntimeEffectPublisher
+from banksia.runtime.providers import ProviderAdapterRegistry
 
 LOCAL_OPERATOR_ACTOR_REF = "local_operator"
 
@@ -35,3 +36,10 @@ async def read_operator_conversation_service(request: Request) -> OperatorConver
     if not isinstance(service, OperatorConversationService):
         raise RuntimeError("Operator conversation service is unavailable")
     return service
+
+
+async def read_provider_adapter_registry(request: Request) -> ProviderAdapterRegistry:
+    registry = getattr(request.app.state, "provider_adapter_registry", None)
+    if not isinstance(registry, ProviderAdapterRegistry):
+        raise RuntimeError("provider adapter registry is unavailable")
+    return registry

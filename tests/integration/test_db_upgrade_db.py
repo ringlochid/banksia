@@ -8,6 +8,7 @@ from sqlalchemy import Connection, text
 
 from banksia.interfaces.cli.bootstrap.database import upgrade_database
 from banksia.interfaces.cli.support import command_env, temporary_env
+from banksia.persistence.models.runtime.common import TASK_EVENT_TYPE_VALUES
 from banksia.persistence.session import (
     create_empty_database_schema,
     dispose_db_engine,
@@ -78,6 +79,57 @@ async def test_postgres_upgrade_preserves_runtime_rows(tmp_path: Path) -> None:
     assert result.backup_path.is_file()
     assert ids.task_id in backup_sql
     assert watchdog_count == 0
+    assert dispatch_count == 3
+
+
+@pytest.mark.asyncio
+async def test_postgres_upgrade_adds_member_steering_event_type(tmp_path: Path) -> None:
+    database_url = read_disposable_postgres_url()
+    if database_url is None:
+        pytest.skip("PostgreSQL upgrade proof requires an explicitly disposable test database")
+    schema_name = f"banksia_upgrade_{uuid4().hex}"
+    data_dir = tmp_path / "data"
+    predecessor_values = tuple(
+        value for value in TASK_EVENT_TYPE_VALUES if value != "member_steered"
+    )
+    allowed_sql = ", ".join(f"'{value}'" for value in predecessor_values)
+
+    with (
+        temporary_env({"BANKSIA_POSTGRES_SCHEMA": schema_name}),
+        command_env(
+            config_path=tmp_path / "config.toml",
+            data_dir=data_dir,
+            database_url=database_url.render_as_string(hide_password=False),
+            env="test",
+        ),
+    ):
+        try:
+            await create_empty_database_schema()
+            engine = get_async_engine()
+            async with engine.begin() as connection:
+                ids = await connection.run_sync(_seed_postgres_upgrade_scope)
+                await connection.exec_driver_sql(
+                    "ALTER TABLE task_events DROP CONSTRAINT ck_task_events_event_type"
+                )
+                await connection.exec_driver_sql(
+                    "ALTER TABLE task_events ADD CONSTRAINT "
+                    f"ck_task_events_event_type CHECK (event_type IN ({allowed_sql}))"
+                )
+
+            result = await upgrade_database()
+            engine = get_async_engine()
+            async with engine.connect() as connection:
+                dispatch_count = await connection.scalar(
+                    text("SELECT COUNT(*) FROM dispatch_turns WHERE task_id = :task_id"),
+                    {"task_id": ids.task_id},
+                )
+        finally:
+            await _drop_schema(schema_name)
+            await dispose_db_engine()
+
+    assert result.database_backend == "postgresql"
+    assert result.applied_upgrade == "member-steering-events"
+    assert result.backup_path is not None and result.backup_path.is_file()
     assert dispatch_count == 3
 
 

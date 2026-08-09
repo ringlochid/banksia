@@ -181,6 +181,12 @@ class ProviderStopOutcome(StrEnum):
     FAILED = "failed"
 
 
+class ProviderSteerOutcome(StrEnum):
+    DELIVERED = "delivered"
+    NOT_RUNNING = "not_running"
+    UNCERTAIN = "uncertain"
+
+
 class ProviderCheckStatus(StrEnum):
     AVAILABLE = "available"
     LIMITED = "limited"
@@ -218,6 +224,10 @@ class ProviderAdapter(Protocol):
 
     async def stop(self, dispatch_id: str) -> ProviderStopOutcome: ...
 
+    async def can_steer(self, dispatch_id: str) -> bool: ...
+
+    async def steer(self, dispatch_id: str, message: str) -> ProviderSteerOutcome: ...
+
     async def read_availability(self) -> ProviderCheckResult: ...
 
     def lifespan(self) -> AbstractAsyncContextManager[None]: ...
@@ -239,5 +249,6 @@ __all__ = [
     "ProviderStartError",
     "ProviderStartErrorCode",
     "ProviderStartFailureKind",
+    "ProviderSteerOutcome",
     "ProviderStopOutcome",
 ]

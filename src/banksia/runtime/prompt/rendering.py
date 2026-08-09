@@ -27,6 +27,7 @@ _COLLECTION_ITEM_TAGS = {
     "options": "option",
     "removed_ids": "id",
     "steps": "step",
+    "steering": "steer",
     "updated_ids": "id",
 }
 _BOOLEAN_FIELDS = frozenset(("must_stop", "output_complete"))

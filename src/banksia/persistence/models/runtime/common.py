@@ -135,6 +135,7 @@ TASK_EVENT_TYPE_VALUES = (
     "task_paused",
     "task_resumed",
     "task_cancelled",
+    "member_steered",
 )
 
 

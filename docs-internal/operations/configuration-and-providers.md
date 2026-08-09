@@ -81,6 +81,8 @@ Provider configuration and identity mutation are CLI-owned. Codex and Claude sup
 
 One committed current Dispatch supplies exact instruction and input strings, workspace, resolved provider configuration, and allowed Task-member tools to one adapter start. Adapters do not rerender requests or interpret provider output as completion.
 
+Managed Task adapters also expose the narrow `can_steer(dispatch_id)` and `steer(dispatch_id, message)` boundary. Codex maps it to native expected-turn steering. Claude interrupts and drains the active streaming response, submits the message as the next query on the same SDK client, and resumes response consumption. The adapter returns only `delivered`, `not_running`, or `uncertain`; it does not write Task Events or decide controller legality. Operator remains a separate agent and is not steered through this Task-member surface.
+
 Codex and Claude starts receive an ephemeral Dispatch-scoped Node MCP binding and exact tool ceiling. The credential is injected for that invocation, never written to user configuration, and revoked when Dispatch authority ends. Banksia exposes no user-configured Node MCP compatibility projection.
 
 A stale `[openclaw]` section is ignored and removed the next time guided setup rewrites provider configuration. A stale `runtime.default_provider = "openclaw"` is not rerouted silently: authoring reports no usable default and execution rejects the route until setup selects Codex or Claude. Banksia never mutates an external OpenClaw installation or state directory.

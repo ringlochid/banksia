@@ -3,11 +3,12 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
 
 from banksia.runtime.contracts.human_requests import HumanRequestItem, HumanRequestItemAnswer
 from banksia.runtime.contracts.refs import FileReference
 from banksia.runtime.contracts.start import TaskStartRequest
+from banksia.runtime.contracts.text import normalize_exact_text
 
 type TaskProductStatus = Literal[
     "starting",
@@ -43,6 +44,7 @@ type TaskActivityKind = Literal[
     "action_failed",
     "action_timed_out",
     "action_cancelled",
+    "member_steered",
 ]
 type TaskActivityOutcome = Literal["completed", "blocked", "failed", "cancelled"]
 type TaskControlKind = Literal["pause", "resume", "cancel"]
@@ -124,6 +126,7 @@ class TaskMemberView(_ProductModel):
     state: TaskMemberWorkState
     latest_update: TaskMemberUpdate | None = None
     plan: TaskPlanView | None = None
+    steer_action: ProductAction | None = None
     children: tuple[TaskMemberView, ...] = ()
 
 
@@ -287,6 +290,27 @@ class TaskControlReceipt(_ProductModel):
     task: TaskView
 
 
+class MemberSteerRequest(_ProductModel):
+    action_id: str
+    message: str = Field(min_length=1, max_length=4_096)
+
+    @field_validator("message", mode="before")
+    @classmethod
+    def normalize_message(cls, value: object) -> str:
+        return normalize_exact_text(
+            value,
+            label="Member steer message",
+            is_nonblank_required=True,
+        )
+
+
+class MemberSteerReceipt(_ProductModel):
+    receipt_id: str
+    status: Literal["delivered", "uncertain"]
+    status_message: str
+    task: TaskView
+
+
 class HumanRequestAnswerInput(_ProductModel):
     kind: Literal["answer"]
     item_responses: dict[str, HumanRequestItemAnswer] = Field(min_length=1, max_length=3)
@@ -357,6 +381,7 @@ for _task_product_contract in (
     TaskView,
     HumanRequestAnswerInput,
     HumanRequestResponseRequest,
+    MemberSteerReceipt,
 ):
     _task_product_contract.model_rebuild(_types_namespace=globals())
 
@@ -375,6 +400,8 @@ __all__ = [
     "HumanRequestResponseReceipt",
     "HumanRequestResponseRequest",
     "HumanRequestView",
+    "MemberSteerReceipt",
+    "MemberSteerRequest",
     "ProductAction",
     "ProductActionConfirmation",
     "TaskActivity",

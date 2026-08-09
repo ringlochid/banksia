@@ -22,12 +22,14 @@ from banksia.runtime.assignment import read_assignment_file_references
 from banksia.runtime.capabilities import resolve_effective_capabilities_for_member_configuration
 from banksia.runtime.contracts.capabilities import EffectiveCapabilitySet
 from banksia.runtime.contracts.primitives import TaskRootPaths
+from banksia.runtime.contracts.prompt import PromptSteer
 from banksia.runtime.contracts.provider_resolution import ProviderResolution
 from banksia.runtime.contracts.refs import FileReference
 from banksia.runtime.contracts.team_read import DirectTeamMemberRead
 from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
 from banksia.runtime.dispatch.prompt_snapshot import OrdinaryPromptSnapshot, OrdinaryPromptTrigger
 from banksia.runtime.providers import narrow_provider_capabilities, resolve_member_provider_route
+from banksia.runtime.steering import read_assignment_prompt_steers
 from banksia.runtime.task_root import read_task_root_paths
 from banksia.runtime.team.reads import read_direct_team_members
 from banksia.runtime.work_plan import WorkPlanRead, read_assignment_work_plan
@@ -93,11 +95,11 @@ async def read_ordinary_dispatch_snapshot(
     _validate_ordinary_runtime_context(context, basis=basis)
     workflow = await read_pinned_workflow_revision(session, context.task)
     children = await read_current_child_members(session, context)
-    work_plan = await read_assignment_work_plan(
+    work_plan, assignment_files = await _read_assignment_context(
         session,
         assignment_id=context.assignment.assignment_id,
     )
-    assignment_files = await read_assignment_file_references(
+    steering = await read_assignment_prompt_steers(
         session,
         assignment_id=context.assignment.assignment_id,
     )
@@ -138,6 +140,7 @@ async def read_ordinary_dispatch_snapshot(
         direct_team=direct_team,
         paths=paths,
         assignment_files=assignment_files,
+        steering=steering,
     )
     return OrdinaryDispatchSnapshot(
         basis=basis,
@@ -249,6 +252,7 @@ def build_ordinary_prompt_snapshot(
     direct_team: tuple[DirectTeamMemberRead, ...],
     paths: TaskRootPaths,
     assignment_files: tuple[FileReference, ...],
+    steering: tuple[PromptSteer, ...] = (),
 ) -> OrdinaryPromptSnapshot:
     task = context.task
     selection = context.selection
@@ -272,6 +276,7 @@ def build_ordinary_prompt_snapshot(
         workflow_note=workflow_note,
         assignment_prompt=assignment.prompt,
         assignment_files=assignment_files,
+        steering=steering,
         work_plan=work_plan,
         capabilities=capabilities,
         provider=provider,
@@ -281,6 +286,16 @@ def build_ordinary_prompt_snapshot(
         predecessor_dispatch_id=basis.source_dispatch_id,
         trigger=basis.trigger,
     )
+
+
+async def _read_assignment_context(
+    session: AsyncSession,
+    *,
+    assignment_id: str,
+) -> tuple[WorkPlanRead | None, tuple[FileReference, ...]]:
+    work_plan = await read_assignment_work_plan(session, assignment_id=assignment_id)
+    files = await read_assignment_file_references(session, assignment_id=assignment_id)
+    return work_plan, files
 
 
 async def _read_ordinary_runtime_context(

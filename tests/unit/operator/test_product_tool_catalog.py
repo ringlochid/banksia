@@ -62,6 +62,7 @@ EXPECTED_OPERATOR_TOOL_NAMES = (
     "task_get",
     "task_start",
     "task_control",
+    "task_member_steer",
     "human_request_respond",
     "command_run_get",
     "command_run_output_read",

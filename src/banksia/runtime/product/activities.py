@@ -40,6 +40,7 @@ _ACTIVITY_EVENT_TYPES = (
     TaskEventType.COMMAND_RUN_TIMED_OUT.value,
     TaskEventType.COMMAND_RUN_CANCELLED.value,
     TaskEventType.COMMAND_RUN_ABANDONED.value,
+    TaskEventType.MEMBER_STEERED.value,
 )
 _CONTROL_EVENT_TYPES = (
     TaskEventType.TASK_PAUSED.value,
@@ -166,6 +167,7 @@ def _canonical_activity_statement(*, task_id: str) -> Select[tuple[TaskEventMode
         _human_terminal_sequences(task_id),
         _command_opened_sequences(task_id),
         _command_terminal_sequences(task_id),
+        _member_steered_sequences(task_id),
     ).subquery()
     return select(TaskEventModel).where(
         TaskEventModel.task_id == task_id,
@@ -186,6 +188,13 @@ def _task_started_sequences(task_id: str) -> Select[tuple[int]]:
             TaskEventModel.event_type == TaskEventType.TASK_STARTED.value,
         )
         .group_by(TaskEventModel.task_id)
+    )
+
+
+def _member_steered_sequences(task_id: str) -> Select[tuple[int]]:
+    return select(TaskEventModel.event_seq).where(
+        TaskEventModel.task_id == task_id,
+        TaskEventModel.event_type == TaskEventType.MEMBER_STEERED.value,
     )
 
 

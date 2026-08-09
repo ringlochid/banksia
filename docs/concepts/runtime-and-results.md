@@ -47,6 +47,8 @@ An **Attempt** is one try to execute that Assignment. A semantic `retry` Checkpo
 
 Inside an Attempt, a **Dispatch** is one exact provider turn. Continuations create fresh Dispatches with the exact committed source that resumed the work. Restarting the same Dispatch resends its stored request; it does not rerender from current files or a newer Workflow.
 
+An active Member may accept a **steer**: later user direction delivered to its exact current provider session. Confirmed steers appear in Activity with the exact message and are carried into later Dispatches for the same Assignment. They do not replace the Assignment, revise the Workflow, undo completed effects, or grant new authority.
+
 Provider terminal success does not complete any of these records. Only an accepted controller operation can record progress, open a wait, delegate work, or finish an execution.
 
 ## Delegation Waves and local joins

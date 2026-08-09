@@ -42,7 +42,7 @@ The Console is the primary Banksia experience. It keeps the common path no-code 
 
 - **Workflow library** makes reusable teams and drafts easy to find, compare, start, or remove.
 - **Workflow Studio** shows the complete responsibility hierarchy on a horizontal canvas. Add a child with one `+`, select any Member to edit its purpose and instructions, validate the draft, and publish an immutable revision explicitly.
-- **Run Studio** shows the live team, current plan, meaningful Activity, requests that need your attention, managed Actions, referenced files, and the exact completed or blocked Result.
+- **Run Studio** shows the live team, lets you steer an active Member, and keeps current plans, meaningful Activity, requests, managed Actions, referenced files, and the exact completed or blocked Result together.
 
 The **Operator** is a separate conversational agent inside the Console. Ask it to draft or revise a Workflow, explain the current team, validate and publish when you request it, start and control Runs, answer Human Requests, or inspect managed Action output. It uses the same controller-owned operations as the visual interface, so chat does not create a second hidden source of truth.
 

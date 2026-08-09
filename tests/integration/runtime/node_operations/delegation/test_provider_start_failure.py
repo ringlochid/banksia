@@ -37,6 +37,7 @@ from banksia.runtime.providers import (
     ProviderStartError,
     ProviderStartErrorCode,
     ProviderStartFailureKind,
+    ProviderSteerOutcome,
     ProviderStopOutcome,
 )
 from banksia.runtime.providers.starter import DispatchStarter
@@ -97,6 +98,14 @@ class _FailOnceAdapter:
     async def stop(self, dispatch_id: str) -> ProviderStopOutcome:
         del dispatch_id
         return ProviderStopOutcome.STOPPED
+
+    async def can_steer(self, dispatch_id: str) -> bool:
+        del dispatch_id
+        return False
+
+    async def steer(self, dispatch_id: str, message: str) -> ProviderSteerOutcome:
+        del dispatch_id, message
+        return ProviderSteerOutcome.NOT_RUNNING
 
     async def read_availability(self) -> ProviderCheckResult:
         return ProviderCheckResult(

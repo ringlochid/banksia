@@ -1,25 +1,19 @@
 from __future__ import annotations
 
 import asyncio
-import os
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import cast
 
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
-from claude_agent_sdk.types import (
-    EffortLevel,
-    HookContext,
-    HookEvent,
-    HookInput,
-    HookJSONOutput,
-    HookMatcher,
-    McpHttpServerConfig,
-    SandboxSettings,
-)
+from claude_agent_sdk.types import EffortLevel, McpHttpServerConfig
 
+from banksia.integrations.claude.execution_access import (
+    build_claude_sandbox,
+    build_claude_workspace_hooks,
+)
 from banksia.integrations.claude.isolation import (
     CLAUDE_ALWAYS_DISALLOWED_TOOLS,
     CLAUDE_INHERITED_DISALLOWED_TOOLS,
@@ -48,6 +42,7 @@ from banksia.providers import (
 )
 from banksia.runtime.contracts.provider_resolution import ClaudeProviderRoute
 from banksia.runtime.providers.contracts import (
+    DEFAULT_PROVIDER_STOP_TIMEOUT_SECONDS,
     MANAGED_NODE_MCP_SERVER_NAME,
     DispatchStartRequest,
     ManagedNodeMcpConnection,
@@ -58,6 +53,7 @@ from banksia.runtime.providers.contracts import (
     ProviderStartError,
     ProviderStartErrorCode,
     ProviderStartFailureKind,
+    ProviderSteerOutcome,
     ProviderStopOutcome,
 )
 
@@ -88,11 +84,6 @@ _CLAUDE_READ_ONLY_NATIVE_TOOLS = (
     "Read",
 )
 _CLAUDE_NETWORK_TOOLS = ("WebFetch", "WebSearch")
-_CLAUDE_WRITE_TOOL_PATH_FIELDS = {
-    "Edit": "file_path",
-    "Write": "file_path",
-    "NotebookEdit": "notebook_path",
-}
 _CLAUDE_EFFORTS = frozenset({"low", "medium", "high", "xhigh", "max"})
 
 
@@ -100,6 +91,8 @@ _CLAUDE_EFFORTS = frozenset({"low", "medium", "high", "xhigh", "max"})
 class _ClaudeExecution:
     client: ClaudeSDKClient
     consumer: asyncio.Task[None]
+    operation_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+    is_steering: bool = False
 
 
 class ClaudeAdapter:
@@ -200,17 +193,62 @@ class ClaudeAdapter:
         if execution is None:
             return ProviderStopOutcome.FAILED if is_starting else ProviderStopOutcome.NOT_RUNNING
 
-        try:
-            await execution.client.interrupt()
-        except Exception:
-            return ProviderStopOutcome.FAILED
+        async with execution.operation_lock:
+            try:
+                await execution.client.interrupt()
+            except Exception:
+                return ProviderStopOutcome.FAILED
 
-        await _disconnect_client(execution.client)
-        execution.consumer.cancel()
+            await _disconnect_client(execution.client)
+            execution.consumer.cancel()
         async with self._lock:
             if self._executions.get(dispatch_id) is execution:
                 self._executions.pop(dispatch_id, None)
         return ProviderStopOutcome.STOPPED
+
+    async def can_steer(self, dispatch_id: str) -> bool:
+        async with self._lock:
+            execution = self._executions.get(dispatch_id)
+            return bool(
+                execution is not None
+                and not execution.is_steering
+                and not execution.consumer.done()
+            )
+
+    async def steer(self, dispatch_id: str, message: str) -> ProviderSteerOutcome:
+        async with self._lock:
+            execution = self._executions.get(dispatch_id)
+            if execution is None or execution.is_steering or execution.consumer.done():
+                return ProviderSteerOutcome.NOT_RUNNING
+            execution.is_steering = True
+
+        async with execution.operation_lock:
+            try:
+                await execution.client.interrupt()
+                await asyncio.wait_for(
+                    asyncio.shield(execution.consumer),
+                    timeout=DEFAULT_PROVIDER_STOP_TIMEOUT_SECONDS,
+                )
+                await execution.client.query(message)
+            except asyncio.CancelledError:
+                await self._discard_failed_steer(dispatch_id, execution)
+                raise
+            except Exception:
+                await self._discard_failed_steer(dispatch_id, execution)
+                return ProviderSteerOutcome.UNCERTAIN
+
+            async with self._lock:
+                if self._executions.get(dispatch_id) is not execution:
+                    await _disconnect_client(execution.client)
+                    return ProviderSteerOutcome.UNCERTAIN
+                consumer = asyncio.create_task(
+                    self._consume_response(dispatch_id, execution.client),
+                    name=f"claude-response-{dispatch_id}",
+                )
+                execution.consumer = consumer
+                execution.is_steering = False
+                self._consumer_tasks.add(consumer)
+        return ProviderSteerOutcome.DELIVERED
 
     async def read_availability(self) -> ProviderCheckResult:
         if not self._is_active:
@@ -290,13 +328,29 @@ class ClaudeAdapter:
         except BaseException:
             pass
         finally:
-            await _disconnect_client(client)
             async with self._lock:
                 execution = self._executions.get(dispatch_id)
-                if execution is not None and execution.client is client:
+                keep_open = bool(
+                    execution is not None and execution.client is client and execution.is_steering
+                )
+                if execution is not None and execution.client is client and not keep_open:
                     self._executions.pop(dispatch_id, None)
                 if current_task is not None:
                     self._consumer_tasks.discard(current_task)
+            if not keep_open:
+                await _disconnect_client(client)
+
+    async def _discard_failed_steer(
+        self,
+        dispatch_id: str,
+        execution: _ClaudeExecution,
+    ) -> None:
+        execution.consumer.cancel()
+        async with self._lock:
+            execution.is_steering = False
+            if self._executions.get(dispatch_id) is execution:
+                self._executions.pop(dispatch_id, None)
+        await _disconnect_client(execution.client)
 
     async def _cleanup(self) -> None:
         async with self._lock:
@@ -389,8 +443,8 @@ def _build_claude_options(
         resume=None,
         fork_session=False,
         include_partial_messages=False,
-        sandbox=_build_sandbox(request.network_access),
-        hooks=_build_workspace_hooks(request.sandbox_mode, workspace_root),
+        sandbox=build_claude_sandbox(request.network_access),
+        hooks=build_claude_workspace_hooks(request.sandbox_mode, workspace_root),
         effort=_resolve_effort(route.effort_override),
         extra_args=claude_isolation_extra_args(
             isolation_mode,
@@ -456,96 +510,6 @@ def _resolve_workspace_root(working_directory: Path) -> Path:
             code=ProviderStartErrorCode.CONFIGURATION,
         )
     return workspace_root
-
-
-def _build_workspace_hooks(
-    sandbox_mode: ManagedSandboxMode,
-    workspace_root: Path,
-) -> dict[HookEvent, list[HookMatcher]]:
-    if sandbox_mode is not ManagedSandboxMode.WORKSPACE_WRITE:
-        return {}
-
-    async def require_workspace_write_path(
-        hook_input: HookInput,
-        _tool_use_id: str | None,
-        _context: HookContext,
-    ) -> HookJSONOutput:
-        if hook_input["hook_event_name"] != "PreToolUse":
-            return _deny_workspace_write("workspace write guard received a wrong hook event")
-        pre_tool_input = hook_input
-        tool_name = pre_tool_input["tool_name"]
-        path_field = _CLAUDE_WRITE_TOOL_PATH_FIELDS.get(tool_name)
-        raw_path = pre_tool_input["tool_input"].get(path_field) if path_field else None
-        if not isinstance(raw_path, str) or not raw_path or "\x00" in raw_path:
-            return _deny_workspace_write("write tool did not provide one valid target path")
-        if not _is_workspace_write_path(raw_path, workspace_root=workspace_root):
-            return _deny_workspace_write("write target is outside the assigned workspace")
-        return {}
-
-    return {
-        "PreToolUse": [
-            HookMatcher(
-                matcher="Edit|Write|NotebookEdit",
-                hooks=[require_workspace_write_path],
-            )
-        ]
-    }
-
-
-def _is_workspace_write_path(raw_path: str, *, workspace_root: Path) -> bool:
-    try:
-        supplied = Path(raw_path)
-        lexical_path = Path(
-            os.path.abspath(supplied if supplied.is_absolute() else workspace_root / supplied)
-        )
-        lexical_relative = lexical_path.relative_to(workspace_root)
-        cursor = workspace_root
-        for index, part in enumerate(lexical_relative.parts):
-            cursor /= part
-            try:
-                if cursor.is_symlink():
-                    return False
-                if (
-                    index == len(lexical_relative.parts) - 1
-                    and cursor.is_file()
-                    and cursor.stat().st_nlink > 1
-                ):
-                    return False
-            except OSError:
-                return False
-        resolved_path = lexical_path.resolve(strict=False)
-        return resolved_path.is_relative_to(workspace_root)
-    except (OSError, RuntimeError, ValueError):
-        return False
-
-
-def _deny_workspace_write(reason: str) -> HookJSONOutput:
-    return {
-        "hookSpecificOutput": {
-            "hookEventName": "PreToolUse",
-            "permissionDecision": "deny",
-            "permissionDecisionReason": reason,
-        }
-    }
-
-
-def _build_sandbox(network_access: NetworkAccess) -> SandboxSettings | None:
-    if network_access is NetworkAccess.ALLOW:
-        return None
-    sandbox: dict[str, object] = {
-        "enabled": True,
-        "failIfUnavailable": True,
-        "autoAllowBashIfSandboxed": True,
-        "excludedCommands": [],
-        "allowUnsandboxedCommands": False,
-        "network": {
-            "allowedDomains": ["127.0.0.1", "localhost", "::1"],
-            "allowUnixSockets": [],
-            "allowAllUnixSockets": False,
-            "allowLocalBinding": False,
-        },
-    }
-    return cast(SandboxSettings, sandbox)
 
 
 def _resolve_effort(value: str | None) -> EffortLevel | None:

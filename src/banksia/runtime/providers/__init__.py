@@ -13,6 +13,7 @@ from banksia.runtime.providers.contracts import (
     ProviderStartError,
     ProviderStartErrorCode,
     ProviderStartFailureKind,
+    ProviderSteerOutcome,
     ProviderStopOutcome,
 )
 from banksia.runtime.providers.registry import ProviderAdapterRegistry
@@ -46,6 +47,7 @@ __all__ = [
     "ProviderStartError",
     "ProviderStartErrorCode",
     "ProviderStartFailureKind",
+    "ProviderSteerOutcome",
     "ProviderStopOutcome",
     "narrow_provider_capabilities",
     "provider_selection_from_kind",

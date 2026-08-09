@@ -131,6 +131,7 @@ Operator operations use closed JSON inputs and the same product services as the 
 | `task_get` | Read an overview or exactly one Member, Result, Activity item, Human Request, or Human Request file set. |
 | `task_start` | Start one published Workflow with exact prompt, optional absolute workspace, and loose file references. |
 | `task_control` | Apply the current pause, resume, or cancel action using the opaque `action_id` returned by `task_get`. |
+| `task_member_steer` | Send one message to the exact active Member using the opaque steer action returned by that Member's `task_get` view. |
 | `human_request_respond` | Answer or cancel one open request using its current `action_id` and exact response shape. |
 | `command_run_get` | Read current semantic state, outcome, output link, and cancellation action. |
 | `command_run_output_read` | Read one sanitized output page with optional opaque cursor and byte limit 1–65,536. |

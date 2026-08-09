@@ -15,6 +15,7 @@ from banksia.runtime.contracts.prompt import (
     PromptContinuation,
     PromptDispatch,
     PromptDynamicInput,
+    PromptSteer,
     PromptTask,
     PromptWorkspace,
     SemanticRetryTrigger,
@@ -46,7 +47,7 @@ type OrdinaryPromptTrigger = (
 type RootPromptTrigger = OperatorContinueTrigger
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, kw_only=True)
 class RootPromptSnapshot:
     task_id: str
     workflow_key: str
@@ -69,6 +70,7 @@ class RootPromptSnapshot:
     provider: ProviderResolution
     direct_team: tuple[DirectTeamMemberRead, ...]
     paths: TaskRootPaths
+    steering: tuple[PromptSteer, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -176,6 +178,7 @@ def _build_dispatch_request(
                 prompt=snapshot.assignment_prompt,
                 files=snapshot.assignment_files,
             ),
+            steering=snapshot.steering,
             continuation=PromptContinuation(trigger=trigger) if trigger is not None else None,
             direct_team=snapshot.direct_team,
             work_plan=work_plan_view(snapshot.work_plan),

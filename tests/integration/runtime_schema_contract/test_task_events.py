@@ -66,6 +66,7 @@ CANONICAL_TYPES = {
     "task_paused",
     "task_resumed",
     "task_cancelled",
+    "member_steered",
 }
 
 

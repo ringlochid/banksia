@@ -156,7 +156,7 @@ Before release:
 
 1. compare CLI documentation with installed `--help`;
 2. compare HTTP documentation with both generated OpenAPI documents and route source;
-3. compare controller-tool documentation with the exact nine Task-member and seventeen Operator catalogs;
+3. compare controller-tool documentation with the exact nine Task-member and eighteen Operator catalogs;
 4. validate the public Workflow prose/schema/examples through the shipped ingestion path;
 5. run docs inventory and exact searches for historical product names, removed operation names, old Starter IDs, version-era authority language, fixed-stage execution language, and managed-file claims;
 6. confirm affirmative deferred-capability mentions are absent while explicit “not supported” boundaries remain accurate;

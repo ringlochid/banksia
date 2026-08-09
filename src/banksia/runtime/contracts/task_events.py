@@ -25,6 +25,7 @@ from banksia.runtime.contracts.task_event_payloads import (
     DispatchStartUpdatedEventPayload,
     HumanRequestOpenedEventPayload,
     HumanRequestTerminalEventPayload,
+    MemberSteeredEventPayload,
     StructuralRevisionAdoptedEventPayload,
     TaskCancelledEventPayload,
     TaskEventIdentifier,
@@ -93,6 +94,11 @@ class _BoundaryAcceptedEvent(_TaskEventEnvelope):
 class _StructuralRevisionAdoptedEvent(_TaskEventEnvelope):
     event_type: Literal[TaskEventType.STRUCTURAL_REVISION_ADOPTED]
     payload: StructuralRevisionAdoptedEventPayload
+
+
+class _MemberSteeredEvent(_TaskEventEnvelope):
+    event_type: Literal[TaskEventType.MEMBER_STEERED]
+    payload: MemberSteeredEventPayload
 
 
 class _HumanRequestOpenedEvent(_TaskEventEnvelope):
@@ -202,6 +208,7 @@ type _TaskEventVariant = Annotated[
     | _CheckpointRecordedEvent
     | _BoundaryAcceptedEvent
     | _StructuralRevisionAdoptedEvent
+    | _MemberSteeredEvent
     | _HumanRequestOpenedEvent
     | _HumanRequestTerminalEvent
     | _CommandRunOpenedEvent

@@ -39,6 +39,8 @@ Before an eligible upgrade changes an existing database, Banksia must create a b
 
 The first supported forward upgrade adds the Attempt watchdog replacement budget. Existing Attempts receive `0`, which grants one fresh recovery budget at the upgrade boundary, while historical Dispatches and every other controller record remain unchanged.
 
+The next supported upgrade widens the closed Task Event type constraint for `member_steered` without rewriting event or Dispatch rows. A database that still needs both registered changes is recognized as one exact combined predecessor and receives both changes under one backup and verification transaction.
+
 Banksia has no AutoClaw or other legacy-state import path. Supported Banksia schema upgrades do not introduce compatibility aliases, dual runtime truth, or acceptance of nonexact schemas.
 
 After schema creation or verification, bootstrap transactionally validates and publishes the packaged Starter Workflow set. Identical package-owned content is idempotent, and reseeding never replaces a user-authored current revision.

@@ -129,7 +129,7 @@ The semantic precedence is:
 
 ```text
 controller safety, authority, and legal-action facts
-  > current Assignment and exact Continuation
+  > current Assignment, accepted user steers, and exact Continuation
   > current Member instruction
   > shared Workflow note
   > manifest, notes, artifacts, referenced files, command output, and ordinary workspace content
@@ -158,6 +158,11 @@ only when recovery, uncertain currentness, an explicit controller result, or
 quiet activity renewal during extended native work makes a fresh snapshot
 useful. It is not a mandatory opening ritual and does not reserve authority.
 Every controller mutation validates the current Dispatch again.
+
+The optional steering section contains later user direction accepted for this
+same Assignment. Apply every steer in order. It refines the current work but
+does not erase completed effects, replace the Assignment, widen authority, or
+override controller safety and legal-action facts.
 
 The standard Dispatch activity lease is forty-five minutes between Banksia tool
 calls; an installation may configure another limit. Provider-native research,
@@ -600,6 +605,12 @@ Render one deterministic `<banksia_dispatch_request>` document. It contains comp
       </file>
     </files>
   </assignment>
+  <steering>
+    <steer>
+      <message>Re-read AGENTS.md before continuing.</message>
+      <occurred_at>2026-08-09T16:25:16Z</occurred_at>
+    </steer>
+  </steering>
   <continuation>
     <trigger>
       <kind>delegation_wave_settled</kind>
@@ -645,6 +656,7 @@ Render one deterministic `<banksia_dispatch_request>` document. It contains comp
 Rules:
 
 - include the complete exact Assignment prompt and every file reference;
+- include every accepted steer for the same Assignment in event order;
 - initial Dispatches omit `continuation` and `trigger` entirely;
 - a successor Continuation contains one exact trigger kind, source, and complete typed result;
 - a Wave result includes every complete returned child Assignment, terminal Checkpoint, and file reference in delegation order;

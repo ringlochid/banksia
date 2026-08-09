@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from xml.etree import ElementTree
 
 import pytest
@@ -9,6 +10,7 @@ from banksia.runtime.contracts import ReplanSuccess
 from banksia.runtime.contracts.prompt import (
     PromptAssignment,
     PromptContinuation,
+    PromptSteer,
     RenderedDispatchRequest,
     StructuralReplanResult,
     StructuralReplanSource,
@@ -41,6 +43,7 @@ def test_initial_dispatch_is_deterministic_complete_xml_without_fake_trigger() -
         "dispatch",
         "current_member",
         "assignment",
+        "steering",
         "direct_team",
         "work_plan",
         "available_actions",
@@ -55,6 +58,30 @@ def test_initial_dispatch_is_deterministic_complete_xml_without_fake_trigger() -
     assert root.findtext("assignment/files/file/path") == (
         ".banksia/t_7m4k2d9x/artifacts/review.md"
     )
+
+
+def test_accepted_member_steers_render_in_event_order() -> None:
+    dynamic = sample_dynamic_input().model_copy(
+        update={
+            "steering": (
+                PromptSteer(
+                    message="Read the new constraints.",
+                    occurred_at=datetime(2026, 8, 9, 1, tzinfo=UTC),
+                ),
+                PromptSteer(
+                    message="Then keep the repair narrowly scoped.",
+                    occurred_at=datetime(2026, 8, 9, 2, tzinfo=UTC),
+                ),
+            )
+        }
+    )
+
+    root = ElementTree.fromstring(render_dynamic_input(dynamic))
+
+    assert [item.findtext("message") for item in root.findall("steering/steer")] == [
+        "Read the new constraints.",
+        "Then keep the repair narrowly scoped.",
+    ]
 
 
 def test_hostile_text_is_escaped_and_round_trips_without_becoming_markup() -> None:

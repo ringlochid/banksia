@@ -21,6 +21,7 @@ from banksia.runtime.providers.contracts import (
     ProviderCheckResult,
     ProviderCheckStatus,
     ProviderStartAccepted,
+    ProviderSteerOutcome,
     ProviderStopOutcome,
 )
 from banksia.runtime.providers.registry import ProviderAdapterRegistry
@@ -99,6 +100,14 @@ class _RegistryAdapter:
     async def stop(self, dispatch_id: str) -> ProviderStopOutcome:
         del dispatch_id
         return ProviderStopOutcome.NOT_RUNNING
+
+    async def can_steer(self, dispatch_id: str) -> bool:
+        del dispatch_id
+        return False
+
+    async def steer(self, dispatch_id: str, message: str) -> ProviderSteerOutcome:
+        del dispatch_id, message
+        return ProviderSteerOutcome.NOT_RUNNING
 
     async def read_availability(self) -> ProviderCheckResult:
         return ProviderCheckResult(

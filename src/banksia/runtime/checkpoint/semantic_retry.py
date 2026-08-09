@@ -21,6 +21,7 @@ from banksia.runtime.contracts.capabilities import EffectiveCapabilitySet
 from banksia.runtime.contracts.primitives import CheckpointOutcome
 from banksia.runtime.contracts.prompt import (
     PromptCheckpointSummary,
+    PromptSteer,
     SemanticRetryResult,
     SemanticRetrySource,
     SemanticRetryTrigger,
@@ -39,6 +40,7 @@ from banksia.runtime.dispatch.prompt_snapshot import (
     build_semantic_retry_dispatch_request,
 )
 from banksia.runtime.providers import narrow_provider_capabilities, resolve_member_provider_route
+from banksia.runtime.steering import read_assignment_prompt_steers
 from banksia.runtime.task_root import read_task_root_paths
 from banksia.runtime.team.reads import read_direct_team_members
 from banksia.runtime.work_plan import WorkPlanRead, read_assignment_work_plan
@@ -142,6 +144,10 @@ async def _prepare_semantic_retry_request(
         session,
         assignment_id=authority.assignment_id,
     )
+    steering = await read_assignment_prompt_steers(
+        session,
+        assignment_id=authority.assignment_id,
+    )
     direct_team = await read_direct_team_members(
         session,
         children=context.children,
@@ -162,6 +168,7 @@ async def _prepare_semantic_retry_request(
         accepted_boundary_id=accepted_boundary_id,
         checkpoint=checkpoint,
         assignment_files=assignment_files,
+        steering=steering,
         work_plan=work_plan,
         capabilities=capabilities,
         provider=provider,
@@ -263,6 +270,7 @@ def _build_semantic_retry_prompt(
     accepted_boundary_id: str,
     checkpoint: PromptCheckpointSummary,
     assignment_files: tuple[FileReference, ...],
+    steering: tuple[PromptSteer, ...],
     work_plan: WorkPlanRead | None,
     capabilities: EffectiveCapabilitySet,
     provider: ProviderResolution,
@@ -288,6 +296,7 @@ def _build_semantic_retry_prompt(
         workflow_note=context.workflow_note,
         assignment_prompt=authority.assignment.prompt,
         assignment_files=assignment_files,
+        steering=steering,
         work_plan=work_plan,
         capabilities=capabilities,
         provider=provider,

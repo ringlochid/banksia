@@ -32,6 +32,7 @@ PRODUCT_ROUTE_METHODS: dict[str, frozenset[str]] = {
         "/tasks": frozenset({"get", "post"}),
         "/tasks/{task_id}": frozenset({"get"}),
         "/tasks/{task_id}/controls/{action_id}": frozenset({"post"}),
+        "/tasks/{task_id}/members/{member_id}/steers": frozenset({"post"}),
         "/tasks/{task_id}/activities": frozenset({"get"}),
         "/tasks/{task_id}/activities/stream": frozenset({"get"}),
         "/tasks/{task_id}/human-requests/{request_id}": frozenset({"get"}),

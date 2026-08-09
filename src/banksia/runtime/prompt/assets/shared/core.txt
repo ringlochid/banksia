@@ -13,6 +13,11 @@ quiet activity renewal during extended native work makes a fresh snapshot
 useful. It is not a mandatory opening ritual and does not reserve authority.
 Every controller mutation validates the current Dispatch again.
 
+The optional steering section contains later user direction accepted for this
+same Assignment. Apply every steer in order. It refines the current work but
+does not erase completed effects, replace the Assignment, widen authority, or
+override controller safety and legal-action facts.
+
 The standard Dispatch activity lease is forty-five minutes between Banksia tool
 calls; an installation may configure another limit. Provider-native research,
 implementation, and verification do not renew it. During extended native work,

@@ -16,16 +16,19 @@ from banksia.operator.tools.contracts import (
     TaskGetInput,
     TaskHumanRequestFilesSelection,
     TaskHumanRequestSelection,
+    TaskMemberSteerInput,
     TaskSearchInput,
     bind_operator_tool,
 )
 from banksia.operator.tools.task_projection import (
     OperatorHumanRequestResponseReceipt,
+    OperatorMemberSteerReceipt,
     OperatorTaskControlReceipt,
     OperatorTaskGetResult,
     build_operator_human_request_result,
     build_operator_task_result,
     map_operator_human_request_response_receipt,
+    map_operator_member_steer_receipt,
     map_operator_task_control_receipt,
 )
 from banksia.runtime.contracts.primitives import (
@@ -41,6 +44,7 @@ from banksia.runtime.contracts.task import (
     HumanRequestAnswerInput,
     HumanRequestCancelInput,
     HumanRequestResponseRequest,
+    MemberSteerRequest,
     TaskControlRequest,
     TaskSearchResponse,
     TaskStartReceipt,
@@ -55,12 +59,14 @@ from banksia.runtime.product.human_requests import (
     read_product_human_request,
     respond_to_product_human_request,
 )
+from banksia.runtime.product.member_steering import steer_product_task_member
 from banksia.runtime.product.tasks import (
     control_product_task,
     read_product_task,
     search_product_tasks,
     start_product_task,
 )
+from banksia.runtime.providers import ProviderAdapterRegistry
 
 _OPERATOR_ACTOR_REF = "operator"
 
@@ -70,6 +76,7 @@ class _RuntimeOperatorLeaves:
     settings: Settings
     session_factory: OperatorSessionFactory
     dispatch_dependencies: DispatchOpeningDependencies
+    provider_adapters: ProviderAdapterRegistry
 
     async def task_search(self, request: TaskSearchInput) -> TaskSearchResponse:
         async with self.session_factory() as session:
@@ -100,7 +107,11 @@ class _RuntimeOperatorLeaves:
                         TaskHumanRequestFilesSelection,
                     ),
                 )
-            task = await read_product_task(session, request.task_id)
+            task = await read_product_task(
+                session,
+                request.task_id,
+                provider_adapters=self.provider_adapters,
+            )
             return build_operator_task_result(task, selection=request.selection)
 
     async def task_start(self, request: TaskStartRequest) -> TaskStartReceipt:
@@ -125,6 +136,25 @@ class _RuntimeOperatorLeaves:
                 runtime_effect_publisher=self.dispatch_dependencies.post_commit_publisher,
             )
         return map_operator_task_control_receipt(receipt)
+
+    async def task_member_steer(
+        self,
+        request: TaskMemberSteerInput,
+    ) -> OperatorMemberSteerReceipt:
+        async with self.session_factory() as session:
+            receipt = await steer_product_task_member(
+                session,
+                task_id=request.task_id,
+                member_id=request.member_id,
+                request=MemberSteerRequest(
+                    action_id=request.action_id,
+                    message=request.message,
+                ),
+                adapters=self.provider_adapters,
+                actor_ref=_OPERATOR_ACTOR_REF,
+                event_source=TaskEventSource.OPERATOR,
+            )
+        return map_operator_member_steer_receipt(receipt)
 
     async def human_request_respond(
         self,
@@ -198,11 +228,13 @@ def build_runtime_operator_tools(
     settings: Settings,
     session_factory: OperatorSessionFactory,
     dispatch_dependencies: DispatchOpeningDependencies,
+    provider_adapters: ProviderAdapterRegistry,
 ) -> tuple[OperatorTool, ...]:
     leaves = _RuntimeOperatorLeaves(
         settings=settings,
         session_factory=session_factory,
         dispatch_dependencies=dispatch_dependencies,
+        provider_adapters=provider_adapters,
     )
     return (
         *_build_task_tools(leaves),
@@ -249,6 +281,15 @@ def _build_task_tools(
             ),
             input_model=TaskControlInput,
             handler=leaves.task_control,
+        ),
+        bind_operator_tool(
+            name=OperatorToolName.TASK_MEMBER_STEER,
+            description=(
+                "Steer one exact active team Member using the opaque action ID returned "
+                "by task_get for that Member."
+            ),
+            input_model=TaskMemberSteerInput,
+            handler=leaves.task_member_steer,
         ),
     )
 

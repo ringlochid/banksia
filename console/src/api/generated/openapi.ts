@@ -261,6 +261,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/tasks/{task_id}/members/{member_id}/steers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Member Steer */
+        post: operations["post_member_steer_api_tasks__task_id__members__member_id__steers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/workflow-drafts": {
         parameters: {
             query?: never;
@@ -735,6 +752,26 @@ export interface components {
             /** Title */
             title?: string | null;
         };
+        /** MemberSteerReceipt */
+        MemberSteerReceipt: {
+            /** Receipt Id */
+            receipt_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "delivered" | "uncertain";
+            /** Status Message */
+            status_message: string;
+            task: components["schemas"]["TaskView"];
+        };
+        /** MemberSteerRequest */
+        MemberSteerRequest: {
+            /** Action Id */
+            action_id: string;
+            /** Message */
+            message: string;
+        };
         /** NewMember */
         NewMember: {
             capabilities?: components["schemas"]["MemberCapabilities"] | null;
@@ -1204,7 +1241,7 @@ export interface components {
             title: string;
         };
         /** @enum {string} */
-        TaskActivityKind: "task_started" | "task_paused" | "task_resumed" | "task_cancelled" | "task_completed" | "task_blocked" | "work_completed" | "work_blocked" | "input_requested" | "input_received" | "input_expired" | "input_cancelled" | "action_started" | "action_succeeded" | "action_failed" | "action_timed_out" | "action_cancelled";
+        TaskActivityKind: "task_started" | "task_paused" | "task_resumed" | "task_cancelled" | "task_completed" | "task_blocked" | "work_completed" | "work_blocked" | "input_requested" | "input_received" | "input_expired" | "input_cancelled" | "action_started" | "action_succeeded" | "action_failed" | "action_timed_out" | "action_cancelled" | "member_steered";
         /** TaskActivityLink */
         TaskActivityLink: {
             /** Href */
@@ -1298,6 +1335,7 @@ export interface components {
             /** Purpose */
             purpose?: string | null;
             state: components["schemas"]["TaskMemberWorkState"];
+            steer_action?: components["schemas"]["ProductAction"] | null;
         };
         /** @enum {string} */
         TaskMemberWorkState: "not_started" | "working" | "waiting" | "done" | "blocked";
@@ -3067,6 +3105,87 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HumanRequestResponseReceipt"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+        };
+    };
+    post_member_steer_api_tasks__task_id__members__member_id__steers_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+                member_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberSteerRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberSteerReceipt"];
                 };
             };
             /** @description Bad Request */

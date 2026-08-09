@@ -107,6 +107,7 @@ class TaskEventType(StrEnum):
     TASK_PAUSED = "task_paused"
     TASK_RESUMED = "task_resumed"
     TASK_CANCELLED = "task_cancelled"
+    MEMBER_STEERED = "member_steered"
 
 
 class TaskRootPaths(BaseModel):

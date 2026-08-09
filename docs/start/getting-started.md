@@ -143,7 +143,7 @@ In the Console:
    > release-readiness result with referenced files.
 
 4. Start the run and follow **Team**, **Current plan**, and meaningful **Activity**.
-5. Answer a Human Request only when a Member genuinely needs your decision.
+5. Select a Member to inspect its plan. Use **Steer** when an active Member needs new context or a changed direction; answer a Human Request when the team needs a decision before it can continue.
 6. Read **Result**, then open its referenced workspace files for the detailed change, proof, review, or report.
 
 The responsibility tree defines ownership, not a fixed timeline. The running team chooses sequential, parallel, iterative, batch, or hybrid work from current evidence.

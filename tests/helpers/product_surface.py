@@ -14,6 +14,7 @@ from banksia.persistence.session import get_db_session
 from banksia.providers import ProviderKind
 from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
 from banksia.runtime.post_commit import CapturedRuntimeEffectPublisher
+from banksia.runtime.providers import ProviderAdapterRegistry
 
 
 class AsyncSessionFactory(Protocol):
@@ -26,11 +27,14 @@ async def product_http_client(
     *,
     tmp_path: Path,
     publisher: CapturedRuntimeEffectPublisher | None = None,
+    provider_adapters: ProviderAdapterRegistry | None = None,
 ) -> AsyncIterator[httpx.AsyncClient]:
     app = create_app(should_enable_mcp_mounts=False)
     app.state.dispatch_opening_dependencies = product_dispatch_dependencies(tmp_path)
     if publisher is not None:
         app.state.runtime_effect_publisher = publisher
+    if provider_adapters is not None:
+        app.state.provider_adapter_registry = provider_adapters
 
     async def session_dependency() -> AsyncIterator[AsyncSession]:
         async with session_factory() as session:

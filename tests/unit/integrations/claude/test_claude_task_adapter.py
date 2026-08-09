@@ -33,6 +33,7 @@ from banksia.runtime.providers.contracts import (
     ProviderCheckStatus,
     ProviderStartError,
     ProviderStartErrorCode,
+    ProviderSteerOutcome,
     ProviderStopOutcome,
 )
 from tests.unit.integrations.claude.task_adapter_test_support import (
@@ -163,6 +164,37 @@ async def test_claude_start_uses_disposable_scoped_client_and_returns_before_out
         assert await adapter.stop("dispatch-1") is ProviderStopOutcome.STOPPED
         assert client.was_interrupted is True
         assert client.was_disconnected is True
+
+
+@pytest.mark.asyncio
+async def test_claude_interrupts_then_steers_the_same_live_session() -> None:
+    clients: list[FakeClaudeClient] = []
+
+    def build_client(options: ClaudeAgentOptions) -> FakeClaudeClient:
+        client = FakeClaudeClient(options)
+        clients.append(client)
+        return client
+
+    adapter = ClaudeAdapter(
+        client_factory=cast(Callable[[ClaudeAgentOptions], ClaudeSDKClient], build_client),
+        authentication_reader=authentication,
+        endpoint_policy_reader=clear_policy,
+    )
+
+    async with adapter.lifespan():
+        await adapter.start(task_request())
+        assert await adapter.can_steer("dispatch-1") is True
+        assert (
+            await adapter.steer("dispatch-1", "Re-read AGENTS.md before continuing.")
+            is ProviderSteerOutcome.DELIVERED
+        )
+        assert clients[0].was_interrupted is True
+        assert clients[0].query_inputs == [
+            "exact input",
+            "Re-read AGENTS.md before continuing.",
+        ]
+        assert await adapter.can_steer("dispatch-1") is True
+        assert await adapter.stop("dispatch-1") is ProviderStopOutcome.STOPPED
 
 
 @pytest.mark.asyncio

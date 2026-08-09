@@ -306,11 +306,11 @@ command_run_cancel
 
 There is no `artifact_get` or generic `file_get`. `task_get` returns loose `FileReference` values sourced from Assignments, Checkpoints, and Human Requests, embedded in the relevant product message rather than as a standalone file catalog. The Operator receives no arbitrary host-file access or generic file CRUD/content retrieval. UI-specific file opening, if retained, is an authorized product route rather than an Operator agent tool.
 
-The complete Operator catalog has seventeen operations: three Workflow reads, six draft actions, four Task actions, one Human Request action, and three Command Run actions.
+The complete Operator catalog has eighteen operations: three Workflow reads, six draft actions, five Task actions, one Human Request action, and three Command Run actions. `task_member_steer` calls the same exact-current product service as Run Studio; it is not a Node tool or provider-native escape hatch.
 
 Every Operator operation is a direct typed leaf call to its existing product service. Provider-facing projections may remove complete aggregates and retain only source-pinned bounded product facts or compact mutation receipts; they do not create another authority or service path. Claude and Codex adapters may expose the executor directly or through an invocation-local private in-process MCP projection. No projection is public, static, authorable, or external-MCP configuration.
 
-Claude uses native structured output. Codex 0.144.4 uses `outputSchema` and `dynamicTools`. When model metadata requires code mode, provider-native `exec` and `wait` are adapter-private transport over only the seventeen Banksia operations plus inert `update_plan`. The code runtime receives no execution environment, host bindings, filesystem, shell, network, external MCP, module imports, Skills, or Plugins. These provider-native surfaces add no Banksia or host authority and are not product tools or authorable capabilities. Any wider nested registry or host surface fails availability. The exact claim is seventeen Banksia product operations, not a literal global model-visible tool count.
+Claude uses native structured output. Codex 0.144.4 uses `outputSchema` and `dynamicTools`. When model metadata requires code mode, provider-native `exec` and `wait` are adapter-private transport over only the eighteen Banksia operations plus inert `update_plan`. The code runtime receives no execution environment, host bindings, filesystem, shell, network, external MCP, module imports, Skills, or Plugins. These provider-native surfaces add no Banksia or host authority and are not product tools or authorable capabilities. Any wider nested registry or host surface fails availability. The exact claim is eighteen Banksia product operations, not a literal global model-visible tool count.
 
 Explicit user text or a committed typed answer supplies intent for the action it clearly requests. ETags, controller-issued Undo receipts, current opaque legal-action IDs, strict product schemas, and owning service transactions own currentness and acceptance. Model-visible schemas contain no `confirmed`, proposal, effect, replay, or generic execute field.
 
@@ -333,12 +333,12 @@ Do not add:
 ## Required proof
 
 - exact final Node inventory equals the nine names above, in deterministic order, with no stale alias;
-- exact final Operator inventory equals its seventeen approved names and has no `artifact_get`;
+- exact final Operator inventory equals its eighteen approved names and has no `artifact_get`;
 - the managed Node projection exposes only semantic schemas and derives Task/Dispatch scope from its exact binding;
 - Contributor, Manager, capability-granted, denied, stale, and post-replan discovery/call matrices are correct;
 - every transfer operation commits authority loss before success returns and duplicate/stale calls cannot mutate a successor;
 - nested parallel Attempt bindings cannot cross Task, Attempt, Dispatch, tool ceiling, or provider-start generation;
-- Claude and Codex expose the exact seventeen Banksia operations and the same native `message | ask_user` result contract; provider surfaces expose no host filesystem, shell, network, external MCP, Skill, Plugin, or Banksia authority outside that catalog, while harmless inert provider-native planning does not expand product authority;
+- Claude and Codex expose the exact eighteen Banksia operations and the same native `message | ask_user` result contract; provider surfaces expose no host filesystem, shell, network, external MCP, Skill, Plugin, or Banksia authority outside that catalog, while harmless inert provider-native planning does not expand product authority;
 - no MCP protocol Task, elicitation, resource, prompt, or dynamic external-MCP behavior becomes runtime authority;
 - native filesystem conformance passes before file-tool removal;
 - loose `FileReference` values preserve exact path/description order across project files, notes, artifacts, and command logs but create no generic file ID, body copy, digest, version, current pointer, or Operator content tool; the physical `artifacts/` convention never becomes an Artifact resource; and

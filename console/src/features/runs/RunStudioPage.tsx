@@ -1,15 +1,18 @@
 import { ArrowLeft, Pause, Play, RefreshCw, Square } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router";
 
 import {
     Button,
     Dialog,
+    DialogFooter,
+    FormField,
     Notice,
     PageState,
     Prose,
     TabPanel,
     Tabs,
+    Textarea,
 } from "../../components/ui";
 import { CommandRunCard } from "./CommandRunCard";
 import { HumanRequestCard } from "./HumanRequestCard";
@@ -80,7 +83,12 @@ function RunStudioTask({ api, taskId }: RunStudioTaskProps) {
         null,
     );
     const [controlSubmitting, setControlSubmitting] = useState(false);
+    const [steerMemberId, setSteerMemberId] = useState<string | null>(null);
+    const [steerMessage, setSteerMessage] = useState("");
+    const [steerError, setSteerError] = useState<string | null>(null);
+    const [steerSubmitting, setSteerSubmitting] = useState(false);
     const [activeTab, setActiveTab] = useState("activity");
+    const steerInputRef = useRef<HTMLTextAreaElement>(null);
     const error = operationError ?? readError;
 
     function refreshRun(message?: string): void {
@@ -134,6 +142,50 @@ function RunStudioTask({ api, taskId }: RunStudioTaskProps) {
         return response.body.status_message;
     }
 
+    function openSteer(member: TaskMemberView): void {
+        setSteerMemberId(member.id);
+        setSteerMessage("");
+        setSteerError(null);
+    }
+
+    function closeSteer(): void {
+        if (steerSubmitting) {
+            return;
+        }
+        setSteerMemberId(null);
+        setSteerMessage("");
+        setSteerError(null);
+    }
+
+    async function handleSteer(): Promise<void> {
+        const member = findTaskMember(task?.team ?? null, steerMemberId);
+        const action = member?.steer_action;
+        if (member === null || action === null || action === undefined) {
+            setSteerError(
+                "This Member is no longer available to steer. Reload the Run and try again.",
+            );
+            return;
+        }
+        setSteerSubmitting(true);
+        setSteerError(null);
+        try {
+            const response = await api.steerMember(
+                taskId,
+                member.id,
+                action.id,
+                steerMessage,
+            );
+            replaceTask(response.body.task);
+            setReceipt(response.body.status_message);
+            setSteerMemberId(null);
+            setSteerMessage("");
+        } catch (reason) {
+            setSteerError(errorMessage(reason));
+        } finally {
+            setSteerSubmitting(false);
+        }
+    }
+
     if (loading) {
         return <PageState fill kind="loading" title="Loading Run" />;
     }
@@ -173,6 +225,7 @@ function RunStudioTask({ api, taskId }: RunStudioTaskProps) {
     );
     const selectedMember =
         findTaskMember(task.team, selectedMemberId) ?? task.team;
+    const steerMember = findTaskMember(task.team, steerMemberId);
 
     return (
         <section className="run-studio">
@@ -266,7 +319,10 @@ function RunStudioTask({ api, taskId }: RunStudioTaskProps) {
                         selectedMemberId={selectedMember.id}
                         team={task.team}
                     />
-                    <MemberContextSection member={selectedMember} />
+                    <MemberContextSection
+                        member={selectedMember}
+                        onSteer={openSteer}
+                    />
                     {selectedMember.plan === null ||
                     selectedMember.plan === undefined ? (
                         <section className="run-side-section">
@@ -425,15 +481,58 @@ function RunStudioTask({ api, taskId }: RunStudioTaskProps) {
                     </div>
                 </div>
             </Dialog>
+
+            <Dialog
+                closeDisabled={steerSubmitting}
+                description="Add context or redirect this Member’s current work. Work already completed stays completed."
+                initialFocusRef={steerInputRef}
+                isOpen={steerMemberId !== null}
+                onClose={closeSteer}
+                title={`Steer ${steerMember?.name ?? "Member"}`}
+            >
+                <div className="run-steer-dialog">
+                    <FormField
+                        error={steerError}
+                        hint="Banksia sends this message to the Member’s active session. Completed work and tool effects are not undone."
+                        id="run-steer-message"
+                        label="Message"
+                    >
+                        <Textarea
+                            maxLength={4096}
+                            onChange={(event) =>
+                                setSteerMessage(event.target.value)
+                            }
+                            placeholder="What should this Member reconsider or do next?"
+                            ref={steerInputRef}
+                            rows={6}
+                            value={steerMessage}
+                        />
+                    </FormField>
+                    <DialogFooter>
+                        <Button disabled={steerSubmitting} onClick={closeSteer}>
+                            Cancel
+                        </Button>
+                        <Button
+                            disabled={
+                                steerSubmitting || steerMessage.trim() === ""
+                            }
+                            onClick={() => void handleSteer()}
+                            tone="primary"
+                        >
+                            {steerSubmitting ? "Steering…" : "Steer"}
+                        </Button>
+                    </DialogFooter>
+                </div>
+            </Dialog>
         </section>
     );
 }
 
 function findTaskMember(
-    team: TaskMemberView,
+    team: TaskMemberView | null,
     memberId: string | null,
 ): TaskMemberView | null {
-    if (memberId === null || team.id === memberId) {
+    if (team === null || memberId === null || team.id === memberId) {
         return memberId === null ? null : team;
     }
     for (const child of team.children) {

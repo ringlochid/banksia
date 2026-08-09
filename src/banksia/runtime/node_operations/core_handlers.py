@@ -36,6 +36,7 @@ from banksia.runtime.node_operations.state_legality import (
     read_state_legal_node_operations,
 )
 from banksia.runtime.prompt import parse_prompt_continuation
+from banksia.runtime.steering import read_assignment_prompt_steers
 from banksia.runtime.task_root import read_task_root_paths
 from banksia.runtime.team.reads import (
     available_member_actions,
@@ -114,6 +115,10 @@ async def _get_current_context(
         raise _invalid_committed_request(str(exc)) from exc
     paths = await read_task_root_paths(session, authority.task_id)
     capabilities = effective_capabilities_read(authority.capabilities)
+    steering = await read_assignment_prompt_steers(
+        session,
+        assignment_id=authority.assignment_id,
+    )
     return GetCurrentContextResponse(
         task=PromptTask(id=authority.task_id, workflow_id=workflow_id),
         dispatch=PromptDispatch(
@@ -139,6 +144,7 @@ async def _get_current_context(
             prompt=authority.assignment.prompt,
             files=assignment_files,
         ),
+        steering=steering,
         continuation=continuation,
         direct_team=direct_team,
         work_plan=work_plan_view(plan),

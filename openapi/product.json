@@ -961,6 +961,59 @@
         "title": "MemberPatch",
         "type": "object"
       },
+      "MemberSteerReceipt": {
+        "additionalProperties": false,
+        "properties": {
+          "receipt_id": {
+            "title": "Receipt Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "delivered",
+              "uncertain"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "status_message": {
+            "title": "Status Message",
+            "type": "string"
+          },
+          "task": {
+            "$ref": "#/components/schemas/TaskView"
+          }
+        },
+        "required": [
+          "receipt_id",
+          "status",
+          "status_message",
+          "task"
+        ],
+        "title": "MemberSteerReceipt",
+        "type": "object"
+      },
+      "MemberSteerRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "action_id": {
+            "title": "Action Id",
+            "type": "string"
+          },
+          "message": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action_id",
+          "message"
+        ],
+        "title": "MemberSteerRequest",
+        "type": "object"
+      },
       "NewMember": {
         "additionalProperties": false,
         "properties": {
@@ -2292,7 +2345,8 @@
           "action_succeeded",
           "action_failed",
           "action_timed_out",
-          "action_cancelled"
+          "action_cancelled",
+          "member_steered"
         ],
         "type": "string"
       },
@@ -2571,6 +2625,16 @@
           },
           "state": {
             "$ref": "#/components/schemas/TaskMemberWorkState"
+          },
+          "steer_action": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProductAction"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -5709,6 +5773,117 @@
         "summary": "Post Human Request Response",
         "tags": [
           "human-requests"
+        ]
+      }
+    },
+    "/api/tasks/{task_id}/members/{member_id}/steers": {
+      "post": {
+        "operationId": "post_member_steer_api_tasks__task_id__members__member_id__steers_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "member_id",
+            "required": true,
+            "schema": {
+              "title": "Member Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MemberSteerRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberSteerReceipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationFailure"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Post Member Steer",
+        "tags": [
+          "tasks"
         ]
       }
     },

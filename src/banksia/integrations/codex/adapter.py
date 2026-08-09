@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -44,6 +44,7 @@ from banksia.runtime.providers.contracts import (
     ProviderStartError,
     ProviderStartErrorCode,
     ProviderStartFailureKind,
+    ProviderSteerOutcome,
     ProviderStopOutcome,
 )
 
@@ -64,6 +65,7 @@ class _CodexExecution:
     client: CodexClient
     thread_id: str
     turn_id: str
+    operation_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
 
 class CodexAdapter:
@@ -141,20 +143,50 @@ class CodexAdapter:
         if execution is None:
             return ProviderStopOutcome.FAILED if is_starting else ProviderStopOutcome.NOT_RUNNING
 
-        try:
-            await asyncio.to_thread(
-                execution.client.turn_interrupt,
-                execution.thread_id,
-                execution.turn_id,
-            )
-            await _close_client(execution.client)
-        except Exception:
-            return ProviderStopOutcome.FAILED
+        async with execution.operation_lock:
+            try:
+                await asyncio.to_thread(
+                    execution.client.turn_interrupt,
+                    execution.thread_id,
+                    execution.turn_id,
+                )
+                await _close_client(execution.client)
+            except Exception:
+                return ProviderStopOutcome.FAILED
 
         async with self._lock:
             if self._executions.get(dispatch_id) is execution:
                 self._executions.pop(dispatch_id, None)
         return ProviderStopOutcome.STOPPED
+
+    async def can_steer(self, dispatch_id: str) -> bool:
+        async with self._lock:
+            return dispatch_id in self._executions
+
+    async def steer(self, dispatch_id: str, message: str) -> ProviderSteerOutcome:
+        async with self._lock:
+            execution = self._executions.get(dispatch_id)
+        if execution is None:
+            return ProviderSteerOutcome.NOT_RUNNING
+
+        async with execution.operation_lock:
+            async with self._lock:
+                if self._executions.get(dispatch_id) is not execution:
+                    return ProviderSteerOutcome.NOT_RUNNING
+            try:
+                await asyncio.to_thread(
+                    execution.client.turn_steer,
+                    execution.thread_id,
+                    execution.turn_id,
+                    message,
+                )
+            except InvalidParamsError:
+                return ProviderSteerOutcome.NOT_RUNNING
+            except (CodexRpcError, TransportClosedError, TimeoutError, OSError):
+                return ProviderSteerOutcome.UNCERTAIN
+            except Exception:
+                return ProviderSteerOutcome.UNCERTAIN
+        return ProviderSteerOutcome.DELIVERED
 
     async def read_availability(self) -> ProviderCheckResult:
         async with self._lock:
@@ -277,11 +309,17 @@ class CodexAdapter:
         except BaseException:
             pass
         finally:
-            await _close_client(client)
             async with self._lock:
                 execution = self._executions.get(dispatch_id)
-                if execution is not None and execution.client is client:
-                    self._executions.pop(dispatch_id, None)
+            if execution is not None and execution.client is client:
+                async with execution.operation_lock:
+                    await _close_client(client)
+                async with self._lock:
+                    if self._executions.get(dispatch_id) is execution:
+                        self._executions.pop(dispatch_id, None)
+            else:
+                await _close_client(client)
+            async with self._lock:
                 if current_task is not None:
                     self._consumer_tasks.discard(current_task)
 

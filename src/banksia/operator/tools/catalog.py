@@ -6,6 +6,7 @@ from banksia.operator.tools.contracts import OperatorTool
 from banksia.operator.tools.runtime import build_runtime_operator_tools
 from banksia.operator.tools.workflows import build_workflow_operator_tools
 from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
+from banksia.runtime.providers import ProviderAdapterRegistry
 
 
 def build_operator_tools(
@@ -13,6 +14,7 @@ def build_operator_tools(
     settings: Settings,
     session_factory: OperatorSessionFactory,
     dispatch_dependencies: DispatchOpeningDependencies,
+    provider_adapters: ProviderAdapterRegistry | None = None,
 ) -> tuple[OperatorTool, ...]:
     """Bind the exact ordered Banksia Operator catalog to product-service leaves."""
 
@@ -25,6 +27,7 @@ def build_operator_tools(
             settings=settings,
             session_factory=session_factory,
             dispatch_dependencies=dispatch_dependencies,
+            provider_adapters=provider_adapters or ProviderAdapterRegistry(()),
         ),
     )
 

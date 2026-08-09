@@ -30,7 +30,7 @@ from banksia.runtime.providers.contracts import (
 class FakeClaudeClient:
     def __init__(self, options: ClaudeAgentOptions) -> None:
         self.options = options
-        self.query_input: str | None = None
+        self.query_inputs: list[str] = []
         self.was_connected = False
         self.was_interrupted = False
         self.was_disconnected = False
@@ -66,7 +66,8 @@ class FakeClaudeClient:
         }
 
     async def query(self, dispatch_input: str) -> None:
-        self.query_input = dispatch_input
+        self.query_inputs.append(dispatch_input)
+        self._done = asyncio.Event()
 
     async def receive_response(self) -> AsyncIterator[object]:
         await self._done.wait()
@@ -79,6 +80,10 @@ class FakeClaudeClient:
 
     async def disconnect(self) -> None:
         self.was_disconnected = True
+
+    @property
+    def query_input(self) -> str | None:
+        return self.query_inputs[-1] if self.query_inputs else None
 
 
 def authentication(

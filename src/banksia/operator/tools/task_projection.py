@@ -15,6 +15,7 @@ from banksia.runtime.contracts.task import (
     HumanRequestResolutionView,
     HumanRequestResponseReceipt,
     HumanRequestView,
+    MemberSteerReceipt,
     ProductAction,
     ProductActionConfirmation,
     TaskActivity,
@@ -69,6 +70,7 @@ class OperatorTaskMemberDetail(_TaskProjectionModel):
     purpose: str | None = None
     state: TaskMemberWorkState
     latest_update: TaskMemberUpdate | None = None
+    steer_action: OperatorProductAction | None = None
     child_ids: tuple[str, ...] = ()
 
 
@@ -241,6 +243,13 @@ class OperatorTaskControlReceipt(_TaskProjectionModel):
     task: OperatorTaskStateReference
 
 
+class OperatorMemberSteerReceipt(_TaskProjectionModel):
+    receipt_id: str
+    status: Literal["delivered", "uncertain"]
+    status_message: str
+    task: OperatorTaskStateReference
+
+
 class OperatorHumanRequestStateReference(_TaskProjectionModel):
     id: str
     status: HumanRequestProductStatus
@@ -326,6 +335,23 @@ def map_operator_task_control_receipt(
     return OperatorTaskControlReceipt(
         receipt_id=receipt.receipt_id,
         action=receipt.action,
+        status_message=receipt.status_message,
+        task=OperatorTaskStateReference(
+            id=receipt.task.id,
+            status=receipt.task.status,
+            status_message=receipt.task.status_message,
+            updated_at=receipt.task.updated_at,
+            actions=tuple(_required_product_action(action) for action in receipt.task.actions),
+        ),
+    )
+
+
+def map_operator_member_steer_receipt(
+    receipt: MemberSteerReceipt,
+) -> OperatorMemberSteerReceipt:
+    return OperatorMemberSteerReceipt(
+        receipt_id=receipt.receipt_id,
+        status=receipt.status,
         status_message=receipt.status_message,
         task=OperatorTaskStateReference(
             id=receipt.task.id,
@@ -425,6 +451,7 @@ def _task_member_detail(member: TaskMemberView) -> OperatorTaskMemberDetail:
         purpose=member.purpose,
         state=member.state,
         latest_update=member.latest_update,
+        steer_action=_product_action(member.steer_action),
         child_ids=tuple(child.id for child in member.children),
     )
 
@@ -537,10 +564,12 @@ def _excerpt(value: str, *, limit: int = _OVERVIEW_TEXT_LIMIT) -> str:
 
 __all__ = [
     "OperatorHumanRequestResponseReceipt",
+    "OperatorMemberSteerReceipt",
     "OperatorTaskControlReceipt",
     "OperatorTaskGetResult",
     "build_operator_human_request_result",
     "build_operator_task_result",
     "map_operator_human_request_response_receipt",
+    "map_operator_member_steer_receipt",
     "map_operator_task_control_receipt",
 ]

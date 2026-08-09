@@ -1012,6 +1012,31 @@
         "title": "MemberBehavior",
         "type": "string"
       },
+      "MemberSteeredEventPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "action_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "assignment_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "message": {
+            "$ref": "#/components/schemas/TaskEventSummary"
+          },
+          "source_dispatch_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          }
+        },
+        "required": [
+          "action_id",
+          "assignment_id",
+          "source_dispatch_id",
+          "message"
+        ],
+        "title": "MemberSteeredEventPayload",
+        "type": "object"
+      },
       "NetworkAccess": {
         "enum": [
           "allow",
@@ -3355,6 +3380,115 @@
         "title": "_HumanRequestTerminalEvent",
         "type": "object"
       },
+      "_MemberSteeredEvent": {
+        "additionalProperties": false,
+        "properties": {
+          "actor_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "attempt_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "dispatch_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "event_hash": {
+            "$ref": "#/components/schemas/TaskEventRef"
+          },
+          "event_id": {
+            "$ref": "#/components/schemas/TaskEventIdentifier"
+          },
+          "event_seq": {
+            "minimum": 1.0,
+            "title": "Event Seq",
+            "type": "integer"
+          },
+          "event_source": {
+            "$ref": "#/components/schemas/TaskEventSource"
+          },
+          "event_type": {
+            "const": "member_steered",
+            "title": "Event Type",
+            "type": "string"
+          },
+          "member_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/MemberSteeredEventPayload"
+          },
+          "prev_event_hash": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "task_id": {
+            "minLength": 1,
+            "title": "Task Id",
+            "type": "string"
+          },
+          "team_revision_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskEventIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "event_id",
+          "event_seq",
+          "task_id",
+          "event_source",
+          "occurred_at",
+          "event_hash",
+          "event_type",
+          "payload"
+        ],
+        "title": "_MemberSteeredEvent",
+        "type": "object"
+      },
       "_StructuralRevisionAdoptedEvent": {
         "additionalProperties": false,
         "properties": {
@@ -3593,6 +3727,7 @@
             "human_request_opened": "#/components/schemas/_HumanRequestOpenedEvent",
             "human_request_resolved": "#/components/schemas/_HumanRequestTerminalEvent",
             "human_request_timed_out": "#/components/schemas/_HumanRequestTerminalEvent",
+            "member_steered": "#/components/schemas/_MemberSteeredEvent",
             "structural_revision_adopted": "#/components/schemas/_StructuralRevisionAdoptedEvent",
             "task_cancelled": "#/components/schemas/_TaskCancelledEvent",
             "task_paused": "#/components/schemas/_TaskPausedEvent",
@@ -3627,6 +3762,9 @@
           },
           {
             "$ref": "#/components/schemas/_StructuralRevisionAdoptedEvent"
+          },
+          {
+            "$ref": "#/components/schemas/_MemberSteeredEvent"
           },
           {
             "$ref": "#/components/schemas/_HumanRequestOpenedEvent"

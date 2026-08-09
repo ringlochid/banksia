@@ -29,7 +29,7 @@ model = "provider-native-model-id" # optional
 effort = "high" # optional
 ```
 
-Omitted model and effort resolve through the selected provider's existing controller configuration. There is no automatic provider choice or fallback. Missing or unusable configuration produces a human-safe status response naming `banksia operator setup` and no provider turn. Machine-local Operator configuration remains outside the seventeen product operations.
+Omitted model and effort resolve through the selected provider's existing controller configuration. There is no automatic provider choice or fallback. Missing or unusable configuration produces a human-safe status response naming `banksia operator setup` and no provider turn. Machine-local Operator configuration remains outside the eighteen product operations.
 
 The provider-neutral adapter contract is:
 
@@ -48,13 +48,13 @@ run_turn(
 
 The first successful turn stores the provider's opaque thread/session ID on the conversation. Every later message or answer continues that exact thread. The ID is controller-private and is never reconstructed from transcript text.
 
-Claude uses native structured output for the result. Codex uses `outputSchema` for the result and `dynamicTools` for Banksia operations. When pinned Codex model metadata requires code mode, provider-native `exec` and `wait` are permitted only as adapter-private transport. Their JavaScript runtime receives no execution environment, host bindings, filesystem, shell, network, external MCP, module imports, Skills, or Plugins; it can invoke only the exact seventeen Banksia operations plus inert `update_plan`. `exec`, `wait`, and `update_plan` are not Banksia operations, authorable capabilities, or generic execution authority. Any additional nested tool or host surface makes Codex Operator unavailable. Banksia therefore claims an exact seventeen-operation **Banksia** catalog, not a literal global count of everything a provider may render.
+Claude uses native structured output for the result. Codex uses `outputSchema` for the result and `dynamicTools` for Banksia operations. When pinned Codex model metadata requires code mode, provider-native `exec` and `wait` are permitted only as adapter-private transport. Their JavaScript runtime receives no execution environment, host bindings, filesystem, shell, network, external MCP, module imports, Skills, or Plugins; it can invoke only the exact eighteen Banksia operations plus inert `update_plan`. `exec`, `wait`, and `update_plan` are not Banksia operations, authorable capabilities, or generic execution authority. Any additional nested tool or host surface makes Codex Operator unavailable. Banksia therefore claims an exact eighteen-operation **Banksia** catalog, not a literal global count of everything a provider may render.
 
-Provider adapters call the seventeen typed leaf handlers directly. An invocation-local in-process MCP projection is also permitted when an SDK needs that transport. Such a projection is private and ephemeral: it is not a public mount, static provider configuration, Workflow field, external MCP extension, resource, prompt, or authorable tool registry.
+Provider adapters call the eighteen typed leaf handlers directly. An invocation-local in-process MCP projection is also permitted when an SDK needs that transport. Such a projection is private and ephemeral: it is not a public mount, static provider configuration, Workflow field, external MCP extension, resource, prompt, or authorable tool registry.
 
 ## Exact Banksia operation catalog
 
-The provider receives these seventeen typed Banksia product operations:
+The provider receives these eighteen typed Banksia product operations:
 
 ```text
 workflow_search
@@ -70,6 +70,7 @@ task_search
 task_get
 task_start
 task_control
+task_member_steer
 human_request_respond
 command_run_get
 command_run_output_read
@@ -78,7 +79,7 @@ command_run_cancel
 
 Each operation is a leaf call to an existing product service. There is no generic execute operation, host-file operation, support/audit operation, provider-configuration operation, `ask_user` tool, or `operator_return` tool.
 
-`workflow_draft_create` accepts one complete structured JSON Workflow candidate and uses the existing Workflow normalization and authoring services to create or open its mutable draft. YAML remains a CLI/text-editor input format outside the Operator provider boundary. No eighteenth import/upload operation exists.
+`workflow_draft_create` accepts one complete structured JSON Workflow candidate and uses the existing Workflow normalization and authoring services to create or open its mutable draft. YAML remains a CLI/text-editor input format outside the Operator provider boundary. No nineteenth import/upload operation exists.
 
 ## Workflow projections and receipts
 
@@ -387,7 +388,7 @@ Implementation must prove:
 - one active-turn compare-and-swap prevents concurrent provider work;
 - same-key duplicates never create a second entry, provider turn, or mutation;
 - Claude and Codex both preserve exact same-thread continuation and return only the closed `message | ask_user` result;
-- the Banksia catalog is exactly the seventeen named operations, with full-JSON `workflow_draft_create` and no import, `ask_user`, `operator_return`, `artifact_get`, `file_get`, generic executor, host, support, or setup tool;
+- the Banksia catalog is exactly the eighteen named operations, with full-JSON `workflow_draft_create`, exact-current `task_member_steer`, and no import, `ask_user`, `operator_return`, `artifact_get`, `file_get`, generic executor, host, support, or setup tool;
 - provider adapters expose no host filesystem, shell, network, external MCP, Skill, Plugin, or product authority outside those operations;
 - answer delay holds no provider process or tool call;
 - restart and uncertain mutation cases produce visible interruption and no automatic replay; and

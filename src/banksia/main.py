@@ -243,6 +243,7 @@ def _build_application_runtime(settings: Settings) -> _ApplicationRuntime:
             settings=settings,
             session_factory=_runtime_session_context,
             dispatch_dependencies=dispatch_opening_dependencies,
+            provider_adapters=provider_adapter_registry,
         ),
     )
     operator_conversation_service = OperatorConversationService(

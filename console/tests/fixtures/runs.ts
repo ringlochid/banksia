@@ -5,6 +5,7 @@ import type {
 import type {
     CommandRunOutputPage,
     HumanRequestResponseReceipt,
+    MemberSteerReceipt,
     RunApi,
     TaskActivityPage,
     TaskSearchResponse,
@@ -304,6 +305,15 @@ export function humanResponseReceiptFixture(): HumanRequestResponseReceipt {
     };
 }
 
+export function memberSteerReceiptFixture(task: TaskView): MemberSteerReceipt {
+    return {
+        receipt_id: "receipt-steer",
+        status: "delivered",
+        status_message: "The Member was steered.",
+        task,
+    };
+}
+
 export function commandOutputFixture(): CommandRunOutputPage {
     return {
         command_id: "c_q3m8y1ka",
@@ -337,6 +347,7 @@ export function runApiStub(overrides: Partial<RunApi>): RunApi {
             Promise.resolve(response(activityPageFixture())),
         openRunActivityStream: () => inactiveEventSource(),
         controlRun: unavailable,
+        steerMember: unavailable,
         respondToHumanRequest: unavailable,
         cancelCommandRun: unavailable,
         getCommandOutput: unavailable,

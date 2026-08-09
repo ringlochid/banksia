@@ -51,6 +51,7 @@ from banksia.runtime.product.task_projection import (
     read_product_team,
     task_status_message,
 )
+from banksia.runtime.providers import ProviderAdapterRegistry
 from banksia.runtime.task_control.contracts import ControllerTaskState
 from banksia.runtime.task_control.presentation import (
     TASK_SUMMARY_MAX_CHARACTERS,
@@ -220,7 +221,12 @@ async def search_product_tasks(
     )
 
 
-async def read_product_task(session: AsyncSession, task_id: str) -> TaskView:
+async def read_product_task(
+    session: AsyncSession,
+    task_id: str,
+    *,
+    provider_adapters: ProviderAdapterRegistry | None = None,
+) -> TaskView:
     controller = await runtime_task_read(session, task_id)
     task_row = await session.get(TaskModel, task_id)
     if task_row is None:  # pragma: no cover - controller read already proved it
@@ -236,6 +242,7 @@ async def read_product_task(session: AsyncSession, task_id: str) -> TaskView:
     team = await read_product_team(
         session,
         task=controller,
+        provider_adapters=provider_adapters,
     )
     result = product_task_result(controller)
     actions = task_control_actions(controller)

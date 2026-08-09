@@ -54,6 +54,7 @@ Draft create, patch, and undo bodies must use `Content-Type: application/json`. 
 | `GET /api/tasks` | Search by `q`, semantic `status`, opaque `cursor`, and `limit`. |
 | `POST /api/tasks` | Starts one Task asynchronously; returns `202` accepted receipt. |
 | `GET /api/tasks/{task_id}` | Returns semantic status, team work, current plan, attention, legal actions, exact Result, and bounded recent Activity/Human Request/Command Run history. |
+| `POST /api/tasks/{task_id}/members/{member_id}/steers` | Sends one exact message through a current Member's returned `steer_action`; confirmed delivery returns current Task truth and records visible Activity. |
 | `GET /api/tasks/{task_id}/activities` | Returns a cursor page of semantic Activity. |
 | `GET /api/tasks/{task_id}/activities/stream` | Streams `activity` and invalidating `task_changed` server-sent events. |
 | `POST /api/tasks/{task_id}/controls/{action_id}` | Applies one current pause, resume, or cancel action with a `confirmed` body when required. |

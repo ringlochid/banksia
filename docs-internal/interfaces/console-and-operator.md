@@ -77,6 +77,7 @@ Every product mutation returns controller truth plus an opaque receipt or curren
 | `POST /api/tasks` | Start a Task from one published Workflow and one exact prompt. | `TaskStartReceipt` | Console, Operator `task_start` |
 | `GET /api/tasks/{task_id}` | Read canonical `TaskView`, including current team, plan, attention, legal actions, bounded Activity, Command summaries, and exact Result. | `TaskView` | Console, Operator `task_get` |
 | `POST /api/tasks/{task_id}/controls/{action_id}` | Execute one returned pause, resume, or cancel action with its typed input and confirmation. | `TaskControlReceipt` | Console, Operator `task_control` |
+| `POST /api/tasks/{task_id}/members/{member_id}/steers` | Deliver one bounded user steer to the exact active Member Dispatch named by its returned legal action. | `MemberSteerReceipt` | Console, Operator `task_member_steer` |
 | `GET /api/tasks/{task_id}/activities` | Page semantic Activity from an opaque cursor. | `TaskActivityPage` | Console |
 | `GET /api/tasks/{task_id}/activities/stream` | Stream semantic Activity plus payload-minimal `task_changed` hints with cursor reset. | SSE `TaskActivity` or `task_changed` | Console |
 | `GET /api/tasks/{task_id}/human-requests/{request_id}` | Read one product-safe Human Request and its current legal response action. | `HumanRequestView` | Console; included by Operator `task_get` |
@@ -112,7 +113,7 @@ Support responses may contain technical controller fields, but never credentials
 
 ### Service and Operator parity
 
-HTTP handlers and Operator tools are thin projections over one closed domain-operation catalog. They may expose different bounded response shapes over the same owning service: an Operator-private projection does not create a second product operation or change the HTTP response contract. The exact seventeen Operator operations map to the product matrix as shown above. HTTP-only reads are draft reload and Activity page/stream. Operator `workflow_get` absorbs draft read and bounded revision history through source-pinned catalog/member projections. Operator `task_get` defaults to a compact current overview and selects one exact Member, Result, recent Activity item, Human Request, or Human Request file set when detail is needed; these facets absorb Human Request read, Command summary, legal-action, Result, and owning-message file-reference readback without returning a potentially oversized recursive `TaskView`. `task_control` and `human_request_respond` return compact accepted-state receipts after their shared service commits. Support operations have no Operator projection.
+HTTP handlers and Operator tools are thin projections over one closed domain-operation catalog. They may expose different bounded response shapes over the same owning service: an Operator-private projection does not create a second product operation or change the HTTP response contract. The exact eighteen Operator operations map to the product matrix as shown above. HTTP-only reads are draft reload and Activity page/stream. Operator `workflow_get` absorbs draft read and bounded revision history through source-pinned catalog/member projections. Operator `task_get` defaults to a compact current overview and selects one exact Member, Result, recent Activity item, Human Request, or Human Request file set when detail is needed; these facets absorb Human Request read, Command summary, legal-action, Result, and owning-message file-reference readback without returning a potentially oversized recursive `TaskView`. `task_control`, `task_member_steer`, and `human_request_respond` return compact accepted-state receipts after their shared services commit. Support operations have no Operator projection.
 
 ## Nontechnical product contract
 
@@ -364,6 +365,10 @@ Run Studio reuses the horizontal hierarchy as a read-only organization view. It 
 
 It does not show Assignments, Attempts, Dispatches, Boundaries, Waves, Checkpoints as machinery, revisions, routes, watchdogs, raw refs, technical events, or raw JSON. Selecting a Member changes only the Member context and plan being inspected; it never replaces Task-level attention, Activity, or Result.
 
+When the selected Member owns an exact active provider Dispatch, its controller projection may include one legal **Steer** action. Run Studio renders that action after the Member purpose and before **Latest update**. It opens a focused modal for one bounded Markdown message and explains that completed work and tool effects are not undone. Waiting, not-started, done, blocked, paused, and provider-finished Members expose no Steer action. The browser never derives steerability from a status label.
+
+Confirmed delivery emits one human-visible **Member steered** Activity whose summary is the exact submitted message. Unconfirmed or failed delivery never claims that the Member was steered. Accepted steers remain controller-owned history for the Assignment and are included in its later Dispatch context; they do not mutate the Assignment prompt, Workflow, Member instruction, or provider transcript history.
+
 ## Shared QuestionCard
 
 One presentational family serves Operator clarification and runtime Human Requests while feature containers retain separate persistence and continuation.
@@ -392,7 +397,7 @@ The controller supports Claude and pinned Codex 0.144.4 for Operator. Provider s
 
 Operator always uses isolated provider extensions. Task Member `inherit | isolated` choices never expose user or project Skills, or configured MCP servers, to Operator.
 
-Machine-local setup is a separate CLI responsibility: `banksia operator setup|status|disable`. These commands configure or inspect the Operator provider; they are not agent tools, product HTTP mutations, or an extension of the seventeen-operation catalog. Guided `banksia init` offers the same explicit optional choice after local and Task-provider setup, while `banksia setup` provides the rerunnable settings hub.
+Machine-local setup is a separate CLI responsibility: `banksia operator setup|status|disable`. These commands configure or inspect the Operator provider; they are not agent tools, product HTTP mutations, or an extension of the eighteen-operation catalog. Guided `banksia init` offers the same explicit optional choice after local and Task-provider setup, while `banksia setup` provides the rerunnable settings hub.
 
 Operator tools are direct typed calls to existing product services. An adapter may use an invocation-local in-process MCP projection when its SDK benefits from that transport, but no public/static Operator MCP mount or authorable external MCP configuration exists. Workflow drafting is a primary job, and Operator may perform any currently legal operation in the closed catalog when the user's message or typed answer clearly requests it.
 
@@ -405,13 +410,13 @@ The Operator catalog must cover every ordinary product operation a user can perf
 | Workflow discovery | List/search Workflows; read catalog metadata and bounded immutable source references; traverse one exact published revision or exact draft/ETag one Member at a time through ordered direct-child IDs. |
 | Draft lifecycle | Create, read, update metadata/note, discard, validate, and explicitly publish a draft. |
 | Team editing | Add, update, or remove a Member/subtree, including prose, provider, and built-in capability settings. |
-| Run lifecycle | Start from one published Workflow; list/read Runs; pause, resume, or cancel when legal. |
+| Run lifecycle | Start from one published Workflow; list/read Runs; pause, resume, cancel, or steer one exact active Member when legal. |
 | Human attention | Read open Human Requests; submit or cancel an answer when the product service says it is legal. |
 | Managed Actions | Read Command Run state/output and cancel when legal. |
 | Results and files | Read Result and loose file references. The product UI may open current file bytes through an authorized route; Operator has no generic file-content operation. |
 | Legal actions | Execute controller-returned Task lifecycle controls through `task_control`; every non-Task action stays with its typed Workflow, Human Request, or Command Run operation. There is no generic execute-anything escape hatch. |
 
-The exact baseline catalog is seventeen operations over those product services:
+The exact baseline catalog is eighteen operations over those product services:
 
 ```text
 workflow_search
@@ -427,6 +432,7 @@ task_search
 task_get
 task_start
 task_control
+task_member_steer
 human_request_respond
 command_run_get
 command_run_output_read
@@ -482,7 +488,7 @@ The model does not generate Other, persistent question IDs, or option IDs. `allo
 
 The user answers through QuestionCard and presses Continue. Banksia commits one structured user turn, marks the previous card as a receipt, and invokes the same provider thread/session for a fresh turn carrying the exact question and answer. Refresh, navigation, restart, and browser closure therefore do not lose the boundary.
 
-Claude uses native structured output. Codex uses `outputSchema` and `dynamicTools`. When pinned model metadata requires code mode, isolated provider-native `exec` and `wait` may compose only the seventeen Banksia operations plus inert `update_plan`; they receive no execution environment, host bindings, filesystem, shell, network, external MCP, module imports, Skills, or Plugins. They are adapter transport rather than product tools or authorable capabilities. The contract therefore fixes the seventeen Banksia operations without claiming a literal global model-visible tool count.
+Claude uses native structured output. Codex uses `outputSchema` and `dynamicTools`. When pinned model metadata requires code mode, isolated provider-native `exec` and `wait` may compose only the eighteen Banksia operations plus inert `update_plan`; they receive no execution environment, host bindings, filesystem, shell, network, external MCP, module imports, Skills, or Plugins. They are adapter transport rather than product tools or authorable capabilities. The contract therefore fixes the eighteen Banksia operations without claiming a literal global model-visible tool count.
 
 ### Intent and currentness
 

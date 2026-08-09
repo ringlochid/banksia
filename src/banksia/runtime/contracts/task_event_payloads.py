@@ -8,6 +8,7 @@ from pydantic import (
     ConfigDict,
     Field,
     StringConstraints,
+    field_validator,
     model_validator,
 )
 
@@ -22,6 +23,7 @@ from banksia.runtime.contracts.primitives import (
 )
 from banksia.runtime.contracts.provider_resolution import ProviderSelectionBasis
 from banksia.runtime.contracts.refs import FileReference
+from banksia.runtime.contracts.text import normalize_exact_text
 
 type TaskEventIdentifier = Annotated[
     str,
@@ -160,6 +162,22 @@ class StructuralRevisionAdoptedEventPayload(_TaskEventPayload):
     adopted_by_dispatch_id: TaskEventIdentifier
 
 
+class MemberSteeredEventPayload(_TaskEventPayload):
+    action_id: TaskEventIdentifier
+    assignment_id: TaskEventIdentifier
+    source_dispatch_id: TaskEventIdentifier
+    message: str = Field(min_length=1, max_length=4_096)
+
+    @field_validator("message", mode="before")
+    @classmethod
+    def normalize_message(cls, value: object) -> str:
+        return normalize_exact_text(
+            value,
+            label="Member steer message",
+            is_nonblank_required=True,
+        )
+
+
 class HumanRequestOpenedEventPayload(_TaskEventPayload):
     request_id: TaskEventIdentifier
     kind: HumanRequestKind
@@ -294,6 +312,7 @@ type TaskEventPayload = (
     | CheckpointRecordedEventPayload
     | BoundaryAcceptedEventPayload
     | StructuralRevisionAdoptedEventPayload
+    | MemberSteeredEventPayload
     | HumanRequestOpenedEventPayload
     | HumanRequestTerminalEventPayload
     | CommandRunOpenedEventPayload
@@ -319,6 +338,7 @@ __all__ = [
     "DispatchStartUpdatedEventPayload",
     "HumanRequestOpenedEventPayload",
     "HumanRequestTerminalEventPayload",
+    "MemberSteeredEventPayload",
     "StructuralRevisionAdoptedEventPayload",
     "TaskCancelledEventPayload",
     "TaskEventIdentifier",

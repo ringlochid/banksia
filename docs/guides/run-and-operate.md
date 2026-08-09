@@ -53,6 +53,12 @@ Human Requests are disabled unless the Workflow explicitly grants a Member one o
 
 Read all questions and referenced files, then submit one response. Banksia records the response before making a continuation eligible. Receipt of the answer does not by itself mean the waiting work has resumed or finished.
 
+## Steer an active Member
+
+Select a working Member in the team panel. When its exact provider session is still active, Banksia shows **Steer** above **Latest update**. Use it to add context or redirect the Member's current work.
+
+The message does not undo completed work or tool effects, replace the Assignment, or widen the Member's authority. After the provider accepts it, Activity shows **Member steered** with the exact message. Waiting, not-started, finished, blocked, paused, or provider-finished Members do not offer the action.
+
 A Command Run is also disabled unless the responsible Member has `command_run: allow`. When granted, the **Actions** section can show a purpose-led action such as **Run complete backend verification**, its managed state, bounded output, outcome, and a cancellation control when cancellation is currently legal.
 
 An Action is not a per-command approval prompt. Ordinary provider commands are not automatically promoted into Action cards.

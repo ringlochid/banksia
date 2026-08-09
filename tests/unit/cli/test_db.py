@@ -120,6 +120,11 @@ async def test_db_upgrade_preserves_sqlite_runtime_rows_and_creates_backup(
         table_name="attempts",
         transform=_remove_watchdog_replacement_contract,
     )
+    rewrite_sqlite_table_preserving_rows(
+        database_path,
+        table_name="task_events",
+        transform=lambda ddl: ddl.replace(", 'member_steered'", ""),
+    )
     config_path.write_text(
         "\n".join(
             (
@@ -163,10 +168,76 @@ async def test_db_upgrade_preserves_sqlite_runtime_rows_and_creates_backup(
             str(row[1]) for row in connection.execute('PRAGMA table_info("attempts")')
         }
         assert "watchdog_replacement_count" not in backup_columns
+        task_event_sql = connection.execute(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'task_events'"
+        ).fetchone()
+        assert task_event_sql is not None
+        assert "member_steered" not in str(task_event_sql[0])
         assert connection.execute(
             "SELECT COUNT(*) FROM dispatch_turns WHERE task_id = ?",
             (ids.task_id,),
         ).fetchone() == (3,)
+
+
+@pytest.mark.asyncio
+async def test_db_upgrade_adds_member_steering_event_without_losing_rows(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "config.toml"
+    data_dir = tmp_path / "data"
+    database_path = data_dir / "banksia.persistence"
+    data_dir.mkdir()
+    engine = create_runtime_schema_engine(data_dir, name=database_path.name)
+    with engine.begin() as connection:
+        seed_catalog(connection)
+        ids = seed_runtime_scope(connection, suffix="steering-upgrade")
+    engine.dispose()
+    rewrite_sqlite_table_preserving_rows(
+        database_path,
+        table_name="task_events",
+        transform=lambda ddl: ddl.replace(", 'member_steered'", ""),
+    )
+    config_path.write_text(
+        "\n".join(
+            (
+                "[paths]",
+                f'data_dir = "{data_dir}"',
+                "",
+                "[database]",
+                f'url = "sqlite+aiosqlite:///{database_path}"',
+                "",
+            )
+        ),
+        encoding="utf-8",
+    )
+
+    try:
+        result = await asyncio.to_thread(
+            cli.cmd_db_upgrade,
+            argparse.Namespace(config=str(config_path), revision="head", json=False),
+        )
+    finally:
+        await dispose_db_engine()
+
+    assert result == 0
+    backup_paths = tuple(data_dir.glob("banksia.persistence.before-*.backup"))
+    assert len(backup_paths) == 1
+    with sqlite3.connect(database_path) as connection:
+        task_event_sql = connection.execute(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'task_events'"
+        ).fetchone()
+        assert task_event_sql is not None
+        assert "member_steered" in str(task_event_sql[0])
+        assert connection.execute(
+            "SELECT COUNT(*) FROM dispatch_turns WHERE task_id = ?",
+            (ids.task_id,),
+        ).fetchone() == (3,)
+    with sqlite3.connect(backup_paths[0]) as connection:
+        task_event_sql = connection.execute(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'task_events'"
+        ).fetchone()
+        assert task_event_sql is not None
+        assert "member_steered" not in str(task_event_sql[0])
 
 
 @pytest.mark.asyncio

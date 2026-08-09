@@ -33,6 +33,8 @@ from banksia.runtime.contracts.task import (
 )
 from banksia.runtime.errors import missing_resource_error
 from banksia.runtime.product.action_ids import product_action_id
+from banksia.runtime.product.member_steering import read_task_member_steer_actions
+from banksia.runtime.providers import ProviderAdapterRegistry
 from banksia.runtime.task_control.contracts import ControllerTaskState
 from banksia.workflows.integrity import validate_persisted_workflow_identity
 
@@ -72,6 +74,7 @@ async def read_product_team(
     session: AsyncSession,
     *,
     task: ControllerTaskState,
+    provider_adapters: ProviderAdapterRegistry | None = None,
 ) -> TaskMemberView:
     rows = list(
         (
@@ -96,6 +99,11 @@ async def read_product_team(
     plans_by_assignment = await _read_product_plans_by_assignment(
         session,
         latest_assignments.values(),
+    )
+    steer_actions = await read_task_member_steer_actions(
+        session,
+        task_id=task.task_id,
+        adapters=provider_adapters,
     )
     children_by_parent: dict[str | None, list[str]] = {}
     selections: dict[str, tuple[TeamRevisionMemberModel, MemberConfigurationModel]] = {}
@@ -131,6 +139,7 @@ async def read_product_team(
                 if assignment is not None
                 else None
             ),
+            steer_action=steer_actions.get(member_id),
             children=tuple(
                 [await build(child_id) for child_id in children_by_parent.get(member_id, ())]
             ),

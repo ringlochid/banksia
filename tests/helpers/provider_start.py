@@ -29,6 +29,7 @@ from banksia.runtime.providers import (
     ProviderCheckStatus,
     ProviderStartAccepted,
     ProviderStartError,
+    ProviderSteerOutcome,
     ProviderStopOutcome,
 )
 from banksia.runtime.providers.starter import DispatchStarter
@@ -94,6 +95,17 @@ class RecordingAdapter:
         self.events.append(f"stop:{dispatch_id}")
         self.stop_calls.append(dispatch_id)
         return ProviderStopOutcome.STOPPED
+
+    async def can_steer(self, dispatch_id: str) -> bool:
+        return dispatch_id in {request.dispatch_id for request in self.requests}
+
+    async def steer(self, dispatch_id: str, message: str) -> ProviderSteerOutcome:
+        del message
+        return (
+            ProviderSteerOutcome.DELIVERED
+            if await self.can_steer(dispatch_id)
+            else ProviderSteerOutcome.NOT_RUNNING
+        )
 
     async def read_availability(self) -> ProviderCheckResult:
         return ProviderCheckResult(

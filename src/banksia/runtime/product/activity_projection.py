@@ -27,6 +27,7 @@ from banksia.runtime.contracts.task import (
     TaskActivityOutcome,
     TaskMemberReference,
 )
+from banksia.runtime.contracts.task_event_payloads import MemberSteeredEventPayload
 from banksia.runtime.contracts.task_events import TaskEventRecord
 from banksia.runtime.product.paths import build_product_api_path
 from banksia.runtime.product.presenters import read_source_member_references
@@ -174,6 +175,16 @@ def _project_activity_record(
             checkpoint_files=checkpoint_files,
             member=member,
             root_assignment_id=root_assignment_id,
+        )
+    if event.event_type == TaskEventType.MEMBER_STEERED:
+        payload = cast(MemberSteeredEventPayload, event.payload)
+        return TaskActivity(
+            id=encode_task_event_cursor(event.event_id),
+            kind="member_steered",
+            occurred_at=event.occurred_at,
+            title="Member steered",
+            summary=payload.message,
+            member=member,
         )
     if human is not None:
         return _project_human_activity(event, human=human, member=member)

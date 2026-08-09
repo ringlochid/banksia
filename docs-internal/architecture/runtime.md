@@ -26,6 +26,10 @@ Continuation | Result | TaskActivity -> exact readback of owning values
 TaskEvent -> semantic product projection
 ```
 
+`member_steered` is a controller-owned Task Event written only after an adapter confirms delivery to the exact active Dispatch. It records the exact bounded message, Assignment, Attempt, Dispatch, Member, actor, and source surface. It is both the audit record and the source for the human-visible **Member steered** Activity. A failed or uncertain adapter call does not append this event.
+
+Steering does not replace a Dispatch, mutate an Assignment, advance a boundary, or create a wait. The current provider session continues. Later Dispatches for the same Assignment receive all accepted steer messages in event order so a controller continuation does not depend on hidden provider transcript memory.
+
 Task owns global lifecycle, outcome, workspace binding, pinned Workflow, current team head, control authority, and the exact accepted root result relationship. There is no one-to-one Flow record.
 
 The database is controller truth. Signals, provider process state, conversation history, ordinary assistant output, filesystem projections, and UI state cannot authorize or complete work.

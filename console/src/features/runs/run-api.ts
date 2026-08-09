@@ -21,6 +21,7 @@ export type HumanRequestResponseInput =
 export type HumanRequestResponseReceipt =
     components["schemas"]["HumanRequestResponseReceipt"];
 export type HumanRequestView = components["schemas"]["HumanRequestView"];
+export type MemberSteerReceipt = components["schemas"]["MemberSteerReceipt"];
 export type ProductAction = components["schemas"]["ProductAction"];
 export type TaskControlReceipt = components["schemas"]["TaskControlReceipt"];
 export type TaskActivity = components["schemas"]["TaskActivity"];
@@ -67,6 +68,12 @@ export interface RunApi {
         actionId: string,
         confirmed: boolean,
     ): Promise<ControllerResponse<TaskControlReceipt>>;
+    steerMember(
+        taskId: string,
+        memberId: string,
+        actionId: string,
+        message: string,
+    ): Promise<ControllerResponse<MemberSteerReceipt>>;
     respondToHumanRequest(
         taskId: string,
         requestId: string,
@@ -185,6 +192,19 @@ export class RunApiClient implements RunApi {
             this.apiRoot,
             `/tasks/${encodeURIComponent(taskId)}/controls/${encodeURIComponent(actionId)}`,
             jsonRequest("POST", { confirmed }),
+        );
+    }
+
+    public steerMember(
+        taskId: string,
+        memberId: string,
+        actionId: string,
+        message: string,
+    ): Promise<ControllerResponse<MemberSteerReceipt>> {
+        return requestProductApi(
+            this.apiRoot,
+            `/tasks/${encodeURIComponent(taskId)}/members/${encodeURIComponent(memberId)}/steers`,
+            jsonRequest("POST", { action_id: actionId, message }),
         );
     }
 

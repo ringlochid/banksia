@@ -6,7 +6,7 @@ import {
     FileText,
 } from "lucide-react";
 
-import { Prose } from "../../components/ui";
+import { Button, Prose } from "../../components/ui";
 import { formatRunDate } from "./run-presentation";
 import type {
     FileReference,
@@ -113,8 +113,10 @@ function TeamMember({
 
 export function MemberContextSection({
     member,
+    onSteer,
 }: {
     readonly member: TaskMemberView;
+    readonly onSteer: (member: TaskMemberView) => void;
 }) {
     const update = member.latest_update;
     return (
@@ -131,6 +133,15 @@ export function MemberContextSection({
             </header>
             {member.purpose === null || member.purpose === undefined ? null : (
                 <Prose className="run-team__purpose">{member.purpose}</Prose>
+            )}
+            {member.steer_action === null ||
+            member.steer_action === undefined ? null : (
+                <Button
+                    className="run-member-context__steer"
+                    onClick={() => onSteer(member)}
+                >
+                    Steer
+                </Button>
             )}
             {update === null || update === undefined ? (
                 <p className="run-section__empty">No update yet.</p>

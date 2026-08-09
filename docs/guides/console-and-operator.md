@@ -28,7 +28,7 @@ Its exact product-operation boundary lets it:
 
 - search Workflows, read catalog or revision detail, and inspect authoring options;
 - create, edit, validate, undo, discard, and publish Workflow drafts;
-- search runs, read overview, Member, Result, Activity, or Human Request views, start a run, and invoke a currently legal pause, resume, or cancel action;
+- search runs, read overview, Member, Result, Activity, or Human Request views, start a run, and invoke a currently legal pause, resume, cancel, or Member steer action;
 - answer or cancel an open Human Request using its current action; and
 - inspect a Command Run, read bounded output, or request cancellation using its current action.
 

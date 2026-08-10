@@ -15,14 +15,17 @@ from banksia.runtime.contracts.task import (
     CommandRunCancelReceipt,
     CommandRunCancelRequest,
     CommandRunOutputPage,
+    CommandRunPage,
     CommandRunView,
 )
 from banksia.runtime.post_commit import RuntimeEffectPublisher
 from banksia.runtime.product.command_runs import (
     cancel_product_command_run,
+    list_product_command_run_page,
     read_product_command_output,
     read_product_command_run,
 )
+from banksia.runtime.task_control.service import runtime_task_read
 
 router = APIRouter(tags=["command-runs"])
 type DBSession = Annotated[AsyncSession, Depends(get_db_session)]
@@ -33,6 +36,30 @@ type RuntimeEffectPublisherDep = Annotated[
 ]
 type OutputCursor = Annotated[str | None, Query(min_length=1)]
 type OutputLimit = Annotated[int, Query(ge=1, le=65_536)]
+type HistoryCursor = Annotated[str | None, Query(min_length=1)]
+type HistoryLimit = Annotated[int, Query(ge=1, le=200)]
+
+
+@router.get(
+    "/tasks/{task_id}/command-runs",
+    response_model=CommandRunPage,
+)
+async def get_command_runs(
+    task_id: str,
+    session: DBSession,
+    cursor: HistoryCursor = None,
+    limit: HistoryLimit = 50,
+) -> CommandRunPage:
+    try:
+        await runtime_task_read(session, task_id)
+        return await list_product_command_run_page(
+            session,
+            task_id=task_id,
+            cursor=cursor,
+            limit=limit,
+        )
+    except Exception as exc:  # pragma: no cover - thin transport mapping
+        raise_runtime_exception(exc)
 
 
 @router.get(

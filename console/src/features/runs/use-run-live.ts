@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 
 import { ApiResponseError } from "../../api/client";
 import type {
+    CommandRunPage,
+    CommandRunView,
     RunApi,
     TaskActivity,
     TaskActivityPage,
@@ -14,6 +16,9 @@ const RECONNECT_MAX_MS = 4_000;
 
 interface RunLiveView {
     readonly activities: readonly TaskActivity[];
+    readonly activityHistoryTruncated: boolean;
+    readonly commandHistoryTruncated: boolean;
+    readonly commandRuns: readonly CommandRunView[];
     readonly error: string | null;
     readonly liveDelayed: boolean;
     readonly loading: boolean;
@@ -35,6 +40,9 @@ interface StoredRunLiveView extends RunLiveView {
 
 const INITIAL_VIEW: RunLiveView = {
     activities: [],
+    activityHistoryTruncated: false,
+    commandHistoryTruncated: false,
+    commandRuns: [],
     error: null,
     liveDelayed: false,
     loading: true,
@@ -85,8 +93,11 @@ export function useRunLive(
 class RunLiveSession {
     private active = true;
     private activities: TaskActivity[] = [];
+    private activityHistoryTruncated = false;
     private activityIds = new Set<string>();
     private readonly abortControllers = new Set<AbortController>();
+    private commandHistoryTruncated = false;
+    private commandRuns: CommandRunView[] = [];
     private cursor: string | null = null;
     private delayedNoticeTimer: ReturnType<typeof setTimeout> | null = null;
     private isLiveInitialized = false;
@@ -138,6 +149,7 @@ class RunLiveSession {
         }
         this.updateView({ task });
         this.mergeActivities(task.activities);
+        this.mergeCommandRuns(task.command_runs);
     }
 
     public retryLive(): void {
@@ -163,14 +175,18 @@ class RunLiveSession {
         }
         this.isLiveInitialized = true;
         this.seedActivities(task);
+        this.seedCommandRuns(task);
         try {
             if (
-                (await this.backfill(true)) &&
+                (await this.synchronizeActivityHistory(true)) &&
                 (await this.readTask(false)) === null
             ) {
                 throw new Error("Could not refresh current Run state.");
             }
             this.openStream();
+            if (task.command_runs_truncated) {
+                await this.loadCommandHistory(task.command_runs);
+            }
         } catch (error) {
             if (!isAbortError(error)) {
                 this.scheduleRecovery();
@@ -209,6 +225,7 @@ class RunLiveSession {
                 if (this.active) {
                     this.updateView({ error: null, task: result });
                     this.mergeActivities(result.activities);
+                    this.mergeCommandRuns(result.command_runs);
                 }
             } catch (error) {
                 result = null;
@@ -261,12 +278,122 @@ class RunLiveSession {
         return changed;
     }
 
+    private synchronizeActivityHistory(allowReset: boolean): Promise<boolean> {
+        return this.activityHistoryTruncated
+            ? this.loadActivityHistory()
+            : this.backfill(allowReset);
+    }
+
+    private async loadActivityHistory(): Promise<boolean> {
+        const previousIds = this.activityIds;
+        const activities: TaskActivity[] = [];
+        const activityIds = new Set<string>();
+        let pageCursor: string | null = null;
+        while (this.active) {
+            const page = await this.readActivityPage(pageCursor);
+            for (const activity of page.items) {
+                if (!activityIds.has(activity.id)) {
+                    activityIds.add(activity.id);
+                    activities.push(activity);
+                }
+            }
+            if (page.next_cursor === null || page.next_cursor === undefined) {
+                this.activities = activities;
+                this.activityIds = activityIds;
+                this.cursor = activities.at(-1)?.id ?? null;
+                this.activityHistoryTruncated = false;
+                this.updateView({
+                    activities: [...activities],
+                    activityHistoryTruncated: false,
+                });
+                return (
+                    previousIds.size !== activityIds.size ||
+                    [...activityIds].some((id) => !previousIds.has(id))
+                );
+            }
+            pageCursor = page.next_cursor;
+        }
+        return false;
+    }
+
+    private async readActivityPage(
+        cursor: string | null,
+    ): Promise<TaskActivityPage> {
+        const controller = this.createAbortController();
+        try {
+            return (
+                await this.api.getRunActivities(
+                    this.taskId,
+                    cursor,
+                    controller.signal,
+                )
+            ).body;
+        } finally {
+            this.abortControllers.delete(controller);
+        }
+    }
+
+    private async loadCommandHistory(
+        preview: readonly CommandRunView[],
+    ): Promise<void> {
+        const commands = [...preview];
+        const commandIds = new Set(commands.map((command) => command.id));
+        let pageCursor: string | null = null;
+        while (this.active) {
+            const page = await this.readCommandPage(pageCursor);
+            for (const command of page.items) {
+                if (!commandIds.has(command.id)) {
+                    commandIds.add(command.id);
+                    commands.push(command);
+                }
+            }
+            if (page.next_cursor === null || page.next_cursor === undefined) {
+                const currentIds = new Set(
+                    this.commandRuns.map((command) => command.id),
+                );
+                this.commandRuns = [
+                    ...this.commandRuns,
+                    ...commands.filter(
+                        (command) => !currentIds.has(command.id),
+                    ),
+                ];
+                this.commandHistoryTruncated = false;
+                this.updateView({
+                    commandHistoryTruncated: false,
+                    commandRuns: [...this.commandRuns],
+                });
+                return;
+            }
+            pageCursor = page.next_cursor;
+        }
+    }
+
+    private async readCommandPage(
+        cursor: string | null,
+    ): Promise<CommandRunPage> {
+        const controller = this.createAbortController();
+        try {
+            return (
+                await this.api.getRunCommands(
+                    this.taskId,
+                    cursor,
+                    controller.signal,
+                )
+            ).body;
+        } finally {
+            this.abortControllers.delete(controller);
+        }
+    }
+
     private async resetCursor(): Promise<void> {
         const task = await this.readTask(false);
         if (task === null) {
             throw new Error("Could not reset the Run Activity cursor.");
         }
         this.seedActivities(task);
+        if (this.activityHistoryTruncated) {
+            await this.loadActivityHistory();
+        }
     }
 
     private seedActivities(task: TaskView): void {
@@ -275,7 +402,20 @@ class RunLiveSession {
             this.activities.map((activity) => activity.id),
         );
         this.cursor = this.activities.at(-1)?.id ?? null;
-        this.updateView({ activities: this.activities });
+        this.activityHistoryTruncated = task.activities_truncated;
+        this.updateView({
+            activities: this.activities,
+            activityHistoryTruncated: this.activityHistoryTruncated,
+        });
+    }
+
+    private seedCommandRuns(task: TaskView): void {
+        this.commandRuns = [...task.command_runs];
+        this.commandHistoryTruncated = task.command_runs_truncated;
+        this.updateView({
+            commandHistoryTruncated: this.commandHistoryTruncated,
+            commandRuns: this.commandRuns,
+        });
     }
 
     private mergeActivities(items: readonly TaskActivity[]): boolean {
@@ -291,6 +431,22 @@ class RunLiveSession {
             this.updateView({ activities: [...this.activities] });
         }
         return changed;
+    }
+
+    private mergeCommandRuns(items: readonly CommandRunView[]): void {
+        if (items.length === 0) {
+            return;
+        }
+        const incomingIds = new Set(items.map((command) => command.id));
+        this.commandRuns = [
+            ...items,
+            ...this.commandRuns.filter(
+                (command) => !incomingIds.has(command.id),
+            ),
+        ];
+        if (this.active) {
+            this.updateView({ commandRuns: [...this.commandRuns] });
+        }
     }
 
     private openStream(): void {
@@ -375,8 +531,11 @@ class RunLiveSession {
 
     private async recover(): Promise<void> {
         try {
+            if (this.commandHistoryTruncated) {
+                await this.loadCommandHistory(this.commandRuns);
+            }
             if (
-                (await this.backfill(true)) &&
+                (await this.synchronizeActivityHistory(true)) &&
                 (await this.readTask(false)) === null
             ) {
                 throw new Error("Could not refresh current Run state.");

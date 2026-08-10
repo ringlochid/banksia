@@ -373,6 +373,7 @@ async def test_task_view_keeps_older_open_request_before_bounded_terminal_histor
     assert view.human_requests[0].id == open_request_id
     assert view.human_requests[0].status == "open"
     assert view.activities_href == f"/api/tasks/{ids.task_id}/activities"
+    assert view.command_runs_href == f"/api/tasks/{ids.task_id}/command-runs"
 
 
 async def _open_older_human_request(

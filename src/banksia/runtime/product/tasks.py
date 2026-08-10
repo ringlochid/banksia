@@ -271,6 +271,7 @@ async def read_product_task(
         human_request_count=human_requests.total_count,
         is_human_request_history_truncated=human_requests.is_truncated,
         command_runs=command_runs.items,
+        command_runs_href=build_product_api_path(f"/tasks/{task_id}/command-runs"),
         command_run_count=command_runs.total_count,
         is_command_run_history_truncated=command_runs.is_truncated,
     )

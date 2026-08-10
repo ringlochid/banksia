@@ -65,6 +65,9 @@ export function RunStudioPage({ api }: RunStudioPageProps) {
 function RunStudioTask({ api, taskId }: RunStudioTaskProps) {
     const {
         activities,
+        activityHistoryTruncated,
+        commandHistoryTruncated,
+        commandRuns,
         error: readError,
         liveDelayed,
         loading,
@@ -397,7 +400,7 @@ function RunStudioTask({ api, taskId }: RunStudioTaskProps) {
                                 value: "activity",
                             },
                             {
-                                label: `Commands (${String(task.command_runs.length)})`,
+                                label: `Commands (${String(task.command_run_count)})`,
                                 value: "commands",
                             },
                         ]}
@@ -407,7 +410,7 @@ function RunStudioTask({ api, taskId }: RunStudioTaskProps) {
                         <TabPanel value="activity">
                             <ActivitySection
                                 activities={activities}
-                                isTruncated={task.activities_truncated}
+                                isTruncated={activityHistoryTruncated}
                             />
                         </TabPanel>
                         <TabPanel value="commands">
@@ -418,13 +421,13 @@ function RunStudioTask({ api, taskId }: RunStudioTaskProps) {
                                 <header className="run-section-heading">
                                     <h2 id="run-commands-title">Commands</h2>
                                 </header>
-                                {task.command_runs.length === 0 ? (
+                                {commandRuns.length === 0 ? (
                                     <p className="run-section__empty">
                                         No commands for this Run.
                                     </p>
                                 ) : (
                                     <div className="run-commands">
-                                        {task.command_runs.map((command) => (
+                                        {commandRuns.map((command) => (
                                             <CommandRunCard
                                                 api={api}
                                                 command={command}
@@ -435,7 +438,7 @@ function RunStudioTask({ api, taskId }: RunStudioTaskProps) {
                                         ))}
                                     </div>
                                 )}
-                                {task.command_runs_truncated ? (
+                                {commandHistoryTruncated ? (
                                     <p className="run-bounded-note">
                                         Showing the most recent commands.
                                     </p>

@@ -1,4 +1,5 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 import { MemoryRouter, Route, Routes } from "react-router";
@@ -13,7 +14,11 @@ import {
 } from "vitest";
 
 import { RunApiClient, RunStudioPage } from "../../src/features/runs";
-import type { TaskActivity, TaskView } from "../../src/features/runs/run-api";
+import type {
+    CommandRunView,
+    TaskActivity,
+    TaskView,
+} from "../../src/features/runs/run-api";
 import type {
     ProductEventSource,
     ProductEventSourceFactory,
@@ -24,6 +29,7 @@ const API_ROOT = "http://banksia.test/api";
 const TASK_ID = "t_7m4k2d9x";
 const TASK_PATH = `${API_ROOT}/tasks/${TASK_ID}`;
 const ACTIVITY_PATH = `${TASK_PATH}/activities`;
+const COMMAND_PATH = `${TASK_PATH}/command-runs`;
 const server = setupServer();
 
 beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
@@ -31,6 +37,76 @@ afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
 describe("Run live controller convergence", () => {
+    it("loads complete Activity and Command history from bounded previews", async () => {
+        const user = userEvent.setup();
+        const activityOne = activity("cursor-one", "Run started");
+        const activityTwo = activity("cursor-two", "Research completed");
+        const activityThree = activity("cursor-three", "Review completed");
+        const activityFour = activity("cursor-four", "Result accepted");
+        const commandOne = command("command-one", "Collect source material");
+        const commandTwo = command("command-two", "Run the verification");
+        const commandThree = command("command-three", "Build the final output");
+        const task = run([activityThree, activityFour], {
+            activities_truncated: true,
+            command_runs: [commandThree],
+            command_run_count: 3,
+            command_runs_truncated: true,
+        });
+        const activityCursors: Array<string | null> = [];
+        const commandCursors: Array<string | null> = [];
+        const sources: FakeEventSource[] = [];
+
+        server.use(
+            http.get(TASK_PATH, () => HttpResponse.json(task)),
+            http.get(ACTIVITY_PATH, ({ request }) => {
+                const cursor = new URL(request.url).searchParams.get("cursor");
+                activityCursors.push(cursor);
+                return cursor === null
+                    ? HttpResponse.json({
+                          items: [activityOne, activityTwo],
+                          next_cursor: "activity-page-two",
+                      })
+                    : HttpResponse.json({
+                          items: [activityThree, activityFour],
+                          next_cursor: null,
+                      });
+            }),
+            http.get(COMMAND_PATH, ({ request }) => {
+                const cursor = new URL(request.url).searchParams.get("cursor");
+                commandCursors.push(cursor);
+                return cursor === null
+                    ? HttpResponse.json({
+                          items: [commandThree, commandTwo],
+                          next_cursor: "command-page-two",
+                      })
+                    : HttpResponse.json({
+                          items: [commandOne],
+                          next_cursor: null,
+                      });
+            }),
+        );
+
+        renderRun(new RunApiClient(API_ROOT, captureSources(sources)));
+
+        await waitFor(() => expect(sources).toHaveLength(1));
+        expect(activityCursors).toEqual([null, "activity-page-two"]);
+        await waitFor(() =>
+            expect(commandCursors).toEqual([null, "command-page-two"]),
+        );
+        expect(screen.getByRole("tab", { name: "Activity (4)" })).toBeVisible();
+        expect(
+            screen.queryByText("Showing the most recent activity."),
+        ).toBeNull();
+
+        await user.click(screen.getByRole("tab", { name: "Commands (3)" }));
+        expect(screen.getByText("Collect source material")).toBeVisible();
+        expect(screen.getByText("Run the verification")).toBeVisible();
+        expect(screen.getByText("Build the final output")).toBeVisible();
+        expect(
+            screen.queryByText("Showing the most recent commands."),
+        ).toBeNull();
+    });
+
     it("backfills before subscribing, deduplicates Activity, and resets a stale reconnect cursor", async () => {
         const initialActivity = activity("cursor-one", "Run started");
         const missedOne = activity("cursor-two", "Research completed");
@@ -213,6 +289,23 @@ function activity(id: string, title: string): TaskActivity {
         outcome: "completed",
         files: [],
         action: null,
+    };
+}
+
+function command(id: string, purpose: string): CommandRunView {
+    return {
+        id,
+        purpose,
+        state: "succeeded",
+        member: null,
+        created_at: "2026-07-26T01:05:00Z",
+        started_at: "2026-07-26T01:05:00Z",
+        ended_at: "2026-07-26T01:06:00Z",
+        elapsed_seconds: 60,
+        outcome_summary: "Succeeded.",
+        output_href: `/api/tasks/${TASK_ID}/command-runs/${id}/output`,
+        output_complete: true,
+        cancel_action: null,
     };
 }
 

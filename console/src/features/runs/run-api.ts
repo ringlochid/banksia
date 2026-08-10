@@ -12,6 +12,7 @@ export type CommandRunCancelReceipt =
     components["schemas"]["CommandRunCancelReceipt"];
 export type CommandRunOutputPage =
     components["schemas"]["CommandRunOutputPage"];
+export type CommandRunPage = components["schemas"]["CommandRunPage"];
 export type CommandRunView = components["schemas"]["CommandRunView"];
 export type FileReference = components["schemas"]["FileReference"];
 export type HumanRequestItemAnswer =
@@ -59,6 +60,11 @@ export interface RunApi {
         cursor?: string | null,
         signal?: AbortSignal,
     ): Promise<ControllerResponse<TaskActivityPage>>;
+    getRunCommands(
+        taskId: string,
+        cursor?: string | null,
+        signal?: AbortSignal,
+    ): Promise<ControllerResponse<CommandRunPage>>;
     openRunActivityStream(
         taskId: string,
         cursor?: string | null,
@@ -165,6 +171,22 @@ export class RunApiClient implements RunApi {
         return requestProductApi(
             this.apiRoot,
             `/tasks/${encodeURIComponent(taskId)}/activities?${parameters.toString()}`,
+            signal === undefined ? {} : { signal },
+        );
+    }
+
+    public getRunCommands(
+        taskId: string,
+        cursor: string | null = null,
+        signal?: AbortSignal,
+    ): Promise<ControllerResponse<CommandRunPage>> {
+        const parameters = new URLSearchParams({ limit: "200" });
+        if (cursor !== null) {
+            parameters.set("cursor", cursor);
+        }
+        return requestProductApi(
+            this.apiRoot,
+            `/tasks/${encodeURIComponent(taskId)}/command-runs?${parameters.toString()}`,
             signal === undefined ? {} : { signal },
         );
     }

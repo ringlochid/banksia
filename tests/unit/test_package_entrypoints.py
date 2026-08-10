@@ -359,6 +359,7 @@ def test_installed_task_verifier_matches_current_member_plan_contract() -> None:
             "human_request_count": 0,
             "human_requests_truncated": False,
             "command_runs": [],
+            "command_runs_href": f"/api/tasks/{task_id}/command-runs",
             "command_run_count": 0,
             "command_runs_truncated": False,
         },

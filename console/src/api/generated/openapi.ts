@@ -159,6 +159,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/tasks/{task_id}/command-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Command Runs */
+        get: operations["get_command_runs_api_tasks__task_id__command_runs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/tasks/{task_id}/command-runs/{command_id}": {
         parameters: {
             query?: never;
@@ -510,6 +527,13 @@ export interface components {
             next_cursor?: string | null;
             /** Output Complete */
             output_complete: boolean;
+        };
+        /** CommandRunPage */
+        CommandRunPage: {
+            /** Items */
+            items: components["schemas"]["CommandRunView"][];
+            /** Next Cursor */
+            next_cursor?: string | null;
         };
         /** @enum {string} */
         CommandRunProductState: "queued" | "running" | "cancelling" | "succeeded" | "failed" | "timed_out" | "cancelled";
@@ -1494,6 +1518,8 @@ export interface components {
              * @default []
              */
             command_runs: components["schemas"]["CommandRunView"][];
+            /** Command Runs Href */
+            command_runs_href: string;
             /**
              * Command Runs Truncated
              * @default false
@@ -2659,6 +2685,85 @@ export interface operations {
             };
             /** @description Gone */
             410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+        };
+    };
+    get_command_runs_api_tasks__task_id__command_runs_get: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommandRunPage"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationFailure"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

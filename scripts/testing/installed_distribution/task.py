@@ -31,6 +31,7 @@ TASK_VIEW_KEYS = frozenset(
         "human_request_count",
         "human_requests_truncated",
         "command_runs",
+        "command_runs_href",
         "command_run_count",
         "command_runs_truncated",
     }
@@ -206,6 +207,7 @@ def verify_installed_task_view(task: dict[str, object], *, task_id: str) -> None
         or not isinstance(task.get("status_message"), str)
         or not task["status_message"]
         or task.get("activities_href") != f"/api/tasks/{task_id}/activities"
+        or task.get("command_runs_href") != f"/api/tasks/{task_id}/command-runs"
         or not isinstance(workflow, dict)
         or set(workflow) != {"id", "description"}
         or workflow.get("id") != "production-feature-delivery"

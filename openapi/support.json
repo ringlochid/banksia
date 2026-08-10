@@ -1022,7 +1022,10 @@
             "$ref": "#/components/schemas/TaskEventIdentifier"
           },
           "message": {
-            "$ref": "#/components/schemas/TaskEventSummary"
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
           },
           "source_dispatch_id": {
             "$ref": "#/components/schemas/TaskEventIdentifier"

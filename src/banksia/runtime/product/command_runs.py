@@ -13,6 +13,7 @@ from banksia.persistence.models import CommandRunModel
 from banksia.runtime.clock import utc_now
 from banksia.runtime.command_run.service import (
     cancel_command_run,
+    list_command_runs,
     read_command_run_log,
 )
 from banksia.runtime.contracts.operation_failure import OperationFailureCode
@@ -21,6 +22,7 @@ from banksia.runtime.contracts.task import (
     CommandRunCancelReceipt,
     CommandRunCancelRequest,
     CommandRunOutputPage,
+    CommandRunPage,
     CommandRunProductState,
     CommandRunView,
     ProductAction,
@@ -37,6 +39,7 @@ from banksia.runtime.product.presenters import (
 )
 
 _OUTPUT_CURSOR_PREFIX = "output."
+_PRODUCT_LIST_CURSOR_PREFIX = "command-history."
 _MAX_PRODUCT_OUTPUT_BYTES = 65_536
 type _SanitizerState = Literal[
     "normal",
@@ -131,6 +134,52 @@ async def list_product_command_runs(
         ),
         total_count=total_count,
         is_truncated=len(terminal_ids) > terminal_limit,
+    )
+
+
+async def list_product_command_run_page(
+    session: AsyncSession,
+    *,
+    task_id: str,
+    cursor: str | None = None,
+    limit: int = 50,
+    observed_at: datetime | None = None,
+) -> CommandRunPage:
+    source_cursor = _decode_product_list_cursor(cursor, task_id=task_id)
+    source_page = await list_command_runs(
+        session,
+        task_id=task_id,
+        cursor=source_cursor,
+        limit=limit,
+    )
+    selected_ids = tuple(item.run_id for item in source_page.items)
+    sources = tuple(
+        await session.scalars(
+            select(CommandRunModel).where(CommandRunModel.run_id.in_(selected_ids))
+        )
+    )
+    sources_by_id = {source.run_id: source for source in sources}
+    members = await read_source_member_references(
+        session,
+        task_id=task_id,
+        source_dispatch_ids=(source.source_dispatch_id for source in sources),
+    )
+    effective_observed_at = observed_at or utc_now()
+    return CommandRunPage(
+        items=tuple(
+            _present_command_run(
+                source,
+                member=members.get(source.source_dispatch_id),
+                observed_at=effective_observed_at,
+            )
+            for command_id in selected_ids
+            if (source := sources_by_id.get(command_id)) is not None
+        ),
+        next_cursor=(
+            _encode_product_list_cursor(source_page.next_cursor, task_id=task_id)
+            if source_page.next_cursor is not None
+            else None
+        ),
     )
 
 
@@ -289,6 +338,37 @@ def _encode_output_cursor(
     )
     token = base64.urlsafe_b64encode(payload.encode("utf-8")).decode("ascii").rstrip("=")
     return f"{_OUTPUT_CURSOR_PREFIX}{token}"
+
+
+def _encode_product_list_cursor(run_id: str, *, task_id: str) -> str:
+    payload = json.dumps(
+        {"run_id": run_id, "task_id": task_id, "version": 1},
+        separators=(",", ":"),
+    )
+    token = base64.urlsafe_b64encode(payload.encode("utf-8")).decode("ascii").rstrip("=")
+    return f"{_PRODUCT_LIST_CURSOR_PREFIX}{token}"
+
+
+def _decode_product_list_cursor(cursor: str | None, *, task_id: str) -> str | None:
+    if cursor is None:
+        return None
+    if not cursor.startswith(_PRODUCT_LIST_CURSOR_PREFIX):
+        raise _invalid_command_history_request()
+    try:
+        token = cursor.removeprefix(_PRODUCT_LIST_CURSOR_PREFIX)
+        padded = token + "=" * (-len(token) % 4)
+        payload = json.loads(base64.urlsafe_b64decode(padded).decode("utf-8"))
+        run_id = payload["run_id"]
+    except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise _invalid_command_history_request() from exc
+    if (
+        payload.get("version") != 1
+        or payload.get("task_id") != task_id
+        or not isinstance(run_id, str)
+        or not run_id
+    ):
+        raise _invalid_command_history_request()
+    return run_id
 
 
 def _decode_output_cursor(cursor: str | None) -> tuple[int, _SanitizerState]:
@@ -477,6 +557,16 @@ def _invalid_output_request(summary: str) -> RuntimeOperationError:
     )
 
 
+def _invalid_command_history_request() -> RuntimeOperationError:
+    return RuntimeOperationError(
+        code=OperationFailureCode.INVALID_REQUEST_SHAPE,
+        summary="The command-history cursor is no longer usable.",
+        is_retryable=False,
+        suggested_next_step="Reload the Run and read Command history from the beginning.",
+        status_code_override=400,
+    )
+
+
 def _action_unavailable() -> RuntimeOperationError:
     return RuntimeOperationError(
         code=OperationFailureCode.CONFLICT,
@@ -490,6 +580,7 @@ def _action_unavailable() -> RuntimeOperationError:
 __all__ = [
     "ProductCommandRunCollection",
     "cancel_product_command_run",
+    "list_product_command_run_page",
     "list_product_command_runs",
     "read_product_command_output",
     "read_product_command_run",

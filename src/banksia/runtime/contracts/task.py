@@ -199,6 +199,11 @@ class CommandRunView(_ProductModel):
     cancel_action: ProductAction | None = None
 
 
+class CommandRunPage(_ProductModel):
+    items: tuple[CommandRunView, ...]
+    next_cursor: str | None = None
+
+
 class TaskAttention(_ProductModel):
     id: str
     kind: TaskAttentionKind
@@ -237,6 +242,7 @@ class TaskView(_ProductModel):
         serialization_alias="human_requests_truncated",
     )
     command_runs: tuple[CommandRunView, ...] = ()
+    command_runs_href: str
     command_run_count: int = Field(default=0, ge=0)
     is_command_run_history_truncated: bool = Field(
         default=False,
@@ -390,6 +396,7 @@ __all__ = [
     "CommandRunCancelReceipt",
     "CommandRunCancelRequest",
     "CommandRunOutputPage",
+    "CommandRunPage",
     "CommandRunProductState",
     "CommandRunView",
     "HumanRequestAnswerInput",

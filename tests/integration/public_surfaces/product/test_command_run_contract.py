@@ -17,6 +17,7 @@ from banksia.runtime.contracts.task import (
     CommandRunCancelReceipt,
     CommandRunCancelRequest,
     CommandRunOutputPage,
+    CommandRunPage,
     CommandRunView,
 )
 from banksia.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
@@ -81,6 +82,108 @@ async def test_http_command_run_view_output_and_cancel_use_product_contract(
     assert receipt.command_run.state == "cancelling"
     assert receipt.command_run.cancel_action is None
     assert source is not None and source.state == "cancellation_requested"
+
+
+async def test_http_command_history_pages_every_product_safe_action(
+    tmp_path: Path,
+) -> None:
+    suffix = "product-command-history"
+    async with seeded_async_executor(tmp_path, suffix=suffix) as (
+        _executor,
+        session_factory,
+        ids,
+        _signals,
+    ):
+        await _seed_product_command_history(session_factory, ids=ids)
+
+        async with product_http_client(session_factory, tmp_path=tmp_path) as client:
+            first_response = await client.get(
+                f"/api/tasks/{ids.task_id}/command-runs",
+                params={"limit": 2},
+            )
+            assert first_response.status_code == 200, first_response.text
+            first = CommandRunPage.model_validate(first_response.json())
+            assert first.next_cursor is not None
+            assert "c_history_middle" not in first.next_cursor
+            second_response = await client.get(
+                f"/api/tasks/{ids.task_id}/command-runs",
+                params={"cursor": first.next_cursor, "limit": 2},
+            )
+            invalid_response = await client.get(
+                f"/api/tasks/{ids.task_id}/command-runs",
+                params={"cursor": "not-a-command-history-cursor"},
+            )
+
+        second = CommandRunPage.model_validate(second_response.json())
+        async with session_factory() as session:
+            task = await read_product_task(session, ids.task_id)
+
+    assert [command.id for command in first.items] == [
+        "c_history_newest",
+        "c_history_middle",
+    ]
+    assert [command.id for command in second.items] == ["c_history_oldest"]
+    assert second.next_cursor is None
+    assert invalid_response.status_code == 400
+    assert task.command_runs_href == f"/api/tasks/{ids.task_id}/command-runs"
+
+
+async def _seed_product_command_history(
+    session_factory: AsyncSessionFactory,
+    *,
+    ids: RuntimeIds,
+) -> None:
+    now = utc_now()
+    sources = (
+        (
+            "c_history_oldest",
+            ids.root_assignment_id,
+            ids.root_attempt_id,
+            ids.root_dispatch_id,
+            now - timedelta(minutes=2),
+        ),
+        (
+            "c_history_middle",
+            ids.child_assignment_id,
+            ids.child_attempt_id,
+            ids.child_dispatch_id,
+            now - timedelta(minutes=1),
+        ),
+        (
+            "c_history_newest",
+            ids.root_assignment_id,
+            ids.root_attempt_id,
+            ids.current_dispatch_id,
+            now,
+        ),
+    )
+    async with session_factory() as session:
+        session.add_all(
+            CommandRunModel(
+                run_id=run_id,
+                task_id=ids.task_id,
+                assignment_id=assignment_id,
+                attempt_id=attempt_id,
+                source_dispatch_id=dispatch_id,
+                command_spec_json={"kind": "argv", "argv": ["true"]},
+                cwd=None,
+                summary=f"Command {run_id}",
+                timeout_seconds=None,
+                due_at=None,
+                output_path=f".banksia/{ids.task_id}/command-runs/{run_id}/output.log",
+                output_complete=True,
+                state="succeeded",
+                ownership_revision=1,
+                terminal_summary="Succeeded.",
+                terminal_exit_code=0,
+                terminal_event_source="controller",
+                created_at=created_at,
+                started_at=created_at,
+                ended_at=created_at,
+            )
+            for run_id, assignment_id, attempt_id, dispatch_id, created_at in sources
+        )
+        await session.commit()
 
 
 async def _open_product_command_run(

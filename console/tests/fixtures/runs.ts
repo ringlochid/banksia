@@ -4,6 +4,7 @@ import type {
 } from "../../src/api/client";
 import type {
     CommandRunOutputPage,
+    CommandRunPage,
     HumanRequestResponseReceipt,
     MemberSteerReceipt,
     RunApi,
@@ -225,6 +226,7 @@ export function taskFixture(overrides: Partial<TaskView> = {}): TaskView {
                 },
             },
         ],
+        command_runs_href: `/api/tasks/${TEST_TASK_ID}/command-runs`,
         command_run_count: 1,
         command_runs_truncated: false,
         result: null,
@@ -334,6 +336,10 @@ export function activityPageFixture(): TaskActivityPage {
     return { items: [], next_cursor: null };
 }
 
+export function commandRunPageFixture(): CommandRunPage {
+    return { items: [], next_cursor: null };
+}
+
 export function runApiStub(overrides: Partial<RunApi>): RunApi {
     const unavailable = (): never => {
         throw new Error("Unexpected Run API call");
@@ -345,6 +351,8 @@ export function runApiStub(overrides: Partial<RunApi>): RunApi {
         getRun: unavailable,
         getRunActivities: () =>
             Promise.resolve(response(activityPageFixture())),
+        getRunCommands: () =>
+            Promise.resolve(response(commandRunPageFixture())),
         openRunActivityStream: () => inactiveEventSource(),
         controlRun: unavailable,
         steerMember: unavailable,

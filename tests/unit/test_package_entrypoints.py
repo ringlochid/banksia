@@ -347,6 +347,7 @@ def test_installed_task_verifier_matches_current_member_plan_contract() -> None:
                 "state": "working",
                 "latest_update": None,
                 "plan": None,
+                "steer_action": None,
                 "children": [],
             },
             "attention": [],

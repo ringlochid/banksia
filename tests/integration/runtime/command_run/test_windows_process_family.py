@@ -23,6 +23,7 @@ from tests.helpers.executor_harness import seeded_executor, seeded_task_root
 pytestmark = pytest.mark.skipif(os.name != "nt", reason="Windows Job Object proof")
 
 _WIDE_WINDOWS_EXIT_CODE = 0xC000013A
+_ERROR_INVALID_PARAMETER = 87
 
 
 async def test_command_run_preserves_unsigned_windows_exit_code(tmp_path: Path) -> None:
@@ -120,14 +121,17 @@ def _read_grandchild_pid(output_path: Path) -> int:
 
 
 def _windows_process_is_active(pid: int) -> bool:
+    import pywintypes
     import win32api
     import win32con
     import win32process
 
     try:
         handle = win32api.OpenProcess(win32con.PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
-    except OSError:
-        return False
+    except pywintypes.error as exc:
+        if exc.args and exc.args[0] == _ERROR_INVALID_PARAMETER:
+            return False
+        raise
     try:
         return int(win32process.GetExitCodeProcess(handle)) == 259
     finally:

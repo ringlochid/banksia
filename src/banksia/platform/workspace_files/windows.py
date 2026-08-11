@@ -59,12 +59,10 @@ class WindowsPrivateFileOperations:
                     require_windows_directory_lease(parent).native_handle,
                     path.name,
                     should_be_directory=False,
-                    should_allow_security_update=True,
                 )
             except FileNotFoundError:
                 return None
             try:
-                protect_private_handle(handle)
                 payload, file_size = read_handle_range(
                     handle,
                     offset=0,

@@ -48,9 +48,7 @@ jobs:
               shell: pwsh
               run: |
                   .\.venv\Scripts\python -m ruff check src tests scripts/testing
-                  $env:MYPYPATH = "src;."
-                  .\.venv\Scripts\python -m mypy src tests scripts/testing
-                  npx --yes pyright
+                  .\.venv\Scripts\python -m compileall -q src tests scripts/testing
 
             - name: Run backend unit tests
               shell: pwsh

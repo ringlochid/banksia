@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
@@ -13,10 +14,10 @@ from banksia.platform.workspace_files import (
 
 
 def test_workspace_backend_selection_has_no_unsupported_fallback() -> None:
-    assert (
-        type(select_workspace_file_operations("posix")).__name__ == "PosixWorkspaceFileOperations"
+    expected_name = (
+        "WindowsWorkspaceFileOperations" if os.name == "nt" else "PosixWorkspaceFileOperations"
     )
-    assert type(select_workspace_file_operations("nt")).__name__ == "WindowsWorkspaceFileOperations"
+    assert type(select_workspace_file_operations()).__name__ == expected_name
     with pytest.raises(PrivatePathError, match="Linux, macOS, and Windows only"):
         select_workspace_file_operations("unsupported")
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import locale
 import subprocess
 import sys
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -36,7 +37,7 @@ class ScheduledTaskUserServiceManager:
     def __init__(
         self,
         *,
-        schtasks_bin: str | None = None,
+        schtasks_bin: str | Sequence[str] | None = None,
         user_id: str | None = None,
     ) -> None:
         self._schtasks_bin = schtasks_bin
@@ -228,7 +229,7 @@ class ScheduledTaskUserServiceManager:
         should_check: bool = True,
         command_observer: ManagedServiceCommandObserver | None = None,
     ) -> subprocess.CompletedProcess[str]:
-        command = (self._schtasks_bin or "schtasks.exe", *args)
+        command = (*self._command_prefix(), *args)
         if command_observer is not None:
             command_observer(command)
         try:
@@ -258,6 +259,13 @@ class ScheduledTaskUserServiceManager:
                 detail=bounded_service_command_detail(completed.stderr or completed.stdout),
             )
         return completed
+
+    def _command_prefix(self) -> tuple[str, ...]:
+        if self._schtasks_bin is None:
+            return ("schtasks.exe",)
+        if isinstance(self._schtasks_bin, str):
+            return (self._schtasks_bin,)
+        return tuple(self._schtasks_bin)
 
     @staticmethod
     def _require_supported() -> None:

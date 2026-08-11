@@ -398,14 +398,10 @@ class WindowsWorkspaceFileOperations:
                 parent.native_handle,
                 name,
                 should_be_directory=False,
-                should_allow_security_update=True,
             )
         except FileNotFoundError:
             return
-        try:
-            protect_private_handle(handle)
-        finally:
-            close_handle(handle)
+        close_handle(handle)
 
     def _remove_directory_contents(self, directory: WindowsDirectoryLease) -> None:
         for _attempt in range(_TREE_REMOVAL_PASSES):

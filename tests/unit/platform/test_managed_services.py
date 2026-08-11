@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import plistlib
 import sys
 from pathlib import Path
@@ -61,6 +62,8 @@ def test_systemd_manager_reconciles_one_fixed_unit(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    if os.name != "posix":
+        pytest.skip("fake systemd executable requires POSIX process semantics")
     command_log = tmp_path / "systemctl.log"
     systemctl = tmp_path / "systemctl"
     _write_fake_systemctl(systemctl, command_log)
@@ -168,8 +171,9 @@ def test_scheduled_task_manager_reconciles_xml_without_localized_status_parsing(
     import banksia.platform.managed_services.scheduled_tasks as scheduled_tasks_module
 
     monkeypatch.setattr(scheduled_tasks_module.sys, "platform", "win32")
+    command = (sys.executable, str(schtasks)) if os.name == "nt" else str(schtasks)
     manager = ScheduledTaskUserServiceManager(
-        schtasks_bin=str(schtasks),
+        schtasks_bin=command,
         user_id="S-1-5-21-1234",
     )
     target = _target(tmp_path)
@@ -194,6 +198,8 @@ def test_launch_agent_lifecycle_uses_current_gui_domain(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    if os.name != "posix":
+        pytest.skip("fake launchctl executable requires POSIX process semantics")
     command_log = tmp_path / "launchctl.log"
     loaded_marker = tmp_path / "loaded"
     launchctl = tmp_path / "launchctl"
@@ -228,6 +234,8 @@ def test_native_command_error_carries_explicit_operation_and_manager(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    if os.name != "posix":
+        pytest.skip("fake systemctl executable requires POSIX process semantics")
     systemctl = tmp_path / "systemctl"
     systemctl.write_text(
         "#!/bin/sh\necho simulated failure >&2\nexit 7\n",

@@ -41,7 +41,8 @@ def test_private_provider_environment_round_trips_and_preserves_comments(
         ANTHROPIC_API_KEY: 'key with $ and "quotes"'
     }
     assert "# Managed provider credentials." in env_file.read_text(encoding="utf-8")
-    assert stat.S_IMODE(env_file.stat().st_mode) == 0o600
+    if os.name == "posix":
+        assert stat.S_IMODE(env_file.stat().st_mode) == 0o600
 
 
 def test_retired_provider_assignments_are_ignored_without_reexposing_them(

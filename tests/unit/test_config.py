@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import importlib
+import json
+import os
 from pathlib import Path
 from types import ModuleType
 
@@ -18,23 +20,50 @@ def _reload_config_module() -> ModuleType:
     return importlib.reload(config_module)
 
 
+def _configure_platform_directories(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> tuple[Path, Path, Path, Path]:
+    if os.name == "nt":
+        platform_home = tmp_path / "platform-home"
+        monkeypatch.setenv("LOCALAPPDATA", str(platform_home))
+        monkeypatch.setenv("APPDATA", str(platform_home))
+        return (platform_home,) * 4
+    directories = (
+        tmp_path / "config",
+        tmp_path / "data",
+        tmp_path / "state",
+        tmp_path / "cache",
+    )
+    for environment_name, directory in zip(
+        ("XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME"),
+        directories,
+        strict=True,
+    ):
+        monkeypatch.setenv(environment_name, str(directory))
+    return directories
+
+
+def _toml_string(value: Path) -> str:
+    return json.dumps(str(value))
+
+
 def test_platform_paths_use_only_banksia_namespace(
     monkeypatch: MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    config_home = tmp_path / "config"
-    data_home = tmp_path / "data"
-    state_home = tmp_path / "state"
-    cache_home = tmp_path / "cache"
-    monkeypatch.setenv("XDG_CONFIG_HOME", str(config_home))
-    monkeypatch.setenv("XDG_DATA_HOME", str(data_home))
-    monkeypatch.setenv("XDG_STATE_HOME", str(state_home))
-    monkeypatch.setenv("XDG_CACHE_HOME", str(cache_home))
+    config_home, data_home, state_home, cache_home = _configure_platform_directories(
+        monkeypatch,
+        tmp_path,
+    )
 
     assert paths.default_config_path() == config_home / "banksia" / "config.toml"
     assert paths.default_data_dir() == data_home / "banksia"
     assert paths.default_state_dir() == state_home / "banksia"
-    assert paths.default_cache_dir() == cache_home / "banksia"
+    expected_cache = cache_home / "banksia"
+    if os.name == "nt":
+        expected_cache /= "Cache"
+    assert paths.default_cache_dir() == expected_cache
     assert paths.default_database_path() == data_home / "banksia" / "banksia.persistence"
 
 
@@ -42,10 +71,10 @@ def test_get_settings_reads_default_platform_config(
     monkeypatch: MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    config_home = tmp_path / "config-home"
-    data_home = tmp_path / "data-home"
-    state_home = tmp_path / "state-home"
-    cache_home = tmp_path / "cache-home"
+    config_home, data_home, _state_home, _cache_home = _configure_platform_directories(
+        monkeypatch,
+        tmp_path,
+    )
     workspace = tmp_path / "workspace"
     workspace.mkdir()
     config_path = config_home / "banksia" / "config.toml"
@@ -53,7 +82,7 @@ def test_get_settings_reads_default_platform_config(
     config_path.write_text(
         f"""
 [paths]
-workspace = "{workspace}"
+workspace = {_toml_string(workspace)}
 
 [database]
 url = "sqlite+aiosqlite:////tmp/from-config.db"
@@ -91,10 +120,6 @@ watchdog_same_attempt_replacement_limit = 3
         encoding="utf-8",
     )
 
-    monkeypatch.setenv("XDG_CONFIG_HOME", str(config_home))
-    monkeypatch.setenv("XDG_DATA_HOME", str(data_home))
-    monkeypatch.setenv("XDG_STATE_HOME", str(state_home))
-    monkeypatch.setenv("XDG_CACHE_HOME", str(cache_home))
     monkeypatch.delenv("BANKSIA_CONFIG", raising=False)
     monkeypatch.delenv("BANKSIA_DATABASE_URL", raising=False)
 
@@ -129,15 +154,15 @@ def test_settings_ignore_autoclaw_environment_and_leave_old_state_untouched(
     monkeypatch: MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    config_home = tmp_path / "config-home"
-    data_home = tmp_path / "data-home"
+    config_home, data_home, _state_home, _cache_home = _configure_platform_directories(
+        monkeypatch,
+        tmp_path,
+    )
     old_config_path = config_home / "autoclaw" / "config.toml"
     old_config_path.parent.mkdir(parents=True)
     old_config_text = '[database]\nurl = "sqlite+aiosqlite:////tmp/from-autoclaw.db"\n'
     old_config_path.write_text(old_config_text, encoding="utf-8")
 
-    monkeypatch.setenv("XDG_CONFIG_HOME", str(config_home))
-    monkeypatch.setenv("XDG_DATA_HOME", str(data_home))
     monkeypatch.delenv("BANKSIA_CONFIG", raising=False)
     monkeypatch.delenv("BANKSIA_DATABASE_URL", raising=False)
     monkeypatch.setenv("AUTOCLAW_CONFIG", str(old_config_path))
@@ -165,7 +190,7 @@ def test_env_overrides_config_file(
     config_path.write_text(
         f"""
 [paths]
-workspace = "{config_workspace}"
+workspace = {_toml_string(config_workspace)}
 
 [database]
 url = "sqlite+aiosqlite:////tmp/from-config.db"

@@ -35,6 +35,7 @@ services:
             - ./infra/compose/postgres/init:/docker-entrypoint-initdb.d:ro
 
     backend-test:
+        init: true
         build:
             context: .
             dockerfile: infra/testing/backend/Dockerfile

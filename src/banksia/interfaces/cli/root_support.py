@@ -63,7 +63,7 @@ def package_version() -> str:
     try:
         return version("banksia")
     except PackageNotFoundError:
-        return "0.1.5"
+        return "0.1.6"
 
 
 __all__ = [

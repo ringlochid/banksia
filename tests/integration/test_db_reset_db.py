@@ -5,6 +5,7 @@ import os
 import sqlite3
 import subprocess
 import sys
+from contextlib import closing
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -86,7 +87,7 @@ def test_db_reset_recreates_seeded_sqlite_database_on_packaged_cli_path(
         "INFO",
         "--force",
     )
-    with sqlite3.connect(database_path) as connection:
+    with closing(sqlite3.connect(database_path)) as connection:
         connection.execute("CREATE TABLE reset_backup_marker (value TEXT NOT NULL)")
         connection.execute("INSERT INTO reset_backup_marker VALUES ('packaged-cli')")
         connection.commit()
@@ -250,7 +251,7 @@ def test_db_reset_rejects_controller_task_root_outside_data_boundary_before_dest
     assert result.returncode != 0
     assert "escapes the configured Banksia data boundary" in (result.stderr + result.stdout)
     assert external_task_root.is_dir()
-    with sqlite3.connect(database_path) as connection:
+    with closing(sqlite3.connect(database_path)) as connection:
         assert connection.execute("SELECT COUNT(*) FROM tasks").fetchone()[0] == 1
 
 
@@ -293,7 +294,7 @@ def test_db_reset_rejects_symlinked_controller_task_root_before_destruction(
     assert "linked or replaced controller task root" in (result.stderr + result.stdout)
     assert linked_task_root.is_symlink()
     assert external_task_root.is_dir()
-    with sqlite3.connect(database_path) as connection:
+    with closing(sqlite3.connect(database_path)) as connection:
         assert connection.execute("SELECT COUNT(*) FROM tasks").fetchone()[0] == 1
 
 
@@ -336,7 +337,7 @@ def test_db_reset_rejects_symlinked_task_root_ancestor_before_destruction(
     assert "linked or replaced controller task-root ancestor" in (result.stderr + result.stdout)
     assert linked_task_parent.is_symlink()
     assert real_task_root.is_dir()
-    with sqlite3.connect(database_path) as connection:
+    with closing(sqlite3.connect(database_path)) as connection:
         assert connection.execute("SELECT COUNT(*) FROM tasks").fetchone()[0] == 1
 
 
@@ -379,7 +380,7 @@ def test_db_reset_rejects_unsafe_sidecar_before_deleting_task_roots(
     assert task_root.is_dir()
     assert unsafe_sidecar.is_dir()
     unsafe_sidecar.rmdir()
-    with sqlite3.connect(database_path) as connection:
+    with closing(sqlite3.connect(database_path)) as connection:
         assert connection.execute("SELECT COUNT(*) FROM tasks").fetchone()[0] == 1
 
 
@@ -529,7 +530,7 @@ async def _drop_postgres_reset_sentinel() -> None:
 
 
 def _insert_task(database_path: Path, *, task_root: Path) -> None:
-    with sqlite3.connect(database_path) as connection:
+    with closing(sqlite3.connect(database_path)) as connection:
         workflow_content_hash = connection.execute(
             "SELECT content_hash FROM workflow_revisions "
             "WHERE workflow_key = ? AND revision_no = ?",
@@ -565,7 +566,7 @@ def _insert_task(database_path: Path, *, task_root: Path) -> None:
 
 
 def _insert_workspace_binding(database_path: Path, *, workspace_root: Path) -> None:
-    with sqlite3.connect(database_path) as connection:
+    with closing(sqlite3.connect(database_path)) as connection:
         connection.execute(
             """
             INSERT INTO workspace_bindings (

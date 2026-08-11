@@ -48,7 +48,7 @@ def create_offline_venv(venv_path: Path, dependency_site_packages: Path) -> None
         ).stdout.strip()
     )
     child_site_packages.joinpath("banksia-oracle-dependencies.pth").write_text(
-        f"{dependency_site_packages}\n",
+        f"import site; site.addsitedir({str(dependency_site_packages)!r})\n",
         encoding="utf-8",
     )
 

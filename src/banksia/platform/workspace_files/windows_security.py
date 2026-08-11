@@ -7,7 +7,7 @@ from typing import Any
 from banksia.platform.workspace_files.contracts import PrivatePathError
 
 
-def protect_private_handle(handle: int) -> None:
+def protect_private_handle(handle: int, *, is_directory: bool) -> None:
     """Apply and verify a protected current-user plus SYSTEM DACL."""
 
     if os.name != "nt":
@@ -26,10 +26,13 @@ def protect_private_handle(handle: int) -> None:
     system_user = win32security.CreateWellKnownSid(win32security.WinLocalSystemSid, None)
 
     dacl = win32security.ACL()
+    inheritance_flags = (
+        win32con.CONTAINER_INHERIT_ACE | win32con.OBJECT_INHERIT_ACE if is_directory else 0
+    )
     for sid in (current_user, system_user):
         dacl.AddAccessAllowedAceEx(
             win32security.ACL_REVISION_DS,
-            0,
+            inheritance_flags,
             ntsecuritycon.FILE_ALL_ACCESS,
             sid,
         )

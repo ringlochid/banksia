@@ -116,7 +116,7 @@ class WindowsWorkspaceFileOperations:
         )
         try:
             if should_require_private:
-                protect_private_handle(handle)
+                protect_private_handle(handle, is_directory=True)
             return _build_directory_lease(handle)
         except BaseException:
             close_handle(handle)
@@ -137,7 +137,7 @@ class WindowsWorkspaceFileOperations:
             should_allow_delete=True,
         )
         try:
-            protect_private_handle(handle)
+            protect_private_handle(handle, is_directory=True)
             return _build_directory_lease(handle)
         except BaseException:
             with suppress(OSError):
@@ -380,7 +380,7 @@ class WindowsWorkspaceFileOperations:
             should_allow_delete=True,
         )
         try:
-            protect_private_handle(handle)
+            protect_private_handle(handle, is_directory=False)
             return handle
         except BaseException:
             with suppress(OSError):

@@ -41,7 +41,7 @@ class WindowsPrivateFileOperations:
                 should_allow_security_update=True,
             )
             try:
-                protect_private_handle(handle)
+                protect_private_handle(handle, is_directory=is_directory)
             finally:
                 close_handle(handle)
         finally:
@@ -109,7 +109,7 @@ class WindowsPrivateFileOperations:
             should_allow_mutation=True,
             should_allow_security_update=True,
         )
-        protect_private_handle(handle)
+        protect_private_handle(handle, is_directory=False)
         descriptor = int(
             msvcrt_module.open_osfhandle(
                 handle,

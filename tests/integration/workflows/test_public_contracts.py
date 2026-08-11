@@ -1,25 +1,19 @@
 from __future__ import annotations
 
 import json
-from collections.abc import AsyncIterator, Mapping
-from contextlib import asynccontextmanager
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, cast
+from typing import cast
 
 import httpx
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from banksia.config import CodexSettings, RuntimeSettings, Settings
 from banksia.main import create_app
-from banksia.persistence.session import get_db_session
-from banksia.providers import ProviderKind
-from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
-from banksia.runtime.post_commit import CapturedRuntimeEffectPublisher
 from banksia.workflows.cursors import (
     encode_workflow_revision_cursor,
     encode_workflow_search_cursor,
 )
 from tests.helpers.generic_workflow import GENERIC_WORKFLOW_ID, publish_generic_workflow
+from tests.helpers.product_surface import product_http_client
 from tests.helpers.workflow_runtime import initialized_workflow_database
 
 
@@ -28,7 +22,7 @@ async def test_http_workflow_catalog_and_history_are_bounded_and_share_cursors(
 ) -> None:
     async with initialized_workflow_database(tmp_path) as session_factory:
         await publish_generic_workflow(session_factory)
-        async with _http_client(session_factory) as client:
+        async with product_http_client(session_factory, tmp_path=tmp_path) as client:
             current = await client.get(f"/api/workflows/{GENERIC_WORKFLOW_ID}")
             active_draft = await _publish_history_and_create_active_draft(client)
             hidden_search = await client.get(
@@ -83,7 +77,7 @@ async def test_http_workflow_cursor_failures_use_product_error_contract(
     )
     async with initialized_workflow_database(tmp_path) as session_factory:
         await publish_generic_workflow(session_factory)
-        async with _http_client(session_factory) as client:
+        async with product_http_client(session_factory, tmp_path=tmp_path) as client:
             http_results = (
                 await client.get("/api/workflows", params={"cursor": "malformed"}),
                 await client.get(
@@ -143,7 +137,7 @@ async def _publish_history_and_create_active_draft(
 async def test_http_workflow_readbacks_never_expose_integrity_hashes(tmp_path: Path) -> None:
     async with initialized_workflow_database(tmp_path) as session_factory:
         await publish_generic_workflow(session_factory)
-        async with _http_client(session_factory) as client:
+        async with product_http_client(session_factory, tmp_path=tmp_path) as client:
             detail = await client.get(f"/api/workflows/{GENERIC_WORKFLOW_ID}")
 
     assert detail.status_code == 200, detail.text
@@ -155,7 +149,7 @@ async def test_http_task_start_commits_current_workflow_and_maps_unknown_to_404(
 ) -> None:
     async with initialized_workflow_database(tmp_path) as session_factory:
         await publish_generic_workflow(session_factory)
-        async with _http_client(session_factory) as client:
+        async with product_http_client(session_factory, tmp_path=tmp_path) as client:
             started = await client.post(
                 "/api/tasks",
                 json=_task_start_payload(tmp_path),
@@ -256,32 +250,3 @@ def _task_start_payload(
         "prompt": "Exercise the exact Task start contract.",
         "workspace": str(workspace),
     }
-
-
-@asynccontextmanager
-async def _http_client(session_factory: Any) -> AsyncIterator[httpx.AsyncClient]:
-    app = create_app(should_enable_mcp_mounts=False)
-    app.state.dispatch_opening_dependencies = _opening_dependencies(Path("/"))
-
-    async def session_dependency() -> AsyncIterator[AsyncSession]:
-        async with session_factory() as session:
-            yield session
-
-    app.dependency_overrides[get_db_session] = session_dependency
-    async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app, client=("127.0.0.1", 43125)),
-        base_url="http://127.0.0.1:8123",
-    ) as client:
-        yield client
-
-
-def _opening_dependencies(workspace: Path) -> DispatchOpeningDependencies:
-    return DispatchOpeningDependencies.create(
-        settings=Settings(
-            controller_workspace=workspace,
-            runtime=RuntimeSettings(default_provider=ProviderKind.CODEX),
-            codex=CodexSettings(enabled=True),
-        ),
-        available_adapter_kinds={ProviderKind.CODEX},
-        post_commit_publisher=CapturedRuntimeEffectPublisher(),
-    )

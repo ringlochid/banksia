@@ -64,7 +64,7 @@ def test_provider_status_and_check_use_rich_semantic_panels(
     assert "Ready for first task" in rendered
     assert "Found" in rendered
     assert "Not Tested" in rendered
-    assert "╭" in rendered
+    assert "╭" in rendered or "┌" in rendered
 
 
 def test_guided_setup_uses_rich_hierarchy(
@@ -82,7 +82,7 @@ def test_guided_setup_uses_rich_hierarchy(
     assert "Managed" in rendered
     assert "Codex" in rendered
     assert "Claude" in rendered
-    assert "╭" in rendered
+    assert "╭" in rendered or "┌" in rendered
 
 
 def test_rich_console_width_is_bounded_on_wide_terminals(

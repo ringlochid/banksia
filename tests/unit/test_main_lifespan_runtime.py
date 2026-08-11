@@ -160,6 +160,11 @@ async def test_lifespan_drains_operator_turn_before_product_dependencies_stop(
         events.append("task_workspace_recovery")
         return ()
 
+    async def pause_retired_provider_tasks(*args: object, **kwargs: object) -> int:
+        del args, kwargs
+        events.append("provider_retirement")
+        return 0
+
     async def audit_runtime(**kwargs: object) -> dict[str, object]:
         publish = cast(
             Callable[[RuntimeEffectSignal], Awaitable[bool]],
@@ -186,6 +191,11 @@ async def test_lifespan_drains_operator_turn_before_product_dependencies_stop(
         "recover_task_workspace_admissions",
         recover_task_workspaces,
     )
+    monkeypatch.setattr(
+        main_module,
+        "pause_tasks_using_retired_providers",
+        pause_retired_provider_tasks,
+    )
     monkeypatch.setattr(main_module, "audit_startup_runtime_effects", audit_runtime)
     monkeypatch.setattr(
         main_module,
@@ -201,6 +211,7 @@ async def test_lifespan_drains_operator_turn_before_product_dependencies_stop(
     assert events == [
         "schema",
         "operator_repair",
+        "provider_retirement",
         "task_workspace_recovery",
         "enter:command",
         "enter:projection",

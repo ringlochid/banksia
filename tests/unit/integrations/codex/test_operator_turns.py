@@ -22,6 +22,7 @@ from banksia.operator.provider import (
     OperatorQuestionAnswersTurnInput,
 )
 from banksia.operator.tools import OperatorToolName
+from tests.unit.integrations.codex.codex_test_support import TEST_AMBIENT_SKILL_PATH
 from tests.unit.integrations.codex.codex_test_support import (
     ClientFactory as _ClientFactory,
 )
@@ -82,7 +83,7 @@ async def test_codex_operator_uses_pinned_native_envelope_and_isolated_exact_too
     assert isolation["projects"] == {cast(str, start["cwd"]): {"trust_level": "untrusted"}}
     assert isolation["skills"] == {
         "bundled": {"enabled": False},
-        "config": [{"enabled": False, "path": "/opt/codex/skills/ambient/SKILL.md"}],
+        "config": [{"enabled": False, "path": TEST_AMBIENT_SKILL_PATH}],
         "include_instructions": False,
     }
     assert isolation["orchestrator"] == {

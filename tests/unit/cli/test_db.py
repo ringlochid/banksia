@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import sqlite3
+from contextlib import closing
 from pathlib import Path
 
 import pytest
@@ -21,7 +22,7 @@ from .cli_test_support import assert_seeded_registry_is_bootstrapped, build_cli_
 
 
 def _assert_upgraded_runtime_rows(database_path: Path, *, task_id: str, attempt_id: str) -> None:
-    with sqlite3.connect(database_path) as connection:
+    with closing(sqlite3.connect(database_path)) as connection:
         attempt_columns = {
             str(row[1]) for row in connection.execute('PRAGMA table_info("attempts")')
         }
@@ -42,7 +43,7 @@ def _assert_upgraded_runtime_rows(database_path: Path, *, task_id: str, attempt_
 
 
 def _assert_pre_upgrade_backup(database_path: Path, *, task_id: str) -> None:
-    with sqlite3.connect(database_path) as connection:
+    with closing(sqlite3.connect(database_path)) as connection:
         backup_columns = {
             str(row[1]) for row in connection.execute('PRAGMA table_info("attempts")')
         }
@@ -70,7 +71,7 @@ async def test_db_reset_recreates_sqlite_database(tmp_path: Path) -> None:
     database_path = data_dir / "banksia.persistence"
     try:
         await cli.cmd_init(build_cli_init_args(config_path, data_dir))
-        with sqlite3.connect(database_path) as connection:
+        with closing(sqlite3.connect(database_path)) as connection:
             connection.execute("CREATE TABLE reset_backup_marker (value TEXT NOT NULL)")
             connection.execute("INSERT INTO reset_backup_marker VALUES ('preserved')")
             connection.commit()
@@ -86,7 +87,7 @@ async def test_db_reset_recreates_sqlite_database(tmp_path: Path) -> None:
     assert_seeded_registry_is_bootstrapped(database_path)
     backup_paths = tuple(data_dir.glob("banksia.persistence.before-reset-*.backup"))
     assert len(backup_paths) == 1
-    with sqlite3.connect(backup_paths[0]) as connection:
+    with closing(sqlite3.connect(backup_paths[0])) as connection:
         assert connection.execute("SELECT value FROM reset_backup_marker").fetchone() == (
             "preserved",
         )
@@ -126,7 +127,7 @@ async def test_db_upgrade_rejects_unknown_sqlite_schema_without_mutation(
 
     try:
         await cli.cmd_init(init_args)
-        with sqlite3.connect(database_path) as connection:
+        with closing(sqlite3.connect(database_path)) as connection:
             connection.execute(
                 "CREATE TABLE flows (task_id TEXT PRIMARY KEY, status TEXT NOT NULL)"
             )
@@ -140,7 +141,7 @@ async def test_db_upgrade_rejects_unknown_sqlite_schema_without_mutation(
     finally:
         await dispose_db_engine()
 
-    with sqlite3.connect(database_path) as connection:
+    with closing(sqlite3.connect(database_path)) as connection:
         columns = {row[1] for row in connection.execute('PRAGMA table_info("flows")').fetchall()}
     assert columns == {"task_id", "status"}
 
@@ -180,10 +181,10 @@ async def test_db_upgrade_preserves_sqlite_runtime_rows_and_creates_backup(
         "\n".join(
             (
                 "[paths]",
-                f'data_dir = "{data_dir}"',
+                f'data_dir = "{data_dir.as_posix()}"',
                 "",
                 "[database]",
-                f'url = "sqlite+aiosqlite:///{database_path}"',
+                f'url = "sqlite+aiosqlite:///{database_path.as_posix()}"',
                 "",
             )
         ),
@@ -231,10 +232,10 @@ async def test_db_upgrade_adds_member_steering_event_without_losing_rows(
         "\n".join(
             (
                 "[paths]",
-                f'data_dir = "{data_dir}"',
+                f'data_dir = "{data_dir.as_posix()}"',
                 "",
                 "[database]",
-                f'url = "sqlite+aiosqlite:///{database_path}"',
+                f'url = "sqlite+aiosqlite:///{database_path.as_posix()}"',
                 "",
             )
         ),
@@ -252,7 +253,7 @@ async def test_db_upgrade_adds_member_steering_event_without_losing_rows(
     assert result == 0
     backup_paths = tuple(data_dir.glob("banksia.persistence.before-*.backup"))
     assert len(backup_paths) == 1
-    with sqlite3.connect(database_path) as connection:
+    with closing(sqlite3.connect(database_path)) as connection:
         task_event_sql = connection.execute(
             "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'task_events'"
         ).fetchone()
@@ -262,7 +263,7 @@ async def test_db_upgrade_adds_member_steering_event_without_losing_rows(
             "SELECT COUNT(*) FROM dispatch_turns WHERE task_id = ?",
             (ids.task_id,),
         ).fetchone() == (3,)
-    with sqlite3.connect(backup_paths[0]) as connection:
+    with closing(sqlite3.connect(backup_paths[0])) as connection:
         task_event_sql = connection.execute(
             "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'task_events'"
         ).fetchone()
@@ -328,5 +329,5 @@ async def test_db_reset_rejects_symlinked_sqlite_database_without_touching_targe
 
     assert database_path.is_symlink()
     assert real_database_path.is_file()
-    with sqlite3.connect(real_database_path) as connection:
+    with closing(sqlite3.connect(real_database_path)) as connection:
         assert connection.execute("SELECT COUNT(*) FROM workflow_definitions").fetchone()[0] > 0

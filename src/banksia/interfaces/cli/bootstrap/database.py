@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import sqlite3
 import stat
+from contextlib import closing
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -368,7 +369,7 @@ def _read_sqlite_controller_task_roots(database_path: Path) -> tuple[str, ...]:
     if not database_path.exists():
         return ()
     try:
-        with sqlite3.connect(database_path) as connection:
+        with closing(sqlite3.connect(database_path)) as connection:
             table_exists = connection.execute(
                 "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'tasks'"
             ).fetchone()

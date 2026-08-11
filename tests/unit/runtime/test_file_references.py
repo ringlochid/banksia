@@ -47,6 +47,8 @@ def test_physical_file_reference_validation_rejects_non_regular_targets(
     if target_kind == "directory":
         target.mkdir()
     elif target_kind == "fifo":
+        if not hasattr(os, "mkfifo"):
+            pytest.skip("FIFO files are not available on Windows")
         os.mkfifo(target)
 
     with pytest.raises(RuntimeOperationError, match=r"does not exist|not a regular file"):

@@ -31,6 +31,9 @@ from banksia.operator.provider import (
 from banksia.operator.tools import OperatorTool, OperatorToolName
 from banksia.operator.tools.contracts import MAX_OPERATOR_TOOL_RESULT_UTF16_CODE_UNITS
 
+TEST_DRIVE_ROOT = Path(Path.cwd().anchor)
+TEST_AMBIENT_SKILL_PATH = str(TEST_DRIVE_ROOT / "opt" / "codex" / "skills" / "ambient" / "SKILL.md")
+
 
 class _ToolInput(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -73,7 +76,7 @@ class FakeCodexClient:
         instruction_sources: tuple[str, ...] = (),
         runtime_workspace_roots: tuple[str, ...] = (),
         skill_errors: tuple[object, ...] = (),
-        skill_paths: tuple[str, ...] = ("/opt/codex/skills/ambient/SKILL.md",),
+        skill_paths: tuple[str, ...] = (TEST_AMBIENT_SKILL_PATH,),
         thread_cwd: str | None = None,
         active_mcp: tuple[object, ...] = (),
         server_requests: tuple[tuple[str, JsonObject | None], ...] = (),

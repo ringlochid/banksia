@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import pytest
 
+from banksia.platform.workspace_files import PrivatePathError
 from banksia.runtime.command_run.task_paths import (
     close_command_working_directory,
     open_stable_command_working_directory,
@@ -28,9 +28,14 @@ def test_stable_command_working_directory_keeps_admitted_identity(
     admitted.rename(moved)
     admitted.symlink_to(outside, target_is_directory=True)
     try:
-        admitted_metadata = os.fstat(working_directory.descriptor)
-        assert os.path.samestat(admitted_metadata, moved.stat())
-        assert not os.path.samestat(admitted_metadata, outside.stat())
+        moved_directory = open_stable_command_working_directory(workspace, moved.name)
+        outside_directory = open_stable_command_working_directory(tmp_path, outside.name)
+        try:
+            assert working_directory.directory.identity == moved_directory.directory.identity
+            assert working_directory.directory.identity != outside_directory.directory.identity
+        finally:
+            close_command_working_directory(moved_directory)
+            close_command_working_directory(outside_directory)
     finally:
         close_command_working_directory(working_directory)
 
@@ -44,7 +49,7 @@ def test_stable_command_working_directory_rejects_symlink_component(
     outside.mkdir()
     (workspace / "linked").symlink_to(outside, target_is_directory=True)
 
-    with pytest.raises(NotADirectoryError):
+    with pytest.raises((NotADirectoryError, PrivatePathError)):
         open_stable_command_working_directory(
             workspace,
             "linked",
@@ -69,9 +74,10 @@ def test_stable_command_working_directory_accepts_workspace_root(tmp_path: Path)
 
     working_directory = open_stable_command_working_directory(workspace, ".")
     try:
-        assert os.path.samestat(
-            os.fstat(working_directory.descriptor),
-            workspace.stat(),
-        )
+        reopened = open_stable_command_working_directory(workspace, ".")
+        try:
+            assert working_directory.directory.identity == reopened.directory.identity
+        finally:
+            close_command_working_directory(reopened)
     finally:
         close_command_working_directory(working_directory)

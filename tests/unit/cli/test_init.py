@@ -130,7 +130,10 @@ def test_noninteractive_force_preserves_then_replaces_default_workspace(
     preserved_workspace.mkdir()
     replacement_workspace.mkdir()
     config_path.write_text(
-        (f'[paths]\ndata_dir = "{data_dir}"\nworkspace = "{preserved_workspace}"\n'),
+        (
+            f"[paths]\ndata_dir = {json.dumps(str(data_dir))}\n"
+            f"workspace = {json.dumps(str(preserved_workspace))}\n"
+        ),
         encoding="utf-8",
     )
     runner = CliRunner()
@@ -174,7 +177,10 @@ def test_noninteractive_force_rejects_invalid_preserved_workspace_without_rewrit
     data_dir = tmp_path / "data"
     invalid_workspace = tmp_path / "missing-workspace"
     config_path.write_text(
-        (f'[paths]\ndata_dir = "{data_dir}"\nworkspace = "{invalid_workspace}"\n'),
+        (
+            f"[paths]\ndata_dir = {json.dumps(str(data_dir))}\n"
+            f"workspace = {json.dumps(str(invalid_workspace))}\n"
+        ),
         encoding="utf-8",
     )
     previous_bytes = config_path.read_bytes()

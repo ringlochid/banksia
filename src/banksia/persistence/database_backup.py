@@ -4,6 +4,7 @@ import os
 import shutil
 import sqlite3
 import subprocess
+from contextlib import closing
 from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
@@ -29,8 +30,8 @@ def create_sqlite_backup(database_path: Path, *, operation: str) -> Path:
     backup_path.touch(mode=0o600, exist_ok=False)
     try:
         with (
-            sqlite3.connect(database_path) as source,
-            sqlite3.connect(backup_path) as target,
+            closing(sqlite3.connect(database_path)) as source,
+            closing(sqlite3.connect(backup_path)) as target,
         ):
             source.backup(target)
             integrity_result = target.execute("PRAGMA integrity_check").fetchone()

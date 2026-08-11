@@ -7,17 +7,22 @@ import pytest
 
 from banksia.operator.provider import OperatorProviderUnavailableError
 from tests.unit.integrations.codex.codex_test_support import (
+    TEST_DRIVE_ROOT,
     ClientFactory,
     FakeClientOptions,
     request,
     runner,
 )
 
+_TEST_WORKSPACE = str(TEST_DRIVE_ROOT / "workspace")
+_TEST_INSTRUCTION_SOURCE = str(TEST_DRIVE_ROOT / "workspace" / "AGENTS.md")
+_TEST_ORIGINAL_CWD = str(TEST_DRIVE_ROOT / "tmp" / "banksia-operator-codex-original")
+
 
 @pytest.mark.asyncio
 async def test_codex_operator_cold_resume_uses_effective_not_creation_cwd() -> None:
     factory = ClientFactory(
-        thread_cwd="/tmp/banksia-operator-codex-original",
+        thread_cwd=_TEST_ORIGINAL_CWD,
         thread_id="opaque-codex-thread",
     )
 
@@ -46,11 +51,11 @@ async def test_codex_operator_cold_resume_uses_effective_not_creation_cwd() -> N
             "prove its Skill inventory",
         ),
         (
-            {"instruction_sources": ("/workspace/AGENTS.md",)},
+            {"instruction_sources": (_TEST_INSTRUCTION_SOURCE,)},
             "external instruction source",
         ),
         (
-            {"runtime_workspace_roots": ("/workspace",)},
+            {"runtime_workspace_roots": (_TEST_WORKSPACE,)},
             "runtime workspace roots",
         ),
         (

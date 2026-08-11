@@ -73,6 +73,7 @@ def test_build_parser_supports_baseline_commands() -> None:
     assert set(operator_group.commands) == {"disable", "setup", "status"}
 
 
+@pytest.mark.skipif(os.name == "nt", reason="systemd definitions use POSIX paths")
 def test_render_service_definition_uses_python_module_entrypoint(
     tmp_path: Path,
 ) -> None:
@@ -91,6 +92,7 @@ def test_render_service_definition_uses_python_module_entrypoint(
     assert "EnvironmentFile=" not in rendered
 
 
+@pytest.mark.skipif(os.name == "nt", reason="systemd definitions use POSIX paths")
 def test_render_service_definition_quotes_spaces_and_systemd_specifiers(
     tmp_path: Path,
 ) -> None:

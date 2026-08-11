@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shlex
 from collections.abc import Sequence
 from pathlib import Path
 from typing import NoReturn
@@ -67,7 +68,7 @@ def test_main_directs_schema_mismatch_to_data_preserving_upgrade(
     output = capsys.readouterr().out
     assert result == 1
     assert "Database upgrade required" in output
-    assert f"banksia db upgrade --config {config_path}" in output
+    assert shlex.join(("banksia", "db", "upgrade", "--config", str(config_path))) in output
     assert "db reset` only if you accept deletion" in output
 
 
@@ -89,7 +90,7 @@ def test_service_install_directs_schema_mismatch_to_selected_config_upgrade(
 
     output = capsys.readouterr().out
     assert result == 1
-    upgrade_command = f"banksia db upgrade --config {config_path}"
+    upgrade_command = shlex.join(("banksia", "db", "upgrade", "--config", str(config_path)))
     assert upgrade_command in output
     assert output.index(upgrade_command) < output.index("banksia db reset")
 

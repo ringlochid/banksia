@@ -16,6 +16,7 @@ from banksia.platform.workspace_files.contracts import (
     PrivateMutationTimeoutError,
     PrivatePathError,
 )
+from banksia.platform.workspace_files.posix_leases import require_posix_directory_lease
 from banksia.platform.workspace_files.workspace_posix import PosixWorkspaceFileOperations
 
 _PRIVATE_LOCK_OPEN_ATTEMPTS = 3
@@ -29,7 +30,7 @@ class PosixPrivateFileOperations:
         _open_or_create_directory(path).close()
 
     def protect_path(self, path: Path, *, is_directory: bool) -> None:
-        operations, parent = _open_parent(path)
+        _operations, parent = _open_parent(path)
         try:
             flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | _no_follow_flag()
             if is_directory:
@@ -37,7 +38,7 @@ class PosixPrivateFileOperations:
             descriptor = os.open(
                 path.name,
                 flags,
-                dir_fd=operations.directory_descriptor(parent),
+                dir_fd=require_posix_directory_lease(parent).descriptor,
             )
             try:
                 if is_directory:
@@ -51,12 +52,12 @@ class PosixPrivateFileOperations:
 
     def read_text(self, path: Path) -> str | None:
         try:
-            operations, parent = _open_parent(path)
+            _operations, parent = _open_parent(path)
         except FileNotFoundError:
             return None
         try:
             descriptor = self._open_private_file_for_read(
-                operations.directory_descriptor(parent),
+                require_posix_directory_lease(parent).descriptor,
                 path.name,
             )
             if descriptor is None:
@@ -95,7 +96,7 @@ class PosixPrivateFileOperations:
         operations = PosixWorkspaceFileOperations()
         parent = operations.open_workspace(path.parent)
         descriptor = self._open_private_lock(
-            operations.directory_descriptor(parent),
+            require_posix_directory_lease(parent).descriptor,
             path.name,
         )
         is_locked = False

@@ -62,9 +62,13 @@ def _select_private_file_operations(platform_name: str) -> PrivateFileOperations
         from banksia.platform.workspace_files.posix import PosixPrivateFileOperations
 
         return PosixPrivateFileOperations()
+    if platform_name == "nt":
+        from banksia.platform.workspace_files.windows import WindowsPrivateFileOperations
+
+        return WindowsPrivateFileOperations()
     raise PrivatePathError(
         errno.ENOTSUP,
-        "Banksia private filesystem operations support Linux and macOS only; "
+        "Banksia private filesystem operations support Linux, macOS, and Windows only; "
         f"platform '{platform_name}' is unsupported",
     )
 
@@ -77,9 +81,15 @@ def _select_workspace_file_operations(platform_name: str) -> WorkspaceFileOperat
         )
 
         return PosixWorkspaceFileOperations()
+    if platform_name == "nt":
+        from banksia.platform.workspace_files.workspace_windows import (
+            WindowsWorkspaceFileOperations,
+        )
+
+        return WindowsWorkspaceFileOperations()
     raise PrivatePathError(
         errno.ENOTSUP,
-        "Banksia Task workspace operations support Linux and macOS only; "
+        "Banksia Task workspace operations support Linux, macOS, and Windows only; "
         f"platform '{platform_name}' is unsupported",
     )
 

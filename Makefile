@@ -49,7 +49,7 @@ test-backend-unit: $(PYTHON)
 	PYTHONPATH=$(CURDIR)/src $(PYTEST) tests/unit
 
 test-backend-integration: $(PYTHON)
-	PYTEST_BIN=$(PYTEST) PYTHONPATH=$(CURDIR)/src sh scripts/testing/run_backend_pytest_groups.sh integration
+	PYTHONPATH=$(CURDIR)/src $(PYTHON) -m scripts.testing.run_backend_pytest_groups integration
 
 test-backend-db:
 	@set -eu; \
@@ -61,13 +61,13 @@ test-backend-db:
 	$(TEST_COMPOSE) run --rm -e PYTEST_ADDOPTS backend-test
 
 test-backend-e2e-bounded: $(PYTHON)
-	PYTEST_BIN=$(PYTEST) PYTHONPATH=$(CURDIR)/src sh scripts/testing/run_backend_pytest_groups.sh e2e-bounded
+	PYTHONPATH=$(CURDIR)/src $(PYTHON) -m scripts.testing.run_backend_pytest_groups e2e-bounded
 
 test-backend-e2e-reviewed: $(PYTHON)
-	PYTEST_BIN=$(PYTEST) PYTHONPATH=$(CURDIR)/src sh scripts/testing/run_backend_pytest_groups.sh e2e-reviewed
+	PYTHONPATH=$(CURDIR)/src $(PYTHON) -m scripts.testing.run_backend_pytest_groups e2e-reviewed
 
 test-backend-e2e-staged: $(PYTHON)
-	PYTEST_BIN=$(PYTEST) PYTHONPATH=$(CURDIR)/src sh scripts/testing/run_backend_pytest_groups.sh e2e-staged
+	PYTHONPATH=$(CURDIR)/src $(PYTHON) -m scripts.testing.run_backend_pytest_groups e2e-staged
 
 lint-backend: $(PYTHON)
 	$(RUFF) check src tests

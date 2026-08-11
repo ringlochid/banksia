@@ -16,7 +16,7 @@ def default_config_path() -> Path:
 
 
 def default_database_url(data_dir: Path | None = None) -> str:
-    return f"sqlite+aiosqlite:///{default_database_path(data_dir)}"
+    return f"sqlite+aiosqlite:///{default_database_path(data_dir).as_posix()}"
 
 
 def ensure_runtime_dirs(

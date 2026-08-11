@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import errno
-import fcntl
 import os
 import secrets
 import stat
@@ -290,9 +289,6 @@ class PosixWorkspaceFileOperations:
             current.close()
             raise
 
-    def directory_descriptor(self, directory: DirectoryLease) -> int:
-        return require_posix_directory_lease(directory).descriptor
-
     def create_output_descriptor(
         self,
         parent: DirectoryLease,
@@ -315,51 +311,6 @@ class PosixWorkspaceFileOperations:
             with suppress(OSError):
                 os.unlink(name, dir_fd=parent_lease.descriptor)
             raise
-
-    def append_text_line_locked(self, path: Path, line: str) -> None:
-        parent, file_name = _open_absolute_parent(path)
-        descriptor: int | None = None
-        is_locked = False
-        try:
-            descriptor = os.open(
-                file_name,
-                _git_file_open_flags(),
-                0o600,
-                dir_fd=parent.descriptor,
-            )
-            metadata = os.fstat(descriptor)
-            if not stat.S_ISREG(metadata.st_mode):
-                raise PrivatePathError(
-                    errno.EINVAL,
-                    "Git exclude path is not a regular file",
-                    path,
-                )
-            fcntl.flock(descriptor, fcntl.LOCK_EX)
-            is_locked = True
-            identity = PosixPathIdentity(metadata.st_dev, metadata.st_ino)
-            _require_child_identity(parent, file_name, identity)
-            current = _read_all(descriptor)
-            encoded = line.encode("utf-8")
-            if encoded in current.splitlines():
-                return
-            separator = b"\n" if current and not current.endswith(b"\n") else b""
-            os.lseek(descriptor, 0, os.SEEK_END)
-            _write_all(descriptor, separator + encoded + b"\n")
-            os.fsync(descriptor)
-            _require_child_identity(parent, file_name, identity)
-        finally:
-            if descriptor is not None:
-                if is_locked:
-                    with suppress(OSError):
-                        fcntl.flock(descriptor, fcntl.LOCK_UN)
-                os.close(descriptor)
-            parent.close()
-
-
-def _open_absolute_parent(path: Path) -> tuple[PosixDirectoryLease, str]:
-    if not path.is_absolute() or path == Path(path.anchor):
-        raise PrivatePathError(errno.EINVAL, "path must name an absolute non-root file", path)
-    return _open_absolute_directory(path.parent), path.name
 
 
 def _open_absolute_directory(path: Path) -> PosixDirectoryLease:
@@ -446,35 +397,6 @@ def _child_matches_lease(
     )
 
 
-def _require_child_identity(
-    parent: PosixDirectoryLease,
-    name: str,
-    identity: PosixPathIdentity,
-) -> None:
-    try:
-        metadata = os.stat(
-            name,
-            dir_fd=parent.descriptor,
-            follow_symlinks=False,
-        )
-    except OSError as exc:
-        raise PrivatePathError(
-            errno.ESTALE,
-            "filesystem entry changed while retained",
-            name,
-        ) from exc
-    if (
-        not stat.S_ISREG(metadata.st_mode)
-        or metadata.st_dev != identity.device
-        or metadata.st_ino != identity.inode
-    ):
-        raise PrivatePathError(
-            errno.ESTALE,
-            "filesystem entry changed while retained",
-            name,
-        )
-
-
 def _reject_unsafe_replace_target(
     parent: PosixDirectoryLease,
     name: str,
@@ -519,25 +441,6 @@ def _read_bounded(descriptor: int, byte_limit: int) -> bytes:
     return bytes(payload)
 
 
-def _read_all(descriptor: int) -> bytes:
-    os.lseek(descriptor, 0, os.SEEK_SET)
-    payload = bytearray()
-    while True:
-        chunk = os.read(descriptor, _READ_CHUNK_BYTES)
-        if not chunk:
-            return bytes(payload)
-        payload.extend(chunk)
-
-
-def _write_all(descriptor: int, payload: bytes) -> None:
-    remaining = memoryview(payload)
-    while remaining:
-        written = os.write(descriptor, remaining)
-        if written <= 0:
-            raise OSError(errno.EIO, "filesystem write made no progress")
-        remaining = remaining[written:]
-
-
 def _directory_open_flags() -> int:
     return os.O_RDONLY | os.O_DIRECTORY | _no_follow_flag() | getattr(os, "O_CLOEXEC", 0)
 
@@ -550,16 +453,6 @@ def _regular_file_open_flags() -> int:
 
 def _file_create_flags() -> int:
     return os.O_WRONLY | os.O_CREAT | os.O_EXCL | _no_follow_flag() | getattr(os, "O_CLOEXEC", 0)
-
-
-def _git_file_open_flags() -> int:
-    return (
-        os.O_RDWR
-        | os.O_CREAT
-        | _no_follow_flag()
-        | getattr(os, "O_CLOEXEC", 0)
-        | getattr(os, "O_NONBLOCK", 0)
-    )
 
 
 def _no_follow_flag() -> int:

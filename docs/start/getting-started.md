@@ -7,11 +7,11 @@ Install Banksia, configure an AI provider, and complete a first developer or res
 You need:
 
 - Python 3.12 or newer;
-- Linux or macOS; WSL2 uses the Linux path;
+- Linux, macOS 13+, or Windows 11 x64; WSL2 uses the Linux path;
 - an existing project or research directory for the team's workspace; and
 - a Codex or Claude account and authentication path.
 
-Native Windows is not currently supported.
+Native Windows requires a local NTFS workspace. UNC/network paths, device paths, non-NTFS volumes, and paths traversing reparse points reject at admission rather than weakening filesystem safety.
 
 ## Install Banksia
 
@@ -127,7 +127,7 @@ banksia service install
 banksia service status
 ```
 
-Banksia uses a systemd user service on Linux and a current-user LaunchAgent on macOS.
+Banksia uses a systemd user service on Linux, a current-user LaunchAgent on macOS, and a least-privilege current-user Scheduled Task on Windows.
 
 ## Complete a developer run
 

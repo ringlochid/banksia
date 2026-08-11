@@ -48,7 +48,7 @@ services:
         command:
             - sh
             - -c
-            - BANKSIA_DATABASE_URL="$$BANKSIA_TEST_POSTGRES_URL" python -m banksia db upgrade && exec sh /app/scripts/testing/run_backend_pytest_groups.sh integration
+            - BANKSIA_DATABASE_URL="$$BANKSIA_TEST_POSTGRES_URL" python -m banksia db upgrade && exec python -m scripts.testing.run_backend_pytest_groups integration
 
 volumes:
     banksia-postgres:

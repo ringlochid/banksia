@@ -1,7 +1,11 @@
 from __future__ import annotations
 
-import pytest
+from pathlib import Path
 
+import pytest
+from sqlalchemy.engine import make_url
+
+from banksia.paths import default_database_path, default_database_url
 from banksia.platform.workspace_files import (
     PrivatePathError,
     select_workspace_file_operations,
@@ -12,5 +16,15 @@ def test_workspace_backend_selection_has_no_unsupported_fallback() -> None:
     assert (
         type(select_workspace_file_operations("posix")).__name__ == "PosixWorkspaceFileOperations"
     )
-    with pytest.raises(PrivatePathError, match="Linux and macOS only"):
-        select_workspace_file_operations("nt")
+    assert type(select_workspace_file_operations("nt")).__name__ == "WindowsWorkspaceFileOperations"
+    with pytest.raises(PrivatePathError, match="Linux, macOS, and Windows only"):
+        select_workspace_file_operations("unsupported")
+
+
+def test_default_sqlite_url_uses_sqlalchemy_portable_path(
+    tmp_path: Path,
+) -> None:
+    url = make_url(default_database_url(tmp_path))
+
+    assert url.drivername == "sqlite+aiosqlite"
+    assert url.database == default_database_path(tmp_path).as_posix()

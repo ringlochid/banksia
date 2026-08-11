@@ -16,7 +16,7 @@
 
 ## Install and start
 
-Banksia requires Python 3.12 or newer and currently supports Linux and macOS. Install the command-line application in an isolated environment with [pipx](https://pipx.pypa.io/stable/):
+Banksia requires Python 3.12 or newer and supports Linux, macOS 13+, and Windows 11 x64. Install the command-line application in an isolated environment with [pipx](https://pipx.pypa.io/stable/):
 
 ```bash
 pipx install banksia
@@ -110,7 +110,7 @@ Banksia is best suited to complex developer and researcher work on a trusted loc
 
 Codex and Claude are managed providers. Trusted full-access Task Members can use enabled user and project Skills plus configured MCP servers from those providers; narrower execution is isolated automatically, and Operator always stays isolated. Banksia does not yet define, install, or manage Skills, MCP servers, or general plugins itself.
 
-Native Windows is not currently supported; WSL2 uses the Linux path. Distributed delivery, broad multi-user operation, and per-Member isolated workspaces are outside the current product boundary.
+Native Windows uses local NTFS workspaces and a current-user Scheduled Task for background service operation; WSL2 uses the Linux path. UNC/network workspaces, distributed delivery, broad multi-user operation, and per-Member isolated workspaces are outside the current product boundary.
 
 ## Documentation
 

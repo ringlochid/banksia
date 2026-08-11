@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import sys
 from pathlib import Path
 from typing import cast
@@ -30,6 +31,7 @@ from tests.helpers.executor_harness import (
 from tests.helpers.lineage_seed import RuntimeIds
 
 
+@pytest.mark.skipif(os.name != "posix", reason="POSIX retained-cwd substitution proof")
 async def test_process_owner_launches_in_admitted_directory_after_path_substitution(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

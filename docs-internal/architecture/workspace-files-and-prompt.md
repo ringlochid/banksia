@@ -28,13 +28,13 @@ Full native access is the baseline default. Concurrent agents can see and change
 
 ## Native filesystem safety
 
-One POSIX path grammar and result contract serves Linux and macOS. Paths are slash-separated and workspace-relative; drive, UNC, absolute, empty, `.`, `..`, NUL, backslash aliases, symbolic-link components, and special files reject. Workspace identity is captured and rechecked before controller mutation.
+One portable logical path grammar and result contract serves Linux, macOS, and Windows. Referenced paths are slash-separated and workspace-relative; drive, UNC, absolute, empty, `.`, `..`, NUL, backslash aliases, symbolic-link or reparse-point components, and special files reject. Workspace identity is captured and rechecked before controller mutation.
 
-Linux and macOS use descriptor-relative `openat`-style traversal with `O_NOFOLLOW`, directory descriptors, stable device/inode identity, exclusive creation, and atomic replacement. Native Windows controller/runtime support is deferred; WSL2 uses this Linux boundary.
+Linux and macOS use descriptor-relative `openat`-style traversal with `O_NOFOLLOW`, directory descriptors, stable device/inode identity, exclusive creation, and atomic replacement. Windows uses handle-relative NT native opens, reparse-point rejection, volume/file identity, exclusive creation, and replacement under a retained parent handle. It admits only local absolute NTFS paths; UNC, network, device, and non-NTFS paths reject. WSL2 uses the Linux boundary.
 
 The backend API is narrow: capture/recheck directory identity, open a safe child, create exclusively, replace atomically, read a bounded regular file, and remove only a controller-proven tree. Raw descriptors do not escape into Task or product contracts. A filesystem that cannot prove the required identity, no-follow, exclusive-create, and access-control properties fails admission with a human recovery action.
 
-Banksia applies private permissions only to its own config/data/secret and Task-directory content, never to the user's whole workspace. Linux uses owner-only modes and ownership verification. macOS additionally rejects or removes inherited ACL entries on newly created Banksia-owned private paths.
+Banksia applies private permissions only to its own config/data/secret and Task-directory content, never to the user's whole workspace. Linux uses owner-only modes and ownership verification. macOS additionally rejects or removes inherited ACL entries on newly created Banksia-owned private paths. Windows applies and verifies a protected DACL granting only the current user and LocalSystem.
 
 ## What belongs where
 

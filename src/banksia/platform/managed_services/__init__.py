@@ -24,6 +24,12 @@ from .launchd import (
     render_launch_agent_plist,
 )
 from .manager_selection import get_managed_service_manager
+from .scheduled_tasks import (
+    SCHEDULED_TASK_MANAGER_NAME,
+    SCHEDULED_TASK_SERVICE_NAME,
+    ScheduledTaskUserServiceManager,
+    render_scheduled_task_xml,
+)
 from .service_logs import (
     SERVICE_LOG_LINE_LIMIT,
     configure_service_logging,
@@ -44,6 +50,8 @@ from .systemd import (
 __all__ = [
     "LAUNCHD_MANAGER_NAME",
     "LAUNCHD_SERVICE_NAME",
+    "SCHEDULED_TASK_MANAGER_NAME",
+    "SCHEDULED_TASK_SERVICE_NAME",
     "SERVICE_LOG_LINE_LIMIT",
     "SYSTEMD_MANAGER_NAME",
     "SYSTEMD_SERVICE_NAME",
@@ -58,6 +66,7 @@ __all__ = [
     "ManagedServiceResult",
     "ManagedServiceStartupState",
     "ManagedServiceTarget",
+    "ScheduledTaskUserServiceManager",
     "SystemdUserServiceManager",
     "build_managed_service_result",
     "configure_service_logging",
@@ -70,6 +79,7 @@ __all__ = [
     "probe_controller_state",
     "read_service_log_tail",
     "render_launch_agent_plist",
+    "render_scheduled_task_xml",
     "render_systemd_service_unit",
     "wait_for_controller_state",
 ]

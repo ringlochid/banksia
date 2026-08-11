@@ -58,7 +58,7 @@ path: .banksia/t_7m4k2d9x/artifacts/review-report.md
 description: Independent review and prioritized findings
 ```
 
-`path` is required and `description` is optional. The path must be a normalized workspace-relative POSIX path to an existing regular file. Banksia rejects:
+`path` is required and `description` is optional. The path must use Banksia's normalized, slash-separated workspace-relative grammar and identify an existing regular file. This same logical grammar is used on Linux, macOS, and Windows. Banksia rejects:
 
 - absolute paths, drive or URI prefixes, backslashes, `..`, and glob syntax;
 - duplicate normalized paths in one owning message;

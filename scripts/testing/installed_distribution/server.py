@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import signal
 import subprocess
@@ -124,7 +125,7 @@ def run_installed_server_smoke(
         raise RuntimeError(
             f"installed `banksia serve` did not become healthy\nserver output:\n{output[-4000:]}"
         ) from failure
-    accepted_shutdown_codes = {0, -signal.SIGTERM}
+    accepted_shutdown_codes = {0, 1} if os.name == "nt" else {0, -signal.SIGTERM}
     if return_code not in accepted_shutdown_codes:
         raise RuntimeError(
             f"installed `banksia serve` exited with {return_code} after shutdown\n"

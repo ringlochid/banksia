@@ -20,6 +20,49 @@ from tests.helpers.sqlite_runtime import (
 from .cli_test_support import assert_seeded_registry_is_bootstrapped, build_cli_init_args
 
 
+def _assert_upgraded_runtime_rows(database_path: Path, *, task_id: str, attempt_id: str) -> None:
+    with sqlite3.connect(database_path) as connection:
+        attempt_columns = {
+            str(row[1]) for row in connection.execute('PRAGMA table_info("attempts")')
+        }
+        assert "watchdog_replacement_count" in attempt_columns
+        assert connection.execute(
+            "SELECT watchdog_replacement_count FROM attempts WHERE attempt_id = ?",
+            (attempt_id,),
+        ).fetchone() == (0,)
+        assert connection.execute(
+            "SELECT COUNT(*) FROM dispatch_turns WHERE task_id = ?",
+            (task_id,),
+        ).fetchone() == (3,)
+        command_run_columns = {
+            str(row[1]): str(row[2])
+            for row in connection.execute('PRAGMA table_info("command_runs")')
+        }
+        assert command_run_columns["terminal_exit_code"] == "INTEGER"
+
+
+def _assert_pre_upgrade_backup(database_path: Path, *, task_id: str) -> None:
+    with sqlite3.connect(database_path) as connection:
+        backup_columns = {
+            str(row[1]) for row in connection.execute('PRAGMA table_info("attempts")')
+        }
+        assert "watchdog_replacement_count" not in backup_columns
+        task_event_sql = connection.execute(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'task_events'"
+        ).fetchone()
+        assert task_event_sql is not None
+        assert "member_steered" not in str(task_event_sql[0])
+        assert connection.execute(
+            "SELECT COUNT(*) FROM dispatch_turns WHERE task_id = ?",
+            (task_id,),
+        ).fetchone() == (3,)
+        command_run_columns = {
+            str(row[1]): str(row[2])
+            for row in connection.execute('PRAGMA table_info("command_runs")')
+        }
+        assert command_run_columns["terminal_exit_code"] == "INTEGER"
+
+
 @pytest.mark.asyncio
 async def test_db_reset_recreates_sqlite_database(tmp_path: Path) -> None:
     config_path = tmp_path / "banksia-config.toml"
@@ -125,6 +168,14 @@ async def test_db_upgrade_preserves_sqlite_runtime_rows_and_creates_backup(
         table_name="task_events",
         transform=lambda ddl: ddl.replace(", 'member_steered'", ""),
     )
+    rewrite_sqlite_table_preserving_rows(
+        database_path,
+        table_name="command_runs",
+        transform=lambda ddl: ddl.replace(
+            "terminal_exit_code BIGINT",
+            "terminal_exit_code INTEGER",
+        ),
+    )
     config_path.write_text(
         "\n".join(
             (
@@ -150,33 +201,12 @@ async def test_db_upgrade_preserves_sqlite_runtime_rows_and_creates_backup(
     assert result == 0
     backup_paths = tuple(data_dir.glob("banksia.persistence.before-*.backup"))
     assert len(backup_paths) == 1
-    with sqlite3.connect(database_path) as connection:
-        attempt_columns = {
-            str(row[1]) for row in connection.execute('PRAGMA table_info("attempts")')
-        }
-        assert "watchdog_replacement_count" in attempt_columns
-        assert connection.execute(
-            "SELECT watchdog_replacement_count FROM attempts WHERE attempt_id = ?",
-            (ids.root_attempt_id,),
-        ).fetchone() == (0,)
-        assert connection.execute(
-            "SELECT COUNT(*) FROM dispatch_turns WHERE task_id = ?",
-            (ids.task_id,),
-        ).fetchone() == (3,)
-    with sqlite3.connect(backup_paths[0]) as connection:
-        backup_columns = {
-            str(row[1]) for row in connection.execute('PRAGMA table_info("attempts")')
-        }
-        assert "watchdog_replacement_count" not in backup_columns
-        task_event_sql = connection.execute(
-            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'task_events'"
-        ).fetchone()
-        assert task_event_sql is not None
-        assert "member_steered" not in str(task_event_sql[0])
-        assert connection.execute(
-            "SELECT COUNT(*) FROM dispatch_turns WHERE task_id = ?",
-            (ids.task_id,),
-        ).fetchone() == (3,)
+    _assert_upgraded_runtime_rows(
+        database_path,
+        task_id=ids.task_id,
+        attempt_id=ids.root_attempt_id,
+    )
+    _assert_pre_upgrade_backup(backup_paths[0], task_id=ids.task_id)
 
 
 @pytest.mark.asyncio

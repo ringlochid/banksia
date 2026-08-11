@@ -7,6 +7,7 @@ import sys
 from contextlib import suppress
 from pathlib import Path
 
+from banksia.platform.workspace_files.posix_leases import require_posix_directory_lease
 from banksia.runtime.command_run.task_paths import StableCommandWorkingDirectory
 from banksia.runtime.command_run.transitions import CommandRunLaunchClaim
 from banksia.runtime.contracts import CommandArgvSpec, CommandShellSpec
@@ -84,6 +85,7 @@ async def spawn_posix_guardian_process(
     if os.name != "posix":
         raise OSError(errno.ENOTSUP, "POSIX command supervision is unavailable")
 
+    directory_descriptor = require_posix_directory_lease(working_directory.directory).descriptor
     control_read, control_write = os.pipe()
     status_read, status_write = os.pipe()
     process: asyncio.subprocess.Process | None = None
@@ -92,13 +94,13 @@ async def spawn_posix_guardian_process(
             process = await asyncio.create_subprocess_exec(
                 sys.executable,
                 str(_GUARDIAN_PATH),
-                str(working_directory.descriptor),
+                str(directory_descriptor),
                 str(control_read),
                 str(status_write),
                 *_guardian_command_arguments(claim),
                 env=environment,
                 pass_fds=(
-                    working_directory.descriptor,
+                    directory_descriptor,
                     control_read,
                     status_write,
                 ),

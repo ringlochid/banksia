@@ -33,6 +33,7 @@ dependencies = [
   "aiosqlite>=0.21.0,<1.0.0",
   "openai-codex==0.144.4",
   "claude-agent-sdk==0.2.128",
+  "pywin32==312; sys_platform == 'win32'",
 ]
 
 [project.optional-dependencies]
@@ -47,6 +48,7 @@ dev = [
   "ruff>=0.11.5,<1.0.0",
   "mypy>=1.15.0,<2.0.0",
   "types-PyYAML>=6.0.12.20250326,<7.0.0",
+  "types-pywin32==312.0.0.20260724",
   "asyncpg>=0.30.0,<1.0.0",
 ]
 

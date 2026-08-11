@@ -35,10 +35,20 @@ class StableCommandWorkingDirectory:
         object.__setattr__(self, "_directory", directory)
 
     @property
-    def descriptor(self) -> int:
-        """Return the guardian descriptor on a POSIX host."""
+    def directory(self) -> DirectoryLease:
+        """Return the retained native directory authority to the selected launcher."""
 
-        return select_workspace_file_operations().directory_descriptor(self._directory)
+        return self._directory
+
+    @property
+    def descriptor(self) -> int:
+        """Return the retained POSIX descriptor for the POSIX guardian."""
+
+        from banksia.platform.workspace_files.posix_leases import (
+            require_posix_directory_lease,
+        )
+
+        return require_posix_directory_lease(self._directory).descriptor
 
     def close(self) -> None:
         self._directory.close()

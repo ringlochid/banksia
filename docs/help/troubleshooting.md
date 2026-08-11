@@ -211,7 +211,7 @@ Check `output_complete`, `is_missing`, `is_changed`, and `is_bounded` before int
 
 ## The background service is not ready
 
-**Meaning.** The native per-user definition may be absent, stopped, out of date, or running while the controller cannot pass readiness. Banksia uses a systemd user service on Linux and a current-user LaunchAgent on macOS.
+**Meaning.** The native per-user definition may be absent, stopped, out of date, or running while the controller cannot pass readiness. Banksia uses a systemd user service on Linux, a current-user LaunchAgent on macOS, and a current-user Scheduled Task on Windows.
 
 **Safe checks.**
 
@@ -237,7 +237,7 @@ Re-running install reconciles the fixed native definition with the selected conf
 
 **Controller truth.** A native process state is not the same as controller readiness. A restart recovers committed controller work through ordinary startup recovery; it does not replay work merely from a log or process record.
 
-**Report a defect when.** A current definition cannot be reinstalled idempotently, status reports ready while `/readyz` fails, uninstall removes persistent settings, or the portable CLI requires direct systemd or launchd commands. Include redacted `service status --json`, bounded service logs, platform, and Banksia version.
+**Report a defect when.** A current definition cannot be reinstalled idempotently, status reports ready while `/readyz` fails, uninstall removes persistent settings, or the portable CLI requires direct systemd, launchd, or `schtasks` commands. Include redacted `service status --json`, bounded service logs, platform, and Banksia version.
 
 ## A provider stopped or a run appears stuck
 

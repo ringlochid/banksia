@@ -77,7 +77,7 @@ body:
         - Linux
         - macOS
         - WSL2
-        - Native Windows (not currently supported)
+        - Windows 11 x64
         - Other
     validations:
       required: true

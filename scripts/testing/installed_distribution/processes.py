@@ -84,6 +84,14 @@ def isolated_environment(home: Path) -> dict[str, str]:
             "XDG_STATE_HOME": str(home / "state"),
         }
     )
+    if os.name == "nt":
+        environment.update(
+            {
+                "APPDATA": str(home / "config"),
+                "LOCALAPPDATA": str(home / "data"),
+                "USERPROFILE": str(home),
+            }
+        )
     return environment
 
 

@@ -329,7 +329,10 @@ def _metadata_column_signatures(
 
 def _type_signature(connection: Connection, column_type: TypeEngine[Any]) -> str:
     compiled = str(column_type.compile(dialect=connection.dialect))
-    return re.sub(r"\s+", " ", compiled.strip()).upper()
+    signature = re.sub(r"\s+", " ", compiled.strip()).upper()
+    if connection.dialect.name == "sqlite" and signature in {"BIGINT", "INTEGER"}:
+        return "INTEGER"
+    return signature
 
 
 def _metadata_default(connection: Connection, column: Column[object]) -> str | None:

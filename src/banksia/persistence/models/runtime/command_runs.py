@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     JSON,
+    BigInteger,
     Boolean,
     CheckConstraint,
     ForeignKey,
@@ -167,7 +168,7 @@ class CommandRunModel(RuntimeBase):
         nullable=True,
     )
     terminal_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
-    terminal_exit_code: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    terminal_exit_code: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     terminal_failure_code: Mapped[str | None] = mapped_column(String(255), nullable=True)
     terminal_event_source: Mapped[str | None] = mapped_column(String(64), nullable=True)
     terminal_actor_ref: Mapped[str | None] = mapped_column(String(255), nullable=True)

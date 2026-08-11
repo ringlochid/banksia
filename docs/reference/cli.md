@@ -239,8 +239,9 @@ Banksia selects one native current-user manager:
 | --- | --- |
 | Linux | systemd user service |
 | macOS | current-user LaunchAgent |
+| Windows | current-user Scheduled Task (`\Banksia\Controller`) |
 
-Native Windows controller/runtime support is deferred. WSL2 uses the Linux lane.
+Native Windows requires Windows 11 x64 and local NTFS configuration, data, workspace, and Command Run paths. UNC/network, device, non-NTFS, and reparse-point paths reject. WSL2 uses the Linux lane.
 
 `service install` verifies the selected configuration and exact database schema, creates the private sibling `banksia.env` when needed, atomically reconciles the fixed native definition, enables startup, and starts it unless `--no-start` is supplied. Re-running install reconciles an outdated definition. A schema mismatch stops before service changes and directs you to run `banksia db upgrade` with the same `--config` before considering reset.
 

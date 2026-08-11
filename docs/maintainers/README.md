@@ -146,7 +146,7 @@ Live provider proof tests the provider/package/HTTP seam, not the full Starter c
 
 Larger Starter journeys, including `production-feature-delivery` and `deep-research-and-decision-brief`, belong to deterministic catalog, runtime, and static proof. They still require their distinct responsibility, review, file-reference, and exact-Result oracles, but they are not live-provider release probes. `make package-verify` remains the complete disposable installed-distribution proof; do not expand it into an expensive catalog journey.
 
-Provider proof must use configured shipped Codex and Claude paths when the release claims them. Browser proof needs installed Playwright dependencies. PostgreSQL proof needs the repository Docker Compose environment. Service installation needs a supported Linux user-service environment.
+Provider proof must use configured shipped Codex and Claude paths when the release claims them. Browser proof needs installed Playwright dependencies. PostgreSQL proof needs the repository Docker Compose environment. Service installation needs the native disposable lane for the claimed host. The Windows Actions workflow owns native NTFS, DACL, Job Object, Scheduled Task, SQLite, package, and installed-distribution proof; GitHub-hosted Windows jobs do not provide PostgreSQL service containers.
 
 If an external prerequisite is unavailable, record the exact command, missing environment, affected claim, and owner. Inspected code is not executed proof, and an unavailable lane is not silently green.
 

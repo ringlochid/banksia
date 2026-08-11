@@ -1,0 +1,128 @@
+name: Windows compatibility
+
+on:
+    pull_request:
+    push:
+        branches:
+            - main
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+concurrency:
+    group: windows-${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    backend:
+        runs-on: windows-2025
+        timeout-minutes: 60
+
+        steps:
+            - name: Check out repository
+              uses: actions/checkout@v7
+              with:
+                  persist-credentials: false
+
+            - name: Set up Python
+              uses: actions/setup-python@v7
+              with:
+                  python-version: "3.13"
+
+            - name: Set up Node
+              uses: actions/setup-node@v6
+              with:
+                  node-version: "22.22.0"
+                  cache: npm
+                  cache-dependency-path: console/package-lock.json
+
+            - name: Install backend dependencies
+              shell: pwsh
+              run: |
+                  python -m venv .venv
+                  .\.venv\Scripts\python -m pip install --upgrade pip
+                  .\.venv\Scripts\python -m pip install --upgrade -e ".[dev]"
+
+            - name: Run backend static checks
+              shell: pwsh
+              run: |
+                  .\.venv\Scripts\python -m ruff check src tests scripts/testing
+                  $env:MYPYPATH = "src;."
+                  .\.venv\Scripts\python -m mypy src tests scripts/testing
+                  npx --yes pyright
+
+            - name: Run backend unit tests
+              shell: pwsh
+              run: |
+                  $env:PYTHONPATH = "src"
+                  .\.venv\Scripts\python -m pytest tests/unit -q
+
+            - name: Run SQLite and runtime integration tests
+              shell: pwsh
+              run: |
+                  $env:PYTHONPATH = "src"
+                  .\.venv\Scripts\python -m scripts.testing.run_backend_pytest_groups integration
+
+            - name: Run deterministic backend end-to-end tests
+              shell: pwsh
+              run: |
+                  $env:PYTHONPATH = "src"
+                  .\.venv\Scripts\python -m scripts.testing.run_backend_pytest_groups e2e-all
+
+            - name: Run documentation gates
+              shell: pwsh
+              run: |
+                  .\.venv\Scripts\python -m scripts.docs.format_markdown --check
+                  .\.venv\Scripts\python -m scripts.docs.docs_contract.cli validate
+                  $env:PYTHONPATH = "src"
+                  .\.venv\Scripts\python -m scripts.docs.prompt_catalog.cli validate
+                  .\.venv\Scripts\python -m pytest tests/unit/test_docs_contract.py tests/unit/test_workflow_fixture_contract.py tests/unit/test_prompt_catalog_tooling.py -q
+
+            - name: Build Console and package artifacts
+              shell: pwsh
+              run: |
+                  npm --prefix console ci
+                  npm --prefix console run build
+                  Remove-Item -Recurse -Force src\banksia\interfaces\web_console\assets -ErrorAction SilentlyContinue
+                  New-Item -ItemType Directory -Force src\banksia\interfaces\web_console\assets | Out-Null
+                  Copy-Item -Recurse console\dist\* src\banksia\interfaces\web_console\assets\
+                  Copy-Item console\LICENSE src\banksia\interfaces\web_console\assets\LICENSE.txt
+                  Copy-Item console\NOTICE src\banksia\interfaces\web_console\assets\NOTICE.txt
+                  Remove-Item -Recurse -Force dist -ErrorAction SilentlyContinue
+                  .\.venv\Scripts\python -m build
+
+            - name: Verify installed Windows distribution and service lifecycle
+              shell: pwsh
+              run: |
+                  $workspace = Join-Path $env:RUNNER_TEMP "banksia-installed"
+                  New-Item -ItemType Directory -Force $workspace | Out-Null
+                  $env:PYTHONPATH = "src"
+                  .\.venv\Scripts\python -m scripts.testing.verify_installed_distribution --dist-dir dist --workspace $workspace
+
+    python-edges:
+        runs-on: windows-2025
+        timeout-minutes: 30
+        strategy:
+            fail-fast: false
+            matrix:
+                python-version: ["3.12", "3.14"]
+
+        steps:
+            - name: Check out repository
+              uses: actions/checkout@v7
+              with:
+                  persist-credentials: false
+
+            - name: Set up Python ${{ matrix.python-version }}
+              uses: actions/setup-python@v7
+              with:
+                  python-version: ${{ matrix.python-version }}
+
+            - name: Install and exercise Windows platform seams
+              shell: pwsh
+              run: |
+                  python -m pip install --upgrade pip
+                  python -m pip install -e ".[dev]"
+                  $env:PYTHONPATH = "src"
+                  python -m pytest tests/unit/platform tests/unit/test_config.py -q

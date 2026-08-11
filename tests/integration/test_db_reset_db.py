@@ -290,7 +290,7 @@ def test_db_reset_rejects_symlinked_controller_task_root_before_destruction(
     )
 
     assert result.returncode != 0
-    assert "symlinked controller task root" in (result.stderr + result.stdout)
+    assert "linked or replaced controller task root" in (result.stderr + result.stdout)
     assert linked_task_root.is_symlink()
     assert external_task_root.is_dir()
     with sqlite3.connect(database_path) as connection:
@@ -333,7 +333,7 @@ def test_db_reset_rejects_symlinked_task_root_ancestor_before_destruction(
     )
 
     assert result.returncode != 0
-    assert "symlinked controller task-root ancestor" in (result.stderr + result.stdout)
+    assert "linked or replaced controller task-root ancestor" in (result.stderr + result.stdout)
     assert linked_task_parent.is_symlink()
     assert real_task_root.is_dir()
     with sqlite3.connect(database_path) as connection:

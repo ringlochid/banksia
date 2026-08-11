@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -64,6 +65,12 @@ def verify_user_service_installer(
     workspace: Path,
     dependency_site_packages: Path,
 ) -> dict[str, object]:
+    if os.name == "nt":
+        return verify_windows_user_service_installer(
+            wheel_path=wheel_path,
+            workspace=workspace,
+            dependency_site_packages=dependency_site_packages,
+        )
     context, legacy_state = prepare_service_probe(
         workspace=workspace,
         dependency_site_packages=dependency_site_packages,
@@ -86,6 +93,85 @@ def verify_user_service_installer(
         "config_preserved": True,
         "provider_environment_preserved": True,
         "legacy_state_untouched": True,
+    }
+
+
+def verify_windows_user_service_installer(
+    *,
+    wheel_path: Path,
+    workspace: Path,
+    dependency_site_packages: Path,
+) -> dict[str, object]:
+    install_root = workspace / "windows-installer"
+    home = install_root / "home"
+    data_dir = home / "data" / "banksia"
+    config_path = home / "config" / "banksia" / "config.toml"
+    venv_path = install_root / "venv"
+    install_root.mkdir(parents=True, exist_ok=True)
+    create_offline_venv(venv_path, dependency_site_packages)
+    install_wheel(venv_path, wheel_path, install_root)
+    executable = venv_executable(venv_path, "banksia")
+    env = isolated_environment(home)
+    port = available_loopback_port()
+    initialization = run_json_command(
+        executable,
+        (
+            "init",
+            "--non-interactive",
+            "--config",
+            str(config_path),
+            "--data-dir",
+            str(data_dir),
+            "--workspace",
+            str(install_root),
+            "--port",
+            str(port),
+            "--json",
+        ),
+        cwd=install_root,
+        env=env,
+    )
+    installation = run_json_command(
+        executable,
+        (
+            "service",
+            "install",
+            "--config",
+            str(config_path),
+            "--no-start",
+            "--json",
+        ),
+        cwd=install_root,
+        env=env,
+    )
+    try:
+        status = run_json_command(
+            executable,
+            ("service", "status", "--config", str(config_path), "--json"),
+            cwd=install_root,
+            env=env,
+        )
+        if any(
+            payload.get("manager") != "windows-task-scheduler" for payload in (installation, status)
+        ):
+            raise AssertionError(
+                f"installed Windows service returned unexpected data: {installation}, {status}"
+            )
+    finally:
+        uninstall = run_json_command(
+            executable,
+            ("service", "uninstall", "--config", str(config_path), "--json"),
+            cwd=install_root,
+            env=env,
+        )
+    if uninstall.get("installation_state") != "absent":
+        raise AssertionError(f"Windows service uninstall failed: {uninstall}")
+    return {
+        "initialization": initialization,
+        "installation": installation,
+        "status": status,
+        "uninstall": uninstall,
+        "native_task_removed": True,
     }
 
 

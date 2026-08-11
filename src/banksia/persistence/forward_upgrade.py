@@ -17,6 +17,7 @@ MEMBER_STEERING_EVENTS_UPGRADE = "member-steering-events"
 ATTEMPT_WATCHDOG_AND_MEMBER_STEERING_UPGRADE = (
     "attempt-watchdog-replacement-budget-and-member-steering-events"
 )
+COMMAND_EXIT_CODE_WIDTH_UPGRADE = "command-exit-code-width"
 _ATTEMPT_WATCHDOG_PREDECESSOR_DIFFERENCES = frozenset(
     {
         "attempts missing column watchdog_replacement_count",
@@ -28,6 +29,20 @@ _MEMBER_STEERING_EVENT_DIFFERENCES = frozenset(
         "task_events missing or changed check constraint ck_task_events_event_type",
         "task_events unexpected or changed check constraint ck_task_events_event_type",
     }
+)
+_COMMAND_EXIT_CODE_WIDTH_DIFFERENCES = frozenset(
+    {
+        "command_runs changed column terminal_exit_code: expected "
+        "('BIGINT', True, None, None), found ('INTEGER', True, None, None)"
+    }
+)
+_UPGRADE_STEPS = (
+    (
+        ATTEMPT_WATCHDOG_REPLACEMENT_BUDGET_UPGRADE,
+        _ATTEMPT_WATCHDOG_PREDECESSOR_DIFFERENCES,
+    ),
+    (MEMBER_STEERING_EVENTS_UPGRADE, _MEMBER_STEERING_EVENT_DIFFERENCES),
+    (COMMAND_EXIT_CODE_WIDTH_UPGRADE, _COMMAND_EXIT_CODE_WIDTH_DIFFERENCES),
 )
 
 
@@ -60,17 +75,13 @@ def execute_database_upgrade(
                 f"but current schema requires {pending_upgrade!r}"
             ]
         )
-    if pending_upgrade == ATTEMPT_WATCHDOG_REPLACEMENT_BUDGET_UPGRADE:
+    selected_steps = _selected_upgrade_steps(pending_upgrade)
+    if ATTEMPT_WATCHDOG_REPLACEMENT_BUDGET_UPGRADE in selected_steps:
         _add_attempt_watchdog_replacement_budget(connection, schema_name=schema_name)
-    elif pending_upgrade == MEMBER_STEERING_EVENTS_UPGRADE:
+    if MEMBER_STEERING_EVENTS_UPGRADE in selected_steps:
         _upgrade_task_event_type_constraint(connection, schema_name=schema_name)
-    elif pending_upgrade == ATTEMPT_WATCHDOG_AND_MEMBER_STEERING_UPGRADE:
-        _add_attempt_watchdog_replacement_budget(connection, schema_name=schema_name)
-        _upgrade_task_event_type_constraint(connection, schema_name=schema_name)
-    else:
-        raise DatabaseSchemaUpgradeUnavailableError(
-            [f"registered upgrade {pending_upgrade!r} has no implementation"]
-        )
+    if COMMAND_EXIT_CODE_WIDTH_UPGRADE in selected_steps:
+        _upgrade_command_exit_code_width(connection, schema_name=schema_name)
     verify_schema_contract(connection, schema_name)
     return True
 
@@ -84,15 +95,21 @@ def identify_pending_database_upgrade(
     messages = schema_mismatch_messages(connection, schema_name)
     if not messages:
         return None
-    if frozenset(messages) == _ATTEMPT_WATCHDOG_PREDECESSOR_DIFFERENCES:
-        return ATTEMPT_WATCHDOG_REPLACEMENT_BUDGET_UPGRADE
-    if frozenset(messages) == _MEMBER_STEERING_EVENT_DIFFERENCES:
-        return MEMBER_STEERING_EVENTS_UPGRADE
-    if frozenset(messages) == (
-        _ATTEMPT_WATCHDOG_PREDECESSOR_DIFFERENCES | _MEMBER_STEERING_EVENT_DIFFERENCES
-    ):
-        return ATTEMPT_WATCHDOG_AND_MEMBER_STEERING_UPGRADE
+    differences = frozenset(messages)
+    selected = tuple(name for name, owned in _UPGRADE_STEPS if owned <= differences)
+    recognized = frozenset().union(*(owned for name, owned in _UPGRADE_STEPS if name in selected))
+    if selected and differences == recognized:
+        return "-and-".join(selected)
     raise DatabaseSchemaUpgradeUnavailableError(messages)
+
+
+def _selected_upgrade_steps(upgrade: str) -> tuple[str, ...]:
+    selected = tuple(name for name, _differences in _UPGRADE_STEPS if name in upgrade)
+    if not selected or "-and-".join(selected) != upgrade:
+        raise DatabaseSchemaUpgradeUnavailableError(
+            [f"registered upgrade {upgrade!r} has no implementation"]
+        )
+    return selected
 
 
 def _add_attempt_watchdog_replacement_budget(
@@ -174,8 +191,39 @@ def _upgrade_task_event_type_constraint(
 
 
 def _rebuild_sqlite_task_events(connection: Connection) -> None:
-    source = cast(Table, TaskEventModel.__table__)
-    temporary_name = "_banksia_upgrade_task_events"
+    _rebuild_sqlite_table(
+        connection,
+        cast(Table, TaskEventModel.__table__),
+        temporary_name="_banksia_upgrade_task_events",
+    )
+
+
+def _upgrade_command_exit_code_width(
+    connection: Connection,
+    *,
+    schema_name: str | None,
+) -> None:
+    if connection.dialect.name == "postgresql":
+        table_name = _qualified_table_name(
+            connection,
+            schema_name=schema_name,
+            table_name="command_runs",
+        )
+        connection.exec_driver_sql(
+            f"ALTER TABLE {table_name} ALTER COLUMN terminal_exit_code TYPE BIGINT"
+        )
+        return
+    raise DatabaseSchemaUpgradeUnavailableError(
+        [f"database backend {connection.dialect.name!r} has no supported upgrade path"]
+    )
+
+
+def _rebuild_sqlite_table(
+    connection: Connection,
+    source: Table,
+    *,
+    temporary_name: str,
+) -> None:
     metadata = MetaData()
     for table in source.metadata.tables.values():
         if table is not source:
@@ -198,6 +246,7 @@ def _rebuild_sqlite_task_events(connection: Connection) -> None:
 __all__ = [
     "ATTEMPT_WATCHDOG_AND_MEMBER_STEERING_UPGRADE",
     "ATTEMPT_WATCHDOG_REPLACEMENT_BUDGET_UPGRADE",
+    "COMMAND_EXIT_CODE_WIDTH_UPGRADE",
     "MEMBER_STEERING_EVENTS_UPGRADE",
     "DatabaseSchemaUpgradeUnavailableError",
     "execute_database_upgrade",

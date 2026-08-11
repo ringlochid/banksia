@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -161,7 +162,12 @@ def configure_installed_runtime(context: RuntimeProbeContext) -> None:
         cwd=context.cwd,
         env=context.env,
     ).stdout
-    if str(venv_python(context.venv_path)) not in rendered_unit:
+    rendered_interpreter = (
+        venv_python(context.venv_path).with_name("pythonw.exe")
+        if os.name == "nt"
+        else venv_python(context.venv_path)
+    )
+    if str(rendered_interpreter) not in rendered_unit:
         raise AssertionError("installed service template did not use the installed interpreter")
 
 

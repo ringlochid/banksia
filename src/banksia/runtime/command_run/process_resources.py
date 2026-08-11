@@ -61,16 +61,26 @@ async def spawn_command_process(
             working_directory=working_directory,
             environment=environment,
         )
+    if os.name == "nt":
+        from banksia.runtime.command_run.windows_process import (
+            spawn_windows_guardian_process,
+        )
+
+        return await spawn_windows_guardian_process(
+            claim,
+            working_directory=working_directory,
+            environment=environment,
+        )
     raise OSError(
         errno.ENOTSUP,
-        "Banksia Command Run supervision supports Linux and macOS only",
+        "Banksia Command Run supervision supports Linux, macOS, and Windows only",
     )
 
 
 def resolve_command_environment() -> dict[str, str]:
     """Return the controller-owned non-secret baseline environment."""
 
-    allowed_keys = (
+    allowed_keys: tuple[str, ...] = (
         "HOME",
         "LANG",
         "LC_ALL",
@@ -80,6 +90,17 @@ def resolve_command_environment() -> dict[str, str]:
         "TMP",
         "TMPDIR",
     )
+    if os.name == "nt":
+        allowed_keys += (
+            "APPDATA",
+            "COMSPEC",
+            "LOCALAPPDATA",
+            "PATHEXT",
+            "SYSTEMDRIVE",
+            "SYSTEMROOT",
+            "USERPROFILE",
+            "WINDIR",
+        )
     environment = {key: value for key in allowed_keys if (value := os.environ.get(key))}
     environment.setdefault("PATH", os.defpath)
     return environment

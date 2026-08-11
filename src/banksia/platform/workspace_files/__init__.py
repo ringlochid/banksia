@@ -8,6 +8,7 @@ from banksia.platform.workspace_files.contracts import (
     PrivateMutationTimeoutError,
     PrivatePathError,
     RegularFileLease,
+    WindowsPathIdentity,
     WorkspaceFileOperations,
 )
 from banksia.platform.workspace_files.selection import (
@@ -28,6 +29,7 @@ __all__ = [
     "PrivateMutationTimeoutError",
     "PrivatePathError",
     "RegularFileLease",
+    "WindowsPathIdentity",
     "WorkspaceFileOperations",
     "acquire_private_mutation_lock",
     "ensure_private_directory",

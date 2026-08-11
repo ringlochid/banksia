@@ -22,7 +22,15 @@ class PosixPathIdentity:
     inode: int
 
 
-type PathIdentity = PosixPathIdentity
+@dataclass(frozen=True)
+class WindowsPathIdentity:
+    """Stable NTFS identity for one retained Windows filesystem object."""
+
+    volume_serial: int
+    file_id: bytes
+
+
+type PathIdentity = PosixPathIdentity | WindowsPathIdentity
 
 
 class DirectoryLease(Protocol):
@@ -125,15 +133,11 @@ class WorkspaceFileOperations(Protocol):
         components: tuple[str, ...],
     ) -> DirectoryLease: ...
 
-    def directory_descriptor(self, directory: DirectoryLease) -> int: ...
-
     def create_output_descriptor(
         self,
         parent: DirectoryLease,
         name: str,
     ) -> int: ...
-
-    def append_text_line_locked(self, path: Path, line: str) -> None: ...
 
 
 class PrivateFileOperations(Protocol):
@@ -163,5 +167,6 @@ __all__ = [
     "PrivateMutationTimeoutError",
     "PrivatePathError",
     "RegularFileLease",
+    "WindowsPathIdentity",
     "WorkspaceFileOperations",
 ]

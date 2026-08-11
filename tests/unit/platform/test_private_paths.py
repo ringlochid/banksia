@@ -6,12 +6,12 @@ import os
 import stat
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any, cast
 from unittest.mock import Mock
 
 import pytest
 
 import banksia.platform.private_paths as private_paths
-import banksia.platform.workspace_files.posix as posix_private_files
 from banksia.platform.private_paths import (
     protect_private_directory_descriptor,
     protect_private_file_descriptor,
@@ -24,6 +24,12 @@ from banksia.platform.workspace_files import (
     read_private_text,
     replace_private_text,
 )
+
+posix_private_files: Any
+if os.name == "posix":
+    import banksia.platform.workspace_files.posix as posix_private_files
+else:
+    posix_private_files = None
 
 
 @pytest.mark.skipif(os.name != "posix", reason="POSIX permission proof")
@@ -156,6 +162,7 @@ def test_private_mutation_lock_retries_a_transient_create_race(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     lock_path = tmp_path / "private" / "settings.lock"
+    assert posix_private_files is not None
     real_open = posix_private_files.os.open
     lock_open_attempts = 0
 
@@ -171,7 +178,7 @@ def test_private_mutation_lock_retries_a_transient_create_race(
             lock_open_attempts += 1
             if lock_open_attempts == 1:
                 raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), path)
-        return real_open(path, flags, mode, dir_fd=dir_fd)
+        return cast(int, real_open(path, flags, mode, dir_fd=dir_fd))
 
     monkeypatch.setattr(posix_private_files.os, "open", open_with_one_transient_failure)
     monkeypatch.setattr(

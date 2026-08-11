@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import plistlib
+import sys
 from pathlib import Path
+from xml.etree import ElementTree
 
 import pytest
 
@@ -14,6 +16,7 @@ from banksia.platform.managed_services import (
     ManagedServiceInstallationState,
     ManagedServiceStartupState,
     ManagedServiceTarget,
+    ScheduledTaskUserServiceManager,
     SystemdUserServiceManager,
     get_managed_service_manager,
 )
@@ -30,9 +33,10 @@ def test_manager_selection_rejects_unknown_hosts() -> None:
     assert type(get_managed_service_manager(platform_name="Darwin")).__name__ == (
         "LaunchdUserServiceManager"
     )
-    with pytest.raises(RuntimeError, match=r"Linux and macOS only.*native Windows"):
-        get_managed_service_manager(platform_name="Windows")
-    with pytest.raises(RuntimeError, match=r"Linux and macOS only.*native FreeBSD"):
+    assert type(get_managed_service_manager(platform_name="Windows")).__name__ == (
+        "ScheduledTaskUserServiceManager"
+    )
+    with pytest.raises(RuntimeError, match=r"Linux, macOS, and Windows only.*native FreeBSD"):
         get_managed_service_manager(platform_name="FreeBSD")
 
 
@@ -126,6 +130,64 @@ def test_launch_agent_definition_has_only_the_bounded_user_job_contract(
     assert "ProcessType" not in definition
     assert "Umask" not in definition
     assert "EnvironmentVariables" not in definition
+
+
+def test_scheduled_task_definition_is_current_user_and_least_privilege(
+    tmp_path: Path,
+) -> None:
+    definition = ElementTree.fromstring(
+        ScheduledTaskUserServiceManager(user_id="S-1-5-21-1234").render_definition(
+            _target_with_special_paths(tmp_path)
+        )
+    )
+    namespace = {"t": "http://schemas.microsoft.com/windows/2004/02/mit/task"}
+
+    assert definition.findtext(".//t:UserId", namespaces=namespace) == "S-1-5-21-1234"
+    assert (
+        definition.findtext(".//t:LogonTrigger/t:UserId", namespaces=namespace) == "S-1-5-21-1234"
+    )
+    assert definition.findtext(".//t:LogonType", namespaces=namespace) == "InteractiveToken"
+    assert definition.findtext(".//t:RunLevel", namespaces=namespace) == "LeastPrivilege"
+    assert definition.findtext(".//t:MultipleInstancesPolicy", namespaces=namespace) == (
+        "IgnoreNew"
+    )
+    assert definition.findtext(".//t:ExecutionTimeLimit", namespaces=namespace) == "PT0S"
+    assert definition.findtext(".//t:Command", namespaces=namespace) == str(
+        _target_with_special_paths(tmp_path).python_executable
+    )
+
+
+def test_scheduled_task_manager_reconciles_xml_without_localized_status_parsing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    task_definition = tmp_path / "task.xml"
+    command_log = tmp_path / "schtasks.log"
+    schtasks = tmp_path / "schtasks"
+    _write_fake_schtasks(schtasks, task_definition, command_log)
+    import banksia.platform.managed_services.scheduled_tasks as scheduled_tasks_module
+
+    monkeypatch.setattr(scheduled_tasks_module.sys, "platform", "win32")
+    manager = ScheduledTaskUserServiceManager(
+        schtasks_bin=str(schtasks),
+        user_id="S-1-5-21-1234",
+    )
+    target = _target(tmp_path)
+
+    installed = manager.install(target, should_start=False)
+    restarted = manager.restart(target)
+    stopped = manager.stop(target)
+    removed = manager.uninstall(target)
+
+    assert installed.installation_state is ManagedServiceInstallationState.INSTALLED
+    assert restarted.execution_state is ManagedServiceExecutionState.STARTING
+    assert stopped.execution_state is ManagedServiceExecutionState.STOPPED
+    assert removed.installation_state is ManagedServiceInstallationState.ABSENT
+    assert not task_definition.exists()
+    calls = command_log.read_text(encoding="utf-8").splitlines()
+    assert any(call.startswith("/Create ") for call in calls)
+    assert "/Run /TN \\Banksia\\Controller" in calls
+    assert "/Delete /TN \\Banksia\\Controller /F" in calls
 
 
 def test_launch_agent_lifecycle_uses_current_gui_domain(
@@ -255,6 +317,34 @@ def _write_fake_launchctl(
                 "if args[0] == 'print': raise SystemExit(0 if loaded.exists() else 1)",
                 "if args[0] in {'bootstrap', 'kickstart'}: loaded.touch()",
                 "if args[0] == 'bootout': loaded.unlink(missing_ok=True)",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    path.chmod(0o755)
+
+
+def _write_fake_schtasks(path: Path, definition: Path, command_log: Path) -> None:
+    path.write_text(
+        "\n".join(
+            [
+                f"#!{sys.executable}",
+                "from pathlib import Path",
+                "import sys",
+                f"definition = Path({str(definition)!r})",
+                f"log = Path({str(command_log)!r})",
+                "args = sys.argv[1:]",
+                "with log.open('a', encoding='utf-8') as stream:",
+                "    stream.write(' '.join(args) + '\\n')",
+                "if '/Create' in args:",
+                "    source = Path(args[args.index('/XML') + 1])",
+                "    definition.write_bytes(source.read_bytes())",
+                "elif '/Query' in args:",
+                "    if not definition.exists(): raise SystemExit(1)",
+                "    sys.stdout.buffer.write(definition.read_bytes())",
+                "elif '/Delete' in args:",
+                "    definition.unlink(missing_ok=True)",
             ]
         )
         + "\n",

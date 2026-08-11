@@ -97,8 +97,6 @@ The Claude Task adapter uses standard SDK mode for API-key and personal Pro or M
 
 Every managed Dispatch persists its requested/effective extension mode and source. After an accepted provider start it also stores sanitized observed Skill names and active external MCP server/tool names. No content, path, argument, credential, or result is stored. This readback is diagnostic evidence only: inherited provider-native extension work may not be fully observable or reproducible by Banksia and cannot become controller truth.
 
-On Linux and WSL2, a Claude Dispatch with effective network `deny` requires the host `bubblewrap` and `socat` executables used by Claude Code's native sandbox. The adapter enables that sandbox with fail-closed startup; missing host prerequisites produce a definite provider-start failure rather than silently widening network or filesystem access.
-
-Native Windows controller/runtime support is deferred. WSL2 is a Linux-host installation choice, not an automatic fallback selected by Banksia.
+On Linux and WSL2, a Claude Dispatch with effective network `deny` requires the host `bubblewrap` and `socat` executables used by Claude Code's native sandbox. The adapter enables that sandbox with fail-closed startup; missing host prerequisites produce a definite provider-start failure rather than silently widening network or filesystem access. Native Windows uses the same pinned provider routes and exact capability admission; Banksia never rewrites a requested sandbox or network policy merely to make a route start. WSL2 is a separate Linux-host installation choice, not an automatic fallback.
 
 Provider terminal output, session identity, process lifetime, and transport continuity are never controller authority. [Runtime](../architecture/runtime.md) and [built-in runtime tools](../interfaces/runtime-tools.md) own the exact Dispatch and operation semantics.

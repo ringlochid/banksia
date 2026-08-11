@@ -29,7 +29,7 @@ The watchdog gives each Attempt a bounded number of same-Attempt replacements be
 
 ## Command process ownership
 
-Managed Command Run owns one complete process family, not only the direct child. Linux and macOS use a small POSIX guardian with the already admitted working directory descriptor, a new process session/group, controller-liveness pipe, group termination, bounded escalation, and reap.
+Managed Command Run owns one complete process family, not only the direct child. Linux and macOS use a small POSIX guardian with the already admitted working directory descriptor, a new process session/group, controller-liveness pipe, group termination, bounded escalation, and reap. Windows uses a small guardian that creates the command suspended, assigns it to a kill-on-close Job Object before first execution, resumes it, and retains the controller liveness channel. Windows terminal codes are retained as unsigned 32-bit values.
 
 Cancel, timeout, controller shutdown, and controller-process loss terminate the owned family and preserve the existing combined-output drain, byte accounting, flush-before-terminal, and no-blind-relaunch rules. Process-group ownership is lifecycle supervision, not a provider sandbox. A command that deliberately escapes an OS containment primitive is outside the ordinary cooperative Command Run guarantee and must not be advertised as adversarial isolation.
 

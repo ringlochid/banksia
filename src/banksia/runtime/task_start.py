@@ -118,7 +118,7 @@ async def _start_task(
         workflow=admission.workflow_revision.workflow_id,
         workflow_revision=admission.workflow_revision.revision_no,
         workspace=workspace,
-        manifest=Path(".banksia") / admission.task_id / "manifest.md",
+        manifest=f".banksia/{admission.task_id}/manifest.md",
     )
 
 

@@ -92,7 +92,7 @@ async def start_product_task(
         workflow_id=accepted.workflow,
         workflow_revision=accepted.workflow_revision,
         workspace=str(accepted.workspace),
-        manifest=str(accepted.manifest),
+        manifest=accepted.manifest,
     )
 
 

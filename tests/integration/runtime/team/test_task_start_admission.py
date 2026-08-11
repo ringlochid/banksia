@@ -259,6 +259,7 @@ async def test_task_start_rejections_and_exclusive_collision_leave_clean_admissi
 
     assert staged_ids == ["t_01234567", "t_89abcdef"]
     assert accepted.task_id == "t_89abcdef"
+    assert accepted.manifest == f".banksia/{accepted.task_id}/manifest.md"
     assert (workspace / ".banksia" / accepted.task_id / "manifest.md").is_file()
     assert len(publisher.signals) == 1
     assert isinstance(publisher.signals[0], DispatchStartDue)

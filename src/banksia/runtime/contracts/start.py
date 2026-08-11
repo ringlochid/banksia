@@ -55,7 +55,7 @@ class TaskStartResponse(BaseModel):
     workflow: Identifier
     workflow_revision: int = Field(ge=1)
     workspace: Path
-    manifest: Path
+    manifest: str
 
 
 __all__ = ["TaskStartRequest", "TaskStartResponse"]

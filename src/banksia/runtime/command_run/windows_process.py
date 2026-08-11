@@ -49,22 +49,22 @@ class WindowsGuardianProcess:
         return (await self._process.wait()) & 0xFFFF_FFFF
 
     def request_termination(self) -> None:
-        self._write_control(b"T")
+        self._terminate_guardian(should_kill=False)
 
     def request_kill(self) -> None:
-        self._write_control(b"K")
+        self._terminate_guardian(should_kill=True)
 
     def close_controller_liveness(self) -> None:
         stream = self._process.stdin
         if stream is not None and not stream.is_closing():
             stream.close()
 
-    def _write_control(self, value: bytes) -> None:
-        stream = self._process.stdin
-        if stream is None or stream.is_closing():
-            return
-        with suppress(ConnectionError, OSError):
-            stream.write(value)
+    def _terminate_guardian(self, *, should_kill: bool) -> None:
+        with suppress(ProcessLookupError, OSError):
+            if should_kill:
+                self._process.kill()
+            else:
+                self._process.terminate()
 
 
 async def spawn_windows_guardian_process(

@@ -90,6 +90,8 @@ async def test_workflow_note_recovery_rejects_nonregular_projection_target(
             if note_state == "symlink":
                 note_path.symlink_to(outside)
             else:
+                if not hasattr(os, "mkfifo"):
+                    pytest.skip("FIFO filesystem entries are unavailable")
                 os.mkfifo(note_path)
             _write_initialization_marker(task_root, response.task_id)
 
@@ -130,6 +132,8 @@ async def test_recovery_removes_unconfigured_workflow_note(
             elif extra_state == "symlink":
                 note_path.symlink_to(outside)
             else:
+                if not hasattr(os, "mkfifo"):
+                    pytest.skip("FIFO filesystem entries are unavailable")
                 os.mkfifo(note_path)
             _write_initialization_marker(task_root, response.task_id)
 
@@ -197,9 +201,8 @@ async def _publish_workflow_without_note(session: AsyncSession) -> None:
 
 
 def _write_initialization_marker(task_root: Path, task_id: str) -> None:
-    (task_root / TASK_INITIALIZATION_MARKER).write_text(
-        f"banksia-task-initialization-v1\n{task_id}\n",
-        encoding="utf-8",
+    (task_root / TASK_INITIALIZATION_MARKER).write_bytes(
+        f"banksia-task-initialization-v1\n{task_id}\n".encode()
     )
 
 

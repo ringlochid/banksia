@@ -420,10 +420,11 @@ async def test_spawn_failure_keeps_referenced_incomplete_command_output(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     original_close = process_owner_module.close_command_working_directory
-    closed_descriptors: list[int] = []
+    close_count = 0
 
     def record_close(working_directory: StableCommandWorkingDirectory) -> None:
-        closed_descriptors.append(working_directory.descriptor)
+        nonlocal close_count
+        close_count += 1
         original_close(working_directory)
 
     monkeypatch.setattr(
@@ -463,7 +464,7 @@ async def test_spawn_failure_keeps_referenced_incomplete_command_output(
         assert source.output_written_bytes == 0
         assert source.output_complete is False
         assert (log_directory / "output.log").read_bytes() == b""
-        assert len(closed_descriptors) == 1
+        assert close_count == 1
 
 
 async def test_process_owner_reaps_child_when_running_state_persistence_fails(

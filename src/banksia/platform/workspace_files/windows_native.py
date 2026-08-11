@@ -485,7 +485,7 @@ def _relative_open_contract(
             desired_access |= FILE_WRITE_DATA | FILE_APPEND_DATA
     if should_allow_security_update or should_create or should_open_if:
         desired_access |= READ_CONTROL | WRITE_DAC
-    if should_allow_delete or should_create:
+    if should_allow_delete:
         desired_access |= DELETE
     disposition = FILE_OPEN_IF if should_open_if else FILE_CREATE if should_create else FILE_OPEN
     return desired_access, options, disposition

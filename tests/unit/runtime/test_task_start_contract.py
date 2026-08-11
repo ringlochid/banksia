@@ -53,6 +53,7 @@ def test_task_and_assignment_prompts_preserve_exact_text_after_newline_normaliza
     assert assignment.prompt == request.prompt
     assert assignment.files[0].path == "brief.md"
     assert assignment.files[0].description == "  useful  "
+    assert FileReference(path="  brief.md  ").path == "  brief.md  "
 
 
 def test_task_start_rejects_blank_illegal_oversized_and_duplicate_values() -> None:

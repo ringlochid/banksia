@@ -35,7 +35,7 @@ async def test_task_start_preserves_long_prompt_and_file_values(
 ) -> None:
     workspace = tmp_path / "workspace"
     workspace.mkdir()
-    file_path = "  brief.md  "
+    file_path = "  brief.md"
     file_description = "  Read this file without trimming its description.  "
     (workspace / file_path).write_text("source brief", encoding="utf-8")
     prompt = f"  {'x' * 8_193}\r\nKeep the trailing space.  "
@@ -297,9 +297,8 @@ async def test_task_start_recovery_repairs_committed_marker_and_removes_stale_ma
             orphan_id = "t_abcdefgh"
             orphan_root = workspace / ".banksia" / orphan_id
             orphan_root.mkdir()
-            (orphan_root / TASK_INITIALIZATION_MARKER).write_text(
-                f"banksia-task-initialization-v1\n{orphan_id}\n",
-                encoding="utf-8",
+            (orphan_root / TASK_INITIALIZATION_MARKER).write_bytes(
+                f"banksia-task-initialization-v1\n{orphan_id}\n".encode()
             )
 
             first_recovery = await recover_task_workspace_admissions(

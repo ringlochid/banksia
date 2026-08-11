@@ -76,8 +76,8 @@ def main(arguments: Sequence[str] | None = None) -> int:
                 startup,
             )
             win32job.AssignProcessToJobObject(job, process_handle)
-        except OSError as exc:
-            print(f"ERR {getattr(exc, 'winerror', None) or exc.errno or 1}", flush=True)
+        except Exception as exc:
+            print(f"ERR {_exception_error_number(exc)}", flush=True)
             return 127
 
         print(f"OK {process_id}", flush=True)
@@ -116,6 +116,13 @@ def _parse_arguments(arguments: tuple[str, ...]) -> tuple[str, tuple[str, ...]]:
         command_processor = os.environ.get("COMSPEC") or r"C:\Windows\System32\cmd.exe"
         return working_directory, (command_processor, "/d", "/s", "/c", payload[0])
     raise ValueError("Windows guardian command kind is invalid")
+
+
+def _exception_error_number(exc: Exception) -> int:
+    error_number = getattr(exc, "winerror", None) or getattr(exc, "errno", None)
+    if error_number is None and exc.args and isinstance(exc.args[0], int):
+        error_number = exc.args[0]
+    return int(error_number or 1)
 
 
 def _inheritable_standard_output() -> int:

@@ -56,6 +56,47 @@ def test_windows_workspace_backend_keeps_loose_files_inside_retained_tree(
         workspace_lease.close()
 
 
+def test_windows_command_output_allows_live_readback(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    operations = select_workspace_file_operations()
+    workspace_lease = operations.open_workspace(workspace)
+    try:
+        banksia = operations.create_child_directory(workspace_lease, ".banksia")
+        try:
+            task = operations.create_child_directory(banksia, "t_01234567")
+            try:
+                command_runs = operations.create_child_directory(task, "command-runs")
+                try:
+                    command = operations.create_child_directory(command_runs, "c_01234567")
+                    try:
+                        descriptor = operations.create_output_descriptor(command, "output.log")
+                        try:
+                            os.write(descriptor, b"ready\n")
+                            os.fsync(descriptor)
+                            output_path = (
+                                workspace
+                                / ".banksia"
+                                / "t_01234567"
+                                / "command-runs"
+                                / "c_01234567"
+                                / "output.log"
+                            )
+                            assert output_path.read_bytes() == b"ready\n"
+                        finally:
+                            os.close(descriptor)
+                    finally:
+                        command.close()
+                finally:
+                    command_runs.close()
+            finally:
+                task.close()
+        finally:
+            banksia.close()
+    finally:
+        workspace_lease.close()
+
+
 def test_windows_workspace_rejects_reparse_components(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     outside = tmp_path / "outside"

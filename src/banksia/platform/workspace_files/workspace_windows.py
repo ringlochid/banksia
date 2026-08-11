@@ -234,6 +234,9 @@ class WindowsWorkspaceFileOperations:
             should_allow_delete=True,
         )
         try:
+            is_directory, is_reparse = read_handle_attributes(handle)
+            if is_directory and not is_reparse:
+                raise IsADirectoryError(errno.EISDIR, "Windows path is a directory", name)
             mark_handle_for_deletion(handle)
         finally:
             close_handle(handle)
@@ -351,7 +354,11 @@ class WindowsWorkspaceFileOperations:
         parent: DirectoryLease,
         name: str,
     ) -> int:
-        handle = self._create_private_file(parent, name)
+        handle = self._create_private_file(
+            parent,
+            name,
+            should_allow_delete=False,
+        )
         try:
             import msvcrt
 
@@ -363,13 +370,19 @@ class WindowsWorkspaceFileOperations:
                 )
             )
         except BaseException:
-            with suppress(OSError):
-                mark_handle_for_deletion(handle)
             close_handle(handle)
+            with suppress(OSError):
+                self.unlink_entry(parent, name)
             raise
         return descriptor
 
-    def _create_private_file(self, parent: DirectoryLease, name: str) -> int:
+    def _create_private_file(
+        self,
+        parent: DirectoryLease,
+        name: str,
+        *,
+        should_allow_delete: bool = True,
+    ) -> int:
         handle = open_relative_entry(
             require_windows_directory_lease(parent).native_handle,
             name,
@@ -377,7 +390,7 @@ class WindowsWorkspaceFileOperations:
             should_create=True,
             should_allow_mutation=True,
             should_allow_security_update=True,
-            should_allow_delete=True,
+            should_allow_delete=should_allow_delete,
         )
         try:
             protect_private_handle(handle, is_directory=False)
@@ -397,11 +410,22 @@ class WindowsWorkspaceFileOperations:
             handle = open_relative_entry(
                 parent.native_handle,
                 name,
-                should_be_directory=False,
+                should_be_directory=None,
+                should_allow_reparse=True,
             )
         except FileNotFoundError:
             return
-        close_handle(handle)
+        try:
+            is_directory, is_reparse = read_handle_attributes(handle)
+            if is_directory or is_reparse:
+                error_number = errno.ELOOP if is_reparse else errno.EINVAL
+                raise PrivatePathError(
+                    error_number,
+                    "refusing to replace a non-regular filesystem entry",
+                    name,
+                )
+        finally:
+            close_handle(handle)
 
     def _remove_directory_contents(self, directory: WindowsDirectoryLease) -> None:
         for _attempt in range(_TREE_REMOVAL_PASSES):

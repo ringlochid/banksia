@@ -467,7 +467,7 @@ def _relative_open_contract(
     should_allow_security_update: bool,
     should_allow_delete: bool,
 ) -> tuple[int, int, int]:
-    desired_access = FILE_READ_ATTRIBUTES | READ_CONTROL | SYNCHRONIZE
+    desired_access = FILE_READ_ATTRIBUTES | SYNCHRONIZE
     options = FILE_SYNCHRONOUS_IO_NONALERT | FILE_OPEN_REPARSE_POINT
     if should_be_directory is True:
         desired_access |= FILE_LIST_DIRECTORY | FILE_TRAVERSE
@@ -484,7 +484,7 @@ def _relative_open_contract(
         if should_be_directory is not True:
             desired_access |= FILE_WRITE_DATA | FILE_APPEND_DATA
     if should_allow_security_update or should_create or should_open_if:
-        desired_access |= WRITE_DAC
+        desired_access |= READ_CONTROL | WRITE_DAC
     if should_allow_delete or should_create:
         desired_access |= DELETE
     disposition = FILE_OPEN_IF if should_open_if else FILE_CREATE if should_create else FILE_OPEN

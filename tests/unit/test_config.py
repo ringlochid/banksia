@@ -26,8 +26,7 @@ def _configure_platform_directories(
 ) -> tuple[Path, Path, Path, Path]:
     if os.name == "nt":
         platform_home = tmp_path / "platform-home"
-        monkeypatch.setenv("LOCALAPPDATA", str(platform_home))
-        monkeypatch.setenv("APPDATA", str(platform_home))
+        monkeypatch.setenv("WIN_PD_OVERRIDE_LOCAL_APPDATA", str(platform_home))
         return (platform_home,) * 4
     directories = (
         tmp_path / "config",

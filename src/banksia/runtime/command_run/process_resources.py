@@ -11,7 +11,6 @@ from banksia.runtime.command_run.output_files import (
     CommandOutputFile,
     close_command_output_file,
 )
-from banksia.runtime.command_run.posix_process import spawn_posix_guardian_process
 from banksia.runtime.command_run.task_paths import (
     StableCommandWorkingDirectory,
 )
@@ -56,6 +55,8 @@ async def spawn_command_process(
     """Spawn in the retained directory identity without resolving the authored path again."""
 
     if os.name == "posix":
+        from banksia.runtime.command_run.posix_process import spawn_posix_guardian_process
+
         return await spawn_posix_guardian_process(
             claim,
             working_directory=working_directory,

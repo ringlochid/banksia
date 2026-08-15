@@ -10,16 +10,20 @@ import pytest
 
 import banksia.platform.managed_services.launchd as launchd_module
 import banksia.platform.managed_services.systemd as systemd_module
+from banksia.config import Settings
 from banksia.platform.managed_services import (
     LAUNCHD_SERVICE_NAME,
     ManagedServiceCommandError,
+    ManagedServiceControllerState,
     ManagedServiceExecutionState,
+    ManagedServiceInspection,
     ManagedServiceInstallationState,
     ManagedServiceStartupState,
     ManagedServiceTarget,
     ScheduledTaskUserServiceManager,
     SystemdUserServiceManager,
     get_managed_service_manager,
+    wait_for_controller_state,
 )
 from banksia.platform.managed_services.definition_files import (
     replace_service_definition,
@@ -88,6 +92,85 @@ def test_systemd_manager_reconciles_one_fixed_unit(
     assert "stop banksia.service" in commands
     assert "disable --now banksia.service" in commands
     assert not manager.definition_path.exists()
+
+
+def test_systemd_crash_loop_is_failed_instead_of_indefinitely_starting(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    if os.name != "posix":
+        pytest.skip("fake systemd executable requires POSIX process semantics")
+    systemctl = tmp_path / "systemctl"
+    systemctl.write_text(
+        "\n".join(
+            [
+                "#!/bin/sh",
+                "echo LoadState=loaded",
+                "echo UnitFileState=enabled",
+                "echo ActiveState=activating",
+                "echo SubState=auto-restart",
+                "echo Result=exit-code",
+                "echo ExecMainCode=1",
+                "echo ExecMainStatus=1",
+                "echo NRestarts=25",
+                f"echo FragmentPath={tmp_path / 'units' / 'banksia.service'}",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    systemctl.chmod(0o755)
+    monkeypatch.setattr(systemd_module.sys, "platform", "linux")
+    manager = SystemdUserServiceManager(
+        definition_dir=tmp_path / "units",
+        systemctl_bin=str(systemctl),
+    )
+
+    inspection = manager.inspect(_target(tmp_path))
+
+    assert inspection.execution_state is ManagedServiceExecutionState.FAILED
+    assert dict(inspection.technical_state) == {
+        "LoadState": "loaded",
+        "UnitFileState": "enabled",
+        "ActiveState": "activating",
+        "SubState": "auto-restart",
+        "Result": "exit-code",
+        "ExecMainCode": "1",
+        "ExecMainStatus": "1",
+        "NRestarts": "25",
+    }
+
+
+def test_readiness_poll_uses_a_fresh_native_inspection_every_time(tmp_path: Path) -> None:
+    inspections = iter(
+        (
+            _inspection(ManagedServiceExecutionState.STARTING),
+            _inspection(ManagedServiceExecutionState.FAILED),
+        )
+    )
+    inspection_count = 0
+
+    def inspect() -> ManagedServiceInspection:
+        nonlocal inspection_count
+        inspection_count += 1
+        return next(inspections)
+
+    result = wait_for_controller_state(
+        inspect=inspect,
+        settings=Settings(),
+        log_path=tmp_path / "controller.log",
+        attempts=2,
+        interval_seconds=0,
+        probe=lambda host, port, state: (
+            ManagedServiceControllerState.FAILED
+            if state is ManagedServiceExecutionState.FAILED
+            else ManagedServiceControllerState.STARTING
+        ),
+    )
+
+    assert inspection_count == 2
+    assert result.inspection.execution_state is ManagedServiceExecutionState.FAILED
+    assert result.controller_state is ManagedServiceControllerState.FAILED
 
 
 def test_atomic_definition_replacement_rejects_a_symlink(tmp_path: Path) -> None:
@@ -271,6 +354,17 @@ def _target_with_special_paths(tmp_path: Path) -> ManagedServiceTarget:
         config_path=tmp_path / 'config % with space "桉树"' / "config.toml",
         python_executable=tmp_path / "venv with space" / "python%bin",
         log_path=tmp_path / "log with space" / "controller.log",
+    )
+
+
+def _inspection(execution_state: ManagedServiceExecutionState) -> ManagedServiceInspection:
+    return ManagedServiceInspection(
+        manager="test-user-manager",
+        service_name="banksia",
+        definition_path=Path("banksia.service"),
+        installation_state=ManagedServiceInstallationState.INSTALLED,
+        startup_state=ManagedServiceStartupState.ENABLED,
+        execution_state=execution_state,
     )
 
 

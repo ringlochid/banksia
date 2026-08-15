@@ -1301,7 +1301,7 @@ export interface components {
             title: string;
         };
         /** @enum {string} */
-        TaskAttentionKind: "human_request" | "blocked_result";
+        TaskAttentionKind: "human_request" | "blocked_result" | "workspace_unavailable";
         /** @enum {string} */
         TaskControlKind: "pause" | "resume" | "cancel";
         /** TaskControlReceipt */

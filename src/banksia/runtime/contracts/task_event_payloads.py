@@ -285,6 +285,7 @@ class TaskPausedEventPayload(_TaskEventPayload):
         "runtime_recovery_exhausted",
         "runtime_transition_failed",
         "provider_retired",
+        "workspace_unavailable",
     ]
     control_revision: int = Field(ge=1)
     actor_ref: TaskEventIdentifier | None = None

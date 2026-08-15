@@ -28,7 +28,10 @@ from banksia.platform.workspace_files.windows_native import (
     require_ntfs,
     write_handle,
 )
-from banksia.platform.workspace_files.windows_security import protect_private_handle
+from banksia.platform.workspace_files.windows_security import (
+    protect_private_handle,
+    verify_private_handle,
+)
 
 _TREE_REMOVAL_PASSES = 64
 
@@ -80,17 +83,11 @@ class WindowsWorkspaceFileOperations:
         current = _build_directory_lease(open_absolute_directory(Path(normalized.anchor)))
         try:
             components = normalized.parts[1:]
-            if not components:
-                current.close()
-                return _build_directory_lease(
-                    open_absolute_directory(normalized, should_allow_mutation=True)
-                )
-            for index, component in enumerate(components):
+            for component in components:
                 handle = open_relative_entry(
                     current.native_handle,
                     component,
                     should_be_directory=True,
-                    should_allow_mutation=index == len(components) - 1,
                 )
                 following = _build_directory_lease(handle)
                 current.close()
@@ -111,12 +108,13 @@ class WindowsWorkspaceFileOperations:
             require_windows_directory_lease(parent).native_handle,
             name,
             should_be_directory=True,
-            should_allow_mutation=should_require_private,
-            should_allow_security_update=should_require_private,
+            should_allow_mutation=False,
+            should_allow_security_update=False,
+            should_read_security=should_require_private,
         )
         try:
             if should_require_private:
-                protect_private_handle(handle, is_directory=True)
+                verify_private_handle(handle, is_directory=True)
             return _build_directory_lease(handle)
         except BaseException:
             close_handle(handle)
@@ -127,23 +125,31 @@ class WindowsWorkspaceFileOperations:
         parent: DirectoryLease,
         name: str,
     ) -> DirectoryLease:
-        handle = open_relative_entry(
-            require_windows_directory_lease(parent).native_handle,
-            name,
-            should_be_directory=True,
-            should_create=True,
-            should_allow_mutation=True,
-            should_allow_security_update=True,
-            should_allow_delete=True,
+        parent_lease = require_windows_directory_lease(parent)
+        mutable_parent_handle = open_windows_parent_for_child_creation(
+            parent_lease,
+            should_create_directory=True,
         )
         try:
-            protect_private_handle(handle, is_directory=True)
-            return _build_directory_lease(handle)
-        except BaseException:
-            with suppress(OSError):
-                mark_handle_for_deletion(handle)
-            close_handle(handle)
-            raise
+            handle = open_relative_entry(
+                mutable_parent_handle,
+                name,
+                should_be_directory=True,
+                should_create=True,
+                should_allow_mutation=True,
+                should_allow_security_update=True,
+                should_allow_delete=True,
+            )
+            try:
+                protect_private_handle(handle, is_directory=True)
+                return _build_directory_lease(handle)
+            except BaseException:
+                with suppress(OSError):
+                    mark_handle_for_deletion(handle)
+                close_handle(handle)
+                raise
+        finally:
+            close_handle(mutable_parent_handle)
 
     def ensure_child_directory(
         self,
@@ -153,13 +159,20 @@ class WindowsWorkspaceFileOperations:
         should_require_private: bool,
     ) -> None:
         try:
-            child = self.create_child_directory(parent, name)
-        except FileExistsError:
             child = self.open_child_directory(
                 parent,
                 name,
                 should_require_private=should_require_private,
             )
+        except FileNotFoundError:
+            try:
+                child = self.create_child_directory(parent, name)
+            except FileExistsError:
+                child = self.open_child_directory(
+                    parent,
+                    name,
+                    should_require_private=should_require_private,
+                )
         child.close()
 
     def write_new_text(
@@ -383,23 +396,31 @@ class WindowsWorkspaceFileOperations:
         *,
         should_allow_delete: bool = True,
     ) -> int:
-        handle = open_relative_entry(
-            require_windows_directory_lease(parent).native_handle,
-            name,
-            should_be_directory=False,
-            should_create=True,
-            should_allow_mutation=True,
-            should_allow_security_update=True,
-            should_allow_delete=should_allow_delete,
+        parent_lease = require_windows_directory_lease(parent)
+        mutable_parent_handle = open_windows_parent_for_child_creation(
+            parent_lease,
+            should_create_directory=False,
         )
         try:
-            protect_private_handle(handle, is_directory=False)
-            return handle
-        except BaseException:
-            with suppress(OSError):
-                mark_handle_for_deletion(handle)
-            close_handle(handle)
-            raise
+            handle = open_relative_entry(
+                mutable_parent_handle,
+                name,
+                should_be_directory=False,
+                should_create=True,
+                should_allow_mutation=True,
+                should_allow_security_update=True,
+                should_allow_delete=should_allow_delete,
+            )
+            try:
+                protect_private_handle(handle, is_directory=False)
+                return handle
+            except BaseException:
+                with suppress(OSError):
+                    mark_handle_for_deletion(handle)
+                close_handle(handle)
+                raise
+        finally:
+            close_handle(mutable_parent_handle)
 
     def _reject_unsafe_replace_target(
         self,
@@ -481,6 +502,31 @@ def require_windows_regular_file_lease(file: RegularFileLease) -> WindowsRegular
     return file
 
 
+def open_windows_parent_for_child_creation(
+    parent: WindowsDirectoryLease,
+    *,
+    should_create_directory: bool,
+) -> int:
+    """Reopen one retained parent with only the required child-creation right."""
+
+    handle = open_absolute_directory(
+        parent.path,
+        should_allow_child_directory_creation=should_create_directory,
+        should_allow_child_file_creation=not should_create_directory,
+    )
+    try:
+        if read_handle_identity(handle) != parent.identity:
+            raise PrivatePathError(
+                errno.ESTALE,
+                "retained Windows parent changed identity before child creation",
+                str(parent.path),
+            )
+        return handle
+    except BaseException:
+        close_handle(handle)
+        raise
+
+
 def _build_directory_lease(handle: int) -> WindowsDirectoryLease:
     return WindowsDirectoryLease(handle, read_handle_identity(handle))
 
@@ -489,6 +535,7 @@ __all__ = [
     "WindowsDirectoryLease",
     "WindowsRegularFileLease",
     "WindowsWorkspaceFileOperations",
+    "open_windows_parent_for_child_creation",
     "require_windows_directory_lease",
     "require_windows_regular_file_lease",
 ]

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import base64
 import json
 from datetime import datetime
@@ -64,6 +65,7 @@ from banksia.runtime.task_control.service import (
     runtime_task_read,
 )
 from banksia.runtime.task_start import start_task
+from banksia.runtime.workspace.availability import task_workspace_is_available
 
 _TASK_CURSOR_PREFIX = "task-search."
 _TASK_PROMPT_WHITESPACE = (
@@ -108,7 +110,8 @@ async def control_product_task(
     runtime_effect_publisher: RuntimeEffectPublisher | None = None,
 ) -> TaskControlReceipt:
     current = await runtime_task_read(session, task_id)
-    actions = task_control_actions(current)
+    is_workspace_available = await _read_task_workspace_availability(session, task_id=task_id)
+    actions = task_control_actions(current, is_workspace_available=is_workspace_available)
     action_kind = select_action_kind(
         action_id,
         ((action.id, action.kind) for action in actions),
@@ -245,10 +248,19 @@ async def read_product_task(
         provider_adapters=provider_adapters,
     )
     result = product_task_result(controller)
-    actions = task_control_actions(controller)
+    is_workspace_available = await asyncio.to_thread(
+        task_workspace_is_available,
+        Path(task_row.task_root_path),
+        task_id=task_id,
+    )
+    actions = task_control_actions(
+        controller,
+        is_workspace_available=is_workspace_available,
+    )
     activities = await list_recent_task_activities(session, task_id=task_id, limit=20)
     attention = build_task_attention(
-        task_id=task_id,
+        task=controller,
+        is_workspace_available=is_workspace_available,
         human_requests=human_requests.items,
         result=result,
     )
@@ -277,15 +289,40 @@ async def read_product_task(
     )
 
 
-def task_control_actions(task: ControllerTaskState) -> tuple[ProductAction, ...]:
+def task_control_actions(
+    task: ControllerTaskState,
+    *,
+    is_workspace_available: bool = True,
+) -> tuple[ProductAction, ...]:
     kinds: tuple[str, ...]
     if task.status.value == "running":
         kinds = ("pause", "cancel")
     elif task.status.value == "paused":
-        kinds = ("cancel",) if task.pause_reason == "provider_retired" else ("resume", "cancel")
+        kinds = (
+            ("cancel",)
+            if task.pause_reason == "provider_retired" or not is_workspace_available
+            else ("resume", "cancel")
+        )
     else:
         kinds = ()
     return tuple(_task_control_action(task, kind=kind) for kind in kinds)
+
+
+async def _read_task_workspace_availability(
+    session: AsyncSession,
+    *,
+    task_id: str,
+) -> bool:
+    task_root_path = await session.scalar(
+        select(TaskModel.task_root_path).where(TaskModel.task_id == task_id)
+    )
+    if task_root_path is None:
+        raise RuntimeError("Task disappeared during workspace availability read")
+    return await asyncio.to_thread(
+        task_workspace_is_available,
+        Path(task_root_path),
+        task_id=task_id,
+    )
 
 
 def _validate_task_search(*, status: str, limit: int) -> None:

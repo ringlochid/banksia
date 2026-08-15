@@ -97,6 +97,29 @@ def test_service_status_json_uses_portable_contract(
     assert "healthy" not in payload
 
 
+def test_failed_service_status_directs_the_operator_to_bounded_logs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    config_path = _write_config(tmp_path, port=65532)
+    failed = _installed_stopped_inspection(tmp_path).with_execution_state(
+        ManagedServiceExecutionState.FAILED
+    )
+    monkeypatch.setattr(
+        service_commands,
+        "get_managed_service_manager",
+        lambda: StubManagedServiceManager(failed),
+    )
+
+    result = cli.cmd_service_status(argparse.Namespace(config=str(config_path), json=False))
+
+    output = capsys.readouterr().out
+    assert result == 0
+    assert "needs attention" in output.casefold()
+    assert "banksia service logs --lines 200" in output
+
+
 def test_service_render_uses_selected_native_definition(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

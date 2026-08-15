@@ -14,7 +14,7 @@ from banksia.runtime.contracts.text import normalize_exact_text
 from banksia.runtime.post_commit import RuntimeEffectPublisher
 from banksia.runtime.prompt import render_dispatch_request
 from banksia.runtime.providers.resolution import validate_provider_execution_configuration
-from banksia.runtime.workspace.admission import TaskWorkspaceAdmissionCoordinator
+from banksia.runtime.workspace.coordination import TaskWorkspaceAdmissionCoordinator
 
 
 @dataclass(frozen=True, slots=True)

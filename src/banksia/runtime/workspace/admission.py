@@ -4,8 +4,8 @@ import asyncio
 import logging
 import os
 import secrets
-from collections.abc import AsyncIterator, Callable, Mapping
-from contextlib import asynccontextmanager
+from collections.abc import Callable, Mapping
+from contextlib import ExitStack
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -26,6 +26,11 @@ from banksia.runtime.team import (
     render_initial_team_manifest,
 )
 from banksia.runtime.team.currentness import dispatch_team_selection_is_current
+from banksia.runtime.workspace.availability import (
+    is_workspace_unavailable_error,
+    normalized_workspace_root,
+    pause_task_for_unavailable_workspace,
+)
 from banksia.runtime.workspace.storage import (
     WorkspaceIdentity,
     capture_workspace_identity,
@@ -66,54 +71,12 @@ class TaskWorkspaceAdmission:
 
 @dataclass(frozen=True, slots=True)
 class _CommittedTaskWorkspace:
+    task_id: str
+    workspace: Path
     task_root: Path
     workflow_key: str
     workflow_revision_no: int
     workflow_content_hash: str
-
-
-@dataclass(slots=True)
-class _WorkspaceAdmissionLock:
-    lock: asyncio.Lock
-    users: int = 0
-
-
-class TaskWorkspaceAdmissionCoordinator:
-    """Serialize admission recovery and commit for each workspace in one controller."""
-
-    def __init__(self) -> None:
-        self._entries_lock = asyncio.Lock()
-        self._entries: dict[Path, _WorkspaceAdmissionLock] = {}
-
-    @asynccontextmanager
-    async def hold(self, workspace: Path) -> AsyncIterator[None]:
-        """Hold one workspace admission lane without blocking unrelated workspaces."""
-
-        entry = await self._register(workspace)
-        try:
-            async with entry.lock:
-                yield
-        finally:
-            await self._unregister(workspace, entry)
-
-    async def _register(self, workspace: Path) -> _WorkspaceAdmissionLock:
-        async with self._entries_lock:
-            entry = self._entries.get(workspace)
-            if entry is None:
-                entry = _WorkspaceAdmissionLock(lock=asyncio.Lock())
-                self._entries[workspace] = entry
-            entry.users += 1
-            return entry
-
-    async def _unregister(
-        self,
-        workspace: Path,
-        entry: _WorkspaceAdmissionLock,
-    ) -> None:
-        async with self._entries_lock:
-            entry.users -= 1
-            if entry.users == 0 and self._entries.get(workspace) is entry:
-                del self._entries[workspace]
 
 
 async def allocate_task_id(
@@ -250,67 +213,173 @@ async def recover_task_workspace_admissions(
 
     recovered: list[Path] = []
     for workspace in sorted(roots, key=str):
+        workspace_tasks = tuple(task for task in committed.values() if task.workspace == workspace)
         expected_identity = (
             expected_workspace_identities.get(workspace)
             if expected_workspace_identities is not None
             else None
         )
-        with open_banksia_root(
-            workspace,
-            should_create=False,
-            expected_workspace_identity=expected_identity,
-        ) as banksia_root:
-            if banksia_root is None:
-                continue
-            for task_id in task_root_names(banksia_root):
-                if not _is_task_id(task_id) or not is_real_directory(
-                    banksia_root,
-                    task_id,
-                ):
-                    continue
-                with open_task_root(banksia_root, task_id) as task_root_authority:
-                    if read_small_text(
-                        task_root_authority,
-                        TASK_INITIALIZATION_MARKER,
-                    ) != _marker_body(task_id):
-                        continue
-                    task_root = workspace / ".banksia" / task_id
-                    committed_row = committed.get(task_id)
-                    if committed_row is None or committed_row.task_root != task_root:
-                        should_remove = True
-                    else:
-                        should_remove = False
-                        await _repair_committed_task_workspace(
-                            session,
-                            task_root=task_root_authority,
-                            task_id=task_id,
-                            workflow_key=committed_row.workflow_key,
-                            workflow_revision_no=committed_row.workflow_revision_no,
-                            workflow_content_hash=committed_row.workflow_content_hash,
-                        )
-                        provider_start = await _read_recovered_provider_start(
-                            session,
-                            task_id=task_id,
-                        )
-                        unlink_entry(task_root_authority, TASK_INITIALIZATION_MARKER)
-                        if (
-                            provider_start is not None
-                            and publish_recovered_provider_start is not None
-                        ):
-                            await session.rollback()
-                            _publish_recovered_provider_start(
-                                provider_start,
-                                publish=publish_recovered_provider_start,
-                            )
-                    if should_remove and remove_task_tree(
-                        banksia_root,
-                        task_id,
-                        task_root_authority,
-                    ):
-                        recovered.append(task_root)
-                if not should_remove:
-                    recovered.append(task_root)
+        recovered.extend(
+            await _recover_workspace_admissions(
+                session,
+                workspace=workspace,
+                expected_workspace_identity=expected_identity,
+                workspace_tasks=workspace_tasks,
+                committed=committed,
+                publish_recovered_provider_start=publish_recovered_provider_start,
+            )
+        )
     return tuple(recovered)
+
+
+async def _recover_workspace_admissions(
+    session: AsyncSession,
+    *,
+    workspace: Path,
+    expected_workspace_identity: WorkspaceIdentity | None,
+    workspace_tasks: tuple[_CommittedTaskWorkspace, ...],
+    committed: Mapping[str, _CommittedTaskWorkspace],
+    publish_recovered_provider_start: RecoveredProviderStartPublisher | None,
+) -> tuple[Path, ...]:
+    stack = ExitStack()
+    try:
+        banksia_root = stack.enter_context(
+            open_banksia_root(
+                workspace,
+                should_create=False,
+                expected_workspace_identity=expected_workspace_identity,
+            )
+        )
+    except OSError as exc:
+        stack.close()
+        if not is_workspace_unavailable_error(exc):
+            raise
+        await _pause_unavailable_workspace_tasks(
+            session,
+            workspace=workspace,
+            tasks=workspace_tasks,
+        )
+        return ()
+    with stack:
+        if banksia_root is None:
+            await _pause_unavailable_workspace_tasks(
+                session,
+                workspace=workspace,
+                tasks=workspace_tasks,
+            )
+            return ()
+        try:
+            task_names = task_root_names(banksia_root)
+        except OSError as exc:
+            if not is_workspace_unavailable_error(exc):
+                raise
+            await _pause_unavailable_workspace_tasks(
+                session,
+                workspace=workspace,
+                tasks=workspace_tasks,
+            )
+            return ()
+        return await _recover_available_workspace(
+            session,
+            workspace=workspace,
+            banksia_root=banksia_root,
+            task_names=task_names,
+            workspace_tasks=workspace_tasks,
+            committed=committed,
+            publish_recovered_provider_start=publish_recovered_provider_start,
+        )
+
+
+async def _recover_available_workspace(
+    session: AsyncSession,
+    *,
+    workspace: Path,
+    banksia_root: DirectoryLease,
+    task_names: tuple[str, ...],
+    workspace_tasks: tuple[_CommittedTaskWorkspace, ...],
+    committed: Mapping[str, _CommittedTaskWorkspace],
+    publish_recovered_provider_start: RecoveredProviderStartPublisher | None,
+) -> tuple[Path, ...]:
+    for task in workspace_tasks:
+        if not is_real_directory(banksia_root, task.task_id):
+            await pause_task_for_unavailable_workspace(
+                session,
+                task_id=task.task_id,
+                workspace=workspace,
+            )
+    recovered: list[Path] = []
+    for task_id in task_names:
+        if not _is_task_id(task_id) or not is_real_directory(banksia_root, task_id):
+            continue
+        committed_row = committed.get(task_id)
+        stack = ExitStack()
+        try:
+            task_root_authority = stack.enter_context(open_task_root(banksia_root, task_id))
+        except OSError as exc:
+            stack.close()
+            if committed_row is None or not is_workspace_unavailable_error(exc):
+                raise
+            await pause_task_for_unavailable_workspace(
+                session,
+                task_id=task_id,
+                workspace=workspace,
+            )
+            continue
+        with stack:
+            task_root = await _recover_marked_task_root(
+                session,
+                workspace=workspace,
+                banksia_root=banksia_root,
+                task_root_authority=task_root_authority,
+                task_id=task_id,
+                committed_row=committed_row,
+                publish_recovered_provider_start=publish_recovered_provider_start,
+            )
+        if task_root is not None:
+            recovered.append(task_root)
+    return tuple(recovered)
+
+
+async def _recover_marked_task_root(
+    session: AsyncSession,
+    *,
+    workspace: Path,
+    banksia_root: DirectoryLease,
+    task_root_authority: DirectoryLease,
+    task_id: str,
+    committed_row: _CommittedTaskWorkspace | None,
+    publish_recovered_provider_start: RecoveredProviderStartPublisher | None,
+) -> Path | None:
+    if read_small_text(task_root_authority, TASK_INITIALIZATION_MARKER) != _marker_body(task_id):
+        return None
+    task_root = workspace / ".banksia" / task_id
+    if committed_row is None or committed_row.task_root != task_root:
+        return (
+            task_root
+            if remove_task_tree(
+                banksia_root,
+                task_id,
+                task_root_authority,
+            )
+            else None
+        )
+    await _repair_committed_task_workspace(
+        session,
+        task_root=task_root_authority,
+        task_id=task_id,
+        workflow_key=committed_row.workflow_key,
+        workflow_revision_no=committed_row.workflow_revision_no,
+        workflow_content_hash=committed_row.workflow_content_hash,
+    )
+    provider_start = await _read_recovered_provider_start(session, task_id=task_id)
+    unlink_entry(task_root_authority, TASK_INITIALIZATION_MARKER)
+    if provider_start is not None and publish_recovered_provider_start is not None:
+        await session.rollback()
+        _publish_recovered_provider_start(
+            provider_start,
+            publish=publish_recovered_provider_start,
+        )
+    return task_root
 
 
 async def _read_committed_task_workspaces(
@@ -335,6 +404,8 @@ async def _read_committed_task_workspaces(
     )
     committed = {
         task_id: _CommittedTaskWorkspace(
+            task_id=task_id,
+            workspace=normalized_workspace_root(workspace),
             task_root=Path(task_root_path),
             workflow_key=workflow_key,
             workflow_revision_no=workflow_revision_no,
@@ -346,10 +417,24 @@ async def _read_committed_task_workspaces(
             workflow_key,
             workflow_revision_no,
             workflow_content_hash,
-            _workspace,
+            workspace,
         ) in rows
     }
     return committed, tuple(workspace for *_, workspace in rows)
+
+
+async def _pause_unavailable_workspace_tasks(
+    session: AsyncSession,
+    *,
+    workspace: Path,
+    tasks: tuple[_CommittedTaskWorkspace, ...],
+) -> None:
+    for task in tasks:
+        await pause_task_for_unavailable_workspace(
+            session,
+            task_id=task.task_id,
+            workspace=workspace,
+        )
 
 
 async def _repair_committed_task_workspace(
@@ -497,10 +582,8 @@ def _normalized_workspace_roots(
     configured: tuple[Path, ...],
     committed: tuple[str, ...],
 ) -> set[Path]:
-    roots = {Path(os.path.abspath(os.fspath(workspace.expanduser()))) for workspace in configured}
-    roots.update(
-        Path(os.path.abspath(os.fspath(Path(workspace).expanduser()))) for workspace in committed
-    )
+    roots = {normalized_workspace_root(workspace) for workspace in configured}
+    roots.update(normalized_workspace_root(Path(workspace)) for workspace in committed)
     return roots
 
 
@@ -509,7 +592,6 @@ __all__ = [
     "TASK_INITIALIZATION_MARKER",
     "RecoveredProviderStartPublisher",
     "TaskWorkspaceAdmission",
-    "TaskWorkspaceAdmissionCoordinator",
     "accept_task_workspace",
     "allocate_task_id",
     "cleanup_marked_task_workspace",

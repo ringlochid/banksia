@@ -15,7 +15,7 @@ from banksia.runtime.contracts import (
     HumanRequestOpenRequest,
     TaskStartRequest,
 )
-from banksia.runtime.workspace.admission import TaskWorkspaceAdmissionCoordinator
+from banksia.runtime.workspace.coordination import TaskWorkspaceAdmissionCoordinator
 from tests.helpers.generic_workflow import GENERIC_WORKFLOW_ID
 
 

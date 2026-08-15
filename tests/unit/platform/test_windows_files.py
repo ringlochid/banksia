@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+import banksia.platform.workspace_files.workspace_windows as workspace_windows_module
 from banksia.platform.workspace_files import (
     PrivateMutationTimeoutError,
     acquire_private_mutation_lock,
@@ -12,6 +13,11 @@ from banksia.platform.workspace_files import (
     read_private_text,
     replace_private_text,
     select_workspace_file_operations,
+)
+from banksia.platform.workspace_files.contracts import PrivatePathError, WindowsPathIdentity
+from banksia.platform.workspace_files.workspace_windows import (
+    WindowsDirectoryLease,
+    WindowsWorkspaceFileOperations,
 )
 
 pytestmark = pytest.mark.skipif(os.name != "nt", reason="native Windows filesystem proof")
@@ -108,3 +114,191 @@ def test_windows_workspace_rejects_reparse_components(tmp_path: Path) -> None:
 
     with pytest.raises(OSError):
         operations.open_command_directory(workspace, ("linked",))
+
+
+def test_windows_workspace_opens_drive_and_existing_ancestors_without_mutation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    path = Path("C:/Users/ring_/AppData/Local/banksia")
+    next_handle = 10
+    identities: dict[int, WindowsPathIdentity] = {}
+    absolute_calls: list[tuple[Path, bool]] = []
+    relative_mutation_requests: list[bool] = []
+
+    def open_absolute_directory(
+        selected: Path,
+        *,
+        should_allow_child_directory_creation: bool = False,
+        should_allow_child_file_creation: bool = False,
+    ) -> int:
+        nonlocal next_handle
+        absolute_calls.append((selected, should_allow_child_directory_creation))
+        assert should_allow_child_file_creation is False
+        next_handle += 1
+        identities[next_handle] = WindowsPathIdentity(1, next_handle.to_bytes(16, "little"))
+        return next_handle
+
+    def open_relative_entry(
+        parent_handle: int,
+        name: str,
+        **options: object,
+    ) -> int:
+        nonlocal next_handle
+        del parent_handle, name
+        relative_mutation_requests.append(bool(options.get("should_allow_mutation", False)))
+        next_handle += 1
+        identities[next_handle] = WindowsPathIdentity(1, next_handle.to_bytes(16, "little"))
+        return next_handle
+
+    monkeypatch.setattr(workspace_windows_module, "require_ntfs", lambda selected: None)
+    monkeypatch.setattr(
+        workspace_windows_module,
+        "open_absolute_directory",
+        open_absolute_directory,
+    )
+    monkeypatch.setattr(workspace_windows_module, "open_relative_entry", open_relative_entry)
+    monkeypatch.setattr(
+        workspace_windows_module,
+        "read_handle_identity",
+        lambda handle: identities[handle],
+    )
+    monkeypatch.setattr(workspace_windows_module, "close_handle", lambda handle: None)
+
+    lease = WindowsWorkspaceFileOperations().open_workspace(path)
+    lease.close()
+
+    assert absolute_calls == [(Path("C:/"), False)]
+    assert relative_mutation_requests == [False] * 5
+
+
+def test_windows_child_creation_reopens_only_the_retained_parent_and_checks_identity(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    identity = WindowsPathIdentity(7, b"p" * 16)
+    child_identity = WindowsPathIdentity(7, b"c" * 16)
+    parent = WindowsDirectoryLease(100, identity)
+    opened_paths: list[tuple[Path, bool]] = []
+    relative_parents: list[int] = []
+
+    monkeypatch.setattr(
+        workspace_windows_module,
+        "read_handle_path",
+        lambda handle: Path("C:/Users/ring_/AppData/Local") if handle == 100 else Path("C:/"),
+    )
+
+    def open_absolute_directory(
+        selected: Path,
+        *,
+        should_allow_child_directory_creation: bool = False,
+        should_allow_child_file_creation: bool = False,
+    ) -> int:
+        assert should_allow_child_file_creation is False
+        opened_paths.append((selected, should_allow_child_directory_creation))
+        return 200
+
+    def read_handle_identity(handle: int) -> WindowsPathIdentity:
+        return identity if handle in {100, 200} else child_identity
+
+    def open_relative_entry(parent_handle: int, name: str, **options: object) -> int:
+        assert name == "banksia"
+        assert options["should_create"] is True
+        relative_parents.append(parent_handle)
+        return 300
+
+    monkeypatch.setattr(
+        workspace_windows_module,
+        "open_absolute_directory",
+        open_absolute_directory,
+    )
+    monkeypatch.setattr(workspace_windows_module, "read_handle_identity", read_handle_identity)
+    monkeypatch.setattr(workspace_windows_module, "open_relative_entry", open_relative_entry)
+    monkeypatch.setattr(
+        workspace_windows_module, "protect_private_handle", lambda *args, **kwargs: None
+    )
+    monkeypatch.setattr(workspace_windows_module, "close_handle", lambda handle: None)
+
+    child = WindowsWorkspaceFileOperations().create_child_directory(parent, "banksia")
+    child.close()
+
+    assert opened_paths == [(Path("C:/Users/ring_/AppData/Local"), True)]
+    assert relative_parents == [200]
+
+
+def test_windows_child_creation_rejects_a_substituted_parent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    retained_identity = WindowsPathIdentity(7, b"p" * 16)
+    replacement_identity = WindowsPathIdentity(7, b"r" * 16)
+    parent = WindowsDirectoryLease(100, retained_identity)
+
+    monkeypatch.setattr(
+        workspace_windows_module,
+        "read_handle_path",
+        lambda handle: Path("C:/Users/ring_/AppData/Local"),
+    )
+
+    def open_replacement_parent(
+        selected: Path,
+        *,
+        should_allow_child_directory_creation: bool = False,
+        should_allow_child_file_creation: bool = False,
+    ) -> int:
+        del selected, should_allow_child_directory_creation, should_allow_child_file_creation
+        return 200
+
+    monkeypatch.setattr(
+        workspace_windows_module,
+        "open_absolute_directory",
+        open_replacement_parent,
+    )
+    monkeypatch.setattr(
+        workspace_windows_module,
+        "read_handle_identity",
+        lambda handle: retained_identity if handle == 100 else replacement_identity,
+    )
+    monkeypatch.setattr(workspace_windows_module, "close_handle", lambda handle: None)
+
+    with pytest.raises(PrivatePathError, match="changed identity"):
+        WindowsWorkspaceFileOperations().create_child_directory(parent, "banksia")
+
+
+def test_windows_existing_private_directory_is_verified_without_acl_rewrite(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    identity = WindowsPathIdentity(7, b"p" * 16)
+    parent = WindowsDirectoryLease(100, identity)
+    verification_handles: list[int] = []
+
+    def open_relative_entry(parent_handle: int, name: str, **options: object) -> int:
+        assert (parent_handle, name) == (100, "banksia")
+        assert options["should_allow_mutation"] is False
+        assert options["should_allow_security_update"] is False
+        return 200
+
+    monkeypatch.setattr(workspace_windows_module, "open_relative_entry", open_relative_entry)
+    monkeypatch.setattr(
+        workspace_windows_module,
+        "read_handle_identity",
+        lambda handle: identity,
+    )
+    monkeypatch.setattr(
+        workspace_windows_module,
+        "verify_private_handle",
+        lambda handle, is_directory: verification_handles.append(handle),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        workspace_windows_module,
+        "protect_private_handle",
+        lambda *args, **kwargs: pytest.fail("existing directory ACL must not be rewritten"),
+    )
+    monkeypatch.setattr(workspace_windows_module, "close_handle", lambda handle: None)
+
+    child = WindowsWorkspaceFileOperations().open_child_directory(
+        parent,
+        "banksia",
+        should_require_private=True,
+    )
+    child.close()
+
+    assert verification_handles == [200]

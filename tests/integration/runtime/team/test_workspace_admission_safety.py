@@ -2,18 +2,32 @@ from __future__ import annotations
 
 import os
 import stat
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 import banksia.runtime.task_start as task_start_module
 import banksia.runtime.workspace.admission as admission_module
 from banksia.config import CodexSettings, RuntimeSettings, Settings
+from banksia.persistence.models import (
+    AttemptModel,
+    DispatchTurnModel,
+    TaskEventModel,
+    TaskModel,
+)
 from banksia.platform.workspace_files import DirectoryLease
 from banksia.providers import ProviderKind
 from banksia.runtime.contracts import TaskStartRequest
 from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
+from banksia.runtime.errors import RuntimeOperationError
 from banksia.runtime.post_commit import CapturedRuntimeEffectPublisher
+from banksia.runtime.product.tasks import read_product_task
+from banksia.runtime.task_control.control import continue_task, pause_task
+from banksia.runtime.task_control.reads import read_runtime_task
 from banksia.runtime.task_start import start_task
 from banksia.runtime.team import plan_initial_task_team
 from banksia.runtime.workspace.admission import (
@@ -243,6 +257,157 @@ async def test_recovery_never_follows_a_marker_symlink(tmp_path: Path) -> None:
     assert outside.is_file()
 
 
+async def test_missing_workspace_pauses_only_its_running_task_and_waits_for_manual_resume(
+    tmp_path: Path,
+) -> None:
+    missing_workspace = tmp_path / "missing-workspace"
+    healthy_workspace = tmp_path / "healthy-workspace"
+    missing_workspace.mkdir()
+    healthy_workspace.mkdir()
+    detached_workspace = tmp_path / "detached-workspace"
+
+    async with initialized_workflow_database(tmp_path) as session_factory:
+        await publish_generic_workflow(session_factory)
+        async with session_factory() as session:
+            affected = await start_task(
+                _task_request(missing_workspace, "Investigate the unavailable workspace."),
+                session=session,
+                dependencies=_task_dependencies(missing_workspace),
+            )
+            unaffected = await start_task(
+                _task_request(healthy_workspace, "Continue work in the available workspace."),
+                session=session,
+                dependencies=_task_dependencies(healthy_workspace),
+            )
+            affected_before = await session.get(TaskModel, affected.task_id)
+            assert affected_before is not None
+            original_control_revision = affected_before.control_revision
+
+            missing_workspace.rename(detached_workspace)
+            recovered = await recover_task_workspace_admissions(session)
+            assert recovered == ()
+            affected_task = await _assert_task_scoped_workspace_pause(
+                session,
+                affected_task_id=affected.task_id,
+                unaffected_task_id=unaffected.task_id,
+                original_control_revision=original_control_revision,
+            )
+            assert affected_task.current_team_revision_id is not None
+            assert not missing_workspace.exists()
+
+            with pytest.raises(RuntimeOperationError, match="workspace is unavailable"):
+                await continue_task(
+                    session,
+                    affected.task_id,
+                    expected_team_revision_id=affected_task.current_team_revision_id,
+                    expected_control_revision=affected_task.control_revision,
+                    dependencies=_task_dependencies(healthy_workspace),
+                )
+
+            await recover_task_workspace_admissions(session)
+            repeated_event_count = await session.scalar(
+                select(func.count())
+                .select_from(TaskEventModel)
+                .where(
+                    TaskEventModel.task_id == affected.task_id,
+                    TaskEventModel.event_type == "task_paused",
+                )
+            )
+            assert repeated_event_count == 1
+
+            detached_workspace.rename(missing_workspace)
+            await recover_task_workspace_admissions(session)
+            returned_task = await session.get(TaskModel, affected.task_id)
+            returned_view = await read_product_task(session, affected.task_id)
+
+            assert returned_task is not None and returned_task.status == "paused"
+            assert returned_task.pause_reason == "workspace_unavailable"
+            assert tuple(action.kind for action in returned_view.actions) == ("resume", "cancel")
+            assert "available again" in returned_view.attention[0].summary.casefold()
+
+
+async def test_missing_workspace_preserves_an_existing_pause_reason(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    detached_workspace = tmp_path / "detached-workspace"
+
+    async with initialized_workflow_database(tmp_path) as session_factory:
+        await publish_generic_workflow(session_factory)
+        async with session_factory() as session:
+            started = await start_task(
+                _task_request(workspace, "Keep the operator pause intact."),
+                session=session,
+                dependencies=_task_dependencies(workspace),
+            )
+            running = await read_runtime_task(session, started.task_id)
+            paused = await pause_task(
+                session,
+                started.task_id,
+                expected_team_revision_id=running.current_team_revision_id,
+                expected_control_revision=running.control_revision,
+            )
+            paused_revision = paused.task.control_revision
+
+            workspace.rename(detached_workspace)
+            await recover_task_workspace_admissions(session)
+
+            task = await session.get(TaskModel, started.task_id)
+            pause_event_count = await session.scalar(
+                select(func.count())
+                .select_from(TaskEventModel)
+                .where(
+                    TaskEventModel.task_id == started.task_id,
+                    TaskEventModel.event_type == "task_paused",
+                )
+            )
+            view = await read_product_task(session, started.task_id)
+
+    assert task is not None
+    assert task.pause_reason == "paused_by_operator"
+    assert task.control_revision == paused_revision
+    assert pause_event_count == 1
+    assert tuple(action.kind for action in view.actions) == ("cancel",)
+    assert tuple(attention.kind for attention in view.attention) == ("workspace_unavailable",)
+
+
+async def test_inaccessible_committed_task_root_is_task_scoped(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    async with initialized_workflow_database(tmp_path) as session_factory:
+        await publish_generic_workflow(session_factory)
+        async with session_factory() as session:
+            started = await start_task(
+                _task_request(workspace, "Pause only this inaccessible Task."),
+                session=session,
+                dependencies=_task_dependencies(workspace),
+            )
+            real_open_task_root = admission_module.open_task_root
+
+            @contextmanager
+            def refuse_task_root(
+                banksia_root: DirectoryLease,
+                task_id: str,
+            ) -> Iterator[DirectoryLease]:
+                if task_id == started.task_id:
+                    raise PermissionError("Task root cannot be traversed")
+                with real_open_task_root(banksia_root, task_id) as task_root:
+                    yield task_root
+
+            monkeypatch.setattr(admission_module, "open_task_root", refuse_task_root)
+
+            assert await recover_task_workspace_admissions(session) == ()
+            task = await session.get(TaskModel, started.task_id)
+
+    assert task is not None
+    assert (task.status, task.pause_reason) == ("paused", "workspace_unavailable")
+
+
 @pytest.mark.skipif(os.name != "posix", reason="POSIX retained-directory race proof")
 async def test_cleanup_never_deletes_a_replacement_task_root(
     tmp_path: Path,
@@ -309,3 +474,66 @@ def test_projection_replace_rejects_a_manifest_symlink_without_following_it(
 
     assert manifest.is_symlink()
     assert outside.read_text(encoding="utf-8") == "external"
+
+
+def _task_request(workspace: Path, prompt: str) -> TaskStartRequest:
+    return TaskStartRequest(
+        workflow=GENERIC_WORKFLOW_ID,
+        prompt=prompt,
+        workspace=workspace,
+    )
+
+
+def _task_dependencies(workspace: Path) -> DispatchOpeningDependencies:
+    return DispatchOpeningDependencies.create(
+        settings=Settings(
+            controller_workspace=workspace,
+            runtime=RuntimeSettings(default_provider=ProviderKind.CODEX),
+            codex=CodexSettings(enabled=True),
+        ),
+        available_adapter_kinds={ProviderKind.CODEX},
+        post_commit_publisher=CapturedRuntimeEffectPublisher(),
+    )
+
+
+async def _assert_task_scoped_workspace_pause(
+    session: AsyncSession,
+    *,
+    affected_task_id: str,
+    unaffected_task_id: str,
+    original_control_revision: int,
+) -> TaskModel:
+    affected_task = await session.get(TaskModel, affected_task_id)
+    unaffected_task = await session.get(TaskModel, unaffected_task_id)
+    affected_attempt = await session.scalar(
+        select(AttemptModel).where(AttemptModel.task_id == affected_task_id)
+    )
+    affected_dispatch = await session.scalar(
+        select(DispatchTurnModel).where(DispatchTurnModel.task_id == affected_task_id)
+    )
+    pause_event_count = await session.scalar(
+        select(func.count())
+        .select_from(TaskEventModel)
+        .where(
+            TaskEventModel.task_id == affected_task_id,
+            TaskEventModel.event_type == "task_paused",
+        )
+    )
+    unavailable_view = await read_product_task(session, affected_task_id)
+
+    assert affected_task is not None
+    assert affected_task.status == "paused"
+    assert affected_task.pause_reason == "workspace_unavailable"
+    assert affected_task.current_team_revision_id is not None
+    assert affected_task.control_revision == original_control_revision + 1
+    assert affected_attempt is not None and affected_attempt.current_dispatch_id is None
+    assert affected_dispatch is not None
+    assert (affected_dispatch.status, affected_dispatch.closed_reason) == ("closed", "paused")
+    assert pause_event_count == 1
+    assert unaffected_task is not None and unaffected_task.status == "running"
+    assert tuple(action.kind for action in unavailable_view.actions) == ("cancel",)
+    assert tuple(attention.kind for attention in unavailable_view.attention) == (
+        "workspace_unavailable",
+    )
+    assert "unavailable" in unavailable_view.attention[0].summary.casefold()
+    return affected_task

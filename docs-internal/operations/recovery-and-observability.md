@@ -23,6 +23,10 @@ Startup verifies the exact database schema before serving work, repairs stranded
 
 An audit pagination or publication failure prevents a healthy startup. A lost in-memory signal is therefore recoverable from committed source truth without a broad steady-state Task scan.
 
+An unavailable user workspace is a Task-scoped recovery condition, not a controller-wide startup failure. Recovery never creates a missing workspace, `.banksia/` container, or accepted `t_<id>/` root. For a running Task it atomically records one `workspace_unavailable` pause, closes every current Dispatch authority, and leaves immutable history intact. A Task already paused for another reason keeps that reason and control revision. While the original Task root cannot be reopened, product readback omits Resume, retains Cancel, and presents an attention message. Restoring the path only makes Resume legal again; Banksia never resumes the Task automatically.
+
+Only recognized filesystem absence, access, stale-handle, and unsafe-link failures encountered while opening the workspace or accepted Task root use that Task-scoped path. A malformed controller projection inside an opened Task root remains a recovery failure. Database corruption, inconsistent controller relationships, event-stream failure, and recovery-infrastructure defects also remain startup-fatal.
+
 Provider-start recovery treats an ambiguous prior start conservatively and retries the same Dispatch with a fresh binding. Command recovery never blindly relaunches a process whose ownership cannot be proved; it records the exact terminal ownership-loss result and lets ordinary continuation handle it.
 
 The watchdog gives each Attempt a bounded number of same-Attempt replacements between successful user Resume boundaries. Exhaustion pauses the whole Task and settles every current runnable Dispatch. Resume preserves immutable Dispatch history, resets the live replacement counter of every retained running Attempt, and then opens exact continuations. The deadline scheduler rechecks the authoritative UTC deadline when a process-local timer fires and rearms the same generation when the event loop invokes it early.
@@ -35,7 +39,7 @@ Cancel, timeout, controller shutdown, and controller-process loss terminate the 
 
 ## Runtime health
 
-`GET /healthz` reports process liveness. `GET /readyz` proves database connectivity and returns `503 database_unavailable` when that check fails. Application startup itself also fails if exact schema validation or mandatory recovery cannot complete.
+`GET /healthz` reports process liveness. `GET /readyz` proves database connectivity and returns `503 database_unavailable` when that check fails. Application startup itself also fails if exact schema validation or mandatory controller recovery cannot complete; an unavailable user workspace is isolated to its owning Task as defined above.
 
 The runtime effect router and support-projection owner keep separate process-local health snapshots with bounded nonsecret source context. Queue rejection, owner death, unregistered signals, or handler failure become visible health failures rather than silently discarded work. Projection failure cannot authorize or block a controller transition, although it can make a support file temporarily stale until replay.
 

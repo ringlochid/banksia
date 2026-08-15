@@ -18,11 +18,12 @@ ControllerStateProbe = Callable[
     [str, int, ManagedServiceExecutionState],
     ManagedServiceControllerState,
 ]
+ManagedServiceInspector = Callable[[], ManagedServiceInspection]
 
 
 def wait_for_controller_state(
     *,
-    inspection: ManagedServiceInspection,
+    inspect: ManagedServiceInspector,
     settings: Settings,
     log_path: Path,
     attempts: int = 12,
@@ -31,7 +32,7 @@ def wait_for_controller_state(
 ) -> ManagedServiceResult:
     active_probe = probe or probe_controller_state
     result = build_managed_service_result(
-        inspection=inspection,
+        inspection=inspect(),
         settings=settings,
         log_path=log_path,
         probe=active_probe,
@@ -41,7 +42,7 @@ def wait_for_controller_state(
             break
         time.sleep(interval_seconds)
         result = build_managed_service_result(
-            inspection=inspection,
+            inspection=inspect(),
             settings=settings,
             log_path=log_path,
             probe=active_probe,
@@ -109,6 +110,7 @@ def _read_health_status(host: str, port: int, path: str) -> int | None:
 
 __all__ = [
     "ControllerStateProbe",
+    "ManagedServiceInspector",
     "build_managed_service_result",
     "probe_controller_state",
     "wait_for_controller_state",

@@ -51,6 +51,7 @@ type TaskControlKind = Literal["pause", "resume", "cancel"]
 type TaskAttentionKind = Literal[
     "human_request",
     "blocked_result",
+    "workspace_unavailable",
 ]
 type CommandRunProductState = Literal[
     "queued",

@@ -25,6 +25,7 @@ from .definition_files import (
 
 SYSTEMD_MANAGER_NAME = "systemd-user"
 SYSTEMD_SERVICE_NAME = "banksia.service"
+_SYSTEMD_CLD_EXITED = "1"
 
 
 class SystemdUserServiceManager:
@@ -128,7 +129,10 @@ class SystemdUserServiceManager:
         completed = self._execute(
             "show",
             self.service_name,
-            "--property=LoadState,UnitFileState,ActiveState,SubState,FragmentPath",
+            (
+                "--property=LoadState,UnitFileState,ActiveState,SubState,Result,"
+                "ExecMainCode,ExecMainStatus,NRestarts,FragmentPath"
+            ),
             should_check=False,
         )
         values = parse_systemd_show(completed.stdout)
@@ -141,10 +145,19 @@ class SystemdUserServiceManager:
             definition_path=Path(values.get("FragmentPath") or self.definition_path),
             installation_state=ManagedServiceInstallationState.INSTALLED,
             startup_state=_systemd_startup_state(values.get("UnitFileState")),
-            execution_state=_systemd_execution_state(values.get("ActiveState")),
+            execution_state=_systemd_execution_state(values),
             technical_state=tuple(
                 (key, value)
-                for key in ("LoadState", "UnitFileState", "ActiveState", "SubState")
+                for key in (
+                    "LoadState",
+                    "UnitFileState",
+                    "ActiveState",
+                    "SubState",
+                    "Result",
+                    "ExecMainCode",
+                    "ExecMainStatus",
+                    "NRestarts",
+                )
                 if (value := values.get(key)) is not None
             ),
         )
@@ -270,16 +283,36 @@ def _systemd_startup_state(value: str | None) -> ManagedServiceStartupState:
     return ManagedServiceStartupState.UNKNOWN
 
 
-def _systemd_execution_state(value: str | None) -> ManagedServiceExecutionState:
-    if value == "active":
+def _systemd_execution_state(values: dict[str, str]) -> ManagedServiceExecutionState:
+    active_state = values.get("ActiveState")
+    if active_state == "active":
         return ManagedServiceExecutionState.RUNNING
-    if value in {"activating", "reloading"}:
+    if active_state in {"activating", "reloading"}:
+        if _systemd_restart_follows_failure(values):
+            return ManagedServiceExecutionState.FAILED
         return ManagedServiceExecutionState.STARTING
-    if value == "failed":
+    if active_state == "failed":
         return ManagedServiceExecutionState.FAILED
-    if value in {"inactive", "deactivating"}:
+    if active_state in {"inactive", "deactivating"}:
+        if _systemd_restart_follows_failure(values):
+            return ManagedServiceExecutionState.FAILED
         return ManagedServiceExecutionState.STOPPED
     return ManagedServiceExecutionState.UNKNOWN
+
+
+def _systemd_restart_follows_failure(values: dict[str, str]) -> bool:
+    if values.get("SubState") != "auto-restart":
+        return False
+    result = values.get("Result")
+    if result not in {None, ""}:
+        return result != "success"
+    exit_code = values.get("ExecMainCode")
+    exit_status = values.get("ExecMainStatus")
+    if exit_code in {None, "", "0"}:
+        return False
+    if exit_code == _SYSTEMD_CLD_EXITED:
+        return exit_status not in {None, "", "0"}
+    return True
 
 
 def _escape_systemd_quoted_value(value: str) -> str:

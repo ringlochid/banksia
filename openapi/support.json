@@ -450,7 +450,8 @@
           "paused_by_operator",
           "runtime_recovery_exhausted",
           "runtime_transition_failed",
-          "provider_retired"
+          "provider_retired",
+          "workspace_unavailable"
         ],
         "type": "string"
       },
@@ -1920,7 +1921,8 @@
               "paused_by_operator",
               "runtime_recovery_exhausted",
               "runtime_transition_failed",
-              "provider_retired"
+              "provider_retired",
+              "workspace_unavailable"
             ],
             "title": "Pause Reason",
             "type": "string"

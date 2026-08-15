@@ -191,11 +191,37 @@ def product_task_result(task: ControllerTaskState) -> TaskResultView | None:
 
 def build_task_attention(
     *,
-    task_id: str,
+    task: ControllerTaskState,
+    is_workspace_available: bool,
     human_requests: Iterable[HumanRequestView],
     result: TaskResultView | None,
 ) -> tuple[TaskAttention, ...]:
     attention: list[TaskAttention] = []
+    if task.status.value == "paused" and (
+        not is_workspace_available or task.pause_reason == "workspace_unavailable"
+    ):
+        attention.append(
+            TaskAttention(
+                id=product_action_id(
+                    "workspace-unavailable",
+                    task.task_id,
+                    task.control_revision,
+                ),
+                kind="workspace_unavailable",
+                title=(
+                    "Workspace unavailable"
+                    if not is_workspace_available
+                    else "Workspace available again"
+                ),
+                summary=(
+                    "This run's workspace is unavailable. Restore or remount it "
+                    "before resuming; Cancel remains available."
+                    if not is_workspace_available
+                    else "The workspace is available again. Resume the run when you are ready; "
+                    "Banksia will not resume it automatically."
+                ),
+            )
+        )
     for request in human_requests:
         if request.status != "open":
             continue
@@ -213,7 +239,7 @@ def build_task_attention(
     if result is not None and result.status == "blocked":
         attention.append(
             TaskAttention(
-                id=product_action_id("blocked-result", task_id, result.completed_at),
+                id=product_action_id("blocked-result", task.task_id, result.completed_at),
                 kind="blocked_result",
                 title="The run is blocked",
                 summary=result.summary,

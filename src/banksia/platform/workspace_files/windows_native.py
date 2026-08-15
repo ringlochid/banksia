@@ -93,7 +93,12 @@ class _FileDispositionInfo(ctypes.Structure):
     _fields_ = (("DeleteFile", wintypes.BOOL),)
 
 
-def open_absolute_directory(path: Path, *, should_allow_mutation: bool = False) -> int:
+def open_absolute_directory(
+    path: Path,
+    *,
+    should_allow_child_directory_creation: bool = False,
+    should_allow_child_file_creation: bool = False,
+) -> int:
     """Open an existing local directory without following its final reparse point."""
 
     normalized = require_local_absolute_path(path)
@@ -111,10 +116,10 @@ def open_absolute_directory(path: Path, *, should_allow_mutation: bool = False) 
     desired_access = (
         FILE_LIST_DIRECTORY | FILE_TRAVERSE | FILE_READ_ATTRIBUTES | READ_CONTROL | SYNCHRONIZE
     )
-    if should_allow_mutation:
-        desired_access |= (
-            FILE_ADD_FILE | FILE_ADD_SUBDIRECTORY | FILE_DELETE_CHILD | FILE_WRITE_ATTRIBUTES
-        )
+    if should_allow_child_directory_creation:
+        desired_access |= FILE_ADD_SUBDIRECTORY
+    if should_allow_child_file_creation:
+        desired_access |= FILE_ADD_FILE
     handle = create_file(
         str(normalized),
         desired_access,
@@ -145,6 +150,7 @@ def open_relative_entry(
     should_allow_reparse: bool = False,
     should_allow_mutation: bool = False,
     should_allow_security_update: bool = False,
+    should_read_security: bool = False,
     should_allow_delete: bool = False,
 ) -> int:
     """Open or create one component relative to a retained Windows directory handle."""
@@ -173,6 +179,7 @@ def open_relative_entry(
         should_open_if=should_open_if,
         should_allow_mutation=should_allow_mutation,
         should_allow_security_update=should_allow_security_update,
+        should_read_security=should_read_security,
         should_allow_delete=should_allow_delete,
     )
     selected = _create_relative_handle(
@@ -465,6 +472,7 @@ def _relative_open_contract(
     should_open_if: bool,
     should_allow_mutation: bool,
     should_allow_security_update: bool,
+    should_read_security: bool,
     should_allow_delete: bool,
 ) -> tuple[int, int, int]:
     desired_access = FILE_READ_ATTRIBUTES | SYNCHRONIZE
@@ -483,8 +491,10 @@ def _relative_open_contract(
             desired_access |= FILE_ADD_FILE | FILE_ADD_SUBDIRECTORY | FILE_DELETE_CHILD
         if should_be_directory is not True:
             desired_access |= FILE_WRITE_DATA | FILE_APPEND_DATA
+    if should_read_security or should_allow_security_update or should_create or should_open_if:
+        desired_access |= READ_CONTROL
     if should_allow_security_update or should_create or should_open_if:
-        desired_access |= READ_CONTROL | WRITE_DAC
+        desired_access |= WRITE_DAC
     if should_allow_delete:
         desired_access |= DELETE
     disposition = FILE_OPEN_IF if should_open_if else FILE_CREATE if should_create else FILE_OPEN

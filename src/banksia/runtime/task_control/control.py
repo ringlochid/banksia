@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import Callable
 from datetime import datetime
+from pathlib import Path
 
 from sqlalchemy import case, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -44,6 +46,7 @@ from banksia.runtime.task_control.contracts import (
 )
 from banksia.runtime.task_control.reads import read_runtime_task
 from banksia.runtime.task_events import append_task_event
+from banksia.runtime.workspace.availability import task_workspace_is_available
 
 logger = logging.getLogger(__name__)
 
@@ -131,6 +134,19 @@ async def continue_task(
     if task.pause_reason == "provider_retired":
         raise _task_control_conflict(
             "the current Team selects retired provider OpenClaw and cannot be resumed"
+        )
+    if not await asyncio.to_thread(
+        task_workspace_is_available,
+        Path(task.task_root_path),
+        task_id=task.task_id,
+    ):
+        raise RuntimeOperationError(
+            code=OperationFailureCode.CONFLICT,
+            summary="The Task workspace is unavailable and the run cannot be resumed.",
+            is_retryable=False,
+            suggested_next_step=(
+                "Restore or remount the original workspace, then reread the Task before resuming."
+            ),
         )
     await continue_paused_task(
         session,

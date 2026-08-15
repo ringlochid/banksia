@@ -5,6 +5,7 @@ from pathlib import Path
 from sqlalchemy import Connection
 
 from banksia.persistence import RuntimeBase
+from banksia.platform.workspace_files import ensure_private_directory
 from banksia.runtime.contracts import AssignmentBody, RuntimeBootstrapInput
 from banksia.runtime.team import plan_initial_task_team
 from banksia.workflows.canonical import canonical_workflow_hash
@@ -43,11 +44,13 @@ def build_launch_foundation_input(
 ) -> RuntimeBootstrapInput:
     task_id = "task.launch-foundation"
     initial_team = plan_initial_task_team(workflow_revision, task_id)
+    task_root = tmp_path / ".banksia" / task_id
+    ensure_private_directory(task_root)
     return RuntimeBootstrapInput(
         task_id=task_id,
         attempt_id="attempt.launch-foundation.root.1",
         assignment_id="assignment.task.launch-foundation.root.assignment.1",
-        task_root=tmp_path / "task-root",
+        task_root=task_root,
         workspace=tmp_path,
         assignment=AssignmentBody(
             prompt="Persist provider, Team, and budget truth.",

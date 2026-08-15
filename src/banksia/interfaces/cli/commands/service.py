@@ -105,6 +105,7 @@ def cmd_service_install(
         command_observer=active_progress.command_args,
     )
     result = _build_result(
+        manager=manager,
         inspection=inspection,
         settings=settings,
         target=target,
@@ -218,6 +219,7 @@ def execute_service_lifecycle(
         command_observer=progress.command_args,
     )
     result = _build_result(
+        manager=manager,
         inspection=inspection,
         settings=settings,
         target=target,
@@ -274,6 +276,7 @@ def _load_target_and_settings(
 
 def _build_result(
     *,
+    manager: ManagedServiceManager,
     inspection: ManagedServiceInspection,
     settings: Settings,
     target: ManagedServiceTarget,
@@ -281,7 +284,7 @@ def _build_result(
 ) -> ManagedServiceResult:
     if should_wait:
         return wait_for_controller_state(
-            inspection=inspection,
+            inspect=lambda: manager.inspect(target),
             settings=settings,
             log_path=target.log_path,
         )

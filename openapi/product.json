@@ -2503,7 +2503,8 @@
       "TaskAttentionKind": {
         "enum": [
           "human_request",
-          "blocked_result"
+          "blocked_result",
+          "workspace_unavailable"
         ],
         "type": "string"
       },

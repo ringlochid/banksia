@@ -21,6 +21,7 @@ from banksia.platform.workspace_files.windows_native import (
 from banksia.platform.workspace_files.windows_security import protect_private_handle
 from banksia.platform.workspace_files.workspace_windows import (
     WindowsWorkspaceFileOperations,
+    open_windows_parent_for_child_creation,
     require_windows_directory_lease,
 )
 
@@ -101,14 +102,31 @@ class WindowsPrivateFileOperations:
         self.ensure_directory(path.parent)
         operations = WindowsWorkspaceFileOperations()
         parent = operations.open_workspace(path.parent)
-        handle = open_relative_entry(
-            require_windows_directory_lease(parent).native_handle,
-            path.name,
-            should_be_directory=False,
-            should_open_if=True,
-            should_allow_mutation=True,
-            should_allow_security_update=True,
-        )
+        parent_lease = require_windows_directory_lease(parent)
+        try:
+            handle = open_relative_entry(
+                parent_lease.native_handle,
+                path.name,
+                should_be_directory=False,
+                should_allow_mutation=True,
+                should_allow_security_update=True,
+            )
+        except FileNotFoundError:
+            mutable_parent = open_windows_parent_for_child_creation(
+                parent_lease,
+                should_create_directory=False,
+            )
+            try:
+                handle = open_relative_entry(
+                    mutable_parent,
+                    path.name,
+                    should_be_directory=False,
+                    should_open_if=True,
+                    should_allow_mutation=True,
+                    should_allow_security_update=True,
+                )
+            finally:
+                close_handle(mutable_parent)
         protect_private_handle(handle, is_directory=False)
         descriptor = int(
             msvcrt_module.open_osfhandle(

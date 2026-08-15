@@ -38,6 +38,33 @@ def test_windows_private_text_and_mutation_lock_are_usable(tmp_path: Path) -> No
                 pass
 
 
+def test_windows_existing_private_file_parent_keeps_its_acl(tmp_path: Path) -> None:
+    import win32security
+
+    security_information = (
+        win32security.OWNER_SECURITY_INFORMATION
+        | win32security.GROUP_SECURITY_INFORMATION
+        | win32security.DACL_SECURITY_INFORMATION
+    )
+
+    def read_security_descriptor() -> str:
+        descriptor = win32security.GetFileSecurity(
+            str(tmp_path),
+            security_information,
+        )
+        return win32security.ConvertSecurityDescriptorToStringSecurityDescriptor(
+            descriptor,
+            win32security.SDDL_REVISION_1,
+            security_information,
+        )
+
+    before = read_security_descriptor()
+
+    ensure_private_directory(tmp_path)
+
+    assert read_security_descriptor() == before
+
+
 def test_windows_workspace_backend_keeps_loose_files_inside_retained_tree(
     tmp_path: Path,
 ) -> None:
@@ -262,7 +289,7 @@ def test_windows_child_creation_rejects_a_substituted_parent(
         WindowsWorkspaceFileOperations().create_child_directory(parent, "banksia")
 
 
-def test_windows_existing_private_directory_is_verified_without_acl_rewrite(
+def test_windows_existing_task_directory_is_verified_without_acl_rewrite(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     identity = WindowsPathIdentity(7, b"p" * 16)

@@ -178,12 +178,12 @@ def _open_or_create_directory(path: Path) -> DirectoryLease:
     operations = WindowsWorkspaceFileOperations()
     current = operations.open_workspace(Path(path.anchor))
     try:
-        for index, component in enumerate(path.parts[1:]):
+        for component in path.parts[1:]:
             try:
                 following = operations.open_child_directory(
                     current,
                     component,
-                    should_require_private=index == len(path.parts[1:]) - 1,
+                    should_require_private=False,
                 )
             except FileNotFoundError:
                 following = operations.create_child_directory(current, component)

@@ -31,6 +31,7 @@ from banksia.persistence.session import (
     RuntimeAsyncSession,
     install_sqlite_transaction_control,
 )
+from banksia.platform.workspace_files import ensure_private_directory
 from banksia.providers import ProviderKind
 from banksia.runtime.dispatch.authority import NodeOperationAuthority
 from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
@@ -206,12 +207,13 @@ async def seeded_async_executor(
 def _prepare_runtime_paths(tmp_path: Path, suffix: str) -> tuple[Path, Path]:
     workspace = seeded_task_workspace(tmp_path, suffix)
     task_root = seeded_task_root(tmp_path, suffix)
+    ensure_private_directory(task_root)
     for path in (
         task_root / "notes",
         task_root / "artifacts",
         task_root / "command-runs",
     ):
-        path.mkdir(parents=True, exist_ok=True)
+        ensure_private_directory(path)
     return workspace, task_root
 
 

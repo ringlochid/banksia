@@ -16,6 +16,7 @@ from banksia.persistence.models import (
     DispatchTurnModel,
     TaskModel,
 )
+from banksia.platform.workspace_files import ensure_private_directory
 from banksia.providers import ProviderKind
 from banksia.runtime.contracts import FileReference, TaskStartRequest
 from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
@@ -297,7 +298,7 @@ async def test_task_start_recovery_repairs_committed_marker_and_removes_stale_ma
 
             orphan_id = "t_abcdefgh"
             orphan_root = workspace / ".banksia" / orphan_id
-            orphan_root.mkdir()
+            ensure_private_directory(orphan_root)
             (orphan_root / TASK_INITIALIZATION_MARKER).write_bytes(
                 f"banksia-task-initialization-v1\n{orphan_id}\n".encode()
             )

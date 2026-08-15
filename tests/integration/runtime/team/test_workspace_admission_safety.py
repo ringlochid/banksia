@@ -19,7 +19,7 @@ from banksia.persistence.models import (
     TaskEventModel,
     TaskModel,
 )
-from banksia.platform.workspace_files import DirectoryLease
+from banksia.platform.workspace_files import DirectoryLease, ensure_private_directory
 from banksia.providers import ProviderKind
 from banksia.runtime.contracts import TaskStartRequest
 from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
@@ -237,7 +237,7 @@ async def test_recovery_never_follows_a_marker_symlink(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     task_id = "t_01234567"
     task_root = workspace / ".banksia" / task_id
-    task_root.mkdir(parents=True)
+    ensure_private_directory(task_root)
     outside = tmp_path / "outside-marker"
     outside.write_text(
         f"banksia-task-initialization-v1\n{task_id}\n",
@@ -463,7 +463,7 @@ def test_projection_replace_rejects_a_manifest_symlink_without_following_it(
     workspace = tmp_path / "workspace"
     task_id = "t_01234567"
     task_root = workspace / ".banksia" / task_id
-    task_root.mkdir(parents=True)
+    ensure_private_directory(task_root)
     outside = tmp_path / "outside.md"
     outside.write_text("external", encoding="utf-8")
     manifest = task_root / "manifest.md"

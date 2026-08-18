@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib
 import importlib.util
 import os
+import shutil
 import subprocess
 import sys
 import tomllib
@@ -282,6 +283,7 @@ def test_resource_owner_helpers_point_to_canonical_package_paths() -> None:
     assert service_root.joinpath("systemd", "banksia.service").is_file()
 
 
+@pytest.mark.skipif(shutil.which("make") is None, reason="GNU Make is not installed")
 def test_clean_local_preserves_ignored_research(tmp_path: Path) -> None:
     research_note = tmp_path / "tmp" / "codex" / "target" / "keep.md"
     research_note.parent.mkdir(parents=True)

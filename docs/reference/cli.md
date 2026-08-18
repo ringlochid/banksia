@@ -247,6 +247,10 @@ Native Windows requires Windows 11 x64 and local NTFS configuration, data, works
 
 `render`, `install`, `start`, `stop`, `restart`, `status`, and `uninstall` accept the normal `--config PATH` where applicable. Lifecycle and status commands offer `--json`; there is no user-authored service name, unit directory, or port override. Change the API port through initialization or configuration, then rerun `service install`.
 
+JSON lifecycle and status output includes `definition_current`. A controller is reported ready only when the native per-user service is active and that controller passes `/readyz`; an unrelated process answering on the configured port is not treated as the installed service.
+
+On Windows, `install`, `start`, and `restart` allow up to 30 seconds after the native task starts for a cold controller to become ready. `stop` waits for both the native instance and its API listener to disappear, and `restart` does not start the replacement until that bind target is released.
+
 `service status` combines native definition/startup state with bounded controller health and readiness. `service logs` reads the portable bounded controller log; `--follow` cannot be combined with `--json`. `service uninstall` removes the native definition but preserves controller configuration, database/data, and provider credentials.
 
 `banksia serve` remains the portable foreground path. A native service implementation on a host does not by itself establish full platform readiness; supported-platform claims require the installed-wheel filesystem, private-path, Command Run, reset, and lifecycle gates.

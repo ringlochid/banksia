@@ -14,13 +14,17 @@ from .contracts import (
 )
 from .controller_status import (
     build_managed_service_result,
+    probe_bind_target,
     probe_controller_state,
+    wait_for_controller_shutdown,
     wait_for_controller_state,
 )
 from .launchd import (
     LAUNCHD_MANAGER_NAME,
     LAUNCHD_SERVICE_NAME,
+    LaunchdJobSnapshot,
     LaunchdUserServiceManager,
+    parse_launchctl_print,
     render_launch_agent_plist,
 )
 from .manager_selection import get_managed_service_manager
@@ -29,9 +33,11 @@ from .scheduled_tasks import (
     SCHEDULED_TASK_SERVICE_NAME,
     ScheduledTaskUserServiceManager,
     render_scheduled_task_xml,
+    scheduled_task_definitions_match,
 )
 from .service_logs import (
     SERVICE_LOG_LINE_LIMIT,
+    SERVICE_LOGGER_NAME,
     configure_service_logging,
     default_service_log_path,
     follow_service_log,
@@ -46,15 +52,23 @@ from .systemd import (
     parse_systemd_show,
     render_systemd_service_unit,
 )
+from .windows_task_scheduler import (
+    ComWindowsTaskScheduler,
+    WindowsScheduledTaskSnapshot,
+    WindowsTaskScheduler,
+)
 
 __all__ = [
     "LAUNCHD_MANAGER_NAME",
     "LAUNCHD_SERVICE_NAME",
     "SCHEDULED_TASK_MANAGER_NAME",
     "SCHEDULED_TASK_SERVICE_NAME",
+    "SERVICE_LOGGER_NAME",
     "SERVICE_LOG_LINE_LIMIT",
     "SYSTEMD_MANAGER_NAME",
     "SYSTEMD_SERVICE_NAME",
+    "ComWindowsTaskScheduler",
+    "LaunchdJobSnapshot",
     "LaunchdUserServiceManager",
     "ManagedServiceCommandError",
     "ManagedServiceCommandObserver",
@@ -68,6 +82,8 @@ __all__ = [
     "ManagedServiceTarget",
     "ScheduledTaskUserServiceManager",
     "SystemdUserServiceManager",
+    "WindowsScheduledTaskSnapshot",
+    "WindowsTaskScheduler",
     "build_managed_service_result",
     "configure_service_logging",
     "default_service_log_path",
@@ -75,11 +91,15 @@ __all__ = [
     "get_linux_user_unit_dir",
     "get_managed_service_manager",
     "is_systemd_supported",
+    "parse_launchctl_print",
     "parse_systemd_show",
+    "probe_bind_target",
     "probe_controller_state",
     "read_service_log_tail",
     "render_launch_agent_plist",
     "render_scheduled_task_xml",
     "render_systemd_service_unit",
+    "scheduled_task_definitions_match",
+    "wait_for_controller_shutdown",
     "wait_for_controller_state",
 ]

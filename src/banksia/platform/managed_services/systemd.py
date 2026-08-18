@@ -31,6 +31,7 @@ _SYSTEMD_CLD_EXITED = "1"
 class SystemdUserServiceManager:
     manager_name = SYSTEMD_MANAGER_NAME
     service_name = SYSTEMD_SERVICE_NAME
+    readiness_timeout_seconds = 3.0
 
     def __init__(
         self,
@@ -125,7 +126,6 @@ class SystemdUserServiceManager:
 
     def inspect(self, target: ManagedServiceTarget) -> ManagedServiceInspection:
         self._require_supported()
-        del target
         completed = self._execute(
             "show",
             self.service_name,
@@ -139,13 +139,17 @@ class SystemdUserServiceManager:
         load_state = values.get("LoadState")
         if load_state in {None, "", "not-found"}:
             return self._absent_inspection()
+        definition_path = Path(values.get("FragmentPath") or self.definition_path)
+        current_definition = read_service_definition(definition_path)
+        expected_definition = self.render_definition(target).encode("utf-8")
         return ManagedServiceInspection(
             manager=self.manager_name,
             service_name=self.service_name,
-            definition_path=Path(values.get("FragmentPath") or self.definition_path),
+            definition_path=definition_path,
             installation_state=ManagedServiceInstallationState.INSTALLED,
             startup_state=_systemd_startup_state(values.get("UnitFileState")),
             execution_state=_systemd_execution_state(values),
+            is_definition_current=current_definition == expected_definition,
             technical_state=tuple(
                 (key, value)
                 for key in (
@@ -237,6 +241,7 @@ class SystemdUserServiceManager:
             installation_state=ManagedServiceInstallationState.ABSENT,
             startup_state=ManagedServiceStartupState.DISABLED,
             execution_state=ManagedServiceExecutionState.STOPPED,
+            is_definition_current=False,
         )
 
 

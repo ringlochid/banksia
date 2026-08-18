@@ -1,10 +1,9 @@
 from __future__ import annotations
 
+import logging
 import os
 import plistlib
-import sys
 from pathlib import Path
-from xml.etree import ElementTree
 
 import pytest
 
@@ -13,6 +12,7 @@ import banksia.platform.managed_services.systemd as systemd_module
 from banksia.config import Settings
 from banksia.platform.managed_services import (
     LAUNCHD_SERVICE_NAME,
+    SERVICE_LOGGER_NAME,
     ManagedServiceCommandError,
     ManagedServiceControllerState,
     ManagedServiceExecutionState,
@@ -20,9 +20,13 @@ from banksia.platform.managed_services import (
     ManagedServiceInstallationState,
     ManagedServiceStartupState,
     ManagedServiceTarget,
-    ScheduledTaskUserServiceManager,
     SystemdUserServiceManager,
+    build_managed_service_result,
+    configure_service_logging,
     get_managed_service_manager,
+    parse_launchctl_print,
+    probe_controller_state,
+    wait_for_controller_shutdown,
     wait_for_controller_state,
 )
 from banksia.platform.managed_services.definition_files import (
@@ -141,11 +145,11 @@ def test_systemd_crash_loop_is_failed_instead_of_indefinitely_starting(
     }
 
 
-def test_readiness_poll_uses_a_fresh_native_inspection_every_time(tmp_path: Path) -> None:
+def test_readiness_poll_recovers_from_a_transient_native_failure(tmp_path: Path) -> None:
     inspections = iter(
         (
-            _inspection(ManagedServiceExecutionState.STARTING),
             _inspection(ManagedServiceExecutionState.FAILED),
+            _inspection(ManagedServiceExecutionState.RUNNING),
         )
     )
     inspection_count = 0
@@ -156,21 +160,135 @@ def test_readiness_poll_uses_a_fresh_native_inspection_every_time(tmp_path: Path
         return next(inspections)
 
     result = wait_for_controller_state(
+        initial_inspection=_inspection(ManagedServiceExecutionState.STARTING),
         inspect=inspect,
         settings=Settings(),
         log_path=tmp_path / "controller.log",
-        attempts=2,
+        timeout_seconds=1,
         interval_seconds=0,
         probe=lambda host, port, state: (
             ManagedServiceControllerState.FAILED
             if state is ManagedServiceExecutionState.FAILED
-            else ManagedServiceControllerState.STARTING
+            else (
+                ManagedServiceControllerState.READY
+                if state is ManagedServiceExecutionState.RUNNING
+                else ManagedServiceControllerState.STARTING
+            )
         ),
     )
 
     assert inspection_count == 2
-    assert result.inspection.execution_state is ManagedServiceExecutionState.FAILED
-    assert result.controller_state is ManagedServiceControllerState.FAILED
+    assert result.inspection.execution_state is ManagedServiceExecutionState.RUNNING
+    assert result.controller_state is ManagedServiceControllerState.READY
+
+
+def test_shutdown_waits_for_the_native_instance_and_bind_target(tmp_path: Path) -> None:
+    inspections = iter((_inspection(ManagedServiceExecutionState.STOPPED),))
+    listening = iter((True, False))
+    inspection_count = 0
+
+    def inspect() -> ManagedServiceInspection:
+        nonlocal inspection_count
+        inspection_count += 1
+        return next(inspections)
+
+    result = wait_for_controller_shutdown(
+        initial_inspection=_inspection(ManagedServiceExecutionState.STOPPED),
+        inspect=inspect,
+        settings=Settings(api_port=65534),
+        log_path=tmp_path / "controller.log",
+        timeout_seconds=1,
+        interval_seconds=0,
+        is_bind_target_listening=lambda host, port: next(listening),
+    )
+
+    assert inspection_count == 1
+    assert result.inspection.execution_state is ManagedServiceExecutionState.STOPPED
+    assert result.controller_state is ManagedServiceControllerState.STOPPED
+
+
+def test_shutdown_rejects_a_lingering_bind_target(tmp_path: Path) -> None:
+    with pytest.raises(RuntimeError, match=r"API bind target 127\.0\.0\.1:65534 remained in use"):
+        wait_for_controller_shutdown(
+            initial_inspection=_inspection(ManagedServiceExecutionState.STOPPED),
+            inspect=lambda: _inspection(ManagedServiceExecutionState.STOPPED),
+            settings=Settings(api_port=65534),
+            log_path=tmp_path / "controller.log",
+            timeout_seconds=0,
+            is_bind_target_listening=lambda host, port: True,
+        )
+
+
+def test_ready_endpoint_does_not_override_stopped_native_service(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import banksia.platform.managed_services.controller_status as controller_status_module
+
+    monkeypatch.setattr(controller_status_module, "_read_health_status", lambda *args: 200)
+
+    state = probe_controller_state(
+        "127.0.0.1",
+        18125,
+        ManagedServiceExecutionState.STOPPED,
+    )
+
+    assert state is ManagedServiceControllerState.STOPPED
+
+
+def test_bind_target_ownership_requires_an_active_native_service(tmp_path: Path) -> None:
+    def ready_probe(
+        host: str, port: int, state: ManagedServiceExecutionState
+    ) -> ManagedServiceControllerState:
+        del host, port, state
+        return ManagedServiceControllerState.READY
+
+    running = build_managed_service_result(
+        inspection=_inspection(ManagedServiceExecutionState.RUNNING),
+        settings=Settings(),
+        log_path=tmp_path / "controller.log",
+        probe=ready_probe,
+    )
+    stopped = build_managed_service_result(
+        inspection=_inspection(ManagedServiceExecutionState.STOPPED),
+        settings=Settings(),
+        log_path=tmp_path / "controller.log",
+        probe=ready_probe,
+    )
+
+    assert running.owns_bind_target is True
+    assert stopped.owns_bind_target is False
+
+
+def test_service_lifecycle_log_survives_warning_application_threshold(tmp_path: Path) -> None:
+    logger_names = ("", SERVICE_LOGGER_NAME, "uvicorn", "uvicorn.error", "uvicorn.access")
+    logger_state = {
+        name: (
+            list(logging.getLogger(name).handlers),
+            logging.getLogger(name).level,
+            logging.getLogger(name).propagate,
+        )
+        for name in logger_names
+    }
+    log_path = tmp_path / "controller.log"
+    try:
+        configure_service_logging(log_path, level="WARNING")
+        logging.getLogger(SERVICE_LOGGER_NAME).info("background controller starting")
+        for handler in logging.getLogger().handlers:
+            handler.flush()
+    finally:
+        configured_handlers = list(logging.getLogger().handlers)
+        for name, (handlers, level, propagate) in logger_state.items():
+            logger = logging.getLogger(name)
+            logger.handlers.clear()
+            logger.handlers.extend(handlers)
+            logger.setLevel(level)
+            logger.propagate = propagate
+        for handler in configured_handlers:
+            handler.close()
+
+    assert "INFO banksia.service background controller starting" in log_path.read_text(
+        encoding="utf-8"
+    )
 
 
 def test_atomic_definition_replacement_rejects_a_symlink(tmp_path: Path) -> None:
@@ -218,65 +336,6 @@ def test_launch_agent_definition_has_only_the_bounded_user_job_contract(
     assert "EnvironmentVariables" not in definition
 
 
-def test_scheduled_task_definition_is_current_user_and_least_privilege(
-    tmp_path: Path,
-) -> None:
-    definition = ElementTree.fromstring(
-        ScheduledTaskUserServiceManager(user_id="S-1-5-21-1234").render_definition(
-            _target_with_special_paths(tmp_path)
-        )
-    )
-    namespace = {"t": "http://schemas.microsoft.com/windows/2004/02/mit/task"}
-
-    assert definition.findtext(".//t:UserId", namespaces=namespace) == "S-1-5-21-1234"
-    assert (
-        definition.findtext(".//t:LogonTrigger/t:UserId", namespaces=namespace) == "S-1-5-21-1234"
-    )
-    assert definition.findtext(".//t:LogonType", namespaces=namespace) == "InteractiveToken"
-    assert definition.findtext(".//t:RunLevel", namespaces=namespace) == "LeastPrivilege"
-    assert definition.findtext(".//t:MultipleInstancesPolicy", namespaces=namespace) == (
-        "IgnoreNew"
-    )
-    assert definition.findtext(".//t:ExecutionTimeLimit", namespaces=namespace) == "PT0S"
-    assert definition.findtext(".//t:Command", namespaces=namespace) == str(
-        _target_with_special_paths(tmp_path).python_executable
-    )
-
-
-def test_scheduled_task_manager_reconciles_xml_without_localized_status_parsing(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    task_definition = tmp_path / "task.xml"
-    command_log = tmp_path / "schtasks.log"
-    schtasks = tmp_path / "schtasks"
-    _write_fake_schtasks(schtasks, task_definition, command_log)
-    import banksia.platform.managed_services.scheduled_tasks as scheduled_tasks_module
-
-    monkeypatch.setattr(scheduled_tasks_module.sys, "platform", "win32")
-    command = (sys.executable, str(schtasks)) if os.name == "nt" else str(schtasks)
-    manager = ScheduledTaskUserServiceManager(
-        schtasks_bin=command,
-        user_id="S-1-5-21-1234",
-    )
-    target = _target(tmp_path)
-
-    installed = manager.install(target, should_start=False)
-    restarted = manager.restart(target)
-    stopped = manager.stop(target)
-    removed = manager.uninstall(target)
-
-    assert installed.installation_state is ManagedServiceInstallationState.INSTALLED
-    assert restarted.execution_state is ManagedServiceExecutionState.STARTING
-    assert stopped.execution_state is ManagedServiceExecutionState.STOPPED
-    assert removed.installation_state is ManagedServiceInstallationState.ABSENT
-    assert not task_definition.exists()
-    calls = command_log.read_text(encoding="utf-8").splitlines()
-    assert any(call.startswith("/Create ") for call in calls)
-    assert "/Run /TN \\Banksia\\Controller" in calls
-    assert "/Delete /TN \\Banksia\\Controller /F" in calls
-
-
 def test_launch_agent_lifecycle_uses_current_gui_domain(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -300,10 +359,10 @@ def test_launch_agent_lifecycle_uses_current_gui_domain(
     stopped = manager.stop(target)
     removed = manager.uninstall(target)
 
-    assert installed.execution_state is ManagedServiceExecutionState.STARTING
-    assert installed.startup_state is ManagedServiceStartupState.UNKNOWN
+    assert installed.execution_state is ManagedServiceExecutionState.RUNNING
+    assert installed.startup_state is ManagedServiceStartupState.ENABLED
     assert stopped.execution_state is ManagedServiceExecutionState.STOPPED
-    assert restarted.execution_state is ManagedServiceExecutionState.STARTING
+    assert restarted.execution_state is ManagedServiceExecutionState.RUNNING
     assert removed.installation_state is ManagedServiceInstallationState.ABSENT
     commands = command_log.read_text(encoding="utf-8").splitlines()
     assert f"enable gui/501/{LAUNCHD_SERVICE_NAME}" in commands
@@ -311,6 +370,22 @@ def test_launch_agent_lifecycle_uses_current_gui_domain(
     assert f"bootout gui/501/{LAUNCHD_SERVICE_NAME}" in commands
     assert f"kickstart -k gui/501/{LAUNCHD_SERVICE_NAME}" in commands
     assert not manager.definition_path.exists()
+
+
+def test_launchctl_print_parser_reads_runtime_state() -> None:
+    snapshot = parse_launchctl_print(
+        """gui/501/io.github.ringlochid.banksia = {
+    state = running
+    pid = 4312
+    last exit code = 0
+}
+"""
+    )
+
+    assert snapshot.is_loaded is True
+    assert snapshot.state == "running"
+    assert snapshot.process_id == 4312
+    assert snapshot.last_exit_code == 0
 
 
 def test_native_command_error_carries_explicit_operation_and_manager(
@@ -365,6 +440,7 @@ def _inspection(execution_state: ManagedServiceExecutionState) -> ManagedService
         installation_state=ManagedServiceInstallationState.INSTALLED,
         startup_state=ManagedServiceStartupState.ENABLED,
         execution_state=execution_state,
+        is_definition_current=True,
     )
 
 
@@ -416,37 +492,18 @@ def _write_fake_launchctl(
                 "args = sys.argv[1:]",
                 "with log.open('a', encoding='utf-8') as stream:",
                 "    stream.write(' '.join(args) + '\\n')",
-                "if args[0] == 'print': raise SystemExit(0 if loaded.exists() else 1)",
+                "if args[0] == 'print-disabled':",
+                "    print('disabled services = {')",
+                "    print('}')",
+                "elif args[0] == 'print':",
+                "    if not loaded.exists(): raise SystemExit(1)",
+                "    print('gui/501/io.github.ringlochid.banksia = {')",
+                "    print('    state = running')",
+                "    print('    pid = 4312')",
+                "    print('    last exit code = 0')",
+                "    print('}')",
                 "if args[0] in {'bootstrap', 'kickstart'}: loaded.touch()",
                 "if args[0] == 'bootout': loaded.unlink(missing_ok=True)",
-            ]
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-    path.chmod(0o755)
-
-
-def _write_fake_schtasks(path: Path, definition: Path, command_log: Path) -> None:
-    path.write_text(
-        "\n".join(
-            [
-                f"#!{sys.executable}",
-                "from pathlib import Path",
-                "import sys",
-                f"definition = Path({str(definition)!r})",
-                f"log = Path({str(command_log)!r})",
-                "args = sys.argv[1:]",
-                "with log.open('a', encoding='utf-8') as stream:",
-                "    stream.write(' '.join(args) + '\\n')",
-                "if '/Create' in args:",
-                "    source = Path(args[args.index('/XML') + 1])",
-                "    definition.write_bytes(source.read_bytes())",
-                "elif '/Query' in args:",
-                "    if not definition.exists(): raise SystemExit(1)",
-                "    sys.stdout.buffer.write(definition.read_bytes())",
-                "elif '/Delete' in args:",
-                "    definition.unlink(missing_ok=True)",
             ]
         )
         + "\n",

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -11,9 +12,11 @@ import banksia.interfaces.cli.commands.service as service_commands
 from banksia.interfaces.cli.errors import unexpected_failure
 from banksia.platform.managed_services import (
     ManagedServiceCommandError,
+    ManagedServiceControllerState,
     ManagedServiceExecutionState,
     ManagedServiceInspection,
     ManagedServiceInstallationState,
+    ManagedServiceResult,
     ManagedServiceStartupState,
     ManagedServiceTarget,
 )
@@ -22,9 +25,11 @@ from banksia.platform.managed_services import (
 class StubManagedServiceManager:
     manager_name = "test-user-manager"
     service_name = "banksia"
+    readiness_timeout_seconds = 0.0
 
     def __init__(self, inspection: ManagedServiceInspection) -> None:
         self.inspection = inspection
+        self.operations: list[str] = []
 
     def render_definition(self, target: ManagedServiceTarget) -> str:
         return (
@@ -35,6 +40,18 @@ class StubManagedServiceManager:
 
     def inspect(self, target: ManagedServiceTarget) -> ManagedServiceInspection:
         del target
+        return self.inspection
+
+    def start(self, target: ManagedServiceTarget, **kwargs: object) -> ManagedServiceInspection:
+        del target, kwargs
+        self.operations.append("start")
+        self.inspection = self.inspection.with_execution_state(ManagedServiceExecutionState.RUNNING)
+        return self.inspection
+
+    def stop(self, target: ManagedServiceTarget, **kwargs: object) -> ManagedServiceInspection:
+        del target, kwargs
+        self.operations.append("stop")
+        self.inspection = self.inspection.with_execution_state(ManagedServiceExecutionState.STOPPED)
         return self.inspection
 
 
@@ -84,6 +101,7 @@ def test_service_status_json_uses_portable_contract(
     assert payload == {
         "api_url": "http://127.0.0.1:65533",
         "controller_state": "stopped",
+        "definition_current": True,
         "definition_path": str(tmp_path / "banksia.definition"),
         "installation_state": "installed",
         "log_path": str(service_commands.default_service_log_path()),
@@ -95,6 +113,31 @@ def test_service_status_json_uses_portable_contract(
     assert "active_state" not in payload
     assert "fragment_path" not in payload
     assert "healthy" not in payload
+
+
+def test_service_status_exposes_an_outdated_definition(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    config_path = _write_config(tmp_path, port=65531)
+    outdated = replace(
+        _installed_stopped_inspection(tmp_path),
+        is_definition_current=False,
+    )
+    monkeypatch.setattr(
+        service_commands,
+        "get_managed_service_manager",
+        lambda: StubManagedServiceManager(outdated),
+    )
+
+    result = cli.cmd_service_status(argparse.Namespace(config=str(config_path), json=False))
+
+    output = capsys.readouterr().out
+    assert result == 0
+    assert "needs reinstall" in output.casefold()
+    assert "Definition: Out of date" in output
+    assert "banksia service install" in output
 
 
 def test_failed_service_status_directs_the_operator_to_bounded_logs(
@@ -139,6 +182,38 @@ def test_service_render_uses_selected_native_definition(
     assert result == 0
     assert f"config={config_path.resolve()}" in output
     assert "log=" in output
+
+
+def test_service_restart_releases_the_bind_target_before_starting(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    config_path = _write_config(tmp_path, port=65530)
+    manager = StubManagedServiceManager(_installed_stopped_inspection(tmp_path))
+    events = manager.operations
+    monkeypatch.setattr(service_commands, "get_managed_service_manager", lambda: manager)
+
+    def wait_for_shutdown(**kwargs: object) -> ManagedServiceResult:
+        events.append("release")
+        inspection = kwargs["initial_inspection"]
+        assert isinstance(inspection, ManagedServiceInspection)
+        return _service_result(inspection, tmp_path, ManagedServiceControllerState.STOPPED)
+
+    def build_start_result(**kwargs: object) -> ManagedServiceResult:
+        events.append("readiness")
+        inspection = kwargs["inspection"]
+        assert isinstance(inspection, ManagedServiceInspection)
+        return _service_result(inspection, tmp_path, ManagedServiceControllerState.READY)
+
+    monkeypatch.setattr(service_commands, "wait_for_controller_shutdown", wait_for_shutdown)
+    monkeypatch.setattr(service_commands, "_build_result", build_start_result)
+
+    result = cli.cmd_service_restart(argparse.Namespace(config=str(config_path), json=True))
+
+    assert result == 0
+    assert events == ["stop", "release", "start", "readiness"]
+    assert json.loads(capsys.readouterr().out)["controller_state"] == "ready"
 
 
 def test_service_target_preserves_the_active_environment_interpreter(
@@ -227,4 +302,18 @@ def _installed_stopped_inspection(tmp_path: Path) -> ManagedServiceInspection:
         installation_state=ManagedServiceInstallationState.INSTALLED,
         startup_state=ManagedServiceStartupState.ENABLED,
         execution_state=ManagedServiceExecutionState.STOPPED,
+        is_definition_current=True,
+    )
+
+
+def _service_result(
+    inspection: ManagedServiceInspection,
+    tmp_path: Path,
+    controller_state: ManagedServiceControllerState,
+) -> ManagedServiceResult:
+    return ManagedServiceResult(
+        inspection=inspection,
+        controller_state=controller_state,
+        api_url="http://127.0.0.1:65530",
+        log_path=tmp_path / "controller.log",
     )

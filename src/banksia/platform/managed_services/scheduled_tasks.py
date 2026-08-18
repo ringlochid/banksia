@@ -1,16 +1,14 @@
 from __future__ import annotations
 
-import locale
+import ntpath
 import subprocess
 import sys
-from collections.abc import Sequence
+import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any
-from uuid import uuid4
+from typing import Any, TypeVar
 from xml.etree import ElementTree
 from xml.sax.saxutils import escape
-
-from banksia.platform.workspace_files import protect_private_path
 
 from .contracts import (
     ManagedServiceCommandError,
@@ -22,10 +20,26 @@ from .contracts import (
     ManagedServiceTarget,
     bounded_service_command_detail,
 )
+from .windows_task_scheduler import (
+    ComWindowsTaskScheduler,
+    WindowsScheduledTaskSnapshot,
+    WindowsTaskScheduler,
+    WindowsTaskSchedulerError,
+)
 
 SCHEDULED_TASK_MANAGER_NAME = "windows-task-scheduler"
 SCHEDULED_TASK_SERVICE_NAME = r"\Banksia\Controller"
 _TASK_NAMESPACE = "http://schemas.microsoft.com/windows/2004/02/mit/task"
+_TASK_STATE_DISABLED = 1
+_TASK_STATE_QUEUED = 2
+_TASK_STATE_READY = 3
+_TASK_STATE_RUNNING = 4
+_TASK_STATUS_RESULTS = frozenset({0, *(range(0x00041300, 0x00041309)), 0x00041325})
+_STOP_ATTEMPTS = 40
+_STOP_INTERVAL_SECONDS = 0.1
+
+WindowsIdentityResolver = Callable[[str], str]
+_T = TypeVar("_T")
 
 
 class ScheduledTaskUserServiceManager:
@@ -33,15 +47,18 @@ class ScheduledTaskUserServiceManager:
 
     manager_name = SCHEDULED_TASK_MANAGER_NAME
     service_name = SCHEDULED_TASK_SERVICE_NAME
+    readiness_timeout_seconds = 30.0
 
     def __init__(
         self,
         *,
-        schtasks_bin: str | Sequence[str] | None = None,
+        task_scheduler: WindowsTaskScheduler | None = None,
         user_id: str | None = None,
+        identity_resolver: WindowsIdentityResolver | None = None,
     ) -> None:
-        self._schtasks_bin = schtasks_bin
+        self._task_scheduler = task_scheduler or ComWindowsTaskScheduler()
         self._user_id = user_id
+        self._identity_resolver = identity_resolver or _resolve_windows_identity
 
     def render_definition(self, target: ManagedServiceTarget) -> str:
         return render_scheduled_task_xml(
@@ -59,33 +76,34 @@ class ScheduledTaskUserServiceManager:
         command_observer: ManagedServiceCommandObserver | None = None,
     ) -> ManagedServiceInspection:
         self._require_supported()
-        definition_path = target.config_path.parent / f".scheduled-task-{uuid4().hex}.xml"
-        definition_path.parent.mkdir(parents=True, exist_ok=True)
-        definition_path.write_bytes(self.render_definition(target).encode("utf-16"))
-        protect_private_path(definition_path, is_directory=False)
-        try:
-            self._execute(
-                "/Create",
-                "/TN",
-                self.service_name,
-                "/XML",
-                str(definition_path),
-                "/F",
-                operation="install",
-                command_observer=command_observer,
+        existing = self._inspect_snapshot()
+        expected = self.render_definition(target)
+        is_current = existing is not None and scheduled_task_definitions_match(
+            existing.definition,
+            expected,
+            resolve_identity=self._identity_resolver,
+        )
+        if existing is not None and is_current and existing.is_enabled:
+            if should_start:
+                return self.start(target, command_observer=command_observer)
+            return self._inspection_from_snapshot(existing, is_definition_current=True)
+        if existing is not None and _snapshot_is_active(existing):
+            self._stop_and_wait(command_observer=command_observer)
+
+        user_id = self._resolved_user_id()
+        self._invoke_scheduler(
+            "install",
+            command_observer,
+            lambda: self._task_scheduler.register(definition=expected, user_id=user_id),
+        )
+        inspection = self.inspect(target)
+        if not inspection.is_definition_current:
+            raise RuntimeError(
+                "Task Scheduler did not retain the current Banksia background service definition"
             )
-        finally:
-            definition_path.unlink(missing_ok=True)
         if should_start:
-            self._execute(
-                "/Run",
-                "/TN",
-                self.service_name,
-                operation="start",
-                command_observer=command_observer,
-            )
-            return self.inspect(target).with_execution_state(ManagedServiceExecutionState.STARTING)
-        return self.inspect(target)
+            return self.start(target, command_observer=command_observer)
+        return inspection
 
     def uninstall(
         self,
@@ -95,24 +113,12 @@ class ScheduledTaskUserServiceManager:
     ) -> ManagedServiceInspection:
         self._require_supported()
         del target
-        if self._query_definition() is None:
+        snapshot = self._inspect_snapshot()
+        if snapshot is None:
             return self._absent_inspection()
-        self._execute(
-            "/End",
-            "/TN",
-            self.service_name,
-            operation="stop",
-            should_check=False,
-            command_observer=command_observer,
-        )
-        self._execute(
-            "/Delete",
-            "/TN",
-            self.service_name,
-            "/F",
-            operation="uninstall",
-            command_observer=command_observer,
-        )
+        if _snapshot_is_active(snapshot):
+            self._stop_and_wait(command_observer=command_observer)
+        self._invoke_scheduler("uninstall", command_observer, self._task_scheduler.delete)
         return self._absent_inspection()
 
     def start(
@@ -121,15 +127,17 @@ class ScheduledTaskUserServiceManager:
         *,
         command_observer: ManagedServiceCommandObserver | None = None,
     ) -> ManagedServiceInspection:
-        self._require_current_definition(target)
-        self._execute(
-            "/Run",
-            "/TN",
-            self.service_name,
-            operation="start",
-            command_observer=command_observer,
-        )
-        return self.inspect(target).with_execution_state(ManagedServiceExecutionState.STARTING)
+        snapshot = self._require_current_snapshot(target)
+        if _snapshot_is_active(snapshot):
+            return self._inspection_from_snapshot(snapshot, is_definition_current=True)
+        self._invoke_scheduler("start", command_observer, self._task_scheduler.start_task)
+        inspection = self.inspect(target)
+        if inspection.execution_state in {
+            ManagedServiceExecutionState.RUNNING,
+            ManagedServiceExecutionState.STARTING,
+        }:
+            return inspection
+        return inspection.with_execution_state(ManagedServiceExecutionState.STARTING)
 
     def stop(
         self,
@@ -137,16 +145,10 @@ class ScheduledTaskUserServiceManager:
         *,
         command_observer: ManagedServiceCommandObserver | None = None,
     ) -> ManagedServiceInspection:
-        self._require_current_definition(target)
-        self._execute(
-            "/End",
-            "/TN",
-            self.service_name,
-            operation="stop",
-            should_check=False,
-            command_observer=command_observer,
-        )
-        return self.inspect(target).with_execution_state(ManagedServiceExecutionState.STOPPED)
+        snapshot = self._require_current_snapshot(target)
+        if _snapshot_is_active(snapshot):
+            snapshot = self._stop_and_wait(command_observer=command_observer)
+        return self._inspection_from_snapshot(snapshot, is_definition_current=True)
 
     def restart(
         self,
@@ -154,55 +156,115 @@ class ScheduledTaskUserServiceManager:
         *,
         command_observer: ManagedServiceCommandObserver | None = None,
     ) -> ManagedServiceInspection:
-        self._require_current_definition(target)
-        self._execute(
-            "/End",
-            "/TN",
-            self.service_name,
-            operation="stop",
-            should_check=False,
-            command_observer=command_observer,
-        )
+        snapshot = self._require_current_snapshot(target)
+        if _snapshot_is_active(snapshot):
+            self._stop_and_wait(command_observer=command_observer)
         return self.start(target, command_observer=command_observer)
 
     def inspect(self, target: ManagedServiceTarget) -> ManagedServiceInspection:
         self._require_supported()
-        definition = self._query_definition()
-        if definition is None:
+        snapshot = self._inspect_snapshot()
+        if snapshot is None:
             return self._absent_inspection()
-        is_current = _definitions_match(definition, self.render_definition(target))
+        is_current = scheduled_task_definitions_match(
+            snapshot.definition,
+            self.render_definition(target),
+            resolve_identity=self._identity_resolver,
+        )
+        return self._inspection_from_snapshot(snapshot, is_definition_current=is_current)
+
+    def _require_current_snapshot(
+        self,
+        target: ManagedServiceTarget,
+    ) -> WindowsScheduledTaskSnapshot:
+        self._require_supported()
+        snapshot = self._inspect_snapshot()
+        if snapshot is None:
+            raise RuntimeError(
+                "Banksia background service is not installed; run `banksia service install`"
+            )
+        if not scheduled_task_definitions_match(
+            snapshot.definition,
+            self.render_definition(target),
+            resolve_identity=self._identity_resolver,
+        ):
+            raise RuntimeError(
+                "Banksia background service definition is out of date; "
+                "run `banksia service install`"
+            )
+        return snapshot
+
+    def _inspect_snapshot(self) -> WindowsScheduledTaskSnapshot | None:
+        return self._invoke_scheduler("inspect", None, self._task_scheduler.inspect)
+
+    def _stop_and_wait(
+        self,
+        *,
+        command_observer: ManagedServiceCommandObserver | None,
+    ) -> WindowsScheduledTaskSnapshot:
+        self._invoke_scheduler("stop", command_observer, self._task_scheduler.stop)
+        for attempt in range(_STOP_ATTEMPTS):
+            snapshot = self._inspect_snapshot()
+            if snapshot is None:
+                raise RuntimeError("Banksia background service disappeared while stopping")
+            if not _snapshot_is_active(snapshot):
+                return snapshot
+            if attempt + 1 < _STOP_ATTEMPTS:
+                time.sleep(_STOP_INTERVAL_SECONDS)
+        raise ManagedServiceCommandError(
+            manager=self.manager_name,
+            operation="stop",
+            service_name=self.service_name,
+            command=("Task Scheduler 2.0", "stop", self.service_name),
+            return_code=-1,
+            detail="the scheduled task did not stop within 4 seconds",
+        )
+
+    def _inspection_from_snapshot(
+        self,
+        snapshot: WindowsScheduledTaskSnapshot,
+        *,
+        is_definition_current: bool,
+    ) -> ManagedServiceInspection:
         return ManagedServiceInspection(
             manager=self.manager_name,
             service_name=self.service_name,
             definition_path=None,
             installation_state=ManagedServiceInstallationState.INSTALLED,
-            startup_state=ManagedServiceStartupState.ENABLED,
-            execution_state=ManagedServiceExecutionState.UNKNOWN,
-            technical_state=(("definition_current", str(is_current).lower()),),
+            startup_state=(
+                ManagedServiceStartupState.ENABLED
+                if snapshot.is_enabled
+                else ManagedServiceStartupState.DISABLED
+            ),
+            execution_state=_scheduled_task_execution_state(snapshot),
+            is_definition_current=is_definition_current,
+            technical_state=(
+                ("task_state", str(snapshot.state)),
+                ("last_task_result", str(snapshot.last_result)),
+                ("running_instances", str(snapshot.running_instance_count)),
+            ),
         )
 
-    def _require_current_definition(self, target: ManagedServiceTarget) -> None:
-        definition = self._query_definition()
-        if definition is None:
-            raise RuntimeError(
-                "Banksia background service is not installed; run `banksia service install`"
-            )
-        if not _definitions_match(definition, self.render_definition(target)):
-            raise RuntimeError(
-                "Banksia background service definition is out of date; "
-                "run `banksia service install`"
-            )
-
-    def _query_definition(self) -> str | None:
-        completed = self._execute(
-            "/Query",
-            "/TN",
-            self.service_name,
-            "/XML",
-            operation="inspect",
-            should_check=False,
-        )
-        return completed.stdout if completed.returncode == 0 else None
+    def _invoke_scheduler(
+        self,
+        operation: str,
+        command_observer: ManagedServiceCommandObserver | None,
+        action: Callable[[], _T],
+    ) -> _T:
+        command = ("Task Scheduler 2.0", operation, self.service_name)
+        if command_observer is not None:
+            command_observer(command)
+        try:
+            return action()
+        except WindowsTaskSchedulerError as exc:
+            raise ManagedServiceCommandError(
+                manager=self.manager_name,
+                operation=operation,
+                service_name=self.service_name,
+                command=command,
+                return_code=exc.return_code,
+                detail=bounded_service_command_detail(exc.detail),
+            ) from exc
 
     def _resolved_user_id(self) -> str:
         if self._user_id is not None:
@@ -222,51 +284,6 @@ class ScheduledTaskUserServiceManager:
             win32api.CloseHandle(int(token))
         return str(win32security.ConvertSidToStringSid(sid))
 
-    def _execute(
-        self,
-        *args: str,
-        operation: str,
-        should_check: bool = True,
-        command_observer: ManagedServiceCommandObserver | None = None,
-    ) -> subprocess.CompletedProcess[str]:
-        command = (*self._command_prefix(), *args)
-        if command_observer is not None:
-            command_observer(command)
-        try:
-            raw = subprocess.run(list(command), check=False, capture_output=True)
-        except OSError as exc:
-            raise ManagedServiceCommandError(
-                manager=self.manager_name,
-                operation=operation,
-                service_name=self.service_name,
-                command=command,
-                return_code=-1,
-                detail=str(exc),
-            ) from exc
-        completed = subprocess.CompletedProcess(
-            raw.args,
-            raw.returncode,
-            _decode_native_output(raw.stdout),
-            _decode_native_output(raw.stderr),
-        )
-        if should_check and completed.returncode != 0:
-            raise ManagedServiceCommandError(
-                manager=self.manager_name,
-                operation=operation,
-                service_name=self.service_name,
-                command=command,
-                return_code=completed.returncode,
-                detail=bounded_service_command_detail(completed.stderr or completed.stdout),
-            )
-        return completed
-
-    def _command_prefix(self) -> tuple[str, ...]:
-        if self._schtasks_bin is None:
-            return ("schtasks.exe",)
-        if isinstance(self._schtasks_bin, str):
-            return (self._schtasks_bin,)
-        return tuple(self._schtasks_bin)
-
     @staticmethod
     def _require_supported() -> None:
         if sys.platform != "win32":
@@ -283,6 +300,7 @@ class ScheduledTaskUserServiceManager:
             installation_state=ManagedServiceInstallationState.ABSENT,
             startup_state=ManagedServiceStartupState.DISABLED,
             execution_state=ManagedServiceExecutionState.STOPPED,
+            is_definition_current=False,
         )
 
 
@@ -345,41 +363,118 @@ def render_scheduled_task_xml(
 """
 
 
-def _definitions_match(actual: str, expected: str) -> bool:
+def scheduled_task_definitions_match(
+    actual: str,
+    expected: str,
+    *,
+    resolve_identity: WindowsIdentityResolver,
+) -> bool:
     try:
         actual_root = ElementTree.fromstring(actual)
         expected_root = ElementTree.fromstring(expected)
     except ElementTree.ParseError:
         return False
-    selected_paths = (
-        "./t:Triggers/t:LogonTrigger/t:Enabled",
-        "./t:Triggers/t:LogonTrigger/t:UserId",
-        "./t:Principals/t:Principal/t:UserId",
-        "./t:Principals/t:Principal/t:LogonType",
-        "./t:Principals/t:Principal/t:RunLevel",
-        "./t:Settings/t:MultipleInstancesPolicy",
-        "./t:Settings/t:Enabled",
-        "./t:Settings/t:ExecutionTimeLimit",
-        "./t:Actions/t:Exec/t:Command",
-        "./t:Actions/t:Exec/t:Arguments",
-        "./t:Actions/t:Exec/t:WorkingDirectory",
+    return _normalized_definition_values(
+        actual_root,
+        resolve_identity=resolve_identity,
+    ) == _normalized_definition_values(
+        expected_root,
+        resolve_identity=resolve_identity,
     )
+
+
+def _normalized_definition_values(
+    root: ElementTree.Element,
+    *,
+    resolve_identity: WindowsIdentityResolver,
+) -> tuple[str | None, ...]:
     namespace = {"t": _TASK_NAMESPACE}
-    return all(
-        _element_text(actual_root.find(path, namespace))
-        == _element_text(expected_root.find(path, namespace))
-        for path in selected_paths
+    trigger_user = _element_text(root.find("./t:Triggers/t:LogonTrigger/t:UserId", namespace))
+    principal_user = _element_text(root.find("./t:Principals/t:Principal/t:UserId", namespace))
+    run_level = _element_text(root.find("./t:Principals/t:Principal/t:RunLevel", namespace))
+    return (
+        _casefolded_text(root, "./t:Triggers/t:LogonTrigger/t:Enabled", namespace) or "true",
+        _normalized_identity(trigger_user, resolve_identity=resolve_identity),
+        _normalized_identity(principal_user, resolve_identity=resolve_identity),
+        _casefolded_text(root, "./t:Principals/t:Principal/t:LogonType", namespace),
+        (run_level or "LeastPrivilege").casefold(),
+        _casefolded_text(root, "./t:Settings/t:MultipleInstancesPolicy", namespace),
+        _casefolded_text(root, "./t:Settings/t:Enabled", namespace) or "true",
+        _element_text(root.find("./t:Settings/t:ExecutionTimeLimit", namespace)),
+        _normalized_windows_path(root, "./t:Actions/t:Exec/t:Command", namespace),
+        _element_text(root.find("./t:Actions/t:Exec/t:Arguments", namespace)),
+        _normalized_windows_path(root, "./t:Actions/t:Exec/t:WorkingDirectory", namespace),
     )
+
+
+def _normalized_identity(
+    value: str | None,
+    *,
+    resolve_identity: WindowsIdentityResolver,
+) -> str | None:
+    if value is None:
+        return None
+    return resolve_identity(value).casefold()
+
+
+def _resolve_windows_identity(value: str) -> str:
+    if value.casefold().startswith("s-1-"):
+        return value
+    import pywintypes
+    import win32security
+
+    try:
+        sid, _, _ = win32security.LookupAccountName(None, value)
+    except pywintypes.error:
+        return value
+    return str(win32security.ConvertSidToStringSid(sid))
+
+
+def _casefolded_text(
+    root: ElementTree.Element,
+    path: str,
+    namespace: dict[str, str],
+) -> str | None:
+    value = _element_text(root.find(path, namespace))
+    return value.casefold() if value is not None else None
+
+
+def _normalized_windows_path(
+    root: ElementTree.Element,
+    path: str,
+    namespace: dict[str, str],
+) -> str | None:
+    value = _element_text(root.find(path, namespace))
+    return ntpath.normcase(ntpath.normpath(value)) if value is not None else None
 
 
 def _element_text(element: ElementTree.Element | None) -> str | None:
     return element.text if element is not None else None
 
 
-def _decode_native_output(payload: bytes) -> str:
-    if payload.startswith((b"\xff\xfe", b"\xfe\xff")):
-        return payload.decode("utf-16")
-    return payload.decode(locale.getpreferredencoding(False), errors="replace")
+def _snapshot_is_active(snapshot: WindowsScheduledTaskSnapshot) -> bool:
+    return snapshot.running_instance_count > 0 or snapshot.state in {
+        _TASK_STATE_QUEUED,
+        _TASK_STATE_RUNNING,
+    }
+
+
+def _scheduled_task_execution_state(
+    snapshot: WindowsScheduledTaskSnapshot,
+) -> ManagedServiceExecutionState:
+    if snapshot.running_instance_count > 0 or snapshot.state == _TASK_STATE_RUNNING:
+        return ManagedServiceExecutionState.RUNNING
+    if snapshot.state == _TASK_STATE_QUEUED:
+        return ManagedServiceExecutionState.STARTING
+    if snapshot.state in {_TASK_STATE_DISABLED, _TASK_STATE_READY}:
+        if _task_result_is_failure(snapshot.last_result):
+            return ManagedServiceExecutionState.FAILED
+        return ManagedServiceExecutionState.STOPPED
+    return ManagedServiceExecutionState.UNKNOWN
+
+
+def _task_result_is_failure(value: int) -> bool:
+    return value & 0xFFFFFFFF not in _TASK_STATUS_RESULTS
 
 
 def _background_python(executable: Path) -> Path:
@@ -392,4 +487,5 @@ __all__ = [
     "SCHEDULED_TASK_SERVICE_NAME",
     "ScheduledTaskUserServiceManager",
     "render_scheduled_task_xml",
+    "scheduled_task_definitions_match",
 ]

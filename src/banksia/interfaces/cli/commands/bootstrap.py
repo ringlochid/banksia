@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import logging
 import os
 from pathlib import Path
 
 import click
 import uvicorn
+from uvicorn.config import LOGGING_CONFIG
 
 from banksia.config import (
     CONTROLLER_WORKSPACE_ENV_VAR,
@@ -28,7 +30,9 @@ from banksia.interfaces.cli.bootstrap.database import (
 from banksia.interfaces.cli.progress import CliProgress
 from banksia.interfaces.cli.support import coerce_path, command_env, print_json
 from banksia.paths import default_data_dir, default_database_url, ensure_runtime_dirs
-from banksia.platform.managed_services import configure_service_logging
+from banksia.platform.managed_services import SERVICE_LOGGER_NAME, configure_service_logging
+
+logger = logging.getLogger(SERVICE_LOGGER_NAME)
 
 
 async def cmd_init(args: argparse.Namespace) -> int:
@@ -157,22 +161,26 @@ def cmd_serve(args: argparse.Namespace) -> int:
     with command_env(config_path=config_path, should_load_provider_secrets=True):
         settings = load_settings()
         if service_log is not None:
+            logger.info(
+                "Banksia background controller starting on %s:%s",
+                settings.api_host,
+                settings.api_port,
+            )
+        try:
             uvicorn.run(
                 "banksia.main:app",
                 host=settings.api_host,
                 port=settings.api_port,
                 log_level=settings.log_level.lower(),
-                log_config=None,
+                log_config=None if service_log is not None else LOGGING_CONFIG,
                 reload=False,
             )
+        except Exception:
+            logger.exception("Banksia background controller stopped with an error")
+            raise
         else:
-            uvicorn.run(
-                "banksia.main:app",
-                host=settings.api_host,
-                port=settings.api_port,
-                log_level=settings.log_level.lower(),
-                reload=False,
-            )
+            if service_log is not None:
+                logger.info("Banksia background controller stopped")
     return 0
 
 

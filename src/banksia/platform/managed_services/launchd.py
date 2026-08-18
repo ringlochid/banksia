@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import os
 import plistlib
+import re
 import subprocess
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 from .contracts import (
@@ -24,11 +26,21 @@ from .definition_files import (
 
 LAUNCHD_MANAGER_NAME = "launchd-user"
 LAUNCHD_SERVICE_NAME = "io.github.ringlochid.banksia"
+_LAUNCHCTL_FIELD_PATTERN = re.compile(r"^\s*([a-z][a-z ]+)\s*=\s*(.*?)\s*$")
+
+
+@dataclass(frozen=True, slots=True)
+class LaunchdJobSnapshot:
+    is_loaded: bool
+    state: str | None = None
+    process_id: int | None = None
+    last_exit_code: int | None = None
 
 
 class LaunchdUserServiceManager:
     manager_name = LAUNCHD_MANAGER_NAME
     service_name = LAUNCHD_SERVICE_NAME
+    readiness_timeout_seconds = 3.0
 
     def __init__(
         self,
@@ -57,9 +69,28 @@ class LaunchdUserServiceManager:
         command_observer: ManagedServiceCommandObserver | None = None,
     ) -> ManagedServiceInspection:
         self._require_supported()
+        current = read_service_definition(self.definition_path)
+        expected = self.render_definition(target).encode("utf-8")
+        if current is not None and _launchd_definitions_match(current, expected):
+            self._execute(
+                "enable",
+                self.service_target,
+                operation="enable",
+                command_observer=command_observer,
+            )
+            if should_start:
+                return self.start(target, command_observer=command_observer)
+            return self.inspect(target)
+        if self._inspect_job().is_loaded:
+            self._execute(
+                "bootout",
+                self.service_target,
+                operation="reload",
+                command_observer=command_observer,
+            )
         replace_service_definition(
             self.definition_path,
-            self.render_definition(target).encode("utf-8"),
+            expected,
         )
         self._execute(
             "enable",
@@ -67,23 +98,12 @@ class LaunchdUserServiceManager:
             operation="enable",
             command_observer=command_observer,
         )
-        if not should_start:
-            return self.inspect(target)
-        if self._is_loaded():
-            self._execute(
-                "bootout",
-                self.service_target,
-                operation="reload",
-                command_observer=command_observer,
-            )
-        self._execute(
-            "bootstrap",
-            self.domain_target,
-            str(self.definition_path),
-            operation="install",
-            command_observer=command_observer,
-        )
-        return self.inspect(target).with_execution_state(ManagedServiceExecutionState.STARTING)
+        inspection = self.inspect(target)
+        if not inspection.is_definition_current:
+            raise RuntimeError("launchd did not retain the current Banksia service definition")
+        if should_start:
+            return self.start(target, command_observer=command_observer)
+        return inspection
 
     def uninstall(
         self,
@@ -93,7 +113,7 @@ class LaunchdUserServiceManager:
     ) -> ManagedServiceInspection:
         self._require_supported()
         del target
-        if self._is_loaded():
+        if self._inspect_job().is_loaded:
             self._execute(
                 "bootout",
                 self.service_target,
@@ -117,13 +137,19 @@ class LaunchdUserServiceManager:
         command_observer: ManagedServiceCommandObserver | None = None,
     ) -> ManagedServiceInspection:
         self._require_current_definition(target)
+        inspection = self.inspect(target)
+        if inspection.execution_state in {
+            ManagedServiceExecutionState.RUNNING,
+            ManagedServiceExecutionState.STARTING,
+        }:
+            return inspection
         self._execute(
             "enable",
             self.service_target,
             operation="enable",
             command_observer=command_observer,
         )
-        if self._is_loaded():
+        if self._inspect_job().is_loaded:
             self._execute(
                 "kickstart",
                 self.service_target,
@@ -138,7 +164,7 @@ class LaunchdUserServiceManager:
                 operation="start",
                 command_observer=command_observer,
             )
-        return self.inspect(target).with_execution_state(ManagedServiceExecutionState.STARTING)
+        return _as_started_inspection(self.inspect(target))
 
     def stop(
         self,
@@ -147,7 +173,7 @@ class LaunchdUserServiceManager:
         command_observer: ManagedServiceCommandObserver | None = None,
     ) -> ManagedServiceInspection:
         self._require_current_definition(target)
-        if self._is_loaded():
+        if self._inspect_job().is_loaded:
             self._execute(
                 "bootout",
                 self.service_target,
@@ -163,7 +189,13 @@ class LaunchdUserServiceManager:
         command_observer: ManagedServiceCommandObserver | None = None,
     ) -> ManagedServiceInspection:
         self._require_current_definition(target)
-        if self._is_loaded():
+        self._execute(
+            "enable",
+            self.service_target,
+            operation="enable",
+            command_observer=command_observer,
+        )
+        if self._inspect_job().is_loaded:
             self._execute(
                 "kickstart",
                 "-k",
@@ -179,26 +211,36 @@ class LaunchdUserServiceManager:
                 operation="restart",
                 command_observer=command_observer,
             )
-        return self.inspect(target).with_execution_state(ManagedServiceExecutionState.STARTING)
+        return _as_started_inspection(self.inspect(target))
 
     def inspect(self, target: ManagedServiceTarget) -> ManagedServiceInspection:
         self._require_supported()
-        del target
-        if read_service_definition(self.definition_path) is None:
+        current = read_service_definition(self.definition_path)
+        if current is None:
             return self._absent_inspection()
-        is_loaded = self._is_loaded()
+        expected = self.render_definition(target).encode("utf-8")
+        job = self._inspect_job()
         return ManagedServiceInspection(
             manager=self.manager_name,
             service_name=self.service_name,
             definition_path=self.definition_path,
             installation_state=ManagedServiceInstallationState.INSTALLED,
-            startup_state=ManagedServiceStartupState.UNKNOWN,
-            execution_state=(
-                ManagedServiceExecutionState.UNKNOWN
-                if is_loaded
-                else ManagedServiceExecutionState.STOPPED
+            startup_state=self._inspect_startup_state(),
+            execution_state=_launchd_execution_state(job),
+            is_definition_current=_launchd_definitions_match(current, expected),
+            technical_state=tuple(
+                (key, value)
+                for key, value in (
+                    ("loaded", str(job.is_loaded).lower()),
+                    ("state", job.state),
+                    ("pid", str(job.process_id) if job.process_id is not None else None),
+                    (
+                        "last_exit_code",
+                        str(job.last_exit_code) if job.last_exit_code is not None else None,
+                    ),
+                )
+                if value is not None
             ),
-            technical_state=(("loaded", str(is_loaded).lower()),),
         )
 
     @property
@@ -217,7 +259,7 @@ class LaunchdUserServiceManager:
     def _resolved_user_id(self) -> int:
         if self._user_id is not None:
             return self._user_id
-        return os.getuid()
+        return _current_posix_user_id()
 
     def _require_supported(self) -> None:
         if sys.platform != "darwin":
@@ -233,26 +275,40 @@ class LaunchdUserServiceManager:
                 "Banksia background service is not installed; run `banksia service install`"
             )
         expected = self.render_definition(target).encode("utf-8")
-        try:
-            is_current = plistlib.loads(current) == plistlib.loads(expected)
-        except plistlib.InvalidFileException as exc:
-            raise RuntimeError(
-                "Banksia background service definition is invalid; run `banksia service install`"
-            ) from exc
-        if not is_current:
+        if not _launchd_definitions_match(current, expected):
             raise RuntimeError(
                 "Banksia background service definition is out of date; "
                 "run `banksia service install`"
             )
 
-    def _is_loaded(self) -> bool:
+    def _inspect_job(self) -> LaunchdJobSnapshot:
         completed = self._execute(
             "print",
             self.service_target,
             operation="inspect",
             should_check=False,
         )
-        return completed.returncode == 0
+        if completed.returncode != 0:
+            return LaunchdJobSnapshot(is_loaded=False)
+        return parse_launchctl_print(completed.stdout)
+
+    def _inspect_startup_state(self) -> ManagedServiceStartupState:
+        completed = self._execute(
+            "print-disabled",
+            self.domain_target,
+            operation="inspect startup",
+            should_check=False,
+        )
+        if completed.returncode != 0:
+            return ManagedServiceStartupState.UNKNOWN
+        pattern = re.compile(
+            rf'^\s*"{re.escape(self.service_name)}"\s*=>\s*(true|false)\s*$',
+            re.MULTILINE,
+        )
+        match = pattern.search(completed.stdout)
+        if match is not None and match.group(1) == "true":
+            return ManagedServiceStartupState.DISABLED
+        return ManagedServiceStartupState.ENABLED
 
     def _execute(
         self,
@@ -299,6 +355,7 @@ class LaunchdUserServiceManager:
             installation_state=ManagedServiceInstallationState.ABSENT,
             startup_state=ManagedServiceStartupState.DISABLED,
             execution_state=ManagedServiceExecutionState.STOPPED,
+            is_definition_current=False,
         )
 
 
@@ -332,9 +389,70 @@ def render_launch_agent_plist(
     ).decode("utf-8")
 
 
+def parse_launchctl_print(output: str) -> LaunchdJobSnapshot:
+    values: dict[str, str] = {}
+    for line in output.splitlines():
+        match = _LAUNCHCTL_FIELD_PATTERN.match(line)
+        if match is not None:
+            values.setdefault(match.group(1).strip(), match.group(2))
+    return LaunchdJobSnapshot(
+        is_loaded=True,
+        state=values.get("state"),
+        process_id=_parse_launchctl_integer(values.get("pid")),
+        last_exit_code=_parse_launchctl_integer(
+            values.get("last exit code") or values.get("last exit status")
+        ),
+    )
+
+
+def _launchd_definitions_match(actual: bytes, expected: bytes) -> bool:
+    try:
+        return bool(plistlib.loads(actual) == plistlib.loads(expected))
+    except plistlib.InvalidFileException:
+        return False
+
+
+def _launchd_execution_state(job: LaunchdJobSnapshot) -> ManagedServiceExecutionState:
+    if not job.is_loaded:
+        return ManagedServiceExecutionState.STOPPED
+    if job.process_id is not None or job.state == "running":
+        return ManagedServiceExecutionState.RUNNING
+    if job.last_exit_code not in {None, 0}:
+        return ManagedServiceExecutionState.FAILED
+    if job.state in {"spawn scheduled", "starting"}:
+        return ManagedServiceExecutionState.STARTING
+    if job.state in {"stopped", "waiting"} or job.last_exit_code == 0:
+        return ManagedServiceExecutionState.STOPPED
+    return ManagedServiceExecutionState.UNKNOWN
+
+
+def _as_started_inspection(inspection: ManagedServiceInspection) -> ManagedServiceInspection:
+    if inspection.execution_state in {
+        ManagedServiceExecutionState.RUNNING,
+        ManagedServiceExecutionState.STARTING,
+    }:
+        return inspection
+    return inspection.with_execution_state(ManagedServiceExecutionState.STARTING)
+
+
+def _parse_launchctl_integer(value: str | None) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(value, 0)
+    except ValueError:
+        return None
+
+
+def _current_posix_user_id() -> int:
+    return int(os.getuid())  # type: ignore[attr-defined]
+
+
 __all__ = [
     "LAUNCHD_MANAGER_NAME",
     "LAUNCHD_SERVICE_NAME",
+    "LaunchdJobSnapshot",
     "LaunchdUserServiceManager",
+    "parse_launchctl_print",
     "render_launch_agent_plist",
 ]

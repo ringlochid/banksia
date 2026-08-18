@@ -10,6 +10,7 @@ from platformdirs import PlatformDirs
 SERVICE_LOG_MAX_BYTES = 5 * 1024 * 1024
 SERVICE_LOG_BACKUP_COUNT = 3
 SERVICE_LOG_LINE_LIMIT = 2_000
+SERVICE_LOGGER_NAME = "banksia.service"
 
 
 def default_service_log_path() -> Path:
@@ -34,6 +35,10 @@ def configure_service_logging(path: Path, *, level: str) -> None:
     root_logger.handlers.clear()
     root_logger.addHandler(handler)
     root_logger.setLevel(level.upper())
+    service_logger = logging.getLogger(SERVICE_LOGGER_NAME)
+    service_logger.handlers.clear()
+    service_logger.propagate = True
+    service_logger.setLevel(logging.INFO)
     for logger_name in ("uvicorn", "uvicorn.error", "uvicorn.access"):
         logger = logging.getLogger(logger_name)
         logger.handlers.clear()
@@ -81,6 +86,7 @@ def _tail_lines(path: Path, *, line_count: int) -> list[str]:
 
 
 __all__ = [
+    "SERVICE_LOGGER_NAME",
     "SERVICE_LOG_BACKUP_COUNT",
     "SERVICE_LOG_LINE_LIMIT",
     "SERVICE_LOG_MAX_BYTES",

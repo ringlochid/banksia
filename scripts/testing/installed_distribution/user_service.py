@@ -20,25 +20,17 @@ from .processes import (
     venv_python,
 )
 
-SYSTEMCTL_STATUS_CALL = (
-    "--user show banksia.service "
-    "--property=LoadState,UnitFileState,ActiveState,SubState,FragmentPath"
-)
-EXPECTED_INSTALL_SYSTEMCTL_CALLS = (
-    SYSTEMCTL_STATUS_CALL,
+SYSTEMCTL_INSPECTION_CALL_PREFIX = "--user show banksia.service "
+EXPECTED_INSTALL_SYSTEMCTL_CHANGE_CALLS = (
     "--user daemon-reload",
     "--user enable banksia.service",
-    SYSTEMCTL_STATUS_CALL,
 )
-EXPECTED_LIFECYCLE_SYSTEMCTL_CALLS = (
-    *EXPECTED_INSTALL_SYSTEMCTL_CALLS,
+EXPECTED_LIFECYCLE_SYSTEMCTL_CHANGE_CALLS = (
+    *EXPECTED_INSTALL_SYSTEMCTL_CHANGE_CALLS,
     "--user start banksia.service",
-    SYSTEMCTL_STATUS_CALL,
-    SYSTEMCTL_STATUS_CALL,
-    "--user restart banksia.service",
-    SYSTEMCTL_STATUS_CALL,
     "--user stop banksia.service",
-    SYSTEMCTL_STATUS_CALL,
+    "--user start banksia.service",
+    "--user stop banksia.service",
     "--user disable --now banksia.service",
     "--user daemon-reload",
 )
@@ -57,6 +49,14 @@ class ServiceProbeContext:
     env: dict[str, str]
     executable: Path
     port: int
+
+
+@dataclass(frozen=True)
+class WindowsServiceProbeContext:
+    install_root: Path
+    config_path: Path
+    executable: Path
+    env: dict[str, str]
 
 
 def verify_user_service_installer(
@@ -102,6 +102,44 @@ def verify_windows_user_service_installer(
     workspace: Path,
     dependency_site_packages: Path,
 ) -> dict[str, object]:
+    context, initialization = prepare_windows_service_probe(
+        wheel_path=wheel_path,
+        workspace=workspace,
+        dependency_site_packages=dependency_site_packages,
+    )
+    installation = run_windows_service_operation(context, "install", "--no-start")
+    try:
+        status = run_windows_service_operation(context, "status")
+        lifecycle = exercise_windows_service_lifecycle(context)
+        logs = read_windows_service_logs(context)
+        validate_windows_service_lifecycle(
+            initialization=initialization,
+            installation=installation,
+            status=status,
+            lifecycle=lifecycle,
+            logs=logs,
+        )
+    finally:
+        uninstall = run_windows_service_operation(context, "uninstall")
+    if uninstall.get("installation_state") != "absent":
+        raise AssertionError(f"Windows service uninstall failed: {uninstall}")
+    return {
+        "initialization": initialization,
+        "installation": installation,
+        "status": status,
+        "lifecycle": lifecycle,
+        "logs": logs,
+        "uninstall": uninstall,
+        "native_task_removed": True,
+    }
+
+
+def prepare_windows_service_probe(
+    *,
+    wheel_path: Path,
+    workspace: Path,
+    dependency_site_packages: Path,
+) -> tuple[WindowsServiceProbeContext, dict[str, Any]]:
     install_root = workspace / "windows-installer"
     home = install_root / "home"
     data_dir = home / "data" / "banksia"
@@ -113,6 +151,12 @@ def verify_windows_user_service_installer(
     executable = venv_executable(venv_path, "banksia")
     env = isolated_environment(home)
     port = available_loopback_port()
+    context = WindowsServiceProbeContext(
+        install_root=install_root,
+        config_path=config_path,
+        executable=executable,
+        env=env,
+    )
     initialization = run_json_command(
         executable,
         (
@@ -131,48 +175,77 @@ def verify_windows_user_service_installer(
         cwd=install_root,
         env=env,
     )
-    installation = run_json_command(
-        executable,
+    return context, initialization
+
+
+def run_windows_service_operation(
+    context: WindowsServiceProbeContext,
+    verb: str,
+    *verb_arguments: str,
+) -> dict[str, Any]:
+    return run_json_command(
+        context.executable,
         (
             "service",
-            "install",
+            verb,
+            *verb_arguments,
             "--config",
-            str(config_path),
-            "--no-start",
+            str(context.config_path),
             "--json",
         ),
-        cwd=install_root,
-        env=env,
+        cwd=context.install_root,
+        env=context.env,
     )
-    try:
-        status = run_json_command(
-            executable,
-            ("service", "status", "--config", str(config_path), "--json"),
-            cwd=install_root,
-            env=env,
-        )
-        if any(
-            payload.get("manager") != "windows-task-scheduler" for payload in (installation, status)
-        ):
-            raise AssertionError(
-                f"installed Windows service returned unexpected data: {installation}, {status}"
-            )
-    finally:
-        uninstall = run_json_command(
-            executable,
-            ("service", "uninstall", "--config", str(config_path), "--json"),
-            cwd=install_root,
-            env=env,
-        )
-    if uninstall.get("installation_state") != "absent":
-        raise AssertionError(f"Windows service uninstall failed: {uninstall}")
+
+
+def read_windows_service_logs(context: WindowsServiceProbeContext) -> dict[str, Any]:
+    return run_json_command(
+        context.executable,
+        ("service", "logs", "--lines", "20", "--json"),
+        cwd=context.install_root,
+        env=context.env,
+    )
+
+
+def exercise_windows_service_lifecycle(
+    context: WindowsServiceProbeContext,
+) -> dict[str, dict[str, Any]]:
     return {
-        "initialization": initialization,
-        "installation": installation,
-        "status": status,
-        "uninstall": uninstall,
-        "native_task_removed": True,
+        label: run_windows_service_operation(context, verb)
+        for label, verb in (
+            ("start", "start"),
+            ("start_again", "start"),
+            ("restart", "restart"),
+            ("stop", "stop"),
+        )
     }
+
+
+def validate_windows_service_lifecycle(
+    *,
+    initialization: dict[str, Any],
+    installation: dict[str, Any],
+    status: dict[str, Any],
+    lifecycle: dict[str, dict[str, Any]],
+    logs: dict[str, Any],
+) -> None:
+    if initialization.get("ok") is not True:
+        raise AssertionError(f"Windows initialization returned unexpected data: {initialization}")
+    if any(
+        payload.get("manager") != "windows-task-scheduler"
+        for payload in (installation, status, *lifecycle.values())
+    ):
+        raise AssertionError(
+            "installed Windows service returned unexpected manager data: "
+            f"{installation}, {status}, {lifecycle}"
+        )
+    if installation.get("definition_current") is not True:
+        raise AssertionError(f"Windows service definition did not round-trip: {installation}")
+    expected_states = ("ready", "ready", "ready", "stopped")
+    if tuple(payload.get("controller_state") for payload in lifecycle.values()) != expected_states:
+        raise AssertionError(f"Windows service lifecycle returned unexpected data: {lifecycle}")
+    if not logs.get("lines"):
+        raise AssertionError(f"Windows service log remained empty: {logs}")
 
 
 def prepare_service_probe(
@@ -278,6 +351,7 @@ def install_user_service(
     if (
         installation.get("manager") != "systemd-user"
         or installation.get("installation_state") != "installed"
+        or installation.get("definition_current") is not True
         or installation.get("startup_state") != "enabled"
         or installation.get("controller_state") != "stopped"
     ):
@@ -304,7 +378,7 @@ def verify_service_installation(context: ServiceProbeContext) -> None:
     if str(venv_python(context.venv_path)) not in unit_text:
         raise AssertionError("installed unit does not use the dedicated virtual environment")
     systemctl_calls = tuple(context.systemctl_log.read_text(encoding="utf-8").splitlines())
-    if systemctl_calls != EXPECTED_INSTALL_SYSTEMCTL_CALLS:
+    if systemctl_change_calls(systemctl_calls) != EXPECTED_INSTALL_SYSTEMCTL_CHANGE_CALLS:
         raise AssertionError(f"unexpected install systemctl calls: {systemctl_calls}")
 
 
@@ -339,6 +413,7 @@ def exercise_service_lifecycle(
         payload = lifecycle_payloads[verb]
         if (
             payload.get("installation_state") != "installed"
+            or payload.get("definition_current") is not True
             or payload.get("startup_state") != "enabled"
             or payload.get("controller_state") != controller_state
         ):
@@ -380,9 +455,13 @@ def uninstall_user_service(
     if not context.config_path.is_file() or not context.env_file.is_file():
         raise AssertionError("service uninstall removed persistent Banksia settings")
     final_calls = context.systemctl_log.read_text(encoding="utf-8").splitlines()
-    if tuple(final_calls) != EXPECTED_LIFECYCLE_SYSTEMCTL_CALLS:
+    if systemctl_change_calls(final_calls) != EXPECTED_LIFECYCLE_SYSTEMCTL_CHANGE_CALLS:
         raise AssertionError(f"unexpected service lifecycle systemctl calls: {final_calls}")
     return payload, final_calls
+
+
+def systemctl_change_calls(calls: list[str] | tuple[str, ...]) -> tuple[str, ...]:
+    return tuple(call for call in calls if not call.startswith(SYSTEMCTL_INSPECTION_CALL_PREFIX))
 
 
 def write_fake_systemctl(path: Path) -> None:

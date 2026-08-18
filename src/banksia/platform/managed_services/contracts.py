@@ -51,6 +51,7 @@ class ManagedServiceInspection:
     installation_state: ManagedServiceInstallationState
     startup_state: ManagedServiceStartupState
     execution_state: ManagedServiceExecutionState
+    is_definition_current: bool
     technical_state: tuple[tuple[str, str], ...] = ()
 
     @property
@@ -75,6 +76,22 @@ class ManagedServiceResult:
     api_url: str
     log_path: Path
 
+    @property
+    def owns_bind_target(self) -> bool:
+        return (
+            self.inspection.is_installed
+            and self.inspection.execution_state
+            in {
+                ManagedServiceExecutionState.RUNNING,
+                ManagedServiceExecutionState.STARTING,
+            }
+            and self.controller_state
+            in {
+                ManagedServiceControllerState.READY,
+                ManagedServiceControllerState.STARTING,
+            }
+        )
+
     def to_payload(self) -> dict[str, object]:
         return {
             "ok": True,
@@ -86,6 +103,7 @@ class ManagedServiceResult:
                 else None
             ),
             "installation_state": self.inspection.installation_state.value,
+            "definition_current": self.inspection.is_definition_current,
             "startup_state": self.inspection.startup_state.value,
             "controller_state": self.controller_state.value,
             "api_url": self.api_url,
@@ -118,6 +136,7 @@ class ManagedServiceCommandError(RuntimeError):
 class ManagedServiceManager(Protocol):
     manager_name: str
     service_name: str
+    readiness_timeout_seconds: float
 
     def render_definition(self, target: ManagedServiceTarget) -> str: ...
 

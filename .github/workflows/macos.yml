@@ -63,3 +63,65 @@ jobs:
                   ./.venv/bin/banksia config show \
                     --config "$probe_dir/config/banksia/config.toml" \
                     --json
+
+            - name: Exercise real macOS background-service lifecycle
+              shell: bash
+              run: |
+                  set -euo pipefail
+                  probe_dir="$(mktemp -d "${RUNNER_TEMP}/banksia-macos-service.XXXXXX")"
+                  home="$probe_dir/home"
+                  config="$probe_dir/config/banksia/config.toml"
+                  mkdir -p "$home" "$probe_dir/workspace"
+
+                  run_banksia() {
+                    HOME="$home" \
+                    XDG_CONFIG_HOME="$probe_dir/config" \
+                    XDG_DATA_HOME="$probe_dir/data" \
+                    XDG_STATE_HOME="$probe_dir/state" \
+                    XDG_CACHE_HOME="$probe_dir/cache" \
+                    ./.venv/bin/banksia "$@"
+                  }
+                  cleanup() {
+                    run_banksia service uninstall --config "$config" --json >/dev/null 2>&1 || true
+                  }
+                  trap cleanup EXIT
+
+                  run_banksia init \
+                    --non-interactive \
+                    --config "$config" \
+                    --data-dir "$probe_dir/data/banksia" \
+                    --workspace "$probe_dir/workspace" \
+                    --json > "$probe_dir/init.json"
+                  run_banksia service install --config "$config" --json > "$probe_dir/install.json"
+                  run_banksia service status --config "$config" --json > "$probe_dir/status.json"
+                  run_banksia service start --config "$config" --json > "$probe_dir/start.json"
+                  run_banksia service restart --config "$config" --json > "$probe_dir/restart.json"
+                  run_banksia service logs --lines 20 --json > "$probe_dir/logs.json"
+                  run_banksia service stop --config "$config" --json > "$probe_dir/stop.json"
+                  run_banksia service uninstall --config "$config" --json > "$probe_dir/uninstall.json"
+
+                  python - "$probe_dir" <<'PY'
+                  import json
+                  import sys
+                  from pathlib import Path
+
+                  root = Path(sys.argv[1])
+
+                  def read(name: str) -> dict[str, object]:
+                      with root.joinpath(f"{name}.json").open(encoding="utf-8") as stream:
+                          return json.load(stream)
+
+                  lifecycle = {name: read(name) for name in ("install", "status", "start", "restart")}
+                  if any(value.get("manager") != "launchd-user" for value in lifecycle.values()):
+                      raise SystemExit(f"unexpected launchd manager payload: {lifecycle}")
+                  if any(value.get("definition_current") is not True for value in lifecycle.values()):
+                      raise SystemExit(f"LaunchAgent definition did not round-trip: {lifecycle}")
+                  if any(value.get("controller_state") != "ready" for value in lifecycle.values()):
+                      raise SystemExit(f"LaunchAgent did not become ready: {lifecycle}")
+                  if read("stop").get("controller_state") != "stopped":
+                      raise SystemExit("LaunchAgent did not stop")
+                  if read("uninstall").get("installation_state") != "absent":
+                      raise SystemExit("LaunchAgent definition was not removed")
+                  if not read("logs").get("lines"):
+                      raise SystemExit("LaunchAgent controller log remained empty")
+                  PY

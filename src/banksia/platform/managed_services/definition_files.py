@@ -18,7 +18,9 @@ def replace_service_definition(path: Path, content: bytes) -> None:
     )
     temporary_path = Path(temporary_name)
     try:
-        os.fchmod(file_descriptor, 0o600)
+        change_file_mode = getattr(os, "fchmod", None)
+        if change_file_mode is not None:
+            change_file_mode(file_descriptor, 0o600)
         with os.fdopen(file_descriptor, "wb") as stream:
             stream.write(content)
             stream.flush()

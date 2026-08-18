@@ -34,6 +34,7 @@ from banksia.platform.managed_services import (
     follow_service_log,
     get_managed_service_manager,
     read_service_log_tail,
+    wait_for_controller_shutdown,
     wait_for_controller_state,
 )
 from banksia.platform.provider_environment import (
@@ -65,10 +66,7 @@ def cmd_service_install(
         asyncio.run(ensure_database_ready(progress=active_progress))
 
     existing_service = collect_service_status(config_path)
-    if existing_service is not None and existing_service.controller_state in {
-        ManagedServiceControllerState.READY,
-        ManagedServiceControllerState.STARTING,
-    }:
+    if existing_service is not None and existing_service.owns_bind_target:
         active_progress.step(
             "server",
             "Reusing the bind target owned by the Banksia background service",
@@ -124,8 +122,9 @@ def cmd_service_uninstall(args: argparse.Namespace) -> int:
         target,
         command_observer=CliProgress.from_args(args).command_args,
     )
-    result = build_managed_service_result(
-        inspection=inspection,
+    result = wait_for_controller_shutdown(
+        initial_inspection=inspection,
+        inspect=lambda: manager.inspect(target),
         settings=settings,
         log_path=target.log_path,
     )
@@ -213,18 +212,40 @@ def execute_service_lifecycle(
     config_path = _config_path_from_args(args)
     target, settings = _load_target_and_settings(config_path)
     manager = get_managed_service_manager()
-    action = getattr(manager, operation)
-    inspection = action(
-        target,
-        command_observer=progress.command_args,
-    )
-    result = _build_result(
-        manager=manager,
-        inspection=inspection,
-        settings=settings,
-        target=target,
-        should_wait=operation in {"start", "restart"},
-    )
+    if operation == "restart":
+        stopped = manager.stop(target, command_observer=progress.command_args)
+        wait_for_controller_shutdown(
+            initial_inspection=stopped,
+            inspect=lambda: manager.inspect(target),
+            settings=settings,
+            log_path=target.log_path,
+        )
+        inspection = manager.start(target, command_observer=progress.command_args)
+        result = _build_result(
+            manager=manager,
+            inspection=inspection,
+            settings=settings,
+            target=target,
+            should_wait=True,
+        )
+    else:
+        action = getattr(manager, operation)
+        inspection = action(target, command_observer=progress.command_args)
+        if operation == "stop":
+            result = wait_for_controller_shutdown(
+                initial_inspection=inspection,
+                inspect=lambda: manager.inspect(target),
+                settings=settings,
+                log_path=target.log_path,
+            )
+        else:
+            result = _build_result(
+                manager=manager,
+                inspection=inspection,
+                settings=settings,
+                target=target,
+                should_wait=True,
+            )
     progress.done("service", f"Background service {operation} complete")
     _emit_service_result(args, result)
     return 0
@@ -284,9 +305,11 @@ def _build_result(
 ) -> ManagedServiceResult:
     if should_wait:
         return wait_for_controller_state(
+            initial_inspection=inspection,
             inspect=lambda: manager.inspect(target),
             settings=settings,
             log_path=target.log_path,
+            timeout_seconds=manager.readiness_timeout_seconds,
         )
     return build_managed_service_result(
         inspection=inspection,
@@ -354,6 +377,8 @@ def _print_plain_service_status(result: ManagedServiceResult) -> None:
 def _service_state(result: ManagedServiceResult) -> tuple[str, str, str]:
     if not result.inspection.is_installed:
         return "Not installed", "muted", "○"
+    if not result.inspection.is_definition_current:
+        return "Needs reinstall", "error", "!"
     if result.controller_state is ManagedServiceControllerState.READY:
         return "Ready", "success", "✓"
     if result.controller_state is ManagedServiceControllerState.STARTING:
@@ -368,6 +393,8 @@ def _service_state(result: ManagedServiceResult) -> tuple[str, str, str]:
 def _definition_label(result: ManagedServiceResult) -> str:
     if not result.inspection.is_installed:
         return "Not installed"
+    if not result.inspection.is_definition_current:
+        return "Out of date"
     if result.inspection.definition_path is None:
         return "Installed"
     return str(result.inspection.definition_path)
@@ -384,6 +411,8 @@ def _startup_label(result: ManagedServiceResult) -> str:
 
 def _service_next_action(result: ManagedServiceResult) -> str | None:
     if not result.inspection.is_installed:
+        return "banksia service install"
+    if not result.inspection.is_definition_current:
         return "banksia service install"
     if result.controller_state in {
         ManagedServiceControllerState.FAILED,

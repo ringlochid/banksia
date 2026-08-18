@@ -88,10 +88,11 @@ def test_guided_setup_uses_rich_hierarchy(
 def test_rich_console_width_is_bounded_on_wide_terminals(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setenv("TERM", "xterm-256color")
     monkeypatch.setattr(CliContext, "rich_enabled", lambda _self: True)
     monkeypatch.setattr(
         "banksia.interfaces.cli.context.shutil.get_terminal_size",
-        lambda: os.terminal_size((240, 40)),
+        lambda fallback=(80, 24): os.terminal_size((240, 40)),
     )
 
     assert CliContext().console().width == 110

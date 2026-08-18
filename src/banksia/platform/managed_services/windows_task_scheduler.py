@@ -156,6 +156,11 @@ def _is_windows_not_found_error(exc: Exception) -> bool:
 
 
 def _windows_error_code(exc: Exception) -> int:
+    excepinfo = getattr(exc, "excepinfo", None)
+    if isinstance(excepinfo, tuple) and len(excepinfo) >= 6:
+        scode = excepinfo[5]
+        if isinstance(scode, int) and scode != 0:
+            return scode
     value = getattr(exc, "hresult", -1)
     return int(value) if isinstance(value, int) else -1
 

@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 from xml.etree import ElementTree
 
 import pytest
 
 import banksia.platform.managed_services.scheduled_tasks as scheduled_tasks_module
 from banksia.platform.managed_services import (
+    ComWindowsTaskScheduler,
     ManagedServiceExecutionState,
     ManagedServiceInstallationState,
     ManagedServiceStartupState,
@@ -15,6 +17,28 @@ from banksia.platform.managed_services import (
     WindowsScheduledTaskSnapshot,
     scheduled_task_definitions_match,
 )
+
+
+def test_task_scheduler_inspection_treats_wrapped_missing_folder_as_absent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pywintypes = pytest.importorskip("pywintypes")
+    missing_folder_error = pywintypes.com_error(
+        -2147352567,
+        "Exception occurred.",
+        (0, None, None, None, 0, -2147024894),
+        None,
+    )
+
+    def raise_missing_folder(path: str) -> None:
+        assert path == r"\Banksia"
+        raise missing_folder_error
+
+    scheduler = ComWindowsTaskScheduler()
+    service = SimpleNamespace(GetFolder=raise_missing_folder)
+    monkeypatch.setattr(scheduler, "_connect", lambda: service)
+
+    assert scheduler.inspect() is None
 
 
 def test_scheduled_task_definition_is_current_user_and_least_privilege(

@@ -133,6 +133,7 @@ describe("temporary Run Studio", () => {
         });
         expect(lead).toHaveAttribute("aria-pressed", "true");
         expect(screen.getByText("Compare candidates")).toBeVisible();
+        expect(screen.queryByText("No update yet.")).toBeNull();
         expect(
             screen.queryByText("Inspect the supporting evidence"),
         ).toBeNull();
@@ -212,7 +213,14 @@ describe("temporary Run Studio", () => {
 
         renderRun(api);
 
-        await user.click(await screen.findByRole("button", { name: "Steer" }));
+        const steerButton = await screen.findByRole("button", {
+            name: "Steer",
+        });
+        expect(steerButton.parentElement).toHaveClass(
+            "run-member-context__action",
+        );
+        expect(screen.queryByText("No update yet.")).toBeNull();
+        await user.click(steerButton);
         const dialog = screen.getByRole("dialog", {
             name: "Steer Delivery lead",
         });

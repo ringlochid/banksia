@@ -136,16 +136,16 @@ export function MemberContextSection({
             )}
             {member.steer_action === null ||
             member.steer_action === undefined ? null : (
-                <Button
-                    className="run-member-context__steer"
-                    onClick={() => onSteer(member)}
-                >
-                    Steer
-                </Button>
+                <div className="run-member-context__action">
+                    <Button
+                        className="run-member-context__steer"
+                        onClick={() => onSteer(member)}
+                    >
+                        Steer
+                    </Button>
+                </div>
             )}
-            {update === null || update === undefined ? (
-                <p className="run-section__empty">No update yet.</p>
-            ) : (
+            {update === null || update === undefined ? null : (
                 <div className="run-member-update">
                     <div className="run-section-heading">
                         <strong>Latest update</strong>

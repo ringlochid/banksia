@@ -413,15 +413,22 @@
     color: var(--text-color--subtler);
 }
 
+.run-member-context__action {
+    margin-top: var(--spacing--xs);
+    padding-top: var(--spacing--xs);
+    border-top: var(--border-width) solid var(--border-color);
+}
+
 .run-member-context__steer {
     width: 100%;
-    margin-top: var(--spacing--xs);
 }
 
 .run-member-update {
     display: grid;
     gap: var(--spacing--3xs);
     margin-top: var(--spacing--xs);
+    padding-top: var(--spacing--xs);
+    border-top: var(--border-width) solid var(--border-color);
 }
 
 .run-member-update strong,

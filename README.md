@@ -21,10 +21,21 @@ Banksia requires Python 3.12 or newer and supports Linux, macOS 13+, and Windows
 ```bash
 pipx install banksia
 banksia init
-banksia serve
+banksia service install
 ```
 
 Open `http://127.0.0.1:18125/`. The installed package includes the visual Console. Guided initialization chooses a default workspace, configures a Task provider, and can configure the separate Operator that helps you build and run teams.
+
+`service install` verifies the configuration and database schema, registers this host's native per-user background service, and starts it, so the controller keeps running after you close the terminal and returns at login. Linux uses a systemd user service, macOS a current-user LaunchAgent, and Windows a current-user Scheduled Task. Operate it with:
+
+```bash
+banksia service status
+banksia service restart
+banksia service logs --lines 200
+banksia service stop
+```
+
+`banksia service uninstall` removes the native definition and preserves configuration, database, and provider credentials. `banksia serve` remains the portable foreground path when you would rather run the loopback application in the terminal.
 
 Banksia uses SQLite by default, so a local installation needs no database server. For PostgreSQL, install the optional driver and supply a SQLAlchemy URL during initialization:
 

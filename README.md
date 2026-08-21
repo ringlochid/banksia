@@ -6,7 +6,7 @@
 
 <p align="center">A local runtime for persistent, supervised parent–subagent delegation with Codex and Claude.</p>
 
-<p align="center"> <a href="https://pypi.org/project/oh-my-subagents/"><img src="https://img.shields.io/pypi/v/oh-my-subagents" alt="PyPI version"></a> <a href="https://pypi.org/project/oh-my-subagents/"><img src="https://img.shields.io/badge/python-%3E%3D3.12-3776AB?logo=python&logoColor=white" alt="Python 3.12 or newer"></a> </p>
+<p align="center"> <a href="https://pypi.org/project/oh-my-subagents/"><img src="https://img.shields.io/pypi/v/oh-my-subagents?cacheSeconds=300" alt="PyPI version"></a> <a href="https://pypi.org/project/oh-my-subagents/"><img src="https://img.shields.io/badge/python-%3E%3D3.12-3776AB?logo=python&logoColor=white" alt="Python 3.12 or newer"></a> </p>
 
 <p align="center"> <a href="docs/start/getting-started.md">Get started</a> · <a href="docs/README.md">Documentation</a> · <a href="examples/workflows/README.md">Starter teams</a> </p>
 

@@ -1,6 +1,6 @@
 # Use the Console and Operator
 
-The Console and Operator make the same reusable AI teams easy to create and operate. Use the Console for direct visual control. Use the Operator to translate ordinary language into the same bounded Workflow and run operations. Both act on one controller-owned product truth, so conversational help never creates a second hidden copy of the team or run.
+The Console and Operator are two interfaces over the same controller-owned Workflows, Tasks, and legal operations. Use the Console for direct visual control and the Operator to translate ordinary language into those same bounded operations. Both read and change one authoritative team and run state.
 
 ## Console
 

@@ -1,13 +1,13 @@
 # Oh My Subagents documentation
 
-Build adaptable, accountable AI teams in minutes—and run them on complex work. Design them easily, run them reliably, and stay in control from the first decision to the final Result.
+Oh My Subagents is a local runtime for persistent, supervised parent–subagent delegation with Codex and Claude. Reusable responsibility trees define who owns the work while controller-owned state persists Assignments, waits, Checkpoints, recovery, and one accountable Result.
 
 ## Why Oh My Subagents
 
-- **Create an AI team easily** with the visual Console or conversational Operator.
-- **Let the team adapt how it works** through sequential, parallel, iterative, batch, or hybrid execution.
-- **Keep complex work moving** through durable pause, wait, replan, safe retry, recovery, and resume paths.
-- **Stay accountable from start to Result** through explicit responsibility, team revisions, decisions, Activity, referenced files, managed Actions, and one accepted Result.
+- **Reuse explicit responsibility trees** instead of recreating roles and prompts for every job.
+- **Delegate without polling** while the runtime commits Assignments, persists waits, supervises returns, and continues the parent.
+- **Recover from committed state** after a provider interruption, browser closure, or controller restart.
+- **Return one accountable Result** after the Task lead inspects the team's Checkpoints, evidence, and referenced files.
 
 ## Start here
 

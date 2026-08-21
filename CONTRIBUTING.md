@@ -20,7 +20,7 @@ The PyPI package is the normal user installation. Contributors should work from 
 
 ```bash
 git clone https://github.com/ringlochid/oh-my-subagents.git
-cd banksia
+cd oh-my-subagents
 make backend-install
 make console-install
 ```

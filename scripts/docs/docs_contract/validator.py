@@ -53,6 +53,9 @@ STALE_IDENTITY_MARKERS = (
     "banksia-intro",
     "banksia-mark",
     "Try: banksia",
+    "cd banksia",
+    "A Oh My Subagents",
+    "Build adaptable, accountable AI teams in minutes",
 )
 
 

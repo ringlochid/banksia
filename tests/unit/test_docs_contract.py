@@ -149,6 +149,30 @@ def test_identity_contract_rejects_stale_banksia_branding(tmp_path: Path) -> Non
     assert {finding.category for finding in findings} == {"identity"}
 
 
+@pytest.mark.parametrize(
+    "stale_marker",
+    (
+        "cd banksia",
+        "A Oh My Subagents",
+        "Build adaptable, accountable AI teams in minutes",
+    ),
+)
+def test_identity_contract_rejects_retired_public_copy(
+    tmp_path: Path,
+    stale_marker: str,
+) -> None:
+    validator, _ = contract_modules()
+
+    findings = validator.identity_findings(
+        root=tmp_path,
+        path=tmp_path / "docs/README.md",
+        text=f"{stale_marker}\n",
+    )
+
+    assert len(findings) == 1
+    assert findings[0].message == f"stale released-identity marker: {stale_marker}"
+
+
 def test_identity_contract_allows_only_named_compatibility_surfaces(tmp_path: Path) -> None:
     validator, _ = contract_modules()
 

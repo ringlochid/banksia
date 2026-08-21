@@ -81,6 +81,7 @@ class CommandProcessPaths:
         expected_path = command_run_output_path(
             task_id=claim.task_id,
             run_id=claim.run_id,
+            task_container_name=paths.task_root.parent.name,
         ).as_posix()
         if claim.output_path != expected_path:
             raise ValueError("command output path does not match its Task and Command IDs")

@@ -31,7 +31,7 @@ def test_task_scheduler_inspection_treats_wrapped_missing_folder_as_absent(
     )
 
     def raise_missing_folder(path: str) -> None:
-        assert path == r"\Banksia"
+        assert path == r"\Oh My Subagents"
         raise missing_folder_error
 
     scheduler = ComWindowsTaskScheduler()

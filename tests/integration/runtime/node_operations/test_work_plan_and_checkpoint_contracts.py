@@ -49,7 +49,7 @@ def test_checkpoint_enforces_exact_bounded_meaningful_text() -> None:
             "details": "Complete teammate-facing details.",
             "files": [
                 {
-                    "path": ".banksia/t_example/artifacts/report.md",
+                    "path": ".oms/t_example/artifacts/report.md",
                     "description": "Reviewable report.",
                 }
             ],

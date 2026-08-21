@@ -44,7 +44,7 @@ def build_launch_foundation_input(
 ) -> RuntimeBootstrapInput:
     task_id = "task.launch-foundation"
     initial_team = plan_initial_task_team(workflow_revision, task_id)
-    task_root = tmp_path / ".banksia" / task_id
+    task_root = tmp_path / ".oms" / task_id
     ensure_private_directory(task_root)
     return RuntimeBootstrapInput(
         task_id=task_id,

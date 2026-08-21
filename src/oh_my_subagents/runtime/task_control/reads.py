@@ -198,7 +198,7 @@ def normalized_terminal_outcome(
 
 def workflow_manifest_ref(task_id: str) -> FileReference:
     return FileReference(
-        path=f".banksia/{task_id}/manifest.md",
+        path=f".oms/{task_id}/manifest.md",
         description=WORKFLOW_MANIFEST_REF_DESCRIPTION,
     )
 

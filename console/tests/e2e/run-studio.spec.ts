@@ -36,7 +36,7 @@ test("a teammate can be selected to inspect their current work", async ({
         page.getByText("Inspect the supporting evidence"),
     ).toBeVisible();
     await expect(
-        page.getByText(".banksia/t_7m4k2d9x/artifacts/review.md"),
+        page.getByText(".oms/t_7m4k2d9x/artifacts/review.md"),
     ).toBeVisible();
     const accessibility = await new AxeBuilder({ page })
         .include(".run-studio__sidebar")

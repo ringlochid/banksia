@@ -194,7 +194,7 @@ over a transcript of activity.
 ```text
 Use the provider's native filesystem capabilities inside the authorized
 execution workspace. The Dispatch input identifies this Task's physical
-.banksia/t_<id>/ directory.
+.oms/t_<id>/ directory.
 
 Keep project source, tests, project documents, and user-requested deliverables
 at their natural workspace paths. Use the Task directory as follows:
@@ -600,7 +600,7 @@ Render one deterministic `<banksia_dispatch_request>` document. It contains comp
     <prompt format="markdown">Complete exact Assignment text...</prompt>
     <files>
       <file>
-        <path>.banksia/t_7m4k2d9x/artifacts/delegation-brief.md</path>
+        <path>.oms/t_7m4k2d9x/artifacts/delegation-brief.md</path>
         <description>Shared baseline to inspect before changing code.</description>
       </file>
     </files>
@@ -643,12 +643,12 @@ Render one deterministic `<banksia_dispatch_request>` document. It contains comp
   </available_actions>
   <workspace>
     <root>/work/acme-app</root>
-    <task_directory>.banksia/t_7m4k2d9x</task_directory>
-    <manifest>.banksia/t_7m4k2d9x/manifest.md</manifest>
-    <workflow_note>.banksia/t_7m4k2d9x/workflow-note.md</workflow_note>
-    <notes>.banksia/t_7m4k2d9x/notes</notes>
-    <artifacts>.banksia/t_7m4k2d9x/artifacts</artifacts>
-    <command_runs>.banksia/t_7m4k2d9x/command-runs</command_runs>
+    <task_directory>.oms/t_7m4k2d9x</task_directory>
+    <manifest>.oms/t_7m4k2d9x/manifest.md</manifest>
+    <workflow_note>.oms/t_7m4k2d9x/workflow-note.md</workflow_note>
+    <notes>.oms/t_7m4k2d9x/notes</notes>
+    <artifacts>.oms/t_7m4k2d9x/artifacts</artifacts>
+    <command_runs>.oms/t_7m4k2d9x/command-runs</command_runs>
   </workspace>
 </banksia_dispatch_request>
 ```

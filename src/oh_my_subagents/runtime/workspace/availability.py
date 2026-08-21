@@ -13,7 +13,11 @@ from oh_my_subagents.runtime.clock import utc_now
 from oh_my_subagents.runtime.contracts import TaskEventSource, TaskEventType
 from oh_my_subagents.runtime.control_transitions import close_current_task_dispatches
 from oh_my_subagents.runtime.task_events import append_task_event
-from oh_my_subagents.runtime.workspace.storage import open_banksia_root, open_task_root
+from oh_my_subagents.runtime.workspace.storage import (
+    TASK_CONTAINER_NAMES,
+    open_task_container,
+    open_task_root,
+)
 
 _UNAVAILABLE_ERRNOS = frozenset(
     {
@@ -37,11 +41,16 @@ def task_workspace_is_available(task_root_path: Path, *, task_id: str) -> bool:
     """Probe an existing Task root without creating or repairing workspace files."""
 
     workspace = task_workspace_root(task_root_path, task_id=task_id)
+    container_name = task_root_path.parent.name
     try:
-        with open_banksia_root(workspace, should_create=False) as banksia_root:
-            if banksia_root is None:
+        with open_task_container(
+            workspace,
+            container_name=container_name,
+            should_create=False,
+        ) as task_container:
+            if task_container is None:
                 return False
-            with open_task_root(banksia_root, task_id):
+            with open_task_root(task_container, task_id):
                 return True
     except OSError as exc:
         if is_workspace_unavailable_error(exc):
@@ -55,7 +64,7 @@ def task_workspace_root(task_root_path: Path, *, task_id: str) -> Path:
     if (
         not task_root_path.is_absolute()
         or task_root_path.name != task_id
-        or task_root_path.parent.name != ".banksia"
+        or task_root_path.parent.name not in TASK_CONTAINER_NAMES
     ):
         raise RuntimeError(f"Task {task_id!r} has an inconsistent persisted Task root")
     return task_root_path.parent.parent

@@ -329,7 +329,7 @@ def _pending_command_run(ids: RuntimeIds) -> dict[str, object]:
         "summary": "Run a target command.",
         "timeout_seconds": None,
         "due_at": None,
-        "output_path": f".banksia/{ids.task_id}/command-runs/c_01234567/output.log",
+        "output_path": f".oms/{ids.task_id}/command-runs/c_01234567/output.log",
         "output_observed_bytes": 0,
         "output_written_bytes": 0,
         "output_complete": False,

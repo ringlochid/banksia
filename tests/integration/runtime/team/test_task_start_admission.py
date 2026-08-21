@@ -139,7 +139,7 @@ async def test_concurrent_task_starts_share_one_workspace_admission_lane(
     assert launch_count == 2
     assert task_count == 2
     for response in (first_response, second_response):
-        task_root = workspace / ".banksia" / response.task_id
+        task_root = workspace / ".oms" / response.task_id
         assert task_root.is_dir()
         assert not (task_root / TASK_INITIALIZATION_MARKER).exists()
 
@@ -174,7 +174,7 @@ async def test_task_start_commit_acknowledgement_failure_retains_marked_workspac
                 await read_session.scalar(select(func.count()).select_from(TaskModel)) or 0
             )
 
-    task_roots = tuple((workspace / ".banksia").glob("t_*"))
+    task_roots = tuple((workspace / ".oms").glob("t_*"))
     assert task_count == 1
     assert len(task_roots) == 1
     assert (task_roots[0] / TASK_INITIALIZATION_MARKER).is_file()
@@ -260,8 +260,8 @@ async def test_task_start_rejections_and_exclusive_collision_leave_clean_admissi
 
     assert staged_ids == ["t_01234567", "t_89abcdef"]
     assert accepted.task_id == "t_89abcdef"
-    assert accepted.manifest == f".banksia/{accepted.task_id}/manifest.md"
-    assert (workspace / ".banksia" / accepted.task_id / "manifest.md").is_file()
+    assert accepted.manifest == f".oms/{accepted.task_id}/manifest.md"
+    assert (workspace / ".oms" / accepted.task_id / "manifest.md").is_file()
     assert len(publisher.signals) == 1
     assert isinstance(publisher.signals[0], DispatchStartDue)
 
@@ -291,16 +291,16 @@ async def test_task_start_recovery_repairs_committed_marker_and_removes_stale_ma
                 session=session,
                 dependencies=_dependencies(workspace, publisher=publisher),
             )
-            committed_root = workspace / ".banksia" / response.task_id
+            committed_root = workspace / ".oms" / response.task_id
             committed_marker = committed_root / TASK_INITIALIZATION_MARKER
             assert committed_marker.is_file()
             assert publisher.signals == ()
 
             orphan_id = "t_abcdefgh"
-            orphan_root = workspace / ".banksia" / orphan_id
+            orphan_root = workspace / ".oms" / orphan_id
             ensure_private_directory(orphan_root)
             (orphan_root / TASK_INITIALIZATION_MARKER).write_bytes(
-                f"banksia-task-initialization-v1\n{orphan_id}\n".encode()
+                f"oms-task-initialization-v1\n{orphan_id}\n".encode()
             )
 
             first_recovery = await recover_task_workspace_admissions(
@@ -336,8 +336,8 @@ async def _task_count(session: Any) -> int:
 
 
 def _assert_no_task_directory(workspace: Path) -> None:
-    banksia_root = workspace / ".banksia"
-    assert not banksia_root.exists() or not tuple(banksia_root.glob("t_*"))
+    task_container = workspace / ".oms"
+    assert not task_container.exists() or not tuple(task_container.glob("t_*"))
 
 
 def _dependencies(

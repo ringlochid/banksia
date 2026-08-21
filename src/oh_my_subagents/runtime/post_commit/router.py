@@ -134,7 +134,7 @@ class RuntimeEffectRouter:
         self._track_task(
             self._task_group.create_task(
                 self._run_dispatcher(),
-                name="banksia-runtime-effect-router",
+                name="oms-runtime-effect-router",
             )
         )
         return self
@@ -170,7 +170,7 @@ class RuntimeEffectRouter:
                     self._track_task(
                         task_group.create_task(
                             self._run_handler(handler, signal),
-                            name=f"banksia-runtime-effect-{type(signal).__name__}",
+                            name=f"oms-runtime-effect-{type(signal).__name__}",
                         )
                     )
                 finally:

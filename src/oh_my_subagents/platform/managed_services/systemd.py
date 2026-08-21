@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 from oh_my_subagents.platform.managed_services.resources import get_systemd_service_template
+from oh_my_subagents.product_identity import OMS_IDENTITY
 
 from .contracts import (
     ManagedServiceCommandError,
@@ -24,7 +25,7 @@ from .definition_files import (
 )
 
 SYSTEMD_MANAGER_NAME = "systemd-user"
-SYSTEMD_SERVICE_NAME = "banksia.service"
+SYSTEMD_SERVICE_NAME = OMS_IDENTITY.systemd_service_name
 _SYSTEMD_CLD_EXITED = "1"
 
 
@@ -38,9 +39,11 @@ class SystemdUserServiceManager:
         *,
         definition_dir: Path | None = None,
         systemctl_bin: str | None = None,
+        service_name: str = SYSTEMD_SERVICE_NAME,
     ) -> None:
         self._definition_dir = definition_dir
         self._systemctl_bin = systemctl_bin
+        self.service_name = service_name
 
     def render_definition(self, target: ManagedServiceTarget) -> str:
         return render_systemd_service_unit(

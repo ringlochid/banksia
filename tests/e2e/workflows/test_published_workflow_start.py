@@ -187,7 +187,7 @@ async def _launch_packaged_workflow(
             session,
             RuntimeLaunchInput(
                 task_id=case.task_id,
-                task_root=workspace / ".banksia" / case.task_id,
+                task_root=workspace / ".oms" / case.task_id,
                 workspace=workspace,
                 workflow_revision=revision,
                 assignment=AssignmentBody(prompt=case.task_prompt),

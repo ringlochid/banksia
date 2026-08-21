@@ -37,7 +37,7 @@ A Work Plan is not:
 - controller scheduling authority;
 - a prerequisite for delegation;
 - a Checkpoint or completion proof; or
-- a projected file under `.banksia/`.
+- a projected file under `.oms/`.
 
 ## Assignment and Attempt
 

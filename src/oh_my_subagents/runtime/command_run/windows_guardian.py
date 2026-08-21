@@ -86,7 +86,7 @@ def main(arguments: Sequence[str] | None = None) -> int:
         control_thread = threading.Thread(
             target=_watch_controller,
             args=(job, stop_event),
-            name="banksia-command-control",
+            name="oms-command-control",
             daemon=True,
         )
         control_thread.start()

@@ -66,7 +66,7 @@ def test_claude_api_key_identity_uses_private_service_environment(tmp_path: Path
     )
 
     assert snapshot.outcome == ProviderIdentityOutcome.SUCCEEDED
-    assert read_provider_secret_environment(tmp_path / "banksia.env") == {
+    assert read_provider_secret_environment(tmp_path / "oms.env") == {
         ANTHROPIC_API_KEY: "anthropic-secret"
     }
     assert "anthropic-secret" not in snapshot.model_dump_json()
@@ -106,7 +106,7 @@ def test_claude_subscription_identity_uses_sdk_bundled_native_login(
 
     assert snapshot.outcome == ProviderIdentityOutcome.SUCCEEDED
     assert calls == [[str(tmp_path / "claude"), "auth", "login", "--claudeai"]]
-    assert read_provider_secret_environment(tmp_path / "banksia.env") == {}
+    assert read_provider_secret_environment(tmp_path / "oms.env") == {}
 
 
 def test_provider_login_cli_reads_claude_api_key_from_stdin_without_echo(
@@ -136,7 +136,7 @@ def test_provider_login_cli_reads_claude_api_key_from_stdin_without_echo(
     assert result.exit_code == 0, result.output
     assert "anthropic-secret" not in result.output
     assert "Authentication: API key" in result.output
-    assert read_provider_secret_environment(tmp_path / "banksia.env") == {
+    assert read_provider_secret_environment(tmp_path / "oms.env") == {
         ANTHROPIC_API_KEY: "anthropic-secret"
     }
 
@@ -165,7 +165,7 @@ def test_provider_login_rejects_method_owned_by_another_provider(tmp_path: Path)
 
     assert result.exit_code != 0
     assert "'token' is not one of 'subscription', 'api-key'" in result.output
-    assert not (tmp_path / "banksia.env").exists()
+    assert not (tmp_path / "oms.env").exists()
 
 
 def test_noninteractive_provider_login_requires_an_explicit_method(tmp_path: Path) -> None:
@@ -243,4 +243,4 @@ def test_claude_logout_reports_partial_when_only_stored_api_key_is_removed(
 
     assert snapshot.outcome is ProviderIdentityOutcome.PARTIAL
     assert "API key removed" in snapshot.detail
-    assert read_provider_secret_environment(tmp_path / "banksia.env") == {}
+    assert read_provider_secret_environment(tmp_path / "oms.env") == {}

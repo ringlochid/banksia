@@ -224,7 +224,7 @@ def _seed_terminal_command_run(connection: Connection, ids: RuntimeIds) -> None:
             "cwd": None,
             "summary": "Preserved upgrade command",
             "timeout_seconds": None,
-            "output_path": ".banksia/t_upgrade/command-runs/c_upgrade/output.log",
+            "output_path": ".oms/t_upgrade/command-runs/c_upgrade/output.log",
             "output_observed_bytes": 0,
             "output_written_bytes": 0,
             "output_complete": True,

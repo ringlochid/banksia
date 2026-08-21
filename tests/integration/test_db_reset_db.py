@@ -49,7 +49,7 @@ def _invoke_packaged_cli(*args: str) -> subprocess.CompletedProcess[str]:
         else os.pathsep.join((str(SOURCE_ROOT), existing_pythonpath))
     )
     return subprocess.run(
-        [sys.executable, "-m", "banksia", *args],
+        [sys.executable, "-m", "oh_my_subagents", *args],
         cwd=REPO_ROOT,
         env=env,
         capture_output=True,
@@ -63,7 +63,7 @@ def test_db_reset_recreates_seeded_sqlite_database_on_packaged_cli_path(
 ) -> None:
     config_path = tmp_path / "banksia-config.toml"
     data_dir = tmp_path / "banksia-data"
-    database_path = data_dir / "banksia.persistence"
+    database_path = data_dir / "oms.persistence"
     legacy_files = {
         tmp_path / "config" / "autoclaw" / "config.toml": b"legacy config marker\n",
         tmp_path / "data" / "autoclaw" / "keep.txt": b"legacy data marker\n",
@@ -139,7 +139,7 @@ def test_db_reset_deletes_controller_task_root_but_preserves_external_workspace(
 ) -> None:
     config_path = tmp_path / "banksia-config.toml"
     data_dir = tmp_path / "banksia-data"
-    database_path = data_dir / "banksia.persistence"
+    database_path = data_dir / "oms.persistence"
     task_root = data_dir / "tasks" / "task.alpha"
     external_workspace = tmp_path / "external-workspace"
 
@@ -182,8 +182,8 @@ def test_db_reset_deletes_controller_task_root_but_preserves_external_workspace(
 def test_db_reset_preserves_accepted_workspace_task_directory(tmp_path: Path) -> None:
     config_path = tmp_path / "banksia-config.toml"
     data_dir = tmp_path / "banksia-data"
-    database_path = data_dir / "banksia.persistence"
-    task_root = tmp_path / "workspace" / ".banksia" / "t_01234567"
+    database_path = data_dir / "oms.persistence"
+    task_root = tmp_path / "workspace" / ".oms" / "t_01234567"
     retained_file = task_root / "notes" / "retain.md"
 
     _run_packaged_cli(
@@ -221,7 +221,7 @@ def test_db_reset_rejects_controller_task_root_outside_data_boundary_before_dest
 ) -> None:
     config_path = tmp_path / "banksia-config.toml"
     data_dir = tmp_path / "banksia-data"
-    database_path = data_dir / "banksia.persistence"
+    database_path = data_dir / "oms.persistence"
     external_task_root = tmp_path / "external-task-root"
 
     _run_packaged_cli(
@@ -260,7 +260,7 @@ def test_db_reset_rejects_symlinked_controller_task_root_before_destruction(
 ) -> None:
     config_path = tmp_path / "banksia-config.toml"
     data_dir = tmp_path / "banksia-data"
-    database_path = data_dir / "banksia.persistence"
+    database_path = data_dir / "oms.persistence"
     external_task_root = tmp_path / "external-task-root"
     linked_task_root = data_dir / "tasks" / "task-link"
 
@@ -303,7 +303,7 @@ def test_db_reset_rejects_symlinked_task_root_ancestor_before_destruction(
 ) -> None:
     config_path = tmp_path / "banksia-config.toml"
     data_dir = tmp_path / "banksia-data"
-    database_path = data_dir / "banksia.persistence"
+    database_path = data_dir / "oms.persistence"
     real_task_parent = data_dir / "real-tasks"
     real_task_root = real_task_parent / "task.alpha"
     linked_task_parent = data_dir / "tasks"
@@ -346,7 +346,7 @@ def test_db_reset_rejects_unsafe_sidecar_before_deleting_task_roots(
 ) -> None:
     config_path = tmp_path / "banksia-config.toml"
     data_dir = tmp_path / "banksia-data"
-    database_path = data_dir / "banksia.persistence"
+    database_path = data_dir / "oms.persistence"
     task_root = data_dir / "tasks" / "task.alpha"
     unsafe_sidecar = Path(f"{database_path}-journal")
 

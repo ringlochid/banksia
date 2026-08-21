@@ -22,13 +22,13 @@ from oh_my_subagents.platform.provider_environment import (
 
 def test_provider_environment_uses_only_banksia_private_file_name(tmp_path: Path) -> None:
     config_path = tmp_path / "config.toml"
-    assert provider_environment_file_path(config_path) == tmp_path / "banksia.env"
+    assert provider_environment_file_path(config_path) == tmp_path / "oms.env"
 
 
 def test_private_provider_environment_round_trips_and_preserves_comments(
     tmp_path: Path,
 ) -> None:
-    env_file = tmp_path / "banksia.env"
+    env_file = tmp_path / "oms.env"
     env_file.write_text("# Managed provider credentials.\n", encoding="utf-8")
 
     persist_provider_secret(
@@ -48,7 +48,7 @@ def test_private_provider_environment_round_trips_and_preserves_comments(
 def test_retired_provider_assignments_are_ignored_without_reexposing_them(
     tmp_path: Path,
 ) -> None:
-    env_file = tmp_path / "banksia.env"
+    env_file = tmp_path / "oms.env"
     env_file.write_text(
         'OPENCLAW_GATEWAY_TOKEN="retired-token"\n'
         'OPENCLAW_GATEWAY_PASSWORD="retired-password"\n'
@@ -63,7 +63,7 @@ def test_retired_provider_assignments_are_ignored_without_reexposing_them(
 def test_provider_environment_rejects_a_final_symlink(tmp_path: Path) -> None:
     target = tmp_path / "outside.env"
     target.write_text(f'{ANTHROPIC_API_KEY}="outside"\n', encoding="utf-8")
-    env_file = tmp_path / "banksia.env"
+    env_file = tmp_path / "oms.env"
     env_file.symlink_to(target)
 
     with pytest.raises(OSError):
@@ -79,7 +79,7 @@ def test_provider_environment_rejects_a_final_symlink(tmp_path: Path) -> None:
 
 
 def test_private_provider_environment_rejects_unowned_assignments(tmp_path: Path) -> None:
-    env_file = tmp_path / "banksia.env"
+    env_file = tmp_path / "oms.env"
     env_file.write_text("CUSTOM_FLAG=1\n", encoding="utf-8")
 
     with pytest.raises(ProviderEnvironmentError, match="does not support CUSTOM_FLAG"):
@@ -93,7 +93,7 @@ def test_provider_environment_fills_missing_process_value_without_overriding_she
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    env_file = tmp_path / "banksia.env"
+    env_file = tmp_path / "oms.env"
     persist_provider_secret(env_file, key=ANTHROPIC_API_KEY, value="stored-key")
     monkeypatch.setenv(ANTHROPIC_API_KEY, "shell-key")
 
@@ -107,7 +107,7 @@ def test_service_provider_environment_exactly_mirrors_private_file(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    env_file = tmp_path / "banksia.env"
+    env_file = tmp_path / "oms.env"
     persist_provider_secret(env_file, key=ANTHROPIC_API_KEY, value="stored-key")
     monkeypatch.setenv(ANTHROPIC_API_KEY, "shell-key")
 

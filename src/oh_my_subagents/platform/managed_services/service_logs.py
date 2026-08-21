@@ -7,14 +7,16 @@ from pathlib import Path
 
 from platformdirs import PlatformDirs
 
+from oh_my_subagents.product_identity import OMS_IDENTITY
+
 SERVICE_LOG_MAX_BYTES = 5 * 1024 * 1024
 SERVICE_LOG_BACKUP_COUNT = 3
 SERVICE_LOG_LINE_LIMIT = 2_000
-SERVICE_LOGGER_NAME = "banksia.service"
+SERVICE_LOGGER_NAME = OMS_IDENTITY.service_logger_name
 
 
 def default_service_log_path() -> Path:
-    directories = PlatformDirs(appname="banksia", appauthor=False)
+    directories = PlatformDirs(appname=OMS_IDENTITY.application_name, appauthor=False)
     return Path(directories.user_log_path) / "controller.log"
 
 

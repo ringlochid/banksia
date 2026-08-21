@@ -20,9 +20,9 @@ def test_physical_file_reference_validation_preserves_order_across_loose_files(
     workspace = tmp_path / "workspace"
     paths = (
         "project.md",
-        ".banksia/t_01234567/notes/basis.md",
-        ".banksia/t_01234567/artifacts/report.md",
-        ".banksia/t_01234567/command-runs/c_01234567/output.log",
+        ".oms/t_01234567/notes/basis.md",
+        ".oms/t_01234567/artifacts/report.md",
+        ".oms/t_01234567/command-runs/c_01234567/output.log",
     )
     for relative_path in paths:
         target = workspace / relative_path

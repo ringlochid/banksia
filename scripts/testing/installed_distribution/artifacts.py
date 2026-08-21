@@ -32,7 +32,7 @@ REQUIRED_PACKAGE_MEMBERS = (
     "oh_my_subagents/interfaces/web_console/assets/index.html",
     "oh_my_subagents/interfaces/web_console/assets/assets/oms-mark.svg",
     *(f"{STARTER_RESOURCE_PREFIX}{filename}" for filename in STARTER_WORKFLOW_FILENAMES),
-    "oh_my_subagents/platform/managed_services/resources/systemd/banksia.service",
+    "oh_my_subagents/platform/managed_services/resources/systemd/oh-my-subagents.service",
     "oh_my_subagents/runtime/prompt/assets/shared/core.txt",
     "oh_my_subagents/runtime/prompt/assets/behaviors/contributor.txt",
     "banksia/__init__.py",

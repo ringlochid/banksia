@@ -15,6 +15,7 @@ from pydantic import (
     field_validator,
 )
 
+from oh_my_subagents.product_identity import OMS_IDENTITY
 from oh_my_subagents.providers import (
     ManagedExtensionMode,
     ManagedSandboxMode,
@@ -24,7 +25,7 @@ from oh_my_subagents.providers import (
 )
 from oh_my_subagents.runtime.contracts.provider_resolution import ProviderRoute
 
-MANAGED_NODE_MCP_SERVER_NAME = "banksia_node"
+MANAGED_NODE_MCP_SERVER_NAME = OMS_IDENTITY.node_mcp_server_name
 DEFAULT_PROVIDER_STOP_TIMEOUT_SECONDS = 5.0
 
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from xml.etree import ElementTree
 
+from oh_my_subagents.product_identity import OMS_IDENTITY
 from oh_my_subagents.runtime.contracts.prompt import DispatchRequestRenderInput
 from oh_my_subagents.runtime.prompt.asset_catalog import (
     InstructionAsset,
@@ -23,7 +24,7 @@ _ASSET_TAGS = {
 
 
 def render_request_instructions(request: DispatchRequestRenderInput) -> str:
-    root = ElementTree.Element("banksia_system")
+    root = ElementTree.Element(OMS_IDENTITY.system_prompt_root)
     for asset in instruction_assets_for_request(request.dynamic_input):
         element = ElementTree.SubElement(root, _ASSET_TAGS[asset])
         element.text = load_instruction_asset(asset).rstrip("\r\n")

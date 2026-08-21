@@ -8,9 +8,9 @@ oms config show
 oms status
 ```
 
-On a typical Linux installation, the defaults are `~/.config/banksia/config.toml` and `~/.local/share/banksia/`. Platform directories vary; do not hard-code those example paths in automation.
+On a typical Linux installation, the defaults are `~/.config/oh-my-subagents/config.toml` and `~/.local/share/oh-my-subagents/`. Platform directories vary; do not hard-code those example paths in automation.
 
-The platform directory, `banksia.persistence`, configured PostgreSQL schema, and `.banksia/` Task roots remain stable storage protocols in Oh My Subagents `0.2.x`. The canonical environment prefix is `OMS_`. Legacy `BANKSIA_*` values are accepted with a warning during `0.2.x`; conflicting old and new values fail before startup or mutation.
+The OMS platform directories, `oms.persistence`, configured PostgreSQL schema, and `.oms/` Task roots are the canonical storage protocols in Oh My Subagents `0.3.x`. The canonical environment prefix is `OMS_`. Legacy `BANKSIA_*` values are accepted with a warning during `0.3.x`; conflicting old and new values fail before startup or mutation.
 
 ## Selection and precedence
 
@@ -35,7 +35,7 @@ Oh My Subagents does not implicitly load a repository `.env` file as configurati
 
 ```toml
 [paths]
-data_dir = "/home/me/.local/share/banksia"
+data_dir = "/home/me/.local/share/oh-my-subagents"
 workspace = "/home/me/projects/default-workspace"
 ```
 
@@ -61,7 +61,7 @@ SQLite is the default for `oms init`. It requires no external service and stores
 
 ```toml
 [database]
-url = "sqlite+aiosqlite:////home/me/.local/share/banksia/banksia.persistence"
+url = "sqlite+aiosqlite:////home/me/.local/share/oh-my-subagents/oms.persistence"
 echo = false
 ```
 
@@ -85,17 +85,17 @@ Then select PostgreSQL during initialization:
 
 ```bash
 oms init \
-  --database-url "postgresql+asyncpg://banksia@127.0.0.1/banksia"
+  --database-url "postgresql+asyncpg://oms@127.0.0.1/oms"
 ```
 
 The URL must use SQLAlchemy's `postgresql+asyncpg` driver. Substitute the host, port, database, role, and credentials required by your PostgreSQL service. Percent-encode reserved characters in credentials and avoid leaving a password in shell history.
 
-Oh My Subagents uses a dedicated schema named `banksia` by default. The database role must be able to connect to the selected database and create or use objects in that schema. On first initialization, Oh My Subagents creates a missing dedicated schema and creates tables only when that schema is empty. A nonempty schema must match the shipped schema exactly.
+Oh My Subagents uses a dedicated schema named `oms` by default. The database role must be able to connect to the selected database and create or use objects in that schema. On first initialization, Oh My Subagents creates a missing dedicated schema and creates tables only when that schema is empty. A nonempty schema must match the shipped schema exactly. Migrated PostgreSQL configurations keep the legacy `banksia` schema explicitly.
 
 ```toml
 [database]
-url = "postgresql+asyncpg://banksia@127.0.0.1/banksia"
-postgres_schema = "banksia"
+url = "postgresql+asyncpg://oms@127.0.0.1/oms"
+postgres_schema = "oms"
 echo = false
 ```
 
@@ -118,12 +118,12 @@ oms status
 
 ```toml
 [paths]
-data_dir = "/home/me/.local/share/banksia"
+data_dir = "/home/me/.local/share/oh-my-subagents"
 workspace = "/home/me/projects/default-workspace"
 
 [database]
-url = "sqlite+aiosqlite:////home/me/.local/share/banksia/banksia.persistence"
-postgres_schema = "banksia"
+url = "sqlite+aiosqlite:////home/me/.local/share/oh-my-subagents/oms.persistence"
+postgres_schema = "oms"
 echo = false
 
 [server]

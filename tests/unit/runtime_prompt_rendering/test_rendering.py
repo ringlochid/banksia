@@ -55,9 +55,7 @@ def test_initial_dispatch_is_deterministic_complete_xml_without_fake_trigger() -
     assert root.find("current_member/provider/name") is None
     with pytest.raises(ValidationError):
         ResolvedProviderRead.model_validate({"name": "codex"})
-    assert root.findtext("assignment/files/file/path") == (
-        ".banksia/t_7m4k2d9x/artifacts/review.md"
-    )
+    assert root.findtext("assignment/files/file/path") == (".oms/t_7m4k2d9x/artifacts/review.md")
 
 
 def test_accepted_member_steers_render_in_event_order() -> None:

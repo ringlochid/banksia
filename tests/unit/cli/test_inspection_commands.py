@@ -37,7 +37,7 @@ def test_bare_and_status_are_passive_with_zero_providers(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     config_path = tmp_path / "config.toml"
-    (tmp_path / "banksia.env").write_text(
+    (tmp_path / "oms.env").write_text(
         'ANTHROPIC_API_KEY="invalid-unclosed-value\n',
         encoding="utf-8",
     )
@@ -217,7 +217,7 @@ def test_provider_check_uses_the_managed_service_secret_instead_of_the_shell(
         ProviderConfigurationRequest(provider=ProviderKind.CLAUDE),
     )
     persist_provider_secret(
-        tmp_path / "banksia.env",
+        tmp_path / "oms.env",
         key=ANTHROPIC_API_KEY,
         value="stored-api-key",
     )

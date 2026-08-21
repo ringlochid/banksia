@@ -3,6 +3,8 @@ from __future__ import annotations
 from importlib import resources
 from importlib.resources.abc import Traversable
 
+from oh_my_subagents.product_identity import OMS_IDENTITY
+
 _MANAGED_SERVICE_RESOURCES_ROOT = resources.files(__name__)
 
 
@@ -11,7 +13,10 @@ def get_managed_service_resources_root() -> Traversable:
 
 
 def get_systemd_service_template() -> Traversable:
-    return _MANAGED_SERVICE_RESOURCES_ROOT.joinpath("systemd", "banksia.service")
+    return _MANAGED_SERVICE_RESOURCES_ROOT.joinpath(
+        "systemd",
+        OMS_IDENTITY.systemd_service_name,
+    )
 
 
 __all__ = [

@@ -170,7 +170,7 @@ async def _seed_product_command_history(
                 summary=f"Command {run_id}",
                 timeout_seconds=None,
                 due_at=None,
-                output_path=f".banksia/{ids.task_id}/command-runs/{run_id}/output.log",
+                output_path=f".oms/{ids.task_id}/command-runs/{run_id}/output.log",
                 output_complete=True,
                 state="succeeded",
                 ownership_revision=1,

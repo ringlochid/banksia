@@ -32,7 +32,7 @@ async def test_init_writes_canonical_config_and_db_file(
 
     assert result == 0
     assert config_path.exists()
-    assert data_dir.joinpath("banksia.persistence").exists()
+    assert data_dir.joinpath("oms.persistence").exists()
 
     config_text = config_path.read_text(encoding="utf-8")
     config_payload = tomllib.loads(config_text)
@@ -46,7 +46,7 @@ async def test_init_writes_canonical_config_and_db_file(
     assert "claude" not in config_payload
     assert "openclaw" not in config_payload
     assert "runtime" not in config_payload
-    assert_seeded_registry_is_bootstrapped(data_dir / "banksia.persistence")
+    assert_seeded_registry_is_bootstrapped(data_dir / "oms.persistence")
     assert '"ok": true' in capsys.readouterr().out
 
 

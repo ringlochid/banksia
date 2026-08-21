@@ -9,6 +9,7 @@ class ProductIdentity:
     import_package: str
     application_name: str
     database_filename: str
+    postgres_schema: str
     provider_environment_filename: str
     task_container_name: str
     system_prompt_root: str
@@ -27,6 +28,7 @@ OMS_IDENTITY = ProductIdentity(
     import_package="oh_my_subagents",
     application_name="oh-my-subagents",
     database_filename="oms.persistence",
+    postgres_schema="oms",
     provider_environment_filename="oms.env",
     task_container_name=".oms",
     system_prompt_root="oms_system",
@@ -45,6 +47,7 @@ LEGACY_BANKSIA_IDENTITY = ProductIdentity(
     import_package="banksia",
     application_name="banksia",
     database_filename="banksia.persistence",
+    postgres_schema="banksia",
     provider_environment_filename="banksia.env",
     task_container_name=".banksia",
     system_prompt_root="banksia_system",

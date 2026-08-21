@@ -42,4 +42,4 @@ async def test_readyz_uses_real_database(tmp_path: Path) -> None:
         await dispose_db_engine()
 
     assert response.status_code == 200
-    assert response.json() == {"status": "ready", "service": "banksia-api"}
+    assert response.json() == {"status": "ready", "service": "oms-api"}

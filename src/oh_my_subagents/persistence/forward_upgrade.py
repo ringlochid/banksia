@@ -194,7 +194,7 @@ def _rebuild_sqlite_task_events(connection: Connection) -> None:
     _rebuild_sqlite_table(
         connection,
         cast(Table, TaskEventModel.__table__),
-        temporary_name="_banksia_upgrade_task_events",
+        temporary_name="_oms_upgrade_task_events",
     )
 
 

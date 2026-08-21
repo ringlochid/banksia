@@ -156,9 +156,9 @@ async def test_claude_start_uses_disposable_scoped_client_and_returns_before_out
         sandbox = cast(dict[str, object], client.options.sandbox)
         assert sandbox["failIfUnavailable"] is True
         assert sandbox["allowUnsandboxedCommands"] is False
-        assert "mcp__banksia_node__checkpoint" in client.options.allowed_tools
+        assert "mcp__oms_node__checkpoint" in client.options.allowed_tools
         mcp_servers = cast(dict[str, object], client.options.mcp_servers)
-        mcp_config = cast(dict[str, object], mcp_servers["banksia_node"])
+        mcp_config = cast(dict[str, object], mcp_servers["oms_node"])
         assert mcp_config.get("headers") == {"Authorization": "Bearer binding-secret"}
 
         assert await adapter.stop("dispatch-1") is ProviderStopOutcome.STOPPED
@@ -363,7 +363,7 @@ async def test_claude_workspace_write_hook_denies_symlink_escape_and_allows_regu
     allowed = await hook(
         _pre_tool_input(
             tool_name="Write",
-            tool_input={"file_path": ".banksia/t_01234567/notes/result.txt"},
+            tool_input={"file_path": ".oms/t_01234567/notes/result.txt"},
         ),
         "tool-use-inside",
         {"signal": None},

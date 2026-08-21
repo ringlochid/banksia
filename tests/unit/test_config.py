@@ -57,14 +57,14 @@ def test_platform_paths_use_only_banksia_namespace(
         tmp_path,
     )
 
-    assert paths.default_config_path() == config_home / "banksia" / "config.toml"
-    assert paths.default_data_dir() == data_home / "banksia"
-    assert paths.default_state_dir() == state_home / "banksia"
-    expected_cache = cache_home / "banksia"
+    assert paths.default_config_path() == config_home / "oh-my-subagents" / "config.toml"
+    assert paths.default_data_dir() == data_home / "oh-my-subagents"
+    assert paths.default_state_dir() == state_home / "oh-my-subagents"
+    expected_cache = cache_home / "oh-my-subagents"
     if os.name == "nt":
         expected_cache /= "Cache"
     assert paths.default_cache_dir() == expected_cache
-    assert paths.default_database_path() == data_home / "banksia" / "banksia.persistence"
+    assert paths.default_database_path() == data_home / "oh-my-subagents" / "oms.persistence"
 
 
 def test_get_settings_reads_default_platform_config(
@@ -77,7 +77,7 @@ def test_get_settings_reads_default_platform_config(
     )
     workspace = tmp_path / "workspace"
     workspace.mkdir()
-    config_path = config_home / "banksia" / "config.toml"
+    config_path = config_home / "oh-my-subagents" / "config.toml"
     config_path.parent.mkdir(parents=True, exist_ok=True)
     config_path.write_text(
         f"""
@@ -133,7 +133,7 @@ watchdog_same_attempt_replacement_limit = 3
     assert settings.console_origins == ["http://127.0.0.1:4173"]
     assert not hasattr(settings, "api_key")
     assert settings.config_path == config_path
-    assert settings.data_dir == data_home / "banksia"
+    assert settings.data_dir == data_home / "oh-my-subagents"
     assert settings.controller_workspace == workspace.resolve()
     assert settings.codex.enabled is True
     assert settings.codex.model == "gpt-5"
@@ -172,9 +172,9 @@ def test_settings_ignore_autoclaw_environment_and_leave_old_state_untouched(
     config_module.get_settings.cache_clear()
     settings = config_module.get_settings()
 
-    assert settings.config_path == config_home / "banksia" / "config.toml"
-    assert settings.data_dir == data_home / "banksia"
-    assert settings.database_url.endswith("/banksia/banksia.persistence")
+    assert settings.config_path == config_home / "oh-my-subagents" / "config.toml"
+    assert settings.data_dir == data_home / "oh-my-subagents"
+    assert settings.database_url.endswith("/oh-my-subagents/oms.persistence")
     assert old_config_path.read_text(encoding="utf-8") == old_config_text
 
 

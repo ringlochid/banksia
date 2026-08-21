@@ -4,9 +4,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Protocol, TypeVar
 
-_TASK_FOLDER_PATH = r"\Banksia"
-_TASK_FOLDER_NAME = "Banksia"
-_TASK_NAME = "Controller"
+from oh_my_subagents.product_identity import OMS_IDENTITY
+
 _TASK_CREATE_OR_UPDATE = 6
 _TASK_LOGON_INTERACTIVE_TOKEN = 3
 
@@ -45,6 +44,14 @@ class WindowsTaskSchedulerError(RuntimeError):
 class ComWindowsTaskScheduler:
     """Task Scheduler 2.0 scripting API boundary for one fixed OMS task."""
 
+    def __init__(self, *, service_name: str = OMS_IDENTITY.scheduled_task_service_name) -> None:
+        folder_path, separator, task_name = service_name.rpartition("\\")
+        if separator != "\\" or not folder_path.startswith("\\") or not task_name:
+            raise ValueError(f"invalid scheduled Task service name: {service_name!r}")
+        self._task_folder_path = folder_path
+        self._task_folder_name = folder_path.removeprefix("\\")
+        self._task_name = task_name
+
     def inspect(self) -> WindowsScheduledTaskSnapshot | None:
         def read_task() -> WindowsScheduledTaskSnapshot | None:
             service = self._connect()
@@ -71,9 +78,9 @@ class ComWindowsTaskScheduler:
             folder = self._find_folder(service)
             if folder is None:
                 root = service.GetFolder("\\")
-                folder = root.CreateFolder(_TASK_FOLDER_NAME)
+                folder = root.CreateFolder(self._task_folder_name)
             folder.RegisterTask(
-                _TASK_NAME,
+                self._task_name,
                 definition,
                 _TASK_CREATE_OR_UPDATE,
                 user_id,
@@ -89,7 +96,7 @@ class ComWindowsTaskScheduler:
             folder = self._find_folder(service)
             if folder is None or self._find_task(folder) is None:
                 return
-            folder.DeleteTask(_TASK_NAME, 0)
+            folder.DeleteTask(self._task_name, 0)
 
         self._invoke("uninstall", delete_task)
 
@@ -119,19 +126,17 @@ class ComWindowsTaskScheduler:
             )
         return task
 
-    @staticmethod
-    def _find_folder(service: Any) -> Any | None:
+    def _find_folder(self, service: Any) -> Any | None:
         try:
-            return service.GetFolder(_TASK_FOLDER_PATH)
+            return service.GetFolder(self._task_folder_path)
         except Exception as exc:
             if _is_windows_not_found_error(exc):
                 return None
             raise
 
-    @staticmethod
-    def _find_task(folder: Any) -> Any | None:
+    def _find_task(self, folder: Any) -> Any | None:
         try:
-            return folder.GetTask(_TASK_NAME)
+            return folder.GetTask(self._task_name)
         except Exception as exc:
             if _is_windows_not_found_error(exc):
                 return None

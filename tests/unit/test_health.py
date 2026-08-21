@@ -11,7 +11,7 @@ async def test_healthz() -> None:
         response = await client.get("/healthz")
 
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "service": "banksia-api"}
+    assert response.json() == {"status": "ok", "service": "oms-api"}
 
 
 async def test_legacy_packaged_console_routes_remain_removed() -> None:

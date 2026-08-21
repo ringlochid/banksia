@@ -52,7 +52,7 @@ The next supported upgrade widens the closed Task Event type constraint for `mem
 
 The next supported upgrade widens Command Run terminal exit codes to an unsigned-compatible 32-bit storage lane. PostgreSQL changes the column to `BIGINT` while preserving every Command Run row. SQLite `INTEGER` already stores signed 64-bit values, so existing SQLite databases need no table rewrite and remain exact under the SQLite type-affinity contract.
 
-Oh My Subagents has no AutoClaw or other legacy-state import path. Supported Oh My Subagents schema upgrades do not introduce compatibility aliases, dual runtime truth, or acceptance of nonexact schemas.
+`oms migrate-from-banksia` is the sole legacy-state import path. It copies default local files without changing database rows or schema, preserves custom database locations and the configured PostgreSQL schema, and never weakens exact schema admission. Supported schema upgrades do not introduce dual runtime truth or acceptance of nonexact schemas.
 
 After schema creation or verification, bootstrap transactionally validates and publishes the packaged Starter Workflow set. Identical package-owned content is idempotent, and reseeding never replaces a user-authored current revision.
 
@@ -66,17 +66,17 @@ After schema creation or verification, bootstrap transactionally validates and p
 
 Before reset deletes a controller-owned Task root or replaces an existing database/schema, Oh My Subagents must create the same backup used by forward upgrade and report its path. Backup failure is a hard stop. A nonexistent SQLite database or PostgreSQL schema has nothing to preserve, so reset may initialize it without creating an empty backup artifact. PostgreSQL reset and upgrade therefore require a compatible `pg_dump` client on the controller host.
 
-Reset may delete controller-owned Task roots recorded inside the configured data boundary. It deliberately preserves accepted workspace Task directories matching `.banksia/t_<id>/`; shared user workspaces and their loose files are never recursively deleted by database reset.
+Reset may delete controller-owned Task roots recorded inside the configured data boundary. It deliberately preserves accepted workspace Task directories matching `.oms/t_<id>/` or the persisted legacy `.banksia/t_<id>/` shape; shared user workspaces and their loose files are never recursively deleted by database reset.
 
 ## Managed background service
 
-`oms service install|start|stop|restart|status|uninstall|logs` operates one per-user Oh My Subagents background service from the selected TOML file and its canonical sibling `banksia.env`:
+`oms service install|start|stop|restart|status|uninstall|logs` operates one per-user Oh My Subagents background service from the selected TOML file and its canonical sibling `oms.env`:
 
 - Linux uses a systemd user service;
 - macOS uses a current-user LaunchAgent under `~/Library/LaunchAgents`; and
-- Windows uses the stable `\Banksia\Controller` identifier, a current-user Scheduled Task with an interactive-token logon trigger and least-privilege run level.
+- Windows uses the stable `\Oh My Subagents\Controller` identifier, a current-user Scheduled Task with an interactive-token logon trigger and least-privilege run level.
 
-Native definitions contain only the exact interpreter, stable `-m banksia serve` module invocation, selected config path, and bounded service-log path. They contain no provider credential, password, shell wrapper, or elevated/root account. The shared CLI reports definition/startup state plus bounded controller health/readiness rather than presenting systemd and launchd process strings as equivalent truth. Every readiness poll refreshes native state. On systemd, `SubState`, `Result`, `ExecMainCode`, `ExecMainStatus`, and `NRestarts` distinguish ordinary activation from a failed process waiting in `auto-restart`; the latter is **Needs attention**, with `oms service logs --lines 200` as the next action, while `Restart=on-failure` remains enabled. Platform-specific raw state is debug detail.
+Native definitions contain only the exact interpreter, stable `-m oh_my_subagents serve` module invocation, selected config path, and bounded service-log path. They contain no provider credential, password, shell wrapper, or elevated/root account. The shared CLI reports definition/startup state plus bounded controller health/readiness rather than presenting systemd and launchd process strings as equivalent truth. Every readiness poll refreshes native state. On systemd, `SubState`, `Result`, `ExecMainCode`, `ExecMainStatus`, and `NRestarts` distinguish ordinary activation from a failed process waiting in `auto-restart`; the latter is **Needs attention**, with `oms service logs --lines 200` as the next action, while `Restart=on-failure` remains enabled. Platform-specific raw state is debug detail.
 
 Controller readiness requires both an active instance reported by the selected native manager and a successful `/readyz` response. A listener alone never proves background-service ownership. Readiness polling tolerates transient native failure during the bounded startup window; Windows uses 30 seconds for cold virtual-environment startup, while systemd and launchd use 3 seconds. Windows registration and runtime inspection use the Task Scheduler 2.0 API; definition comparison preserves exact action/configuration values while treating Task Scheduler's equivalent account-name, SID, and omitted-default XML forms semantically. macOS inspection reads the current `launchctl` job state, process identifier, last exit code, and disabled state. A macOS stop does not complete until launchd confirms that the previous LaunchAgent is unloaded, so a following start bootstraps a replacement instead of targeting a disappearing job. Portable status exposes whether the installed definition is current, and lifecycle start is idempotent for an already active native instance.
 

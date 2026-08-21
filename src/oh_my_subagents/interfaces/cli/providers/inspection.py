@@ -126,7 +126,7 @@ def collect_provider_definitions() -> tuple[ProviderDefinitionSnapshot, ...]:
                 "integration": integration_name(provider),
                 "product_status": product_status_for(provider),
                 "integration_available": is_provider_integration_available(provider),
-                "setup_owner": "banksia",
+                "setup_owner": "oms",
             }
         )
         for provider in PROVIDER_ORDER

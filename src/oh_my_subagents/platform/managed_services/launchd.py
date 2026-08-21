@@ -9,6 +9,8 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
+from oh_my_subagents.product_identity import OMS_IDENTITY
+
 from .contracts import (
     ManagedServiceCommandError,
     ManagedServiceCommandObserver,
@@ -26,7 +28,7 @@ from .definition_files import (
 )
 
 LAUNCHD_MANAGER_NAME = "launchd-user"
-LAUNCHD_SERVICE_NAME = "io.github.ringlochid.banksia"
+LAUNCHD_SERVICE_NAME = OMS_IDENTITY.launchd_service_name
 _LAUNCHCTL_FIELD_PATTERN = re.compile(r"^\s*([a-z][a-z ]+)\s*=\s*(.*?)\s*$")
 _LAUNCHD_UNLOAD_TIMEOUT_SECONDS = 3.0
 _LAUNCHD_UNLOAD_POLL_INTERVAL_SECONDS = 0.05
@@ -51,10 +53,12 @@ class LaunchdUserServiceManager:
         definition_dir: Path | None = None,
         launchctl_bin: str | None = None,
         user_id: int | None = None,
+        service_name: str = LAUNCHD_SERVICE_NAME,
     ) -> None:
         self._definition_dir = definition_dir
         self._launchctl_bin = launchctl_bin
         self._user_id = user_id
+        self.service_name = service_name
 
     def render_definition(self, target: ManagedServiceTarget) -> str:
         return render_launch_agent_plist(
@@ -378,7 +382,7 @@ def render_launch_agent_plist(
         "ProgramArguments": [
             str(python_executable),
             "-m",
-            "banksia",
+            OMS_IDENTITY.import_package,
             "serve",
             "--config",
             str(config_path),

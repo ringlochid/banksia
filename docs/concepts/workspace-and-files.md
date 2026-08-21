@@ -9,7 +9,7 @@ Oh My Subagents does not create a branch, checkout, or write-isolated directory 
 Task admission creates one collision-safe directory inside the workspace:
 
 ```text
-.banksia/
+.oms/
 └── t_<id>/
     ├── manifest.md
     ├── workflow-note.md       # present only when the Workflow has a note
@@ -44,7 +44,7 @@ Despite the directory name, Oh My Subagents has no managed Artifact resource. It
 Each managed Command Run writes its complete observed output to:
 
 ```text
-.banksia/t_<id>/command-runs/c_<id>/output.log
+.oms/t_<id>/command-runs/c_<id>/output.log
 ```
 
 Product and Operator reads return bounded, sanitized output pages plus facts such as whether output is complete, missing, changed, or bounded. The full log remains in the workspace. It is command execution output, not a database projection or an archive of unrelated provider-native shell activity.
@@ -54,7 +54,7 @@ Product and Operator reads return bounded, sanitized output pages plus facts suc
 Task start, Assignments, Checkpoints, and Human Requests use one generic navigation value:
 
 ```yaml
-path: .banksia/t_7m4k2d9x/artifacts/review-report.md
+path: .oms/t_7m4k2d9x/artifacts/review-report.md
 description: Independent review and prioritized findings
 ```
 
@@ -72,15 +72,15 @@ Validation proves only what existed at the owning boundary. A file reference doe
 | Kind | Reference | What the receiver should do |
 | --- | --- | --- |
 | Project file | `{path: "src/payments/service.py", description: "Implementation reviewed in this Checkpoint"}` | Inspect the current tracked file and relevant Git diff. If it changed after the report, identify the reviewed revision or say that reinspection is required. |
-| Working note | `{path: ".banksia/t_7m4k2d9x/notes/investigation.md", description: "Observed symptoms and rejected causes"}` | Treat it as mutable coordination memory. If it is missing or stale, report that fact instead of inventing its contents. |
-| Reviewable deliverable | `{path: ".banksia/t_7m4k2d9x/artifacts/review-report.md", description: "Ranked independent findings"}` | Open the current report and verify consequential claims against current project state. Do not describe the file as immutable or approved merely because it was referenced. |
+| Working note | `{path: ".oms/t_7m4k2d9x/notes/investigation.md", description: "Observed symptoms and rejected causes"}` | Treat it as mutable coordination memory. If it is missing or stale, report that fact instead of inventing its contents. |
+| Reviewable deliverable | `{path: ".oms/t_7m4k2d9x/artifacts/review-report.md", description: "Ranked independent findings"}` | Open the current report and verify consequential claims against current project state. Do not describe the file as immutable or approved merely because it was referenced. |
 
 When exact byte-for-byte reconstruction matters, the workspace's version control, dataset preservation, or another user-owned archival system must provide it.
 
 ## Version control
 
-Oh My Subagents does not detect repositories, inspect tracked paths, run Git, or change `.gitignore`, `.git/info/exclude`, or another version-control setting. A Task's `.banksia/t_<id>/` directory is ordinary workspace content: you may commit it, ignore it, archive it, or remove it according to your own workspace policy.
+Oh My Subagents does not detect repositories, inspect tracked paths, run Git, or change `.gitignore`, `.git/info/exclude`, or another version-control setting. A Task's `.oms/t_<id>/` directory is ordinary workspace content: you may commit it, ignore it, archive it, or remove it according to your own workspace policy.
 
-An existing `.banksia/` directory may contain unrelated project files. Oh My Subagents preserves those files and owns only the collision-safe `t_<id>/` directories it creates. This does not protect project files from concurrent Member edits and does not commit, branch, stash, or roll back work.
+An existing `.oms/` directory may contain unrelated project files. Oh My Subagents preserves those files and owns only the collision-safe `t_<id>/` directories it creates. This does not protect project files from concurrent Member edits and does not commit, branch, stash, or roll back work.
 
 See [Runtime and results](runtime-and-results.md) for controller ownership and [Run and operate Tasks](../guides/run-and-operate.md) for inspecting Results and referenced files.

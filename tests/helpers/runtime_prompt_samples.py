@@ -79,7 +79,7 @@ def sample_dynamic_input(
             prompt=assignment_prompt,
             files=(
                 FileReference(
-                    path=".banksia/t_7m4k2d9x/artifacts/review.md",
+                    path=".oms/t_7m4k2d9x/artifacts/review.md",
                     description="Inspect this review before deciding.",
                 ),
             ),
@@ -102,12 +102,12 @@ def sample_dynamic_input(
         ),
         workspace=PromptWorkspace(
             root="/work/acme",
-            task_directory=".banksia/t_7m4k2d9x",
-            manifest=".banksia/t_7m4k2d9x/manifest.md",
-            workflow_note=".banksia/t_7m4k2d9x/workflow-note.md",
-            notes=".banksia/t_7m4k2d9x/notes",
-            artifacts=".banksia/t_7m4k2d9x/artifacts",
-            command_runs=".banksia/t_7m4k2d9x/command-runs",
+            task_directory=".oms/t_7m4k2d9x",
+            manifest=".oms/t_7m4k2d9x/manifest.md",
+            workflow_note=".oms/t_7m4k2d9x/workflow-note.md",
+            notes=".oms/t_7m4k2d9x/notes",
+            artifacts=".oms/t_7m4k2d9x/artifacts",
+            command_runs=".oms/t_7m4k2d9x/command-runs",
         ),
     )
 
@@ -175,7 +175,7 @@ def sample_wave_return() -> DelegationWaveSettledTrigger:
                         details="One residual risk remains documented.",
                         files=(
                             FileReference(
-                                path=".banksia/t_7m4k2d9x/artifacts/review.md",
+                                path=".oms/t_7m4k2d9x/artifacts/review.md",
                                 description="Independent review.",
                             ),
                         ),

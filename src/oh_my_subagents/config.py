@@ -33,6 +33,7 @@ from pydantic_settings import (
 from oh_my_subagents.paths import default_config_path, default_data_dir, default_database_url
 from oh_my_subagents.platform.environment import Environment
 from oh_my_subagents.platform.workspace_files import read_private_text
+from oh_my_subagents.product_identity import OMS_IDENTITY
 from oh_my_subagents.providers import (
     ManagedExtensionMode,
     ManagedSandboxMode,
@@ -142,7 +143,7 @@ class Settings(BaseSettings):
         serialization_alias="debug",
     )
     database_url: str = Field(default_factory=default_database_url)
-    postgres_schema: ConfigText = "banksia"
+    postgres_schema: ConfigText = OMS_IDENTITY.postgres_schema
     should_echo_database: bool = Field(
         default=False,
         validation_alias=AliasChoices("database_echo", "should_echo_database"),

@@ -243,5 +243,5 @@ def _receipt(task_id: str, workspace: Path) -> TaskStartReceipt:
         workflow_id=GENERIC_WORKFLOW_ID,
         workflow_revision=1,
         workspace=str(workspace),
-        manifest=str(Path(".banksia") / task_id / "manifest.md"),
+        manifest=str(Path(".oms") / task_id / "manifest.md"),
     )

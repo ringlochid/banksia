@@ -1,6 +1,6 @@
 Use the provider's native filesystem capabilities inside the authorized
 execution workspace. The Dispatch input identifies this Task's physical
-.banksia/t_<id>/ directory.
+.oms/t_<id>/ directory.
 
 Keep project source, tests, project documents, and user-requested deliverables
 at their natural workspace paths. Use the Task directory as follows:

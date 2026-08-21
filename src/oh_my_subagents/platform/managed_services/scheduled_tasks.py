@@ -10,6 +10,8 @@ from typing import Any, TypeVar
 from xml.etree import ElementTree
 from xml.sax.saxutils import escape
 
+from oh_my_subagents.product_identity import OMS_IDENTITY
+
 from .contracts import (
     ManagedServiceCommandError,
     ManagedServiceCommandObserver,
@@ -28,7 +30,7 @@ from .windows_task_scheduler import (
 )
 
 SCHEDULED_TASK_MANAGER_NAME = "windows-task-scheduler"
-SCHEDULED_TASK_SERVICE_NAME = r"\Banksia\Controller"
+SCHEDULED_TASK_SERVICE_NAME = OMS_IDENTITY.scheduled_task_service_name
 _TASK_NAMESPACE = "http://schemas.microsoft.com/windows/2004/02/mit/task"
 _TASK_STATE_DISABLED = 1
 _TASK_STATE_QUEUED = 2
@@ -55,8 +57,10 @@ class ScheduledTaskUserServiceManager:
         task_scheduler: WindowsTaskScheduler | None = None,
         user_id: str | None = None,
         identity_resolver: WindowsIdentityResolver | None = None,
+        service_name: str = SCHEDULED_TASK_SERVICE_NAME,
     ) -> None:
-        self._task_scheduler = task_scheduler or ComWindowsTaskScheduler()
+        self.service_name = service_name
+        self._task_scheduler = task_scheduler or ComWindowsTaskScheduler(service_name=service_name)
         self._user_id = user_id
         self._identity_resolver = identity_resolver or _resolve_windows_identity
 
@@ -315,7 +319,7 @@ def render_scheduled_task_xml(
     arguments = subprocess.list2cmdline(
         [
             "-m",
-            "banksia",
+            OMS_IDENTITY.import_package,
             "serve",
             "--config",
             str(config_path),

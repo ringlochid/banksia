@@ -297,7 +297,7 @@ def test_resource_owner_helpers_point_to_canonical_package_paths() -> None:
         == STARTER_WORKFLOW_FILENAMES
     )
     assert service_root.name == "resources"
-    assert service_root.joinpath("systemd", "banksia.service").is_file()
+    assert service_root.joinpath("systemd", "oh-my-subagents.service").is_file()
 
 
 @pytest.mark.skipif(shutil.which("make") is None, reason="GNU Make is not installed")

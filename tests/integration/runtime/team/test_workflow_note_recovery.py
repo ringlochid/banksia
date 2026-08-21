@@ -46,7 +46,7 @@ async def test_workflow_note_recovery_restores_pinned_projection(
             )
             expected_note = workflow.workflow.note
             assert expected_note is not None
-            task_root = workspace / ".banksia" / response.task_id
+            task_root = workspace / ".oms" / response.task_id
             note_path = task_root / "workflow-note.md"
             note_path.unlink()
             if note_state == "tampered":
@@ -84,7 +84,7 @@ async def test_workflow_note_recovery_rejects_nonregular_projection_target(
                 session=session,
                 dependencies=_dependencies(workspace),
             )
-            task_root = workspace / ".banksia" / response.task_id
+            task_root = workspace / ".oms" / response.task_id
             note_path = task_root / "workflow-note.md"
             note_path.unlink()
             if note_state == "symlink":
@@ -124,7 +124,7 @@ async def test_recovery_removes_unconfigured_workflow_note(
                 session=session,
                 dependencies=_dependencies(workspace),
             )
-            task_root = workspace / ".banksia" / response.task_id
+            task_root = workspace / ".oms" / response.task_id
             note_path = task_root / "workflow-note.md"
             assert not note_path.exists()
             if extra_state == "regular":
@@ -164,7 +164,7 @@ async def test_recovery_rejects_reserved_workflow_note_directory(
                 session=session,
                 dependencies=_dependencies(workspace),
             )
-            task_root = workspace / ".banksia" / response.task_id
+            task_root = workspace / ".oms" / response.task_id
             note_path = task_root / "workflow-note.md"
             note_path.mkdir()
             _write_initialization_marker(task_root, response.task_id)
@@ -202,7 +202,7 @@ async def _publish_workflow_without_note(session: AsyncSession) -> None:
 
 def _write_initialization_marker(task_root: Path, task_id: str) -> None:
     (task_root / TASK_INITIALIZATION_MARKER).write_bytes(
-        f"banksia-task-initialization-v1\n{task_id}\n".encode()
+        f"oms-task-initialization-v1\n{task_id}\n".encode()
     )
 
 

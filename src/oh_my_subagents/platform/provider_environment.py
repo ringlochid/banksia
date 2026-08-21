@@ -12,6 +12,7 @@ from oh_my_subagents.platform.workspace_files import (
     read_private_text,
     replace_private_text,
 )
+from oh_my_subagents.product_identity import OMS_IDENTITY
 
 ANTHROPIC_API_KEY = "ANTHROPIC_API_KEY"
 PROVIDER_SECRET_MUTATION_LOCK_TIMEOUT_SECONDS = 5.0
@@ -39,7 +40,7 @@ class ProviderEnvironmentError(ValueError):
 def provider_environment_file_path(config_path: Path) -> Path:
     """Return the private environment file shared by CLI and user service."""
 
-    return config_path.parent / "banksia.env"
+    return config_path.parent / OMS_IDENTITY.provider_environment_filename
 
 
 @contextmanager

@@ -22,6 +22,7 @@ from oh_my_subagents.interfaces.mcp.mcp_operation_failures import (
     validation_operation_failure,
 )
 from oh_my_subagents.interfaces.mcp.transport import NodeMcpTransportPolicy
+from oh_my_subagents.product_identity import OMS_IDENTITY
 from oh_my_subagents.runtime.contracts.operation_failure import OperationFailureCode
 from oh_my_subagents.runtime.errors import RuntimeOperationError, illegal_caller_error
 from oh_my_subagents.runtime.node_mcp import DispatchMcpBindingRegistry
@@ -62,7 +63,10 @@ class _NodeMcpProjection:
         self._descriptors_by_name = {
             str(descriptor.name): descriptor for descriptor in NODE_OPERATION_CATALOG
         }
-        self.server = Server("banksia-node", instructions=_server_instructions())
+        self.server = Server(
+            OMS_IDENTITY.node_mcp_transport_name,
+            instructions=_server_instructions(),
+        )
         self.server.list_tools()(self.list_tools)
         self.server.call_tool(validate_input=False)(self.call_tool)
 

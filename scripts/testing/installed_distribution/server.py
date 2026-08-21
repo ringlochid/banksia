@@ -59,7 +59,7 @@ assert get_systemd_service_template().is_file()
 assert find_spec("oh_my_subagents.interfaces.web_console") is not None
 assert files("oh_my_subagents.interfaces.web_console").joinpath("assets", "index.html").is_file()
 assert load_instruction_asset(InstructionAsset.CORE).strip()
-assert load_settings().postgres_schema == "banksia"
+assert load_settings().postgres_schema == "oms"
 
 async def smoke() -> None:
     app = create_app(should_enable_mcp_mounts=False)

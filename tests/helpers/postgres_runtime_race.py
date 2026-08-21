@@ -65,7 +65,7 @@ async def postgres_runtime_harness(
     engine, schema_name = _create_test_engine()
     temporary_directory = TemporaryDirectory(prefix=f"{exact_suffix}-")
     workspace = Path(temporary_directory.name) / "workspace"
-    task_root = workspace / ".banksia" / f"task.{exact_suffix}"
+    task_root = workspace / ".oms" / f"task.{exact_suffix}"
     workspace.mkdir(parents=True)
     for path in (
         task_root / "notes",

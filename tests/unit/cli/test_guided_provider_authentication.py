@@ -121,7 +121,7 @@ def test_guided_setup_accepts_claude_api_key_and_verifies_readiness(
     )
 
     assert result.exit_code == 0, result.output
-    assert read_provider_secret_environment(config_path.parent / "banksia.env") == {
+    assert read_provider_secret_environment(config_path.parent / "oms.env") == {
         ANTHROPIC_API_KEY: "anthropic-secret"
     }
     assert "anthropic-secret" not in result.output

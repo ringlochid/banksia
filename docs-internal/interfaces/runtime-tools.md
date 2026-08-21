@@ -60,7 +60,7 @@ FileReference:
   description: optional short purpose
 ```
 
-The controller validates containment and stores the immutable value on its Assignment, Checkpoint, or Human Request. Task start seeds the root Assignment. Continuations, Result, Activity, context, and product views expose the exact values from those owners rather than persisting copies. Oh My Subagents does not allocate a generic file ID, copy bytes, hash or version content, create a current pointer, or promise that the mutable file still has its earlier bytes. The path may identify an ordinary project file, a working file under `.banksia/t_<id>/notes/`, a reviewable loose file under `.banksia/t_<id>/artifacts/`, or a Command Run log. Agents open referenced files with native tools and report a missing or changed file honestly.
+The controller validates containment and stores the immutable value on its Assignment, Checkpoint, or Human Request. Task start seeds the root Assignment. Continuations, Result, Activity, context, and product views expose the exact values from those owners rather than persisting copies. Oh My Subagents does not allocate a generic file ID, copy bytes, hash or version content, create a current pointer, or promise that the mutable file still has its earlier bytes. The path may identify an ordinary project file, a working file under `.oms/t_<id>/notes/`, a reviewable loose file under `.oms/t_<id>/artifacts/`, or a Command Run log. Agents open referenced files with native tools and report a missing or changed file honestly.
 
 Storage may normalize these values into owner-scoped ordered rows, but no row is a standalone file resource or receives an independently addressable ID, lifecycle, content body, or lookup API.
 
@@ -102,7 +102,7 @@ assignment:
   id: controller Assignment ID
   prompt: complete exact string
   files:
-    - path: .banksia/t_7m4k2d9x/notes/review.md
+    - path: .oms/t_7m4k2d9x/notes/review.md
       description: optional string
 continuation: null or complete typed Continuation
 direct_team:
@@ -121,12 +121,12 @@ work_plan: optional complete current plan
 available_actions: [get_current_context, set_work_plan, checkpoint, ...]
 workspace:
   root: /work/acme
-  task_directory: .banksia/t_7m4k2d9x
-  manifest: .banksia/t_7m4k2d9x/manifest.md
+  task_directory: .oms/t_7m4k2d9x
+  manifest: .oms/t_7m4k2d9x/manifest.md
   workflow_note: optional path
-  notes: .banksia/t_7m4k2d9x/notes
-  artifacts: .banksia/t_7m4k2d9x/artifacts
-  command_runs: .banksia/t_7m4k2d9x/command-runs
+  notes: .oms/t_7m4k2d9x/notes
+  artifacts: .oms/t_7m4k2d9x/artifacts
+  command_runs: .oms/t_7m4k2d9x/command-runs
 observed_at: RFC-3339 UTC timestamp
 ```
 
@@ -219,7 +219,7 @@ request:
 success:
   command_id: c_q3m8y1ka
   status: pending_start
-  output_path: .banksia/t_7m4k2d9x/command-runs/c_q3m8y1ka/output.log
+  output_path: .oms/t_7m4k2d9x/command-runs/c_q3m8y1ka/output.log
   must_stop: true
 ```
 

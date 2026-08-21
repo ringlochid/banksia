@@ -75,7 +75,7 @@ Bare `banksia`, `oms status`, and `oms providers status` are passive. They do no
 
 Interactive `operator setup` defaults to the saved Operator provider, not a hard-coded provider. Keeping the same provider and declining override changes preserves the saved model and effort. Choosing to edit them uses the current values as defaults and accepts `-` as an explicit return to the provider default. Changing provider does not carry provider-specific overrides to the new route unless the user explicitly supplies replacements. A no-op reports **Operator already configured** and offers, rather than forces, the shared provider readiness diagnostic. A changed selection runs that diagnostic. Diagnostic failure is “needs attention” and does not erase or disable the accepted selection.
 
-Provider configuration and identity mutation are CLI-owned. Codex and Claude support subscription and API-key identity flows. When a check finds a working credential, guided setup first offers to keep it; only declining that confirmation opens authentication-method selection or replacement. The config-adjacent `banksia.env` file may contain only `ANTHROPIC_API_KEY`. It is owner-only and rejects unrelated assignments.
+Provider configuration and identity mutation are CLI-owned. Codex and Claude support subscription and API-key identity flows. When a check finds a working credential, guided setup first offers to keep it; only declining that confirmation opens authentication-method selection or replacement. The config-adjacent `oms.env` file may contain only `ANTHROPIC_API_KEY`. It is owner-only and rejects unrelated assignments.
 
 ## Adapter boundary
 

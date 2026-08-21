@@ -73,7 +73,7 @@ def test_windows_workspace_backend_keeps_loose_files_inside_retained_tree(
     operations = select_workspace_file_operations()
     workspace_lease = operations.open_workspace(workspace)
     try:
-        banksia = operations.create_child_directory(workspace_lease, ".banksia")
+        banksia = operations.create_child_directory(workspace_lease, ".oms")
         try:
             task = operations.create_child_directory(banksia, "t_01234567")
             try:
@@ -95,7 +95,7 @@ def test_windows_command_output_allows_live_readback(tmp_path: Path) -> None:
     operations = select_workspace_file_operations()
     workspace_lease = operations.open_workspace(workspace)
     try:
-        banksia = operations.create_child_directory(workspace_lease, ".banksia")
+        banksia = operations.create_child_directory(workspace_lease, ".oms")
         try:
             task = operations.create_child_directory(banksia, "t_01234567")
             try:
@@ -109,7 +109,7 @@ def test_windows_command_output_allows_live_readback(tmp_path: Path) -> None:
                             os.fsync(descriptor)
                             output_path = (
                                 workspace
-                                / ".banksia"
+                                / ".oms"
                                 / "t_01234567"
                                 / "command-runs"
                                 / "c_01234567"

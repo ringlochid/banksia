@@ -49,6 +49,22 @@ def test_manager_selection_rejects_unknown_hosts() -> None:
         get_managed_service_manager(platform_name="FreeBSD")
 
 
+def test_manager_selection_can_address_legacy_identity() -> None:
+    from oh_my_subagents.product_identity import LEGACY_BANKSIA_IDENTITY
+
+    expected_names = {
+        "Linux": "banksia.service",
+        "Darwin": "io.github.ringlochid.banksia",
+        "Windows": r"\Banksia\Controller",
+    }
+    for platform_name, expected_name in expected_names.items():
+        manager = get_managed_service_manager(
+            platform_name=platform_name,
+            identity=LEGACY_BANKSIA_IDENTITY,
+        )
+        assert manager.service_name == expected_name
+
+
 def test_systemd_definition_is_fixed_and_service_scoped(tmp_path: Path) -> None:
     target = _target_with_special_paths(tmp_path)
     rendered = SystemdUserServiceManager(
@@ -56,7 +72,7 @@ def test_systemd_definition_is_fixed_and_service_scoped(tmp_path: Path) -> None:
     ).render_definition(target)
 
     assert 'ExecStart="' in rendered
-    assert "-m banksia serve" in rendered
+    assert "-m oh_my_subagents serve" in rendered
     assert "--service-log" in rendered
     assert "KillMode=control-group" in rendered
     assert "UMask=" not in rendered
@@ -91,10 +107,10 @@ def test_systemd_manager_reconciles_one_fixed_unit(
     assert removed.installation_state is ManagedServiceInstallationState.ABSENT
     commands = command_log.read_text(encoding="utf-8").splitlines()
     assert "daemon-reload" in commands
-    assert "enable banksia.service" in commands
-    assert "restart banksia.service" in commands
-    assert "stop banksia.service" in commands
-    assert "disable --now banksia.service" in commands
+    assert "enable oh-my-subagents.service" in commands
+    assert "restart oh-my-subagents.service" in commands
+    assert "stop oh-my-subagents.service" in commands
+    assert "disable --now oh-my-subagents.service" in commands
     assert not manager.definition_path.exists()
 
 
@@ -117,7 +133,7 @@ def test_systemd_crash_loop_is_failed_instead_of_indefinitely_starting(
                 "echo ExecMainCode=1",
                 "echo ExecMainStatus=1",
                 "echo NRestarts=25",
-                f"echo FragmentPath={tmp_path / 'units' / 'banksia.service'}",
+                f"echo FragmentPath={tmp_path / 'units' / 'oh-my-subagents.service'}",
             ]
         )
         + "\n",
@@ -292,7 +308,7 @@ def test_service_lifecycle_log_survives_warning_application_threshold(tmp_path: 
         for handler in configured_handlers:
             handler.close()
 
-    assert "INFO banksia.service background controller starting" in log_path.read_text(
+    assert "INFO oh_my_subagents.service background controller starting" in log_path.read_text(
         encoding="utf-8"
     )
 
@@ -300,7 +316,7 @@ def test_service_lifecycle_log_survives_warning_application_threshold(tmp_path: 
 def test_atomic_definition_replacement_rejects_a_symlink(tmp_path: Path) -> None:
     outside = tmp_path / "outside"
     outside.write_text("unchanged", encoding="utf-8")
-    definition = tmp_path / "banksia.service"
+    definition = tmp_path / "oh-my-subagents.service"
     definition.symlink_to(outside)
 
     with pytest.raises(RuntimeError, match="regular file"):
@@ -326,7 +342,7 @@ def test_launch_agent_definition_has_only_the_bounded_user_job_contract(
         "ProgramArguments": [
             str(target.python_executable),
             "-m",
-            "banksia",
+            "oh_my_subagents",
             "serve",
             "--config",
             str(target.config_path),
@@ -389,7 +405,7 @@ def test_launch_agent_lifecycle_uses_current_gui_domain(
 
 def test_launchctl_print_parser_reads_runtime_state() -> None:
     snapshot = parse_launchctl_print(
-        """gui/501/io.github.ringlochid.banksia = {
+        """gui/501/io.github.ringlochid.oh-my-subagents = {
     state = running
     pid = 4312
     last exit code = 0
@@ -437,7 +453,7 @@ def test_native_command_error_carries_explicit_operation_and_manager(
 
     assert failure.value.manager == "systemd-user"
     assert failure.value.operation == "daemon-reload"
-    assert failure.value.service_name == "banksia.service"
+    assert failure.value.service_name == "oh-my-subagents.service"
     assert failure.value.return_code == 7
     assert failure.value.detail == "simulated failure"
 
@@ -462,7 +478,7 @@ def _inspection(execution_state: ManagedServiceExecutionState) -> ManagedService
     return ManagedServiceInspection(
         manager="test-user-manager",
         service_name="banksia",
-        definition_path=Path("banksia.service"),
+        definition_path=Path("oh-my-subagents.service"),
         installation_state=ManagedServiceInstallationState.INSTALLED,
         startup_state=ManagedServiceStartupState.ENABLED,
         execution_state=execution_state,
@@ -493,7 +509,7 @@ def _write_fake_systemctl(path: Path, command_log: Path) -> None:
                 "    print('UnitFileState=enabled')",
                 "    print(f'ActiveState={state}')",
                 "    print(f'SubState={detail}')",
-                f"    print('FragmentPath={path.parent / 'units' / 'banksia.service'}')",
+                f"    print('FragmentPath={path.parent / 'units' / 'oh-my-subagents.service'}')",
             ]
         )
         + "\n",
@@ -535,7 +551,7 @@ def _write_fake_launchctl(
                 "            raise SystemExit(1)",
                 "        unloading.write_text(str(remaining - 1), encoding='utf-8')",
                 "    if not loaded.exists(): raise SystemExit(1)",
-                "    print('gui/501/io.github.ringlochid.banksia = {')",
+                "    print('gui/501/io.github.ringlochid.oh-my-subagents = {')",
                 "    print('    state = running')",
                 "    print('    pid = 4312')",
                 "    print('    last exit code = 0')",

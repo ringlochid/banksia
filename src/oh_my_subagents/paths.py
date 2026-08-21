@@ -5,10 +5,11 @@ from pathlib import Path
 from platformdirs import PlatformDirs
 
 from oh_my_subagents.platform.workspace_files import ensure_private_directory
+from oh_my_subagents.product_identity import LEGACY_BANKSIA_IDENTITY, OMS_IDENTITY, ProductIdentity
 
-APP_NAME = "banksia"
+APP_NAME = OMS_IDENTITY.application_name
 _CONFIG_FILENAME = "config.toml"
-_DATABASE_FILENAME = "banksia.persistence"
+_DATABASE_FILENAME = OMS_IDENTITY.database_filename
 
 
 def default_config_path() -> Path:
@@ -56,7 +57,19 @@ def default_cache_dir() -> Path:
 
 
 def _platform_dirs() -> PlatformDirs:
-    return PlatformDirs(appname=APP_NAME, appauthor=False)
+    return platform_dirs_for(OMS_IDENTITY)
+
+
+def platform_dirs_for(identity: ProductIdentity) -> PlatformDirs:
+    return PlatformDirs(appname=identity.application_name, appauthor=False)
+
+
+def legacy_default_config_path() -> Path:
+    return Path(platform_dirs_for(LEGACY_BANKSIA_IDENTITY).user_config_path) / _CONFIG_FILENAME
+
+
+def legacy_default_data_dir() -> Path:
+    return Path(platform_dirs_for(LEGACY_BANKSIA_IDENTITY).user_data_path)
 
 
 __all__ = [
@@ -69,4 +82,7 @@ __all__ = [
     "default_database_url",
     "default_state_dir",
     "ensure_runtime_dirs",
+    "legacy_default_config_path",
+    "legacy_default_data_dir",
+    "platform_dirs_for",
 ]

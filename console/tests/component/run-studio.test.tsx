@@ -149,7 +149,7 @@ describe("temporary Run Studio", () => {
             screen.getByText("Independent review is complete."),
         ).toBeVisible();
         expect(
-            screen.getByText(".banksia/t_7m4k2d9x/artifacts/review.md"),
+            screen.getByText(".oms/t_7m4k2d9x/artifacts/review.md"),
         ).toBeVisible();
         expect(
             screen.getByText("Inspect the supporting evidence"),

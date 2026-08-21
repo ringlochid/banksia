@@ -102,7 +102,7 @@ async def test_current_context_returns_exact_committed_nested_continuation(
     member = continuation["trigger"]["result"]["members"][0]
     assert member["assignment"]["prompt"] == ("Review the exact implementation.")
     assert member["checkpoint"]["files"][0] == {
-        "path": ".banksia/t_7m4k2d9x/artifacts/review.md",
+        "path": ".oms/t_7m4k2d9x/artifacts/review.md",
         "description": "Independent review.",
     }
 
@@ -152,7 +152,7 @@ def _assert_current_context_payload(
         "open_human_request",
         "start_command_run",
     ]
-    assert payload["workspace"]["task_directory"].startswith(".banksia/")
+    assert payload["workspace"]["task_directory"].startswith(".oms/")
     assert payload["workspace"]["manifest"].endswith("/manifest.md")
     assert payload["observed_at"].endswith("Z")
     assert "trigger" not in payload

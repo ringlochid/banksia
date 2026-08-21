@@ -139,7 +139,7 @@ class CommandProcessOwner:
         self._track_task(
             asyncio.create_task(
                 self._launch_owned(owned),
-                name=f"banksia-command-launch-{claim.run_id}",
+                name=f"oms-command-launch-{claim.run_id}",
             )
         )
 
@@ -288,7 +288,7 @@ class CommandProcessOwner:
                         owned,
                         output=output,
                     ),
-                    name=f"banksia-command-supervise-{claim.run_id}",
+                    name=f"oms-command-supervise-{claim.run_id}",
                 )
             )
             is_supervised = True
@@ -374,7 +374,7 @@ class CommandProcessOwner:
         assert process is not None
         output_task = asyncio.create_task(
             drain_command_output(process, output),
-            name=f"banksia-command-output-{owned.claim.run_id}",
+            name=f"oms-command-output-{owned.claim.run_id}",
         )
         try:
             await process.wait()
@@ -403,7 +403,7 @@ class CommandProcessOwner:
         self._track_task(
             asyncio.create_task(
                 self._terminate_owned_process(owned),
-                name=f"banksia-command-terminate-{owned.claim.run_id}",
+                name=f"oms-command-terminate-{owned.claim.run_id}",
             )
         )
 

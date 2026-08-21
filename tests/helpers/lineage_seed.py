@@ -274,7 +274,7 @@ def _insert_dispatch_request(
         {
             "dispatch_id": dispatch_id,
             "instructions": "controller instructions\n",
-            "input": "<banksia_dispatch_request><direct_team /></banksia_dispatch_request>\n",
+            "input": "<oms_dispatch_request><direct_team /></oms_dispatch_request>\n",
             "created_at": timestamp,
         },
     )

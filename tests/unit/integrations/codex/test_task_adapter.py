@@ -104,7 +104,7 @@ def _assert_isolated_codex_start(
     assert config["projects"] == {str(workspace): {"trust_level": "untrusted"}}
     assert config["project_doc_max_bytes"] == 0
     assert config["mcp_servers"]["ambient_docs"] == {"enabled": False}
-    node = config["mcp_servers"]["banksia_node"]
+    node = config["mcp_servers"]["oms_node"]
     assert node == {
         "default_tools_approval_mode": "approve",
         "enabled": True,
@@ -332,7 +332,7 @@ async def test_codex_inherits_skills_mcp_and_accepts_max(tmp_path: Path) -> None
         assert client.thread_params is not None
         config = cast(dict[str, Any], client.thread_params["config"])
         assert config["mcp_servers"] == {
-            "banksia_node": cast(dict[str, object], config["mcp_servers"])["banksia_node"]
+            "oms_node": cast(dict[str, object], config["mcp_servers"])["oms_node"]
         }
         assert config["skills"] == {
             "bundled": {"enabled": False},

@@ -517,7 +517,7 @@ def _add_terminal_source(
             summary="Already complete.",
             timeout_seconds=None,
             due_at=None,
-            output_path=(f".banksia/{ids.task_id}/command-runs/c_01234567/output.log"),
+            output_path=(f".oms/{ids.task_id}/command-runs/c_01234567/output.log"),
             state="succeeded",
             ownership_revision=1,
             terminal_summary="Succeeded.",

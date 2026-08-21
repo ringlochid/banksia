@@ -129,7 +129,7 @@ class FakeCodexClient:
                         tools={name: object() for name in self.ambient_mcp_tool_names},
                     ),
                     SimpleNamespace(
-                        name="banksia_node",
+                        name="oms_node",
                         resource_templates=[],
                         resources=[],
                         server_info=object(),

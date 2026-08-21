@@ -263,7 +263,7 @@ def _reset_deletable_task_roots(task_root_paths: tuple[str, ...]) -> tuple[str, 
 def _is_workspace_task_root(path: Path) -> bool:
     task_id = path.name
     return (
-        path.parent.name == ".banksia"
+        path.parent.name == ".oms"
         and len(task_id) == 10
         and task_id.startswith("t_")
         and all(character in _TASK_ID_ALPHABET for character in task_id[2:])

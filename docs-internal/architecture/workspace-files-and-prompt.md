@@ -11,7 +11,7 @@ Every Task binds one user-selected workspace `W`. Every Codex or Claude Dispatch
 ```text
 W/
   project files
-  .banksia/
+  .oms/
     t_7m4k2d9x/
       manifest.md
       workflow-note.md                 # only when Workflow note exists
@@ -42,13 +42,13 @@ Oh My Subagents applies private permissions only to its own config/data/secret a
 | --- | --- |
 | Ordinary project paths | Actual source, tests, project documents, and user-requested deliverables. Any existing regular file beneath the workspace may be referenced by path when another context should inspect it. |
 | Controller database | Canonical Task, team, Assignment, Attempt, Dispatch, wait, Wave, Checkpoint, ordered `FileReference` values, control, and event truth. It records path/description values, never general file contents. |
-| `.banksia/t_<id>/manifest.md` | Controller-generated organization projection. Never legality or live progress truth. |
+| `.oms/t_<id>/manifest.md` | Controller-generated organization projection. Never legality or live progress truth. |
 | `workflow-note.md` | Immutable Task projection of the pinned Workflow’s optional shared note. |
 | `notes/**` | Free-form shared Task working memory for coordination, investigation, review, and recovery. Native and mutable; not controller truth or automatically inserted into prompts. |
 | `artifacts/**` | Free-form reviewable deliverables created for another Member or the user, such as plans, reports, reviews, verification records, diagrams, images, recordings, or patch files. They remain loose mutable files, not controller-owned Artifact resources. |
 | `command-runs/**/output.log` | Controller-written workspace file containing the complete OS-observed combined stream when output persistence succeeds. DB lifecycle, path, byte counts, and completeness remain authoritative; the bytes do not. It is not one of the two controller projections. |
 
-Do not put the database, credentials, provider sessions, service state, locks, controller logs, raw events, or runtime-record JSON under `.banksia/`.
+Do not put the database, credentials, provider sessions, service state, locks, controller logs, raw events, or runtime-record JSON under `.oms/`.
 
 ## Task and Command identifiers
 
@@ -63,11 +63,11 @@ Authorization always comes from the controller-bound current Dispatch.
 
 ## Version-control neutrality
 
-Task admission does not detect a version-control worktree, run Git, inspect tracked paths, or edit `.gitignore`, `.git/info/exclude`, or another repository setting. `.banksia/t_<id>/` is ordinary workspace content and may be committed, ignored, archived, or removed according to the user's own workspace policy. That choice does not change controller authority.
+Task admission does not detect a version-control worktree, run Git, inspect tracked paths, or edit `.gitignore`, `.git/info/exclude`, or another repository setting. `.oms/t_<id>/` is ordinary workspace content and may be committed, ignored, archived, or removed according to the user's own workspace policy. That choice does not change controller authority.
 
-The `.banksia/` container may already contain unrelated project-owned content. Oh My Subagents preserves that content and the existing container permissions. It owns only the collision-safe `t_<id>/` directories that it creates exclusively, keeps those Task directories private, never follows symbolic links while opening them, and ignores unrelated container entries during recovery.
+The `.oms/` container may already contain unrelated project-owned content. Oh My Subagents preserves that content and the existing container permissions. It owns only the collision-safe `t_<id>/` directories that it creates exclusively, keeps those Task directories private, never follows symbolic links while opening them, and ignores unrelated container entries during recovery.
 
-Task admission creates the collision-safe directory with a controller-owned initialization marker, writes only the manifest/optional Workflow-note projections plus empty conventional directories, commits controller truth, then clears the marker before provider-start publication. Recovery may remove only a stale marked directory with no committed Task; it repairs a committed marked Task in place. It never recreates a missing accepted Task root. An unavailable accepted root pauses only its running Task and requires an explicit Resume after the same root becomes accessible again. Reset and generic cleanup never recursively delete an accepted `.banksia/t_<id>/` directory.
+Task admission creates the collision-safe directory with a controller-owned initialization marker, writes only the manifest/optional Workflow-note projections plus empty conventional directories, commits controller truth, then clears the marker before provider-start publication. Recovery may remove only a stale marked directory with no committed Task; it repairs a committed marked Task in place. It never recreates a missing accepted Task root. An unavailable accepted root pauses only its running Task and requires an explicit Resume after the same root becomes accessible again. Reset and generic cleanup never recursively delete an accepted `.oms/t_<id>/` directory.
 
 ## Organization manifest
 
@@ -151,7 +151,7 @@ Oh My Subagents does not classify or own workspace files as runtime objects. A `
 The public and model-visible reference is intentionally small:
 
 ```yaml
-path: .banksia/t_7m4k2d9x/artifacts/review-report.md
+path: .oms/t_7m4k2d9x/artifacts/review-report.md
 description: Independent findings and verification evidence.
 ```
 
@@ -160,7 +160,7 @@ description: Independent findings and verification evidence.
 - Regular files are supported. Directories, URLs, remote resources, special files, and arbitrary provider blobs are deferred.
 - A file reference is not a permission grant, byte snapshot, proof claim, or file-content transport. It does not replace a complete Assignment or Checkpoint.
 - The path may identify an ordinary project file, a free-form file under `notes/`, a reviewable file under `artifacts/`, a controller-managed Command Run log, `manifest.md`, or the optional `workflow-note.md`. Do not redundantly attach the two projection paths when the Dispatch already renders them and no message-specific reason exists.
-- A Task-start reference must already exist beneath the selected workspace before Task identity and `.banksia/t_<id>/` are allocated. Later controller messages may reference files in that Task directory.
+- A Task-start reference must already exist beneath the selected workspace before Task identity and `.oms/t_<id>/` are allocated. Later controller messages may reference files in that Task directory.
 - Ordinary project edits remain ordinary shared files and visible Git diffs. Recording a reference does not change the referenced file's lifecycle.
 
 ### Reference recording and mutability
@@ -183,7 +183,7 @@ The file remains loose and mutable. A later reader may observe changed or missin
 Command Run preserves controller-owned lifecycle and process supervision while using one agent-friendly file:
 
 ```text
-.banksia/t_7m4k2d9x/command-runs/c_q3m8y1ka/output.log
+.oms/t_7m4k2d9x/command-runs/c_q3m8y1ka/output.log
 ```
 
 The process is launched with stderr redirected to stdout at creation. Oh My Subagents drains that single pipe continuously to EOF and writes the same observed bytes to `output.log`, so it preserves stream ordering and cannot deadlock on a full pipe. It does not attempt to merge separately buffered stdout/stderr after the fact.
@@ -263,7 +263,7 @@ Authored or file content cannot widen controller authority. XML boundaries and l
 
 One `<banksia_dispatch_request>` document contains, in stable order:
 
-- Task ID and `.banksia/t_<id>` path;
+- Task ID and `.oms/t_<id>` path;
 - full Dispatch, Attempt, Assignment, and current Member identities needed by the agent/controller contract;
 - the complete exact Assignment prompt and every file path/description;
 - optional Continuation whose nested trigger contains exact kind, exact source, and complete typed result;

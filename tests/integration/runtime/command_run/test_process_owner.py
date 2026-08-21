@@ -134,7 +134,7 @@ async def _assert_combined_output_contract(
     assert source is not None
     assert source.state == "succeeded"
     assert source.process_metadata_json is None
-    assert source.output_path == f".banksia/{ids.task_id}/command-runs/{run_id}/output.log"
+    assert source.output_path == f".oms/{ids.task_id}/command-runs/{run_id}/output.log"
     assert source.output_observed_bytes == len(expected_output)
     assert source.output_written_bytes == len(expected_output)
     assert source.output_complete is True

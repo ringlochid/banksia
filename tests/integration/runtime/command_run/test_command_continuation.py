@@ -96,7 +96,7 @@ async def test_terminal_command_source_opens_one_same_attempt_successor(
         trigger,
         run_id=run_id,
         source_dispatch_id=ids.current_dispatch_id,
-        output_path=f".banksia/{ids.task_id}/command-runs/{run_id}/output.log",
+        output_path=f".oms/{ids.task_id}/command-runs/{run_id}/output.log",
     )
     assert len(publisher.signals) == 1
     signal = publisher.signals[0]

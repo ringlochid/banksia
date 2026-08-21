@@ -102,7 +102,7 @@ set_work_plan:
 - Assignment owns the current snapshot, monotonic private revision, optional explanation, authoring Dispatch, and commit time; and
 - a new Assignment starts without a plan, while same-Assignment continuations and recovery keep the current snapshot.
 
-Plan completion never routes work, satisfies child participation, records a Checkpoint, settles a Wave, or completes an Assignment. The product may render the current human-readable steps, but private revisions and authoring Dispatch identity remain support/audit facts. No Work Plan file is projected under `.banksia/`.
+Plan completion never routes work, satisfies child participation, records a Checkpoint, settles a Wave, or completes an Assignment. The product may render the current human-readable steps, but private revisions and authoring Dispatch identity remain support/audit facts. No Work Plan file is projected under `.oms/`.
 
 The Manager prompt teaches five complementary planning views. Their familiar orchestration names are included for precision, not as additional runtime concepts:
 
@@ -131,7 +131,7 @@ One atomic start service:
 9. clears the initialization marker only for that committed Task and publishes provider-start work afterward; and
 10. returns an accepted receipt rather than claiming provider startup finished.
 
-A validation rejection performs no Task, workspace, reference, Dispatch, or provider mutation. A crash or filesystem/DB failure after staging may leave only its controller-marked initialization directory. Startup recovery may remove that directory only when no Task committed; a committed Task with a remaining marker is repaired in place. Reset and generic cleanup never recursively delete an accepted `.banksia/t_<id>/` directory.
+A validation rejection performs no Task, workspace, reference, Dispatch, or provider mutation. A crash or filesystem/DB failure after staging may leave only its controller-marked initialization directory. Startup recovery may remove that directory only when no Task committed; a committed Task with a remaining marker is repaired in place. Reset and generic cleanup never recursively delete an accepted `.oms/t_<id>/` directory.
 
 Workflow-authored Member IDs become Task-scoped Member identities. They and controller-issued replan IDs are unique and never reused within one Task, not in a global namespace across unrelated Workflows or Tasks. Every immutable MemberConfiguration records its predecessor/basis and the TeamRevision that selects it. Assignments retain the Task-scoped member and immutable work message; Dispatches pin the exact selected MemberConfiguration and branch basis they execute.
 
@@ -223,7 +223,7 @@ checkpoint:
   summary: Concise reached state or result.
   details: Optional Markdown expansion.
   files:
-    - path: .banksia/t_7m4k2d9x/artifacts/review-report.md
+    - path: .oms/t_7m4k2d9x/artifacts/review-report.md
       description: Optional reason the receiver should inspect it.
   outcome: green # optional: green | blocked | retry
 ```
@@ -508,7 +508,7 @@ request:
       allow_other: false # optional, default false; only with options
       allow_skip: false # optional, default false
   files: # optional ordered FileReference values
-    - path: .banksia/t_7m4k2d9x/artifacts/review-report.md
+    - path: .oms/t_7m4k2d9x/artifacts/review-report.md
       description: Evidence the user should inspect before answering.
   timeout: # optional; omission waits without a deadline
     due_at: 2026-07-23T10:00:00Z

@@ -5,7 +5,7 @@ After=network-online.target
 
 [Service]
 Type=simple
-ExecStart="@OMS_PYTHON@" -m banksia serve --config "@OMS_CONFIG@" --service-log "@OMS_SERVICE_LOG@"
+ExecStart="@OMS_PYTHON@" -m oh_my_subagents serve --config "@OMS_CONFIG@" --service-log "@OMS_SERVICE_LOG@"
 Restart=on-failure
 RestartSec=5
 KillMode=control-group

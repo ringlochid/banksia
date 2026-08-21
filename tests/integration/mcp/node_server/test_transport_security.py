@@ -22,7 +22,7 @@ _INITIALIZE_REQUEST = {
     "params": {
         "protocolVersion": "2025-06-18",
         "capabilities": {},
-        "clientInfo": {"name": "banksia-node-transport-test", "version": "1"},
+        "clientInfo": {"name": "oms-node-transport-test", "version": "1"},
     },
 }
 _MCP_HEADERS = {

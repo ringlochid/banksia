@@ -126,7 +126,7 @@ def test_task_start_cli_machine_mode_posts_strict_json_and_prints_receipt(
                     "workflow_id": GENERIC_WORKFLOW_ID,
                     "workflow_revision": 1,
                     "workspace": str(tmp_path),
-                    "manifest": ".banksia/t_01234567/manifest.md",
+                    "manifest": ".oms/t_01234567/manifest.md",
                 },
             )
 

@@ -32,11 +32,14 @@ from oh_my_subagents.runtime.workspace.availability import (
     pause_task_for_unavailable_workspace,
 )
 from oh_my_subagents.runtime.workspace.storage import (
+    LEGACY_TASK_CONTAINER_NAME,
+    TASK_CONTAINER_NAME,
+    TASK_CONTAINER_NAMES,
     WorkspaceIdentity,
     capture_workspace_identity,
     ensure_directory,
     is_real_directory,
-    open_banksia_root,
+    open_task_container,
     open_task_root,
     read_small_text,
     remove_task_tree,
@@ -50,8 +53,8 @@ from oh_my_subagents.workflows.catalog import read_published_workflow_revision
 from oh_my_subagents.workflows.contracts import PublishedWorkflowRevision
 
 TASK_ID_ALPHABET = "0123456789abcdefghjkmnpqrstvwxyz"
-TASK_INITIALIZATION_MARKER = ".banksia-initializing"
-_MARKER_HEADER = "banksia-task-initialization-v1"
+TASK_INITIALIZATION_MARKER = ".oms-initializing"
+_MARKER_HEADER = "oms-task-initialization-v1"
 
 logger = logging.getLogger(__name__)
 
@@ -86,15 +89,17 @@ async def allocate_task_id(
 ) -> str:
     """Allocate a collision-checked 40-bit product Task identifier."""
 
-    task_parent = workspace / ".banksia"
     for _ in range(128):
         candidate = _new_task_id()
         if await session.get(TaskModel, candidate) is not None:
             continue
-        if not await asyncio.to_thread(
-            os.path.lexists,
-            task_parent / candidate,
-        ):
+        collisions = await asyncio.gather(
+            *(
+                asyncio.to_thread(os.path.lexists, workspace / container / candidate)
+                for container in TASK_CONTAINER_NAMES
+            )
+        )
+        if not any(collisions):
             return candidate
     raise RuntimeError("could not allocate a collision-free Task identifier")
 
@@ -111,8 +116,8 @@ def stage_task_workspace(
 
     if workspace_identity is None:
         workspace_identity = capture_workspace_identity(workspace)
-    banksia_path = workspace / ".banksia"
-    task_path = banksia_path / task_id
+    task_container_path = workspace / TASK_CONTAINER_NAME
+    task_path = task_container_path / task_id
     marker = task_path / TASK_INITIALIZATION_MARKER
     admission = TaskWorkspaceAdmission(
         task_id=task_id,
@@ -130,7 +135,7 @@ def stage_task_workspace(
         workspace,
         task_id,
         expected_workspace_identity=workspace_identity,
-    ) as (banksia_root, task_root):
+    ) as (task_container, task_root):
         try:
             write_new_text(
                 task_root,
@@ -161,7 +166,7 @@ def stage_task_workspace(
                 task_root,
                 TASK_INITIALIZATION_MARKER,
             ) == _marker_body(task_id):
-                remove_task_tree(banksia_root, task_id, task_root)
+                remove_task_tree(task_container, task_id, task_root)
             raise
     return admission
 
@@ -169,14 +174,15 @@ def stage_task_workspace(
 def accept_task_workspace(admission: TaskWorkspaceAdmission) -> None:
     """Clear the initialization marker after the Task transaction commits."""
 
-    with open_banksia_root(
+    with open_task_container(
         admission.workspace,
+        container_name=admission.task_root.parent.name,
         should_create=False,
         expected_workspace_identity=admission.workspace_identity,
-    ) as banksia_root:
-        if banksia_root is None:
+    ) as task_container:
+        if task_container is None:
             raise RuntimeError("Task workspace disappeared before acceptance")
-        with open_task_root(banksia_root, admission.task_id) as task_root:
+        with open_task_root(task_container, admission.task_id) as task_root:
             if read_small_text(
                 task_root,
                 TASK_INITIALIZATION_MARKER,
@@ -241,11 +247,41 @@ async def _recover_workspace_admissions(
     committed: Mapping[str, _CommittedTaskWorkspace],
     publish_recovered_provider_start: RecoveredProviderStartPublisher | None,
 ) -> tuple[Path, ...]:
+    recovered: list[Path] = []
+    for container_name in TASK_CONTAINER_NAMES:
+        container_tasks = tuple(
+            task for task in workspace_tasks if task.task_root.parent.name == container_name
+        )
+        recovered.extend(
+            await _recover_task_container_admissions(
+                session,
+                workspace=workspace,
+                container_name=container_name,
+                expected_workspace_identity=expected_workspace_identity,
+                workspace_tasks=container_tasks,
+                committed=committed,
+                publish_recovered_provider_start=publish_recovered_provider_start,
+            )
+        )
+    return tuple(recovered)
+
+
+async def _recover_task_container_admissions(
+    session: AsyncSession,
+    *,
+    workspace: Path,
+    container_name: str,
+    expected_workspace_identity: WorkspaceIdentity | None,
+    workspace_tasks: tuple[_CommittedTaskWorkspace, ...],
+    committed: Mapping[str, _CommittedTaskWorkspace],
+    publish_recovered_provider_start: RecoveredProviderStartPublisher | None,
+) -> tuple[Path, ...]:
     stack = ExitStack()
     try:
-        banksia_root = stack.enter_context(
-            open_banksia_root(
+        task_container = stack.enter_context(
+            open_task_container(
                 workspace,
+                container_name=container_name,
                 should_create=False,
                 expected_workspace_identity=expected_workspace_identity,
             )
@@ -261,7 +297,7 @@ async def _recover_workspace_admissions(
         )
         return ()
     with stack:
-        if banksia_root is None:
+        if task_container is None:
             await _pause_unavailable_workspace_tasks(
                 session,
                 workspace=workspace,
@@ -269,7 +305,7 @@ async def _recover_workspace_admissions(
             )
             return ()
         try:
-            task_names = task_root_names(banksia_root)
+            task_names = task_root_names(task_container)
         except OSError as exc:
             if not is_workspace_unavailable_error(exc):
                 raise
@@ -282,7 +318,8 @@ async def _recover_workspace_admissions(
         return await _recover_available_workspace(
             session,
             workspace=workspace,
-            banksia_root=banksia_root,
+            container_name=container_name,
+            task_container=task_container,
             task_names=task_names,
             workspace_tasks=workspace_tasks,
             committed=committed,
@@ -294,14 +331,15 @@ async def _recover_available_workspace(
     session: AsyncSession,
     *,
     workspace: Path,
-    banksia_root: DirectoryLease,
+    container_name: str,
+    task_container: DirectoryLease,
     task_names: tuple[str, ...],
     workspace_tasks: tuple[_CommittedTaskWorkspace, ...],
     committed: Mapping[str, _CommittedTaskWorkspace],
     publish_recovered_provider_start: RecoveredProviderStartPublisher | None,
 ) -> tuple[Path, ...]:
     for task in workspace_tasks:
-        if not is_real_directory(banksia_root, task.task_id):
+        if not is_real_directory(task_container, task.task_id):
             await pause_task_for_unavailable_workspace(
                 session,
                 task_id=task.task_id,
@@ -309,12 +347,12 @@ async def _recover_available_workspace(
             )
     recovered: list[Path] = []
     for task_id in task_names:
-        if not _is_task_id(task_id) or not is_real_directory(banksia_root, task_id):
+        if not _is_task_id(task_id) or not is_real_directory(task_container, task_id):
             continue
         committed_row = committed.get(task_id)
         stack = ExitStack()
         try:
-            task_root_authority = stack.enter_context(open_task_root(banksia_root, task_id))
+            task_root_authority = stack.enter_context(open_task_root(task_container, task_id))
         except OSError as exc:
             stack.close()
             if committed_row is None or not is_workspace_unavailable_error(exc):
@@ -329,7 +367,8 @@ async def _recover_available_workspace(
             task_root = await _recover_marked_task_root(
                 session,
                 workspace=workspace,
-                banksia_root=banksia_root,
+                container_name=container_name,
+                task_container=task_container,
                 task_root_authority=task_root_authority,
                 task_id=task_id,
                 committed_row=committed_row,
@@ -344,20 +383,25 @@ async def _recover_marked_task_root(
     session: AsyncSession,
     *,
     workspace: Path,
-    banksia_root: DirectoryLease,
+    container_name: str,
+    task_container: DirectoryLease,
     task_root_authority: DirectoryLease,
     task_id: str,
     committed_row: _CommittedTaskWorkspace | None,
     publish_recovered_provider_start: RecoveredProviderStartPublisher | None,
 ) -> Path | None:
-    if read_small_text(task_root_authority, TASK_INITIALIZATION_MARKER) != _marker_body(task_id):
+    marker_name = _initialization_marker(container_name)
+    if read_small_text(task_root_authority, marker_name) != _marker_body(
+        task_id,
+        container_name=container_name,
+    ):
         return None
-    task_root = workspace / ".banksia" / task_id
+    task_root = workspace / container_name / task_id
     if committed_row is None or committed_row.task_root != task_root:
         return (
             task_root
             if remove_task_tree(
-                banksia_root,
+                task_container,
                 task_id,
                 task_root_authority,
             )
@@ -372,7 +416,7 @@ async def _recover_marked_task_root(
         workflow_content_hash=committed_row.workflow_content_hash,
     )
     provider_start = await _read_recovered_provider_start(session, task_id=task_id)
-    unlink_entry(task_root_authority, TASK_INITIALIZATION_MARKER)
+    unlink_entry(task_root_authority, marker_name)
     if provider_start is not None and publish_recovered_provider_start is not None:
         await session.rollback()
         _publish_recovered_provider_start(
@@ -546,8 +590,23 @@ def _is_task_id(value: str) -> bool:
     )
 
 
-def _marker_body(task_id: str) -> str:
-    return f"{_MARKER_HEADER}\n{task_id}\n"
+def _marker_body(
+    task_id: str,
+    *,
+    container_name: str = TASK_CONTAINER_NAME,
+) -> str:
+    header = (
+        "banksia-task-initialization-v1"
+        if container_name == LEGACY_TASK_CONTAINER_NAME
+        else _MARKER_HEADER
+    )
+    return f"{header}\n{task_id}\n"
+
+
+def _initialization_marker(container_name: str) -> str:
+    if container_name == LEGACY_TASK_CONTAINER_NAME:
+        return ".banksia-initializing"
+    return TASK_INITIALIZATION_MARKER
 
 
 def _remove_marked_directory(
@@ -556,24 +615,25 @@ def _remove_marked_directory(
     task_id: str,
     workspace_identity: WorkspaceIdentity | None = None,
 ) -> bool:
-    with open_banksia_root(
+    with open_task_container(
         workspace,
+        container_name=TASK_CONTAINER_NAME,
         should_create=False,
         expected_workspace_identity=workspace_identity,
-    ) as banksia_root:
-        if banksia_root is None or not is_real_directory(
-            banksia_root,
+    ) as task_container:
+        if task_container is None or not is_real_directory(
+            task_container,
             task_id,
         ):
             return False
         try:
-            with open_task_root(banksia_root, task_id) as task_root:
+            with open_task_root(task_container, task_id) as task_root:
                 if read_small_text(
                     task_root,
                     TASK_INITIALIZATION_MARKER,
                 ) != _marker_body(task_id):
                     return False
-                return remove_task_tree(banksia_root, task_id, task_root)
+                return remove_task_tree(task_container, task_id, task_root)
         except OSError:
             return False
 

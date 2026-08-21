@@ -43,8 +43,9 @@ from oh_my_subagents.operator.provider import (
     OperatorTurnRequest,
 )
 from oh_my_subagents.operator.tools import OperatorTool, OperatorToolName
+from oh_my_subagents.product_identity import OMS_IDENTITY
 
-CLAUDE_OPERATOR_MCP_SERVER_NAME = "banksia_operator"
+CLAUDE_OPERATOR_MCP_SERVER_NAME = OMS_IDENTITY.operator_mcp_server_name
 _CLAUDE_OPERATOR_MCP_SERVER_VERSION = "1.0.0"
 _CLAUDE_EFFORTS = frozenset({"low", "medium", "high", "xhigh", "max"})
 _THREAD_UNAVAILABLE_MARKERS = (

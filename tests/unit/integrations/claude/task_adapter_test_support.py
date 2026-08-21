@@ -48,8 +48,8 @@ class FakeClaudeClient:
             "memoryFiles": [],
             "agents": [],
             "mcpTools": [
-                {"name": "checkpoint", "serverName": "banksia_node"},
-                {"name": "delegate", "serverName": "banksia_node"},
+                {"name": "checkpoint", "serverName": "oms_node"},
+                {"name": "delegate", "serverName": "oms_node"},
             ],
         }
 
@@ -58,7 +58,7 @@ class FakeClaudeClient:
         return {
             "mcpServers": [
                 {
-                    "name": "banksia_node",
+                    "name": "oms_node",
                     "status": "pending" if self.mcp_status_reads == 1 else "connected",
                     "tools": [{"name": "checkpoint"}, {"name": "delegate"}],
                 }

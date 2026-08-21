@@ -63,7 +63,7 @@ async def test_task_workspace_has_private_target_layout(tmp_path: Path) -> None:
     )
 
     expected_directories = {
-        workspace / ".banksia",
+        workspace / ".oms",
         admission.task_root,
         admission.task_root / "notes",
         admission.task_root / "artifacts",
@@ -89,10 +89,10 @@ async def test_task_start_preserves_existing_banksia_content_and_permissions(
 ) -> None:
     workspace = tmp_path / "workspace"
     workspace.mkdir()
-    banksia_root = workspace / ".banksia"
-    banksia_root.mkdir(mode=0o755)
-    banksia_root.chmod(0o755)
-    project_file = banksia_root / ".tickets" / "README.md"
+    task_container = workspace / ".oms"
+    task_container.mkdir(mode=0o755)
+    task_container.chmod(0o755)
+    project_file = task_container / ".tickets" / "README.md"
     project_file.parent.mkdir()
     project_file.write_text("project-owned\n", encoding="utf-8")
 
@@ -119,9 +119,9 @@ async def test_task_start_preserves_existing_banksia_content_and_permissions(
 
     assert project_file.read_text(encoding="utf-8") == "project-owned\n"
     if os.name == "posix":
-        assert stat.S_IMODE(banksia_root.stat().st_mode) == 0o755
-        assert stat.S_IMODE((banksia_root / response.task_id).stat().st_mode) == 0o700
-    assert (banksia_root / response.task_id / "manifest.md").is_file()
+        assert stat.S_IMODE(task_container.stat().st_mode) == 0o755
+        assert stat.S_IMODE((task_container / response.task_id).stat().st_mode) == 0o700
+    assert (task_container / response.task_id / "manifest.md").is_file()
 
 
 async def test_task_start_rejects_workspace_identity_substitution_before_mutation(
@@ -167,12 +167,12 @@ async def test_task_start_rejects_workspace_identity_substitution_before_mutatio
                     ),
                 )
 
-    assert not (workspace / ".banksia").exists()
-    assert not (original_workspace / ".banksia").exists()
+    assert not (workspace / ".oms").exists()
+    assert not (original_workspace / ".oms").exists()
 
 
 @pytest.mark.parametrize("kind", ("symlink", "file"))
-async def test_stage_rejects_unsafe_banksia_root_without_touching_target(
+async def test_stage_rejects_unsafe_task_container_without_touching_target(
     tmp_path: Path,
     kind: str,
 ) -> None:
@@ -180,11 +180,11 @@ async def test_stage_rejects_unsafe_banksia_root_without_touching_target(
     workspace.mkdir()
     outside = tmp_path / "outside"
     outside.mkdir()
-    banksia_root = workspace / ".banksia"
+    task_container = workspace / ".oms"
     if kind == "symlink":
-        banksia_root.symlink_to(outside, target_is_directory=True)
+        task_container.symlink_to(outside, target_is_directory=True)
     else:
-        banksia_root.write_text("not a directory", encoding="utf-8")
+        task_container.write_text("not a directory", encoding="utf-8")
 
     async with initialized_workflow_database(tmp_path) as session_factory:
         await publish_generic_workflow(session_factory)
@@ -203,22 +203,22 @@ async def test_stage_rejects_unsafe_banksia_root_without_touching_target(
         )
 
     assert tuple(outside.iterdir()) == ()
-    assert banksia_root.is_symlink() if kind == "symlink" else banksia_root.is_file()
+    assert task_container.is_symlink() if kind == "symlink" else task_container.is_file()
 
 
 async def test_recovery_never_follows_a_task_directory_symlink(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
-    banksia_root = workspace / ".banksia"
-    banksia_root.mkdir(parents=True)
+    task_container = workspace / ".oms"
+    task_container.mkdir(parents=True)
     outside = tmp_path / "outside"
     outside.mkdir()
     task_id = "t_01234567"
     marker = outside / TASK_INITIALIZATION_MARKER
     marker.write_text(
-        f"banksia-task-initialization-v1\n{task_id}\n",
+        f"oms-task-initialization-v1\n{task_id}\n",
         encoding="utf-8",
     )
-    linked_task = banksia_root / task_id
+    linked_task = task_container / task_id
     linked_task.symlink_to(outside, target_is_directory=True)
 
     async with initialized_workflow_database(tmp_path) as session_factory:
@@ -236,11 +236,11 @@ async def test_recovery_never_follows_a_task_directory_symlink(tmp_path: Path) -
 async def test_recovery_never_follows_a_marker_symlink(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     task_id = "t_01234567"
-    task_root = workspace / ".banksia" / task_id
+    task_root = workspace / ".oms" / task_id
     ensure_private_directory(task_root)
     outside = tmp_path / "outside-marker"
     outside.write_text(
-        f"banksia-task-initialization-v1\n{task_id}\n",
+        f"oms-task-initialization-v1\n{task_id}\n",
         encoding="utf-8",
     )
     (task_root / TASK_INITIALIZATION_MARKER).symlink_to(outside)
@@ -391,12 +391,12 @@ async def test_inaccessible_committed_task_root_is_task_scoped(
 
             @contextmanager
             def refuse_task_root(
-                banksia_root: DirectoryLease,
+                task_container: DirectoryLease,
                 task_id: str,
             ) -> Iterator[DirectoryLease]:
                 if task_id == started.task_id:
                     raise PermissionError("Task root cannot be traversed")
-                with real_open_task_root(banksia_root, task_id) as task_root:
+                with real_open_task_root(task_container, task_id) as task_root:
                     yield task_root
 
             monkeypatch.setattr(admission_module, "open_task_root", refuse_task_root)
@@ -433,7 +433,7 @@ async def test_cleanup_never_deletes_a_replacement_task_root(
     moved_root = admission.task_root.with_name(f"{task_id}-moved")
 
     def substitute_before_removal(
-        banksia_root: DirectoryLease,
+        task_container: DirectoryLease,
         selected_task_id: str,
         retained_task_root: DirectoryLease,
     ) -> bool:
@@ -444,7 +444,7 @@ async def test_cleanup_never_deletes_a_replacement_task_root(
             encoding="utf-8",
         )
         return original_remove(
-            banksia_root,
+            task_container,
             selected_task_id,
             retained_task_root,
         )
@@ -462,7 +462,7 @@ def test_projection_replace_rejects_a_manifest_symlink_without_following_it(
 ) -> None:
     workspace = tmp_path / "workspace"
     task_id = "t_01234567"
-    task_root = workspace / ".banksia" / task_id
+    task_root = workspace / ".oms" / task_id
     ensure_private_directory(task_root)
     outside = tmp_path / "outside.md"
     outside.write_text("external", encoding="utf-8")

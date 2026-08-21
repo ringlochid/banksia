@@ -243,7 +243,7 @@ Oh My Subagents selects one native current-user manager:
 
 Native Windows requires Windows 11 x64 and local NTFS configuration, data, workspace, and Command Run paths. UNC/network, device, non-NTFS, and reparse-point paths reject. WSL2 uses the Linux lane.
 
-`service install` verifies the selected configuration and exact database schema, creates the private sibling `banksia.env` when needed, atomically reconciles the fixed native definition, enables startup, and starts it unless `--no-start` is supplied. Re-running install reconciles an outdated definition. A schema mismatch stops before service changes and directs you to run `oms db upgrade` with the same `--config` before considering reset.
+`service install` verifies the selected configuration and exact database schema, creates the private sibling `oms.env` when needed, atomically reconciles the fixed native definition, enables startup, and starts it unless `--no-start` is supplied. Re-running install reconciles an outdated definition. A schema mismatch stops before service changes and directs you to run `oms db upgrade` with the same `--config` before considering reset.
 
 `render`, `install`, `start`, `stop`, `restart`, `status`, and `uninstall` accept the normal `--config PATH` where applicable. Lifecycle and status commands offer `--json`; there is no user-authored service name, unit directory, or port override. Change the API port through initialization or configuration, then rerun `service install`.
 

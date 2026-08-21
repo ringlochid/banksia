@@ -153,7 +153,7 @@ def configure_installed_runtime(context: RuntimeProbeContext) -> None:
         cwd=context.cwd,
         env=context.env,
     )
-    if config_payload["database"]["postgres_schema"] != "banksia":
+    if config_payload["database"]["postgres_schema"] != "oms":
         raise AssertionError("installed settings loaded an implicit .env file")
     run_checked(
         (str(context.executable), "providers", "list", "--json"),

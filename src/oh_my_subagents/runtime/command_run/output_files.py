@@ -6,8 +6,8 @@ from pathlib import Path
 
 from oh_my_subagents.platform.workspace_files import select_workspace_file_operations
 from oh_my_subagents.runtime.workspace.storage import (
-    open_banksia_root,
     open_child_directory,
+    open_existing_task_container,
     open_task_root,
 )
 
@@ -26,10 +26,8 @@ def create_command_output_file(
     """Exclusively create one private Command Run directory and output stream."""
 
     operations = select_workspace_file_operations()
-    with open_banksia_root(workspace, should_create=False) as banksia_root:
-        if banksia_root is None:
-            raise FileNotFoundError(workspace / ".banksia")
-        with open_task_root(banksia_root, task_id) as task_root:
+    with open_existing_task_container(workspace, task_id) as task_container:
+        with open_task_root(task_container, task_id) as task_root:
             with open_child_directory(task_root, "command-runs") as command_runs:
                 run_root = operations.create_child_directory(command_runs, run_id)
                 try:

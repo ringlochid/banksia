@@ -282,7 +282,7 @@ def seeded_task_workspace(tmp_path: Path, suffix: str) -> Path:
 
 
 def seeded_task_root(tmp_path: Path, suffix: str) -> Path:
-    return seeded_task_workspace(tmp_path, suffix) / ".banksia" / f"task.{suffix}"
+    return seeded_task_workspace(tmp_path, suffix) / ".oms" / f"task.{suffix}"
 
 
 async def make_seed_child_terminal(

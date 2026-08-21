@@ -65,7 +65,7 @@ async def launch_task_runtime(
         payload={
             "workflow_key": workflow_revision.workflow_id,
             "workflow_revision_no": workflow_revision.revision_no,
-            "manifest_ref": f".banksia/{launch_input.task_id}/manifest.md",
+            "manifest_ref": f".oms/{launch_input.task_id}/manifest.md",
         },
     )
     return StagedRuntimeLaunch(

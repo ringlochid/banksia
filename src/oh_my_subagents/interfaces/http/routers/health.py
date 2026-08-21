@@ -8,7 +8,7 @@ router = APIRouter(tags=["health"], include_in_schema=False)
 
 @router.get("/healthz", response_model=HealthResponse, status_code=status.HTTP_200_OK)
 async def healthz() -> HealthResponse:
-    return HealthResponse(status="ok", service="banksia-api")
+    return HealthResponse(status="ok", service="oms-api")
 
 
 @router.get("/readyz", response_model=HealthResponse, status_code=status.HTTP_200_OK)
@@ -21,4 +21,4 @@ async def readyz() -> HealthResponse:
             detail="database_unavailable",
         ) from exc
 
-    return HealthResponse(status="ready", service="banksia-api")
+    return HealthResponse(status="ready", service="oms-api")

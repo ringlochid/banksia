@@ -68,7 +68,7 @@ def _assert_pre_upgrade_backup(database_path: Path, *, task_id: str) -> None:
 async def test_db_reset_recreates_sqlite_database(tmp_path: Path) -> None:
     config_path = tmp_path / "banksia-config.toml"
     data_dir = tmp_path / "banksia-data"
-    database_path = data_dir / "banksia.persistence"
+    database_path = data_dir / "oms.persistence"
     try:
         await cli.cmd_init(build_cli_init_args(config_path, data_dir))
         with closing(sqlite3.connect(database_path)) as connection:
@@ -85,7 +85,7 @@ async def test_db_reset_recreates_sqlite_database(tmp_path: Path) -> None:
     assert result == 0
     assert database_path.exists()
     assert_seeded_registry_is_bootstrapped(database_path)
-    backup_paths = tuple(data_dir.glob("banksia.persistence.before-reset-*.backup"))
+    backup_paths = tuple(data_dir.glob("oms.persistence.before-reset-*.backup"))
     assert len(backup_paths) == 1
     with closing(sqlite3.connect(backup_paths[0])) as connection:
         assert connection.execute("SELECT value FROM reset_backup_marker").fetchone() == (
@@ -97,7 +97,7 @@ async def test_db_reset_recreates_sqlite_database(tmp_path: Path) -> None:
 async def test_db_reset_aborts_when_sqlite_backup_cannot_be_created(tmp_path: Path) -> None:
     config_path = tmp_path / "banksia-config.toml"
     data_dir = tmp_path / "banksia-data"
-    database_path = data_dir / "banksia.persistence"
+    database_path = data_dir / "oms.persistence"
 
     try:
         await cli.cmd_init(build_cli_init_args(config_path, data_dir))
@@ -112,7 +112,7 @@ async def test_db_reset_aborts_when_sqlite_backup_cannot_be_created(tmp_path: Pa
         await dispose_db_engine()
 
     assert database_path.read_bytes() == b"not a valid SQLite database"
-    assert not tuple(data_dir.glob("banksia.persistence.before-reset-*.backup"))
+    assert not tuple(data_dir.glob("oms.persistence.before-reset-*.backup"))
 
 
 @pytest.mark.asyncio
@@ -121,7 +121,7 @@ async def test_db_upgrade_rejects_unknown_sqlite_schema_without_mutation(
 ) -> None:
     config_path = tmp_path / "banksia-config.toml"
     data_dir = tmp_path / "banksia-data"
-    database_path = data_dir / "banksia.persistence"
+    database_path = data_dir / "oms.persistence"
     init_args = build_cli_init_args(config_path, data_dir)
     init_args.skip_db_upgrade = True
 
@@ -152,7 +152,7 @@ async def test_db_upgrade_preserves_sqlite_runtime_rows_and_creates_backup(
 ) -> None:
     config_path = tmp_path / "config.toml"
     data_dir = tmp_path / "data"
-    database_path = data_dir / "banksia.persistence"
+    database_path = data_dir / "oms.persistence"
     data_dir.mkdir()
     engine = create_runtime_schema_engine(data_dir, name=database_path.name)
     with engine.begin() as connection:
@@ -200,7 +200,7 @@ async def test_db_upgrade_preserves_sqlite_runtime_rows_and_creates_backup(
         await dispose_db_engine()
 
     assert result == 0
-    backup_paths = tuple(data_dir.glob("banksia.persistence.before-*.backup"))
+    backup_paths = tuple(data_dir.glob("oms.persistence.before-*.backup"))
     assert len(backup_paths) == 1
     _assert_upgraded_runtime_rows(
         database_path,
@@ -216,7 +216,7 @@ async def test_db_upgrade_adds_member_steering_event_without_losing_rows(
 ) -> None:
     config_path = tmp_path / "config.toml"
     data_dir = tmp_path / "data"
-    database_path = data_dir / "banksia.persistence"
+    database_path = data_dir / "oms.persistence"
     data_dir.mkdir()
     engine = create_runtime_schema_engine(data_dir, name=database_path.name)
     with engine.begin() as connection:
@@ -251,7 +251,7 @@ async def test_db_upgrade_adds_member_steering_event_without_losing_rows(
         await dispose_db_engine()
 
     assert result == 0
-    backup_paths = tuple(data_dir.glob("banksia.persistence.before-*.backup"))
+    backup_paths = tuple(data_dir.glob("oms.persistence.before-*.backup"))
     assert len(backup_paths) == 1
     with closing(sqlite3.connect(database_path)) as connection:
         task_event_sql = connection.execute(
@@ -275,7 +275,7 @@ async def test_db_upgrade_adds_member_steering_event_without_losing_rows(
 async def test_db_upgrade_bootstraps_empty_sqlite_database(tmp_path: Path) -> None:
     config_path = tmp_path / "banksia-config.toml"
     data_dir = tmp_path / "banksia-data"
-    database_path = data_dir / "banksia.persistence"
+    database_path = data_dir / "oms.persistence"
     init_args = build_cli_init_args(config_path, data_dir)
     init_args.skip_db_upgrade = True
 
@@ -311,7 +311,7 @@ async def test_db_reset_rejects_symlinked_sqlite_database_without_touching_targe
 ) -> None:
     config_path = tmp_path / "banksia-config.toml"
     data_dir = tmp_path / "banksia-data"
-    database_path = data_dir / "banksia.persistence"
+    database_path = data_dir / "oms.persistence"
     real_database_path = data_dir / "real.persistence"
 
     try:

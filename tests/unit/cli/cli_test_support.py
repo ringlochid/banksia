@@ -52,7 +52,7 @@ def write_local_cli_config(tmp_path: Path) -> Path:
         config_sections_to_text(
             build_initial_config_sections(
                 data_dir=data_dir,
-                database_url=f"sqlite+aiosqlite:///{data_dir / 'banksia.persistence'}",
+                database_url=f"sqlite+aiosqlite:///{data_dir / 'oms.persistence'}",
                 host="127.0.0.1",
                 port=18125,
                 log_level="WARNING",
@@ -131,7 +131,7 @@ def write_systemctl_show_script(
             "UnitFileState=enabled",
             f"ActiveState={active_state}",
             f"SubState={sub_state}",
-            "FragmentPath=/tmp/banksia.service",
+            "FragmentPath=/tmp/oh-my-subagents.service",
         ]
     )
     script_path.write_text(

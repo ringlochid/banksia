@@ -198,7 +198,7 @@ Choose the provider named by your intended Operator configuration. A failed chec
 - Open the full workspace log when needed:
 
 ```text
-.banksia/t_<id>/command-runs/c_<id>/output.log
+.oms/t_<id>/command-runs/c_<id>/output.log
 ```
 
 Check `output_complete`, `is_missing`, `is_changed`, and `is_bounded` before interpreting a partial page.

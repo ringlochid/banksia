@@ -240,7 +240,7 @@ Workspace omission is transport-specific and never resolves from the server proc
 
 The request is transient. Its facts move to their natural owners: Task pins the Workflow revision and workspace, the root Assignment owns the exact prompt and ordered file references, and the controller creates Task identity.
 
-Task-start `files` therefore name existing regular files beneath the selected workspace. They cannot predict the controller-allocated Task directory. Later Assignments, Checkpoints, and Human Requests may reference files under the created `.banksia/t_<id>/` path.
+Task-start `files` therefore name existing regular files beneath the selected workspace. They cannot predict the controller-allocated Task directory. Later Assignments, Checkpoints, and Human Requests may reference files under the created `.oms/t_<id>/` path.
 
 Interactive CLI:
 
@@ -272,7 +272,7 @@ Root and child Assignments use one contract:
 prompt: |
   Complete, task-specific request owned by this member.
 files:
-  - path: .banksia/t_7m4k2d9x/artifacts/research-brief.md
+  - path: .oms/t_7m4k2d9x/artifacts/research-brief.md
     description: Reviewable evidence brief to inspect rather than assume.
 ```
 

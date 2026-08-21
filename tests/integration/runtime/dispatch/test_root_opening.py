@@ -304,11 +304,11 @@ def _assert_prompt_and_support_snapshot(
     assert len(trace.team_members) == 1
     assert trace.team_members[0].is_task_lead is True
     assert trace.team_members[0].behavior == "contributor"
-    assert trace.current_paths[0].path == f".banksia/{task_id}/manifest.md"
+    assert trace.current_paths[0].path == f".oms/{task_id}/manifest.md"
     request_text = request.input
     assert "\r" not in request_text
     request_root = ElementTree.fromstring(request_text)
-    assert request_root.tag == "banksia_dispatch_request"
+    assert request_root.tag == "oms_dispatch_request"
     assert request_root.find("continuation") is None
     assert request_root.findtext("dispatch/id") == dispatch.dispatch_id
     assert request_root.findtext("assignment/prompt")

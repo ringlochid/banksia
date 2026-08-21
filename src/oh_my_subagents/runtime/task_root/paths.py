@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from oh_my_subagents.runtime.contracts import TaskRootPaths
+from oh_my_subagents.runtime.workspace.storage import TASK_CONTAINER_NAME, TASK_CONTAINER_NAMES
 
 
 def resolve_task_root_paths(
@@ -21,12 +22,15 @@ def command_run_output_path(
     *,
     task_id: str,
     run_id: str,
+    task_container_name: str = TASK_CONTAINER_NAME,
 ) -> Path:
     """Return the sole workspace-relative full-output path for one Command Run."""
 
     _validate_path_component(task_id, label="Task ID")
     _validate_path_component(run_id, label="command run ID")
-    return Path(".banksia") / task_id / "command-runs" / run_id / "output.log"
+    if task_container_name not in TASK_CONTAINER_NAMES:
+        raise ValueError(f"unsupported Task container: {task_container_name!r}")
+    return Path(task_container_name) / task_id / "command-runs" / run_id / "output.log"
 
 
 def coerce_path(path: str | Path) -> Path:

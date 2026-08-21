@@ -261,8 +261,8 @@ def test_service_command_failure_is_manager_neutral() -> None:
         ManagedServiceCommandError(
             manager="launchd-user",
             operation="start",
-            service_name="io.github.ringlochid.banksia",
-            command=("launchctl", "kickstart", "gui/501/io.github.ringlochid.banksia"),
+            service_name="io.github.ringlochid.oh-my-subagents",
+            command=("launchctl", "kickstart", "gui/501/io.github.ringlochid.oh-my-subagents"),
             return_code=5,
             detail="service is disabled",
         )

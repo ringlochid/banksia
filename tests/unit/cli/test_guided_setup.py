@@ -87,7 +87,7 @@ def test_guided_init_confirms_recommended_local_settings(
     payload = tomllib.loads(config_path.read_text(encoding="utf-8"))
     assert payload["paths"]["data_dir"] == str(data_dir)
     assert payload["paths"]["workspace"] == str(workspace)
-    assert data_dir.joinpath("banksia.persistence").is_file()
+    assert data_dir.joinpath("oms.persistence").is_file()
     assert "Default workspace" in result.output
     assert "Use these recommended local settings?" in result.output
     assert "Oh My Subagents Task provider setup" in result.output
@@ -109,7 +109,7 @@ def test_guided_init_rerun_keeps_config_and_verifies_database(
         config_sections_to_text(
             build_initial_config_sections(
                 data_dir=data_dir,
-                database_url=f"sqlite+aiosqlite:///{data_dir / 'banksia.persistence'}",
+                database_url=f"sqlite+aiosqlite:///{data_dir / 'oms.persistence'}",
                 host="127.0.0.1",
                 port=18125,
                 log_level="WARNING",
@@ -135,7 +135,7 @@ def test_guided_init_rerun_keeps_config_and_verifies_database(
 
     assert result.exit_code == 0, result.output
     assert config_path.read_bytes() == previous_config
-    assert data_dir.joinpath("banksia.persistence").is_file()
+    assert data_dir.joinpath("oms.persistence").is_file()
     assert "Keep and verify" in result.output
     assert "Oh My Subagents Task provider setup" not in result.output
     assert "Oh My Subagents Operator setup" not in result.output
@@ -259,7 +259,7 @@ def test_guided_setup_imports_shell_api_key_for_the_managed_service(
         "Existing Claude API key found in this shell. "
         "Store it for the Oh My Subagents service? [Y/n]"
     ) in result.output
-    assert read_provider_secret_environment(config_path.parent / "banksia.env") == {
+    assert read_provider_secret_environment(config_path.parent / "oms.env") == {
         ANTHROPIC_API_KEY: "shell-anthropic-secret"
     }
     assert "shell-anthropic-secret" not in result.output

@@ -44,7 +44,7 @@ class ProviderDefinitionSnapshot(BaseModel):
     integration: str
     product_status: ProviderProductStatus
     is_integration_available: bool = Field(alias="integration_available")
-    setup_owner: Literal["banksia", "shared", "user"]
+    setup_owner: Literal["oms", "shared", "user"]
 
 
 class ProviderStatusSnapshot(BaseModel):

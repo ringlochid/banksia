@@ -44,7 +44,9 @@ from oh_my_subagents.interfaces.cli.commands.workflow import (
     cmd_workflow_export,
     cmd_workflow_import,
 )
+from oh_my_subagents.interfaces.cli.migration import cmd_migrate_from_banksia
 from oh_my_subagents.interfaces.cli.providers.inspection import PROVIDER_ORDER
+from oh_my_subagents.paths import default_config_path, legacy_default_config_path
 
 from .context import CliContext
 from .help import ROOT_HELP_EPILOG
@@ -86,6 +88,47 @@ def cli(ctx: click.Context, is_debug: bool) -> int | None:
 
 
 cli.add_command(service_group)
+
+
+@cli.command(
+    "migrate-from-banksia",
+    help="Copy legacy local state and replace the installed background service.",
+)
+@click.option(
+    "--source-config",
+    type=click.Path(file_okay=True, dir_okay=False, path_type=Path),
+    default=legacy_default_config_path,
+    show_default=True,
+)
+@click.option(
+    "--config",
+    type=click.Path(file_okay=True, dir_okay=False, path_type=Path),
+    default=default_config_path,
+    show_default=True,
+    help="Target OMS config path.",
+)
+@click.option(
+    "--no-service",
+    is_flag=True,
+    help="Copy state without inspecting or replacing a native service.",
+)
+@click.option("--json", "is_json_output", is_flag=True, help="Emit JSON output only.")
+def migrate_from_banksia_command(
+    source_config: Path,
+    config: Path,
+    no_service: bool,
+    is_json_output: bool,
+) -> int:
+    return invoke_handler_result(
+        cmd_migrate_from_banksia(
+            build_argument_namespace(
+                source_config=source_config,
+                config=config,
+                no_service=no_service,
+                json=is_json_output,
+            )
+        )
+    )
 
 
 @cli.command(

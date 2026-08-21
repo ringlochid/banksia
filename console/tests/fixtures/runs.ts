@@ -57,7 +57,7 @@ export function taskFixture(overrides: Partial<TaskView> = {}): TaskView {
                         occurred_at: "2026-07-26T01:08:00Z",
                         files: [
                             {
-                                path: ".banksia/t_7m4k2d9x/artifacts/review.md",
+                                path: ".oms/t_7m4k2d9x/artifacts/review.md",
                                 description: "Independent findings.",
                             },
                         ],
@@ -278,7 +278,7 @@ export function taskStartReceiptFixture(): TaskStartReceipt {
         workflow_id: "production-feature-delivery",
         workflow_revision: 3,
         workspace: "/workspace/project",
-        manifest: `.banksia/${TEST_TASK_ID}/manifest.md`,
+        manifest: `.oms/${TEST_TASK_ID}/manifest.md`,
         receipt_id: "receipt-start",
         status: "accepted",
         status_message:

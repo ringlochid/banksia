@@ -119,7 +119,7 @@ class SupportProjectionOwner:
         self._is_accepting = True
         self._dispatcher = asyncio.create_task(
             self._run_dispatcher(),
-            name="banksia-support-projection-owner",
+            name="oms-support-projection-owner",
         )
         return self
 

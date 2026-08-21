@@ -580,5 +580,5 @@ def _prepared_starting_dispatch(dispatch_id: str) -> PreparedDispatchRequest:
         ),
         capabilities=EffectiveCapabilitySet(),
         instructions="Controller instructions.\n",
-        input="<banksia_dispatch_request><direct_team /></banksia_dispatch_request>\n",
+        input="<oms_dispatch_request><direct_team /></oms_dispatch_request>\n",
     )

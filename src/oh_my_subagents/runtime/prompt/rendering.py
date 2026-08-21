@@ -6,6 +6,7 @@ from xml.etree import ElementTree
 
 from pydantic import BaseModel
 
+from oh_my_subagents.product_identity import LEGACY_BANKSIA_IDENTITY, OMS_IDENTITY
 from oh_my_subagents.runtime.contracts.prompt import (
     PROMPT_DYNAMIC_INPUT_KEYS,
     DispatchRequestRenderInput,
@@ -44,7 +45,7 @@ def render_dispatch_request(request: DispatchRequestRenderInput) -> RenderedDisp
 def render_dynamic_input(dynamic_input: PromptDynamicInput) -> str:
     if tuple(type(dynamic_input).model_fields) != PROMPT_DYNAMIC_INPUT_KEYS:
         raise ValueError("dynamic prompt input field order does not match the canonical contract")
-    root = ElementTree.Element("banksia_dispatch_request")
+    root = ElementTree.Element(OMS_IDENTITY.dispatch_request_root)
     for field_name in PROMPT_DYNAMIC_INPUT_KEYS:
         value = getattr(dynamic_input, field_name)
         if value is None:
@@ -61,7 +62,10 @@ def parse_prompt_continuation(input_text: str) -> PromptContinuation | None:
         root = ElementTree.fromstring(input_text)
     except ElementTree.ParseError as exc:
         raise ValueError("committed Dispatch input is not well-formed XML") from exc
-    if root.tag != "banksia_dispatch_request":
+    if root.tag not in {
+        OMS_IDENTITY.dispatch_request_root,
+        LEGACY_BANKSIA_IDENTITY.dispatch_request_root,
+    }:
         raise ValueError("committed Dispatch input has an unsupported root element")
     element = root.find("continuation")
     if element is None:

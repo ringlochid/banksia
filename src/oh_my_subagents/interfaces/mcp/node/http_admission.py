@@ -10,7 +10,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from oh_my_subagents.runtime.node_mcp import DispatchMcpBinding, DispatchMcpBindingRegistry
 
 _CURRENT_MANAGED_BINDING: ContextVar[DispatchMcpBinding | None] = ContextVar(
-    "banksia_current_managed_node_mcp_binding",
+    "oms_current_managed_node_mcp_binding",
     default=None,
 )
 

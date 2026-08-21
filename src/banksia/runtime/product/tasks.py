@@ -68,11 +68,6 @@ from banksia.runtime.task_start import start_task
 from banksia.runtime.workspace.availability import task_workspace_is_available
 
 _TASK_CURSOR_PREFIX = "task-search."
-_TASK_PROMPT_WHITESPACE = (
-    " \t\n\r\u0085\u00a0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007"
-    "\u2008\u2009\u200a\u2028\u2029\u202f\u205f\u3000"
-)
-_TASK_PROMPT_SPACE_COLLAPSE_PASSES = (MAX_WORK_PROMPT_BYTES - 1).bit_length()
 
 
 async def start_product_task(
@@ -355,9 +350,9 @@ def _task_search_statement(
         select(
             TaskModel,
             func.substr(
-                _normalized_task_prompt_expression(),
+                AssignmentModel.prompt,
                 1,
-                TASK_SUMMARY_MAX_CHARACTERS,
+                MAX_WORK_PROMPT_BYTES,
             ).label("prompt_excerpt_source"),
             description.label("workflow_description"),
             semantic_status,
@@ -396,18 +391,6 @@ def _task_search_statement(
             )
         )
     return statement
-
-
-def _normalized_task_prompt_expression() -> ColumnElement[str]:
-    """Build the portable SQL equivalent of ``" ".join(prompt.split())``."""
-
-    normalized = cast(ColumnElement[str], AssignmentModel.prompt)
-    for whitespace in _TASK_PROMPT_WHITESPACE:
-        if whitespace != " ":
-            normalized = func.replace(normalized, whitespace, " ")
-    for _ in range(_TASK_PROMPT_SPACE_COLLAPSE_PASSES):
-        normalized = func.replace(normalized, "  ", " ")
-    return func.trim(normalized)
 
 
 def _task_product_status_expression() -> ColumnElement[str]:

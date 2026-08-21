@@ -40,7 +40,7 @@ class LaunchdJobSnapshot:
 class LaunchdUserServiceManager:
     manager_name = LAUNCHD_MANAGER_NAME
     service_name = LAUNCHD_SERVICE_NAME
-    readiness_timeout_seconds = 10.0
+    readiness_timeout_seconds = 3.0
 
     def __init__(
         self,

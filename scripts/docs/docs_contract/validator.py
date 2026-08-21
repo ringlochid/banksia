@@ -30,6 +30,7 @@ BANKSIA_COMPATIBILITY_DOCUMENTS = frozenset(
         Path("docs/guides/migrate-from-banksia.md"),
         Path("docs-internal/adr/ADR-0013-banksia-target-and-clean-break.md"),
         Path("docs-internal/adr/ADR-0018-oh-my-subagents-identity-cutover.md"),
+        Path("docs-internal/adr/ADR-0019-oms-backend-identity-migration.md"),
     }
 )
 BANKSIA_COMPATIBILITY_LINES = {
@@ -45,6 +46,7 @@ BANKSIA_ENV_COMPATIBILITY_DOCUMENTS = frozenset(
         Path("docs/reference/configuration.md"),
         Path("docs-internal/adr/ADR-0013-banksia-target-and-clean-break.md"),
         Path("docs-internal/adr/ADR-0018-oh-my-subagents-identity-cutover.md"),
+        Path("docs-internal/adr/ADR-0019-oms-backend-identity-migration.md"),
     }
 )
 STALE_IDENTITY_MARKERS = (

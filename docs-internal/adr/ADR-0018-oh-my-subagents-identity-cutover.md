@@ -2,6 +2,8 @@
 
 Status: Accepted
 
+Migration note: [ADR-0019](ADR-0019-oms-backend-identity-migration.md) supersedes this record's `0.2.x` backend-identity compatibility and migration deferral for the `0.3.0` release. This record remains the historical authority for the public `0.2.0` cutover.
+
 ## Decision summary
 
 Banksia is renamed publicly to **Oh My Subagents**, abbreviated **OMS**. Release `0.2.0` uses the PyPI distribution `oh-my-subagents` and the canonical `oms` command. The existing `banksia` Python import, workspace layout, database identifiers, and managed Node binding remain stable protocol identities for this release. Compatibility is explicit, observable, and subordinate to the OMS product identity.

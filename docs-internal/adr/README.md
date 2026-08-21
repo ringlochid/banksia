@@ -11,3 +11,4 @@ This surface owns durable accepted decisions that still govern Oh My Subagents. 
 - [ADR-0016 managed-provider Skill and MCP inheritance](ADR-0016-managed-provider-skill-and-mcp-inheritance.md)
 - [ADR-0017 OpenClaw provider retirement](ADR-0017-openclaw-provider-retirement.md)
 - [ADR-0018 Oh My Subagents identity cutover](ADR-0018-oh-my-subagents-identity-cutover.md)
+- [ADR-0019 OMS backend identity migration](ADR-0019-oms-backend-identity-migration.md)

@@ -145,10 +145,20 @@ def test_systemd_crash_loop_is_failed_instead_of_indefinitely_starting(
     }
 
 
-def test_readiness_poll_recovers_from_a_transient_native_failure(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    "transient_state",
+    (
+        ManagedServiceExecutionState.FAILED,
+        ManagedServiceExecutionState.STOPPED,
+    ),
+)
+def test_readiness_poll_recovers_from_a_transient_native_state(
+    tmp_path: Path,
+    transient_state: ManagedServiceExecutionState,
+) -> None:
     inspections = iter(
         (
-            _inspection(ManagedServiceExecutionState.FAILED),
+            _inspection(transient_state),
             _inspection(ManagedServiceExecutionState.RUNNING),
         )
     )
@@ -167,13 +177,9 @@ def test_readiness_poll_recovers_from_a_transient_native_failure(tmp_path: Path)
         timeout_seconds=1,
         interval_seconds=0,
         probe=lambda host, port, state: (
-            ManagedServiceControllerState.FAILED
-            if state is ManagedServiceExecutionState.FAILED
-            else (
-                ManagedServiceControllerState.READY
-                if state is ManagedServiceExecutionState.RUNNING
-                else ManagedServiceControllerState.STARTING
-            )
+            ManagedServiceControllerState.READY
+            if state is ManagedServiceExecutionState.RUNNING
+            else ManagedServiceControllerState(state.value)
         ),
     )
 

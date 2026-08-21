@@ -94,7 +94,7 @@ def wait_for_controller_shutdown(
                 if native_is_active
                 else f"the API bind target {settings.api_host}:{settings.api_port} remained in use"
             )
-            raise RuntimeError(f"Banksia background service did not stop cleanly: {detail}")
+            raise RuntimeError(f"Oh My Subagents background service did not stop cleanly: {detail}")
         time.sleep(min(max(0.0, interval_seconds), remaining_seconds))
         inspection = inspect()
 

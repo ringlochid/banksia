@@ -12,16 +12,16 @@ The controller records requested mode, requested source, effective mode, and eff
 
 After provider startup, the Dispatch records a sanitized observed inventory of Skill names and active external MCP server/tool names. It stores no Skill content, extension path, MCP arguments, credentials, or tool results. The inventory is support evidence, not a reproducible extension snapshot or controller authority.
 
-Inherited extensions remain provider-native. Their activity may be absent from Banksia Activity and cannot replace Banksia controller operations, currentness, Checkpoints, or Result selection. Banksia continues to supply its exact Dispatch-scoped `banksia_node` binding and validates that binding before the first model turn.
+Inherited extensions remain provider-native. Their activity may be absent from Oh My Subagents Activity and cannot replace Oh My Subagents controller operations, currentness, Checkpoints, or Result selection. Oh My Subagents continues to supply its exact Dispatch-scoped `banksia_node` binding and validates that binding before the first model turn.
 
-Codex Task effort accepts `max`; `ultra` remains excluded because it enables provider-owned proactive delegation outside Banksia's team controller. Native Codex settings not overridden by Banksia, including `service_tier = "fast"`, remain effective alongside explicit Workflow model and effort choices.
+Codex Task effort accepts `max`; `ultra` remains excluded because it enables provider-owned proactive delegation outside Oh My Subagents' team controller. Native Codex settings not overridden by Oh My Subagents, including `service_tier = "fast"`, remain effective alongside explicit Workflow model and effort choices.
 
 ## Consequences
 
 - Workflow Studio exposes the requested mode as an advanced provider choice and explains automatic narrowing without rejecting the draft.
 - Machine-local `[codex]` and `[claude]` sections may set `extension_mode`.
-- General provider plugins and Banksia-managed external-MCP authoring remain deferred.
-- Changing the Dispatch schema follows Banksia's exact-admission and registered forward-upgrade contract.
+- General provider plugins and Oh My Subagents-managed external-MCP authoring remain deferred.
+- Changing the Dispatch schema follows Oh My Subagents' exact-admission and registered forward-upgrade contract.
 
 ## Provider implementation boundary
 

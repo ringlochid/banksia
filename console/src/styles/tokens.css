@@ -1,5 +1,5 @@
 /*
- * Semantic tokens. Banksia ships dark only — there is no light variant and no
+ * Semantic tokens. Oh My Subagents ships dark only — there is no light variant and no
  * theme switch, so these sit directly on :root rather than in a mixin.
  *
  * Structure and token names derived from the `theme-dark` mixin in n8n's
@@ -8,10 +8,10 @@
  * Copyright (c) n8n GmbH and contributors. Sustainable Use License; see
  * console/LICENSE and console/NOTICE.
  *
- * Banksia substitutes its own brand: the accent is green rather than n8n's
+ * Oh My Subagents substitutes its own brand: the accent is green rather than n8n's
  * orange, with gold for the secondary accent. Tokens naming n8n product
  * concepts (nodes, sticky notes, execution state, the assistant gradient) are
- * deliberately not carried over — Banksia's own surfaces are defined below.
+ * deliberately not carried over — Oh My Subagents's own surfaces are defined below.
  */
 
 :root {
@@ -116,7 +116,7 @@
     --topbar-height: 3rem;
 
     /*
-     * Banksia team canvas. n8n's equivalents describe nodes and execution
+     * Oh My Subagents team canvas. n8n's equivalents describe nodes and execution
      * state; these describe Members and ownership, which is a different model.
      */
     --canvas--color--background: var(--color--neutral-950);

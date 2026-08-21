@@ -3,9 +3,9 @@ requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "banksia"
-version = "0.1.7"
-description = "Build adaptable, accountable AI teams in minutes—and run them on complex work."
+name = "oh-my-subagents"
+version = "0.2.0"
+description = "Turn ad-hoc subagents into durable, accountable AI teams."
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
@@ -53,7 +53,14 @@ dev = [
 ]
 
 [project.scripts]
-banksia = "banksia.interfaces.cli.main:main"
+oms = "banksia.interfaces.cli.main:main"
+banksia = "banksia.interfaces.cli.main:legacy_main"
+
+[project.urls]
+Homepage = "https://github.com/ringlochid/oh-my-subagents"
+Documentation = "https://github.com/ringlochid/oh-my-subagents/tree/main/docs"
+Issues = "https://github.com/ringlochid/oh-my-subagents/issues"
+Source = "https://github.com/ringlochid/oh-my-subagents"
 
 [tool.setuptools]
 include-package-data = true

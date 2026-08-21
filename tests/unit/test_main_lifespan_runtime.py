@@ -132,26 +132,12 @@ def test_app_composes_one_operator_prompt_tool_catalog_and_runner(
     ]
 
 
-async def test_lifespan_drains_operator_turn_before_product_dependencies_stop(
+def _patch_lifespan_dependencies(
     monkeypatch: pytest.MonkeyPatch,
+    *,
+    events: list[str],
+    projection: RecordingAsyncOwner,
 ) -> None:
-    events: list[str] = []
-    app = create_app(should_enable_mcp_mounts=False)
-    router = RecordingAsyncOwner("router", events)
-    projection = RecordingAsyncOwner("projection", events)
-    scheduler = RecordingAsyncOwner("scheduler", events)
-    command_owner = RecordingAsyncOwner("command", events)
-    app.state.runtime_effect_router = router
-    app.state.support_projection_owner = projection
-    app.state.deadline_scheduler = scheduler
-    app.state.command_process_owner = command_owner
-    app.state.operator_conversation_service = RecordingOperatorService(events)
-    operator_runner = RecordingOperatorRunner(
-        events,
-        product_dependency=router,
-    )
-    app.state.operator_turn_runner = operator_runner
-
     async def ensure_schema() -> None:
         events.append("schema")
 
@@ -203,6 +189,28 @@ async def test_lifespan_drains_operator_turn_before_product_dependencies_stop(
         audit_projections,
     )
     monkeypatch.setattr(main_module, "dispose_db_engine", dispose_engine)
+
+
+async def test_lifespan_drains_operator_turn_before_product_dependencies_stop(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[str] = []
+    app = create_app(should_enable_mcp_mounts=False)
+    router = RecordingAsyncOwner("router", events)
+    projection = RecordingAsyncOwner("projection", events)
+    scheduler = RecordingAsyncOwner("scheduler", events)
+    command_owner = RecordingAsyncOwner("command", events)
+    app.state.runtime_effect_router = router
+    app.state.support_projection_owner = projection
+    app.state.deadline_scheduler = scheduler
+    app.state.command_process_owner = command_owner
+    app.state.operator_conversation_service = RecordingOperatorService(events)
+    operator_runner = RecordingOperatorRunner(
+        events,
+        product_dependency=router,
+    )
+    app.state.operator_turn_runner = operator_runner
+    _patch_lifespan_dependencies(monkeypatch, events=events, projection=projection)
 
     async with app.router.lifespan_context(app):
         await operator_runner.start_product_tool_call()

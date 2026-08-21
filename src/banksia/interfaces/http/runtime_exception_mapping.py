@@ -70,7 +70,7 @@ _ACCESS_DENIED = _ProductFailureMapping(
 _INTERNAL = _ProductFailureMapping(
     code=ProductFailureCode.INTERNAL_ERROR,
     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-    summary="Banksia could not complete this request.",
+    summary="Oh My Subagents could not complete this request.",
     is_retryable=False,
     suggested_next_step=(
         "Reload current information. If the problem continues, use the support reference."
@@ -151,7 +151,7 @@ def runtime_exception_failure(exc: Exception) -> tuple[int, OperationFailure]:
     return _runtime_failure(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         code=ProductFailureCode.INTERNAL_ERROR,
-        summary="Banksia could not complete this request.",
+        summary="Oh My Subagents could not complete this request.",
         is_retryable=False,
         suggested_next_step=(
             "Reload current information. If the problem continues, use the support reference."

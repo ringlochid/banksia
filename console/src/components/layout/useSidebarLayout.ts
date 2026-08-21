@@ -13,8 +13,8 @@ export const SIDEBAR_MIN_WIDTH = 200;
 export const SIDEBAR_MAX_WIDTH = 500;
 const SIDEBAR_GRID = 8;
 
-const WIDTH_KEY = "banksia.sidebar.width";
-const COLLAPSED_KEY = "banksia.sidebar.collapsed";
+const WIDTH_KEY = "oms.sidebar.width";
+const COLLAPSED_KEY = "oms.sidebar.collapsed";
 
 export interface SidebarLayout {
     readonly isCollapsed: boolean;

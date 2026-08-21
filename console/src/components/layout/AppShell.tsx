@@ -20,7 +20,7 @@ export function AppShell() {
 
     return (
         <TooltipProvider delayDuration={400}>
-            <a className="shell__skip" href="#banksia-main">
+            <a className="shell__skip" href="#oms-main">
                 Skip to main content
             </a>
             <div className="shell">
@@ -33,9 +33,9 @@ export function AppShell() {
                     operatorOpen={operatorOpen}
                 />
                 <main
-                    aria-label="Banksia Console"
+                    aria-label="Oh My Subagents Console"
                     className="shell__main"
-                    id="banksia-main"
+                    id="oms-main"
                     tabIndex={-1}
                 >
                     <Outlet />

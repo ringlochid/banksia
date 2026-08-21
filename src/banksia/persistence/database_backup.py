@@ -18,7 +18,7 @@ from banksia.platform.workspace_files import (
 
 
 class DatabaseBackupError(RuntimeError):
-    """Raised when Banksia cannot create a required database backup."""
+    """Raised when Oh My Subagents cannot create a required database backup."""
 
 
 def create_sqlite_backup(database_path: Path, *, operation: str) -> Path:
@@ -57,7 +57,7 @@ def create_postgres_schema_backup(
     backup_directory: Path,
     operation: str,
 ) -> Path:
-    """Create a custom-format dump of one Banksia PostgreSQL schema."""
+    """Create a custom-format dump of one Oh My Subagents PostgreSQL schema."""
 
     pg_dump = shutil.which("pg_dump")
     if pg_dump is None:

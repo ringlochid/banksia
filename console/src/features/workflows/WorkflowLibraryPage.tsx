@@ -1,5 +1,5 @@
 import { Plus } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 
 import type { WorkflowApi } from "../../api/client";
@@ -18,6 +18,7 @@ export function WorkflowLibraryPage({ api }: WorkflowLibraryPageProps) {
     const navigate = useNavigate();
     const [searchParameters, setSearchParameters] = useSearchParams();
     const [createOpen, setCreateOpen] = useState(false);
+    const createTriggerRef = useRef<HTMLButtonElement | null>(null);
     const [workflowToRemove, setWorkflowToRemove] =
         useState<WorkflowSearchItem | null>(null);
     const librarySearch = useWorkflowLibrarySearch(api);
@@ -25,6 +26,7 @@ export function WorkflowLibraryPage({ api }: WorkflowLibraryPageProps) {
 
     function closeCreate(): void {
         setCreateOpen(false);
+        requestAnimationFrame(() => createTriggerRef.current?.focus());
         if (!createRequested) {
             return;
         }
@@ -40,7 +42,13 @@ export function WorkflowLibraryPage({ api }: WorkflowLibraryPageProps) {
                     <h1 className="page__title">Workflows</h1>
                 </div>
                 <div className="page__actions">
-                    <Button onClick={() => setCreateOpen(true)} tone="primary">
+                    <Button
+                        onClick={(event) => {
+                            createTriggerRef.current = event.currentTarget;
+                            setCreateOpen(true);
+                        }}
+                        tone="primary"
+                    >
                         <Plus aria-hidden="true" size={15} />
                         Create workflow
                     </Button>

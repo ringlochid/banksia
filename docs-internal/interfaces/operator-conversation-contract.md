@@ -6,7 +6,7 @@ This page freezes the smallest durable and provider contract for the separate Op
 
 ## Minimal boundary
 
-Operator is one provider-backed product assistant over existing Banksia services:
+Operator is one provider-backed product assistant over existing Oh My Subagents services:
 
 ```text
 Agent(
@@ -29,7 +29,7 @@ model = "provider-native-model-id" # optional
 effort = "high" # optional
 ```
 
-Omitted model and effort resolve through the selected provider's existing controller configuration. There is no automatic provider choice or fallback. Missing or unusable configuration produces a human-safe status response naming `banksia operator setup` and no provider turn. Machine-local Operator configuration remains outside the eighteen product operations.
+Omitted model and effort resolve through the selected provider's existing controller configuration. There is no automatic provider choice or fallback. Missing or unusable configuration produces a human-safe status response naming `oms operator setup` and no provider turn. Machine-local Operator configuration remains outside the eighteen product operations.
 
 The provider-neutral adapter contract is:
 
@@ -48,13 +48,13 @@ run_turn(
 
 The first successful turn stores the provider's opaque thread/session ID on the conversation. Every later message or answer continues that exact thread. The ID is controller-private and is never reconstructed from transcript text.
 
-Claude uses native structured output for the result. Codex uses `outputSchema` for the result and `dynamicTools` for Banksia operations. When pinned Codex model metadata requires code mode, provider-native `exec` and `wait` are permitted only as adapter-private transport. Their JavaScript runtime receives no execution environment, host bindings, filesystem, shell, network, external MCP, module imports, Skills, or Plugins; it can invoke only the exact eighteen Banksia operations plus inert `update_plan`. `exec`, `wait`, and `update_plan` are not Banksia operations, authorable capabilities, or generic execution authority. Any additional nested tool or host surface makes Codex Operator unavailable. Banksia therefore claims an exact eighteen-operation **Banksia** catalog, not a literal global count of everything a provider may render.
+Claude uses native structured output for the result. Codex uses `outputSchema` for the result and `dynamicTools` for Oh My Subagents operations. When pinned Codex model metadata requires code mode, provider-native `exec` and `wait` are permitted only as adapter-private transport. Their JavaScript runtime receives no execution environment, host bindings, filesystem, shell, network, external MCP, module imports, Skills, or Plugins; it can invoke only the exact eighteen Oh My Subagents operations plus inert `update_plan`. `exec`, `wait`, and `update_plan` are not Oh My Subagents operations, authorable capabilities, or generic execution authority. Any additional nested tool or host surface makes Codex Operator unavailable. Oh My Subagents therefore claims an exact eighteen-operation **Oh My Subagents** catalog, not a literal global count of everything a provider may render.
 
 Provider adapters call the eighteen typed leaf handlers directly. An invocation-local in-process MCP projection is also permitted when an SDK needs that transport. Such a projection is private and ephemeral: it is not a public mount, static provider configuration, Workflow field, external MCP extension, resource, prompt, or authorable tool registry.
 
-## Exact Banksia operation catalog
+## Exact Oh My Subagents operation catalog
 
-The provider receives these eighteen typed Banksia product operations:
+The provider receives these eighteen typed Oh My Subagents product operations:
 
 ```text
 workflow_search
@@ -320,7 +320,7 @@ ask_user
       description
 ```
 
-`ask_user` is a result kind, not a Banksia or provider tool. The model authors no conversation, question, option, product-resource, or legal-action ID. The controller validates the result, allocates stable question and option IDs, and persists one assistant entry. The UI adds Other without changing the provider schema.
+`ask_user` is a result kind, not a Oh My Subagents or provider tool. The model authors no conversation, question, option, product-resource, or legal-action ID. The controller validates the result, allocates stable question and option IDs, and persists one assistant entry. The UI adds Other without changing the provider schema.
 
 Answer submit commits one `user_question_answers` entry and begins a fresh turn on the same opaque provider thread. Its provider input contains the exact question text and the exact accepted label, custom text, or Skip for every answer. Refresh, browser closure, controller restart, and human delay never depend on a suspended model call.
 
@@ -342,9 +342,9 @@ Operator tool schemas contain no model-authored `confirmed`, proposal, effect, o
 
 Provider, tool-transport, cancellation, and controller exceptions do not create a retry job. If the controller is alive, it appends one bounded `turn_interrupted` entry, clears the matching active turn, and marks the conversation `interrupted` or `closed`. The visible entry says what the person can safely do next without exposing provider exceptions or runtime internals.
 
-On startup, any conversation left `running` is converted once to the same visible interruption state. Banksia never restarts that provider turn automatically. When the affected product resource is known, the controller or next explicit Operator turn refetches its owning service before making another claim. It never replays an uncertain mutation.
+On startup, any conversation left `running` is converted once to the same visible interruption state. Oh My Subagents never restarts that provider turn automatically. When the affected product resource is known, the controller or next explicit Operator turn refetches its owning service before making another claim. It never replays an uncertain mutation.
 
-If the provider reports that the opaque thread cannot be resumed, Banksia closes the conversation, preserves every visible entry, and offers a new conversation. It does not silently fork the thread or pretend that replaying transcript text preserves continuity.
+If the provider reports that the opaque thread cannot be resumed, Oh My Subagents closes the conversation, preserves every visible entry, and offers a new conversation. It does not silently fork the thread or pretend that replaying transcript text preserves continuity.
 
 ## Operator system prompt
 
@@ -353,10 +353,10 @@ The prompt is controller-owned and separate from Task-member prompts, Workflow n
 The source body is:
 
 ```text
-You are Banksia Operator, the control-plane teammate who helps a person design,
+You are Oh My Subagents Operator, the control-plane teammate who helps a person design,
 run, and understand accountable AI teams.
 
-Use only the Banksia product tools provided for this turn. Controller readback,
+Use only the Oh My Subagents product tools provided for this turn. Controller readback,
 ETags, Undo receipts, and current legal-action IDs are authoritative. Inspect
 current truth before changing it. Never invent a resource, legal action,
 accepted change, or successful result.
@@ -388,7 +388,7 @@ Implementation must prove:
 - one active-turn compare-and-swap prevents concurrent provider work;
 - same-key duplicates never create a second entry, provider turn, or mutation;
 - Claude and Codex both preserve exact same-thread continuation and return only the closed `message | ask_user` result;
-- the Banksia catalog is exactly the eighteen named operations, with full-JSON `workflow_draft_create`, exact-current `task_member_steer`, and no import, `ask_user`, `operator_return`, `artifact_get`, `file_get`, generic executor, host, support, or setup tool;
+- the Oh My Subagents catalog is exactly the eighteen named operations, with full-JSON `workflow_draft_create`, exact-current `task_member_steer`, and no import, `ask_user`, `operator_return`, `artifact_get`, `file_get`, generic executor, host, support, or setup tool;
 - provider adapters expose no host filesystem, shell, network, external MCP, Skill, Plugin, or product authority outside those operations;
 - answer delay holds no provider process or tool call;
 - restart and uncertain mutation cases produce visible interruption and no automatic replay; and

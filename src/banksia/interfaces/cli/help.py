@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 ROOT_HELP_EPILOG = """Examples:
-  banksia init --json
-  banksia service status
-  banksia workflow import --file ./advanced-reviewed-code-change.yaml
+  oms init --json
+  oms service status
+  oms workflow import --file ./advanced-reviewed-code-change.yaml
 """
 
 
@@ -16,5 +16,5 @@ def help_command_for(argv: tuple[str, ...]) -> str:
         if len(command_tokens) >= 2:
             break
     if not command_tokens:
-        return "banksia --help"
-    return "banksia " + " ".join(command_tokens) + " --help"
+        return "oms --help"
+    return "oms " + " ".join(command_tokens) + " --help"

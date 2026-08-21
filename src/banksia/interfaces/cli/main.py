@@ -8,19 +8,31 @@ from .context import scan_cli_context
 from .failure_output import emit_abort, emit_click_exception, emit_unexpected_exception
 from .root import cli
 
+CANONICAL_PROGRAM_NAME = "oms"
+LEGACY_PROGRAM_NAME = "banksia"
+LEGACY_COMMAND_NOTICE = (
+    "The 'banksia' command is deprecated; use 'oms'. "
+    "Existing configuration and Task data are preserved."
+)
+
 
 def build_parser() -> click.Group:
     return cli
 
 
-def main(argv: list[str] | None = None) -> int:
+def legacy_main(argv: list[str] | None = None) -> int:
+    click.echo(LEGACY_COMMAND_NOTICE, err=True)
+    return main(argv, prog_name=LEGACY_PROGRAM_NAME)
+
+
+def main(argv: list[str] | None = None, *, prog_name: str = CANONICAL_PROGRAM_NAME) -> int:
     argv_list = list(sys.argv[1:] if argv is None else argv)
     runtime = scan_cli_context(argv_list)
     normalized_argv = _normalize_debug_option(argv_list)
     try:
         result = cli.main(
             args=normalized_argv,
-            prog_name="banksia",
+            prog_name=prog_name,
             standalone_mode=False,
             obj=runtime,
         )

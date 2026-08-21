@@ -100,7 +100,9 @@ class LaunchdUserServiceManager:
         )
         inspection = self.inspect(target)
         if not inspection.is_definition_current:
-            raise RuntimeError("launchd did not retain the current Banksia service definition")
+            raise RuntimeError(
+                "launchd did not retain the current Oh My Subagents service definition"
+            )
         if should_start:
             return self.start(target, command_observer=command_observer)
         return inspection
@@ -264,7 +266,7 @@ class LaunchdUserServiceManager:
     def _require_supported(self) -> None:
         if sys.platform != "darwin":
             raise RuntimeError(
-                "Banksia background services use a current-user LaunchAgent on macOS; "
+                "Oh My Subagents background services use a current-user LaunchAgent on macOS; "
                 "this host is not macOS"
             )
 
@@ -272,13 +274,13 @@ class LaunchdUserServiceManager:
         current = read_service_definition(self.definition_path)
         if current is None:
             raise RuntimeError(
-                "Banksia background service is not installed; run `banksia service install`"
+                "Oh My Subagents background service is not installed; run `oms service install`"
             )
         expected = self.render_definition(target).encode("utf-8")
         if not _launchd_definitions_match(current, expected):
             raise RuntimeError(
-                "Banksia background service definition is out of date; "
-                "run `banksia service install`"
+                "Oh My Subagents background service definition is out of date; "
+                "run `oms service install`"
             )
 
     def _inspect_job(self) -> LaunchdJobSnapshot:

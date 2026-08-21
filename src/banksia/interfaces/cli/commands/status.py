@@ -51,7 +51,7 @@ def cmd_status(args: argparse.Namespace) -> int:
         print_json(payload)
     else:
         emit_key_value_panel(
-            "Banksia status",
+            "Oh My Subagents status",
             (
                 (
                     "Config",
@@ -68,7 +68,7 @@ def cmd_status(args: argparse.Namespace) -> int:
                 ),
                 ("Default provider", default_provider or "Not configured"),
                 ("Database", "Not inspected by passive status"),
-                ("Service", "Run banksia service status"),
+                ("Service", "Run oms service status"),
             ),
         )
         emit_provider_status(providers)

@@ -90,7 +90,7 @@ def test_guided_init_confirms_recommended_local_settings(
     assert data_dir.joinpath("banksia.persistence").is_file()
     assert "Default workspace" in result.output
     assert "Use these recommended local settings?" in result.output
-    assert "Banksia Task provider setup" in result.output
+    assert "Oh My Subagents Task provider setup" in result.output
     assert "Provider to configure (codex, claude, cancel)" in result.output
     assert "Provider setup cancelled. No provider changes were made." in result.output
     assert "Operator provider (Codex, Claude, Not now)" in result.output
@@ -137,9 +137,9 @@ def test_guided_init_rerun_keeps_config_and_verifies_database(
     assert config_path.read_bytes() == previous_config
     assert data_dir.joinpath("banksia.persistence").is_file()
     assert "Keep and verify" in result.output
-    assert "Banksia Task provider setup" not in result.output
-    assert "Banksia Operator setup" not in result.output
-    assert "banksia serve" in result.output
+    assert "Oh My Subagents Task provider setup" not in result.output
+    assert "Oh My Subagents Operator setup" not in result.output
+    assert "oms serve" in result.output
 
 
 def test_guided_init_reconfiguration_requires_final_confirmation(
@@ -210,8 +210,8 @@ def test_guided_init_reconfiguration_marks_retained_provider_and_operator_settin
         "effort": "medium",
     }
     assert payload["runtime"] == {"default_provider": "codex"}
-    assert "Banksia Task provider setup" not in result.output
-    assert "Banksia Operator setup" not in result.output
+    assert "Oh My Subagents Task provider setup" not in result.output
+    assert "Oh My Subagents Operator setup" not in result.output
     assert "codex, claude (kept)" in result.output
     assert "claude (kept)" in result.output
 
@@ -256,7 +256,8 @@ def test_guided_setup_imports_shell_api_key_for_the_managed_service(
 
     assert result.exit_code == 0, result.output
     assert (
-        "Existing Claude API key found in this shell. Store it for the Banksia service? [Y/n]"
+        "Existing Claude API key found in this shell. "
+        "Store it for the Oh My Subagents service? [Y/n]"
     ) in result.output
     assert read_provider_secret_environment(config_path.parent / "banksia.env") == {
         ANTHROPIC_API_KEY: "shell-anthropic-secret"
@@ -341,8 +342,8 @@ def test_guided_setup_points_to_a_nonready_additional_provider(
 
     assert result.exit_code == 1, result.output
     assert "claude: not_installed" in result.output
-    assert "Next: banksia providers check claude" in result.output
-    assert "Next: banksia serve" not in result.output
+    assert "Next: oms providers check claude" in result.output
+    assert "Next: oms serve" not in result.output
 
 
 def test_guided_setup_explicit_provider_preserves_existing_default(
@@ -401,8 +402,8 @@ def test_guided_setup_discloses_environment_default_override(
         ["setup", "--config", str(config_path), "--provider", "codex"],
         input="\n\nn\n",
         env={
-            "BANKSIA_CLAUDE__ENABLED": "true",
-            "BANKSIA_RUNTIME__DEFAULT_PROVIDER": "claude",
+            "OMS_CLAUDE__ENABLED": "true",
+            "OMS_RUNTIME__DEFAULT_PROVIDER": "claude",
         },
     )
 

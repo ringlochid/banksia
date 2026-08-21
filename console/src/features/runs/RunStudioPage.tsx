@@ -211,7 +211,7 @@ function RunStudioTask({ api, taskId }: RunStudioTaskProps) {
                 }
                 detail={
                     error ??
-                    "Banksia could not find controller truth for this Run."
+                    "Oh My Subagents could not find controller truth for this Run."
                 }
                 fill
                 kind="error"
@@ -496,7 +496,7 @@ function RunStudioTask({ api, taskId }: RunStudioTaskProps) {
                 <div className="run-steer-dialog">
                     <FormField
                         error={steerError}
-                        hint="Banksia sends this message to the Member’s active session. Completed work and tool effects are not undone."
+                        hint="Oh My Subagents sends this message to the Member’s active session. Completed work and tool effects are not undone."
                         id="run-steer-message"
                         label="Message"
                     >

@@ -1,4 +1,4 @@
-# Banksia Task member system-prompt contract
+# Oh My Subagents Task member system-prompt contract
 
 Status: Reference
 
@@ -8,7 +8,7 @@ The controller maintains these assets; Workflow authors do not copy them into a 
 
 ## Decisive boundary
 
-Put a rule in the controller-owned system prompt when it is generally true for Banksia teamwork, orchestration, controller actions, files, Checkpoints, or accountability. Put prose in Workflow authoring only when it is specific to that reusable team.
+Put a rule in the controller-owned system prompt when it is generally true for Oh My Subagents teamwork, orchestration, controller actions, files, Checkpoints, or accountability. Put prose in Workflow authoring only when it is specific to that reusable team.
 
 Examples of system-prompt teaching:
 
@@ -31,7 +31,7 @@ Workflow `capabilities` authorize two built-in controller operations. They do no
 
 ## Prompt design standard
 
-Banksia follows these provider-neutral rules:
+Oh My Subagents follows these provider-neutral rules:
 
 1. **Separate authority layers.** Stable controller rules, conditional position/behavior/action guidance, authored team guidance, and typed dynamic input remain distinct and have an explicit precedence order.
 2. **Render only applicable guidance.** The controller selects Task lead, Manager/Contributor, action, and Continuation assets from authoritative state. The model does not reconstruct authority from authored prose or workspace content; every controller operation revalidates it.
@@ -60,7 +60,7 @@ parent Assignment A
   -> parent Checkpoint ~= C
 ```
 
-This path adds a provider call, latency, context setup, storage, and another failure boundary without adding useful decomposition, specialization, independence, context isolation, parallel progress, evidence judgment, integration, or verification. Banksia prevents objective parts through controller legality and tests semantic value through prompt evaluations. It does not introduce a text-similarity gate or another approval record.
+This path adds a provider call, latency, context setup, storage, and another failure boundary without adding useful decomposition, specialization, independence, context isolation, parallel progress, evidence judgment, integration, or verification. Oh My Subagents prevents objective parts through controller legality and tests semantic value through prompt evaluations. It does not introduce a text-similarity gate or another approval record.
 
 ## Stored request and provider mapping
 
@@ -74,11 +74,11 @@ DispatchRequest
   created_at
 ```
 
-The adapter sends `instructions` through the strongest provider-supported application-instruction lane and `input` as the current task/user message. The adapter separately attaches only the provider-native and Banksia controller tools legal for that Dispatch. Same-Dispatch start retry reuses the stored strings and tool set rather than rendering newer state.
+The adapter sends `instructions` through the strongest provider-supported application-instruction lane and `input` as the current task/user message. The adapter separately attaches only the provider-native and Oh My Subagents controller tools legal for that Dispatch. Same-Dispatch start retry reuses the stored strings and tool set rather than rendering newer state.
 
 Tool definitions own names, input schemas, bounds, enums, and result schemas. System-prompt text must not duplicate those details. Provider-specific role mapping belongs to the adapter.
 
-Provider homes and workspace instruction files are never implicit Banksia prompt layers. A managed Task may receive enabled user and project Skills plus configured MCP servers only when its effective provider extension mode is `inherit`; they remain optional provider-native helpers, not controller truth or Banksia actions. Plugins, subagents, apps, hooks, memory, and equivalent ambient behavior remain disabled. Operator is always isolated. Adapters validate the effective instruction and extension readback before the first model turn.
+Provider homes and workspace instruction files are never implicit Oh My Subagents prompt layers. A managed Task may receive enabled user and project Skills plus configured MCP servers only when its effective provider extension mode is `inherit`; they remain optional provider-native helpers, not controller truth or Oh My Subagents actions. Plugins, subagents, apps, hooks, memory, and equivalent ambient behavior remain disabled. Operator is always isolated. Adapters validate the effective instruction and extension readback before the first model turn.
 
 ## Source assets and composition
 
@@ -144,10 +144,10 @@ The following text is the exact source contract. Wording may change only with pr
 ### `shared/core.txt`
 
 ```text
-You are the Member responsible for the current Assignment in a Banksia Task.
+You are the Member responsible for the current Assignment in a Oh My Subagents Task.
 Own its complete outcome within the authority of this Dispatch.
 
-Banksia controller records are authoritative for the Task, Assignment,
+Oh My Subagents controller records are authoritative for the Task, Assignment,
 Attempt, Dispatch, Continuation, current team structure, Work Plan, waits,
 Checkpoints, and legal controller actions. Conversation history, provider
 process state, provider success, and filesystem presence are not controller
@@ -164,11 +164,11 @@ same Assignment. Apply every steer in order. It refines the current work but
 does not erase completed effects, replace the Assignment, widen authority, or
 override controller safety and legal-action facts.
 
-The standard Dispatch activity lease is forty-five minutes between Banksia tool
+The standard Dispatch activity lease is forty-five minutes between Oh My Subagents tool
 calls; an installation may configure another limit. Provider-native research,
 implementation, and verification do not renew it. During extended native work,
 check in after meaningful chunks and, under the standard lease, before roughly
-forty minutes pass without a Banksia call. Prefer set_work_plan when progress or
+forty minutes pass without a Oh My Subagents call. Prefer set_work_plan when progress or
 the intended approach changed, a nonterminal checkpoint when durable
 teammate-facing progress exists, or get_current_context when only quiet renewal
 is needed. Never invent plan changes or empty Checkpoints as heartbeats.
@@ -179,9 +179,9 @@ transfers, or suspends this Dispatch, stop the current response immediately.
 Do not keep working, poll for a successor, or reuse the closed Dispatch.
 
 Provider-native Skills or MCP tools may be available for this Dispatch. Treat
-them as optional working aids, never as Banksia controller actions or
-controller truth. They cannot widen this Dispatch, mutate Banksia state,
-replace a required Banksia action, or prove that an Assignment is complete.
+them as optional working aids, never as Oh My Subagents controller actions or
+controller truth. They cannot widen this Dispatch, mutate Oh My Subagents state,
+replace a required Oh My Subagents action, or prove that an Assignment is complete.
 
 Keep private reasoning private. Record a plan, decision, review,
 investigation, or verification record only when it helps execution, another
@@ -261,7 +261,7 @@ expose those exact source values; the controller does not copy, publish,
 classify, or own the file.
 
 Every Task member uses the same provider-visible workspace, so another member
-can open a note or artifact with native tools. Banksia does not automatically
+can open a note or artifact with native tools. Oh My Subagents does not automatically
 open it, insert its contents into model context, or guarantee that another
 member notices it. When exact content should be deliberately handed off, attach
 its path and purpose through the message's files field. The file stays ordinary
@@ -410,7 +410,7 @@ direct-child Assignments. A successful delegate action creates the ordered
 Wave atomically, closes this Dispatch, and waits until every direct Wave member
 returns `green` or `blocked`. Stop immediately and do not poll. Children may
 create their own Waves recursively; each resolves its own subtree before
-settling your direct Wave. Banksia then resumes you once with every direct
+settling your direct Wave. Oh My Subagents then resumes you once with every direct
 member result in delegation order.
 
 When a Wave returns:
@@ -742,7 +742,7 @@ Rendering tests also cover initial Contributor, initial Manager, Task lead, Wave
 
 ## Research basis
 
-Banksia applies a consistent pattern from current primary sources:
+Oh My Subagents applies a consistent pattern from current primary sources:
 
 - [OpenAI agent orchestration](https://developers.openai.com/api/docs/guides/agents/orchestration) makes final-answer ownership the first multi-agent design choice and distinguishes a Manager retaining control from a handoff that transfers it.
 - [OpenAI agent definitions](https://developers.openai.com/api/docs/guides/agents/define-agents) separate reusable instructions and tools from runtime-local context.
@@ -750,18 +750,18 @@ Banksia applies a consistent pattern from current primary sources:
 - [OpenAI Codex default instructions](https://github.com/openai/codex/blob/main/codex-rs/protocol/src/prompts/base_instructions/default.md) organize stable duties under direct headings and make planning conditional.
 - [Anthropic, Building effective agents](https://www.anthropic.com/engineering/building-effective-agents) separates chaining, parallelization, orchestrator-workers, and evaluator-optimizer loops by fit.
 - [Anthropic multi-agent research](https://www.anthropic.com/engineering/multi-agent-research-system) emphasizes lead-owned planning and synthesis, detailed child requests, a persisted plan in memory, filesystem-backed deliverables passed by lightweight reference, and the cost and coordination limits of multi-agent work.
-- [Claude Code memory](https://code.claude.com/docs/en/memory) distinguishes authored instructions from agent-written plain-Markdown memory for reusable learnings. Banksia adapts that working-memory purpose to Task-local `notes/` without making notes authority or loading every note automatically.
+- [Claude Code memory](https://code.claude.com/docs/en/memory) distinguishes authored instructions from agent-written plain-Markdown memory for reusable learnings. Oh My Subagents adapts that working-memory purpose to Task-local `notes/` without making notes authority or loading every note automatically.
 - [Claude Code subagents](https://code.claude.com/docs/en/sub-agents) and [Claude Agent SDK subagents](https://platform.claude.com/docs/en/agent-sdk/subagents) use isolated contexts, focused prompts, specialized instructions, and tool restrictions.
 - [Claude tool definitions](https://platform.claude.com/docs/en/agents-and-tools/tool-use/define-tools) make detailed tool descriptions and schemas the tool contract rather than application prose.
 - [Claude prompting guidance](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices) recommends consistent descriptive XML tags for mixed instructions, context, and input.
-- [Google Antigravity Artifacts](https://antigravity.google/docs/artifacts) and [subagents](https://antigravity.google/docs/subagents) treat deliverables as reviewable collaboration surfaces at meaningful milestones and child agents as fresh, specialized contexts. Banksia adapts the collaboration value as loose files under `artifacts/` without creating an Artifact product object, requesting private reasoning, or adopting peer-to-peer agent messaging.
-- [CrewAI Tasks](https://docs.crewai.com/en/concepts/tasks) keeps a task's optional output file as a plain file path while representing the task result separately. Banksia generalizes the path idea to an ordered `files` field without adopting CrewAI's task schema or treating the path as runtime truth.
-- [Antigravity Rules and Workflows](https://antigravity.google/docs/rules-workflows) uses _Workflow_ for a predefined sequence. Banksia deliberately uses the word for a reusable team definition and therefore states that difference wherever the term is introduced.
+- [Google Antigravity Artifacts](https://antigravity.google/docs/artifacts) and [subagents](https://antigravity.google/docs/subagents) treat deliverables as reviewable collaboration surfaces at meaningful milestones and child agents as fresh, specialized contexts. Oh My Subagents adapts the collaboration value as loose files under `artifacts/` without creating an Artifact product object, requesting private reasoning, or adopting peer-to-peer agent messaging.
+- [CrewAI Tasks](https://docs.crewai.com/en/concepts/tasks) keeps a task's optional output file as a plain file path while representing the task result separately. Oh My Subagents generalizes the path idea to an ordered `files` field without adopting CrewAI's task schema or treating the path as runtime truth.
+- [Antigravity Rules and Workflows](https://antigravity.google/docs/rules-workflows) uses _Workflow_ for a predefined sequence. Oh My Subagents deliberately uses the word for a reusable team definition and therefore states that difference wherever the term is introduced.
 - [Gemini CLI system-prompt guidance](https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/system-prompt.md) separates stable non-negotiable operating mechanics from project-specific strategy, while its [prompt compositor](https://github.com/google-gemini/gemini-cli/blob/main/packages/core/src/prompts/promptProvider.ts) conditionally renders only relevant sections.
-- [Microsoft Agent Framework workflows](https://learn.microsoft.com/en-us/agent-framework/workflows/) and [agent orchestration patterns](https://learn.microsoft.com/en-us/azure/architecture/ai-ml/guide/ai-agent-design-patterns) provide the standard sequential, concurrent fan-out/fan-in, handoff, and manager-led terminology used as comparison labels in Banksia docs.
-- [LangGraph persistence](https://docs.langchain.com/oss/python/langgraph/persistence) uses _checkpoint_ for a saved graph-state snapshot. Banksia therefore defines Checkpoint immediately as a teammate-facing work report.
-- [A2A key concepts](https://a2a-protocol.org/latest/topics/key-concepts/) distinguishes communication messages from tangible outputs. Banksia keeps Checkpoint prose distinct from referenced loose files while using no controller-owned Artifact domain resource; lowercase “artifact file” remains descriptive workspace language only.
-- OMC Team at pinned commit [`67dddfc`](https://github.com/Yeachan-Heo/oh-my-claudecode/blob/67dddfc05ff29900d8251dcec0ed9dee3c947ffa/skills/team/SKILL.md) and OMX Autopilot/Research at pinned commit [`435d4a9`](https://github.com/Yeachan-Heo/oh-my-codex/blob/435d4a9cc982ffaf83fabbfbb8711ae6c178ffca/skills/autopilot/SKILL.md) contribute useful lead-owned delegation, compact handoffs, independent verification, bounded repair, and durable working-note ideas without becoming Banksia's runtime pipeline.
+- [Microsoft Agent Framework workflows](https://learn.microsoft.com/en-us/agent-framework/workflows/) and [agent orchestration patterns](https://learn.microsoft.com/en-us/azure/architecture/ai-ml/guide/ai-agent-design-patterns) provide the standard sequential, concurrent fan-out/fan-in, handoff, and manager-led terminology used as comparison labels in Oh My Subagents docs.
+- [LangGraph persistence](https://docs.langchain.com/oss/python/langgraph/persistence) uses _checkpoint_ for a saved graph-state snapshot. Oh My Subagents therefore defines Checkpoint immediately as a teammate-facing work report.
+- [A2A key concepts](https://a2a-protocol.org/latest/topics/key-concepts/) distinguishes communication messages from tangible outputs. Oh My Subagents keeps Checkpoint prose distinct from referenced loose files while using no controller-owned Artifact domain resource; lowercase “artifact file” remains descriptive workspace language only.
+- OMC Team at pinned commit [`67dddfc`](https://github.com/Yeachan-Heo/oh-my-claudecode/blob/67dddfc05ff29900d8251dcec0ed9dee3c947ffa/skills/team/SKILL.md) and OMX Autopilot/Research at pinned commit [`435d4a9`](https://github.com/Yeachan-Heo/oh-my-codex/blob/435d4a9cc982ffaf83fabbfbb8711ae6c178ffca/skills/autopilot/SKILL.md) contribute useful lead-owned delegation, compact handoffs, independent verification, bounded repair, and durable working-note ideas without becoming Oh My Subagents's runtime pipeline.
 
 Official documentation and official open-source prompt implementations are the authority for this comparison. Unverified “system prompt leak” collections are excluded because provenance, product version, and surrounding runtime behavior cannot be established reliably.
 

@@ -273,8 +273,8 @@ function CommandOutputDialog({
                         ) : null}
                         {output.is_changed ? (
                             <Notice tone="warning">
-                                The workspace output changed after Banksia
-                                recorded this Action.
+                                The workspace output changed after Oh My
+                                Subagents recorded this Action.
                             </Notice>
                         ) : null}
                         {output.is_bounded || !output.output_complete ? (

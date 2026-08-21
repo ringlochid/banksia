@@ -67,7 +67,7 @@ _TOOL_FAILURE_RESULT = json.dumps(
     {
         "error": "operator_operation_outcome_uncertain",
         "message": (
-            "Banksia could not establish an accepted result. Do not repeat the operation "
+            "Oh My Subagents could not establish an accepted result. Do not repeat the operation "
             "automatically; inspect authoritative product truth first."
         ),
     },

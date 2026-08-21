@@ -4,12 +4,12 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
 DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
-CONFIG_DIR="${BANKSIA_CONFIG_DIR:-$CONFIG_HOME/banksia}"
-DATA_DIR="${BANKSIA_DATA_DIR:-$DATA_HOME/banksia}"
-VENV_DIR="${BANKSIA_VENV_DIR:-$DATA_DIR/venv}"
-PYTHON_BIN="${BANKSIA_PYTHON_BIN:-python3}"
-CONFIG_PATH="${BANKSIA_CONFIG:-$CONFIG_DIR/config.toml}"
-WORKSPACE_PATH="${BANKSIA_WORKSPACE:-$PWD}"
+CONFIG_DIR="${OMS_CONFIG_DIR:-$CONFIG_HOME/banksia}"
+DATA_DIR="${OMS_DATA_DIR:-$DATA_HOME/banksia}"
+VENV_DIR="${OMS_VENV_DIR:-$DATA_DIR/venv}"
+PYTHON_BIN="${OMS_PYTHON_BIN:-python3}"
+CONFIG_PATH="${OMS_CONFIG:-$CONFIG_DIR/config.toml}"
+WORKSPACE_PATH="${OMS_WORKSPACE:-$PWD}"
 INSTALL_MODE="source"
 WHEEL_PATH=""
 NO_DEPS=0
@@ -22,23 +22,23 @@ usage() {
   cat <<'EOF'
 Usage: scripts/install-systemd-user.sh [options]
 
-Installs Banksia into a dedicated user venv, runs the shipped noninteractive
-initializer, then delegates service ownership to `banksia service install`.
+Installs Oh My Subagents into a dedicated user venv, runs the shipped noninteractive
+initializer, then delegates service ownership to `oms service install`.
 
 Options:
   --editable       Install from the repo in editable mode
-  --wheel PATH     Install an already-built Banksia wheel
+  --wheel PATH     Install an already-built Oh My Subagents wheel
   --no-deps        Do not resolve dependencies (for an offline prepared venv)
   --postgres       Install the postgres extra
   --workspace PATH Persist this existing directory as the default workspace
   --port PORT      Persist this local API port during initialization
-  --force-init     Re-write the generated config.toml during banksia init
+  --force-init     Re-write the generated config.toml during oms init
   --no-start       Install the service but do not start it now
   -h, --help       Show this help
 
 Environment overrides:
-  BANKSIA_CONFIG_DIR, BANKSIA_DATA_DIR, BANKSIA_VENV_DIR,
-  BANKSIA_CONFIG, BANKSIA_WORKSPACE, BANKSIA_PYTHON_BIN
+  OMS_CONFIG_DIR, OMS_DATA_DIR, OMS_VENV_DIR,
+  OMS_CONFIG, OMS_WORKSPACE, OMS_PYTHON_BIN
 EOF
 }
 
@@ -88,7 +88,7 @@ while (($# > 0)); do
 done
 
 if [[ "$(uname -s)" != Linux* ]]; then
-  echo "This convenience wrapper is Linux-only. Install Banksia, then run 'banksia init' and 'banksia service install' on this host." >&2
+  echo "This convenience wrapper is Linux-only. Install Oh My Subagents, then run 'oms init' and 'oms service install' on this host." >&2
   exit 1
 fi
 if [[ ! -d "$WORKSPACE_PATH" ]]; then
@@ -142,12 +142,12 @@ if (( NO_START )); then
 fi
 "$VENV_DIR/bin/banksia" "${SERVICE_INSTALL_ARGS[@]}"
 
-echo "Installed Banksia and reconciled its per-user background service."
+echo "Installed Oh My Subagents and reconciled its per-user background service."
 echo "  config: $CONFIG_PATH"
 echo "  data:   $DATA_DIR"
 echo "  venv:   $VENV_DIR"
 if (( NO_START )); then
-  echo "Start it with: $VENV_DIR/bin/banksia service start --config $CONFIG_PATH"
+  echo "Start it with: $VENV_DIR/bin/oms service start --config $CONFIG_PATH"
 else
-  echo "Check it with: $VENV_DIR/bin/banksia service status --config $CONFIG_PATH"
+  echo "Check it with: $VENV_DIR/bin/oms service status --config $CONFIG_PATH"
 fi

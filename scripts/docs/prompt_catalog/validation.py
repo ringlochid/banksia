@@ -61,7 +61,7 @@ def validate_prompt_contract() -> tuple[str, ...]:
     errors: list[str] = []
     asset_paths = tuple(instruction_asset_path(asset).as_posix() for asset in INSTRUCTION_ASSETS)
     if asset_paths != EXPECTED_ASSET_PATHS:
-        errors.append("instruction assets do not match the Banksia prompt set")
+        errors.append("instruction assets do not match the Oh My Subagents prompt set")
 
     for asset in INSTRUCTION_ASSETS:
         try:

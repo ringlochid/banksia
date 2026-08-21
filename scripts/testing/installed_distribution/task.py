@@ -7,7 +7,9 @@ from typing import Any
 from .processes import run_json_command
 from .server import run_installed_server_smoke
 
-INSTALLED_TASK_PROMPT = "Prove the installed Banksia Task contract remains durable after restart."
+INSTALLED_TASK_PROMPT = (
+    "Prove the installed Oh My Subagents Task contract remains durable after restart."
+)
 TASK_START_STATUS_MESSAGE = (
     "The run was accepted. Work starts asynchronously and may still need attention."
 )

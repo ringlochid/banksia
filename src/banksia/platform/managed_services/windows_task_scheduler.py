@@ -43,7 +43,7 @@ class WindowsTaskSchedulerError(RuntimeError):
 
 
 class ComWindowsTaskScheduler:
-    """Task Scheduler 2.0 scripting API boundary for one fixed Banksia task."""
+    """Task Scheduler 2.0 scripting API boundary for one fixed OMS task."""
 
     def inspect(self) -> WindowsScheduledTaskSnapshot | None:
         def read_task() -> WindowsScheduledTaskSnapshot | None:
@@ -115,7 +115,7 @@ class ComWindowsTaskScheduler:
             raise WindowsTaskSchedulerError(
                 operation="inspect",
                 return_code=-1,
-                detail="Banksia background service task is not registered",
+                detail="Oh My Subagents background service task is not registered",
             )
         return task
 

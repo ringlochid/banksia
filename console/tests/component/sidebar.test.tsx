@@ -8,7 +8,7 @@ import type { SidebarLayout } from "../../src/components/layout/useSidebarLayout
 import { TooltipProvider } from "../../src/components/ui";
 
 describe("Sidebar", () => {
-    it("uses the Banksia mark in the expanded brand link", () => {
+    it("uses the Oh My Subagents mark in the expanded brand link", () => {
         render(
             <MemoryRouter>
                 <TooltipProvider>
@@ -22,11 +22,11 @@ describe("Sidebar", () => {
             </MemoryRouter>,
         );
 
-        const home = screen.getByRole("link", { name: "Banksia home" });
-        expect(home).toHaveTextContent("Banksia");
+        const home = screen.getByRole("link", { name: "Oh My Subagents home" });
+        expect(home).toHaveTextContent("Oh My Subagents");
         expect(home.querySelector("img")).toHaveAttribute(
             "src",
-            "/assets/banksia-mark.svg",
+            "/assets/oms-mark.svg",
         );
     });
 

@@ -1,6 +1,6 @@
-# Contributing to Banksia
+# Contributing to Oh My Subagents
 
-Banksia is in active development. Contributions should strengthen one explicit product or engineering contract without creating parallel truth, compatibility paths, or unrelated cleanup.
+Oh My Subagents is in active development. Contributions should strengthen one explicit product or engineering contract without creating parallel truth, compatibility paths, or unrelated cleanup.
 
 ## Read the owners first
 
@@ -19,13 +19,13 @@ Do not treat code shape, tests, ignored research, or generated output as permiss
 The PyPI package is the normal user installation. Contributors should work from a clean repository checkout:
 
 ```bash
-git clone https://github.com/ringlochid/banksia.git
+git clone https://github.com/ringlochid/oh-my-subagents.git
 cd banksia
 make backend-install
 make console-install
 ```
 
-Use `./.venv/bin/banksia ...` for source-checkout CLI commands. To run the bundled local Console through `./.venv/bin/banksia serve`, prepare its ignored assets first:
+Use `./.venv/bin/oms ...` for source-checkout CLI commands. To run the bundled local Console through `./.venv/bin/oms serve`, prepare its ignored assets first:
 
 ```bash
 make console-package-assets
@@ -65,4 +65,4 @@ Before handoff, inspect the complete diff, run `git diff --check`, and report:
 - any skipped lane, residual risk, or follow-up owner; and
 - whether generated, package, schema, service, or reset proof was applicable.
 
-For a product decision that is not already owned, open an [issue](https://github.com/ringlochid/banksia/issues) with the observed gap and constraints rather than encoding a guess in code.
+For a product decision that is not already owned, open an [issue](https://github.com/ringlochid/oh-my-subagents/issues) with the observed gap and constraints rather than encoding a guess in code.

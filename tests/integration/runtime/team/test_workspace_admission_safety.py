@@ -102,7 +102,7 @@ async def test_task_start_preserves_existing_banksia_content_and_permissions(
             response = await start_task(
                 TaskStartRequest(
                     workflow=GENERIC_WORKFLOW_ID,
-                    prompt="Work without changing project-owned Banksia content.",
+                    prompt="Work without changing project-owned Oh My Subagents content.",
                     workspace=workspace,
                 ),
                 session=session,

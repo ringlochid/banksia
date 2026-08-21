@@ -1,6 +1,6 @@
 # Controller tools
 
-Banksia has two distinct typed operation catalogs:
+Oh My Subagents has two distinct typed operation catalogs:
 
 - **Task-member operations** act inside one exact current provider Dispatch and advance that Member's work.
 - **Operator operations** act on semantic Workflow and Task product services from a separate control-plane agent.
@@ -101,7 +101,7 @@ or:
 {"kind": "shell", "command": "make test-backend-unit"}
 ```
 
-`cwd`, when supplied, is relative to the Task workspace. Timeout is between 1 and 86,400 seconds. Full observed output goes to the Task's `command-runs/c_<id>/output.log`; product reads are bounded. Banksia does not capture unrelated provider-native shell activity.
+`cwd`, when supplied, is relative to the Task workspace. Timeout is between 1 and 86,400 seconds. Full observed output goes to the Task's `command-runs/c_<id>/output.log`; product reads are bounded. Oh My Subagents does not capture unrelated provider-native shell activity.
 
 ## Seventeen Operator operations
 
@@ -141,8 +141,8 @@ Opaque action IDs are currentness capabilities, not predictable commands. Operat
 
 ## Transport and authority limits
 
-Managed Codex and Claude Dispatches receive a short-lived scoped MCP connection at `/_internal/node/mcp`. Banksia does not persist that endpoint in provider configuration.
+Managed Codex and Claude Dispatches receive a short-lived scoped MCP connection at `/_internal/node/mcp`. Oh My Subagents does not persist that endpoint in provider configuration.
 
-These endpoints are transport for Banksia-owned operations. Workflow definitions cannot add arbitrary external MCP servers, resources, prompts, elicitation, Skills, plugins, or tools.
+These endpoints are transport for Oh My Subagents-owned operations. Workflow definitions cannot add arbitrary external MCP servers, resources, prompts, elicitation, Skills, plugins, or tools.
 
-Neither Banksia catalog contains generic file listing/reading/writing, note writing, managed Artifact operations, support traces, database operations, or host shell/network operations. This catalog boundary does not remove a managed Task Member's independent provider-native filesystem, search, editor, shell, or network access under the Dispatch's effective sandbox. Operator sees only semantic product readbacks and their owning file references; it receives no generic host authority.
+Neither Oh My Subagents catalog contains generic file listing/reading/writing, note writing, managed Artifact operations, support traces, database operations, or host shell/network operations. This catalog boundary does not remove a managed Task Member's independent provider-native filesystem, search, editor, shell, or network access under the Dispatch's effective sandbox. Operator sees only semantic product readbacks and their owning file references; it receives no generic host authority.

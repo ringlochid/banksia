@@ -5,6 +5,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from banksia.platform.managed_services.windows_task_scheduler import (
+    ComWindowsTaskScheduler,
+    WindowsTaskScheduler,
+)
+
 from .legacy_state import (
     LegacyStateOracle,
     assert_legacy_state_unchanged,
@@ -102,6 +107,7 @@ def verify_windows_user_service_installer(
     workspace: Path,
     dependency_site_packages: Path,
 ) -> dict[str, object]:
+    assert_windows_service_probe_is_safe()
     context, initialization = prepare_windows_service_probe(
         wheel_path=wheel_path,
         workspace=workspace,
@@ -134,6 +140,19 @@ def verify_windows_user_service_installer(
     }
 
 
+def assert_windows_service_probe_is_safe(
+    scheduler: WindowsTaskScheduler | None = None,
+) -> None:
+    selected_scheduler = scheduler or ComWindowsTaskScheduler()
+    if selected_scheduler.inspect() is None:
+        return
+    raise AssertionError(
+        "refusing installed-distribution verification because the fixed "
+        r"Windows service task \Banksia\Controller already exists; "
+        "use a clean Windows host or uninstall the user service explicitly first"
+    )
+
+
 def prepare_windows_service_probe(
     *,
     wheel_path: Path,
@@ -148,7 +167,7 @@ def prepare_windows_service_probe(
     install_root.mkdir(parents=True, exist_ok=True)
     create_offline_venv(venv_path, dependency_site_packages)
     install_wheel(venv_path, wheel_path, install_root)
-    executable = venv_executable(venv_path, "banksia")
+    executable = venv_executable(venv_path, "oms")
     env = isolated_environment(home)
     port = available_loopback_port()
     context = WindowsServiceProbeContext(
@@ -276,11 +295,11 @@ def prepare_service_probe(
     env = isolated_environment(home)
     env.update(
         {
-            "BANKSIA_CONFIG": str(config_path),
-            "BANKSIA_DATA_DIR": str(data_home / "banksia"),
-            "BANKSIA_SYSTEMCTL_BIN": str(fake_systemctl),
-            "BANKSIA_SYSTEMCTL_LOG": str(systemctl_log),
-            "BANKSIA_SYSTEMCTL_STATE": str(systemctl_state),
+            "OMS_CONFIG": str(config_path),
+            "OMS_DATA_DIR": str(data_home / "banksia"),
+            "OMS_SYSTEMCTL_BIN": str(fake_systemctl),
+            "OMS_SYSTEMCTL_LOG": str(systemctl_log),
+            "OMS_SYSTEMCTL_STATE": str(systemctl_state),
             "PIP_DISABLE_PIP_VERSION_CHECK": "1",
             "PIP_IGNORE_INSTALLED": "1",
             "PIP_NO_INDEX": "1",
@@ -299,7 +318,7 @@ def prepare_service_probe(
         unit_path=unit_dir / "banksia.service",
         systemctl_log=systemctl_log,
         env=env,
-        executable=venv_executable(venv_path, "banksia"),
+        executable=venv_executable(venv_path, "oms"),
         port=available_loopback_port(),
     )
     return context, legacy_state
@@ -453,7 +472,7 @@ def uninstall_user_service(
     if context.unit_path.exists():
         raise AssertionError("service uninstall left its native definition behind")
     if not context.config_path.is_file() or not context.env_file.is_file():
-        raise AssertionError("service uninstall removed persistent Banksia settings")
+        raise AssertionError("service uninstall removed persistent Oh My Subagents settings")
     final_calls = context.systemctl_log.read_text(encoding="utf-8").splitlines()
     if systemctl_change_calls(final_calls) != EXPECTED_LIFECYCLE_SYSTEMCTL_CHANGE_CALLS:
         raise AssertionError(f"unexpected service lifecycle systemctl calls: {final_calls}")
@@ -468,13 +487,13 @@ def write_fake_systemctl(path: Path) -> None:
     path.write_text(
         """#!/bin/sh
 set -eu
-printf '%s\n' "$*" >> "$BANKSIA_SYSTEMCTL_LOG"
+printf '%s\n' "$*" >> "$OMS_SYSTEMCTL_LOG"
 case "${2:-}" in
   start|restart)
-    printf '%s\n' active > "$BANKSIA_SYSTEMCTL_STATE"
+    printf '%s\n' active > "$OMS_SYSTEMCTL_STATE"
     ;;
   stop|disable)
-    printf '%s\n' inactive > "$BANKSIA_SYSTEMCTL_STATE"
+    printf '%s\n' inactive > "$OMS_SYSTEMCTL_STATE"
     ;;
 esac
 if [ "${2:-}" = "show" ]; then
@@ -484,8 +503,8 @@ if [ "${2:-}" = "show" ]; then
     exit 0
   fi
   state=inactive
-  if [ -f "$BANKSIA_SYSTEMCTL_STATE" ]; then
-    state=$(cat "$BANKSIA_SYSTEMCTL_STATE")
+  if [ -f "$OMS_SYSTEMCTL_STATE" ]; then
+    state=$(cat "$OMS_SYSTEMCTL_STATE")
   fi
   if [ "$state" = active ]; then
     sub_state=running

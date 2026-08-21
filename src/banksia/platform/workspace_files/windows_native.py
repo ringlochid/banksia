@@ -407,7 +407,7 @@ def require_ntfs(path: Path) -> None:
     if filesystem.value.casefold() != "ntfs":
         raise PrivatePathError(
             errno.ENOTSUP,
-            f"Banksia requires NTFS on Windows; found {filesystem.value or 'unknown'}",
+            f"Oh My Subagents requires NTFS on Windows; found {filesystem.value or 'unknown'}",
             normalized,
         )
 

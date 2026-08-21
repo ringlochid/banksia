@@ -1,4 +1,4 @@
-# Banksia coding agent contract
+# Oh My Subagents coding agent contract
 
 Status: Reference
 
@@ -6,7 +6,7 @@ This is the canonical root instruction surface for coding agents in this repo. K
 
 ## Product purpose
 
-Banksia is an accountable agent-team runtime for complex work that must remain auditable, reproducible, trackable, and operationally recoverable.
+Oh My Subagents is an accountable agent-team runtime for complex work that must remain auditable, reproducible, trackable, and operationally recoverable.
 
 - controller-owned runtime truth stays separate from provider behavior
 - explicit routing and boundaries beat hidden conversational continuity
@@ -29,7 +29,7 @@ Banksia is an accountable agent-team runtime for complex work that must remain a
 - do not assume filesystem state is canonical runtime truth unless canon says so
 - do not assume repo-local YAML or packaged definition files stay canonical after a controller-owned definition registry exists
 - do not assume validation preview is equivalent to publish-, start-, commit-, or runtime-time legality
-- treat Banksia as one-process and local-tool-first until canon explicitly adds distributed delivery
+- treat Oh My Subagents as one-process and local-tool-first until canon explicitly adds distributed delivery
 - do not assume retries are safe to replay across queued or distributed delivery
 - do not assume support-state files are authoritative controller truth
 - do not introduce compatibility aliases without an explicit product contract
@@ -78,7 +78,7 @@ Rules:
 - public reference owns external schemas and maintained examples; generated readbacks remain subordinate to their named internal owner
 - frontend work consumes the product/interface owner and generated controller contracts as its data boundaries
 - external design repos, ignored source clones, screenshots, and static HTML handoffs are visual, state, and interaction references only; they do not override controller-owned routes, fields, states, or legality
-- n8n material may be ported into `console/` only, which is licensed separately under the Sustainable Use License; everything outside `console/` stays MIT-clean. n8n's product vocabulary and data model are never ported — Banksia's terminology stays authoritative. Keep [`console/NOTICE`](console/NOTICE) and source-level provenance accurate
+- n8n material may be ported into `console/` only, which is licensed separately under the Sustainable Use License; everything outside `console/` stays MIT-clean. n8n's product vocabulary and data model are never ported — Oh My Subagents's terminology stays authoritative. Keep [`console/NOTICE`](console/NOTICE) and source-level provenance accurate
 - code and tests can expose drift, but they do not silently overrule an owning contract; patch the owner and implementation together
 
 ## Mandatory read order

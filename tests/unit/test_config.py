@@ -40,7 +40,8 @@ def _configure_platform_directories(
         strict=True,
     ):
         monkeypatch.setenv(environment_name, str(directory))
-    return directories
+    config_home, data_home, state_home, cache_home = directories
+    return config_home, data_home, state_home, cache_home
 
 
 def _toml_string(value: Path) -> str:
@@ -119,8 +120,8 @@ watchdog_same_attempt_replacement_limit = 3
         encoding="utf-8",
     )
 
-    monkeypatch.delenv("BANKSIA_CONFIG", raising=False)
-    monkeypatch.delenv("BANKSIA_DATABASE_URL", raising=False)
+    monkeypatch.delenv("OMS_CONFIG", raising=False)
+    monkeypatch.delenv("OMS_DATABASE_URL", raising=False)
 
     config_module = _reload_config_module()
     config_module.get_settings.cache_clear()
@@ -162,8 +163,8 @@ def test_settings_ignore_autoclaw_environment_and_leave_old_state_untouched(
     old_config_text = '[database]\nurl = "sqlite+aiosqlite:////tmp/from-autoclaw.db"\n'
     old_config_path.write_text(old_config_text, encoding="utf-8")
 
-    monkeypatch.delenv("BANKSIA_CONFIG", raising=False)
-    monkeypatch.delenv("BANKSIA_DATABASE_URL", raising=False)
+    monkeypatch.delenv("OMS_CONFIG", raising=False)
+    monkeypatch.delenv("OMS_DATABASE_URL", raising=False)
     monkeypatch.setenv("AUTOCLAW_CONFIG", str(old_config_path))
     monkeypatch.setenv("AUTOCLAW_DATABASE_URL", "sqlite+aiosqlite:////tmp/from-old-env.db")
 
@@ -210,24 +211,24 @@ watchdog_inactivity_timeout_seconds = 1200
         encoding="utf-8",
     )
 
-    monkeypatch.setenv("BANKSIA_CONFIG", str(config_path))
+    monkeypatch.setenv("OMS_CONFIG", str(config_path))
     monkeypatch.setenv(CONTROLLER_WORKSPACE_ENV_VAR, str(environment_workspace))
-    monkeypatch.setenv("BANKSIA_DATABASE_URL", "sqlite+aiosqlite:////tmp/from-env.db")
-    monkeypatch.setenv("BANKSIA_POSTGRES_SCHEMA", "environment_schema")
-    monkeypatch.setenv("BANKSIA_DATABASE_ECHO", "true")
-    monkeypatch.setenv("BANKSIA_API_HOST", "::1")
-    monkeypatch.setenv("BANKSIA_API_PORT", "9001")
-    monkeypatch.setenv("BANKSIA_OPERATOR__PROVIDER", "codex")
-    monkeypatch.setenv("BANKSIA_OPERATOR__MODEL", "gpt-operator")
-    monkeypatch.setenv("BANKSIA_OPERATOR__EFFORT", "medium")
-    monkeypatch.setenv("BANKSIA_RUNTIME__WATCHDOG_INACTIVITY_TIMEOUT_SECONDS", "99")
-    monkeypatch.setenv("BANKSIA_RUNTIME__WATCHDOG_SAME_ATTEMPT_REPLACEMENT_LIMIT", "4")
+    monkeypatch.setenv("OMS_DATABASE_URL", "sqlite+aiosqlite:////tmp/from-env.db")
+    monkeypatch.setenv("OMS_POSTGRES_SCHEMA", "environment_schema")
+    monkeypatch.setenv("OMS_DATABASE_ECHO", "true")
+    monkeypatch.setenv("OMS_API_HOST", "::1")
+    monkeypatch.setenv("OMS_API_PORT", "9001")
+    monkeypatch.setenv("OMS_OPERATOR__PROVIDER", "codex")
+    monkeypatch.setenv("OMS_OPERATOR__MODEL", "gpt-operator")
+    monkeypatch.setenv("OMS_OPERATOR__EFFORT", "medium")
+    monkeypatch.setenv("OMS_RUNTIME__WATCHDOG_INACTIVITY_TIMEOUT_SECONDS", "99")
+    monkeypatch.setenv("OMS_RUNTIME__WATCHDOG_SAME_ATTEMPT_REPLACEMENT_LIMIT", "4")
     monkeypatch.setenv(
-        "BANKSIA_RUNTIME__DISPATCH_LAUNCH_RETRY_INITIAL_BACKOFF_SECONDS",
+        "OMS_RUNTIME__DISPATCH_LAUNCH_RETRY_INITIAL_BACKOFF_SECONDS",
         "0.3",
     )
     monkeypatch.setenv(
-        "BANKSIA_RUNTIME__DISPATCH_LAUNCH_RETRY_MAX_BACKOFF_SECONDS",
+        "OMS_RUNTIME__DISPATCH_LAUNCH_RETRY_MAX_BACKOFF_SECONDS",
         "4.5",
     )
     config_module = _reload_config_module()
@@ -249,6 +250,48 @@ watchdog_inactivity_timeout_seconds = 1200
     assert settings.runtime.dispatch_launch_retry_max_backoff_seconds == 4.5
     assert settings.runtime.watchdog_inactivity_timeout_seconds == 99
     assert settings.runtime.watchdog_same_attempt_replacement_limit == 4
+
+
+def test_legacy_environment_prefix_remains_supported_with_warning(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "config.toml"
+    config_path.write_text("[server]\nport = 18125\n", encoding="utf-8")
+    monkeypatch.delenv("OMS_CONFIG", raising=False)
+    monkeypatch.setenv("BANKSIA_CONFIG", str(config_path))
+    monkeypatch.setenv("BANKSIA_API_PORT", "19001")
+
+    config_module = _reload_config_module()
+    with pytest.warns(FutureWarning, match=r"BANKSIA_\* environment variables are deprecated"):
+        settings = config_module.load_settings()
+
+    assert settings.config_path == config_path.resolve()
+    assert settings.api_port == 19001
+
+
+def test_conflicting_environment_prefixes_fail_before_loading_settings(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OMS_API_PORT", "19001")
+    monkeypatch.setenv("BANKSIA_API_PORT", "19002")
+
+    config_module = _reload_config_module()
+    with pytest.raises(ValueError, match="conflicting environment values"):
+        config_module.load_settings()
+
+
+def test_equal_environment_aliases_are_accepted_with_legacy_warning(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OMS_API_PORT", "19001")
+    monkeypatch.setenv("BANKSIA_API_PORT", "19001")
+
+    config_module = _reload_config_module()
+    with pytest.warns(FutureWarning, match=r"BANKSIA_\* environment variables are deprecated"):
+        settings = config_module.load_settings()
+
+    assert settings.api_port == 19001
 
 
 def test_controller_workspace_validator_rejects_invalid_paths(
@@ -288,8 +331,8 @@ def test_get_settings_does_not_require_a_global_operator_key(
 ) -> None:
     config_path = tmp_path / "banksia-config.toml"
     config_path.write_text('[server]\nhost = "127.0.0.1"\n', encoding="utf-8")
-    monkeypatch.setenv("BANKSIA_CONFIG", str(config_path))
-    monkeypatch.setenv("BANKSIA_ENV", "development")
+    monkeypatch.setenv("OMS_CONFIG", str(config_path))
+    monkeypatch.setenv("OMS_ENV", "development")
     config_module = _reload_config_module()
     config_module.get_settings.cache_clear()
     settings = config_module.get_settings()
@@ -409,8 +452,8 @@ postgres_schema = "{postgres_schema}"
         + "\n",
         encoding="utf-8",
     )
-    monkeypatch.setenv("BANKSIA_CONFIG", str(config_path))
-    monkeypatch.delenv("BANKSIA_POSTGRES_SCHEMA", raising=False)
+    monkeypatch.setenv("OMS_CONFIG", str(config_path))
+    monkeypatch.delenv("OMS_POSTGRES_SCHEMA", raising=False)
     config_module = _reload_config_module()
     config_module.get_settings.cache_clear()
 
@@ -433,7 +476,7 @@ def test_removed_runtime_key_fails_fast(
         encoding="utf-8",
     )
 
-    monkeypatch.setenv("BANKSIA_CONFIG", str(config_path))
+    monkeypatch.setenv("OMS_CONFIG", str(config_path))
     config_module = _reload_config_module()
     config_module.get_settings.cache_clear()
 
@@ -456,7 +499,7 @@ def test_structured_config_sections_reject_non_table_values(
         encoding="utf-8",
     )
 
-    monkeypatch.setenv("BANKSIA_CONFIG", str(config_path))
+    monkeypatch.setenv("OMS_CONFIG", str(config_path))
     config_module = _reload_config_module()
     config_module.get_settings.cache_clear()
 
@@ -519,7 +562,7 @@ def test_watchdog_settings_reject_invalid_values(
         encoding="utf-8",
     )
 
-    monkeypatch.setenv("BANKSIA_CONFIG", str(config_path))
+    monkeypatch.setenv("OMS_CONFIG", str(config_path))
     config_module = _reload_config_module()
     config_module.get_settings.cache_clear()
 

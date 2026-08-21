@@ -52,12 +52,12 @@ def command_env(
 ) -> Iterator[None]:
     overrides = {
         CONFIG_ENV_VAR: str(config_path),
-        "BANKSIA_DATA_DIR": str(data_dir) if data_dir is not None else None,
-        "BANKSIA_DATABASE_URL": database_url,
-        "BANKSIA_API_HOST": api_host,
-        "BANKSIA_API_PORT": str(api_port) if api_port is not None else None,
-        "BANKSIA_LOG_LEVEL": log_level,
-        "BANKSIA_ENV": env,
+        "OMS_DATA_DIR": str(data_dir) if data_dir is not None else None,
+        "OMS_DATABASE_URL": database_url,
+        "OMS_API_HOST": api_host,
+        "OMS_API_PORT": str(api_port) if api_port is not None else None,
+        "OMS_LOG_LEVEL": log_level,
+        "OMS_ENV": env,
     }
     with temporary_env(overrides):
         provider_identity = (
@@ -85,7 +85,7 @@ def temporary_env(overrides: dict[str, str | None]) -> Iterator[None]:
     try:
         for key, value in overrides.items():
             if value is None:
-                if key == "BANKSIA_ENV":
+                if key == "OMS_ENV":
                     continue
                 os.environ.pop(key, None)
             else:

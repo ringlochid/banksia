@@ -55,7 +55,7 @@ def render_dynamic_input(dynamic_input: PromptDynamicInput) -> str:
 
 
 def parse_prompt_continuation(input_text: str) -> PromptContinuation | None:
-    """Read the exact Continuation from one committed Banksia Dispatch input."""
+    """Read the exact Continuation from one committed Oh My Subagents Dispatch input."""
 
     try:
         root = ElementTree.fromstring(input_text)

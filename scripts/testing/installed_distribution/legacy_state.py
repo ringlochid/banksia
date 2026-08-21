@@ -42,7 +42,7 @@ def create_legacy_state_oracle(
 def assert_legacy_state_unchanged(oracle: LegacyStateOracle) -> None:
     actual = snapshot_legacy_state(roots=oracle.roots, service_path=oracle.service_path)
     if actual != oracle.files:
-        raise AssertionError("Banksia accessed or changed neighboring legacy product state")
+        raise AssertionError("Oh My Subagents accessed or changed neighboring legacy product state")
 
 
 def snapshot_legacy_state(

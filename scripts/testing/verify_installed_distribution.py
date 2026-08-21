@@ -25,7 +25,9 @@ from .installed_distribution.user_service import verify_user_service_installer
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Verify built Banksia artifacts and the isolated user-service installer."
+        description=(
+            "Verify built Oh My Subagents artifacts and the isolated user-service installer."
+        )
     )
     parser.add_argument("--dist-dir", type=Path, required=True)
     parser.add_argument("--workspace", type=Path)

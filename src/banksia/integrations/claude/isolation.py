@@ -199,7 +199,7 @@ async def validate_claude_startup(
         raise ClaudeStartupIsolationError("Claude exposed the wrong MCP server set")
     server = servers_by_name.get(external_mcp_server)
     if not isinstance(server, dict) or server.get("status") != "connected":
-        raise ClaudeStartupIsolationError("Claude did not connect the Banksia MCP server")
+        raise ClaudeStartupIsolationError("Claude did not connect the Oh My Subagents MCP server")
     if not _has_exact_names(_mcp_status_tool_names(server.get("tools")), expected_tools):
         raise ClaudeStartupIsolationError("Claude exposed the wrong MCP tool set")
     if not _has_exact_names(

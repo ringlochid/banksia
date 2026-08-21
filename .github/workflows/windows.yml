@@ -93,7 +93,7 @@ jobs:
             - name: Verify installed Windows distribution and service lifecycle
               shell: pwsh
               run: |
-                  $workspace = Join-Path $env:RUNNER_TEMP "banksia-installed"
+                  $workspace = Join-Path $env:RUNNER_TEMP "oms-installed"
                   New-Item -ItemType Directory -Force $workspace | Out-Null
                   $env:PYTHONPATH = "src"
                   .\.venv\Scripts\python -m scripts.testing.verify_installed_distribution --dist-dir dist --workspace $workspace

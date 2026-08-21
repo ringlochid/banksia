@@ -199,7 +199,7 @@ async def _reject(
         code=ProductFailureCode.ACCESS_DENIED,
         summary="This local request is not allowed.",
         is_retryable=False,
-        suggested_next_step="Use the configured local Banksia address and try again.",
+        suggested_next_step="Use the configured local Oh My Subagents address and try again.",
     )
     await JSONResponse(
         status_code=status_code,

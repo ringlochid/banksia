@@ -21,9 +21,9 @@ def get_managed_service_manager(
     if normalized_platform == "windows":
         return ScheduledTaskUserServiceManager()
     raise RuntimeError(
-        "Banksia background services support Linux, macOS, and Windows only; "
+        "Oh My Subagents background services support Linux, macOS, and Windows only; "
         f"native {reported_platform or 'unknown'} is unsupported. "
-        "Run Banksia on a supported host."
+        "Run Oh My Subagents on a supported host."
     )
 
 

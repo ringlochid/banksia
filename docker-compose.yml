@@ -43,13 +43,13 @@ services:
             postgres-test:
                 condition: service_healthy
         environment:
-            BANKSIA_ENV: test
-            BANKSIA_DEBUG: "false"
-            BANKSIA_TEST_POSTGRES_URL: postgresql+asyncpg://banksia:banksia@postgres-test:5432/banksia_test
+            OMS_ENV: test
+            OMS_DEBUG: "false"
+            OMS_TEST_POSTGRES_URL: postgresql+asyncpg://banksia:banksia@postgres-test:5432/banksia_test
         command:
             - sh
             - -c
-            - BANKSIA_DATABASE_URL="$$BANKSIA_TEST_POSTGRES_URL" python -m banksia db upgrade && exec python -m scripts.testing.run_backend_pytest_groups integration
+            - OMS_DATABASE_URL="$$OMS_TEST_POSTGRES_URL" python -m banksia db upgrade && exec python -m scripts.testing.run_backend_pytest_groups integration
 
 volumes:
     banksia-postgres:

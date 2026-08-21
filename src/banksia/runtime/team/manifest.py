@@ -138,7 +138,7 @@ def render_team_manifest(
         member.parent_member_id for member in members if member.parent_member_id is not None
     }
     lines = [
-        "# Banksia team",
+        "# Oh My Subagents team",
         "",
         f"- Task: `{task_id}`",
         f"- Workflow: `{workflow_id}`",

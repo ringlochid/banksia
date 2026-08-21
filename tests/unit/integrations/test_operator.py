@@ -498,4 +498,4 @@ def test_unconfigured_setup_action_names_real_config_and_provider_commands(
     )
 
     assert runner.status.availability == "unconfigured"
-    assert runner.status.setup_action == ("Run `banksia operator setup`, then restart Banksia.")
+    assert runner.status.setup_action == ("Run `oms operator setup`, then restart Oh My Subagents.")

@@ -81,7 +81,7 @@ def collect_provider_check(
         return basis.snapshot(
             outcome=ProviderCheckOutcome.NOT_CONFIGURED,
             is_ready=False,
-            detail=f"provider '{provider.value}' is not enabled in Banksia config",
+            detail=f"provider '{provider.value}' is not enabled in Oh My Subagents config",
         )
     if not status.is_integration_available:
         return basis.snapshot(

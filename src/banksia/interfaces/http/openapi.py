@@ -121,7 +121,7 @@ def build_openapi_document(surface: OpenApiSurface = "product") -> dict[str, Any
 
 
 def build_product_openapi_document() -> dict[str, Any]:
-    app = FastAPI(title="Banksia Product API", version="0.0.0")
+    app = FastAPI(title="Oh My Subagents Product API", version="0.0.0")
     app.include_router(api_router)
     document = app.openapi()
     _require_exact_routes(

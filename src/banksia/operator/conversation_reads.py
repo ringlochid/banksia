@@ -141,58 +141,6 @@ async def list_operator_conversations(
     )
 
 
-async def _read_conversation_previews(
-    session: AsyncSession,
-    *,
-    conversation_ids: tuple[str, ...],
-) -> dict[str, str]:
-    if not conversation_ids:
-        return {}
-
-    first_user_messages = (
-        select(
-            OperatorConversationEntryModel.conversation_id.label("conversation_id"),
-            func.min(OperatorConversationEntryModel.sequence).label("sequence"),
-        )
-        .where(
-            OperatorConversationEntryModel.conversation_id.in_(conversation_ids),
-            OperatorConversationEntryModel.kind == "user_message",
-        )
-        .group_by(OperatorConversationEntryModel.conversation_id)
-        .subquery()
-    )
-    statement = select(
-        OperatorConversationEntryModel.conversation_id,
-        OperatorConversationEntryModel.body_json,
-    ).join(
-        first_user_messages,
-        and_(
-            OperatorConversationEntryModel.conversation_id == first_user_messages.c.conversation_id,
-            OperatorConversationEntryModel.sequence == first_user_messages.c.sequence,
-        ),
-    )
-    rows = (await session.execute(statement)).all()
-    previews: dict[str, str] = {}
-    for conversation_id, body in rows:
-        preview = _conversation_preview(body)
-        if preview is not None:
-            previews[conversation_id] = preview
-    return previews
-
-
-def _conversation_preview(body: dict[str, object]) -> str | None:
-    text = body.get("text")
-    if not isinstance(text, str):
-        return None
-
-    normalized = " ".join(text.split())
-    if not normalized:
-        return None
-    if len(normalized) <= _CONVERSATION_PREVIEW_MAX_CHARS:
-        return normalized
-    return f"{normalized[: _CONVERSATION_PREVIEW_MAX_CHARS - 1].rstrip()}…"
-
-
 async def read_operator_conversation(
     session_factory: OperatorSessionFactory,
     *,
@@ -276,6 +224,58 @@ def map_entry(entry: OperatorConversationEntryModel) -> OperatorConversationEntr
             }
         )
     raise RuntimeError(f"unknown stored Operator entry kind: {entry.kind}")
+
+
+async def _read_conversation_previews(
+    session: AsyncSession,
+    *,
+    conversation_ids: tuple[str, ...],
+) -> dict[str, str]:
+    if not conversation_ids:
+        return {}
+
+    first_user_messages = (
+        select(
+            OperatorConversationEntryModel.conversation_id.label("conversation_id"),
+            func.min(OperatorConversationEntryModel.sequence).label("sequence"),
+        )
+        .where(
+            OperatorConversationEntryModel.conversation_id.in_(conversation_ids),
+            OperatorConversationEntryModel.kind == "user_message",
+        )
+        .group_by(OperatorConversationEntryModel.conversation_id)
+        .subquery()
+    )
+    statement = select(
+        OperatorConversationEntryModel.conversation_id,
+        OperatorConversationEntryModel.body_json,
+    ).join(
+        first_user_messages,
+        and_(
+            OperatorConversationEntryModel.conversation_id == first_user_messages.c.conversation_id,
+            OperatorConversationEntryModel.sequence == first_user_messages.c.sequence,
+        ),
+    )
+    rows = (await session.execute(statement)).all()
+    previews: dict[str, str] = {}
+    for conversation_id, body in rows:
+        preview = _conversation_preview(body)
+        if preview is not None:
+            previews[conversation_id] = preview
+    return previews
+
+
+def _conversation_preview(body: dict[str, object]) -> str | None:
+    text = body.get("text")
+    if not isinstance(text, str):
+        return None
+
+    normalized = " ".join(text.split())
+    if not normalized:
+        return None
+    if len(normalized) <= _CONVERSATION_PREVIEW_MAX_CHARS:
+        return normalized
+    return f"{normalized[: _CONVERSATION_PREVIEW_MAX_CHARS - 1].rstrip()}…"
 
 
 async def _read_conversation_view(

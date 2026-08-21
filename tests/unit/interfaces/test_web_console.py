@@ -16,14 +16,14 @@ async def test_explicit_console_routes_serve_only_packaged_pages_and_assets(
     asset_directory = assets_root / "assets"
     asset_directory.mkdir(parents=True)
     (assets_root / "index.html").write_text(
-        "<!doctype html><title>Banksia Console</title>",
+        "<!doctype html><title>Oh My Subagents Console</title>",
         encoding="utf-8",
     )
     (asset_directory / "app.js").write_text(
         "document.body.dataset.ready = 'true';",
         encoding="utf-8",
     )
-    (asset_directory / "banksia-mark.svg").write_text(
+    (asset_directory / "oms-mark.svg").write_text(
         '<svg xmlns="http://www.w3.org/2000/svg"></svg>',
         encoding="utf-8",
     )
@@ -43,7 +43,7 @@ async def test_explicit_console_routes_serve_only_packaged_pages_and_assets(
         start_run = await client.get("/runs/new")
         run_studio = await client.get("/runs/t_7m4k2d9x")
         asset = await client.get("/assets/app.js")
-        mark = await client.get("/assets/banksia-mark.svg")
+        mark = await client.get("/assets/oms-mark.svg")
         unknown_browser = await client.get("/not-a-console-route")
         unknown_run_route = await client.get("/runs/t_7m4k2d9x/unknown")
         unknown_asset = await client.get("/assets/missing.js")
@@ -53,7 +53,7 @@ async def test_explicit_console_routes_serve_only_packaged_pages_and_assets(
     assert root.headers["location"] == "/workflows"
     for response in (library, studio, runs, start_run, run_studio):
         assert response.status_code == 200
-        assert "Banksia Console" in response.text
+        assert "Oh My Subagents Console" in response.text
     assert asset.status_code == 200
     assert "dataset.ready" in asset.text
     assert mark.status_code == 200

@@ -48,10 +48,10 @@ def guide_default_workspace(config_path: Path) -> int:
                 str(effective_workspace) if effective_workspace is not None else "none",
             ),
         ),
-        next_action="banksia setup",
+        next_action="oms setup",
     )
     if effective_workspace != normalized_workspace:
-        emit_warning("BANKSIA_CONTROLLER_WORKSPACE overrides the saved default workspace.")
+        emit_warning("OMS_CONTROLLER_WORKSPACE overrides the saved default workspace.")
     return 0
 
 

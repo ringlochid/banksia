@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import NamedTuple
 
 import httpx
 import pytest
@@ -23,11 +24,106 @@ from banksia.workflows.catalog import (
     read_current_published_workflow,
     read_published_workflow_revision,
 )
-from banksia.workflows.contracts import WorkflowProvenance
+from banksia.workflows.contracts import PublishedWorkflowRevision, WorkflowProvenance
 from banksia.workflows.publication import publish_workflow_revision
 from banksia.workflows.service_errors import WorkflowNotFoundError
 from tests.helpers.product_surface import product_http_client
 from tests.helpers.workflow_concurrency import DatabaseBackend, workflow_database
+
+
+class _InitialRemovalResponses(NamedTuple):
+    created: httpx.Response
+    removed_draft: httpx.Response
+    missing_draft: httpx.Response
+    reused_draft_id: httpx.Response
+    opened: httpx.Response
+    removed_published: httpx.Response
+    missing_published: httpx.Response
+    missing_open_draft: httpx.Response
+    search: httpx.Response
+
+
+async def _remove_draft_and_published_workflows(
+    client: httpx.AsyncClient,
+    *,
+    published_id: str,
+) -> _InitialRemovalResponses:
+    created = await client.post(
+        "/api/workflow-drafts",
+        json={
+            "kind": "create",
+            "workflow_id": "unused-draft",
+            "description": "A draft that has never been published.",
+        },
+    )
+    removed_draft = await client.delete("/api/workflows/unused-draft")
+    missing_draft = await client.get("/api/workflows/unused-draft")
+    reused_draft_id = await client.post(
+        "/api/workflow-drafts",
+        json={
+            "kind": "create",
+            "workflow_id": "unused-draft",
+            "description": "The unused ID can be reclaimed.",
+        },
+    )
+    opened = await client.post(
+        "/api/workflow-drafts",
+        json={"kind": "open", "workflow_id": published_id},
+    )
+    removed_published = await client.delete(f"/api/workflows/{published_id}")
+    missing_published = await client.get(f"/api/workflows/{published_id}")
+    missing_open_draft = await client.get(
+        f"/api/workflow-drafts/{opened.json()['draft']['draft_id']}"
+    )
+    search = await client.get("/api/workflows", params={"q": published_id})
+    return _InitialRemovalResponses(
+        created,
+        removed_draft,
+        missing_draft,
+        reused_draft_id,
+        opened,
+        removed_published,
+        missing_published,
+        missing_open_draft,
+        search,
+    )
+
+
+def _assert_workflow_library_states(
+    by_id: dict[str, dict[str, object]],
+    *,
+    combined_updated_at: object,
+) -> None:
+    assert by_id["only-draft"]["state"] == "draft"
+    assert by_id["only-draft"]["available_actions"] == ["edit", "remove"]
+    assert by_id["only-draft"]["published_revision_no"] is None
+    assert by_id["deep-research-and-decision-brief"]["state"] == "published"
+    assert by_id["deep-research-and-decision-brief"]["available_actions"] == [
+        "edit",
+        "start_run",
+        "remove",
+    ]
+    assert by_id["production-feature-delivery"]["state"] == "published_with_draft"
+    assert by_id["production-feature-delivery"]["description"] == "Current editable description."
+    assert by_id["production-feature-delivery"]["updated_at"] == combined_updated_at
+    assert by_id["production-feature-delivery"]["provenance"] == "starter_seed"
+
+
+def _assert_republished_history(
+    current: PublishedWorkflowRevision,
+    preserved: PublishedWorkflowRevision,
+    historical: PublishedWorkflowRevision,
+    current_after_reseed: PublishedWorkflowRevision,
+) -> None:
+    assert current.revision_no == 2
+    assert current.workflow.description == "A deliberate reactivation with preserved history."
+    assert preserved == historical
+    assert current_after_reseed == current
+
+
+def _assert_republished_response(response: httpx.Response) -> None:
+    assert response.status_code == 200, response.text
+    assert response.json()["revision_no"] == 2
 
 
 @pytest.mark.parametrize("database_backend", ("sqlite", "postgresql"))
@@ -87,35 +183,10 @@ async def test_remove_workflow_releases_identity_and_preserves_history(
     published_id = "deep-research-and-decision-brief"
     async with workflow_database(tmp_path, backend=database_backend) as session_factory:
         async with product_http_client(session_factory, tmp_path=tmp_path) as client:
-            created = await client.post(
-                "/api/workflow-drafts",
-                json={
-                    "kind": "create",
-                    "workflow_id": "unused-draft",
-                    "description": "A draft that has never been published.",
-                },
+            initial = await _remove_draft_and_published_workflows(
+                client,
+                published_id=published_id,
             )
-            removed_draft = await client.delete("/api/workflows/unused-draft")
-            missing_draft = await client.get("/api/workflows/unused-draft")
-            reused_draft_id = await client.post(
-                "/api/workflow-drafts",
-                json={
-                    "kind": "create",
-                    "workflow_id": "unused-draft",
-                    "description": "The unused ID can be reclaimed.",
-                },
-            )
-
-            opened = await client.post(
-                "/api/workflow-drafts",
-                json={"kind": "open", "workflow_id": published_id},
-            )
-            removed_published = await client.delete(f"/api/workflows/{published_id}")
-            missing_published = await client.get(f"/api/workflows/{published_id}")
-            missing_open_draft = await client.get(
-                f"/api/workflow-drafts/{opened.json()['draft']['draft_id']}"
-            )
-            search = await client.get("/api/workflows", params={"q": published_id})
 
         async with session_factory() as session:
             historical = await read_published_workflow_revision(
@@ -168,33 +239,29 @@ async def test_remove_workflow_releases_identity_and_preserves_history(
                 workflow_id=published_id,
             )
 
-    assert created.status_code == 201, created.text
-    assert removed_draft.status_code == 200, removed_draft.text
-    assert removed_draft.json() == {
+    assert initial.created.status_code == 201, initial.created.text
+    assert initial.removed_draft.status_code == 200, initial.removed_draft.text
+    assert initial.removed_draft.json() == {
         "is_removed": True,
         "workflow_id": "unused-draft",
     }
-    assert missing_draft.status_code == 404
-    assert reused_draft_id.status_code == 201, reused_draft_id.text
-    assert opened.status_code == 201, opened.text
-    assert removed_published.status_code == 200, removed_published.text
-    assert removed_published.json() == {
+    assert initial.missing_draft.status_code == 404
+    assert initial.reused_draft_id.status_code == 201, initial.reused_draft_id.text
+    assert initial.opened.status_code == 201, initial.opened.text
+    assert initial.removed_published.status_code == 200, initial.removed_published.text
+    assert initial.removed_published.json() == {
         "is_removed": True,
         "workflow_id": published_id,
     }
-    assert missing_published.status_code == 404
-    assert missing_open_draft.status_code == 404
-    assert search.json()["items"] == []
+    assert initial.missing_published.status_code == 404
+    assert initial.missing_open_draft.status_code == 404
+    assert initial.search.json()["items"] == []
     assert historical.workflow_id == published_id
     assert historical.revision_no == 1
     assert after_reseed.json()["items"] == []
     assert reused_draft["base_revision_no"] is None
-    assert republished.status_code == 200, republished.text
-    assert republished.json()["revision_no"] == 2
-    assert current.revision_no == 2
-    assert current.workflow.description == "A deliberate reactivation with preserved history."
-    assert preserved == historical
-    assert current_after_reseed == current
+    _assert_republished_response(republished)
+    _assert_republished_history(current, preserved, historical, current_after_reseed)
 
 
 @pytest.mark.parametrize("database_backend", ("sqlite", "postgresql"))
@@ -254,22 +321,11 @@ async def test_library_states_current_description_pagination_and_discard(
     assert stale_search.json()["items"] == []
     ids = [str(item["workflow_id"]) for item in all_items]
     assert ids == sorted(ids)
-    by_id = {item["workflow_id"]: item for item in all_items}
-    assert by_id["only-draft"]["state"] == "draft"
-    assert by_id["only-draft"]["available_actions"] == ["edit", "remove"]
-    assert by_id["only-draft"]["published_revision_no"] is None
-    assert by_id["deep-research-and-decision-brief"]["state"] == "published"
-    assert by_id["deep-research-and-decision-brief"]["available_actions"] == [
-        "edit",
-        "start_run",
-        "remove",
-    ]
-    assert by_id["production-feature-delivery"]["state"] == "published_with_draft"
-    assert by_id["production-feature-delivery"]["description"] == "Current editable description."
-    assert (
-        by_id["production-feature-delivery"]["updated_at"] == combined_detail.json()["updated_at"]
+    by_id: dict[str, dict[str, object]] = {str(item["workflow_id"]): item for item in all_items}
+    _assert_workflow_library_states(
+        by_id,
+        combined_updated_at=combined_detail.json()["updated_at"],
     )
-    assert by_id["production-feature-delivery"]["provenance"] == "starter_seed"
     assert draft_detail.json()["state"] == "draft"
     assert draft_detail.json()["provenance"] == "user"
     assert draft_detail.json()["published"] is None

@@ -68,7 +68,7 @@ def _select_private_file_operations(platform_name: str) -> PrivateFileOperations
         return WindowsPrivateFileOperations()
     raise PrivatePathError(
         errno.ENOTSUP,
-        "Banksia private filesystem operations support Linux, macOS, and Windows only; "
+        "Oh My Subagents private filesystem operations support Linux, macOS, and Windows only; "
         f"platform '{platform_name}' is unsupported",
     )
 
@@ -89,7 +89,7 @@ def _select_workspace_file_operations(platform_name: str) -> WorkspaceFileOperat
         return WindowsWorkspaceFileOperations()
     raise PrivatePathError(
         errno.ENOTSUP,
-        "Banksia Task workspace operations support Linux, macOS, and Windows only; "
+        "Oh My Subagents Task workspace operations support Linux, macOS, and Windows only; "
         f"platform '{platform_name}' is unsupported",
     )
 

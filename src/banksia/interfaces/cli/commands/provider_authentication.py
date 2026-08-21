@@ -75,7 +75,7 @@ def prompt_shell_secret_import(
         return None
     if click.confirm(
         f"Existing {provider_display_name(provider)} {authentication_method_label(method)} "
-        "found in this shell. Store it for the Banksia service?",
+        "found in this shell. Store it for the Oh My Subagents service?",
         default=True,
     ):
         return shell_secret
@@ -91,7 +91,7 @@ def existing_credential_prompt(
     label = authentication_method_label(method)
     if provider_secret_environment_key(provider, method) is not None:
         return (
-            f"Existing {provider_display_name(provider)} {label} stored for the Banksia "
+            f"Existing {provider_display_name(provider)} {label} stored for the Oh My Subagents "
             "service. Use it?"
         )
     return f"Existing {provider_display_name(provider)} {label} found. Use it?"

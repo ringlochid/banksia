@@ -6,7 +6,7 @@ from sqlalchemy.engine import URL, make_url
 
 
 def read_disposable_postgres_url() -> URL | None:
-    raw_url = os.environ.get("BANKSIA_TEST_POSTGRES_URL") or os.environ.get("BANKSIA_DATABASE_URL")
+    raw_url = os.environ.get("OMS_TEST_POSTGRES_URL") or os.environ.get("OMS_DATABASE_URL")
     if raw_url is None:
         return None
     database_url = make_url(raw_url)

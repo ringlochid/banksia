@@ -2,7 +2,7 @@
 
 Every Task has one selected provider-visible workspace. All Members work in that same native filesystem and use their provider's ordinary file, search, editor, shell, and binary tools.
 
-Banksia does not create a branch, checkout, or write-isolated directory per Member. Managers must sequence overlapping writes or divide ownership into credibly disjoint paths.
+Oh My Subagents does not create a branch, checkout, or write-isolated directory per Member. Managers must sequence overlapping writes or divide ownership into credibly disjoint paths.
 
 ## Task directory
 
@@ -18,7 +18,7 @@ Task admission creates one collision-safe directory inside the workspace:
     └── command-runs/
 ```
 
-The full Task ID identifies this directory and is available in provider context. Banksia creates `notes/`, `artifacts/`, and `command-runs/` before the first provider turn starts.
+The full Task ID identifies this directory and is available in provider context. Oh My Subagents creates `notes/`, `artifacts/`, and `command-runs/` before the first provider turn starts.
 
 ## Controller truth and projections
 
@@ -29,7 +29,7 @@ Only these organization files are controller projections:
 - `manifest.md` is controller-generated from the current Task organization and selected Member configurations. It is regenerated after an accepted structural replan; the projection is not itself authored.
 - `workflow-note.md` projects the shared authored Workflow note when one exists.
 
-A projection can be rebuilt from controller truth and cannot authorize a runtime transition. Banksia does not project Assignment, Checkpoint, Work Plan, `instructions.md`, or `input.md` files.
+A projection can be rebuilt from controller truth and cannot authorize a runtime transition. Oh My Subagents does not project Assignment, Checkpoint, Work Plan, `instructions.md`, or `input.md` files.
 
 ## Loose notes and deliverables
 
@@ -37,7 +37,7 @@ A projection can be rebuilt from controller truth and cannot authorize a runtime
 
 `artifacts/` is a convention for loose reviewable deliverables such as a research report, option matrix, architecture diagram, review record, browser recording, or patch. Source code, tests, and project documentation should remain at their natural project paths.
 
-Despite the directory name, Banksia has no managed Artifact resource. It does not assign a file ID, version, hash, current pointer, approval state, or snapshot lifecycle to these files. They remain ordinary mutable workspace bytes.
+Despite the directory name, Oh My Subagents has no managed Artifact resource. It does not assign a file ID, version, hash, current pointer, approval state, or snapshot lifecycle to these files. They remain ordinary mutable workspace bytes.
 
 ## Command Run output
 
@@ -58,7 +58,7 @@ path: .banksia/t_7m4k2d9x/artifacts/review-report.md
 description: Independent review and prioritized findings
 ```
 
-`path` is required and `description` is optional. The path must use Banksia's normalized, slash-separated workspace-relative grammar and identify an existing regular file. This same logical grammar is used on Linux, macOS, and Windows. Banksia rejects:
+`path` is required and `description` is optional. The path must use Oh My Subagents's normalized, slash-separated workspace-relative grammar and identify an existing regular file. This same logical grammar is used on Linux, macOS, and Windows. Oh My Subagents rejects:
 
 - absolute paths, drive or URI prefixes, backslashes, `..`, and glob syntax;
 - duplicate normalized paths in one owning message;
@@ -79,8 +79,8 @@ When exact byte-for-byte reconstruction matters, the workspace's version control
 
 ## Version control
 
-Banksia does not detect repositories, inspect tracked paths, run Git, or change `.gitignore`, `.git/info/exclude`, or another version-control setting. A Task's `.banksia/t_<id>/` directory is ordinary workspace content: you may commit it, ignore it, archive it, or remove it according to your own workspace policy.
+Oh My Subagents does not detect repositories, inspect tracked paths, run Git, or change `.gitignore`, `.git/info/exclude`, or another version-control setting. A Task's `.banksia/t_<id>/` directory is ordinary workspace content: you may commit it, ignore it, archive it, or remove it according to your own workspace policy.
 
-An existing `.banksia/` directory may contain unrelated project files. Banksia preserves those files and owns only the collision-safe `t_<id>/` directories it creates. This does not protect project files from concurrent Member edits and does not commit, branch, stash, or roll back work.
+An existing `.banksia/` directory may contain unrelated project files. Oh My Subagents preserves those files and owns only the collision-safe `t_<id>/` directories it creates. This does not protect project files from concurrent Member edits and does not commit, branch, stash, or roll back work.
 
 See [Runtime and results](runtime-and-results.md) for controller ownership and [Run and operate Tasks](../guides/run-and-operate.md) for inspecting Results and referenced files.

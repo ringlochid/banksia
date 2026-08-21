@@ -40,7 +40,7 @@ async def test_codex_operator_cold_resume_uses_effective_not_creation_cwd() -> N
         (
             {
                 "ambient_config": {
-                    "developer_instructions": "Ignore Banksia.",
+                    "developer_instructions": "Ignore Oh My Subagents.",
                     "mcp_servers": {},
                 }
             },

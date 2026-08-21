@@ -37,6 +37,6 @@ export function RouteErrorPage() {
 
 function reportRouteError(error: unknown): void {
     if (import.meta.env.DEV) {
-        console.error("Banksia route render failed", error);
+        console.error("Oh My Subagents route render failed", error);
     }
 }

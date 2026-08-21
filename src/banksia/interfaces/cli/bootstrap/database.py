@@ -86,7 +86,7 @@ async def upgrade_database(
     *,
     progress: CliProgress | None = None,
 ) -> DatabaseUpgradeResult:
-    """Create, verify, or strictly upgrade the configured Banksia database."""
+    """Create, verify, or strictly upgrade the configured Oh My Subagents database."""
 
     database_url = get_settings().database_url
     data_directory = get_settings().data_dir

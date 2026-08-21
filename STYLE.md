@@ -1,4 +1,4 @@
-# Banksia coding standards
+# Oh My Subagents coding standards
 
 Status: Reference
 
@@ -171,7 +171,7 @@ Source: [SQLAlchemy declarative mapping](https://docs.sqlalchemy.org/en/20/orm/d
 - event callback props should be named `on*`; local event handlers should be named `handle*`
 - use generated OpenAPI types for controller-backed API payloads; do not hand-maintain duplicate TypeScript API contracts
 - keep one narrow API/SSE client layer for base URL resolution, request headers, error envelopes, query construction, SSE cursor handling, backfill, and reset behavior
-- Banksia loopback Console and control clients do not add a global operator API key or browser credential bootstrap; follow the owning versionless interface contract for local admission
+- Oh My Subagents loopback Console and control clients do not add a global operator API key or browser credential bootstrap; follow the owning versionless interface contract for local admission
 - render frontend view-models such as task rows, event items, human-request items, command-run rows, and definition summaries instead of passing raw controller payloads directly through component trees
 - translate generated snake_case controller fields into camelCase view-model fields only inside explicit mappers
 - keep controller vocabulary exact for route names, states, event families, command-run states, human-request kinds, and definition kinds
@@ -184,7 +184,7 @@ Source: [SQLAlchemy declarative mapping](https://docs.sqlalchemy.org/en/20/orm/d
 - use `memo`, `useMemo`, and `useCallback` only for measured churn, expensive calculations, or identity-sensitive APIs
 - keep shared visual language in tokens and reusable primitives; avoid page-local Tailwind utility sprawl once a pattern repeats
 - use design tokens for colors, spacing, radius, shadow, typography, and status treatments instead of ad hoc utility values for controller surfaces
-- Console CSS custom properties keep the token names of the n8n design system they are ported from (`--color--*`, `--background--*`, `--text-color*`, `--spacing--*`, `--radius--*`, `--font-*`), so ported component styles stay diffable against their source and the provenance stays auditable. Banksia-specific tokens that have no n8n counterpart use a domain-named prefix such as `--member--*`, `--canvas--*`, or `--state--*`. The legacy `--banksia-*` namespace is retired. Every colour, radius, shadow, spacing, and type value resolves through `console/src/styles/primitives.css` (raw scales) and `console/src/styles/tokens.css` (semantic names); a literal colour or a raw scale reference in a feature stylesheet is a defect. Do not carry AutoClaw or prototype-only token prefixes into implementation
+- Console CSS custom properties keep the token names of the n8n design system they are ported from (`--color--*`, `--background--*`, `--text-color*`, `--spacing--*`, `--radius--*`, `--font-*`), so ported component styles stay diffable against their source and the provenance stays auditable. Oh My Subagents-specific tokens that have no n8n counterpart use a domain-named prefix such as `--member--*`, `--canvas--*`, or `--state--*`. The legacy `--banksia-*` namespace is retired. Every colour, radius, shadow, spacing, and type value resolves through `console/src/styles/primitives.css` (raw scales) and `console/src/styles/tokens.css` (semantic names); a literal colour or a raw scale reference in a feature stylesheet is a defect. Do not carry AutoClaw or prototype-only token prefixes into implementation
 - derive reusable style tokens from the design handoff once, including color, typography, spacing, size, radius, border, shadow, and status treatments
 - do not copy design-repo static HTML, page-local CSS selectors, or inline prototype JavaScript into the console app
 - map state and variants to explicit Tailwind class strings; do not build dynamic classes such as `` `bg-${status}` ``

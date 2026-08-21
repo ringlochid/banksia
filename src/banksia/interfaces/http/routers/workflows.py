@@ -392,7 +392,7 @@ def _http_error(exc: Exception) -> HTTPException:
     return _failure(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         code=ProductFailureCode.INTERNAL_ERROR,
-        summary="Banksia could not complete the Workflow action.",
+        summary="Oh My Subagents could not complete the Workflow action.",
     )
 
 

@@ -72,7 +72,7 @@ def test_service_status_uses_product_language_and_controller_truth(
 
     output = capsys.readouterr().out
     assert result == 0
-    assert "Banksia background service" in output
+    assert "Oh My Subagents background service" in output
     assert "Definition:" in output
     assert "Starts at sign-in: Enabled" in output
     assert "Controller: stopped" in output
@@ -137,7 +137,7 @@ def test_service_status_exposes_an_outdated_definition(
     assert result == 0
     assert "needs reinstall" in output.casefold()
     assert "Definition: Out of date" in output
-    assert "banksia service install" in output
+    assert "oms service install" in output
 
 
 def test_failed_service_status_directs_the_operator_to_bounded_logs(
@@ -160,7 +160,7 @@ def test_failed_service_status_directs_the_operator_to_bounded_logs(
     output = capsys.readouterr().out
     assert result == 0
     assert "needs attention" in output.casefold()
-    assert "banksia service logs --lines 200" in output
+    assert "oms service logs --lines 200" in output
 
 
 def test_service_render_uses_selected_native_definition(
@@ -272,8 +272,8 @@ def test_service_command_failure_is_manager_neutral() -> None:
     assert "operating system could not start" in failure.message
     assert "service is disabled" in failure.message
     assert failure.hint is not None
-    assert "banksia service status" in failure.hint
-    assert "banksia service logs --lines 200" in failure.hint
+    assert "oms service status" in failure.hint
+    assert "oms service logs --lines 200" in failure.hint
     assert "systemctl" not in failure.hint
     assert failure.details["manager"] == "launchd-user"
 

@@ -42,7 +42,7 @@ export function DetailsDrawer({
 }: DetailsDrawerProps) {
     const isNarrow = useNarrowViewport();
     const titleId = useId();
-    const panelRef = useRef<HTMLElement>(null);
+    const panelRef = useRef<HTMLDivElement>(null);
     const handledFocusRequest = useRef(0);
 
     useEffect(() => {
@@ -85,7 +85,7 @@ export function DetailsDrawer({
     }
 
     const content = (
-        <aside
+        <div
             aria-busy={busy || undefined}
             aria-labelledby={titleId}
             aria-modal={isNarrow || undefined}
@@ -95,7 +95,7 @@ export function DetailsDrawer({
                 handleDrawerKeyDown(event, panelRef.current, isNarrow, onClose)
             }
             ref={panelRef}
-            role={isNarrow ? "dialog" : undefined}
+            role={isNarrow ? "dialog" : "complementary"}
             tabIndex={-1}
         >
             <header className="studio-member-details__header">
@@ -118,7 +118,7 @@ export function DetailsDrawer({
                     {footer}
                 </footer>
             )}
-        </aside>
+        </div>
     );
 
     return isNarrow

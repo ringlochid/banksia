@@ -631,5 +631,5 @@ function isAbortError(error: unknown): boolean {
 function readErrorMessage(error: unknown): string {
     return error instanceof Error
         ? error.message
-        : "Banksia could not load this Run.";
+        : "Oh My Subagents could not load this Run.";
 }

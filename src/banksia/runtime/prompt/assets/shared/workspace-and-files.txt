@@ -67,7 +67,7 @@ expose those exact source values; the controller does not copy, publish,
 classify, or own the file.
 
 Every Task member uses the same provider-visible workspace, so another member
-can open a note or artifact with native tools. Banksia does not automatically
+can open a note or artifact with native tools. Oh My Subagents does not automatically
 open it, insert its contents into model context, or guarantee that another
 member notices it. When exact content should be deliberately handed off, attach
 its path and purpose through the message's files field. The file stays ordinary

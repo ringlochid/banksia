@@ -11,7 +11,7 @@ from banksia.config import load_settings
 from banksia.interfaces.cli.support import coerce_path, command_env, print_json
 from banksia.interfaces.cli.terminal.theme import accent, rich_enabled
 
-REDACTED_VALUE = "__BANKSIA_REDACTED__"
+REDACTED_VALUE = "__OMS_REDACTED__"
 
 
 def cmd_config_path(args: argparse.Namespace) -> int:

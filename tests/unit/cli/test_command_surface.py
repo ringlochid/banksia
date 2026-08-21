@@ -30,7 +30,7 @@ def test_build_parser_supports_baseline_commands() -> None:
     assert setup_help.exit_code == 0
     assert operator_setup_help.exit_code == 0
     assert service_install_help.exit_code == 0
-    assert "Banksia: an accountable, no-code AI-team runtime for complex work." in result.output
+    assert "Oh My Subagents: durable supervision for accountable AI teams." in result.output
     assert "onboard" not in parser.commands
     assert "configure" not in parser.commands
     assert "doctor" not in parser.commands
@@ -73,6 +73,16 @@ def test_build_parser_supports_baseline_commands() -> None:
     assert set(operator_group.commands) == {"disable", "setup", "status"}
 
 
+def test_parse_failure_directs_users_to_the_canonical_command(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert cli.main(["serve", "127.0.0.1:18125"]) == 2
+
+    output = capsys.readouterr().out
+    assert "Try: oms serve 127.0.0.1:18125 --help" in output
+    assert "Try: banksia" not in output
+
+
 @pytest.mark.skipif(os.name == "nt", reason="systemd definitions use POSIX paths")
 def test_render_service_definition_uses_python_module_entrypoint(
     tmp_path: Path,
@@ -88,7 +98,7 @@ def test_render_service_definition_uses_python_module_entrypoint(
     assert 'ExecStart="/tmp/banksia-venv/bin/python" -m banksia serve' in rendered
     assert f'--service-log "{tmp_path}/controller.log"' in rendered
     assert "KillMode=control-group" in rendered
-    assert "BANKSIA_DATA_DIR" not in rendered
+    assert "OMS_DATA_DIR" not in rendered
     assert "EnvironmentFile=" not in rendered
 
 

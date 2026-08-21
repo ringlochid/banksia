@@ -41,7 +41,7 @@ def test_bare_and_status_are_passive_with_zero_providers(
         'ANTHROPIC_API_KEY="invalid-unclosed-value\n',
         encoding="utf-8",
     )
-    monkeypatch.setenv("BANKSIA_CONFIG", str(config_path))
+    monkeypatch.setenv("OMS_CONFIG", str(config_path))
     monkeypatch.setattr(
         "banksia.interfaces.cli.providers.identity.subprocess.run",
         lambda *_args, **_kwargs: pytest.fail("passive status invoked a provider command"),
@@ -309,7 +309,7 @@ def test_provider_status_keeps_passive_diagnostics_out_of_human_output(
     assert "Provider status" in result.output
     assert "Codex" in result.output
     assert "Local configuration only" in result.output
-    assert "banksia providers check codex" in result.output
+    assert "oms providers check codex" in result.output
     assert "not_checked" not in result.output
 
 

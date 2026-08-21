@@ -174,20 +174,21 @@ class SystemdUserServiceManager:
     def _require_supported(self) -> None:
         if not is_systemd_supported():
             raise RuntimeError(
-                "Banksia background services use systemd --user on Linux; this host is not Linux"
+                "Oh My Subagents background services use systemd --user on Linux; "
+                "this host is not Linux"
             )
 
     def _require_current_definition(self, target: ManagedServiceTarget) -> None:
         current = read_service_definition(self.definition_path)
         if current is None:
             raise RuntimeError(
-                "Banksia background service is not installed; run `banksia service install`"
+                "Oh My Subagents background service is not installed; run `oms service install`"
             )
         expected = self.render_definition(target).encode("utf-8")
         if current != expected:
             raise RuntimeError(
-                "Banksia background service definition is out of date; "
-                "run `banksia service install`"
+                "Oh My Subagents background service definition is out of date; "
+                "run `oms service install`"
             )
 
     def _execute(
@@ -229,7 +230,7 @@ class SystemdUserServiceManager:
 
     def _resolve_systemctl_bin(self) -> str:
         return self._systemctl_bin or os.environ.get(
-            "BANKSIA_SYSTEMCTL_BIN",
+            "OMS_SYSTEMCTL_BIN",
             "systemctl",
         )
 
@@ -253,9 +254,9 @@ def render_systemd_service_unit(
 ) -> str:
     rendered = get_systemd_service_template().read_text(encoding="utf-8")
     replacements = {
-        "@BANKSIA_PYTHON@": _escape_systemd_quoted_value(str(python_executable)),
-        "@BANKSIA_CONFIG@": _escape_systemd_quoted_value(str(config_path)),
-        "@BANKSIA_SERVICE_LOG@": _escape_systemd_quoted_value(str(log_path)),
+        "@OMS_PYTHON@": _escape_systemd_quoted_value(str(python_executable)),
+        "@OMS_CONFIG@": _escape_systemd_quoted_value(str(config_path)),
+        "@OMS_SERVICE_LOG@": _escape_systemd_quoted_value(str(log_path)),
     }
     for placeholder, value in replacements.items():
         rendered = rendered.replace(placeholder, value)

@@ -196,7 +196,7 @@ export class WorkflowStudioController
             }
             this.draftRuntime.fail(
                 error,
-                "Banksia could not check the latest Workflow.",
+                "Oh My Subagents could not check the latest Workflow.",
                 recovery,
                 generation,
             );

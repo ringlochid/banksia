@@ -5,6 +5,7 @@ import os
 import re
 import stat
 import tomllib
+import warnings
 from enum import StrEnum
 from functools import lru_cache
 from pathlib import Path
@@ -22,7 +23,12 @@ from pydantic import (
     model_validator,
 )
 from pydantic.fields import FieldInfo
-from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
+from pydantic_settings import (
+    BaseSettings,
+    EnvSettingsSource,
+    PydanticBaseSettingsSource,
+    SettingsConfigDict,
+)
 
 from banksia.paths import default_config_path, default_data_dir, default_database_url
 from banksia.platform.environment import Environment
@@ -34,9 +40,12 @@ from banksia.providers import (
     ProviderKind,
 )
 
-CONFIG_ENV_VAR = "BANKSIA_CONFIG"
-CONTROLLER_WORKSPACE_ENV_VAR = "BANKSIA_CONTROLLER_WORKSPACE"
-SUPPORT_BEARER_TOKEN_ENV_VAR = "BANKSIA_SUPPORT_BEARER_TOKEN"
+ENV_PREFIX = "OMS_"
+LEGACY_ENV_PREFIX = "BANKSIA_"
+CONFIG_ENV_VAR = f"{ENV_PREFIX}CONFIG"
+LEGACY_CONFIG_ENV_VAR = f"{LEGACY_ENV_PREFIX}CONFIG"
+CONTROLLER_WORKSPACE_ENV_VAR = f"{ENV_PREFIX}CONTROLLER_WORKSPACE"
+SUPPORT_BEARER_TOKEN_ENV_VAR = f"{ENV_PREFIX}SUPPORT_BEARER_TOKEN"
 DEFAULT_LOG_LEVEL = "WARNING"
 DEFAULT_API_PORT = 18125
 ConfigText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
@@ -119,7 +128,7 @@ class RuntimeSettings(BaseModel):
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_prefix="BANKSIA_",
+        env_prefix=ENV_PREFIX,
         env_nested_delimiter="__",
         extra="ignore",
         populate_by_name=True,
@@ -211,9 +220,15 @@ class Settings(BaseSettings):
         file_secret_settings: PydanticBaseSettingsSource,
     ) -> tuple[PydanticBaseSettingsSource, ...]:
         del dotenv_settings
+        _validate_environment_aliases()
         return (
             init_settings,
             env_settings,
+            EnvSettingsSource(
+                settings_cls,
+                env_prefix=LEGACY_ENV_PREFIX,
+                env_nested_delimiter="__",
+            ),
             TomlConfigSettingsSource(settings_cls),
             file_secret_settings,
         )
@@ -245,10 +260,10 @@ def get_settings() -> Settings:
 
 def load_settings() -> Settings:
     settings = Settings()
-    debug_override = _environment_boolean_override("BANKSIA_DEBUG")
+    debug_override = _environment_boolean_override("DEBUG")
     if debug_override is not None:
         settings.is_debug_enabled = debug_override
-    database_echo_override = _environment_boolean_override("BANKSIA_DATABASE_ECHO")
+    database_echo_override = _environment_boolean_override("DATABASE_ECHO")
     if database_echo_override is not None:
         settings.should_echo_database = database_echo_override
     settings.config_path = _coerce_path(settings.config_path)
@@ -346,8 +361,8 @@ def _nested_get(data: dict[str, Any], *keys: str) -> Any:
     return current
 
 
-def _environment_boolean_override(name: str) -> bool | None:
-    raw_value = os.environ.get(name)
+def _environment_boolean_override(suffix: str) -> bool | None:
+    name, raw_value = _environment_alias_value(suffix)
     if raw_value is None:
         return None
 
@@ -360,7 +375,8 @@ def _environment_boolean_override(name: str) -> bool | None:
 
 
 def _load_toml_settings() -> dict[str, Any]:
-    config_path = _coerce_path(os.environ.get(CONFIG_ENV_VAR, default_config_path()))
+    _name, configured_path = _environment_alias_value("CONFIG")
+    config_path = _coerce_path(configured_path or default_config_path())
     config_text = read_private_text(config_path)
     if config_text is None:
         return {"config_path": config_path, "data_dir": default_data_dir()}
@@ -395,11 +411,50 @@ def _load_toml_settings() -> dict[str, Any]:
     return loaded
 
 
+def _environment_alias_value(suffix: str) -> tuple[str, str | None]:
+    canonical_name = f"{ENV_PREFIX}{suffix}"
+    legacy_name = f"{LEGACY_ENV_PREFIX}{suffix}"
+    canonical_value = os.environ.get(canonical_name)
+    legacy_value = os.environ.get(legacy_name)
+    if canonical_value is not None and legacy_value is not None and canonical_value != legacy_value:
+        raise ValueError(
+            f"conflicting environment values for {canonical_name} and {legacy_name}; "
+            f"remove {legacy_name} or make the values equal"
+        )
+    if canonical_value is not None:
+        return canonical_name, canonical_value
+    return legacy_name, legacy_value
+
+
+def _validate_environment_aliases() -> None:
+    legacy_names = sorted(name for name in os.environ if name.startswith(LEGACY_ENV_PREFIX))
+    for legacy_name in legacy_names:
+        suffix = legacy_name.removeprefix(LEGACY_ENV_PREFIX)
+        canonical_name = f"{ENV_PREFIX}{suffix}"
+        canonical_value = os.environ.get(canonical_name)
+        legacy_value = os.environ[legacy_name]
+        if canonical_value is not None and canonical_value != legacy_value:
+            raise ValueError(
+                f"conflicting environment values for {canonical_name} and {legacy_name}; "
+                f"remove {legacy_name} or make the values equal"
+            )
+    if legacy_names:
+        warnings.warn(
+            "BANKSIA_* environment variables are deprecated; rename them to OMS_*. "
+            "Legacy values remain supported through the 0.2.x release line.",
+            FutureWarning,
+            stacklevel=3,
+        )
+
+
 __all__ = [
     "CONFIG_ENV_VAR",
     "CONTROLLER_WORKSPACE_ENV_VAR",
     "DEFAULT_API_PORT",
     "DEFAULT_LOG_LEVEL",
+    "ENV_PREFIX",
+    "LEGACY_CONFIG_ENV_VAR",
+    "LEGACY_ENV_PREFIX",
     "SUPPORT_BEARER_TOKEN_ENV_VAR",
     "ClaudeSettings",
     "CodexSettings",

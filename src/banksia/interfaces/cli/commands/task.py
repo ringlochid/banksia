@@ -32,7 +32,7 @@ async def cmd_task_start(args: argparse.Namespace) -> int:
         raise TaskStartCliError(
             "--json accepts exactly one inline object, @file, or '-' source",
             kind="task_start_json_source_invalid",
-            hint="Use one: banksia task start --json @request.json",
+            hint="Use one: oms task start --json @request.json",
         )
 
     with command_env(config_path=config_path):
@@ -105,7 +105,7 @@ async def prompt_for_task_start_request(
         raise TaskStartCliError(
             "Interactive Task start requires a terminal",
             kind="task_start_non_interactive",
-            hint="Use: banksia task start --json @request.json",
+            hint="Use: oms task start --json @request.json",
         )
     workflows = await _get_published_workflows(client)
     if not workflows:
@@ -120,7 +120,9 @@ async def prompt_for_task_start_request(
         type=click.Choice(workflow_ids, case_sensitive=True),
         show_choices=True,
     )
-    click.echo("Write the complete request for the selected Banksia team, then save and close.")
+    click.echo(
+        "Write the complete request for the selected Oh My Subagents team, then save and close."
+    )
     prompt = click.edit(
         "",
         require_save=True,
@@ -155,7 +157,7 @@ async def _get_published_workflows(
             raise TaskStartCliError(
                 "Controller returned an invalid Workflow catalog",
                 kind="controller_response_invalid",
-                hint="Check the Banksia controller version and logs.",
+                hint="Check the Oh My Subagents controller version and logs.",
             ) from exc
         published.extend(item for item in catalog.items if item.published_revision_no is not None)
         cursor = catalog.next_cursor
@@ -165,7 +167,7 @@ async def _get_published_workflows(
             raise TaskStartCliError(
                 "Controller returned a repeating Workflow catalog cursor",
                 kind="controller_response_invalid",
-                hint="Check the Banksia controller version and logs.",
+                hint="Check the Oh My Subagents controller version and logs.",
             )
         seen_cursors.add(cursor)
 
@@ -186,7 +188,7 @@ async def _post_task_start(
         raise TaskStartCliError(
             "Controller returned an invalid Task-start receipt",
             kind="controller_response_invalid",
-            hint="Check the Banksia controller version and logs.",
+            hint="Check the Oh My Subagents controller version and logs.",
         ) from exc
 
 
@@ -200,9 +202,9 @@ async def _request(
         response = await client.request(method, path, **kwargs)
     except httpx.RequestError as exc:
         raise TaskStartCliError(
-            "Banksia controller is not reachable",
+            "Oh My Subagents controller is not reachable",
             kind="controller_unreachable",
-            hint="Start it with `banksia service start`, then retry.",
+            hint="Start it with `oms service start`, then retry.",
         ) from exc
     if response.is_success:
         return response

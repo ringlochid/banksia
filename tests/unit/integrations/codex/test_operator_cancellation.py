@@ -195,7 +195,7 @@ def _tools() -> tuple[OperatorTool, ...]:
     return tuple(
         OperatorTool(
             name=tool_name,
-            description=f"Use the Banksia {tool_name.value} operation.",
+            description=f"Use the Oh My Subagents {tool_name.value} operation.",
             input_model=_ToolInput,
             handler=handle,
         )
@@ -298,7 +298,7 @@ async def test_codex_operator_cancellation_deactivates_blocked_dynamic_tool() ->
     tools = list(_tools())
     tools[0] = OperatorTool(
         name=OperatorToolName.WORKFLOW_SEARCH,
-        description="Use the Banksia workflow_search operation.",
+        description="Use the Oh My Subagents workflow_search operation.",
         input_model=_ToolInput,
         handler=block_tool,
     )

@@ -536,9 +536,9 @@ def _decode_task_cursor(
 def _task_control_action(task: ControllerTaskState, *, kind: str) -> ProductAction:
     labels = {"pause": "Pause run", "resume": "Resume run", "cancel": "Cancel run"}
     consequences = {
-        "pause": "Banksia will stop opening new work until the run is resumed.",
-        "resume": "Banksia will reopen currently runnable work.",
-        "cancel": "Banksia will cancel unfinished work and close open waits.",
+        "pause": "Oh My Subagents will stop opening new work until the run is resumed.",
+        "resume": "Oh My Subagents will reopen currently runnable work.",
+        "cancel": "Oh My Subagents will cancel unfinished work and close open waits.",
     }
     action_id = product_action_id(
         "task-control",

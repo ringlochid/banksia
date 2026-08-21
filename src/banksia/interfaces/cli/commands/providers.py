@@ -169,11 +169,11 @@ def cmd_setup(args: argparse.Namespace) -> int:
         "configuration": snapshot.model_dump(mode="json"),
         "check": check.model_dump(mode="json"),
         "next_actions": (
-            ["banksia providers status", "banksia serve"]
+            ["oms providers status", "oms serve"]
             if check.is_ready is True
             else [
-                f"banksia providers login {request.provider.value}",
-                f"banksia providers check {request.provider.value}",
+                f"oms providers login {request.provider.value}",
+                f"oms providers check {request.provider.value}",
             ]
         ),
     }
@@ -203,26 +203,26 @@ def build_setup_guide(config_path: Path, settings: Settings) -> dict[str, Any]:
     if not configured:
         next_actions = []
         if not config_path.exists():
-            next_actions.append("banksia init")
-        next_actions.append("banksia providers configure <provider>")
+            next_actions.append("oms init")
+        next_actions.append("oms providers configure <provider>")
     elif not is_default_configured:
         persisted_candidates = tuple(provider for provider in configured if provider in persisted)
         if persisted_candidates:
             provider = (
                 persisted_candidates[0].value if len(persisted_candidates) == 1 else "<provider>"
             )
-            next_actions = [f"banksia providers set-default {provider}"]
+            next_actions = [f"oms providers set-default {provider}"]
         else:
             provider = configured[0].value if len(configured) == 1 else "<provider>"
-            next_actions = [f"banksia providers configure {provider}"]
+            next_actions = [f"oms providers configure {provider}"]
     else:
         assert default_provider is not None
         next_actions = [
-            f"banksia providers check {default_provider.value}",
-            "banksia serve",
+            f"oms providers check {default_provider.value}",
+            "oms serve",
         ]
     if effective_operator.provider is None:
-        next_actions.append("banksia operator setup")
+        next_actions.append("oms operator setup")
 
     return {
         "ok": True,

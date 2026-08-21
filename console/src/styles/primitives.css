@@ -3,7 +3,7 @@
  *
  * Derived from n8n's `@n8n/design-system/src/css/_primitives.scss` at pinned
  * commit 43c6f329fb1fb528259a78f80b163e4ed1405c02, translated from SCSS mixin
- * to plain custom properties and reduced to the families Banksia uses.
+ * to plain custom properties and reduced to the families Oh My Subagents uses.
  * Copyright (c) n8n GmbH and contributors. Sustainable Use License; see
  * console/LICENSE and console/NOTICE.
  *
@@ -57,7 +57,7 @@
     --color--black-alpha-800: oklch(0% 0 0 / 0.8);
     --color--black-alpha-900: oklch(0% 0 0 / 0.9);
 
-    /* green — Banksia's brand accent, in place of n8n's orange */
+    /* green — Oh My Subagents's brand accent, in place of n8n's orange */
     --color--green-50: oklch(98.19% 0.0181 155.83);
     --color--green-100: oklch(96.24% 0.0434 156.74);
     --color--green-150: oklch(94.08% 0.0693 155.66);
@@ -74,7 +74,7 @@
     --color--green-alpha-100: oklch(58.78% 0.1343 153.89 / 0.149);
     --color--green-alpha-200: oklch(58.78% 0.1343 153.89 / 0.251);
 
-    /* gold — Banksia's secondary accent */
+    /* gold — Oh My Subagents's secondary accent */
     --color--gold-50: oklch(98.3% 0.0114 84.58);
     --color--gold-100: oklch(92.41% 0.0463 78.84);
     --color--gold-200: oklch(89.52% 0.0631 77.82);

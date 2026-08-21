@@ -17,7 +17,7 @@ _MACOS_ACL_FIRST_ENTRY = 0
 
 
 def protect_private_directory_descriptor(descriptor: int) -> None:
-    """Apply and verify owner-only protection on an open Banksia directory."""
+    """Apply and verify owner-only protection on an open Oh My Subagents directory."""
 
     _require_posix_descriptor_policy()
     _protect_posix_descriptor(
@@ -28,7 +28,7 @@ def protect_private_directory_descriptor(descriptor: int) -> None:
 
 
 def protect_private_file_descriptor(descriptor: int) -> None:
-    """Apply and verify owner-only protection on an open Banksia file."""
+    """Apply and verify owner-only protection on an open Oh My Subagents file."""
 
     _require_posix_descriptor_policy()
     _protect_posix_descriptor(
@@ -39,7 +39,7 @@ def protect_private_file_descriptor(descriptor: int) -> None:
 
 
 def protect_private_path(path: Path, *, is_directory: bool) -> None:
-    """Open one real Banksia-owned path and prove its private access policy."""
+    """Open one real Oh My Subagents-owned path and prove its private access policy."""
 
     from banksia.platform.workspace_files.selection import (
         protect_private_path as protect_selected_private_path,
@@ -56,9 +56,9 @@ def _protect_posix_descriptor(
 ) -> None:
     metadata = os.fstat(descriptor)
     if not expected_file_kind(metadata.st_mode):
-        raise PrivatePathError(errno.EINVAL, "private Banksia path has the wrong file type")
+        raise PrivatePathError(errno.EINVAL, "private Oh My Subagents path has the wrong file type")
     if metadata.st_uid != os.geteuid():
-        raise PrivatePathError(errno.EPERM, "private Banksia path is owned by another user")
+        raise PrivatePathError(errno.EPERM, "private Oh My Subagents path is owned by another user")
 
     os.fchmod(descriptor, expected_mode)
     if sys.platform == "darwin":
@@ -67,7 +67,7 @@ def _protect_posix_descriptor(
     if stat.S_IMODE(metadata.st_mode) != expected_mode:
         raise PrivatePathError(
             errno.EPERM,
-            "private Banksia path does not enforce owner-only permissions",
+            "private Oh My Subagents path does not enforce owner-only permissions",
         )
 
 
@@ -124,7 +124,7 @@ def _clear_macos_extended_acl(descriptor: int) -> None:
         if result == 0:
             raise PrivatePathError(
                 errno.EPERM,
-                "private Banksia path retains a macOS ACL entry",
+                "private Oh My Subagents path retains a macOS ACL entry",
             )
         if ctypes.get_errno() not in {0, errno.EINVAL}:
             _raise_macos_acl_error("could not inspect the macOS ACL")

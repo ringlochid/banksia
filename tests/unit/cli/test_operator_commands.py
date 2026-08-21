@@ -60,12 +60,12 @@ def test_operator_setup_requires_saved_managed_route_before_mutation(
 
     assert json_result == 1
     assert json_payload["error"]["kind"] == "operator_provider_not_configured"
-    assert "banksia providers configure codex" in json_payload["error"]["hint"]
+    assert "oms providers configure codex" in json_payload["error"]["hint"]
     assert human_result == 1
     assert "Operator setup needs a provider route" in human_output
     assert "Command parse failed" not in human_output
-    assert "banksia providers configure codex" in human_output
-    assert "banksia operator setup --provider codex" in human_output
+    assert "oms providers configure codex" in human_output
+    assert "oms operator setup --provider codex" in human_output
     assert config_path.read_bytes() == previous_bytes
 
 
@@ -148,8 +148,8 @@ def test_operator_status_is_passive_and_discloses_environment_override(
             "--json",
         ],
         env={
-            "BANKSIA_OPERATOR__PROVIDER": "claude",
-            "BANKSIA_CLAUDE__ENABLED": "true",
+            "OMS_OPERATOR__PROVIDER": "claude",
+            "OMS_CLAUDE__ENABLED": "true",
         },
     )
 
@@ -159,7 +159,7 @@ def test_operator_status_is_passive_and_discloses_environment_override(
     assert payload["operator"]["effective"]["provider"] == "claude"
     assert payload["operator"]["environment_override"] is True
     assert payload["operator"]["provider_route_configured"] is True
-    assert payload["next_action"] == "banksia providers check claude"
+    assert payload["next_action"] == "oms providers check claude"
 
 
 def test_operator_disable_is_idempotent_and_keeps_provider_route(
@@ -186,7 +186,7 @@ def test_operator_disable_is_idempotent_and_keeps_provider_route(
             str(config_path),
             "--json",
         ],
-        env={"BANKSIA_OPERATOR__PROVIDER": "codex"},
+        env={"OMS_OPERATOR__PROVIDER": "codex"},
     )
     second = runner.invoke(
         parser,
@@ -294,7 +294,7 @@ def test_guided_operator_defaults_to_saved_provider_and_preserves_overrides(
     assert "Operator already configured" in result.output
     assert "Operator setup complete" not in result.output
     assert "Changed" not in result.output
-    assert result.output.count("banksia providers check claude") == 1
+    assert result.output.count("oms providers check claude") == 1
 
 
 def test_guided_operator_can_explicitly_clear_saved_overrides(
@@ -332,7 +332,7 @@ def test_guided_operator_can_explicitly_clear_saved_overrides(
     assert "Operator setup complete" in result.output
     assert "Operator already configured" not in result.output
     assert "provider default" in result.output
-    assert "Next: banksia serve" in result.output
+    assert "Next: oms serve" in result.output
 
 
 def test_guided_operator_does_not_carry_overrides_to_a_different_provider(

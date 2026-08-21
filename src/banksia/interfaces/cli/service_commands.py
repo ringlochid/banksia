@@ -22,7 +22,7 @@ from .root_support import (
 )
 
 
-@click.group("service", help="Manage the per-user Banksia background service.")
+@click.group("service", help="Manage the per-user Oh My Subagents background service.")
 def service_group() -> None:
     return None
 

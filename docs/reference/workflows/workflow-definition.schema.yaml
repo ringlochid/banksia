@@ -1,8 +1,8 @@
 $schema: "https://json-schema.org/draft/2020-12/schema"
-$id: "https://banksia.local/schemas/workflow-definition"
-title: Banksia user-authored Workflow
+$id: "https://oh-my-subagents.local/schemas/workflow-definition"
+title: Oh My Subagents user-authored Workflow
 description: >-
-    Schema for one recursive Banksia Workflow responsibility tree. JSON and YAML
+    Schema for one recursive Oh My Subagents Workflow responsibility tree. JSON and YAML
     inputs parse to this same JSON-compatible model. Blank optional prose and
     null normalize to omission before canonical persistence.
 type: object
@@ -26,7 +26,7 @@ properties:
         $ref: "#/$defs/optionalNote"
         description: >-
             Shared team-specific Markdown guidance for the complete Workflow. It is
-            not general Banksia instruction and is not parsed as routing, policy,
+            not general Oh My Subagents instruction and is not parsed as routing, policy,
             execution order, or completion logic.
     lead:
         $ref: "#/$defs/workflowMember"
@@ -209,7 +209,7 @@ $defs:
                 $ref: "#/$defs/optionalText"
                 description: >-
                     Optional reusable team-specific contribution guidance, not a
-                    scheduled step or general Banksia operating instruction.
+                    scheduled step or general Oh My Subagents operating instruction.
             provider:
                 $ref: "#/$defs/providerSelection"
             capabilities:

@@ -32,7 +32,7 @@ def emit_provider_definitions(
 ) -> None:
     runtime = context or CliContext()
     if not runtime.rich_enabled():
-        print("Banksia provider integrations")
+        print("Oh My Subagents provider integrations")
         for definition in definitions:
             availability = "available" if definition.is_integration_available else "unavailable"
             print(
@@ -114,7 +114,7 @@ def emit_provider_identity(
         print(f"Identity: {snapshot.service_identity}")
         print(f"Native home: {snapshot.native_home}")
         if snapshot.outcome is ProviderIdentityOutcome.SUCCEEDED and snapshot.action == "login":
-            print(f"Next: banksia providers check {snapshot.provider.value}")
+            print(f"Next: oms providers check {snapshot.provider.value}")
         return
 
     style = {
@@ -150,7 +150,7 @@ def emit_provider_identity(
         runtime.console().print(
             Text.assemble(
                 ("Next  ", "muted"),
-                (f"banksia providers check {snapshot.provider.value}", "accent"),
+                (f"oms providers check {snapshot.provider.value}", "accent"),
             )
         )
 
@@ -262,12 +262,12 @@ def _emit_rich_status_next_step(
 def _provider_status_next_command(statuses: Sequence[ProviderStatusSnapshot]) -> str:
     configured = [status for status in statuses if status.is_configured]
     if len(configured) == 1:
-        return f"banksia providers check {configured[0].kind.value}"
+        return f"oms providers check {configured[0].kind.value}"
     if len(configured) > 1:
-        return "banksia providers check <provider>"
+        return "oms providers check <provider>"
     if len(statuses) == 1:
-        return f"banksia providers configure {statuses[0].kind.value}"
-    return "banksia setup"
+        return f"oms providers configure {statuses[0].kind.value}"
+    return "oms setup"
 
 
 def _emit_rich_provider_check(
@@ -428,10 +428,10 @@ def _product_status_label(status: ProviderProductStatus) -> str:
 
 def _setup_owner_label(owner: str) -> str:
     if owner == "shared":
-        return "Banksia route; user-managed provider runtime"
+        return "Oh My Subagents route; user-managed provider runtime"
     if owner == "user":
         return "User managed"
-    return "Banksia managed"
+    return "Oh My Subagents managed"
 
 
 def _styled_state(label: str, style: str) -> Text:
@@ -439,22 +439,22 @@ def _styled_state(label: str, style: str) -> Text:
 
 
 def _provider_check_next_step(snapshot: ProviderCheckSnapshot) -> str | None:
-    command = f"banksia providers check {snapshot.kind.value}"
+    command = f"oms providers check {snapshot.kind.value}"
     if snapshot.is_ready is True:
         return None
     if snapshot.outcome is ProviderCheckOutcome.NOT_CONFIGURED:
-        return f"banksia providers configure {snapshot.kind.value}"
+        return f"oms providers configure {snapshot.kind.value}"
     if snapshot.outcome is ProviderCheckOutcome.AUTHENTICATION_FAILED:
-        return f"banksia providers login {snapshot.kind.value}"
+        return f"oms providers login {snapshot.kind.value}"
     if snapshot.outcome is ProviderCheckOutcome.LOCAL_PREREQUISITES_READY:
-        return f"banksia providers login {snapshot.kind.value}"
+        return f"oms providers login {snapshot.kind.value}"
     if snapshot.outcome is ProviderCheckOutcome.NOT_INSTALLED:
-        return f"Repair the Banksia installation, then rerun: {command}"
+        return f"Repair the Oh My Subagents installation, then rerun: {command}"
     if snapshot.outcome is ProviderCheckOutcome.UNREACHABLE:
         return f"Check provider connectivity, then rerun: {command}"
     if snapshot.outcome is ProviderCheckOutcome.INCOMPATIBLE:
         return f"Review the provider route, then rerun: {command}"
-    return f"banksia --debug providers check {snapshot.kind.value}"
+    return f"oms --debug providers check {snapshot.kind.value}"
 
 
 def _has_unchecked_axis(snapshot: ProviderCheckSnapshot) -> bool:

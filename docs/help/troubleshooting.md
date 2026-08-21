@@ -3,11 +3,11 @@
 Begin with passive readback:
 
 ```bash
-banksia status
-banksia config path
-banksia config show
-banksia providers status
-banksia service status
+oms status
+oms config path
+oms config show
+oms providers status
+oms service status
 ```
 
 Use `--json` where the command offers it when collecting diagnostics. Use the root `--debug` flag only when a traceback is useful. A browser or provider process is not controller truth; inspect the current Workflow or Task before choosing a mutation.
@@ -21,17 +21,17 @@ Each symptom below separates meaning, safe checks, the next legal action, contro
 **Safe checks.**
 
 ```bash
-banksia config path
-banksia config show
-banksia status
+oms config path
+oms config show
+oms status
 ```
 
-Confirm that the shown workspace is the intended existing absolute directory. Also check whether `BANKSIA_CONTROLLER_WORKSPACE` is overriding TOML.
+Confirm that the shown workspace is the intended existing absolute directory. Also check whether `OMS_CONTROLLER_WORKSPACE` is overriding TOML.
 
 **Legal action.** For a new configuration, run:
 
 ```bash
-banksia init --workspace /absolute/path/to/project
+oms init --workspace /absolute/path/to/project
 ```
 
 For an existing configuration, correct `[paths].workspace` or the environment override explicitly. Use `init --force` only when you intend to replace the managed configuration; it preserves a valid existing workspace unless a replacement is supplied.
@@ -42,39 +42,39 @@ For an existing configuration, correct `[paths].workspace` or the environment ov
 
 ## PostgreSQL cannot initialize or connect
 
-**Meaning.** The optional PostgreSQL driver may be absent, the configured `postgresql+asyncpg` URL may be invalid or unreachable, the role may lack permission on the selected database/schema, or a nonempty schema may not match the exact Banksia schema.
+**Meaning.** The optional PostgreSQL driver may be absent, the configured `postgresql+asyncpg` URL may be invalid or unreachable, the role may lack permission on the selected database/schema, or a nonempty schema may not match the exact Oh My Subagents schema.
 
 **Safe checks.**
 
 ```bash
-banksia config show
-banksia status
-banksia --debug db upgrade
+oms config show
+oms status
+oms --debug db upgrade
 ```
 
-Confirm that the redacted URL names the intended host and database and that `postgres_schema` names the intended dedicated schema. Check `BANKSIA_DATABASE_URL` and `BANKSIA_POSTGRES_SCHEMA` for effective overrides.
+Confirm that the redacted URL names the intended host and database and that `postgres_schema` names the intended dedicated schema. Check `OMS_DATABASE_URL` and `OMS_POSTGRES_SCHEMA` for effective overrides.
 
 **Legal action.** If `asyncpg` is missing from a pipx installation, reinstall the application with the supported extra:
 
 ```bash
-pipx install --force "banksia[postgres]"
+pipx install --force "oh-my-subagents[postgres]"
 ```
 
-Correct the selected URL or PostgreSQL role permissions explicitly, then rerun `banksia db upgrade`. That command creates an empty selected schema, verifies the current schema, or applies a registered forward upgrade from one exact supported predecessor. It refuses unknown or locally changed schemas rather than repairing them heuristically. Before changing an existing supported schema, it creates a backup or stops. PostgreSQL requires a compatible `pg_dump` client.
+Correct the selected URL or PostgreSQL role permissions explicitly, then rerun `oms db upgrade`. That command creates an empty selected schema, verifies the current schema, or applies a registered forward upgrade from one exact supported predecessor. It refuses unknown or locally changed schemas rather than repairing them heuristically. Before changing an existing supported schema, it creates a backup or stops. PostgreSQL requires a compatible `pg_dump` client.
 
 **Controller truth.** A connection or schema preflight failure does not create a Task. Changing the effective database or schema selects different controller truth; it does not move history from the previous selection.
 
-**Report a defect when.** A role that can connect and create/use objects in an empty dedicated schema cannot initialize, redacted readback exposes credentials, or an exact current schema is reported as mismatched. Include the Banksia version, PostgreSQL version, redacted URL, schema name, and debug error.
+**Report a defect when.** A role that can connect and create/use objects in an empty dedicated schema cannot initialize, redacted readback exposes credentials, or an exact current schema is reported as mismatched. Include the Oh My Subagents version, PostgreSQL version, redacted URL, schema name, and debug error.
 
 ## A provider is unavailable or authentication is missing
 
-**Meaning.** The requested provider route is disabled, unconfigured, unauthenticated, unavailable, or incompatible with the explicit model, effort, or sandbox request. Banksia does not silently fall back.
+**Meaning.** The requested provider route is disabled, unconfigured, unauthenticated, unavailable, or incompatible with the explicit model, effort, or sandbox request. Oh My Subagents does not silently fall back.
 
 **Safe checks.**
 
 ```bash
-banksia providers status
-banksia providers check codex
+oms providers status
+oms providers check codex
 ```
 
 `providers status` is passive. `providers check NAME` actively tests that route and returns exit `1` when it is not ready.
@@ -89,10 +89,10 @@ command -v socat
 **Legal action.**
 
 ```bash
-banksia providers configure codex
-banksia providers login codex --method subscription
-banksia providers set-default codex
-banksia providers check codex
+oms providers configure codex
+oms providers login codex --method subscription
+oms providers set-default codex
+oms providers check codex
 ```
 
 Choose the real provider and authentication method, then run the matching readiness check.
@@ -103,11 +103,11 @@ For Claude deny-network execution on Ubuntu or Debian, install the missing host 
 sudo apt-get install bubblewrap socat
 ```
 
-On Ubuntu 24.04 or later, an installed `bwrap` may still need the AppArmor setup documented in the [Claude Code sandboxing guide](https://code.claude.com/docs/en/sandboxing). Banksia configures this path to fail closed: do not widen network access merely to bypass a missing sandbox unless that policy change is intentional.
+On Ubuntu 24.04 or later, an installed `bwrap` may still need the AppArmor setup documented in the [Claude Code sandboxing guide](https://code.claude.com/docs/en/sandboxing). Oh My Subagents configures this path to fail closed: do not widen network access merely to bypass a missing sandbox unless that policy change is intentional.
 
 **Controller truth.** A Task-start provider rejection commits no Task. A provider interruption after acceptance does not erase the Task; current controller state determines recovery or attention.
 
-**Report a defect when.** `providers check` reports ready but an unchanged supported request cannot start, or the explicit route changes without a configuration mutation. Include provider kind, redacted status/check output, Banksia version, and timestamps.
+**Report a defect when.** `providers check` reports ready but an unchanged supported request cannot start, or the explicit route changes without a configuration mutation. Include provider kind, redacted status/check output, Oh My Subagents version, and timestamps.
 
 ## Operator is not configured or its provider needs attention
 
@@ -116,8 +116,8 @@ On Ubuntu 24.04 or later, an installed `bwrap` may still need the AppArmor setup
 **Safe checks.**
 
 ```bash
-banksia operator status
-banksia providers status
+oms operator status
+oms providers status
 ```
 
 `operator status` is passive. It shows saved and effective Operator settings, whether an environment override is active, and the next provider diagnostic without starting a model turn.
@@ -125,11 +125,11 @@ banksia providers status
 **Legal action.**
 
 ```bash
-banksia operator setup
-banksia providers check codex
+oms operator setup
+oms providers check codex
 ```
 
-Choose the provider named by your intended Operator configuration. A failed check does not remove the saved selection. To remove only the persisted Operator choice, run `banksia operator disable`; this does not disable its provider route. If status still shows an environment override, remove the corresponding `BANKSIA_OPERATOR__*` value explicitly.
+Choose the provider named by your intended Operator configuration. A failed check does not remove the saved selection. To remove only the persisted Operator choice, run `oms operator disable`; this does not disable its provider route. If status still shows an environment override, remove the corresponding `OMS_OPERATOR__*` value explicitly.
 
 **Controller truth.** Operator configuration and Task-provider routing are separate. Setup and diagnostics create no Task or Operator conversation.
 
@@ -159,9 +159,9 @@ Choose the provider named by your intended Operator configuration. A failed chec
 
 - Read Workflow state and the current publication/draft ETag.
 - Validate the draft before publishing.
-- Run `banksia config show` and `banksia providers status`.
+- Run `oms config show` and `oms providers status`.
 - Confirm every referenced path is a regular workspace-relative file with no symbolic-link component.
-- Confirm the controller is reachable before `banksia task start`.
+- Confirm the controller is reachable before `oms task start`.
 
 **Legal action.** Publish the current validated draft with its current ETag, or select an existing published Starter. Correct the exact rejected workspace, provider, capability, or file field and submit one new start request.
 
@@ -211,14 +211,14 @@ Check `output_complete`, `is_missing`, `is_changed`, and `is_bounded` before int
 
 ## The background service is not ready
 
-**Meaning.** The native per-user definition may be absent, stopped, out of date, or running while the controller cannot pass readiness. Banksia uses a systemd user service on Linux, a current-user LaunchAgent on macOS, and a current-user Scheduled Task on Windows.
+**Meaning.** The native per-user definition may be absent, stopped, out of date, or running while the controller cannot pass readiness. Oh My Subagents uses a systemd user service on Linux, a current-user LaunchAgent on macOS, and a current-user Scheduled Task on Windows.
 
 **Safe checks.**
 
 ```bash
-banksia service status
-banksia service logs --lines 200
-banksia config show
+oms service status
+oms service logs --lines 200
+oms config show
 ```
 
 The portable status combines installation, start-at-sign-in, and controller readiness. The log command reads the same bounded controller log on every supported host.
@@ -226,18 +226,18 @@ The portable status combines installation, start-at-sign-in, and controller read
 **Legal action.**
 
 ```bash
-banksia service install
-banksia service start
-banksia service restart
+oms service install
+oms service start
+oms service restart
 ```
 
-Re-running install reconciles the fixed native definition with the selected configuration and interpreter. Use `banksia serve` instead when you want a foreground process. Do not pass a raw service name, unit directory, or service-specific port; change controller configuration and rerun install.
+Re-running install reconciles the fixed native definition with the selected configuration and interpreter. Use `oms serve` instead when you want a foreground process. Do not pass a raw service name, unit directory, or service-specific port; change controller configuration and rerun install.
 
-`banksia service uninstall` removes only the native background-service definition. It preserves controller configuration, database/data, and the sibling provider environment file.
+`oms service uninstall` removes only the native background-service definition. It preserves controller configuration, database/data, and the sibling provider environment file.
 
 **Controller truth.** A native process state is not the same as controller readiness. A restart recovers committed controller work through ordinary startup recovery; it does not replay work merely from a log or process record.
 
-**Report a defect when.** A current definition cannot be reinstalled idempotently, status reports ready while `/readyz` fails, uninstall removes persistent settings, or the portable CLI requires direct systemd, launchd, or `schtasks` commands. Include redacted `service status --json`, bounded service logs, platform, and Banksia version.
+**Report a defect when.** A current definition cannot be reinstalled idempotently, status reports ready while `/readyz` fails, uninstall removes persistent settings, or the portable CLI requires direct systemd, launchd, or `schtasks` commands. Include redacted `service status --json`, bounded service logs, platform, and Oh My Subagents version.
 
 ## A provider stopped or a run appears stuck
 
@@ -246,13 +246,13 @@ Re-running install reconciles the fixed native definition with the selected conf
 **Safe checks.**
 
 ```bash
-banksia status
-banksia service status
+oms status
+oms service status
 curl --fail http://127.0.0.1:18125/healthz
 curl --fail http://127.0.0.1:18125/readyz
 ```
 
-Replace the example health host and port with the effective values from `banksia config show`. Then refetch the Task. Look for current attention, legal controls, Activity, Result, and whether all members of a visible delegation have returned. A blocked child is a terminal Wave result; siblings still collect.
+Replace the example health host and port with the effective values from `oms config show`. Then refetch the Task. Look for current attention, legal controls, Activity, Result, and whether all members of a visible delegation have returned. A blocked child is a terminal Wave result; siblings still collect.
 
 **Legal action.** If the service is actually stopped, start it. If the current Task offers pause, resume, or cancel, use that exact action. Otherwise allow startup recovery to reconcile committed sources. Do not manually repeat a provider request, answer, command, or Task start merely because a process window closed.
 
@@ -291,21 +291,21 @@ Replace the example health host and port with the effective values from `banksia
 
 ## You are considering database reset
 
-**Meaning.** `banksia db reset` creates a clean controller-storage baseline. It is destructive initialization, not a stuck-Task recovery action.
+**Meaning.** `oms db reset` creates a clean controller-storage baseline. It is destructive initialization, not a stuck-Task recovery action.
 
 **Safe checks.**
 
 ```bash
-banksia config show
-banksia db upgrade --help
-banksia db reset --help
+oms config show
+oms db upgrade --help
+oms db reset --help
 ```
 
 Confirm the selected database, data directory, workspace, and whether the actual problem is configuration, exact-schema verification, service readiness, or one Task.
 
 **Legal action.** Run `db upgrade` before considering reset. It creates a genuinely empty database, verifies the exact current schema, or applies a registered forward upgrade only when the complete starting schema matches one supported predecessor. An unknown or locally changed schema remains untouched and needs inspection. Before changing an eligible existing database, upgrade creates a backup. For recovery, use current Task controls and documented service restart first.
 
-Reset automatically creates a backup before it deletes controller-owned Task roots or replaces an existing database/schema. The reported backup path is the rollback artifact: adjacent to SQLite, or under `paths.data_dir/database-backups/` for PostgreSQL. Keep it until the replacement is verified. If PostgreSQL reports that `pg_dump` is missing, install the matching PostgreSQL client tools and rerun; Banksia has made no destructive change.
+Reset automatically creates a backup before it deletes controller-owned Task roots or replaces an existing database/schema. The reported backup path is the rollback artifact: adjacent to SQLite, or under `paths.data_dir/database-backups/` for PostgreSQL. Keep it until the replacement is verified. If PostgreSQL reports that `pg_dump` is missing, install the matching PostgreSQL client tools and rerun; Oh My Subagents has made no destructive change.
 
 **Controller truth.** Reset destroys controller records and recreates the schema/catalog. It cannot convert blocked work to success, reconstruct loose files, or make old workspace Task directories canonical to the new database.
 
@@ -319,9 +319,9 @@ Support routes are bearer-authenticated, reject browser origins, and are read-on
 
 For a defect report, collect only what is needed:
 
-- Banksia version and platform;
+- Oh My Subagents version and platform;
 - exact command or route and timestamp;
-- redacted `banksia status --json` and `banksia config show`;
+- redacted `oms status --json` and `oms config show`;
 - Task ID and semantic Task state when relevant;
 - the smallest safe Activity or support trace excerpt;
 - expected versus actual consequence; and

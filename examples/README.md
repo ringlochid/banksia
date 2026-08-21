@@ -1,6 +1,6 @@
 # Examples
 
-Banksia ships two distinct Workflow collections:
+Oh My Subagents ships two distinct Workflow collections:
 
 - eight installed, provider-neutral **Starters** for complex daily and ambitious
   developer or researcher work; and

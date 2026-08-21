@@ -56,7 +56,7 @@ def create_support_app(
     if len(raw_credential) < 32:
         raise ValueError("support credential must contain at least 32 characters")
     app = FastAPI(
-        title="Banksia Support API",
+        title="Oh My Subagents Support API",
         version=version,
         docs_url=None,
         redoc_url=None,

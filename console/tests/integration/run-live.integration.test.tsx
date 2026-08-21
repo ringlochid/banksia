@@ -25,7 +25,7 @@ import type {
 } from "../../src/api/client";
 import { taskFixture } from "../fixtures/runs";
 
-const API_ROOT = "http://banksia.test/api";
+const API_ROOT = "http://oms.test/api";
 const TASK_ID = "t_7m4k2d9x";
 const TASK_PATH = `${API_ROOT}/tasks/${TASK_ID}`;
 const ACTIVITY_PATH = `${TASK_PATH}/activities`;

@@ -32,7 +32,7 @@ async def test_lifespan_fails_closed_on_stale_runtime_schema(
 ) -> None:
     config_path = tmp_path / "banksia-config.toml"
     data_dir = tmp_path / "banksia-data"
-    monkeypatch.setenv("BANKSIA_ENV", "development")
+    monkeypatch.setenv("OMS_ENV", "development")
 
     try:
         await cli.cmd_init(
@@ -67,9 +67,9 @@ async def test_lifespan_fails_closed_on_stale_runtime_schema(
             assert "missing table tasks" in message
             assert "existing database does not match the current runtime schema" in message
             assert (
-                "Run `banksia db upgrade` with the same configuration before considering reset."
+                "Run `oms db upgrade` with the same configuration before considering reset."
             ) in message
-            assert message.index("banksia db upgrade") < message.index("reset")
+            assert message.index("oms db upgrade") < message.index("reset")
     finally:
         await dispose_test_db_engine()
 
@@ -80,7 +80,7 @@ async def test_lifespan_creates_schema_only_for_genuinely_empty_database(
 ) -> None:
     config_path = tmp_path / "banksia-config.toml"
     data_dir = tmp_path / "banksia-data"
-    monkeypatch.setenv("BANKSIA_ENV", "test")
+    monkeypatch.setenv("OMS_ENV", "test")
 
     try:
         await cli.cmd_init(

@@ -70,7 +70,7 @@ class ConfiguredOperatorTurnRunner:
     async def execute_turn(self, request: OperatorTurnRequest) -> OperatorTurnOutcome:
         if not self._is_active:
             raise OperatorProviderUnavailableError(
-                "Operator turns are unavailable outside the Banksia application lifespan"
+                "Operator turns are unavailable outside the Oh My Subagents application lifespan"
             )
         current_task = asyncio.current_task()
         if current_task is None:
@@ -125,7 +125,7 @@ class ConfiguredOperatorTurnRunner:
                 setup_action=(
                     f"Set the Operator or {provider.value.title()} {label} to at most "
                     f"{_PROVIDER_OPTION_CHARACTER_LIMIT} characters in "
-                    f"`{self._settings.config_path}`, then restart Banksia."
+                    f"`{self._settings.config_path}`, then restart Oh My Subagents."
                 ),
             )
         try:
@@ -138,11 +138,11 @@ class ConfiguredOperatorTurnRunner:
             return _unavailable_runner(
                 self._settings,
                 explanation=(
-                    f"Banksia could not verify the configured {provider.value.title()} "
+                    f"Oh My Subagents could not verify the configured {provider.value.title()} "
                     "Operator provider."
                 ),
                 setup_action=(
-                    f"Run `banksia providers check {provider.value}`, then restart Banksia."
+                    f"Run `oms providers check {provider.value}`, then restart Oh My Subagents."
                 ),
             )
 
@@ -156,7 +156,8 @@ class ConfiguredOperatorTurnRunner:
                 explanation="The configured Claude Operator effort is not supported.",
                 setup_action=(
                     "Set the Operator or Claude effort to `low`, `medium`, `high`, "
-                    f"`xhigh`, or `max` in `{self._settings.config_path}`, then restart Banksia."
+                    f"`xhigh`, or `max` in `{self._settings.config_path}`, "
+                    "then restart Oh My Subagents."
                 ),
             )
         readiness = await _await_owned_operation(
@@ -187,7 +188,7 @@ class ConfiguredOperatorTurnRunner:
                 setup_action=(
                     "Set the Operator or Codex effort to `none`, `minimal`, `low`, "
                     f"`medium`, `high`, `xhigh`, `max`, or `ultra` in "
-                    f"`{self._settings.config_path}`, then restart Banksia."
+                    f"`{self._settings.config_path}`, then restart Oh My Subagents."
                 ),
             )
         authentication = await _read_codex_authentication()
@@ -262,13 +263,13 @@ def _initial_runner(settings: Settings) -> OperatorTurnRunner:
             settings,
             explanation=f"The configured {provider.value.title()} Operator provider is disabled.",
             setup_action=(
-                f"Run `banksia providers configure {provider.value}`, then restart Banksia."
+                f"Run `oms providers configure {provider.value}`, then restart Oh My Subagents."
             ),
         )
     return _unavailable_runner(
         settings,
-        explanation="Operator readiness will be checked when Banksia starts.",
-        setup_action=f"Run `banksia providers check {provider.value}` if startup cannot verify it.",
+        explanation="Operator readiness will be checked when Oh My Subagents starts.",
+        setup_action=f"Run `oms providers check {provider.value}` if startup cannot verify it.",
     )
 
 
@@ -278,7 +279,7 @@ def _unconfigured_runner() -> OperatorTurnRunner:
             availability="unconfigured",
             configured_provider=None,
             explanation="Operator is not configured with a provider.",
-            setup_action="Run `banksia operator setup`, then restart Banksia.",
+            setup_action="Run `oms operator setup`, then restart Oh My Subagents.",
         )
     )
 
@@ -323,14 +324,17 @@ def _authentication_unavailable_runner(
             explanation=(
                 f"The configured {provider.value.title()} Operator provider is not authenticated."
             ),
-            setup_action=(f"Run `banksia providers login {provider.value}`, then restart Banksia."),
+            setup_action=(
+                f"Run `oms providers login {provider.value}`, then restart Oh My Subagents."
+            ),
         )
     return _unavailable_runner(
         settings,
         explanation=(
-            f"Banksia could not verify the configured {provider.value.title()} Operator provider."
+            "Oh My Subagents could not verify the configured "
+            f"{provider.value.title()} Operator provider."
         ),
-        setup_action=f"Run `banksia providers check {provider.value}`, then restart Banksia.",
+        setup_action=f"Run `oms providers check {provider.value}`, then restart Oh My Subagents.",
     )
 
 

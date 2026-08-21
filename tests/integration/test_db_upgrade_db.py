@@ -32,7 +32,7 @@ async def test_postgres_upgrade_preserves_runtime_rows(tmp_path: Path) -> None:
     data_dir = tmp_path / "data"
 
     with (
-        temporary_env({"BANKSIA_POSTGRES_SCHEMA": schema_name}),
+        temporary_env({"OMS_POSTGRES_SCHEMA": schema_name}),
         command_env(
             config_path=tmp_path / "config.toml",
             data_dir=data_dir,
@@ -98,7 +98,7 @@ async def test_postgres_upgrade_adds_member_steering_event_type(tmp_path: Path) 
     allowed_sql = ", ".join(f"'{value}'" for value in predecessor_values)
 
     with (
-        temporary_env({"BANKSIA_POSTGRES_SCHEMA": schema_name}),
+        temporary_env({"OMS_POSTGRES_SCHEMA": schema_name}),
         command_env(
             config_path=tmp_path / "config.toml",
             data_dir=data_dir,
@@ -147,7 +147,7 @@ async def test_postgres_upgrade_widens_command_exit_code_without_losing_rows(
     data_dir = tmp_path / "data"
 
     with (
-        temporary_env({"BANKSIA_POSTGRES_SCHEMA": schema_name}),
+        temporary_env({"OMS_POSTGRES_SCHEMA": schema_name}),
         command_env(
             config_path=tmp_path / "config.toml",
             data_dir=data_dir,

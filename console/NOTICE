@@ -1,10 +1,10 @@
-Banksia Console
+Oh My Subagents Console
 ===============
 
 THIS SOFTWARE HAS BEEN MODIFIED.
 
-The Banksia Console contains source code, stylesheets, and design tokens
-derived from n8n, modified by the Banksia authors. It is not the original
+The Oh My Subagents Console contains source code, stylesheets, and design tokens
+derived from n8n, modified by the Oh My Subagents authors. It is not the original
 n8n software, is not produced or endorsed by n8n GmbH, and must not be
 mistaken for an official n8n product or distribution.
 
@@ -19,7 +19,7 @@ License:        Sustainable Use License, Version 1.0 (see ./LICENSE)
 License digest: sha256 d2f621f59aa4c10eab79b6333e59d9d3d5b53307dcfd16dbd75e40e679e84965
 
 Derived material includes design tokens and primitives, component
-stylesheets, markup structure, and canvas interaction logic. Banksia's
+stylesheets, markup structure, and canvas interaction logic. Oh My Subagents's
 product vocabulary, information architecture, controller contracts, and
 backend are its own; n8n's data model, execution semantics, and product
 terminology are deliberately not carried over.
@@ -37,17 +37,17 @@ applicable law." n8n's name, logo, and wordmark are trademarks of n8n GmbH.
 
 KNOWN ISSUE: this build currently uses an n8n brand mark as a temporary
 placeholder. It is outside the license grant and must be replaced with a
-Banksia mark before any public distribution.
+Oh My Subagents mark before any public distribution.
 
 Licensing of this directory
 ---------------------------
 
 Because the Sustainable Use License is non-sublicensable, this directory
 (`console/`) is NOT distributed under the MIT License that covers the rest
-of the Banksia repository. It is distributed under the Sustainable Use
+of the Oh My Subagents repository. It is distributed under the Sustainable Use
 License in ./LICENSE, which limits use to internal business purposes or
 non-commercial or personal use, and permits redistribution only free of
 charge for non-commercial purposes.
 
-The Banksia backend and every directory outside `console/` remain MIT
+The Oh My Subagents backend and every directory outside `console/` remain MIT
 licensed; see ../LICENSE.

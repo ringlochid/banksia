@@ -13,7 +13,7 @@ import { router } from "./app/router";
 
 const root = document.getElementById("root");
 if (root === null) {
-    throw new Error("Banksia Console root element is missing");
+    throw new Error("Oh My Subagents Console root element is missing");
 }
 
 createRoot(root).render(

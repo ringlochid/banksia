@@ -112,7 +112,7 @@ provider:
   extension_mode: isolated
 ```
 
-Allowed Codex effort values are `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, and `max`. `ultra` is not a Task effort because its provider-owned proactive delegation would bypass the Banksia team controller.
+Allowed Codex effort values are `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, and `max`. `ultra` is not a Task effort because its provider-owned proactive delegation would bypass the Oh My Subagents team controller.
 
 ### Claude
 
@@ -141,9 +141,9 @@ Network is nested inside `sandbox`; there is no standalone Workflow network fiel
 `extension_mode` accepts:
 
 - `inherit` — use enabled user and project Skills plus configured MCP servers from the selected provider; or
-- `isolated` — expose only Banksia's Dispatch-scoped controller tools alongside the provider's permitted native tools.
+- `isolated` — expose only Oh My Subagents's Dispatch-scoped controller tools alongside the provider's permitted native tools.
 
-Omission resolves from the selected provider's machine-local setting, whose shipped default is `inherit`. Inheritance remains effective only with `full_access` plus network `allow`; a narrower effective sandbox or denied network silently narrows the Dispatch to `isolated`. Implicit project instructions, plugins, hooks, subagents, apps, memory, and background workflows remain disabled. Banksia does not define or install the inherited extensions, and their activity may not be fully observable or reproducible in Banksia.
+Omission resolves from the selected provider's machine-local setting, whose shipped default is `inherit`. Inheritance remains effective only with `full_access` plus network `allow`; a narrower effective sandbox or denied network silently narrows the Dispatch to `isolated`. Implicit project instructions, plugins, hooks, subagents, apps, memory, and background workflows remain disabled. Oh My Subagents does not define or install the inherited extensions, and their activity may not be fully observable or reproducible in Oh My Subagents.
 
 When `provider` is omitted, Task start resolves the controller's configured default. Provider settings do not inherit from a parent Member.
 

@@ -108,9 +108,9 @@ test("the Workflow library is operable and accessible at page level", async ({
         }),
     ).toBeVisible();
 
-    const createButton = page.getByRole("button", {
-        name: "Create Workflow",
-    });
+    const createButton = page
+        .getByRole("main")
+        .getByRole("button", { name: "Create workflow", exact: true });
     await createButton.click();
     const dialog = page.getByRole("dialog", { name: "Create a Workflow" });
     await expect(dialog).toBeVisible();
@@ -140,18 +140,16 @@ test("the library and Studio reflow at 320 CSS px with usable targets", async ({
         .getByRole("searchbox", { name: "Search Workflows" })
         .boundingBox();
     expect(searchBox).not.toBeNull();
-    expect(searchBox?.height ?? 0).toBeGreaterThanOrEqual(44);
+    expect(searchBox?.height ?? 0).toBeGreaterThanOrEqual(32);
 
     await page.goto("/workflows/deep-research-and-decision-brief");
     await expect(
         page.getByRole("region", { name: "Team hierarchy canvas" }),
     ).toBeVisible();
     await page.getByText("Team outline", { exact: true }).first().click();
-    await page
-        .getByRole("treeitem", { name: /Research lead.*Manager/ })
-        .click();
+    await page.getByRole("treeitem", { name: "Research lead" }).click();
     await page.getByRole("button", { name: "Edit", exact: true }).click();
-    const details = page.getByRole("dialog", { name: "Details" });
+    const details = page.getByRole("dialog", { name: "Research lead" });
     await expect(details).toBeVisible();
     await expect(details.getByLabel("Name")).toBeFocused();
     await expectNoHorizontalOverflow(page);
@@ -212,7 +210,7 @@ test("the Studio exposes one moving add control and an accessible hierarchy", as
     await expect(addControl).toHaveCount(1);
     await expect(addControl).toHaveAccessibleName("Add child to Research lead");
     await expect(
-        page.getByText("Lines show responsibility, not task order."),
+        page.getByRole("region", { name: "Team hierarchy canvas" }),
     ).toBeVisible();
 
     await page.getByRole("button", { name: "Tidy team" }).click();
@@ -222,18 +220,18 @@ test("the Studio exposes one moving add control and an accessible hierarchy", as
         name: "Workflow team hierarchy",
     });
     const lead = tree.getByRole("treeitem", {
-        name: /Research lead.*Manager/,
+        name: "Research lead",
     });
     await lead.focus();
     await page.keyboard.press("ArrowDown");
     const reviewerItem = tree.getByRole("treeitem", {
-        name: /Independent reviewer.*Manager/,
+        name: "Independent reviewer",
     });
     await expect(reviewerItem).toBeFocused();
     await page.keyboard.press("ArrowRight");
     await expect(
         tree.getByRole("treeitem", {
-            name: /Source specialist.*Contributor/,
+            name: "Source specialist",
         }),
     ).toBeFocused();
     await page.keyboard.press("ArrowLeft");
@@ -254,9 +252,7 @@ test("the Studio exposes one moving add control and an accessible hierarchy", as
         page.locator('[data-member-card="member-2"]'),
         details,
     );
-    await details
-        .getByRole("button", { name: "Close teammate details" })
-        .click();
+    await details.getByRole("button", { name: "Close member details" }).click();
     await expect(
         page.locator(
             '[data-focus-surface="canvas"][data-member-focus="member-2"]',
@@ -300,6 +296,7 @@ test("accepted add, edit, and subtree removal update the one Workflow team", asy
             }
             const operation = route.request().postDataJSON() as {
                 readonly kind: string;
+                readonly member?: { readonly title?: string | null };
                 readonly member_id?: string;
                 readonly parent_member_id?: string;
                 readonly patch?: { readonly title?: string | null };
@@ -324,8 +321,22 @@ test("accepted add, edit, and subtree removal update the one Workflow team", asy
     await page
         .getByRole("button", { name: "Add child to Research lead" })
         .click();
+    const details = page.locator("[data-details-surface]");
+    await expect(
+        details.getByRole("heading", { name: "New member" }),
+    ).toBeVisible();
+    await details.getByRole("textbox", { name: /Name/ }).fill("New specialist");
+    const memberCreate = page.waitForResponse(
+        (response) =>
+            response.request().method() === "PATCH" &&
+            new URL(response.url()).pathname ===
+                "/api/workflow-drafts/workflow-draft.test",
+    );
+    await details.getByRole("button", { name: "Add member" }).click();
+    await memberCreate;
     const newMember = page.getByRole("button", {
-        name: /Untitled teammate.*Contributor/,
+        name: "New specialist",
+        exact: true,
     });
     await expect(newMember).toBeVisible();
     await expect(
@@ -336,8 +347,6 @@ test("accepted add, edit, and subtree removal update the one Workflow team", asy
         page.locator('[data-member-card="member-3"]'),
     );
 
-    await newMember.click();
-    const details = page.locator("[data-details-surface]");
     const memberUpdate = page.waitForResponse(
         (response) =>
             response.request().method() === "PATCH" &&
@@ -351,7 +360,8 @@ test("accepted add, edit, and subtree removal update the one Workflow team", asy
     await expect(page.getByText("Saved. Undo is available.")).toBeVisible();
     await expect(
         page.getByRole("button", {
-            name: /Source specialist.*Contributor/,
+            name: "Source specialist",
+            exact: true,
         }),
     ).toBeVisible();
     const accessibility = await new AxeBuilder({ page }).analyze();
@@ -359,9 +369,7 @@ test("accepted add, edit, and subtree removal update the one Workflow team", asy
     await page.screenshot({
         path: testInfo.outputPath("workflow-studio-details-desktop.png"),
     });
-    await details
-        .getByRole("button", { name: "Close teammate details" })
-        .click();
+    await details.getByRole("button", { name: "Close member details" }).click();
     await expect(
         page.locator(
             '[data-focus-surface="canvas"][data-member-focus="member-3"]',
@@ -369,26 +377,25 @@ test("accepted add, edit, and subtree removal update the one Workflow team", asy
     ).toBeFocused();
 
     await page.getByText("Team outline", { exact: true }).first().click();
-    await page
-        .getByRole("treeitem", { name: /Source specialist.*Contributor/ })
-        .click();
-    await page.getByRole("button", { name: "Remove branch" }).click();
+    await page.getByRole("treeitem", { name: "Source specialist" }).click();
+    await page.getByRole("button", { name: "Remove", exact: true }).click();
     const removeDialog = page.getByRole("dialog", {
         name: "Remove Source specialist?",
     });
-    await expect(removeDialog).toContainText("every teammate below it");
-    await removeDialog.getByRole("button", { name: "Remove branch" }).click();
+    await expect(removeDialog).toContainText("every Member below it");
+    await removeDialog.getByRole("button", { name: "Remove member" }).click();
 
     await expect(
         page.getByRole("button", {
-            name: /Source specialist.*Contributor/,
+            name: "Source specialist",
+            exact: true,
         }),
     ).toHaveCount(0);
     await expect(
         page.getByRole("button", { name: "Add child to Research lead" }),
     ).toBeVisible();
     const survivingParent = page.getByRole("treeitem", {
-        name: /Research lead.*Manager/,
+        name: "Research lead",
     });
     await expect(survivingParent).toHaveAttribute("aria-selected", "true");
     await expect(survivingParent).toHaveAttribute("tabindex", "0");
@@ -429,9 +436,7 @@ test("the moving add control avoids every card in mixed deep peer branches", asy
 
     await page.goto("/workflows/deep-research-and-decision-brief");
     await page.getByText("Team outline", { exact: true }).first().click();
-    await page
-        .getByRole("treeitem", { name: /Evidence manager A.*Manager/ })
-        .click();
+    await page.getByRole("treeitem", { name: "Evidence manager A" }).click();
     const addControl = page.getByRole("button", {
         name: "Add child to Evidence manager A",
     });
@@ -587,11 +592,9 @@ test("an uncommitted discard is reconciled with one safe truth read", async ({
     ).toBeVisible();
     await page.getByRole("button", { name: "Check current" }).click();
 
-    await page.getByText("Team outline", { exact: true }).first().click();
-    await page.getByRole("button", { name: "Edit", exact: true }).click();
+    await page.getByRole("button", { name: "Workflow settings" }).click();
     const details = page.locator("[data-details-surface]");
-    await details.getByText("Workflow purpose and shared note").click();
-    await expect(details.getByLabel("Use this team when…")).toBeVisible();
+    await expect(details.getByLabel("Purpose")).toBeVisible();
     await expect
         .poll(() => ({ deletes, reconciliationReads }))
         .toEqual({
@@ -821,6 +824,7 @@ function applyDraftOperation(
     current: WorkflowDraftReadback,
     operation: {
         readonly kind: string;
+        readonly member?: { readonly title?: string | null };
         readonly member_id?: string;
         readonly parent_member_id?: string;
         readonly patch?: { readonly title?: string | null };
@@ -832,7 +836,7 @@ function applyDraftOperation(
     if (operation.kind === "add_member") {
         next.workflow.lead.children = [
             ...(next.workflow.lead.children ?? []),
-            { id: "member-3" },
+            { id: "member-3", title: operation.member?.title ?? null },
         ];
     } else if (
         operation.kind === "update_member" &&

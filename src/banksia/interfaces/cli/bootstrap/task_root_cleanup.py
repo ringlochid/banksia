@@ -165,7 +165,7 @@ def _deletion_root_candidates(
         normalized_root = Path(os.path.abspath(deletion_root))
         if normalized_root == boundary or not normalized_root.is_relative_to(boundary):
             raise UnsafeTaskRootError(
-                "controller task root escapes the configured Banksia data boundary: "
+                "controller task root escapes the configured Oh My Subagents data boundary: "
                 f"{deletion_root}"
             )
         candidates_by_path.setdefault(

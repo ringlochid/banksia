@@ -202,7 +202,7 @@ def provider_list_text(providers: set[ProviderKind]) -> str:
 def _require_initialized_config(config_path: Path) -> None:
     if not config_path.is_file():
         raise click.UsageError(
-            f"Banksia is not initialized at {config_path}. Run 'banksia init' first."
+            f"Oh My Subagents is not initialized at {config_path}. Run 'oms init' first."
         )
 
 
@@ -427,9 +427,7 @@ def _emit_setup_summary(
         None,
     )
     next_action = (
-        f"banksia providers check {first_nonready.value}"
-        if first_nonready is not None
-        else "banksia serve"
+        f"oms providers check {first_nonready.value}" if first_nonready is not None else "oms serve"
     )
     if first_nonready is not None:
         emit_warning("Provider setup is saved, but at least one selected route needs attention.")

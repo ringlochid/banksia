@@ -6,7 +6,7 @@ from mcp.types import ToolAnnotations
 
 READ_ONLY_PREFIX = "Read-only:"
 MUTATING_PREFIX = "Mutating:"
-LOCAL_FILE_PATH_NOTE = "Local file path on the Banksia host."
+LOCAL_FILE_PATH_NOTE = "Local file path on the Oh My Subagents host."
 STATUS_CHECK_WARNING = "Do not use for status checks."
 RUNTIME_STATE_WARNING = "This changes runtime state."
 DISCOVER_CANDIDATES_NOTE = "Use this to discover candidates before choosing or mutating."

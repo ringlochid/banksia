@@ -1,4 +1,4 @@
-<p align="center"> <img src="console/public/assets/banksia-mark.svg" alt="Oh My Subagents recursive team mark" width="128" height="128"> </p>
+<p align="center"> <img src="console/public/assets/oms-mark.svg" alt="Oh My Subagents recursive team mark" width="128" height="128"> </p>
 
 <h1 align="center">Oh My Subagents</h1>
 
@@ -6,11 +6,11 @@
 
 <p align="center">A local runtime for persistent, supervised parent–subagent delegation with Codex and Claude.</p>
 
-<p align="center"> <a href="https://pypi.org/project/banksia/"><img src="https://img.shields.io/pypi/v/banksia" alt="PyPI version"></a> <a href="https://pypi.org/project/banksia/"><img src="https://img.shields.io/badge/python-%3E%3D3.12-3776AB?logo=python&logoColor=white" alt="Python 3.12 or newer"></a> </p>
+<p align="center"> <a href="https://pypi.org/project/oh-my-subagents/"><img src="https://img.shields.io/pypi/v/oh-my-subagents" alt="PyPI version"></a> <a href="https://pypi.org/project/oh-my-subagents/"><img src="https://img.shields.io/badge/python-%3E%3D3.12-3776AB?logo=python&logoColor=white" alt="Python 3.12 or newer"></a> </p>
 
 <p align="center"> <a href="docs/start/getting-started.md">Get started</a> · <a href="docs/README.md">Documentation</a> · <a href="examples/workflows/README.md">Starter teams</a> </p>
 
-<p align="center"> <img src="docs/assets/banksia-intro.gif" alt="Console walkthrough: choose an accountable AI team, start a run, and review its progress and Result" width="720"> </p>
+<p align="center"> <img src="docs/assets/oms-intro.gif" alt="Console walkthrough: choose an accountable AI team, start a run, and review its progress and Result" width="720"> </p>
 
 <p align="center"><a href="https://www.youtube.com/watch?v=-prDEZYpx9M"><strong>▶ Watch the tutorial</strong></a></p>
 
@@ -86,14 +86,12 @@ Prefer conversation? The separate **Operator** can draft and revise Workflows, e
 
 ## ⚡ Install and start
 
-Oh My Subagents currently ships under the PyPI package, CLI, service, and configuration name `banksia`. The product rename is ahead of that technical migration, so the commands below remain the supported installation path.
-
-The current package requires Python 3.12 or newer and supports Linux, macOS 13+, and Windows 11 x64. Install it in an isolated environment with [pipx](https://pipx.pypa.io/stable/):
+Oh My Subagents requires Python 3.12 or newer and supports Linux, macOS 13+, and Windows 11 x64. Install it in an isolated environment with [pipx](https://pipx.pypa.io/stable/):
 
 ```bash
-pipx install banksia
-banksia init
-banksia service install
+pipx install oh-my-subagents
+oms init
+oms service install
 ```
 
 Open `http://127.0.0.1:18125/`.
@@ -102,24 +100,24 @@ Guided initialization selects a default workspace, configures a Codex or Claude 
 
 ### Keep the controller running
 
-`banksia service install` verifies the configuration and database schema, installs a native per-user background service, and starts it. The controller keeps supervising work after you close the terminal and returns at login.
+`oms service install` verifies the configuration and database schema, installs a native per-user background service, and starts it. The controller keeps supervising work after you close the terminal and returns at login.
 
 ```bash
-banksia service status
-banksia service restart
-banksia service logs --lines 200
-banksia service stop
+oms service status
+oms service restart
+oms service logs --lines 200
+oms service stop
 ```
 
-Linux uses a systemd user service, macOS a current-user LaunchAgent, and Windows a current-user Scheduled Task. `banksia service uninstall` removes the native service definition while preserving configuration, database, and provider credentials. Use `banksia serve` when you prefer the portable foreground path.
+Linux uses a systemd user service, macOS a current-user LaunchAgent, and Windows a current-user Scheduled Task. `oms service uninstall` removes the native service definition while preserving configuration, database, and provider credentials. Use `oms serve` when you prefer the portable foreground path.
 
 ### Optional PostgreSQL
 
 Install the optional driver and provide a SQLAlchemy URL during initialization:
 
 ```bash
-pipx install "banksia[postgres]"
-banksia init \
+pipx install "oh-my-subagents[postgres]"
+oms init \
   --database-url "postgresql+asyncpg://banksia@127.0.0.1/banksia"
 ```
 
@@ -127,7 +125,7 @@ See [Getting started](docs/start/getting-started.md) for provider prerequisites 
 
 ## 🧰 Choose a Starter Workflow
 
-`banksia init` publishes eight provider-neutral Starters. Choose one when a mission is consequential or broad enough that independent ownership, durable work, or adversarial verification adds real value:
+`oms init` publishes eight provider-neutral Starters. Choose one when a mission is consequential or broad enough that independent ownership, durable work, or adversarial verification adds real value:
 
 | Starter                                 | Use it when                                                                                                                  |
 | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
@@ -157,10 +155,11 @@ The [Starter catalog](examples/workflows/README.md) includes example missions, e
 - [Author a Workflow](docs/guides/author-a-workflow.md)
 - [Run and operate work](docs/guides/run-and-operate.md)
 - [Use the Console and Operator](docs/guides/console-and-operator.md)
+- [Migrate from Banksia](docs/guides/migrate-from-banksia.md)
 - [Configure the runtime](docs/reference/configuration.md)
 - [Troubleshoot an installation](docs/help/troubleshooting.md)
 - [Contribute](CONTRIBUTING.md)
-- [Report an issue](https://github.com/ringlochid/banksia/issues)
+- [Report an issue](https://github.com/ringlochid/oh-my-subagents/issues)
 
 ## ⚖️ License
 

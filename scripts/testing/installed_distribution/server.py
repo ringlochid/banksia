@@ -46,8 +46,8 @@ from banksia.platform.managed_services.resources import get_systemd_service_temp
 from banksia.runtime.prompt import InstructionAsset, load_instruction_asset
 
 package_path = Path(banksia.__file__).resolve()
-venv_path = Path(os.environ["BANKSIA_ORACLE_VENV"]).resolve()
-repo_root = Path(os.environ["BANKSIA_ORACLE_REPO_ROOT"]).resolve()
+venv_path = Path(os.environ["OMS_ORACLE_VENV"]).resolve()
+repo_root = Path(os.environ["OMS_ORACLE_REPO_ROOT"]).resolve()
 assert package_path.is_relative_to(venv_path)
 assert not package_path.is_relative_to(repo_root / "src")
 starter_root = files("banksia.workflows.resources.starter_workflows")
@@ -64,7 +64,7 @@ assert load_settings().postgres_schema == "banksia"
 async def smoke() -> None:
     app = create_app(should_enable_mcp_mounts=False)
     async with app.router.lifespan_context(app):
-        assert app.title == "Banksia API"
+        assert app.title == "Oh My Subagents API"
 
 asyncio.run(smoke())
 print(package_path)
@@ -74,8 +74,8 @@ print(package_path)
         cwd=cwd,
         env={
             **env,
-            "BANKSIA_ORACLE_REPO_ROOT": str(repo_root),
-            "BANKSIA_ORACLE_VENV": str(venv_path),
+            "OMS_ORACLE_REPO_ROOT": str(repo_root),
+            "OMS_ORACLE_VENV": str(venv_path),
         },
     )
 
@@ -123,12 +123,12 @@ def run_installed_server_smoke(
 
     if failure is not None:
         raise RuntimeError(
-            f"installed `banksia serve` did not become healthy\nserver output:\n{output[-4000:]}"
+            f"installed `oms serve` did not become healthy\nserver output:\n{output[-4000:]}"
         ) from failure
     accepted_shutdown_codes = {0, 1} if os.name == "nt" else {0, -signal.SIGTERM}
     if return_code not in accepted_shutdown_codes:
         raise RuntimeError(
-            f"installed `banksia serve` exited with {return_code} after shutdown\n"
+            f"installed `oms serve` exited with {return_code} after shutdown\n"
             f"server output:\n{output[-4000:]}"
         )
     result: dict[str, object] = {
@@ -187,7 +187,7 @@ def verify_installed_console(port: int) -> dict[str, object]:
         if (
             status_code != 200
             or "text/html" not in headers.get("content-type", "")
-            or "<title>Banksia</title>" not in body
+            or "<title>Oh My Subagents</title>" not in body
         ):
             raise AssertionError(f"installed Console route {path} did not return the packaged app")
         page_bodies[path] = body

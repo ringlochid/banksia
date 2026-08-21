@@ -107,9 +107,9 @@ async def workflow_database(
             yield session_factory
         return
 
-    database_url = os.environ.get("BANKSIA_TEST_POSTGRES_URL")
+    database_url = os.environ.get("OMS_TEST_POSTGRES_URL")
     if not database_url:
-        pytest.skip("BANKSIA_TEST_POSTGRES_URL not set")
+        pytest.skip("OMS_TEST_POSTGRES_URL not set")
     url = make_url(database_url)
     if "test" not in (url.database or "").casefold():
         pytest.skip("Workflow concurrency requires an explicitly disposable test database")

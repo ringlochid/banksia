@@ -77,7 +77,7 @@ def test_guided_setup_uses_rich_hierarchy(
 
     rendered = output.getvalue()
     assert "\x1b[" in rendered
-    assert "Banksia" in rendered
+    assert "Oh My Subagents" in rendered
     assert "Provider routes" in rendered
     assert "Managed" in rendered
     assert "Codex" in rendered

@@ -61,9 +61,9 @@ def default_config_text() -> str:
 
 def package_version() -> str:
     try:
-        return version("banksia")
+        return version("oh-my-subagents")
     except PackageNotFoundError:
-        return "0.1.7"
+        return "0.2.0"
 
 
 __all__ = [

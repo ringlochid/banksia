@@ -88,7 +88,7 @@ def persist_config_mutation(
     *,
     timeout_seconds: float = CONFIG_MUTATION_LOCK_TIMEOUT_SECONDS,
 ) -> ConfigSections:
-    """Validate and atomically replace one Banksia configuration revision."""
+    """Validate and atomically replace one Oh My Subagents configuration revision."""
 
     with acquire_config_mutation_lock(config_path, timeout_seconds=timeout_seconds):
         current_sections = read_config_sections(config_path)
@@ -189,7 +189,7 @@ def acquire_config_mutation_lock(
             yield
     except PrivateMutationTimeoutError as exc:
         raise ConfigMutationTimeoutError(
-            f"timed out waiting to update Banksia config: {config_path}"
+            f"timed out waiting to update Oh My Subagents config: {config_path}"
         ) from exc
 
 

@@ -12,18 +12,18 @@ Open **Runs → New run**, choose a published Workflow, and state:
 - the proof expected before completion; and
 - the form and location of any detailed deliverable.
 
-Use **Advanced** to override the configured workspace or add existing workspace-relative file references. A reference is a path plus an optional description. Banksia records the reference, not a snapshot of the bytes.
+Use **Advanced** to override the configured workspace or add existing workspace-relative file references. A reference is a path plus an optional description. Oh My Subagents records the reference, not a snapshot of the bytes.
 
 The terminal starts the same product operation:
 
 ```bash
-banksia task start
+oms task start
 ```
 
 For automation, pass strict JSON inline, from `@file`, or through standard input:
 
 ```bash
-banksia task start --json \
+oms task start --json \
   '{"workflow":"incident-investigation-and-recovery","prompt":"Reproduce the intermittent import failure, compare competing causes, implement only an evidence-supported repair, independently verify the original and adjacent cases, and return the result with referenced proof."}'
 ```
 
@@ -39,7 +39,7 @@ Use `http://127.0.0.1:18125/runs` to find current and previous work. A run page 
 4. **Activity:** which meaningful update could change your understanding or next action?
 5. **Result:** what exact outcome did the lead accept?
 
-Banksia keeps raw attempts, dispatches, revisions, route facts, and event records out of this main story. Use support/audit surfaces only when diagnosing a specific problem.
+Oh My Subagents keeps raw attempts, dispatches, revisions, route facts, and event records out of this main story. Use support/audit surfaces only when diagnosing a specific problem.
 
 ## Respond when the team needs you
 
@@ -51,11 +51,11 @@ Human Requests are disabled unless the Workflow explicitly grants a Member one o
 > - Current schema only — allow a documented behavior correction.
 > - Something else — enter the exact boundary.
 
-Read all questions and referenced files, then submit one response. Banksia records the response before making a continuation eligible. Receipt of the answer does not by itself mean the waiting work has resumed or finished.
+Read all questions and referenced files, then submit one response. Oh My Subagents records the response before making a continuation eligible. Receipt of the answer does not by itself mean the waiting work has resumed or finished.
 
 ## Steer an active Member
 
-Select a working Member in the team panel. When its exact provider session is still active, Banksia shows **Steer** above **Latest update**. Use it to add context or redirect the Member's current work.
+Select a working Member in the team panel. When its exact provider session is still active, Oh My Subagents shows **Steer** above **Latest update**. Use it to add context or redirect the Member's current work.
 
 The message does not undo completed work or tool effects, replace the Assignment, or widen the Member's authority. After the provider accepts it, Activity shows **Member steered** with the exact message. Waiting, not-started, finished, blocked, paused, or provider-finished Members do not offer the action.
 
@@ -75,7 +75,7 @@ Controls are current-state operations. Refresh and use the newly offered action 
 
 ## Recover after interruption
 
-Controller records survive a provider process interruption or Banksia restart. On startup, Banksia audits durable state and converges work that can legally continue. Refresh the run to read current truth before taking another action.
+Controller records survive a provider process interruption or Oh My Subagents restart. On startup, Oh My Subagents audits durable state and converges work that can legally continue. Refresh the run to read current truth before taking another action.
 
 This is local recovery, not distributed failover or blind replay. A provider's terminal success also does not prove assignment or run success; the controller must accept the corresponding state transition.
 

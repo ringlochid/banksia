@@ -132,6 +132,63 @@ def test_public_docs_reject_internal_metadata_and_review_headings(
     )
 
 
+def test_identity_contract_rejects_stale_banksia_branding(tmp_path: Path) -> None:
+    validator, _ = contract_modules()
+    path = tmp_path / "docs/start/getting-started.md"
+
+    findings = validator.identity_findings(
+        root=tmp_path,
+        path=path,
+        text=(
+            "# Getting started\n\n"
+            "Install Banksia from https://pypi.org/project/banksia/ and run `Try: banksia`.\n"
+        ),
+    )
+
+    assert len(findings) == 2
+    assert {finding.category for finding in findings} == {"identity"}
+
+
+def test_identity_contract_allows_only_named_compatibility_surfaces(tmp_path: Path) -> None:
+    validator, _ = contract_modules()
+
+    assert (
+        validator.identity_findings(
+            root=tmp_path,
+            path=tmp_path / "README.md",
+            text="[Migrate from Banksia](docs/guides/migrate-from-banksia.md)\n",
+        )
+        == []
+    )
+    assert (
+        validator.identity_findings(
+            root=tmp_path,
+            path=tmp_path / "docs/reference/configuration.md",
+            text="Legacy `BANKSIA_*` variables remain accepted temporarily.\n",
+        )
+        == []
+    )
+
+
+def test_identity_contract_rejects_compatibility_text_in_an_unowned_page(
+    tmp_path: Path,
+) -> None:
+    validator, _ = contract_modules()
+    path = tmp_path / "docs/concepts/runtime.md"
+
+    findings = validator.identity_findings(
+        root=tmp_path,
+        path=path,
+        text="Banksia also accepts `BANKSIA_CONFIG`.\n",
+    )
+
+    assert len(findings) == 2
+    assert {finding.message for finding in findings} == {
+        "BANKSIA_* is allowed only in named compatibility documentation",
+        "Banksia branding is not in the maintained compatibility allowlist",
+    }
+
+
 def test_links_require_existing_targets_and_human_labels(tmp_path: Path) -> None:
     validator, _ = contract_modules()
     build_valid_contract_tree(tmp_path)

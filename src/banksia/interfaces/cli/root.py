@@ -65,7 +65,7 @@ OPERATOR_PROVIDER_CHOICE = click.Choice(("codex", "claude"))
 @click.group(
     context_settings={"help_option_names": ["-h", "--help"]},
     epilog=ROOT_HELP_EPILOG,
-    help="Banksia: an accountable, no-code AI-team runtime for complex work.",
+    help="Oh My Subagents: durable supervision for accountable AI teams.",
     invoke_without_command=True,
     no_args_is_help=False,
 )
@@ -195,7 +195,7 @@ def setup_command(**kwargs: Any) -> int:
     return invoke_handler_result(handler(args))
 
 
-@cli.group("operator", help="Configure and inspect the separate Banksia Operator.")
+@cli.group("operator", help="Configure and inspect the separate Oh My Subagents Operator.")
 def operator_group() -> None:
     return None
 

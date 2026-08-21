@@ -60,7 +60,7 @@ export class ApiResponseError extends Error {
 export class ApiNetworkError extends Error {
     public constructor(public readonly cause: unknown) {
         super(
-            "Banksia could not connect. Check that it is running, then try again.",
+            "Oh My Subagents could not connect. Check that it is running, then try again.",
         );
         this.name = "ApiNetworkError";
     }
@@ -324,7 +324,7 @@ function responseMessage(body: unknown, status: number): string {
         : undefined;
     return typeof candidate === "string"
         ? candidate
-        : `Banksia returned an unexpected response (${status}).`;
+        : `Oh My Subagents returned an unexpected response (${status}).`;
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {

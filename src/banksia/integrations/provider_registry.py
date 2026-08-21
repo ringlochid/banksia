@@ -28,7 +28,7 @@ def build_provider_adapter(
         case ProviderKind.CLAUDE:
             return ClaudeAdapter()
         case ProviderKind.OPENCLAW:
-            raise ValueError("OpenClaw is retired and has no Banksia provider adapter")
+            raise ValueError("OpenClaw is retired and has no Oh My Subagents provider adapter")
 
 
 __all__ = ["build_provider_adapter", "build_provider_adapter_registry"]

@@ -7,7 +7,7 @@ from typing import Protocol
 
 
 class PrivatePathError(OSError):
-    """Raised when Banksia cannot prove its private filesystem policy."""
+    """Raised when Oh My Subagents cannot prove its private filesystem policy."""
 
 
 class PrivateMutationTimeoutError(TimeoutError):
@@ -141,7 +141,7 @@ class WorkspaceFileOperations(Protocol):
 
 
 class PrivateFileOperations(Protocol):
-    """Platform boundary for Banksia-owned private text files."""
+    """Platform boundary for Oh My Subagents-owned private text files."""
 
     def ensure_directory(self, path: Path) -> None: ...
 

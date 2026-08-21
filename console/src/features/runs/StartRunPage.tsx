@@ -247,9 +247,9 @@ export function StartRunPage({ api }: StartRunPageProps) {
                                                 </h2>
                                                 <p>
                                                     Add paths the team should
-                                                    inspect. Banksia records the
-                                                    path, not a copy of the
-                                                    file.
+                                                    inspect. Oh My Subagents
+                                                    records the path, not a copy
+                                                    of the file.
                                                 </p>
                                             </div>
                                             <Button

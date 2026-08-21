@@ -330,7 +330,7 @@ def validate_codex_task_extensions(
     servers = _read_codex_mcp_servers(client, thread_id)
     active = {name for name, server in servers.items() if _codex_mcp_server_is_active(server)}
     if MANAGED_NODE_MCP_SERVER_NAME not in active:
-        raise CodexIsolationError("Codex did not expose the Banksia Node surface")
+        raise CodexIsolationError("Codex did not expose the Oh My Subagents Node surface")
     if extension_mode is ManagedExtensionMode.ISOLATED and active != {MANAGED_NODE_MCP_SERVER_NAME}:
         raise CodexIsolationError("Codex exposed an inexact MCP server surface")
     node = servers[MANAGED_NODE_MCP_SERVER_NAME]
@@ -340,7 +340,7 @@ def validate_codex_task_extensions(
         or node.resources
         or node.resource_templates
     ):
-        raise CodexIsolationError("Codex exposed an inexact Banksia Node surface")
+        raise CodexIsolationError("Codex exposed an inexact Oh My Subagents Node surface")
     if extension_mode is ManagedExtensionMode.ISOLATED:
         return ProviderExtensionInventory()
     return ProviderExtensionInventory(

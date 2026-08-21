@@ -4,12 +4,12 @@ import { defineConfig, loadEnv } from "vite";
 
 export default defineConfig(({ mode }) => {
     const environment = loadEnv(mode, import.meta.dirname, "");
-    const proxyTarget = environment.BANKSIA_CONSOLE_PROXY_TARGET;
+    const proxyTarget = environment.OMS_CONSOLE_PROXY_TARGET;
 
     // Inotify does not fire when a Windows editor writes to a path the dev
     // server sees through /mnt/c, so file changes are missed. Set this to fall
     // back to polling; leave it unset for same-filesystem development.
-    const pollWatcher = environment.BANKSIA_CONSOLE_WATCH_POLL === "1";
+    const pollWatcher = environment.OMS_CONSOLE_WATCH_POLL === "1";
 
     return {
         plugins: [react(), tailwindcss()],

@@ -8,7 +8,7 @@ from banksia.operator.provider import OperatorTurnOutcome
 from banksia.persistence.models import OperatorConversationEntryModel
 
 _GENERIC_INTERRUPTION_EXPLANATION = (
-    "The Operator turn was interrupted before Banksia could confirm a response."
+    "The Operator turn was interrupted before Oh My Subagents could confirm a response."
 )
 _GENERIC_INTERRUPTION_NEXT_STEP = (
     "Review current product truth, then send a new message if it is still needed."

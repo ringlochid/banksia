@@ -2,6 +2,8 @@
 
 Status: Accepted
 
+Identity note: the released-identity list below is superseded by [ADR-0018](ADR-0018-oh-my-subagents-identity-cutover.md). The runtime, authority, workspace, clean-break, and recovery decisions in this record remain accepted.
+
 ## Decision summary
 
 Banksia is the product identity, and the maintained subject owners routed from the [internal documentation](../README.md) are its implementation authority. Banksia is a clean break from AutoClaw: one authored Workflow definition, Task/Attempt/Delegation Wave runtime ownership, one shared native workspace, semantic product interfaces, and no AutoClaw compatibility aliases or version-era canon.

@@ -190,7 +190,7 @@ def map_operator_http_error(exc: Exception) -> HTTPException:
     return operator_http_failure(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         code=ProductFailureCode.INTERNAL_ERROR,
-        summary="Banksia could not complete the Operator request.",
+        summary="Oh My Subagents could not complete the Operator request.",
         suggested_next_step="Reload the conversation before trying another explicit message.",
     )
 

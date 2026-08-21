@@ -1,0 +1,60 @@
+name: Linux compatibility
+
+on:
+    pull_request:
+    push:
+        branches:
+            - main
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+concurrency:
+    group: linux-${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    backend:
+        runs-on: ubuntu-24.04
+        timeout-minutes: 60
+
+        steps:
+            - name: Check out repository
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+
+            - name: Set up Python
+              uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+              with:
+                  python-version: "3.13"
+
+            - name: Set up Node
+              uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+              with:
+                  node-version: "22.22.0"
+                  cache: npm
+                  cache-dependency-path: console/package-lock.json
+
+            - name: Install dependencies
+              run: |
+                  make backend-install
+                  npm --prefix console ci
+
+            - name: Run backend static checks
+              run: make check-backend
+
+            - name: Run backend unit and integration tests
+              run: |
+                  make test-backend
+                  make test-backend-integration
+
+            - name: Run documentation gates
+              run: make check-docs
+
+            - name: Run Console gates
+              run: make check-console
+
+            - name: Build and verify the installed distribution
+              run: make package-verify

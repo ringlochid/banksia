@@ -24,17 +24,17 @@ W/
 
 This choice optimizes for native shell/editor/compiler/provider use and simple agent collaboration. It deliberately does not provide per-member worktrees, read-only isolation, path leases, automatic diff transfer, or merge automation.
 
-Full native access is the baseline default. Concurrent agents can see and change the same files. Banksia therefore does not claim deterministic or conflict-free replay of concurrent writes. The accountable Manager must avoid parallel overlapping edits unless scopes are credibly disjoint, inspect the integrated shared state, and sequence work when the risk is material.
+Full native access is the baseline default. Concurrent agents can see and change the same files. Oh My Subagents therefore does not claim deterministic or conflict-free replay of concurrent writes. The accountable Manager must avoid parallel overlapping edits unless scopes are credibly disjoint, inspect the integrated shared state, and sequence work when the risk is material.
 
 ## Native filesystem safety
 
 One portable logical path grammar and result contract serves Linux, macOS, and Windows. Referenced paths are slash-separated and workspace-relative; drive, UNC, absolute, empty, `.`, `..`, NUL, backslash aliases, symbolic-link or reparse-point components, and special files reject. Workspace identity is captured and rechecked before controller mutation.
 
-Linux and macOS use descriptor-relative `openat`-style traversal with `O_NOFOLLOW`, directory descriptors, stable device/inode identity, exclusive creation, and atomic replacement. Windows opens the drive root and existing ancestors with traversal/read authority only. When one directory is missing, it reopens only the retained immediate parent with creation authority, compares the reopened volume/file identity with the retained handle, and creates the child relative to that proven parent. Private DACLs are applied only to Banksia-created directories; existing config/data ancestors are retained, opened without ACL mutation, and protected by the same handle and identity checks. Windows admits only local absolute NTFS paths; UNC, network, device, and non-NTFS paths reject. WSL2 uses the Linux boundary.
+Linux and macOS use descriptor-relative `openat`-style traversal with `O_NOFOLLOW`, directory descriptors, stable device/inode identity, exclusive creation, and atomic replacement. Windows opens the drive root and existing ancestors with traversal/read authority only. When one directory is missing, it reopens only the retained immediate parent with creation authority, compares the reopened volume/file identity with the retained handle, and creates the child relative to that proven parent. Private DACLs are applied only to Oh My Subagents-created directories; existing config/data ancestors are retained, opened without ACL mutation, and protected by the same handle and identity checks. Windows admits only local absolute NTFS paths; UNC, network, device, and non-NTFS paths reject. WSL2 uses the Linux boundary.
 
 The backend API is narrow: capture/recheck directory identity, open a safe child, create exclusively, replace atomically, read a bounded regular file, and remove only a controller-proven tree. Raw descriptors do not escape into Task or product contracts. A filesystem that cannot prove the required identity, no-follow, exclusive-create, and access-control properties fails admission with a human recovery action.
 
-Banksia applies private permissions only to its own config/data/secret and Task-directory content, never to the user's whole workspace. Linux uses owner-only modes and ownership verification. macOS additionally rejects or removes inherited ACL entries on newly created Banksia-owned private paths. Windows applies and verifies a protected DACL granting only the current user and LocalSystem.
+Oh My Subagents applies private permissions only to its own config/data/secret and Task-directory content, never to the user's whole workspace. Linux uses owner-only modes and ownership verification. macOS additionally rejects or removes inherited ACL entries on newly created Oh My Subagents-owned private paths. Windows applies and verifies a protected DACL granting only the current user and LocalSystem.
 
 ## What belongs where
 
@@ -65,7 +65,7 @@ Authorization always comes from the controller-bound current Dispatch.
 
 Task admission does not detect a version-control worktree, run Git, inspect tracked paths, or edit `.gitignore`, `.git/info/exclude`, or another repository setting. `.banksia/t_<id>/` is ordinary workspace content and may be committed, ignored, archived, or removed according to the user's own workspace policy. That choice does not change controller authority.
 
-The `.banksia/` container may already contain unrelated project-owned content. Banksia preserves that content and the existing container permissions. It owns only the collision-safe `t_<id>/` directories that it creates exclusively, keeps those Task directories private, never follows symbolic links while opening them, and ignores unrelated container entries during recovery.
+The `.banksia/` container may already contain unrelated project-owned content. Oh My Subagents preserves that content and the existing container permissions. It owns only the collision-safe `t_<id>/` directories that it creates exclusively, keeps those Task directories private, never follows symbolic links while opening them, and ignores unrelated container entries during recovery.
 
 Task admission creates the collision-safe directory with a controller-owned initialization marker, writes only the manifest/optional Workflow-note projections plus empty conventional directories, commits controller truth, then clears the marker before provider-start publication. Recovery may remove only a stale marked directory with no committed Task; it repairs a committed marked Task in place. It never recreates a missing accepted Task root. An unavailable accepted root pauses only its running Task and requires an explicit Resume after the same root becomes accessible again. Reset and generic cleanup never recursively delete an accepted `.banksia/t_<id>/` directory.
 
@@ -92,7 +92,7 @@ Workflow note projection is separate and replaced only from the pinned Workflow.
 
 ## Free-form notes and artifacts
 
-During Task-directory initialization, the controller creates empty `notes/` and `artifacts/` directories before the first provider Dispatch can start. The directories are an agent-facing organization convention only. Banksia does not index, parse, register, classify, or own the files later written there.
+During Task-directory initialization, the controller creates empty `notes/` and `artifacts/` directories before the first provider Dispatch can start. The directories are an agent-facing organization convention only. Oh My Subagents does not index, parse, register, classify, or own the files later written there.
 
 ### Notes
 
@@ -106,7 +106,7 @@ Agents may create any useful regular file below `notes/` with native tools. Good
 
 Notes should record observable decisions, evidence, assumptions, uncertainty, and next actions—not private chain-of-thought or a chronological activity diary. There is no note schema, ID, kind, version, TTL, controller mutation, or required template.
 
-Because the workspace is shared, another member can technically read a note. Banksia does not automatically insert it or promise awareness of it. When exact content should cross an Assignment boundary or become a user deliverable, the author may include the note's path and a short purpose in that message's `files` list. It does not need to move, copy, publish, or reclassify the file.
+Because the workspace is shared, another member can technically read a note. Oh My Subagents does not automatically insert it or promise awareness of it. When exact content should cross an Assignment boundary or become a user deliverable, the author may include the note's path and a short purpose in that message's `files` list. It does not need to move, copy, publish, or reclassify the file.
 
 For a nontrivial Wave, a Manager should usually record a concise shared basis when that prevents repeated discovery or survives interruption, for example:
 
@@ -129,7 +129,7 @@ Agents may create regular files below `artifacts/` when the work benefits from a
 
 Actual source, tests, project documentation, and user-requested files with a natural project location stay there. Do not duplicate every edit or tool result under `artifacts/`. Skip an artifact when the project change and Checkpoint are already the clearest deliverable.
 
-An artifact file is ordinary mutable workspace content. The lowercase directory name describes intended use; it does not create an `Artifact` ID, controller record, content snapshot, approval state, version, hash, current pointer, or automatic UI catalog. A working note that later needs a polished deliverable may be refined in place or rewritten under `artifacts/`; Banksia performs no promotion operation.
+An artifact file is ordinary mutable workspace content. The lowercase directory name describes intended use; it does not create an `Artifact` ID, controller record, content snapshot, approval state, version, hash, current pointer, or automatic UI catalog. A working note that later needs a polished deliverable may be refined in place or rewritten under `artifacts/`; Oh My Subagents performs no promotion operation.
 
 When an artifact must cross an Assignment boundary or be shown through a Checkpoint or Human Request, include its path and short purpose in that message's `files` list. The receiver still opens the current loose file and reports missing or changed content honestly.
 
@@ -138,7 +138,7 @@ When an artifact must cross an Assignment boundary or be shown through a Checkpo
 | Surface | Purpose | Transfer and authority |
 | --- | --- | --- |
 | **Note** | Mutable, free-form working memory for coordination, investigation, review, or recovery. | Workspace content only. It is not controller truth and is not inserted into another Member's context automatically. |
-| **Artifact file** | A structured or otherwise reviewable deliverable intentionally created for another Member or the user. | Loose workspace content under `artifacts/` by convention. It has no controller identity or lifecycle. A `FileReference` makes it an explicit navigation handoff; shared-workspace Members may also discover and open it natively, but Banksia does not guarantee awareness. |
+| **Artifact file** | A structured or otherwise reviewable deliverable intentionally created for another Member or the user. | Loose workspace content under `artifacts/` by convention. It has no controller identity or lifecycle. A `FileReference` makes it an explicit navigation handoff; shared-workspace Members may also discover and open it natively, but Oh My Subagents does not guarantee awareness. |
 | **File reference** | Navigation hint to an ordinary loose workspace file that another context should inspect. | Immutable `{path, description?}` value on an owning controller message. It conveys neither file ownership nor a byte snapshot. |
 | **Checkpoint** | Durable teammate-facing report of progress or a terminal outcome for an exact Assignment execution. | Controller-recorded message with a required summary, optional details and file references, and an optional or terminal outcome. |
 
@@ -146,7 +146,7 @@ A note or artifact file keeps its loose-file semantics when referenced. A projec
 
 ## Generic file-reference contract
 
-Banksia does not classify or own workspace files as runtime objects. A `FileReference` is only an ordered navigation value recorded on an Assignment, Checkpoint, or Human Request when opening a specific file will help the receiver. Task start seeds the root Assignment. Continuations, Result, Activity, context, and product views mirror the exact owning values without a second write.
+Oh My Subagents does not classify or own workspace files as runtime objects. A `FileReference` is only an ordered navigation value recorded on an Assignment, Checkpoint, or Human Request when opening a specific file will help the receiver. Task start seeds the root Assignment. Continuations, Result, Activity, context, and product views mirror the exact owning values without a second write.
 
 The public and model-visible reference is intentionally small:
 
@@ -174,9 +174,9 @@ Attaching a `FileReference`:
 5. rejects duplicate normalized paths within that owning `files` list; and
 6. records the ordered `{path, description?}` values atomically with their Assignment, Checkpoint, or Human Request.
 
-There is no standalone generic file resource, globally addressable file table, file ID, body copy, content digest, capture or promotion action, version/current pointer, materialization, or rematerialization protocol. Persistence may use owner-scoped ordered value rows or an equivalent value encoding, but those records have no independent lifecycle or lookup surface. The same normalized path may be recorded again in another owning message, but a single owning list cannot repeat it. Banksia does not infer identity or sameness from bytes.
+There is no standalone generic file resource, globally addressable file table, file ID, body copy, content digest, capture or promotion action, version/current pointer, materialization, or rematerialization protocol. Persistence may use owner-scoped ordered value rows or an equivalent value encoding, but those records have no independent lifecycle or lookup surface. The same normalized path may be recorded again in another owning message, but a single owning list cannot repeat it. Oh My Subagents does not infer identity or sameness from bytes.
 
-The file remains loose and mutable. A later reader may observe changed or missing content and must report that fact honestly. Controller audit proves who referenced which path, description, and owning message at what time; it does not prove the bytes then present. Teams that need byte-for-byte reconstruction use their workspace's own version control or create a separately named immutable file by convention. Banksia does not conflate that convention with runtime identity or generate a hash.
+The file remains loose and mutable. A later reader may observe changed or missing content and must report that fact honestly. Controller audit proves who referenced which path, description, and owning message at what time; it does not prove the bytes then present. Teams that need byte-for-byte reconstruction use their workspace's own version control or create a separately named immutable file by convention. Oh My Subagents does not conflate that convention with runtime identity or generate a hash.
 
 ## Command-run output
 
@@ -186,7 +186,7 @@ Command Run preserves controller-owned lifecycle and process supervision while u
 .banksia/t_7m4k2d9x/command-runs/c_q3m8y1ka/output.log
 ```
 
-The process is launched with stderr redirected to stdout at creation. Banksia drains that single pipe continuously to EOF and writes the same observed bytes to `output.log`, so it preserves stream ordering and cannot deadlock on a full pipe. It does not attempt to merge separately buffered stdout/stderr after the fact.
+The process is launched with stderr redirected to stdout at creation. Oh My Subagents drains that single pipe continuously to EOF and writes the same observed bytes to `output.log`, so it preserves stream ordering and cannot deadlock on a full pipe. It does not attempt to merge separately buffered stdout/stderr after the fact.
 
 The canonical record includes:
 
@@ -219,7 +219,7 @@ Do not materialize:
 - criteria, consume/produce, slot, file index, transient index, current pointer, or raw event files; or
 - a controller data directory inside the workspace.
 
-Remove Banksia `list_files`, `read_file`, and `write_note` operations. Agents use provider-native filesystem, search, editor, shell, and binary tools in `W`. Banksia controller tools remain for typed state reads and mutations such as context, delegation, Checkpoint, requests, commands, and replan.
+Remove Oh My Subagents `list_files`, `read_file`, and `write_note` operations. Agents use provider-native filesystem, search, editor, shell, and binary tools in `W`. Oh My Subagents controller tools remain for typed state reads and mutations such as context, delegation, Checkpoint, requests, commands, and replan.
 
 ## Prompt architecture
 
@@ -229,7 +229,7 @@ Each Dispatch stores and sends two exact lanes:
 
 ```text
 instructions
-  stable Banksia controller contract
+  stable Oh My Subagents controller contract
   workspace and Checkpoint teaching
   Task lead overlay when applicable
   exactly one Manager or Contributor behavior block
@@ -245,7 +245,7 @@ input
 
 Adapters map instructions to the strongest provider-supported system/developer lane and input to the task/user lane. Native tool definitions carry exact action schemas separately. Tool results stay in provider-native tool-result lanes.
 
-Provider-native filesystem access does not opt into provider-authored workspace instructions. `AGENTS.md`, `CLAUDE.md`, provider memory, provider settings, and similar files remain ordinary loose workspace content unless the exact Banksia Assignment or a referenced file tells the Member to read them. An effective inherited extension mode may expose enabled user and project Skills plus configured MCP servers, but it does not turn other workspace files into implicit instruction or controller truth.
+Provider-native filesystem access does not opt into provider-authored workspace instructions. `AGENTS.md`, `CLAUDE.md`, provider memory, provider settings, and similar files remain ordinary loose workspace content unless the exact Oh My Subagents Assignment or a referenced file tells the Member to read them. An effective inherited extension mode may expose enabled user and project Skills plus configured MCP servers, but it does not turn other workspace files into implicit instruction or controller truth.
 
 ### Instruction precedence
 

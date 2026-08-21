@@ -1,4 +1,4 @@
-name: Report a Banksia problem
+name: Report an Oh My Subagents problem
 description: Report a reproducible defect or a blocker in the first-run path.
 title: "[Bug] "
 labels:
@@ -7,10 +7,10 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for helping improve Banksia.
+        Thanks for helping improve Oh My Subagents.
 
         Use this form for a reproducible defect or a concrete first-run blocker.
-        Use [Discussions](https://github.com/ringlochid/banksia/discussions) for
+        Use [Discussions](https://github.com/ringlochid/oh-my-subagents/discussions) for
         open-ended questions, workflow ideas, and Results you want to share.
 
         This issue will be public. Include only the smallest redacted evidence
@@ -29,7 +29,7 @@ body:
         - Running work or Needs your attention
         - Result or referenced files
         - Second run or Workflow reuse
-        - Another part of Banksia
+        - Another part of Oh My Subagents
     validations:
       required: true
 
@@ -63,9 +63,9 @@ body:
   - type: input
     id: version
     attributes:
-      label: Banksia version
-      description: Paste the output of `banksia --version`.
-      placeholder: "banksia 0.x.y"
+      label: Oh My Subagents version
+      description: Paste the output of `oms --version`.
+      placeholder: "oms 0.x.y"
     validations:
       required: true
 
@@ -99,7 +99,7 @@ body:
     id: diagnostics
     attributes:
       label: Smallest redacted diagnostic evidence
-      description: Paste only relevant errors or redacted output from commands such as `banksia status --json` or `banksia providers status`. Do not include credentials, private file contents, full provider transcripts, or a database dump.
+      description: Paste only relevant errors or redacted output from commands such as `oms status --json` or `oms providers status`. Do not include credentials, private file contents, full provider transcripts, or a database dump.
       render: shell
 
   - type: checkboxes

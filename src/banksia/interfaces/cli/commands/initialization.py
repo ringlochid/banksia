@@ -95,7 +95,7 @@ def guide_local_initialization(args: argparse.Namespace) -> int:
         prompt = (
             "Reconfigure local settings and keep provider and Operator settings?"
             if should_confirm_reconfiguration
-            else "Initialize Banksia with these custom settings?"
+            else "Initialize Oh My Subagents with these custom settings?"
         )
         if not click.confirm(prompt, default=not should_confirm_reconfiguration):
             return _emit_cancelled()
@@ -168,12 +168,12 @@ def _finish_initialization(
             ),
         ),
         next_action=(
-            "banksia setup"
+            "oms setup"
             if not configured_providers
             else (
-                f"banksia providers check {check_provider_name}"
+                f"oms providers check {check_provider_name}"
                 if provider_result != 0 or operator_result != 0
-                else "banksia serve"
+                else "oms serve"
             )
         ),
     )

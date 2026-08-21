@@ -16,7 +16,7 @@ import pytest
 from fastapi import FastAPI
 
 import banksia
-from banksia.interfaces.cli.main import main
+from banksia.interfaces.cli.main import LEGACY_COMMAND_NOTICE, legacy_main, main
 from banksia.main import app, create_app
 from banksia.platform.managed_services.resources import get_managed_service_resources_root
 from banksia.workflows.bootstrap import STARTER_WORKFLOW_FILENAMES
@@ -28,7 +28,7 @@ from scripts.testing.installed_distribution.task import (
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPO_ROOT / "src"
-BANKSIA_PACKAGE_ROOT = SOURCE_ROOT / "banksia"
+OMS_PACKAGE_ROOT = SOURCE_ROOT / "banksia"
 
 
 def _route_paths(routes: list[Any]) -> set[str]:
@@ -62,51 +62,51 @@ def test_banksia_package_uses_src_modules_only() -> None:
     packaged_runtime_contracts = importlib.import_module("banksia.runtime.contracts")
 
     assert banksia.__file__ is not None
-    assert Path(banksia.__file__).resolve() == BANKSIA_PACKAGE_ROOT / "__init__.py"
-    assert list(banksia.__path__) == [str(BANKSIA_PACKAGE_ROOT)]
+    assert Path(banksia.__file__).resolve() == OMS_PACKAGE_ROOT / "__init__.py"
+    assert list(banksia.__path__) == [str(OMS_PACKAGE_ROOT)]
     assert importlib.util.find_spec("banksia.cli") is None
     assert importlib.util.find_spec("banksia.definitions") is None
     assert packaged_workflows.__file__ is not None
     assert (
         Path(packaged_workflows.__file__).resolve()
-        == BANKSIA_PACKAGE_ROOT / "workflows" / "__init__.py"
+        == OMS_PACKAGE_ROOT / "workflows" / "__init__.py"
     )
     assert packaged_workflow_resources.__file__ is not None
     assert (
         Path(packaged_workflow_resources.__file__).resolve()
-        == BANKSIA_PACKAGE_ROOT / "workflows" / "resources" / "starter_workflows" / "__init__.py"
+        == OMS_PACKAGE_ROOT / "workflows" / "resources" / "starter_workflows" / "__init__.py"
     )
     assert packaged_cli_owner.__file__ is not None
     assert (
         Path(packaged_cli_owner.__file__).resolve()
-        == BANKSIA_PACKAGE_ROOT / "interfaces" / "cli" / "__init__.py"
+        == OMS_PACKAGE_ROOT / "interfaces" / "cli" / "__init__.py"
     )
     assert packaged_http.__file__ is not None
     assert (
         Path(packaged_http.__file__).resolve()
-        == BANKSIA_PACKAGE_ROOT / "interfaces" / "http" / "__init__.py"
+        == OMS_PACKAGE_ROOT / "interfaces" / "http" / "__init__.py"
     )
     assert packaged_mcp_owner.__file__ is not None
     assert (
         Path(packaged_mcp_owner.__file__).resolve()
-        == BANKSIA_PACKAGE_ROOT / "interfaces" / "mcp" / "__init__.py"
+        == OMS_PACKAGE_ROOT / "interfaces" / "mcp" / "__init__.py"
     )
     assert packaged_web_console.__file__ is not None
     assert (
         Path(packaged_web_console.__file__).resolve()
-        == BANKSIA_PACKAGE_ROOT / "interfaces" / "web_console" / "__init__.py"
+        == OMS_PACKAGE_ROOT / "interfaces" / "web_console" / "__init__.py"
     )
     assert packaged_main_module.__file__ is not None
-    assert Path(packaged_main_module.__file__).resolve() == BANKSIA_PACKAGE_ROOT / "main.py"
+    assert Path(packaged_main_module.__file__).resolve() == OMS_PACKAGE_ROOT / "main.py"
     assert packaged_persistence.__file__ is not None
     assert (
         Path(packaged_persistence.__file__).resolve()
-        == BANKSIA_PACKAGE_ROOT / "persistence" / "__init__.py"
+        == OMS_PACKAGE_ROOT / "persistence" / "__init__.py"
     )
     assert packaged_runtime_contracts.__file__ is not None
     assert (
         Path(packaged_runtime_contracts.__file__).resolve()
-        == BANKSIA_PACKAGE_ROOT / "runtime" / "contracts" / "__init__.py"
+        == OMS_PACKAGE_ROOT / "runtime" / "contracts" / "__init__.py"
     )
 
 
@@ -118,7 +118,7 @@ def test_cli_and_main_entrypoints_use_only_canonical_modules() -> None:
     packaged_create_app = cast(Any, packaged_main_module.create_app)
 
     assert main(["--help"]) == 0
-    assert app.title == packaged_app.title == "Banksia API"
+    assert app.title == packaged_app.title == "Oh My Subagents API"
     assert app.version == packaged_app.version == project_version
     assert _route_paths(create_app(should_enable_mcp_mounts=False).routes) == _route_paths(
         packaged_create_app(should_enable_mcp_mounts=False).routes
@@ -142,16 +142,17 @@ def test_pyproject_ships_canonical_packages_only() -> None:
     package_data = cast(dict[str, list[str]], setuptools_config["package-data"])
     scripts = cast(dict[str, str], project_config["scripts"])
 
-    assert project_config["name"] == "banksia"
-    assert project_config["version"] == "0.1.7"
-    assert version("banksia") == "0.1.7"
+    assert project_config["name"] == "oh-my-subagents"
+    assert project_config["version"] == "0.2.0"
+    assert version("oh-my-subagents") == "0.2.0"
     assert package_dir == {"": "src"}
     assert packages_find == {
         "where": ["src"],
         "include": ["banksia*"],
         "namespaces": False,
     }
-    assert scripts["banksia"] == "banksia.interfaces.cli.main:main"
+    assert scripts["oms"] == "banksia.interfaces.cli.main:main"
+    assert scripts["banksia"] == "banksia.interfaces.cli.main:legacy_main"
     assert "autoclaw" not in scripts
     assert "banksia" in package_data
     assert package_data["banksia"] == [
@@ -183,6 +184,7 @@ def test_python_m_banksia_invokes_main() -> None:
 
     assert result.returncode == 0
     assert "Usage: banksia" in result.stdout
+    assert LEGACY_COMMAND_NOTICE in result.stderr
 
 
 def test_python_m_banksia_interfaces_cli_invokes_main() -> None:
@@ -198,6 +200,21 @@ def test_python_m_banksia_interfaces_cli_invokes_main() -> None:
 
     assert result.returncode == 0
     assert "Usage: banksia" in result.stdout
+    assert LEGACY_COMMAND_NOTICE in result.stderr
+
+
+def test_canonical_and_legacy_cli_entrypoints_are_explicit(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert main(["--help"]) == 0
+    canonical = capsys.readouterr()
+    assert "Usage: oms" in canonical.out
+    assert LEGACY_COMMAND_NOTICE not in canonical.err
+
+    assert legacy_main(["--help"]) == 0
+    legacy = capsys.readouterr()
+    assert "Usage: banksia" in legacy.out
+    assert LEGACY_COMMAND_NOTICE in legacy.err
 
 
 def test_fresh_interpreter_can_import_canonical_package_roots() -> None:

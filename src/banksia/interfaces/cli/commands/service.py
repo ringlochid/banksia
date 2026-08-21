@@ -43,8 +43,8 @@ from banksia.platform.provider_environment import (
     read_provider_secret_environment,
 )
 
-DEFAULT_PROVIDER_ENV_TEXT = """# Banksia-managed provider credentials.
-# Use `banksia setup` or `banksia providers login`; do not add other settings.
+DEFAULT_PROVIDER_ENV_TEXT = """# Oh My Subagents-managed provider credentials.
+# Use `oms setup` or `oms providers login`; do not add other settings.
 """
 
 
@@ -69,7 +69,7 @@ def cmd_service_install(
     if existing_service is not None and existing_service.owns_bind_target:
         active_progress.step(
             "server",
-            "Reusing the bind target owned by the Banksia background service",
+            "Reusing the bind target owned by the Oh My Subagents background service",
         )
     else:
         active_progress.step(
@@ -82,7 +82,7 @@ def cmd_service_install(
         )
         if not server_payload["ok"]:
             return emit_server_bind_check_failure(
-                command_name="Banksia service install",
+                command_name="Oh My Subagents service install",
                 args=args,
                 server_payload=server_payload,
                 stopped_before="stopped before background service install",
@@ -96,7 +96,7 @@ def cmd_service_install(
 
     manager = get_managed_service_manager()
     target = build_managed_service_target(config_path)
-    active_progress.step("service", "Reconciling the Banksia background service")
+    active_progress.step("service", "Reconciling the Oh My Subagents background service")
     inspection = manager.install(
         target,
         should_start=not bool(getattr(args, "no_start", False)),
@@ -109,7 +109,7 @@ def cmd_service_install(
         target=target,
         should_wait=not bool(getattr(args, "no_start", False)),
     )
-    active_progress.done("service", "Banksia background service installed")
+    active_progress.done("service", "Oh My Subagents background service installed")
     _emit_service_result(args, result)
     return 0
 
@@ -186,7 +186,7 @@ def cmd_service_logs(args: argparse.Namespace) -> int:
         )
         return 0
     if not lines and not log_path.exists():
-        print(f"No Banksia background service log exists yet: {log_path}")
+        print(f"No Oh My Subagents background service log exists yet: {log_path}")
     else:
         for line in lines:
             print(line)
@@ -350,7 +350,7 @@ def _print_service_status(result: ManagedServiceResult) -> None:
     context.console().print(
         Panel(
             Group(summary, Text(), facts),
-            title="Banksia background service",
+            title="Oh My Subagents background service",
             title_align="left",
             border_style=style,
             padding=(0, 1),
@@ -363,7 +363,7 @@ def _print_service_status(result: ManagedServiceResult) -> None:
 
 def _print_plain_service_status(result: ManagedServiceResult) -> None:
     label, _, _ = _service_state(result)
-    print("Banksia background service")
+    print("Oh My Subagents background service")
     print(f"Status: {label.casefold()}")
     print(f"Definition: {_definition_label(result)}")
     print(f"Starts at sign-in: {_startup_label(result)}")
@@ -411,16 +411,16 @@ def _startup_label(result: ManagedServiceResult) -> str:
 
 def _service_next_action(result: ManagedServiceResult) -> str | None:
     if not result.inspection.is_installed:
-        return "banksia service install"
+        return "oms service install"
     if not result.inspection.is_definition_current:
-        return "banksia service install"
+        return "oms service install"
     if result.controller_state in {
         ManagedServiceControllerState.FAILED,
         ManagedServiceControllerState.UNKNOWN,
     }:
-        return "banksia service logs --lines 200"
+        return "oms service logs --lines 200"
     if result.controller_state is ManagedServiceControllerState.STOPPED:
-        return "banksia service start"
+        return "oms service start"
     return None
 
 

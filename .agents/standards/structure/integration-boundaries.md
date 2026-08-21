@@ -73,7 +73,7 @@ Rules:
 - do not turn OpenAPI-generated types into edited source; add view-model mappers when render shape differs from controller shape
 - do not let React, Tailwind, route names, or component names leak into runtime docs, provider docs, backend contracts, or API schemas
 
-The root `console/**` client takes authority only from generated controller contracts and the owning Banksia interface pages. Removed route families and token namespaces must not be reintroduced through frontend-local compatibility logic.
+The root `console/**` client takes authority only from generated controller contracts and the owning Oh My Subagents interface pages. Removed route families and token namespaces must not be reintroduced through frontend-local compatibility logic.
 
 View-model boundaries:
 
@@ -86,8 +86,8 @@ Design handoff boundaries:
 
 - design repo charters, static HTML, screenshots, and shared CSS define visual language, interaction cadence, and expected states
 - implementation extracts reusable console tokens, primitives, layouts, and state fixtures from the handoff instead of copying prototype page code
-- `console/src/styles/tokens.css` owns the implementation token vocabulary and uses the `--banksia-*` namespace even when a design prototype uses a different prefix
-- versionless Banksia owner contracts, generated OpenAPI, and route tests define legal routes, field names, state names, actions, and currentness
+- `console/src/styles/tokens.css` owns the implementation token vocabulary and uses the `--oms-*` namespace even when a design prototype uses a different prefix
+- versionless Oh My Subagents owner contracts, generated OpenAPI, and route tests define legal routes, field names, state names, actions, and currentness
 - when design handoff and controller truth disagree, patch the contract or the design handoff before encoding the behavior in components
 
 ## Review checklist

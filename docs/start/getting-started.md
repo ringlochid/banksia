@@ -1,6 +1,6 @@
 # Getting started
 
-Install Banksia, configure an AI provider, and complete a first developer or researcher run.
+Install Oh My Subagents, configure an AI provider, and complete a first developer or researcher run.
 
 ## Before you start
 
@@ -13,40 +13,40 @@ You need:
 
 Native Windows requires a local NTFS workspace. UNC/network paths, device paths, non-NTFS volumes, and paths traversing reparse points reject at admission rather than weakening filesystem safety.
 
-## Install Banksia
+## Install Oh My Subagents
 
 Use [pipx](https://pipx.pypa.io/stable/) to install the command-line application in its own environment:
 
 ```bash
-pipx install banksia
-banksia --version
+pipx install oh-my-subagents
+oms --version
 ```
 
 If `pipx` is not installed, follow its [platform installation guide](https://pipx.pypa.io/stable/how-to/install-pipx.html). Contributors who need a source checkout should use the [contributing guide](../../CONTRIBUTING.md) instead.
 
 ### Optional: install with PostgreSQL
 
-SQLite is the default and needs no database server. Choose PostgreSQL before initialization when you want Banksia controller data in an existing PostgreSQL service:
+SQLite is the default and needs no database server. Choose PostgreSQL before initialization when you want Oh My Subagents controller data in an existing PostgreSQL service:
 
 ```bash
-pipx install "banksia[postgres]"
+pipx install "oh-my-subagents[postgres]"
 ```
 
 If the base package is already installed, replace that application environment with the PostgreSQL-enabled package:
 
 ```bash
-pipx install --force "banksia[postgres]"
+pipx install --force "oh-my-subagents[postgres]"
 ```
 
-The PostgreSQL role must be able to connect to the selected database and create or use Banksia's dedicated schema. The [database configuration reference](../reference/configuration.md#database) contains the complete contract.
+The PostgreSQL role must be able to connect to the selected database and create or use Oh My Subagents's dedicated schema. The [database configuration reference](../reference/configuration.md#database) contains the complete contract.
 
-## Initialize Banksia
+## Initialize Oh My Subagents
 
 Change to the directory you want to use as the default workspace, then run:
 
 ```bash
 cd /absolute/path/to/project
-banksia init
+oms init
 ```
 
 Guided initialization:
@@ -61,16 +61,16 @@ Choose Codex or Claude for Task work, then follow its authentication and readine
 To initialize PostgreSQL instead of SQLite, pass the database URL explicitly:
 
 ```bash
-banksia init \
+oms init \
   --database-url "postgresql+asyncpg://banksia@127.0.0.1/banksia"
 ```
 
-Use the URL required by your PostgreSQL service. Percent-encode reserved characters in credentials, avoid leaving passwords in shell history, and use `banksia config show` for redacted readback. Initialization creates a missing dedicated `banksia` schema and initializes it only when that schema has no tables and the role has permission.
+Use the URL required by your PostgreSQL service. Percent-encode reserved characters in credentials, avoid leaving passwords in shell history, and use `oms config show` for redacted readback. Initialization creates a missing dedicated `banksia` schema and initializes it only when that schema has no tables and the role has permission.
 
 For an unattended SQLite setup:
 
 ```bash
-banksia init \
+oms init \
   --workspace /absolute/path/to/project \
   --non-interactive
 ```
@@ -80,16 +80,16 @@ banksia init \
 Rerun the settings journey at any time:
 
 ```bash
-banksia setup
+oms setup
 ```
 
 Use it to add or change Task providers, choose a different Operator, or update the default workspace. Check the effective configuration without changing it:
 
 ```bash
-banksia config show
-banksia providers status
-banksia operator status
-banksia status
+oms config show
+oms providers status
+oms operator status
+oms status
 ```
 
 Codex and Claude are the supported Task-provider adapters.
@@ -100,14 +100,14 @@ On Linux or WSL2, install `bubblewrap` and `socat` before using a Claude Member 
 sudo apt-get install bubblewrap socat
 ```
 
-These packages are Claude Code sandbox prerequisites, not general Banksia dependencies. See [Managed sandbox and network](../reference/configuration.md#managed-sandbox-and-network) and [Claude Code sandboxing](https://code.claude.com/docs/en/sandboxing).
+These packages are Claude Code sandbox prerequisites, not general Oh My Subagents dependencies. See [Managed sandbox and network](../reference/configuration.md#managed-sandbox-and-network) and [Claude Code sandboxing](https://code.claude.com/docs/en/sandboxing).
 
 ## Open the Console
 
 Start the controller in the foreground:
 
 ```bash
-banksia serve
+oms serve
 ```
 
 Open `http://127.0.0.1:18125/`.
@@ -120,14 +120,14 @@ The Console has three main working areas:
 
 Operator and the visual screens use the same controller-owned Workflow and Run truth. A conversational edit does not create a separate copy of the team.
 
-To run Banksia as the current user's background service instead:
+To run Oh My Subagents as the current user's background service instead:
 
 ```bash
-banksia service install
-banksia service status
+oms service install
+oms service status
 ```
 
-Banksia uses a systemd user service on Linux, a current-user LaunchAgent on macOS, and a least-privilege current-user Scheduled Task on Windows.
+Oh My Subagents uses a systemd user service on Linux, a current-user LaunchAgent on macOS, and a least-privilege current-user Scheduled Task on Windows.
 
 ## Complete a developer run
 
@@ -159,7 +159,7 @@ Start another run with `deep-research-and-decision-brief`:
 > counterevidence; then return one confidence-calibrated conclusion with limitations and referenced
 > files.
 
-Use **Advanced → Referenced files** when the team must inspect a particular workspace file. Banksia records its workspace-relative path and optional description, not a copy of its contents.
+Use **Advanced → Referenced files** when the team must inspect a particular workspace file. Oh My Subagents records its workspace-relative path and optional description, not a copy of its contents.
 
 Choose `experiment-and-replication-program` for a substantial computational or empirical program that needs durable execution and independent replication.
 
@@ -168,13 +168,13 @@ Choose `experiment-and-replication-program` for a substantial computational or e
 The Console is the clearest catalog and run view. The terminal can start the same published Workflow interactively:
 
 ```bash
-banksia task start
+oms task start
 ```
 
 Automation can pass one strict JSON object inline, from `@file`, or through standard input:
 
 ```bash
-banksia task start --json \
+oms task start --json \
   '{"workflow":"production-feature-delivery","prompt":"Deliver the cross-layer configuration recovery experience, verify the integrated behavior and release risks, repair accepted findings, and return the result."}'
 ```
 

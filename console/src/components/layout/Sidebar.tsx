@@ -22,7 +22,7 @@ export interface SidebarProps {
  * Copyright (c) n8n GmbH and contributors. Sustainable Use License; see
  * console/LICENSE and console/NOTICE.
  *
- * The destinations are Banksia's — Workflows, Runs, Operator — not n8n's
+ * The destinations are Oh My Subagents's — Workflows, Runs, Operator — not n8n's
  * projects, templates, or executions.
  */
 export function Sidebar({
@@ -45,10 +45,10 @@ export function Sidebar({
                 .join(" ")}
             style={{ width: `${String(width)}px` }}
         >
-            <div className="sidebar__header">
+            <header className="sidebar__header">
                 {isCollapsed ? null : (
                     <NavLink
-                        aria-label="Banksia home"
+                        aria-label="Oh My Subagents home"
                         className="sidebar__logo"
                         to="/workflows"
                     >
@@ -56,10 +56,12 @@ export function Sidebar({
                             <img
                                 alt=""
                                 className="sidebar__mark-image"
-                                src="/assets/banksia-mark.svg"
+                                src="/assets/oms-mark.svg"
                             />
                         </span>
-                        <span className="sidebar__wordmark">Banksia</span>
+                        <span className="sidebar__wordmark">
+                            Oh My Subagents
+                        </span>
                     </NavLink>
                 )}
                 <SidebarIconButton
@@ -76,7 +78,7 @@ export function Sidebar({
                 >
                     <PanelLeft aria-hidden="true" size={18} />
                 </SidebarIconButton>
-            </div>
+            </header>
 
             <nav aria-label="Primary" className="sidebar__nav">
                 <SidebarLink

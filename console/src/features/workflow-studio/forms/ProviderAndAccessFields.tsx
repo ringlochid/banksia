@@ -423,7 +423,7 @@ function ManagedExtensionModeField({
                         label:
                             mode === "inherit"
                                 ? "Use provider Skills and MCP"
-                                : "Banksia only",
+                                : "Oh My Subagents only",
                     })),
                 ]}
                 value={provider.extension_mode ?? "default"}
@@ -455,7 +455,7 @@ function providerOptions(
         {
             value: "default",
             label: "Installation default",
-            hint: "Use the provider configured for Banksia.",
+            hint: "Use the provider configured for Oh My Subagents.",
         },
         ...(includeRetiredSelection
             ? [
@@ -569,7 +569,7 @@ function defaultProviderHint(
             ? null
             : provider.extension_mode === "inherit"
               ? "Provider Skills and MCP"
-              : "Banksia-only extensions",
+              : "Oh My Subagents-only extensions",
     ].filter((detail): detail is string => detail !== null);
     return `Default: ${details.join(" · ")}`;
 }

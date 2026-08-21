@@ -16,9 +16,9 @@ Use this guide when the work includes moving files, splitting packages, renaming
 
 ## Root map
 
-- `src/banksia/**`: the one canonical Banksia backend package
+- `src/banksia/**`: the one canonical Oh My Subagents backend package
 - `tests/**`: backend proof organized by unit, integration, and end-to-end ownership
-- `console/**`: the Banksia browser Console
+- `console/**`: the Oh My Subagents browser Console
 - `src/banksia/workflows/resources/starter_workflows/**`: provider-neutral bootstrap inputs, not runtime authority
 - `docs/**`: public product, operator, reference, and help docs
 - `docs-internal/architecture/**`: runtime and product architecture
@@ -68,7 +68,7 @@ Prefer splitting when:
 - package names should represent ownership, not generic categorization buckets
 - avoid placeholder names such as `utils`, `helpers`, `misc`, `common`, `support`, or `wrapper` unless the directory truly owns that narrow concern
 - avoid version suffixes or temporary migration names in steady-state code paths
-- keep Banksia canon versionless and do not add version-suffixed owner files
+- keep Oh My Subagents canon versionless and do not add version-suffixed owner files
 - keep public shared helpers non-underscored
 - keep test filenames aligned with the feature or contract they verify, not with incidental helper names
 
@@ -117,7 +117,7 @@ Extended guidance: [Naming](../code/naming.md)
 - keep public docs under `docs/**`
 - keep internal canon under `docs-internal/**`
 - keep internal owners in the architecture, interfaces, operations, or ADR lane named by their responsibility
-- keep Banksia owner paths versionless
+- keep Oh My Subagents owner paths versionless
 - do not use the public docs tree as a catch-all for versioned implementation programs, historical design drafts, or execution artifacts
 
 ## Local instruction files

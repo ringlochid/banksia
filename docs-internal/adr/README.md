@@ -2,7 +2,7 @@
 
 Status: Reference
 
-This surface owns durable accepted decisions that still govern Banksia. Current subject owners under `docs-internal/` remain the first implementation authority; these records explain consequential clean-break and Operator choices.
+This surface owns durable accepted decisions that still govern Oh My Subagents. Current subject owners under `docs-internal/` remain the first implementation authority; these records explain consequential identity, clean-break, and Operator choices.
 
 ## Start here
 
@@ -10,3 +10,4 @@ This surface owns durable accepted decisions that still govern Banksia. Current 
 - [ADR-0015 minimal Operator agent](ADR-0015-minimal-operator-agent.md)
 - [ADR-0016 managed-provider Skill and MCP inheritance](ADR-0016-managed-provider-skill-and-mcp-inheritance.md)
 - [ADR-0017 OpenClaw provider retirement](ADR-0017-openclaw-provider-retirement.md)
+- [ADR-0018 Oh My Subagents identity cutover](ADR-0018-oh-my-subagents-identity-cutover.md)

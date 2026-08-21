@@ -161,10 +161,10 @@ def _next_operator_action(
     is_route_configured: bool,
 ) -> str:
     if effective.provider is None:
-        return "banksia operator setup"
+        return "oms operator setup"
     if not is_route_configured:
-        return f"banksia providers configure {effective.provider.value}"
-    return f"banksia providers check {effective.provider.value}"
+        return f"oms providers configure {effective.provider.value}"
+    return f"oms providers check {effective.provider.value}"
 
 
 __all__ = [

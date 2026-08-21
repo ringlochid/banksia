@@ -74,7 +74,7 @@ async def spawn_command_process(
         )
     raise OSError(
         errno.ENOTSUP,
-        "Banksia Command Run supervision supports Linux, macOS, and Windows only",
+        "Oh My Subagents Command Run supervision supports Linux, macOS, and Windows only",
     )
 
 

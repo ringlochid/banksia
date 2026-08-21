@@ -20,8 +20,8 @@ def test_main_renders_friendly_unknown_command(capsys: pytest.CaptureFixture[str
 
     output = capsys.readouterr().out
     assert result == 2
-    assert 'Banksia does not know the command "definitely-not-a-command".' in output
-    assert "Try: banksia --help" in output
+    assert 'Oh My Subagents does not know the command "definitely-not-a-command".' in output
+    assert "Try: oms --help" in output
     assert "Traceback" not in output
 
 
@@ -47,7 +47,7 @@ def test_main_hides_traceback_without_debug(
 
     output = capsys.readouterr().out
     assert result == 1
-    assert "Banksia command failed" in output
+    assert "Oh My Subagents command failed" in output
     assert "Reason: boom" in output
     assert "Traceback" not in output
 
@@ -68,7 +68,7 @@ def test_main_directs_schema_mismatch_to_data_preserving_upgrade(
     output = capsys.readouterr().out
     assert result == 1
     assert "Database upgrade required" in output
-    assert shlex.join(("banksia", "db", "upgrade", "--config", str(config_path))) in output
+    assert shlex.join(("oms", "db", "upgrade", "--config", str(config_path))) in output
     assert "db reset` only if you accept deletion" in output
 
 
@@ -90,9 +90,9 @@ def test_service_install_directs_schema_mismatch_to_selected_config_upgrade(
 
     output = capsys.readouterr().out
     assert result == 1
-    upgrade_command = shlex.join(("banksia", "db", "upgrade", "--config", str(config_path)))
+    upgrade_command = shlex.join(("oms", "db", "upgrade", "--config", str(config_path)))
     assert upgrade_command in output
-    assert output.index(upgrade_command) < output.index("banksia db reset")
+    assert output.index(upgrade_command) < output.index("oms db reset")
 
 
 def test_main_shows_traceback_with_debug(
@@ -107,7 +107,7 @@ def test_main_shows_traceback_with_debug(
 
     output = capsys.readouterr().out
     assert result == 1
-    assert "Banksia command failed" in output
+    assert "Oh My Subagents command failed" in output
     assert "Traceback" in output
 
 
@@ -135,7 +135,7 @@ def test_main_never_traces_expected_parse_errors(
 
     output = capsys.readouterr().out
     assert result == 2
-    assert 'Banksia does not recognize option "--not-an-option".' in output
+    assert 'Oh My Subagents does not recognize option "--not-an-option".' in output
     assert "Traceback" not in output
 
 

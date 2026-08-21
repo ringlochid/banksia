@@ -6,7 +6,7 @@ This page owns the shipped controller record model, transition rules, currentnes
 
 ## Runtime grammar
 
-Banksia deliberately keeps authoring simpler than execution. A published Workflow suggests a responsibility tree. The controller records the actual work with this record family:
+Oh My Subagents deliberately keeps authoring simpler than execution. A published Workflow suggests a responsibility tree. The controller records the actual work with this record family:
 
 ```text
 Task
@@ -59,7 +59,7 @@ A Manager retains the complete parent Assignment and owns:
 - integration decisions and proportionate verification; and
 - the complete parent Checkpoint.
 
-It is a quality failure for a Manager to copy its Assignment unchanged to a child and then restate the child Checkpoint as its own result. Banksia evaluates anti-relay behavior rather than creating similarity gates or another runtime approval record.
+It is a quality failure for a Manager to copy its Assignment unchanged to a child and then restate the child Checkpoint as its own result. Oh My Subagents evaluates anti-relay behavior rather than creating similarity gates or another runtime approval record.
 
 While children exist, the prompt tells a Manager not to replace their substantive execution. The controller cannot reliably classify every native shell command or file edit as managerial versus contributor work, so it enforces the objective completion rule and leaves semantic accountability to prompting, evaluation, and audit. A Manager that intends to take over direct execution must remove all direct children first and continue under fresh Contributor context.
 
@@ -106,7 +106,7 @@ Plan completion never routes work, satisfies child participation, records a Chec
 
 The Manager prompt teaches five complementary planning views. Their familiar orchestration names are included for precision, not as additional runtime concepts:
 
-| Banksia pattern | Familiar orchestration term | Use |
+| Oh My Subagents pattern | Familiar orchestration term | Use |
 | --- | --- | --- |
 | Sequence | Sequential orchestration or prompt chaining | A later contribution depends on an earlier result, or shared-state risk requires one-at-a-time work. |
 | Parallel | Concurrent orchestration or fan-out/fan-in | Contributions can remain independent until the Manager's join and integration. |
@@ -214,7 +214,7 @@ OpenClaw is not an executable provider. Existing immutable Team and Dispatch rec
 
 ## One Checkpoint action
 
-A Checkpoint is Banksia's durable, teammate-facing work report for an exact Assignment execution. It is not a saved workflow-state snapshot or provider transcript. Controller state remains in the records that own it; the Checkpoint communicates the result, evidence, limits, and next relevant action.
+A Checkpoint is Oh My Subagents's durable, teammate-facing work report for an exact Assignment execution. It is not a saved workflow-state snapshot or provider transcript. Controller state remains in the records that own it; the Checkpoint communicates the result, evidence, limits, and next relevant action.
 
 Agent-facing contract:
 
@@ -304,7 +304,7 @@ Every handler rereads authoritative state and may safely no-op when duplicated, 
 
 ## Delegation Waves
 
-A Delegation Wave is Banksia's controller-managed fan-out/fan-in unit. One parent atomically starts one or more current direct-child Assignments, then resumes exactly once after every Wave member has returned a terminal `green` or `blocked` Checkpoint.
+A Delegation Wave is Oh My Subagents's controller-managed fan-out/fan-in unit. One parent atomically starts one or more current direct-child Assignments, then resumes exactly once after every Wave member has returned a terminal `green` or `blocked` Checkpoint.
 
 Agent operation:
 
@@ -490,7 +490,7 @@ The controller-owned system prompt teaches when each exposed operation is propor
 
 ### Agent operation names and request shapes
 
-The semantic operation names are `open_human_request` and `start_command_run`. They are Banksia controller tools (MCP may be an adapter transport), not user-authored external MCP extensions. A managed provider binding supplies Task/Dispatch authority; the model never submits `task_id`, `dispatch_id`, a parent selector, capability token, or compatibility scope wrapper.
+The semantic operation names are `open_human_request` and `start_command_run`. They are Oh My Subagents controller tools (MCP may be an adapter transport), not user-authored external MCP extensions. A managed provider binding supplies Task/Dispatch authority; the model never submits `task_id`, `dispatch_id`, a parent selector, capability token, or compatibility scope wrapper.
 
 `open_human_request` accepts one strict `request`:
 

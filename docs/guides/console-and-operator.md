@@ -4,10 +4,10 @@ The Console and Operator make the same reusable AI teams easy to create and oper
 
 ## Console
 
-After [installing and initializing Banksia](../start/getting-started.md), start the controller:
+After [installing and initializing Oh My Subagents](../start/getting-started.md), start the controller:
 
 ```bash
-banksia serve
+oms serve
 ```
 
 The installed package includes the Console. Open `http://127.0.0.1:18125/`. The current routes are:
@@ -43,7 +43,7 @@ When a material choice is missing, the Operator returns native `ask_user` output
 1. The provider returns one to three typed questions and ends that turn.
 2. Each question has two or three stable options. The Console supplies **Something else**, and shows skip only when the question explicitly allows it.
 3. You answer every current question and choose **Continue**.
-4. Banksia persists the answers, starts a fresh provider turn in the same conversation thread, and rereads controller truth before continuing.
+4. Oh My Subagents persists the answers, starts a fresh provider turn in the same conversation thread, and rereads controller truth before continuing.
 
 The provider is not suspended inside an open tool call while you answer. Operator clarification is also separate from a Task Member's Human Request; the two surfaces have different owners and capabilities.
 
@@ -51,11 +51,11 @@ When no clarification is needed, the Operator returns one human-facing message w
 
 ## Configure the Operator
 
-Guided `banksia init` offers Operator as an optional final choice. Configure or change it later with:
+Guided `oms init` offers Operator as an optional final choice. Configure or change it later with:
 
 ```bash
-banksia operator setup
-banksia operator status
+oms operator setup
+oms operator status
 ```
 
 Choose Codex or Claude. Operator may use a different route from the default Task provider. If that route is not configured, the interactive flow configures it through the same provider setup path without changing the Task default. The saved Operator provider is the default when you rerun setup.
@@ -65,7 +65,7 @@ Model and effort overrides are optional and remain unchanged when you decline to
 Automation supplies the selection explicitly:
 
 ```bash
-banksia operator setup \
+oms operator setup \
   --provider codex \
   --non-interactive
 ```
@@ -73,9 +73,9 @@ banksia operator setup \
 Remove only the saved Operator selection with:
 
 ```bash
-banksia operator disable
+oms operator disable
 ```
 
-Disabling Operator does not disable its provider route or change the default Task provider. An effective `BANKSIA_OPERATOR__*` environment override remains in effect until you remove that override.
+Disabling Operator does not disable its provider route or change the default Task provider. An effective `OMS_OPERATOR__*` environment override remains in effect until you remove that override.
 
 Operator conversations use same-origin local HTTP routes. They do not expose an external MCP server or make Operator operations available to Workflow Members.

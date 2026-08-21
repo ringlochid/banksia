@@ -2,11 +2,11 @@
 
 Status: Reference
 
-This page owns Banksia's product model, authored Workflow contract, authoring lifecycle, Task-start request, and Assignment contract.
+This page owns Oh My Subagents's product model, authored Workflow contract, authoring lifecycle, Task-start request, and Assignment contract.
 
 ## Product position
 
-Banksia is a controlled agent-team runtime for work that benefits from explicit delegation without losing one accountable owner. It productizes a familiar subagent practice:
+Oh My Subagents is a controlled agent-team runtime for work that benefits from explicit delegation without losing one accountable owner. It productizes a familiar subagent practice:
 
 ```text
 user suggests a reusable team
@@ -17,15 +17,15 @@ user suggests a reusable team
   -> Task lead returns one integrated Result
 ```
 
-“Reproducible” means Banksia preserves exact authored inputs, resolved Dispatch requests, provider selections, structural history, Assignments, Attempts, continuations, Checkpoints, `FileReference` values, and controller decisions. It does not archive referenced-file bytes or promise deterministic provider output or deterministic replay of concurrent agents writing one shared workspace. Exact file reconstruction depends on the user's own workspace/version-control state.
+“Reproducible” means Oh My Subagents preserves exact authored inputs, resolved Dispatch requests, provider selections, structural history, Assignments, Attempts, continuations, Checkpoints, `FileReference` values, and controller decisions. It does not archive referenced-file bytes or promise deterministic provider output or deterministic replay of concurrent agents writing one shared workspace. Exact file reconstruction depends on the user's own workspace/version-control state.
 
 The tree answers **who owns which responsibility**. It does not answer when a member runs. Runtime Work Plans and Delegation Waves record the actual timing.
 
 ## Canonical product language
 
-Banksia uses a small canonical vocabulary across the Workflow schema, system prompt, controller API, Activity, and documentation. Some of these words have broader meanings in other agent products, so Banksia defines them explicitly instead of relying on industry shorthand.
+Oh My Subagents uses a small canonical vocabulary across the Workflow schema, system prompt, controller API, Activity, and documentation. Some of these words have broader meanings in other agent products, so Oh My Subagents defines them explicitly instead of relying on industry shorthand.
 
-| Term | Banksia meaning |
+| Term | Oh My Subagents meaning |
 | --- | --- |
 | **Workflow** | A reusable, publishable team definition: one responsibility hierarchy plus optional team-specific guidance and provider intent. It is not a prescribed step sequence or executable graph. Use **Workflow definition** on first mention when the distinction matters. |
 | **Task** | One commissioned execution pinned to one Workflow revision, one workspace, and one accountable Task lead. |
@@ -42,7 +42,7 @@ Banksia uses a small canonical vocabulary across the Workflow schema, system pro
 
 `notes/` and `artifacts/` are lowercase workspace conventions, not additional controller domain resources. A note is mutable working memory for coordination or recovery. An artifact file is a reviewable deliverable created for another Member or the user. Both remain ordinary loose files and use the same `FileReference` value for an explicit navigation handoff when needed.
 
-Documentation may mention familiar equivalents such as *subagent*, *orchestrator-worker*, *fan-out/fan-in*, *prompt chaining*, or *evaluator-optimizer* when comparing systems. Banksia contracts and model-facing prompts use the canonical nouns above. In normative prose, an initial capital may distinguish the named product concept when ambiguity matters; code identifiers keep their defined casing, and ordinary generic uses remain lower case.
+Documentation may mention familiar equivalents such as *subagent*, *orchestrator-worker*, *fan-out/fan-in*, *prompt chaining*, or *evaluator-optimizer* when comparing systems. Oh My Subagents contracts and model-facing prompts use the canonical nouns above. In normative prose, an initial capital may distinguish the named product concept when ambiguity matters; code identifiers keep their defined casing, and ordinary generic uses remain lower case.
 
 ## One authored definition
 
@@ -74,14 +74,14 @@ The lead uses exactly the same Member schema as every descendant. `children` rem
 | Member `id` | Stable identity within the complete Workflow tree. IDs are unique and non-reused within that Workflow tree and immutable after creation; no cross-Workflow global namespace is implied. |
 | Member `title` | Optional human display text. UI falls back to the ID or “Untitled member” while drafting. |
 | Member `description` | Optional responsibility or routing hint. |
-| Member `instruction` | Optional reusable, team-specific contribution guidance. It is not the current Task, Assignment, or Banksia operating manual. |
+| Member `instruction` | Optional reusable, team-specific contribution guidance. It is not the current Task, Assignment, or Oh My Subagents operating manual. |
 | Member `provider` | Optional per-member provider selection intent. |
 | Member `capabilities` | Optional grants for Human Request kinds and managed Command Run. Omitted grants deny. |
 | Member `children` | Ordered direct responsibilities. Order is organizational and never execution order. |
 
 Blank optional text, whitespace-only text, empty strings, and explicit `null` normalize to omission before canonical draft/revision persistence. Top-level Workflow description remains required and nonblank. Sparse members are valid because every execution Assignment still contains a required prompt.
 
-Workflow-authored prose never owns general Banksia behavior. The Workflow `note` may describe this team's suggested collaboration, purpose, preferences, non-goals, and caveats. A Member `instruction` may specialize that Member's responsibility or independent lens. Accountable management, work-pattern choice, replan, notes/artifacts/file references, Checkpoints, Human Request, Command Run, Continuation, and controller-action rules come from the [system prompt](system-prompts.md), even when an example Workflow uses them.
+Workflow-authored prose never owns general Oh My Subagents behavior. The Workflow `note` may describe this team's suggested collaboration, purpose, preferences, non-goals, and caveats. A Member `instruction` may specialize that Member's responsibility or independent lens. Accountable management, work-pattern choice, replan, notes/artifacts/file references, Checkpoints, Human Request, Command Run, Continuation, and controller-action rules come from the [system prompt](system-prompts.md), even when an example Workflow uses them.
 
 ### JSON and YAML
 
@@ -136,7 +136,7 @@ Rules:
 - The Workflow contains no credentials, endpoint, executable, environment, provider home, CLI arguments, session IDs, or fallback routes.
 - Controller/deployment enforcement can narrow a request and every Dispatch records the exact requested/resolved provider configuration and provenance.
 
-Existing immutable Workflow revisions or drafts may still contain the retired `openclaw` discriminator. That value is readback-only historical truth. It is not present in authoring options, cannot be supplied by an import or mutation, and makes the draft invalid until the affected Member selects Codex, Claude, or no explicit provider. Banksia never rewrites the old value automatically.
+Existing immutable Workflow revisions or drafts may still contain the retired `openclaw` discriminator. That value is readback-only historical truth. It is not present in authoring options, cannot be supplied by an import or mutation, and makes the draft invalid until the affected Member selects Codex, Claude, or no explicit provider. Oh My Subagents never rewrites the old value automatically.
 
 ## Built-in capabilities
 
@@ -245,7 +245,7 @@ Task-start `files` therefore name existing regular files beneath the selected wo
 Interactive CLI:
 
 ```text
-banksia task start
+oms task start
   -> choose one published Workflow
   -> edit one prompt
   -> use current directory as workspace
@@ -255,9 +255,9 @@ banksia task start
 Machine CLI:
 
 ```text
-banksia task start --json '{"workflow":"delivery-review","prompt":"Fix and verify the bug."}'
-banksia task start --json @request.json
-banksia task start --json - < request.json
+oms task start --json '{"workflow":"delivery-review","prompt":"Fix and verify the bug."}'
+oms task start --json @request.json
+oms task start --json - < request.json
 ```
 
 `--json` always takes exactly one request source, never prompts, emits one JSON receipt, and uses a stable JSON error envelope. Unknown request fields reject. An accepted receipt means the start transaction committed, not that provider startup or the Task completed.
@@ -288,4 +288,4 @@ files:
 
 Workflow and Task authoring contain no Role, Policy, Skill definition, generic capabilities, limits, arbitrary tools, external MCP configuration, steps, stages, handoffs, edges, dependencies, loop/batch mode, criteria, consume, produce, expected-output declaration, slots, transient refs, hashes, semantic versions, current pointers, controller-owned Artifact resources, arbitrary provider options, or standalone network field. A managed provider's `extension_mode` only selects whether already configured user and project Skills plus MCP servers may be visible; it does not define, install, configure, or authorize them. The lowercase `artifacts/` workspace directory is only a loose-file convention and does not contradict this resource-model exclusion.
 
-Provider-native tools remain adapter capability. Banksia's structural and Checkpoint actions derive from current runtime legality. Human Request and Command Run additionally require the narrow authored grant above; neither is a generic Workflow extension system.
+Provider-native tools remain adapter capability. Oh My Subagents's structural and Checkpoint actions derive from current runtime legality. Human Request and Command Run additionally require the narrow authored grant above; neither is a generic Workflow extension system.

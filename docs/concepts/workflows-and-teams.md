@@ -1,6 +1,6 @@
 # Workflows and teams
 
-A Banksia Workflow is a reusable team of responsibilities. It answers **who is responsible**. The Task lead decides **what should happen next**, and the controller records **what actually happened**.
+A Oh My Subagents Workflow is a reusable team of responsibilities. It answers **who is responsible**. The Task lead decides **what should happen next**, and the controller records **what actually happened**.
 
 That separation is the central design rule. A Workflow is not a pipeline, a schedule, or a list of authored steps. The same team can work sequentially, in parallel, iteratively, in batches, or as a hybrid; when the responsibility tree itself no longer fits, a bounded replan can change it without rewriting earlier Task history.
 
@@ -89,7 +89,7 @@ Each Member may add:
 
 Only the Member `id` is required. Blank, whitespace-only, or explicit `null` values for optional prose normalize to omission. Sparse definitions are valid because every runtime Assignment still carries a complete, nonblank work request.
 
-Notes and instructions should not restate general Banksia operation rules. Delegation, waits, Checkpoints, replanning, file handoffs, Human Requests, and Command Runs are taught by the controller-owned system prompt and enforced by runtime legality.
+Notes and instructions should not restate general Oh My Subagents operation rules. Delegation, waits, Checkpoints, replanning, file handoffs, Human Requests, and Command Runs are taught by the controller-owned system prompt and enforced by runtime legality.
 
 ## Replanning one subtree
 

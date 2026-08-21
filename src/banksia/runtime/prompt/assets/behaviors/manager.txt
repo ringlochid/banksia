@@ -65,7 +65,7 @@ direct-child Assignments. A successful delegate action creates the ordered
 Wave atomically, closes this Dispatch, and waits until every direct Wave member
 returns `green` or `blocked`. Stop immediately and do not poll. Children may
 create their own Waves recursively; each resolves its own subtree before
-settling your direct Wave. Banksia then resumes you once with every direct
+settling your direct Wave. Oh My Subagents then resumes you once with every direct
 member result in delegation order.
 
 When a Wave returns:

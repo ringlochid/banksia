@@ -43,7 +43,7 @@ _T = TypeVar("_T")
 
 
 class ScheduledTaskUserServiceManager:
-    """Current-user Windows Task Scheduler lifecycle for the Banksia controller."""
+    """Current-user Windows Task Scheduler lifecycle for the OMS controller."""
 
     manager_name = SCHEDULED_TASK_MANAGER_NAME
     service_name = SCHEDULED_TASK_SERVICE_NAME
@@ -99,7 +99,8 @@ class ScheduledTaskUserServiceManager:
         inspection = self.inspect(target)
         if not inspection.is_definition_current:
             raise RuntimeError(
-                "Task Scheduler did not retain the current Banksia background service definition"
+                "Task Scheduler did not retain the current Oh My Subagents "
+                "background service definition"
             )
         if should_start:
             return self.start(target, command_observer=command_observer)
@@ -181,7 +182,7 @@ class ScheduledTaskUserServiceManager:
         snapshot = self._inspect_snapshot()
         if snapshot is None:
             raise RuntimeError(
-                "Banksia background service is not installed; run `banksia service install`"
+                "Oh My Subagents background service is not installed; run `oms service install`"
             )
         if not scheduled_task_definitions_match(
             snapshot.definition,
@@ -189,8 +190,8 @@ class ScheduledTaskUserServiceManager:
             resolve_identity=self._identity_resolver,
         ):
             raise RuntimeError(
-                "Banksia background service definition is out of date; "
-                "run `banksia service install`"
+                "Oh My Subagents background service definition is out of date; "
+                "run `oms service install`"
             )
         return snapshot
 
@@ -206,7 +207,7 @@ class ScheduledTaskUserServiceManager:
         for attempt in range(_STOP_ATTEMPTS):
             snapshot = self._inspect_snapshot()
             if snapshot is None:
-                raise RuntimeError("Banksia background service disappeared while stopping")
+                raise RuntimeError("Oh My Subagents background service disappeared while stopping")
             if not _snapshot_is_active(snapshot):
                 return snapshot
             if attempt + 1 < _STOP_ATTEMPTS:
@@ -288,7 +289,7 @@ class ScheduledTaskUserServiceManager:
     def _require_supported() -> None:
         if sys.platform != "win32":
             raise RuntimeError(
-                "Banksia background services use a current-user Scheduled Task on Windows; "
+                "Oh My Subagents background services use a current-user Scheduled Task on Windows; "
                 "this host is not Windows"
             )
 
@@ -330,7 +331,7 @@ def render_scheduled_task_xml(
     }
     return f"""<?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.4" xmlns="{_TASK_NAMESPACE}">
-  <RegistrationInfo><Description>Banksia local controller</Description></RegistrationInfo>
+  <RegistrationInfo><Description>Oh My Subagents local controller</Description></RegistrationInfo>
   <Triggers><LogonTrigger><Enabled>true</Enabled><UserId>{values["user"]}</UserId></LogonTrigger></Triggers>
   <Principals><Principal id="Author">
     <UserId>{values["user"]}</UserId>

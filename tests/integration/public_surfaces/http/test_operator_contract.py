@@ -140,7 +140,7 @@ async def test_unconfigured_operator_surface_rejects_new_conversation(
         "availability": "unconfigured",
         "configured_provider": None,
         "explanation": "Operator is not configured with a provider.",
-        "setup_action": "Run `banksia operator setup`, then restart Banksia.",
+        "setup_action": "Run `oms operator setup`, then restart Oh My Subagents.",
     }
     assert create_response.status_code == 503
 
@@ -199,44 +199,44 @@ async def test_operator_create_route_is_strict_and_idempotent(
     assert runner.requests == []
 
 
+def _question_then_message_runner() -> RecordingTurnRunner:
+    question = OperatorProviderAskUserResult.model_validate(
+        {
+            "kind": "ask_user",
+            "questions": [
+                {
+                    "header": "Audience",
+                    "question": "Who is this for?",
+                    "options": [
+                        {
+                            "label": "Developers",
+                            "description": "Optimize for implementation.",
+                        },
+                        {
+                            "label": "Researchers",
+                            "description": "Optimize for evidence review.",
+                        },
+                    ],
+                }
+            ],
+        }
+    )
+    message = OperatorProviderMessageResult(
+        kind="message",
+        text="The draft is ready.",
+    )
+    return RecordingTurnRunner(
+        (
+            OperatorTurnOutcome(provider_thread_id="thread-http", result=question),
+            OperatorTurnOutcome(provider_thread_id="thread-http", result=message),
+        )
+    )
+
+
 async def test_operator_message_and_answer_routes_return_committed_readback(
     tmp_path: Path,
 ) -> None:
-    runner = RecordingTurnRunner(
-        (
-            OperatorTurnOutcome(
-                provider_thread_id="thread-http",
-                result=OperatorProviderAskUserResult.model_validate(
-                    {
-                        "kind": "ask_user",
-                        "questions": [
-                            {
-                                "header": "Audience",
-                                "question": "Who is this for?",
-                                "options": [
-                                    {
-                                        "label": "Developers",
-                                        "description": "Optimize for implementation.",
-                                    },
-                                    {
-                                        "label": "Researchers",
-                                        "description": "Optimize for evidence review.",
-                                    },
-                                ],
-                            }
-                        ],
-                    }
-                ),
-            ),
-            OperatorTurnOutcome(
-                provider_thread_id="thread-http",
-                result=OperatorProviderMessageResult(
-                    kind="message",
-                    text="The draft is ready.",
-                ),
-            ),
-        )
-    )
+    runner = _question_then_message_runner()
 
     async with _operator_client(tmp_path, runner=runner) as (client, _session_factory):
         created = await client.post(

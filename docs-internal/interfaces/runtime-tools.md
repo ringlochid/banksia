@@ -6,12 +6,12 @@ This page owns the exact shipped Task-member and Operator operation catalogs, th
 
 ## Boundary
 
-Banksia has two separate built-in agent tool catalogs:
+Oh My Subagents has two separate built-in agent tool catalogs:
 
 - **Task-member tools** are controller operations used by a current Task Dispatch. Codex and Claude turns receive them through a private Dispatch-scoped MCP binding.
 - **Operator tools** act on user-facing Workflow and Task product services. They never inherit Task-member authority and are not injected into a Task Dispatch.
 
-The absence of Banksia-managed external-MCP authoring does not remove either built-in catalog. A Workflow cannot define arbitrary MCP servers or tools, and Banksia has no external-MCP registry, credential, installation, approval, or replan shape. A managed Member may request inherited visibility of enabled user and project Skills plus configured MCP servers through its provider settings; those provider-native extensions never gain Banksia controller authority.
+The absence of Oh My Subagents-managed external-MCP authoring does not remove either built-in catalog. A Workflow cannot define arbitrary MCP servers or tools, and Oh My Subagents has no external-MCP registry, credential, installation, approval, or replan shape. A managed Member may request inherited visibility of enabled user and project Skills plus configured MCP servers through its provider settings; those provider-native extensions never gain Oh My Subagents controller authority.
 
 For every managed Task Dispatch, the provider must report the Dispatch-bound `banksia_node`. Its operation names must equal the exact controller binding, and it must expose no MCP resources or resource templates. Isolated mode admits no other active server. Inherited mode may additionally expose user-home MCP servers after the controller has resolved an effective `full_access` plus network `allow` pair. The adapter records their sanitized server/tool inventory before the first model turn.
 
@@ -60,7 +60,7 @@ FileReference:
   description: optional short purpose
 ```
 
-The controller validates containment and stores the immutable value on its Assignment, Checkpoint, or Human Request. Task start seeds the root Assignment. Continuations, Result, Activity, context, and product views expose the exact values from those owners rather than persisting copies. Banksia does not allocate a generic file ID, copy bytes, hash or version content, create a current pointer, or promise that the mutable file still has its earlier bytes. The path may identify an ordinary project file, a working file under `.banksia/t_<id>/notes/`, a reviewable loose file under `.banksia/t_<id>/artifacts/`, or a Command Run log. Agents open referenced files with native tools and report a missing or changed file honestly.
+The controller validates containment and stores the immutable value on its Assignment, Checkpoint, or Human Request. Task start seeds the root Assignment. Continuations, Result, Activity, context, and product views expose the exact values from those owners rather than persisting copies. Oh My Subagents does not allocate a generic file ID, copy bytes, hash or version content, create a current pointer, or promise that the mutable file still has its earlier bytes. The path may identify an ordinary project file, a working file under `.banksia/t_<id>/notes/`, a reviewable loose file under `.banksia/t_<id>/artifacts/`, or a Command Run log. Agents open referenced files with native tools and report a missing or changed file honestly.
 
 Storage may normalize these values into owner-scoped ordered rows, but no row is a standalone file resource or receives an independently addressable ID, lifecycle, content body, or lookup API.
 
@@ -245,7 +245,7 @@ Concurrent Attempt lanes receive independent bindings to the same application. T
 
 Implementation identities are `banksia_node` and `banksia-node-managed`.
 
-Every tool provides deterministic ordering, detailed bounded teaching, strict input and output schemas, structured content plus JSON text compatibility, and the shared structured execution failure. Set accurate `readOnlyHint`, `destructiveHint`, `idempotentHint`, and `openWorldHint` values; treat them only as client hints, never authorization. Where the pinned SDK exposes MCP task support, mark every Banksia operation `forbidden`: Banksia's Dispatch, wait, Wave, Human Request, and Command Run records own resumability. Do not add MCP resources, prompts, elicitation, or protocol-task dependencies.
+Every tool provides deterministic ordering, detailed bounded teaching, strict input and output schemas, structured content plus JSON text compatibility, and the shared structured execution failure. Set accurate `readOnlyHint`, `destructiveHint`, `idempotentHint`, and `openWorldHint` values; treat them only as client hints, never authorization. Where the pinned SDK exposes MCP task support, mark every Oh My Subagents operation `forbidden`: Oh My Subagents's Dispatch, wait, Wave, Human Request, and Command Run records own resumability. Do not add MCP resources, prompts, elicitation, or protocol-task dependencies.
 
 `tools/list` authenticates and reads fresh authority but does not refresh Node activity. Every admitted call, including reads, accepted no-ops, and normalized post-admission failures, refreshes the exact Dispatch activity revision once. Authentication, malformed schema, stale scope, exposure, and capability denial occur before activity. Every conditional mutation rereads currentness in its short commit transaction.
 
@@ -310,7 +310,7 @@ The complete Operator catalog has eighteen operations: three Workflow reads, six
 
 Every Operator operation is a direct typed leaf call to its existing product service. Provider-facing projections may remove complete aggregates and retain only source-pinned bounded product facts or compact mutation receipts; they do not create another authority or service path. Claude and Codex adapters may expose the executor directly or through an invocation-local private in-process MCP projection. No projection is public, static, authorable, or external-MCP configuration.
 
-Claude uses native structured output. Codex 0.144.4 uses `outputSchema` and `dynamicTools`. When model metadata requires code mode, provider-native `exec` and `wait` are adapter-private transport over only the eighteen Banksia operations plus inert `update_plan`. The code runtime receives no execution environment, host bindings, filesystem, shell, network, external MCP, module imports, Skills, or Plugins. These provider-native surfaces add no Banksia or host authority and are not product tools or authorable capabilities. Any wider nested registry or host surface fails availability. The exact claim is eighteen Banksia product operations, not a literal global model-visible tool count.
+Claude uses native structured output. Codex 0.144.4 uses `outputSchema` and `dynamicTools`. When model metadata requires code mode, provider-native `exec` and `wait` are adapter-private transport over only the eighteen Oh My Subagents operations plus inert `update_plan`. The code runtime receives no execution environment, host bindings, filesystem, shell, network, external MCP, module imports, Skills, or Plugins. These provider-native surfaces add no Oh My Subagents or host authority and are not product tools or authorable capabilities. Any wider nested registry or host surface fails availability. The exact claim is eighteen Oh My Subagents product operations, not a literal global model-visible tool count.
 
 Explicit user text or a committed typed answer supplies intent for the action it clearly requests. ETags, controller-issued Undo receipts, current opaque legal-action IDs, strict product schemas, and owning service transactions own currentness and acceptance. Model-visible schemas contain no `confirmed`, proposal, effect, replay, or generic execute field.
 
@@ -338,7 +338,7 @@ Do not add:
 - Contributor, Manager, capability-granted, denied, stale, and post-replan discovery/call matrices are correct;
 - every transfer operation commits authority loss before success returns and duplicate/stale calls cannot mutate a successor;
 - nested parallel Attempt bindings cannot cross Task, Attempt, Dispatch, tool ceiling, or provider-start generation;
-- Claude and Codex expose the exact eighteen Banksia operations and the same native `message | ask_user` result contract; provider surfaces expose no host filesystem, shell, network, external MCP, Skill, Plugin, or Banksia authority outside that catalog, while harmless inert provider-native planning does not expand product authority;
+- Claude and Codex expose the exact eighteen Oh My Subagents operations and the same native `message | ask_user` result contract; provider surfaces expose no host filesystem, shell, network, external MCP, Skill, Plugin, or Oh My Subagents authority outside that catalog, while harmless inert provider-native planning does not expand product authority;
 - no MCP protocol Task, elicitation, resource, prompt, or dynamic external-MCP behavior becomes runtime authority;
 - native filesystem conformance passes before file-tool removal;
 - loose `FileReference` values preserve exact path/description order across project files, notes, artifacts, and command logs but create no generic file ID, body copy, digest, version, current pointer, or Operator content tool; the physical `artifacts/` convention never becomes an Artifact resource; and
@@ -346,4 +346,4 @@ Do not add:
 
 ## Protocol basis
 
-Banksia uses the stable MCP tool primitives: JSON Schema inputs, optional output schemas, structured results with text compatibility, annotations as untrusted hints, and Streamable HTTP with Origin validation, local binding, and authentication. These protocol features describe transport and teaching only; Banksia controller currentness remains the authority.
+Oh My Subagents uses the stable MCP tool primitives: JSON Schema inputs, optional output schemas, structured results with text compatibility, annotations as untrusted hints, and Streamable HTTP with Origin validation, local binding, and authentication. These protocol features describe transport and teaching only; Oh My Subagents controller currentness remains the authority.

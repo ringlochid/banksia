@@ -87,7 +87,7 @@ def workflow_finding_messages(report: Any) -> set[str]:
 
 
 def _write_root_and_public_docs(root: Path) -> None:
-    write_page(root, "README.md", "# Banksia\n\n[Public docs](docs/README.md)\n")
+    write_page(root, "README.md", "# Oh My Subagents\n\n[Public docs](docs/README.md)\n")
     write_page(root, "CONTRIBUTING.md", "# Contributing\n")
     write_page(root, "AGENTS.md", "# Agents\n\nStatus: Reference\n")
     write_page(root, "STYLE.md", "# Style\n\nStatus: Reference\n")

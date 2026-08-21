@@ -6,8 +6,9 @@ import zipfile
 from email.parser import Parser
 from pathlib import Path, PurePosixPath
 
-EXPECTED_DISTRIBUTION_NAME = "banksia"
-EXPECTED_DISTRIBUTION_VERSION = "0.1.7"
+EXPECTED_DISTRIBUTION_NAME = "oh-my-subagents"
+EXPECTED_DISTRIBUTION_VERSION = "0.2.0"
+LEGACY_COMMAND_NOTICE = "The 'banksia' command is deprecated; use 'oms'."
 STARTER_WORKFLOW_IDS = (
     "decision-through-competing-prototypes",
     "deep-research-and-decision-brief",
@@ -29,7 +30,7 @@ REQUIRED_PACKAGE_MEMBERS = (
     "banksia/config.py",
     "banksia/main.py",
     "banksia/interfaces/web_console/assets/index.html",
-    "banksia/interfaces/web_console/assets/assets/banksia-mark.svg",
+    "banksia/interfaces/web_console/assets/assets/oms-mark.svg",
     *(f"{STARTER_RESOURCE_PREFIX}{filename}" for filename in STARTER_WORKFLOW_FILENAMES),
     "banksia/platform/managed_services/resources/systemd/banksia.service",
     "banksia/runtime/prompt/assets/shared/core.txt",
@@ -55,13 +56,13 @@ def select_one_artifact(dist_dir: Path, pattern: str) -> Path:
 
 
 def verify_artifact_names(*, wheel_path: Path, sdist_path: Path) -> None:
-    expected_wheel_prefix = f"banksia-{EXPECTED_DISTRIBUTION_VERSION}-"
+    expected_wheel_prefix = f"oh_my_subagents-{EXPECTED_DISTRIBUTION_VERSION}-"
     if not wheel_path.name.startswith(expected_wheel_prefix):
         raise AssertionError(
             f"wheel has unexpected name or version: {wheel_path.name}; "
             f"expected prefix {expected_wheel_prefix}"
         )
-    expected_sdist_name = f"banksia-{EXPECTED_DISTRIBUTION_VERSION}.tar.gz"
+    expected_sdist_name = f"oh_my_subagents-{EXPECTED_DISTRIBUTION_VERSION}.tar.gz"
     if sdist_path.name != expected_sdist_name:
         raise AssertionError(
             f"source distribution has unexpected name or version: {sdist_path.name}; "
@@ -87,8 +88,10 @@ def verify_wheel_identity(
     metadata = archive.read(metadata_member).decode("utf-8")
     entry_points = archive.read(entry_points_member).decode("utf-8")
     verify_core_metadata(metadata, source="wheel")
-    if "banksia = banksia.interfaces.cli.main:main" not in entry_points:
-        raise AssertionError("wheel does not expose the canonical Banksia console entry point")
+    if "oms = banksia.interfaces.cli.main:main" not in entry_points:
+        raise AssertionError("wheel does not expose the canonical OMS console entry point")
+    if "banksia = banksia.interfaces.cli.main:legacy_main" not in entry_points:
+        raise AssertionError("wheel does not expose the Oh My Subagents compatibility entry point")
     if "autoclaw" in entry_points.casefold():
         raise AssertionError("wheel retained the removed legacy console entry point")
 

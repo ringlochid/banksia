@@ -47,7 +47,7 @@ def guide_settings(args: argparse.Namespace) -> int:
     config_path = coerce_path(args.config)
     if not config_path.is_file():
         raise click.UsageError(
-            f"Banksia is not initialized at {config_path}. Run 'banksia init' first."
+            f"Oh My Subagents is not initialized at {config_path}. Run 'oms init' first."
         )
 
     result = 0
@@ -118,7 +118,7 @@ def _emit_settings_overview(config_path: Path) -> None:
 
 def _emit_settings_choices() -> None:
     click.echo("  Task providers    Configure routes and the Task default")
-    click.echo("  Operator          Configure the separate Banksia Operator")
+    click.echo("  Operator          Configure the separate Oh My Subagents Operator")
     click.echo("  Default workspace Change the default workspace")
     click.echo("  Done              Leave settings")
 

@@ -358,7 +358,10 @@ def test_guided_setup_can_replace_detected_claude_api_key(
     )
 
     assert result.exit_code == 0, result.output
-    assert "Existing Claude API key stored for the Banksia service. Use it? [Y/n]" in result.output
+    assert (
+        "Existing Claude API key stored for the Oh My Subagents service. Use it? [Y/n]"
+        in result.output
+    )
     assert "Anthropic API key" in result.output
     assert identity_calls == [(ProviderAuthenticationMethod.API_KEY, "replacement-secret")]
     assert "replacement-secret" not in result.output

@@ -58,7 +58,7 @@ async def test_init_keeps_sql_echo_quiet_when_legacy_debug_env_is_set(
 ) -> None:
     config_path = tmp_path / "banksia-config.toml"
     data_dir = tmp_path / "banksia-data"
-    monkeypatch.setenv("BANKSIA_DEBUG", "true")
+    monkeypatch.setenv("OMS_DEBUG", "true")
 
     try:
         result = await cli.cmd_init(build_cli_init_args(config_path, data_dir))

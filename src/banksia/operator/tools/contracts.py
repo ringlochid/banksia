@@ -64,7 +64,7 @@ class OperatorToolName(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class OperatorTool:
-    """One direct, typed Banksia product operation bound to its owner service."""
+    """One direct, typed Oh My Subagents product operation bound to its owner service."""
 
     name: OperatorToolName
     description: str

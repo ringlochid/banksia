@@ -36,7 +36,7 @@ The root-layout cutover is complete: `src/banksia/**`, `tests/**`, and `console/
 - compatibility import paths require an explicit contract, must stay thin, and must name their removal owner
 - do not let two long-lived source trees both act like the real backend owner
 
-For Banksia, the canonical backend package is `src/banksia/**`. No parallel `autoclaw`, `banksia_v2`, or unwrapped package tree may remain in the final layout.
+For Oh My Subagents, the canonical backend package is `src/banksia/**`. No parallel `autoclaw`, `banksia_v2`, or unwrapped package tree may remain in the final layout.
 
 ## Packaging-aware source root rule
 
@@ -44,7 +44,7 @@ For Banksia, the canonical backend package is `src/banksia/**`. No parallel `aut
 - the `src/` layout is the steady-state default when it helps prevent local import leakage and packaging mistakes
 - use flat package layout only when the simplicity benefit clearly outweighs the import-path risk
 
-For Banksia, the steady-state package boundary is:
+For Oh My Subagents, the steady-state package boundary is:
 
 ```text
 pyproject.toml
@@ -61,7 +61,7 @@ Transport owners exist to expose product surfaces, not to become business-logic 
 - `interfaces/cli/**` should own command parsing, prompting, rendering, and exit-status mapping
 - transport owners should not become the long-term home of runtime, registry, or provider-integration business logic
 
-For Banksia, CLI code should converge toward one coherent owner inside `src/banksia/**`, such as:
+For Oh My Subagents, CLI code should converge toward one coherent owner inside `src/banksia/**`, such as:
 
 ```text
 interfaces/
@@ -186,7 +186,7 @@ Rules:
 - keep generated OpenAPI types under `src/api/generated/**`; do not edit them manually
 - keep the API client, SSE client, error handling, and request/query helpers under `src/api/**`
 - keep shared design tokens and Tailwind entry CSS under `src/styles/**`
-- keep Console CSS custom properties under the `--banksia-*` namespace, then expose reusable Tailwind theme tokens from them
+- keep Console CSS custom properties under the `--oms-*` namespace, then expose reusable Tailwind theme tokens from them
 - derive reusable color, typography, spacing, size, radius, border, shadow, and status tokens from the design handoff before building page components
 - do not port design-repo static HTML, page-local CSS selectors, or inline prototype JavaScript into `console/**`
 - keep reusable primitives under `src/components/ui/**` and layout shells under `src/components/layout/**`
@@ -240,11 +240,11 @@ tests/
 
 Avoid keeping `phase2/`, `phase3/`, `phase4a/`, and similar folders as the long-term primary source of test ownership once the redesign history is no longer the important axis.
 
-For Banksia, new structural test-layout work follows this direction by default unless an owning contract records an exception.
+For Oh My Subagents, new structural test-layout work follows this direction by default unless an owning contract records an exception.
 
-## Banksia steady-state direction
+## Oh My Subagents steady-state direction
 
-The Banksia source layout is:
+The Oh My Subagents source layout is:
 
 ```text
 pyproject.toml

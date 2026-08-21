@@ -14,10 +14,10 @@ from banksia.interfaces.cli.context import CliContext
 def emit_wizard_header(title: str, subtitle: str) -> None:
     context = CliContext()
     if not context.rich_enabled():
-        print(f"Banksia {title}")
+        print(f"Oh My Subagents {title}")
         print(subtitle)
         return
-    heading = Text("Banksia", style="bold")
+    heading = Text("Oh My Subagents", style="bold")
     heading.append(f"  /  {title}", style="heading")
     context.console().print(
         Panel(
@@ -67,8 +67,8 @@ def emit_provider_choices() -> None:
     table.add_column("Provider", style="bold", no_wrap=True)
     table.add_column("Lane", no_wrap=True)
     table.add_column("Ownership")
-    table.add_row("Codex", Text("Managed", style="success"), "Banksia SDK integration")
-    table.add_row("Claude", Text("Managed", style="success"), "Banksia SDK integration")
+    table.add_row("Codex", Text("Managed", style="success"), "Oh My Subagents SDK integration")
+    table.add_row("Claude", Text("Managed", style="success"), "Oh My Subagents SDK integration")
     context.console().print(
         Panel(
             table,

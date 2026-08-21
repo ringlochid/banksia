@@ -8,7 +8,7 @@ This page owns the shipped product API boundary, Console information architectur
 
 The controller entity remains `Task`. The ordinary UI calls a Task a **Run**. There is no duplicate Run persistence model.
 
-Banksia deliberately separates three planes:
+Oh My Subagents deliberately separates three planes:
 
 | Plane | Audience | Contents |
 | --- | --- | --- |
@@ -121,7 +121,7 @@ HTTP handlers and Operator tools are thin projections over one closed domain-ope
 The Console and every backend surface created primarily for it are designed for a person commissioning work, not for someone who understands agent-runtime machinery. This is a product contract, not a final-copy polish pass.
 
 - Default screens ask only for the minimum user intent. Progressive disclosure means every supported provider, sandbox, capability, import, and diagnostic choice remains reachable in its relevant screen, but secondary choices begin in clearly labeled collapsed or contextual controls instead of competing with the primary task. It never means removing, silently defaulting without readback, or making an advanced choice support-only.
-- Page names, field labels, status, Activity, attention, actions, errors, and receipts describe the person's work and next safe action. They do not require a glossary of Banksia internals.
+- Page names, field labels, status, Activity, attention, actions, errors, and receipts describe the person's work and next safe action. They do not require a glossary of Oh My Subagents internals.
 - Destructive or externally consequential actions state their scope and consequence before commitment. Reversible accepted edits return a concise receipt and Undo when the owning contract permits it.
 - Empty, loading, pending, conflict, offline, rejected, blocked, partial-log, and restart/reconnect states each provide a clear explanation and safe next action without exposing controller machinery.
 - Advanced fields explain their practical consequence. They never present raw provider options, Policy syntax, generic tools, technical event types, or support/audit data merely because the backend stores them.
@@ -132,7 +132,7 @@ When a paused Task's original workspace or accepted Task root is unavailable, `T
 
 Every critical journey is tested from a first-use prompt without access to internal docs: recognize the page's purpose, find the primary action, predict its material effect, recover from one failure, and confirm accepted controller truth. Passing typecheck or reproducing a reference screenshot is not evidence of this usability contract.
 
-The required repeatable evaluator is an independent review agent that did not implement the slice and receives only the plain user scenario plus the product UI—no Banksia internal docs or runtime vocabulary. It drives the real browser and records screenshots, accessibility snapshots, ambiguity, hesitation, wrong turns, and recovery evidence under ignored `tmp/`. A real human study is welcome but is not a release prerequisite for this baseline.
+The required repeatable evaluator is an independent review agent that did not implement the slice and receives only the plain user scenario plus the product UI—no Oh My Subagents internal docs or runtime vocabulary. It drives the real browser and records screenshots, accessibility snapshots, ambiguity, hesitation, wrong turns, and recovery evidence under ignored `tmp/`. A real human study is welcome but is not a release prerequisite for this baseline.
 
 ## Workflow authoring API
 
@@ -287,7 +287,7 @@ Top-level navigation is intentionally small:
 - **Workflows** — library, Workflow Studio, publish, and start;
 - **Runs** — task list, Run Studio, attention, Activity, and Result.
 
-The sidebar exposes explicit create, collapse, navigation, and Operator actions. It has no global search or command-palette affordance while Banksia owns no corresponding cross-product command surface. Workflow and Run search stay page-scoped. The sidebar create action opens the same Create Workflow dialog as the Workflow library action.
+The sidebar exposes explicit create, collapse, navigation, and Operator actions. It has no global search or command-palette affordance while Oh My Subagents owns no corresponding cross-product command surface. Workflow and Run search stay page-scoped. The sidebar create action opens the same Create Workflow dialog as the Workflow library action.
 
 Settings needed for controller/provider configuration may be contextual but do not become a third authoring model.
 
@@ -390,17 +390,17 @@ Behavior:
 
 Operator questions may explicitly allow Skip as “continue without this preference.” Runtime Human Requests allow Skip/Other only when their typed contract permits it. An open Operator question locks only the Operator composer; a Task Human Request never locks unrelated Operator chat.
 
-Task-start file entries are labeled **Referenced files**, live under Advanced, and accept workspace-relative path plus optional purpose only. The baseline has no browser upload, copied attachment body, or generic file picker that implies Banksia owns the bytes.
+Task-start file entries are labeled **Referenced files**, live under Advanced, and accept workspace-relative path plus optional purpose only. The baseline has no browser upload, copied attachment body, or generic file picker that implies Oh My Subagents owns the bytes.
 
 ## Operator agent
 
-Operator is a small, separate control-plane agent over existing Banksia product services. Conceptually it is one configured `Agent` with the controller-owned Operator prompt and exact Operator tool catalog. It is not a Workflow Member, Task, Assignment, Attempt, Dispatch, second Banksia runtime, queue, coordinator, or LangGraph graph.
+Operator is a small, separate control-plane agent over existing Oh My Subagents product services. Conceptually it is one configured `Agent` with the controller-owned Operator prompt and exact Operator tool catalog. It is not a Workflow Member, Task, Assignment, Attempt, Dispatch, second Oh My Subagents runtime, queue, coordinator, or LangGraph graph.
 
 The controller supports Claude and pinned Codex 0.144.4 for Operator. Provider selection is explicit, never borrows a Workflow Member's choice, and never silently falls back. Missing configuration produces a concrete setup action. Both adapters return the same provider-native typed result and preserve the opaque provider thread across turns.
 
 Operator always uses isolated provider extensions. Task Member `inherit | isolated` choices never expose user or project Skills, or configured MCP servers, to Operator.
 
-Machine-local setup is a separate CLI responsibility: `banksia operator setup|status|disable`. These commands configure or inspect the Operator provider; they are not agent tools, product HTTP mutations, or an extension of the eighteen-operation catalog. Guided `banksia init` offers the same explicit optional choice after local and Task-provider setup, while `banksia setup` provides the rerunnable settings hub.
+Machine-local setup is a separate CLI responsibility: `oms operator setup|status|disable`. These commands configure or inspect the Operator provider; they are not agent tools, product HTTP mutations, or an extension of the eighteen-operation catalog. Guided `oms init` offers the same explicit optional choice after local and Task-provider setup, while `oms setup` provides the rerunnable settings hub.
 
 Operator tools are direct typed calls to existing product services. An adapter may use an invocation-local in-process MCP projection when its SDK benefits from that transport, but no public/static Operator MCP mount or authorable external MCP configuration exists. Workflow drafting is a primary job, and Operator may perform any currently legal operation in the closed catalog when the user's message or typed answer clearly requests it.
 
@@ -466,7 +466,7 @@ The conversation picker identifies a durable conversation by its first user mess
 
 Do not reproduce Assignment, Attempt, Dispatch, Wave, Checkpoint, invocation, effect, proposal, confirmation, retry, or raw tool-event families for Operator chat. One nullable active-turn compare-and-swap permits at most one provider turn per conversation. Message and answer routes run one turn synchronously. Duplicate transport requests return committed readback or a typed conflict and never replay provider work or a mutation. The exact route, record, transaction, and interruption contract lives in the [Operator conversation contract](operator-conversation-contract.md).
 
-If an opaque provider thread cannot continue, Banksia preserves every visible entry, closes the conversation, and offers a new one. It does not silently fork the thread or claim continuity from reconstructed transcript text.
+If an opaque provider thread cannot continue, Oh My Subagents preserves every visible entry, closes the conversation, and offers a new one. It does not silently fork the thread or claim continuity from reconstructed transcript text.
 
 ### Typed turn output
 
@@ -487,11 +487,11 @@ ask_user
       one-sentence consequence
 ```
 
-The model does not generate Other, persistent question IDs, or option IDs. `allow_skip` is explicit and defaults to false. Banksia validates the native result, allocates IDs, persists the assistant entry, and changes the conversation to awaiting answer. The provider invocation has ended; no process or open tool call survives the human delay.
+The model does not generate Other, persistent question IDs, or option IDs. `allow_skip` is explicit and defaults to false. Oh My Subagents validates the native result, allocates IDs, persists the assistant entry, and changes the conversation to awaiting answer. The provider invocation has ended; no process or open tool call survives the human delay.
 
-The user answers through QuestionCard and presses Continue. Banksia commits one structured user turn, marks the previous card as a receipt, and invokes the same provider thread/session for a fresh turn carrying the exact question and answer. Refresh, navigation, restart, and browser closure therefore do not lose the boundary.
+The user answers through QuestionCard and presses Continue. Oh My Subagents commits one structured user turn, marks the previous card as a receipt, and invokes the same provider thread/session for a fresh turn carrying the exact question and answer. Refresh, navigation, restart, and browser closure therefore do not lose the boundary.
 
-Claude uses native structured output. Codex uses `outputSchema` and `dynamicTools`. When pinned model metadata requires code mode, isolated provider-native `exec` and `wait` may compose only the eighteen Banksia operations plus inert `update_plan`; they receive no execution environment, host bindings, filesystem, shell, network, external MCP, module imports, Skills, or Plugins. They are adapter transport rather than product tools or authorable capabilities. The contract therefore fixes the eighteen Banksia operations without claiming a literal global model-visible tool count.
+Claude uses native structured output. Codex uses `outputSchema` and `dynamicTools`. When pinned model metadata requires code mode, isolated provider-native `exec` and `wait` may compose only the eighteen Oh My Subagents operations plus inert `update_plan`; they receive no execution environment, host bindings, filesystem, shell, network, external MCP, module imports, Skills, or Plugins. They are adapter transport rather than product tools or authorable capabilities. The contract therefore fixes the eighteen Oh My Subagents operations without claiming a literal global model-visible tool count.
 
 ### Intent and currentness
 
@@ -507,9 +507,9 @@ These general rules belong to the Operator's controller-owned system prompt and 
 
 ## n8n reference boundary
 
-Banksia may study and port permitted n8n UI material into `console/` under the Console's Sustainable Use License. [`console/NOTICE`](../../console/NOTICE) and source-level headers record the shipped provenance; they must remain accurate whenever derived material changes. Ignored source snapshots and screenshots are optional implementation evidence, never product or controller authority.
+Oh My Subagents may study and port permitted n8n UI material into `console/` under the Console's Sustainable Use License. [`console/NOTICE`](../../console/NOTICE) and source-level headers record the shipped provenance; they must remain accurate whenever derived material changes. Ignored source snapshots and screenshots are optional implementation evidence, never product or controller authority.
 
-No n8n-derived material may land outside `console/`. Do not port enterprise-licensed files, n8n's product vocabulary, data model, backend, icons, logo, or other trademarks. Banksia owns its information architecture, controller contracts, terminology, visual identity, and accessibility behavior.
+No n8n-derived material may land outside `console/`. Do not port enterprise-licensed files, n8n's product vocabulary, data model, backend, icons, logo, or other trademarks. Oh My Subagents owns its information architecture, controller contracts, terminology, visual identity, and accessibility behavior.
 
 ## Product acceptance journey
 
@@ -518,7 +518,7 @@ A nontechnical user must be able to:
 1. ask Operator to draft a Workflow and answer a short material question;
 2. inspect and edit the horizontal responsibility tree without learning runtime nouns;
 3. publish explicitly and start with one prompt;
-4. understand what the team is doing and whether Banksia needs input;
+4. understand what the team is doing and whether Oh My Subagents needs input;
 5. answer a Human Request or inspect a managed Action log;
 6. see meaningful Activity and file references; and
 7. read the exact completed or blocked Result.

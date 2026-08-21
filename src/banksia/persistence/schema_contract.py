@@ -102,7 +102,7 @@ def raise_schema_mismatch(messages: list[str]) -> None:
     joined = "; ".join(messages)
     raise DatabaseSchemaMismatchError(
         "existing database does not match the current runtime schema: "
-        f"{joined}. Run `banksia db upgrade` with the same configuration before "
+        f"{joined}. Run `oms db upgrade` with the same configuration before "
         "considering reset."
     )
 

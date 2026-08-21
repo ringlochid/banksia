@@ -49,7 +49,7 @@ jobs:
                   XDG_DATA_HOME="$probe_dir/data" \
                   XDG_STATE_HOME="$probe_dir/state" \
                   XDG_CACHE_HOME="$probe_dir/cache" \
-                  ./.venv/bin/banksia init \
+                  ./.venv/bin/oms init \
                     --non-interactive \
                     --config "$probe_dir/config/banksia/config.toml" \
                     --data-dir "$probe_dir/data/banksia" \
@@ -60,7 +60,7 @@ jobs:
                   XDG_DATA_HOME="$probe_dir/data" \
                   XDG_STATE_HOME="$probe_dir/state" \
                   XDG_CACHE_HOME="$probe_dir/cache" \
-                  ./.venv/bin/banksia config show \
+                  ./.venv/bin/oms config show \
                     --config "$probe_dir/config/banksia/config.toml" \
                     --json
 
@@ -73,32 +73,32 @@ jobs:
                   config="$probe_dir/config/banksia/config.toml"
                   mkdir -p "$home" "$probe_dir/workspace"
 
-                  run_banksia() {
+                  run_oms() {
                     HOME="$home" \
                     XDG_CONFIG_HOME="$probe_dir/config" \
                     XDG_DATA_HOME="$probe_dir/data" \
                     XDG_STATE_HOME="$probe_dir/state" \
                     XDG_CACHE_HOME="$probe_dir/cache" \
-                    ./.venv/bin/banksia "$@"
+                    ./.venv/bin/oms "$@"
                   }
                   cleanup() {
-                    run_banksia service uninstall --config "$config" --json >/dev/null 2>&1 || true
+                    run_oms service uninstall --config "$config" --json >/dev/null 2>&1 || true
                   }
                   trap cleanup EXIT
 
-                  run_banksia init \
+                  run_oms init \
                     --non-interactive \
                     --config "$config" \
                     --data-dir "$probe_dir/data/banksia" \
                     --workspace "$probe_dir/workspace" \
                     --json > "$probe_dir/init.json"
-                  run_banksia service install --config "$config" --json > "$probe_dir/install.json"
-                  run_banksia service status --config "$config" --json > "$probe_dir/status.json"
-                  run_banksia service start --config "$config" --json > "$probe_dir/start.json"
-                  run_banksia service restart --config "$config" --json > "$probe_dir/restart.json"
-                  run_banksia service logs --lines 20 --json > "$probe_dir/logs.json"
-                  run_banksia service stop --config "$config" --json > "$probe_dir/stop.json"
-                  run_banksia service uninstall --config "$config" --json > "$probe_dir/uninstall.json"
+                  run_oms service install --config "$config" --json > "$probe_dir/install.json"
+                  run_oms service status --config "$config" --json > "$probe_dir/status.json"
+                  run_oms service start --config "$config" --json > "$probe_dir/start.json"
+                  run_oms service restart --config "$config" --json > "$probe_dir/restart.json"
+                  run_oms service logs --lines 20 --json > "$probe_dir/logs.json"
+                  run_oms service stop --config "$config" --json > "$probe_dir/stop.json"
+                  run_oms service uninstall --config "$config" --json > "$probe_dir/uninstall.json"
 
                   python - "$probe_dir" <<'PY'
                   import json

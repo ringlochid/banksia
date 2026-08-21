@@ -7,7 +7,7 @@ A Workflow definition is a reusable team contract. Start from a packaged Starter
 The fastest path is:
 
 1. Open **Workflows** and choose the Starter closest to the work.
-2. Open it for editing. Banksia creates or resumes a draft while the current published revision remains available for runs.
+2. Open it for editing. Oh My Subagents creates or resumes a draft while the current published revision remains available for runs.
 3. Give every Member one distinct responsibility and a clear boundary.
 4. Validate the complete draft.
 5. Publish only when the preview and validation findings match the intended team.
@@ -69,9 +69,9 @@ capabilities:
     command_run: allow
 ```
 
-Provider and capability choices apply to that Member; children do not inherit them. Codex and Claude support managed model, effort, sandbox, network, and Skill/MCP mode choices. Choose `inherit` when a trusted, full-access Member should use enabled user and project Skills plus MCP servers already configured in that provider. Choose `isolated` for an exact Banksia-only extension surface. Banksia automatically isolates narrower sandbox or network-denied execution, so the Workflow stays portable instead of failing validation. Implicit workspace instructions, plugins, hooks, apps, and provider subagents remain disabled.
+Provider and capability choices apply to that Member; children do not inherit them. Codex and Claude support managed model, effort, sandbox, network, and Skill/MCP mode choices. Choose `inherit` when a trusted, full-access Member should use enabled user and project Skills plus MCP servers already configured in that provider. Choose `isolated` for an exact Oh My Subagents-only extension surface. Oh My Subagents automatically isolates narrower sandbox or network-denied execution, so the Workflow stays portable instead of failing validation. Implicit workspace instructions, plugins, hooks, apps, and provider subagents remain disabled.
 
-Codex accepts `max` reasoning for Task Members. Native Codex settings that Banksia does not override, such as `service_tier = "fast"`, continue to apply.
+Codex accepts `max` reasoning for Task Members. Native Codex settings that Oh My Subagents does not override, such as `service_tier = "fast"`, continue to apply.
 
 Human Request kinds are `input`, `direction`, `approval`, and `review`. Command Run is a separate allow-or-deny capability. Both deny when omitted. Grant the smallest capability to the Member that owns the decision or managed command.
 
@@ -90,23 +90,23 @@ The Console and Operator use the same closed Workflow model exposed by the publi
 Import a complete YAML or JSON definition as a draft:
 
 ```bash
-banksia workflow import --file ./team.yaml
+oms workflow import --file ./team.yaml
 ```
 
 Standard input requires an explicit format:
 
 ```bash
-banksia workflow import --file - --format json < team.json
+oms workflow import --file - --format json < team.json
 ```
 
 Replacing an existing draft requires its current opaque ETag:
 
 ```bash
-banksia workflow import --file ./team.yaml --etag '<current-etag>'
+oms workflow import --file ./team.yaml --etag '<current-etag>'
 ```
 
 Import never publishes. Export the current published revision with:
 
 ```bash
-banksia workflow export team-id --output ./team-id.yaml
+oms workflow export team-id --output ./team-id.yaml
 ```

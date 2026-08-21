@@ -16,7 +16,7 @@ _TOOL_FAILURE_RESULT = json.dumps(
     {
         "error": "operator_operation_outcome_uncertain",
         "message": (
-            "The Banksia operation did not return an accepted result. "
+            "The Oh My Subagents operation did not return an accepted result. "
             "Do not repeat it automatically; refetch current product truth."
         ),
     },

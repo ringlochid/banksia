@@ -24,6 +24,36 @@ DELETED_ROUTE_PATTERNS = (
 )
 IGNORED_PATH_PATTERN = re.compile(r"(?<![A-Za-z0-9_.-])tmp/[A-Za-z0-9_./@-]+")
 INTERNAL_OWNER_FAMILIES = frozenset({"architecture", "interfaces", "operations"})
+BANKSIA_BRAND_PATTERN = re.compile(r"\bBanksia\b")
+BANKSIA_COMPATIBILITY_DOCUMENTS = frozenset(
+    {
+        Path("docs/guides/migrate-from-banksia.md"),
+        Path("docs-internal/adr/ADR-0013-banksia-target-and-clean-break.md"),
+        Path("docs-internal/adr/ADR-0018-oh-my-subagents-identity-cutover.md"),
+    }
+)
+BANKSIA_COMPATIBILITY_LINES = {
+    Path("README.md"): ("Migrate from Banksia",),
+    Path("docs/README.md"): ("Migrate from Banksia",),
+    Path("docs/reference/cli.md"): (r"\Banksia\Controller",),
+    Path("docs-internal/adr/README.md"): ("ADR-0013 Banksia target",),
+    Path("docs-internal/operations/package-and-reset.md"): (r"\Banksia\Controller",),
+}
+BANKSIA_ENV_COMPATIBILITY_DOCUMENTS = frozenset(
+    {
+        Path("docs/guides/migrate-from-banksia.md"),
+        Path("docs/reference/configuration.md"),
+        Path("docs-internal/adr/ADR-0013-banksia-target-and-clean-break.md"),
+        Path("docs-internal/adr/ADR-0018-oh-my-subagents-identity-cutover.md"),
+    }
+)
+STALE_IDENTITY_MARKERS = (
+    "github.com/ringlochid/banksia",
+    "pypi.org/project/banksia",
+    "banksia-intro",
+    "banksia-mark",
+    "Try: banksia",
+)
 
 
 def build_contract_report(root: Path = ROOT) -> ContractReport:
@@ -34,6 +64,7 @@ def build_contract_report(root: Path = ROOT) -> ContractReport:
         text = path.read_text(encoding="utf-8")
         findings.extend(status_findings(root=root, path=path, text=text))
         findings.extend(public_surface_findings(root=root, path=path, text=text))
+        findings.extend(identity_findings(root=root, path=path, text=text))
         findings.extend(deleted_route_findings(root=root, path=path, text=text))
         findings.extend(link_findings(root=root, path=path, text=text))
         findings.extend(ignored_dependency_findings(root=root, path=path, text=text))
@@ -138,6 +169,50 @@ def public_surface_findings(*, root: Path, path: Path, text: str) -> list[Contra
                     message="public docs must not expose internal evidence headings",
                 )
             )
+    return findings
+
+
+def identity_findings(*, root: Path, path: Path, text: str) -> list[ContractFinding]:
+    relative_path = path.relative_to(root)
+    findings: list[ContractFinding] = []
+    for line_number, line in enumerate(text.splitlines(), start=1):
+        stale_markers = tuple(marker for marker in STALE_IDENTITY_MARKERS if marker in line)
+        if stale_markers:
+            findings.append(
+                finding(
+                    root=root,
+                    category="identity",
+                    path=path,
+                    line=line_number,
+                    message="stale released-identity marker: " + ", ".join(stale_markers),
+                )
+            )
+        if "BANKSIA_" in line and relative_path not in BANKSIA_ENV_COMPATIBILITY_DOCUMENTS:
+            findings.append(
+                finding(
+                    root=root,
+                    category="identity",
+                    path=path,
+                    line=line_number,
+                    message="BANKSIA_* is allowed only in named compatibility documentation",
+                )
+            )
+        if not BANKSIA_BRAND_PATTERN.search(line):
+            continue
+        if relative_path in BANKSIA_COMPATIBILITY_DOCUMENTS:
+            continue
+        allowed_fragments = BANKSIA_COMPATIBILITY_LINES.get(relative_path, ())
+        if any(fragment in line for fragment in allowed_fragments):
+            continue
+        findings.append(
+            finding(
+                root=root,
+                category="identity",
+                path=path,
+                line=line_number,
+                message="Banksia branding is not in the maintained compatibility allowlist",
+            )
+        )
     return findings
 
 

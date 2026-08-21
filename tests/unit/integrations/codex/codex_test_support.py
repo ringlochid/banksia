@@ -254,7 +254,7 @@ def tools(
     return tuple(
         OperatorTool(
             name=tool_name,
-            description=f"Use the Banksia {tool_name.value} operation.",
+            description=f"Use the Oh My Subagents {tool_name.value} operation.",
             input_model=_ToolInput,
             handler=build_handler(tool_name),
         )

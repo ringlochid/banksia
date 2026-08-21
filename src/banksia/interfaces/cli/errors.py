@@ -55,7 +55,7 @@ def failure_from_click_exception(exc: click.ClickException, argv: tuple[str, ...
         return CliFailure(
             kind="unknown_option",
             title="Unknown option",
-            message=f'Banksia does not recognize option "{option}".',
+            message=f'Oh My Subagents does not recognize option "{option}".',
             exit_code=exc.exit_code,
             hint=help_hint,
             details={"option": option},
@@ -67,9 +67,9 @@ def failure_from_click_exception(exc: click.ClickException, argv: tuple[str, ...
         return CliFailure(
             kind="unknown_command",
             title="Unknown command",
-            message=f'Banksia does not know the command "{command}".',
+            message=f'Oh My Subagents does not know the command "{command}".',
             exit_code=exc.exit_code,
-            hint="Try: banksia --help",
+            hint="Try: oms --help",
             details={"command": command},
         )
     if isinstance(exc, click.exceptions.MissingParameter):
@@ -122,8 +122,8 @@ def unexpected_failure(
             message=str(exc),
             exit_code=1,
             hint=(
-                "Banksia made no schema changes. Back up the database and inspect the "
-                "reported differences. Use `banksia db reset` only if you accept deletion "
+                "Oh My Subagents made no schema changes. Back up the database and inspect the "
+                "reported differences. Use `oms db reset` only if you accept deletion "
                 "of controller history."
             ),
             details={"difference_count": len(exc.messages)},
@@ -137,7 +137,7 @@ def unexpected_failure(
             hint=(
                 "Preserve the database and run:\n"
                 f"  {_database_upgrade_command(argv)}\n\n"
-                "Use `banksia db reset` only if you accept deletion of controller history."
+                "Use `oms db reset` only if you accept deletion of controller history."
             ),
         )
     if isinstance(exc, ManagedServiceCommandError):
@@ -147,7 +147,7 @@ def unexpected_failure(
     message = str(exc).strip() or exc.__class__.__name__
     return CliFailure(
         kind="runtime_error",
-        title="Banksia command failed",
+        title="Oh My Subagents command failed",
         message=message,
         exit_code=1,
         hint=debug_hint(),
@@ -156,7 +156,7 @@ def unexpected_failure(
 
 
 def _database_upgrade_command(argv: tuple[str, ...]) -> str:
-    command = ["banksia", "db", "upgrade"]
+    command = ["oms", "db", "upgrade"]
     for index, argument in enumerate(argv):
         if argument == "--config" and index + 1 < len(argv):
             command.extend(("--config", argv[index + 1]))
@@ -173,16 +173,16 @@ def _managed_service_failure(exc: ManagedServiceCommandError) -> CliFailure:
         kind="managed_service_command_failed",
         title=f"Background service {exc.operation} failed",
         message=(
-            f"The operating system could not {exc.operation} the Banksia "
+            f"The operating system could not {exc.operation} the Oh My Subagents "
             f"background service.{detail}"
         ),
         exit_code=1,
         hint=(
-            "Inspect Banksia's portable service status and bounded log:\n"
-            "  banksia service status\n"
-            "  banksia service logs --lines 200\n\n"
+            "Inspect Oh My Subagents's portable service status and bounded log:\n"
+            "  oms service status\n"
+            "  oms service logs --lines 200\n\n"
             "Reconcile an outdated definition:\n"
-            "  banksia service install"
+            "  oms service install"
         ),
         details={
             "manager": exc.manager,
@@ -202,7 +202,7 @@ def _configuration_validation_failure(exc: ValidationError) -> CliFailure:
     return CliFailure(
         kind="configuration_invalid",
         title="Configuration invalid",
-        message="\n".join(findings) or "Banksia configuration could not be validated.",
+        message="\n".join(findings) or "Oh My Subagents configuration could not be validated.",
         exit_code=1,
         hint=(
             "Remove or correct the named setting in the selected config or service "

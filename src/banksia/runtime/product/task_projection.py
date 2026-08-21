@@ -218,7 +218,7 @@ def build_task_attention(
                     "before resuming; Cancel remains available."
                     if not is_workspace_available
                     else "The workspace is available again. Resume the run when you are ready; "
-                    "Banksia will not resume it automatically."
+                    "Oh My Subagents will not resume it automatically."
                 ),
             )
         )
@@ -251,7 +251,7 @@ def build_task_attention(
 
 def task_status_message(status: TaskProductStatus) -> str:
     return {
-        "starting": "Banksia accepted the run and is starting the team.",
+        "starting": "Oh My Subagents accepted the run and is starting the team.",
         "working": "The team is working.",
         "waiting_for_you": "The team needs your input before it can continue.",
         "paused": "The run is paused.",

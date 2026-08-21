@@ -511,7 +511,7 @@ def _command_cancel_action(source: CommandRunModel) -> ProductAction:
         confirmation=ProductActionConfirmation(
             is_required=True,
             title="Cancel this action?",
-            consequence="Banksia will request that the managed process stop.",
+            consequence="Oh My Subagents will request that the managed process stop.",
         ),
         input_schema={
             "type": "object",

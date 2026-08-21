@@ -1,4 +1,4 @@
-# Banksia extended standards
+# Oh My Subagents extended standards
 
 Status: Reference
 

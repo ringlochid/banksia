@@ -94,7 +94,7 @@ def test_guided_init_reuses_provider_diagnostic_outside_database_event_loop(
     assert "Local initialization complete" not in result.output
     assert "Provider setup summary" not in result.output
     assert "Operator setup complete" not in result.output
-    assert result.output.count("Next: banksia serve") == 1
+    assert result.output.count("Next: oms serve") == 1
 
 
 def test_guided_init_configures_distinct_operator_provider_without_changing_task_default(

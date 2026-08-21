@@ -19,7 +19,7 @@ tree:
 
 clean-local:
 	rm -rf .pytest_cache .mypy_cache .ruff_cache .coverage coverage htmlcov
-	rm -rf build dist src/banksia.egg-info
+	rm -rf build dist src/banksia.egg-info src/oh_my_subagents.egg-info
 	rm -rf node_modules console/dist console/node_modules
 	rm -rf console/test-results console/playwright-report
 	rm -rf $(CONSOLE_ASSET_DIR)

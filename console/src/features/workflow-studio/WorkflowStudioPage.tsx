@@ -199,9 +199,9 @@ function NavigationWarningDialog({
             title="Discard unsaved changes?"
         >
             <p>
-                Banksia is still saving the changes in this tab. If you leave
-                now, those unsaved changes will be lost. Your last saved version
-                will remain available.
+                Oh My Subagents is still saving the changes in this tab. If you
+                leave now, those unsaved changes will be lost. Your last saved
+                version will remain available.
             </p>
             <DialogFooter>
                 <Button onClick={onStay} tone="secondary">

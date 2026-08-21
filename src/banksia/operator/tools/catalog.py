@@ -16,7 +16,7 @@ def build_operator_tools(
     dispatch_dependencies: DispatchOpeningDependencies,
     provider_adapters: ProviderAdapterRegistry | None = None,
 ) -> tuple[OperatorTool, ...]:
-    """Bind the exact ordered Banksia Operator catalog to product-service leaves."""
+    """Bind the exact ordered Oh My Subagents Operator catalog to product-service leaves."""
 
     return (
         *build_workflow_operator_tools(

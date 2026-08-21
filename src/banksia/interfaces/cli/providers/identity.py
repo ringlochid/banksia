@@ -133,7 +133,7 @@ def provider_native_home(provider: ProviderKind) -> Path:
         case ProviderKind.CLAUDE:
             return Path(os.environ.get("CLAUDE_CONFIG_DIR", user_home / ".claude")).expanduser()
         case ProviderKind.OPENCLAW:
-            raise ValueError("OpenClaw is retired and has no Banksia-native home")
+            raise ValueError("OpenClaw is retired and has no Oh My Subagents-native home")
 
 
 def bundled_codex_path() -> Path:
@@ -323,7 +323,7 @@ def _missing_private_environment_snapshot(
         service_identity=identity,
         native_home=native_home,
         authentication_method=method,
-        detail="the Banksia config path is required to store this credential",
+        detail="the Oh My Subagents config path is required to store this credential",
     )
 
 

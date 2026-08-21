@@ -41,7 +41,7 @@ def _run_packaged_cli(*args: str) -> subprocess.CompletedProcess[str]:
 
 
 def _invoke_packaged_cli(*args: str) -> subprocess.CompletedProcess[str]:
-    env = {key: value for key, value in os.environ.items() if not key.startswith("BANKSIA_")}
+    env = {key: value for key, value in os.environ.items() if not key.startswith("OMS_")}
     existing_pythonpath = env.get("PYTHONPATH")
     env["PYTHONPATH"] = (
         str(SOURCE_ROOT)
@@ -249,7 +249,7 @@ def test_db_reset_rejects_controller_task_root_outside_data_boundary_before_dest
     )
 
     assert result.returncode != 0
-    assert "escapes the configured Banksia data boundary" in (result.stderr + result.stdout)
+    assert "escapes the configured Oh My Subagents data boundary" in (result.stderr + result.stdout)
     assert external_task_root.is_dir()
     with closing(sqlite3.connect(database_path)) as connection:
         assert connection.execute("SELECT COUNT(*) FROM tasks").fetchone()[0] == 1
@@ -395,7 +395,7 @@ async def test_postgres_reset_recreates_only_dedicated_schema_and_seeds(
 
     try:
         with (
-            temporary_env({"BANKSIA_POSTGRES_SCHEMA": "banksia"}),
+            temporary_env({"OMS_POSTGRES_SCHEMA": "banksia"}),
             command_env(
                 config_path=config_path,
                 data_dir=data_dir,
@@ -436,9 +436,9 @@ async def test_postgres_reset_recreates_only_dedicated_schema_and_seeds(
 
 
 def _require_disposable_postgres_url() -> str:
-    database_url = os.environ.get("BANKSIA_TEST_POSTGRES_URL")
+    database_url = os.environ.get("OMS_TEST_POSTGRES_URL")
     if not database_url:
-        pytest.skip("BANKSIA_TEST_POSTGRES_URL not set")
+        pytest.skip("OMS_TEST_POSTGRES_URL not set")
     database_name = make_url(database_url).database or ""
     if "test" not in database_name.casefold():
         pytest.skip("PostgreSQL reset proof requires an explicitly disposable test database")

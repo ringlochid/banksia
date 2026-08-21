@@ -125,7 +125,7 @@ class _ApplicationRuntime:
 
 def _package_version() -> str:
     try:
-        return version("banksia")
+        return version("oh-my-subagents")
     except PackageNotFoundError:
         for parent in Path(__file__).resolve().parents:
             pyproject_path = parent / "pyproject.toml"
@@ -151,7 +151,7 @@ def create_app(
 
     docs_enabled = settings.env in {Environment.DEVELOPMENT, Environment.TEST}
     app = FastAPI(
-        title="Banksia API",
+        title="Oh My Subagents API",
         version=_package_version(),
         lifespan=_lifespan,
         docs_url="/docs" if docs_enabled else None,

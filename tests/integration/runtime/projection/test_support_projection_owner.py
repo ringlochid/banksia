@@ -41,7 +41,7 @@ async def test_manifest_is_the_only_retained_support_projection(
 
     task_root = seeded_task_root(tmp_path, "support-manifest")
     manifest = (task_root / "manifest.md").read_text(encoding="utf-8")
-    assert "# Banksia team" in manifest
+    assert "# Oh My Subagents team" in manifest
     assert f"- Task: `{ids.task_id}`" in manifest
     assert "- Workflow: `workflow.target`" in manifest
     assert "- Lead: `root`" in manifest

@@ -757,7 +757,7 @@ function addMemberError(
         snapshot.recovery?.kind === "check_current" &&
         snapshot.recovery.operation === "adding_child"
     ) {
-        return "Banksia could not confirm whether this member was added. Check the current Workflow before trying again.";
+        return "Oh My Subagents could not confirm whether this member was added. Check the current Workflow before trying again.";
     }
     return null;
 }

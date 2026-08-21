@@ -65,7 +65,8 @@ def scan_cli_context(argv: list[str]) -> CliContext:
         is_no_color="--no-color" in argv,
         is_debug=(
             "--debug" in argv
-            or os.environ.get("BANKSIA_DEBUG", "").lower() in {"1", "true", "yes", "on"}
+            or os.environ.get("OMS_DEBUG", os.environ.get("BANKSIA_DEBUG", "")).lower()
+            in {"1", "true", "yes", "on"}
         ),
         argv=tuple(argv),
     )

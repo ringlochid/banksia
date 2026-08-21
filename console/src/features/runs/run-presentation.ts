@@ -43,5 +43,5 @@ export function isRunActive(status: RunStatus): boolean {
 export function errorMessage(error: unknown): string {
     return error instanceof Error
         ? error.message
-        : "Banksia could not load this information.";
+        : "Oh My Subagents could not load this information.";
 }

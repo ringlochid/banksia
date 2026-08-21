@@ -6,7 +6,7 @@ Use this guide when adding, moving, splitting, or retiring documentation.
 
 ## Core model
 
-Banksia separates documentation by audience, task, page type, and authority. The documentation tree does not mirror the code tree or implementation chronology.
+Oh My Subagents separates documentation by audience, task, page type, and authority. The documentation tree does not mirror the code tree or implementation chronology.
 
 Use three layers:
 
@@ -37,7 +37,7 @@ Avoid custom status labels. Put a page's role in its title and opening paragraph
 
 ## Placement rules
 
-Put a page in public product or operator docs when a reader needs it to install, author, run, inspect, recover, or troubleshoot Banksia.
+Put a page in public product or operator docs when a reader needs it to install, author, run, inspect, recover, or troubleshoot Oh My Subagents.
 
 Put a page in public reference or internals when it is stable lookup material for users, integrators, contributors, operators, or maintainers. Examples include exact CLI flags, configuration precedence, schemas, HTTP payloads, controller tools, and testing commands.
 

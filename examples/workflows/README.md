@@ -9,7 +9,7 @@ A Workflow tree describes who owns whose work, not when it happens. The running 
 
 ## Installed Starters
 
-`banksia init` publishes eight provider-neutral Workflows. Their descriptions
+`oms init` publishes eight provider-neutral Workflows. Their descriptions
 appear in the Workflow library, while this page supplies a sample mission and
 the reason a team helps.
 
@@ -156,7 +156,7 @@ Inspect every provider, sandbox, network, and capability choice before import. P
 Import creates a controller-owned draft:
 
 ```bash
-banksia workflow import --file \
+oms workflow import --file \
   examples/workflows/advanced-reviewed-code-change.yaml
 ```
 

@@ -1,11 +1,11 @@
 [Unit]
-Description=Banksia local control plane
+Description=Oh My Subagents local control plane
 Wants=network-online.target
 After=network-online.target
 
 [Service]
 Type=simple
-ExecStart="@BANKSIA_PYTHON@" -m banksia serve --config "@BANKSIA_CONFIG@" --service-log "@BANKSIA_SERVICE_LOG@"
+ExecStart="@OMS_PYTHON@" -m banksia serve --config "@OMS_CONFIG@" --service-log "@OMS_SERVICE_LOG@"
 Restart=on-failure
 RestartSec=5
 KillMode=control-group

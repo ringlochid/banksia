@@ -96,7 +96,7 @@ Ordinary review-driven repair is not retry. It is fresh work with the concrete f
 
 ## Recovery and its limits
 
-Banksia commits controller truth before starting provider or command effects. Disposable process signals can therefore be recreated from exact committed sources after a controller restart. Startup reconciles accepted Task admission, provider starts, Waves, terminal waits, Command Runs, retry and replan continuations, and the organization manifest.
+Oh My Subagents commits controller truth before starting provider or command effects. Disposable process signals can therefore be recreated from exact committed sources after a controller restart. Startup reconciles accepted Task admission, provider starts, Waves, terminal waits, Command Runs, retry and replan continuations, and the organization manifest.
 
 Same-Assignment recovery retains the current Work Plan and immutable Assignment. An ambiguous provider start may use a fresh binding for the same stored Dispatch. A Command Run whose process ownership cannot be proved is terminalized honestly rather than launched again blindly.
 
@@ -121,7 +121,7 @@ root Assignment
   -> Result
 ```
 
-The Result preserves the outcome, summary, optional details, file references, and completion time. Banksia does not ask another model to paraphrase it or fall back to ordinary provider prose.
+The Result preserves the outcome, summary, optional details, file references, and completion time. Oh My Subagents does not ask another model to paraphrase it or fall back to ordinary provider prose.
 
 A `retry` Checkpoint produces no Result. Cancellation, provider failure, and other infrastructure failures also produce no fabricated Result unless the lead has already committed an accepted root `green` or `blocked` Checkpoint.
 

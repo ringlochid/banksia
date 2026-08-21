@@ -84,7 +84,7 @@ export function selectSaveMessage(snapshot: StudioSnapshot): string {
         case "structural":
             return "Updating the team…";
         case "offline":
-            return "Changes are only in this tab until Banksia reconnects.";
+            return "Changes are only in this tab until Oh My Subagents reconnects.";
         case "failed":
             return snapshot.save.message;
         case "conflict":

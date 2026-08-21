@@ -300,9 +300,9 @@ export function OperatorPanel({ api, isOpen, onClose }: OperatorPanelProps) {
     return (
         <aside
             aria-hidden={!isOpen}
-            aria-label="Banksia Operator"
+            aria-label="Oh My Subagents Operator"
             className={`operator-panel ${isOpen ? "is-open" : ""}`}
-            id="banksia-operator"
+            id="oms-operator"
             inert={!isOpen}
         >
             <header className="operator-panel__header">
@@ -336,7 +336,7 @@ export function OperatorPanel({ api, isOpen, onClose }: OperatorPanelProps) {
                         <p>
                             {status?.explanation ??
                                 error ??
-                                "Banksia could not read Operator status."}
+                                "Oh My Subagents could not read Operator status."}
                         </p>
                         {status?.setup_action ? (
                             <p>{status.setup_action}</p>
@@ -706,5 +706,5 @@ function idempotencyKey(): string {
 function errorMessage(reason: unknown): string {
     return reason instanceof Error
         ? reason.message
-        : "Banksia could not update Operator.";
+        : "Oh My Subagents could not update Operator.";
 }

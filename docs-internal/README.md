@@ -1,8 +1,8 @@
-# Banksia internal documentation
+# Oh My Subagents internal documentation
 
 Status: Reference
 
-This is the maintainer-facing source of truth for Banksia's shipped product contracts and implementation boundaries. Public user documentation lives under [`docs/`](../docs/README.md).
+This is the maintainer-facing source of truth for Oh My Subagents's shipped product contracts and implementation boundaries. Public user documentation lives under [`docs/`](../docs/README.md).
 
 ## Architecture
 

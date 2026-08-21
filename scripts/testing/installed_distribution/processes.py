@@ -73,7 +73,8 @@ def isolated_environment(home: Path) -> dict[str, str]:
     environment = {
         key: value
         for key, value in os.environ.items()
-        if key not in {"PYTHONHOME", "PYTHONPATH"} and not key.startswith(("BANKSIA_", "AUTOCLAW_"))
+        if key not in {"PYTHONHOME", "PYTHONPATH"}
+        and not key.startswith(("OMS_", "OMS_", "AUTOCLAW_"))
     }
     environment.update(
         {

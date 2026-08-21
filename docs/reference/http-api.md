@@ -1,6 +1,6 @@
 # HTTP API reference
 
-Banksia serves three deliberately separate HTTP surfaces:
+Oh My Subagents serves three deliberately separate HTTP surfaces:
 
 - a loopback product API under `/api`;
 - operational health reads at `/healthz` and `/readyz`; and
@@ -180,7 +180,7 @@ GET /support/tasks/{task_id}/trace
 They require:
 
 ```http
-Authorization: Bearer <BANKSIA_SUPPORT_BEARER_TOKEN>
+Authorization: Bearer <OMS_SUPPORT_BEARER_TOKEN>
 ```
 
 The configured token must contain at least 32 characters. Any browser `Origin` header is rejected.

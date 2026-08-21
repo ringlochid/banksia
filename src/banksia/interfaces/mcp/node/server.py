@@ -248,7 +248,7 @@ def _success_tool_result(payload: dict[str, Any]) -> types.CallToolResult:
 
 def _server_instructions() -> str:
     return (
-        "Dispatch-scoped Banksia Node tools. Scope and exposure come from the private "
+        "Dispatch-scoped Oh My Subagents Node tools. Scope and exposure come from the private "
         "managed binding; tool arguments contain semantic fields only."
     )
 

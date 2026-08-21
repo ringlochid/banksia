@@ -91,7 +91,7 @@ def cmd_operator_disable(args: argparse.Namespace) -> int:
     if result.selection.is_environment_override and not args.json:
         emit_warning(
             "An environment override still selects Operator. Remove the "
-            "BANKSIA_OPERATOR__* override to disable it effectively."
+            "OMS_OPERATOR__* override to disable it effectively."
         )
     return 0
 
@@ -102,7 +102,7 @@ def guide_operator_setup(args: argparse.Namespace) -> int:
     config_path = _require_initialized_config(args.config)
     emit_wizard_header(
         "Operator setup",
-        "Choose the provider for Banksia's separate workflow and run assistant.",
+        "Choose the provider for Oh My Subagents's separate workflow and run assistant.",
     )
     selection = read_operator_selection(config_path)
     _emit_operator_status(
@@ -143,7 +143,7 @@ def guide_optional_operator_setup(
 
     emit_wizard_header(
         "Operator setup",
-        "Optional: choose the provider Banksia uses to draft workflows and operate runs.",
+        "Optional: choose the provider Oh My Subagents uses to draft workflows and operate runs.",
     )
     selected = _select_operator_provider(
         args,
@@ -151,9 +151,7 @@ def guide_optional_operator_setup(
         default_provider=None,
     )
     if selected is None:
-        emit_warning(
-            "Operator was not configured. You can add it later with 'banksia operator setup'."
-        )
+        emit_warning("Operator was not configured. You can add it later with 'oms operator setup'.")
         return 0
     return _guide_selected_operator(
         args,
@@ -182,8 +180,8 @@ def _guide_selected_operator(
             default=True,
         ):
             emit_warning(
-                f"Operator was not changed. Run 'banksia providers configure "
-                f"{provider.value}', then rerun 'banksia operator setup'."
+                f"Operator was not changed. Run 'oms providers configure "
+                f"{provider.value}', then rerun 'oms operator setup'."
             )
             return 0
         provider_check = guide_specific_provider(
@@ -229,7 +227,7 @@ def _guide_selected_operator(
             config_path,
             result,
             next_action=(
-                "banksia serve" if provider_check.is_ready is True else result.selection.next_action
+                "oms serve" if provider_check.is_ready is True else result.selection.next_action
             ),
         )
     return 0 if provider_check.is_ready is True else 1
@@ -361,13 +359,13 @@ def _save_operator_or_raise(
         provider = exc.provider.value
         raise CliPrerequisiteError(
             f"{provider.title()} must be configured before Operator can use it. "
-            f"Run 'banksia providers configure {provider}', then rerun "
-            f"'banksia operator setup --provider {provider}'.",
+            f"Run 'oms providers configure {provider}', then rerun "
+            f"'oms operator setup --provider {provider}'.",
             kind="operator_provider_not_configured",
             title="Operator setup needs a provider route",
             hint=(
-                f"Run 'banksia providers configure {provider}', then rerun "
-                f"'banksia operator setup --provider {provider}'."
+                f"Run 'oms providers configure {provider}', then rerun "
+                f"'oms operator setup --provider {provider}'."
             ),
         ) from exc
 
@@ -403,7 +401,7 @@ def _emit_operator_mutation(
         next_action=next_action or result.selection.next_action,
     )
     if should_warn_environment_override and result.selection.is_environment_override:
-        emit_warning("BANKSIA_OPERATOR__* environment settings override the saved selection.")
+        emit_warning("OMS_OPERATOR__* environment settings override the saved selection.")
 
 
 def _emit_operator_status(
@@ -465,7 +463,7 @@ def _require_initialized_config(raw_config_path: str | Path) -> Path:
     config_path = coerce_path(raw_config_path)
     if not config_path.is_file():
         raise click.UsageError(
-            f"Banksia is not initialized at {config_path}. Run 'banksia init' first."
+            f"Oh My Subagents is not initialized at {config_path}. Run 'oms init' first."
         )
     return config_path
 

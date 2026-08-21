@@ -537,7 +537,7 @@ def write_json(path: Path, value: object) -> None:
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Run the bounded Banksia Task-member prompt behavior evaluation."
+        description="Run the bounded Oh My Subagents Task-member prompt behavior evaluation."
     )
     parser.add_argument("--provider", choices=("codex", "claude"), required=True)
     parser.add_argument("--model", required=True)

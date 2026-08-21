@@ -44,7 +44,7 @@ def provider_environment_file_path(config_path: Path) -> Path:
 
 @contextmanager
 def provider_service_identity_environment() -> Iterator[None]:
-    """Use the provider-native homes owned by the Banksia service account."""
+    """Use the provider-native homes owned by the Oh My Subagents service account."""
 
     previous = {key: os.environ.get(key) for key in PROVIDER_NATIVE_HOME_ENVIRONMENT_KEYS}
     try:
@@ -142,7 +142,7 @@ def provider_subprocess_environment_overrides(
     *,
     allowed_keys: frozenset[str] = frozenset(),
 ) -> dict[str, str]:
-    """Blank Banksia-managed credentials that do not belong to one provider child."""
+    """Blank Oh My Subagents-managed credentials that do not belong to one provider child."""
 
     unsupported = allowed_keys - PROVIDER_SECRET_ENVIRONMENT_KEYS
     if unsupported:

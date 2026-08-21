@@ -33,7 +33,7 @@ def ask_user_outcome(
     questions = [
         {
             "header": f"Choice {index}",
-            "question": f"Which choice should Banksia use for item {index}?",
+            "question": f"Which choice should Oh My Subagents use for item {index}?",
             "options": [
                 {
                     "label": "First",

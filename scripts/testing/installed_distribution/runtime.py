@@ -4,7 +4,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from .artifacts import EXPECTED_DISTRIBUTION_VERSION
+from .artifacts import EXPECTED_DISTRIBUTION_VERSION, LEGACY_COMMAND_NOTICE
 from .legacy_state import (
     LegacyStateOracle,
     assert_legacy_state_unchanged,
@@ -71,11 +71,11 @@ def prepare_runtime_probe(
     cwd = workspace / "installed-cwd"
     cwd.mkdir(parents=True, exist_ok=True)
     venv_path.joinpath(".env").write_text(
-        "BANKSIA_POSTGRES_SCHEMA=poisoned\n",
+        "OMS_POSTGRES_SCHEMA=poisoned\n",
         encoding="utf-8",
     )
     cwd.joinpath(".env").write_text(
-        "BANKSIA_POSTGRES_SCHEMA=also_poisoned\n",
+        "OMS_POSTGRES_SCHEMA=also_poisoned\n",
         encoding="utf-8",
     )
     context = RuntimeProbeContext(
@@ -86,10 +86,19 @@ def prepare_runtime_probe(
         cwd=cwd,
         port=available_loopback_port(),
         env=isolated_environment(home),
-        executable=venv_executable(venv_path, "banksia"),
+        executable=venv_executable(venv_path, "oms"),
     )
     if venv_executable(venv_path, "autoclaw").exists():
         raise AssertionError("installed wheel retained the removed legacy executable")
+    if not venv_executable(venv_path, "banksia").exists():
+        raise AssertionError("installed wheel omitted the Oh My Subagents compatibility executable")
+    legacy_version = run_checked(
+        (str(venv_executable(venv_path, "banksia")), "--version"),
+        cwd=cwd,
+        env=context.env,
+    )
+    if LEGACY_COMMAND_NOTICE not in legacy_version.stderr:
+        raise AssertionError("legacy compatibility executable omitted its migration notice")
     assert_installed_import_contract(
         venv_path=context.venv_path,
         cwd=context.cwd,
@@ -177,7 +186,7 @@ def verify_installed_runtime_surfaces(
     runtime_result = run_installed_lifespan_smoke(
         venv_path=context.venv_path,
         cwd=context.cwd,
-        env={**context.env, "BANKSIA_CONFIG": str(context.config_path)},
+        env={**context.env, "OMS_CONFIG": str(context.config_path)},
         repo_root=context.repo_root,
     )
     server_result = run_installed_server_smoke(
@@ -239,7 +248,7 @@ def assert_installed_import_contract(
                 "from importlib.metadata import version; "
                 "assert find_spec('autoclaw') is None; "
                 "assert find_spec('banksia.interfaces.web_console') is not None; "
-                f"assert version('banksia') == '{EXPECTED_DISTRIBUTION_VERSION}'"
+                f"assert version('oh-my-subagents') == '{EXPECTED_DISTRIBUTION_VERSION}'"
             ),
         ),
         cwd=cwd,

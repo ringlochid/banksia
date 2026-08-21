@@ -31,9 +31,7 @@ def main() -> int:
         )
         server = subprocess.Popen(
             [
-                sys.executable,
-                "-m",
-                "banksia",
+                _oms_executable(),
                 "serve",
                 "--config",
                 str(config_path),
@@ -57,7 +55,9 @@ def main() -> int:
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Run a disposable shipped Banksia backend for the console browser smoke."
+        description=(
+            "Run a disposable shipped Oh My Subagents backend for the console browser smoke."
+        )
     )
     parser.add_argument("--port", type=int, default=18126)
     return parser.parse_args()
@@ -71,7 +71,7 @@ def _build_environment() -> dict[str, str]:
         if not current_pythonpath
         else os.pathsep.join((str(BACKEND_SOURCE_ROOT), current_pythonpath))
     )
-    environment["BANKSIA_ENV"] = "production"
+    environment["OMS_ENV"] = "production"
     return environment
 
 
@@ -110,13 +110,21 @@ def _initialize_runtime(
 
 def _run_cli(*arguments: str, environment: dict[str, str]) -> None:
     subprocess.run(
-        [sys.executable, "-m", "banksia", *arguments],
+        [_oms_executable(), *arguments],
         cwd=REPO_ROOT,
         env=environment,
         check=True,
         text=True,
         stdout=subprocess.DEVNULL,
     )
+
+
+def _oms_executable() -> str:
+    executable_name = "oms.exe" if os.name == "nt" else "oms"
+    executable = Path(sys.executable).with_name(executable_name)
+    if not executable.is_file():
+        raise RuntimeError(f"canonical OMS executable is missing: {executable}")
+    return str(executable)
 
 
 def _install_signal_forwarding(server: subprocess.Popen[str]) -> None:

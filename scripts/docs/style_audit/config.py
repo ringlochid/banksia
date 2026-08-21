@@ -7,7 +7,7 @@ from .models import AuditSettings
 ROOT = Path(__file__).resolve().parents[3]
 BACKEND_ROOT = ROOT
 BACKEND_TESTS_ROOT = BACKEND_ROOT / "tests"
-BANKSIA_SRC_PACKAGE_ROOT = BACKEND_ROOT / "src" / "banksia"
+OMS_SRC_PACKAGE_ROOT = BACKEND_ROOT / "src" / "banksia"
 SCRIPTS_DOCS_ROOT = ROOT / "scripts" / "docs"
 SCRIPTS_TESTING_ROOT = ROOT / "scripts" / "testing"
 FILE_SPLIT_REVIEW_THRESHOLD = 600
@@ -48,7 +48,7 @@ def _style_audit_scan_roots() -> tuple[Path, ...]:
     return _existing_roots(
         SCRIPTS_DOCS_ROOT,
         SCRIPTS_TESTING_ROOT,
-        BANKSIA_SRC_PACKAGE_ROOT,
+        OMS_SRC_PACKAGE_ROOT,
         BACKEND_TESTS_ROOT / "e2e",
         BACKEND_TESTS_ROOT / "helpers",
         BACKEND_TESTS_ROOT / "integration",
@@ -76,7 +76,7 @@ def _app_shell_direct_owner_modules() -> frozenset[Path]:
 
 def _src_owner_wrapper_modules() -> frozenset[Path]:
     return _existing_paths(
-        BANKSIA_SRC_PACKAGE_ROOT / "interfaces" / "http" / "router.py",
+        OMS_SRC_PACKAGE_ROOT / "interfaces" / "http" / "router.py",
     )
 
 
@@ -182,7 +182,7 @@ def _approved_import_direction_exception_modules() -> frozenset[Path]:
 
 
 def _public_naming_scan_roots() -> tuple[Path, ...]:
-    return _existing_roots(BANKSIA_SRC_PACKAGE_ROOT)
+    return _existing_roots(OMS_SRC_PACKAGE_ROOT)
 
 
 def _public_naming_extra_modules() -> frozenset[Path]:
@@ -190,7 +190,7 @@ def _public_naming_extra_modules() -> frozenset[Path]:
 
 
 def _module_shape_scan_roots() -> tuple[Path, ...]:
-    return _existing_roots(BANKSIA_SRC_PACKAGE_ROOT)
+    return _existing_roots(OMS_SRC_PACKAGE_ROOT)
 
 
 def build_audit_settings(
@@ -220,5 +220,5 @@ def build_audit_settings(
         public_naming_scan_roots=_public_naming_scan_roots(),
         public_naming_extra_modules=_public_naming_extra_modules(),
         module_shape_scan_roots=_module_shape_scan_roots(),
-        module_shape_excluded_modules=frozenset({BANKSIA_SRC_PACKAGE_ROOT / "main.py"}),
+        module_shape_excluded_modules=frozenset({OMS_SRC_PACKAGE_ROOT / "main.py"}),
     )

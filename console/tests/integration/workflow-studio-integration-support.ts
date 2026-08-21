@@ -10,7 +10,7 @@ import { WorkflowStudioController } from "../../src/features/workflow-studio/sta
 import type { catalogFixture } from "../fixtures/workflows";
 import { TEST_WORKFLOW_ID } from "../fixtures/workflows";
 
-export const API_ROOT = "http://banksia.test/api";
+export const API_ROOT = "http://oms.test/api";
 export const DRAFT_PATH = `${API_ROOT}/workflow-drafts/workflow-draft.test`;
 export const WORKFLOW_PATH = `${API_ROOT}/workflows/${TEST_WORKFLOW_ID}`;
 

@@ -71,6 +71,7 @@ async def test_task_search_bounds_maximum_page_prompt_projection_to_one_query(
     assert query_count == 1
     assert len(selected_sql) == 1
     assert "substr(" in selected_sql[0].casefold()
+    assert "replace(" not in selected_sql[0].casefold()
     assert result.next_cursor is None
     assert {item.id for item in result.items} == expected_ids
     assert len(result.items) == 100

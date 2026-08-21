@@ -113,7 +113,9 @@ class CodexOperatorTurnRunner:
             explanation=(
                 f"Operator requires the pinned Codex SDK and runtime {PINNED_CODEX_VERSION}."
             ),
-            setup_action=(f"Install openai-codex=={PINNED_CODEX_VERSION} and restart Banksia."),
+            setup_action=(
+                f"Install openai-codex=={PINNED_CODEX_VERSION} and restart Oh My Subagents."
+            ),
             model=self._configured_status.model,
             effort=self._configured_status.effort,
         )
@@ -369,7 +371,7 @@ def _dynamic_tool_specs(tools: Sequence[OperatorTool]) -> list[JsonObject]:
 
 
 def _build_codex_output_schema() -> dict[str, Any]:
-    """Wrap Banksia's union in the strict root object required by Responses."""
+    """Wrap Oh My Subagents's union in the strict root object required by Responses."""
 
     controller_schema = OPERATOR_PROVIDER_RESULT_ADAPTER.json_schema()
     definitions = controller_schema.get("$defs")

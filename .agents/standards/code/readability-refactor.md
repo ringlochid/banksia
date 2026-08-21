@@ -318,7 +318,7 @@ Tailwind utility classes are acceptable at the component boundary, but repeated 
 Rules:
 
 - prefer design tokens and named primitives over ad hoc color, radius, shadow, and spacing choices
-- use the implementation token namespace `--banksia-*` for Console CSS variables, not the legacy `--ac-*` namespace or prototype prefixes
+- use the implementation token namespace `--oms-*` for Console CSS variables, not the legacy `--ac-*` namespace or prototype prefixes
 - translate design-repo shared CSS into semantic token families and primitives before building pages
 - when the same utility cluster repeats across product features, extract a primitive, layout component, variant helper, or token-backed CSS class
 - keep class strings stable and scan-friendly; if a `className` needs complex branching, compute the named branch above the JSX

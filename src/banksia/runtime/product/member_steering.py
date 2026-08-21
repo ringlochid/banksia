@@ -312,7 +312,7 @@ async def _receipt(
         status_message=(
             "The Member was steered."
             if delivered
-            else "Banksia could not confirm whether the steer reached the Member."
+            else "Oh My Subagents could not confirm whether the steer reached the Member."
         ),
         task=await read_product_task(
             session,

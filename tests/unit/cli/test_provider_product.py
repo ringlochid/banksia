@@ -90,9 +90,9 @@ def test_json_setup_without_provider_is_a_zero_write_guide(tmp_path: Path) -> No
         "provider": None,
     }
     assert payload["next_actions"] == [
-        "banksia init",
-        "banksia providers configure <provider>",
-        "banksia operator setup",
+        "oms init",
+        "oms providers configure <provider>",
+        "oms operator setup",
     ]
     assert payload["workspace"] is None
     assert not config_path.exists()
@@ -105,19 +105,19 @@ def test_json_setup_without_provider_is_a_zero_write_guide(tmp_path: Path) -> No
             "[codex]\nenabled = true\n",
             ["codex"],
             None,
-            ["banksia providers set-default codex"],
+            ["oms providers set-default codex"],
         ),
         (
             '[codex]\nenabled = true\n[runtime]\ndefault_provider = "codex"\n',
             ["codex"],
             "codex",
-            ["banksia providers check codex", "banksia serve"],
+            ["oms providers check codex", "oms serve"],
         ),
         (
             "[codex]\nenabled = true\n[claude]\nenabled = true\n",
             ["codex", "claude"],
             None,
-            ["banksia providers set-default <provider>"],
+            ["oms providers set-default <provider>"],
         ),
     ),
 )
@@ -143,7 +143,7 @@ def test_json_setup_guide_uses_selected_provider_state_without_writes(
     assert payload["configured_provider"] == (configured[0] if len(configured) == 1 else None)
     assert payload["default_provider"] == default_provider
     assert payload["default_provider_configured"] is (default_provider is not None)
-    expected_actions = [*next_actions, "banksia operator setup"]
+    expected_actions = [*next_actions, "oms operator setup"]
     assert payload["next_actions"] == expected_actions
     assert config_path.read_bytes() == previous_bytes
 
@@ -156,7 +156,7 @@ def test_json_setup_guide_configures_environment_only_provider_before_default(
     result = CliRunner().invoke(
         build_parser(),
         ["setup", "--config", str(config_path), "--json"],
-        env={"BANKSIA_CODEX__ENABLED": "true"},
+        env={"OMS_CODEX__ENABLED": "true"},
     )
 
     assert result.exit_code == 0
@@ -164,7 +164,7 @@ def test_json_setup_guide_configures_environment_only_provider_before_default(
     assert payload["configured_providers"] == ["codex"]
     assert payload["default_provider"] is None
     assert payload["next_actions"] == [
-        "banksia providers configure codex",
-        "banksia operator setup",
+        "oms providers configure codex",
+        "oms operator setup",
     ]
     assert not config_path.exists()

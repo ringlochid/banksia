@@ -339,7 +339,9 @@ describe("Workflow authoring forms", () => {
         await user.click(
             screen.getByRole("combobox", { name: /^Skills and MCP/ }),
         );
-        await user.click(screen.getByRole("option", { name: "Banksia only" }));
+        await user.click(
+            screen.getByRole("option", { name: "Oh My Subagents only" }),
+        );
         expect(onEdit).toHaveBeenCalledWith({
             provider: { kind: "codex", extension_mode: "isolated" },
         });

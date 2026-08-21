@@ -162,7 +162,7 @@ def cmd_serve(args: argparse.Namespace) -> int:
         settings = load_settings()
         if service_log is not None:
             logger.info(
-                "Banksia background controller starting on %s:%s",
+                "Oh My Subagents background controller starting on %s:%s",
                 settings.api_host,
                 settings.api_port,
             )
@@ -176,11 +176,11 @@ def cmd_serve(args: argparse.Namespace) -> int:
                 reload=False,
             )
         except Exception:
-            logger.exception("Banksia background controller stopped with an error")
+            logger.exception("Oh My Subagents background controller stopped with an error")
             raise
         else:
             if service_log is not None:
-                logger.info("Banksia background controller stopped")
+                logger.info("Oh My Subagents background controller stopped")
     return 0
 
 

@@ -351,7 +351,12 @@ def test_launch_agent_lifecycle_uses_current_gui_domain(
     command_log = tmp_path / "launchctl.log"
     loaded_marker = tmp_path / "loaded"
     launchctl = tmp_path / "launchctl"
-    _write_fake_launchctl(launchctl, command_log, loaded_marker)
+    _write_fake_launchctl(
+        launchctl,
+        command_log,
+        loaded_marker,
+        bootout_delay_inspections=3,
+    )
     monkeypatch.setattr(launchd_module.sys, "platform", "darwin")
     target = _target(tmp_path)
     manager = LaunchdUserServiceManager(
@@ -363,18 +368,22 @@ def test_launch_agent_lifecycle_uses_current_gui_domain(
     installed = manager.install(target, should_start=True)
     restarted = manager.restart(target)
     stopped = manager.stop(target)
+    resumed = manager.start(target)
     removed = manager.uninstall(target)
 
     assert installed.execution_state is ManagedServiceExecutionState.RUNNING
     assert installed.startup_state is ManagedServiceStartupState.ENABLED
     assert stopped.execution_state is ManagedServiceExecutionState.STOPPED
     assert restarted.execution_state is ManagedServiceExecutionState.RUNNING
+    assert resumed.execution_state is ManagedServiceExecutionState.RUNNING
     assert removed.installation_state is ManagedServiceInstallationState.ABSENT
     commands = command_log.read_text(encoding="utf-8").splitlines()
     assert f"enable gui/501/{LAUNCHD_SERVICE_NAME}" in commands
     assert any(command.startswith("bootstrap gui/501 ") for command in commands)
     assert f"bootout gui/501/{LAUNCHD_SERVICE_NAME}" in commands
     assert f"kickstart -k gui/501/{LAUNCHD_SERVICE_NAME}" in commands
+    stop_index = commands.index(f"bootout gui/501/{LAUNCHD_SERVICE_NAME}")
+    assert any(command.startswith("bootstrap gui/501 ") for command in commands[stop_index + 1 :])
     assert not manager.definition_path.exists()
 
 
@@ -395,12 +404,14 @@ def test_launchctl_print_parser_reads_runtime_state() -> None:
 
 
 def test_launchd_user_selection_rejects_a_host_without_posix_user_ids(
+    tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.delattr(launchd_module.os, "getuid", raising=False)
+    manager = LaunchdUserServiceManager(definition_dir=tmp_path / "LaunchAgents")
 
     with pytest.raises(RuntimeError, match="requires a POSIX host"):
-        launchd_module._current_posix_user_id()
+        _ = manager.domain_target
 
 
 def test_native_command_error_carries_explicit_operation_and_manager(
@@ -495,7 +506,10 @@ def _write_fake_launchctl(
     path: Path,
     command_log: Path,
     loaded_marker: Path,
+    *,
+    bootout_delay_inspections: int = 0,
 ) -> None:
+    unloading_marker = loaded_marker.with_suffix(".unloading")
     path.write_text(
         "\n".join(
             [
@@ -504,6 +518,8 @@ def _write_fake_launchctl(
                 "import sys",
                 f"log = Path({str(command_log)!r})",
                 f"loaded = Path({str(loaded_marker)!r})",
+                f"unloading = Path({str(unloading_marker)!r})",
+                f"bootout_delay = {bootout_delay_inspections!r}",
                 "args = sys.argv[1:]",
                 "with log.open('a', encoding='utf-8') as stream:",
                 "    stream.write(' '.join(args) + '\\n')",
@@ -511,14 +527,28 @@ def _write_fake_launchctl(
                 "    print('disabled services = {')",
                 "    print('}')",
                 "elif args[0] == 'print':",
+                "    if unloading.exists():",
+                "        remaining = int(unloading.read_text(encoding='utf-8'))",
+                "        if remaining <= 0:",
+                "            unloading.unlink()",
+                "            loaded.unlink(missing_ok=True)",
+                "            raise SystemExit(1)",
+                "        unloading.write_text(str(remaining - 1), encoding='utf-8')",
                 "    if not loaded.exists(): raise SystemExit(1)",
                 "    print('gui/501/io.github.ringlochid.banksia = {')",
                 "    print('    state = running')",
                 "    print('    pid = 4312')",
                 "    print('    last exit code = 0')",
                 "    print('}')",
-                "if args[0] in {'bootstrap', 'kickstart'}: loaded.touch()",
-                "if args[0] == 'bootout': loaded.unlink(missing_ok=True)",
+                "if args[0] == 'bootstrap':",
+                "    loaded.touch()",
+                "    unloading.unlink(missing_ok=True)",
+                "if args[0] == 'kickstart' and not unloading.exists(): loaded.touch()",
+                "if args[0] == 'bootout':",
+                "    if bootout_delay:",
+                "        unloading.write_text(str(bootout_delay), encoding='utf-8')",
+                "    else:",
+                "        loaded.unlink(missing_ok=True)",
             ]
         )
         + "\n",

@@ -112,16 +112,19 @@ jobs:
                           return json.load(stream)
 
                   lifecycle = {name: read(name) for name in ("install", "status", "start", "restart")}
+                  logs = read("logs")
                   if any(value.get("manager") != "launchd-user" for value in lifecycle.values()):
                       raise SystemExit(f"unexpected launchd manager payload: {lifecycle}")
                   if any(value.get("definition_current") is not True for value in lifecycle.values()):
                       raise SystemExit(f"LaunchAgent definition did not round-trip: {lifecycle}")
                   if any(value.get("controller_state") != "ready" for value in lifecycle.values()):
-                      raise SystemExit(f"LaunchAgent did not become ready: {lifecycle}")
+                      raise SystemExit(
+                          f"LaunchAgent did not become ready: {lifecycle}; controller logs: {logs}"
+                      )
                   if read("stop").get("controller_state") != "stopped":
                       raise SystemExit("LaunchAgent did not stop")
                   if read("uninstall").get("installation_state") != "absent":
                       raise SystemExit("LaunchAgent definition was not removed")
-                  if not read("logs").get("lines"):
+                  if not logs.get("lines"):
                       raise SystemExit("LaunchAgent controller log remained empty")
                   PY

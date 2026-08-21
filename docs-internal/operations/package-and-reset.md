@@ -30,6 +30,14 @@ It contains no environment file, provider credential, Python cache, ignored rese
 
 The installed-distribution verifier installs the wheel into a fresh virtual environment outside the repository and exercises imports, CLI, initialization, exact schema setup, provider configuration, Workflow bootstrap, Task start, server health/readiness, restart, and the isolated user-service command path.
 
+## Release publication
+
+The Linux compatibility workflow runs the repository static, unit, integration, documentation, Console, package-build, and installed-distribution gates on a GitHub-hosted Ubuntu runner. Windows and macOS retain their native compatibility workflows; one platform result never substitutes for another platform's owned boundary.
+
+Release publication starts only from a pushed `v*` tag whose value exactly matches `project.version` in `pyproject.toml`. A manual workflow dispatch rehearses the same build and verification but cannot enter the publication job. The release workflow runs `make package-verify`, transfers only its wheel and source distribution through a GitHub Actions artifact, and gives only the separate publication job the `id-token: write` permission. That job is bound to the `pypi` GitHub environment and the matching PyPI Trusted Publisher. It uses no long-lived repository secret and does not tolerate an already-published filename.
+
+The release operator must verify the exact tag, successful platform and release jobs, PyPI file hashes, and a clean-index installation before creating the final GitHub release. The GitHub release attaches the same PyPI distributions and their SHA-256 manifest. A failed build or publication job stops this sequence; it does not authorize rebuilding or replacing artifacts under the same version.
+
 ## Schema admission and forward upgrade
 
 Startup and initialization create the schema only when the configured database is genuinely empty. Otherwise they compare the complete registered metadata contract with the selected SQLite database or dedicated PostgreSQL schema. Missing, unexpected, or changed tables, columns, keys, constraints, indexes, defaults, and computed expressions stop admission without issuing DDL. The CLI and raw foreground/background startup failure direct the operator to run `oms db upgrade` with the same configuration before considering destructive reset.

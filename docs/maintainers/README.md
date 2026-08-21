@@ -140,6 +140,19 @@ make package-verify
 
 Database schema, package/install path, or public CLI/API truth also requires the reset gate named by the internal package owner. Run it only with an explicit disposable configuration and workspace. Test-only table creation, direct helper calls, or an existing developer database are not fresh/reset proof.
 
+## Release automation
+
+The Linux compatibility workflow runs on pull requests and pushes to `main`. It adds Ubuntu proof for the platform claimed by the public installation docs and runs the installed-distribution verifier with its isolated fake user-service manager.
+
+The release workflow can be dispatched manually to rehearse its build and installed verification without entering the publication job. Publication runs only for a pushed `v*` tag. Before pushing that tag:
+
+1. confirm every required platform check is green on the exact candidate;
+2. confirm the tag equals `v` plus the package version;
+3. confirm the `pypi` GitHub environment and the PyPI Trusted Publisher both bind the final repository name to `.github/workflows/release.yml`; and
+4. confirm the target version and filenames do not already exist on PyPI.
+
+The workflow builds and verifies the distributions in an unprivileged job, then passes those exact files to a separate OIDC publication job. After it succeeds, compare the published hashes with the downloaded workflow artifacts, perform a clean-index `pipx` installation and CLI smoke test, and create the GitHub release with the verified distributions and `SHA256SUMS` attached. Never enable `skip-existing` for the production index or rebuild an existing version.
+
 ## Keep live provider proof tiny
 
 Live provider proof tests the provider/package/HTTP seam, not the full Starter catalog. For each managed provider claimed by a release, use one disposable one- or two-Member Workflow and one bounded prompt: a greeting, a tiny brainstorm or council question, or a short research question. Prove the exact request and workspace, provider turn, controller records, and HTTP Result/readback boundary. Add at most one Operator clarification and only the minimum answer turn needed to complete it.

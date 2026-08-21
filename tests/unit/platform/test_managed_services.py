@@ -342,6 +342,10 @@ def test_launch_agent_definition_has_only_the_bounded_user_job_contract(
     assert "EnvironmentVariables" not in definition
 
 
+def test_launch_agent_allows_a_bounded_cold_restart_window() -> None:
+    assert LaunchdUserServiceManager.readiness_timeout_seconds == 10.0
+
+
 def test_launch_agent_lifecycle_uses_current_gui_domain(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

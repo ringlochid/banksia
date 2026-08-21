@@ -247,7 +247,7 @@ def assert_installed_import_contract(
                 "from importlib.util import find_spec; "
                 "from importlib.metadata import version; "
                 "assert find_spec('autoclaw') is None; "
-                "assert find_spec('banksia.interfaces.web_console') is not None; "
+                "assert find_spec('oh_my_subagents.interfaces.web_console') is not None; "
                 f"assert version('oh-my-subagents') == '{EXPECTED_DISTRIBUTION_VERSION}'"
             ),
         ),
@@ -354,7 +354,7 @@ def verify_installed_workflow_import(
                 "-c",
                 (
                     "from importlib.resources import files; "
-                    "print(files('banksia.workflows.resources.starter_workflows') / "
+                    "print(files('oh_my_subagents.workflows.resources.starter_workflows') / "
                     "'production-feature-delivery.yaml')"
                 ),
             ),

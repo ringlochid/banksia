@@ -17,28 +17,28 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.orm import sessionmaker
 
-import banksia.runtime.node_operations.executor as executor_module
-from banksia.config import CodexSettings, RuntimeSettings, Settings
-from banksia.persistence import RuntimeBase
-from banksia.persistence.models import (
+import oh_my_subagents.runtime.node_operations.executor as executor_module
+from oh_my_subagents.config import CodexSettings, RuntimeSettings, Settings
+from oh_my_subagents.persistence import RuntimeBase
+from oh_my_subagents.persistence.models import (
     AcceptedBoundaryModel,
     AssignmentModel,
     AttemptModel,
     TaskModel,
     WorkspaceBindingModel,
 )
-from banksia.persistence.session import (
+from oh_my_subagents.persistence.session import (
     RuntimeAsyncSession,
     install_sqlite_transaction_control,
 )
-from banksia.platform.workspace_files import ensure_private_directory
-from banksia.providers import ProviderKind
-from banksia.runtime.dispatch.authority import NodeOperationAuthority
-from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
-from banksia.runtime.node_operations import NodeActivitySignal, NodeOperationExecutor
-from banksia.runtime.node_operations.follow_on import SupportProjectionPublisher
-from banksia.runtime.post_commit import CapturedRuntimeEffectPublisher
-from banksia.runtime.post_commit.publisher import RuntimeEffectPublisher
+from oh_my_subagents.platform.workspace_files import ensure_private_directory
+from oh_my_subagents.providers import ProviderKind
+from oh_my_subagents.runtime.dispatch.authority import NodeOperationAuthority
+from oh_my_subagents.runtime.dispatch.preparation import DispatchOpeningDependencies
+from oh_my_subagents.runtime.node_operations import NodeActivitySignal, NodeOperationExecutor
+from oh_my_subagents.runtime.node_operations.follow_on import SupportProjectionPublisher
+from oh_my_subagents.runtime.post_commit import CapturedRuntimeEffectPublisher
+from oh_my_subagents.runtime.post_commit.publisher import RuntimeEffectPublisher
 from tests.helpers.catalog_seed import seed_catalog
 from tests.helpers.lineage_seed import (
     FIXTURE_TIMESTAMP,

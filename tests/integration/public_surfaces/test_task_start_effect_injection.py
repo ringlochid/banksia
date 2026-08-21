@@ -10,20 +10,20 @@ import httpx
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import banksia.interfaces.cli as cli
-import banksia.interfaces.http.routers.tasks as tasks_router_module
-from banksia.config import CodexSettings, RuntimeSettings, Settings, get_settings
-from banksia.interfaces.http.contracts.operation_failure import ProductFailureCode
-from banksia.interfaces.http.runtime_exception_mapping import runtime_exception_failure
-from banksia.main import create_app
-from banksia.persistence.session import get_db_session
-from banksia.providers import ProviderKind
-from banksia.runtime.contracts import TaskStartRequest
-from banksia.runtime.contracts.operation_failure import OperationFailureCode
-from banksia.runtime.contracts.task import TaskStartReceipt
-from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
-from banksia.runtime.errors import RuntimeOperationError
-from banksia.runtime.post_commit import CapturedRuntimeEffectPublisher
+import oh_my_subagents.interfaces.cli as cli
+import oh_my_subagents.interfaces.http.routers.tasks as tasks_router_module
+from oh_my_subagents.config import CodexSettings, RuntimeSettings, Settings, get_settings
+from oh_my_subagents.interfaces.http.contracts.operation_failure import ProductFailureCode
+from oh_my_subagents.interfaces.http.runtime_exception_mapping import runtime_exception_failure
+from oh_my_subagents.main import create_app
+from oh_my_subagents.persistence.session import get_db_session
+from oh_my_subagents.providers import ProviderKind
+from oh_my_subagents.runtime.contracts import TaskStartRequest
+from oh_my_subagents.runtime.contracts.operation_failure import OperationFailureCode
+from oh_my_subagents.runtime.contracts.task import TaskStartReceipt
+from oh_my_subagents.runtime.dispatch.preparation import DispatchOpeningDependencies
+from oh_my_subagents.runtime.errors import RuntimeOperationError
+from oh_my_subagents.runtime.post_commit import CapturedRuntimeEffectPublisher
 from tests.helpers.generic_workflow import GENERIC_WORKFLOW_ID
 
 

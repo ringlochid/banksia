@@ -7,18 +7,18 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
-import banksia.interfaces.cli as cli
-from banksia.interfaces.cli import root as cli_root
-from banksia.interfaces.cli.commands import operator as operator_commands
-from banksia.interfaces.cli.main import build_parser
-from banksia.interfaces.cli.providers.configuration import (
+import oh_my_subagents.interfaces.cli as cli
+from oh_my_subagents.interfaces.cli import root as cli_root
+from oh_my_subagents.interfaces.cli.commands import operator as operator_commands
+from oh_my_subagents.interfaces.cli.main import build_parser
+from oh_my_subagents.interfaces.cli.providers.configuration import (
     ProviderConfigurationRequest,
     configure_provider,
 )
-from banksia.interfaces.cli.providers.contracts import (
+from oh_my_subagents.interfaces.cli.providers.contracts import (
     ProviderCheckOutcome,
 )
-from banksia.providers import ProviderKind
+from oh_my_subagents.providers import ProviderKind
 from tests.unit.cli.cli_test_support import (
     build_provider_check_snapshot,
     write_local_cli_config,

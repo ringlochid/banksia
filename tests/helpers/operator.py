@@ -14,15 +14,18 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
-from banksia.operator import (
+from oh_my_subagents.operator import (
     OperatorConversationService,
     OperatorRunnerStatus,
     OperatorTurnOutcome,
     OperatorTurnRequest,
     OperatorTurnRunner,
 )
-from banksia.persistence import RuntimeBase
-from banksia.persistence.session import RuntimeAsyncSession, install_sqlite_transaction_control
+from oh_my_subagents.persistence import RuntimeBase
+from oh_my_subagents.persistence.session import (
+    RuntimeAsyncSession,
+    install_sqlite_transaction_control,
+)
 
 
 class RecordingTurnRunner:

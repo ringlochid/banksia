@@ -1,4 +1,4 @@
-from banksia.product_identity import LEGACY_BANKSIA_IDENTITY, OMS_IDENTITY
+from oh_my_subagents.product_identity import LEGACY_BANKSIA_IDENTITY, OMS_IDENTITY
 
 
 def test_oms_identity_is_canonical_and_legacy_identity_is_exact() -> None:

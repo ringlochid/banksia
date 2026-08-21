@@ -8,9 +8,9 @@ import pytest
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import banksia.runtime.dispatch.ordinary_continuation as ordinary_continuation_module
-from banksia.config import CodexSettings, RuntimeSettings, Settings
-from banksia.persistence.models import (
+import oh_my_subagents.runtime.dispatch.ordinary_continuation as ordinary_continuation_module
+from oh_my_subagents.config import CodexSettings, RuntimeSettings, Settings
+from oh_my_subagents.persistence.models import (
     AttemptModel,
     AttemptWaitModel,
     DispatchRequestModel,
@@ -18,13 +18,13 @@ from banksia.persistence.models import (
     HumanRequestModel,
     TaskModel,
 )
-from banksia.providers import ProviderKind
-from banksia.runtime.contracts import HumanRequestResolveRequest
-from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
-from banksia.runtime.human_request.continuation import open_human_request_successor
-from banksia.runtime.human_request.service import list_human_requests, resolve_human_request
-from banksia.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
-from banksia.runtime.post_commit import (
+from oh_my_subagents.providers import ProviderKind
+from oh_my_subagents.runtime.contracts import HumanRequestResolveRequest
+from oh_my_subagents.runtime.dispatch.preparation import DispatchOpeningDependencies
+from oh_my_subagents.runtime.human_request.continuation import open_human_request_successor
+from oh_my_subagents.runtime.human_request.service import list_human_requests, resolve_human_request
+from oh_my_subagents.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
+from oh_my_subagents.runtime.post_commit import (
     CapturedRuntimeEffectPublisher,
     DispatchCleanupRequested,
     DispatchStartDue,
@@ -32,7 +32,7 @@ from banksia.runtime.post_commit import (
     RuntimeEffectPublisher,
     RuntimeEffectSignal,
 )
-from banksia.runtime.prompt import parse_prompt_continuation
+from oh_my_subagents.runtime.prompt import parse_prompt_continuation
 from tests.helpers.executor_harness import (
     SessionFactory,
     seeded_executor,

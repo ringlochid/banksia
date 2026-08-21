@@ -8,20 +8,20 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import banksia.runtime.node_operations.executor as executor_module
-from banksia.persistence.models import (
+import oh_my_subagents.runtime.node_operations.executor as executor_module
+from oh_my_subagents.persistence.models import (
     AssignmentModel,
     DispatchTurnModel,
     HumanRequestModel,
 )
-from banksia.runtime.clock import utc_now
-from banksia.runtime.contracts.operation_failure import OperationFailureCode
-from banksia.runtime.dispatch.authority import (
+from oh_my_subagents.runtime.clock import utc_now
+from oh_my_subagents.runtime.contracts.operation_failure import OperationFailureCode
+from oh_my_subagents.runtime.dispatch.authority import (
     read_node_operation_authority,
     refresh_node_activity,
 )
-from banksia.runtime.errors import RuntimeOperationError
-from banksia.runtime.node_operations import (
+from oh_my_subagents.runtime.errors import RuntimeOperationError
+from oh_my_subagents.runtime.node_operations import (
     NodeActivitySignal,
     NodeOperationScope,
 )

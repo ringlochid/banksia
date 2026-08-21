@@ -5,9 +5,13 @@ from pathlib import Path
 import pytest
 from sqlalchemy import select
 
-from banksia.persistence.models import AttemptCheckpointModel, AttemptModel, DispatchTurnModel
-from banksia.runtime.errors import RuntimeOperationError
-from banksia.runtime.node_operations import NodeOperationScope
+from oh_my_subagents.persistence.models import (
+    AttemptCheckpointModel,
+    AttemptModel,
+    DispatchTurnModel,
+)
+from oh_my_subagents.runtime.errors import RuntimeOperationError
+from oh_my_subagents.runtime.node_operations import NodeOperationScope
 from tests.helpers.executor_harness import seeded_executor
 
 

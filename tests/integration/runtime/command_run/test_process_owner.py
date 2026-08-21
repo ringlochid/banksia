@@ -14,27 +14,27 @@ import pytest
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import banksia.runtime.command_run.process_owner as process_owner_module
-from banksia.persistence.models import (
+import oh_my_subagents.runtime.command_run.process_owner as process_owner_module
+from oh_my_subagents.persistence.models import (
     AttemptModel,
     AttemptWaitModel,
     CommandRunModel,
     TaskEventModel,
 )
-from banksia.runtime.command_run import (
+from oh_my_subagents.runtime.command_run import (
     cancel_command_run,
     list_command_runs,
     read_command_run,
     read_command_run_log,
 )
-from banksia.runtime.command_run.task_paths import (
+from oh_my_subagents.runtime.command_run.task_paths import (
     StableCommandWorkingDirectory,
 )
-from banksia.runtime.post_commit import (
+from oh_my_subagents.runtime.post_commit import (
     CommandProcessExited,
     CommandRunPending,
 )
-from banksia.runtime.post_commit.external_wait_startup import read_command_running_page
+from oh_my_subagents.runtime.post_commit.external_wait_startup import read_command_running_page
 from tests.helpers.command_process import (
     MutableClock as _MutableClock,
 )

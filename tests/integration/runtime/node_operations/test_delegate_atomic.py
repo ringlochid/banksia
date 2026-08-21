@@ -7,7 +7,7 @@ import pytest
 from pydantic import BaseModel, ValidationError
 from sqlalchemy import func, select
 
-from banksia.persistence.models import (
+from oh_my_subagents.persistence.models import (
     AssignmentFileReferenceModel,
     AssignmentModel,
     AttemptModel,
@@ -18,11 +18,11 @@ from banksia.persistence.models import (
     DispatchTurnModel,
     TaskModel,
 )
-from banksia.runtime.contracts import DelegateRequest
-from banksia.runtime.contracts.operation_failure import OperationFailureCode
-from banksia.runtime.errors import RuntimeOperationError
-from banksia.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
-from banksia.runtime.post_commit import (
+from oh_my_subagents.runtime.contracts import DelegateRequest
+from oh_my_subagents.runtime.contracts.operation_failure import OperationFailureCode
+from oh_my_subagents.runtime.errors import RuntimeOperationError
+from oh_my_subagents.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
+from oh_my_subagents.runtime.post_commit import (
     CapturedRuntimeEffectPublisher,
     DispatchStartDue,
 )

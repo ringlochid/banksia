@@ -9,7 +9,7 @@ from typing import cast
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from banksia.persistence.models import (
+from oh_my_subagents.persistence.models import (
     AssignmentModel,
     AttemptModel,
     AttemptWaitModel,
@@ -17,15 +17,15 @@ from banksia.persistence.models import (
     DelegationWaveModel,
     TaskModel,
 )
-from banksia.runtime.clock import utc_now
-from banksia.runtime.delegation import settle_delegation_wave
-from banksia.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
-from banksia.runtime.post_commit import WaveMemberSettled
-from banksia.runtime.post_commit.delegation_wave_startup import (
+from oh_my_subagents.runtime.clock import utc_now
+from oh_my_subagents.runtime.delegation import settle_delegation_wave
+from oh_my_subagents.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
+from oh_my_subagents.runtime.post_commit import WaveMemberSettled
+from oh_my_subagents.runtime.post_commit.delegation_wave_startup import (
     read_wave_continuation_page,
     read_wave_settlement_page,
 )
-from banksia.runtime.task_control.control import cancel_task, pause_task
+from oh_my_subagents.runtime.task_control.control import cancel_task, pause_task
 from tests.helpers.executor_harness import (
     SessionFactory,
     make_seed_child_terminal,

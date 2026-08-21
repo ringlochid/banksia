@@ -11,11 +11,11 @@ from xml.etree import ElementTree
 
 from pydantic import BaseModel, ConfigDict
 
-from banksia.platform.provider_environment import (
+from oh_my_subagents.platform.provider_environment import (
     ANTHROPIC_API_KEY,
     provider_subprocess_environment_overrides,
 )
-from banksia.runtime.contracts.prompt import (
+from oh_my_subagents.runtime.contracts.prompt import (
     DispatchRequestRenderInput,
     PromptAssignment,
     PromptContinuation,
@@ -25,7 +25,7 @@ from banksia.runtime.contracts.prompt import (
     PromptWorkspace,
     RenderedDispatchRequest,
 )
-from banksia.runtime.contracts.team_read import (
+from oh_my_subagents.runtime.contracts.team_read import (
     CurrentMemberRead,
     DirectTeamMemberRead,
     EffectiveCapabilitiesRead,
@@ -34,7 +34,7 @@ from banksia.runtime.contracts.team_read import (
     ResolvedProviderRead,
     ResolvedSandboxRead,
 )
-from banksia.runtime.prompt import render_dispatch_request
+from oh_my_subagents.runtime.prompt import render_dispatch_request
 from scripts.docs.prompt_catalog import behavior_scenarios as scenario_catalog
 from scripts.docs.prompt_catalog.validation import (
     load_scenario_team,

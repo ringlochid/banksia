@@ -37,27 +37,27 @@ import asyncio
 import os
 from pathlib import Path
 
-import banksia
-from banksia.config import load_settings
+import oh_my_subagents
+from oh_my_subagents.config import load_settings
 from importlib.util import find_spec
 from importlib.resources import files
-from banksia.main import create_app
-from banksia.platform.managed_services.resources import get_systemd_service_template
-from banksia.runtime.prompt import InstructionAsset, load_instruction_asset
+from oh_my_subagents.main import create_app
+from oh_my_subagents.platform.managed_services.resources import get_systemd_service_template
+from oh_my_subagents.runtime.prompt import InstructionAsset, load_instruction_asset
 
-package_path = Path(banksia.__file__).resolve()
+package_path = Path(oh_my_subagents.__file__).resolve()
 venv_path = Path(os.environ["OMS_ORACLE_VENV"]).resolve()
 repo_root = Path(os.environ["OMS_ORACLE_REPO_ROOT"]).resolve()
 assert package_path.is_relative_to(venv_path)
 assert not package_path.is_relative_to(repo_root / "src")
-starter_root = files("banksia.workflows.resources.starter_workflows")
+starter_root = files("oh_my_subagents.workflows.resources.starter_workflows")
 actual_starters = tuple(sorted(
     entry.name for entry in starter_root.iterdir() if entry.name.endswith(".yaml")
 ))
 assert actual_starters == {STARTER_WORKFLOW_FILENAMES!r}
 assert get_systemd_service_template().is_file()
-assert find_spec("banksia.interfaces.web_console") is not None
-assert files("banksia.interfaces.web_console").joinpath("assets", "index.html").is_file()
+assert find_spec("oh_my_subagents.interfaces.web_console") is not None
+assert files("oh_my_subagents.interfaces.web_console").joinpath("assets", "index.html").is_file()
 assert load_instruction_asset(InstructionAsset.CORE).strip()
 assert load_settings().postgres_schema == "banksia"
 

@@ -4,11 +4,11 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from banksia.runtime.node_operations import (
+from oh_my_subagents.runtime.node_operations import (
     NodeActivitySignal,
     create_watchdog_activity_publisher,
 )
-from banksia.runtime.post_commit import (
+from oh_my_subagents.runtime.post_commit import (
     CapturedRuntimeEffectPublisher,
     WatchdogDeadlineChanged,
 )

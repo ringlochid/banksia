@@ -7,14 +7,14 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
-from banksia.persistence.models import (
+from oh_my_subagents.persistence.models import (
     AssignmentModel,
     AttemptModel,
     MemberConfigurationModel,
     TaskStartSourceModel,
 )
-from banksia.runtime import TaskStartRequest
-from banksia.runtime.launch.persistence.runtime import (
+from oh_my_subagents.runtime import TaskStartRequest
+from oh_my_subagents.runtime.launch.persistence.runtime import (
     persist_bootstrap_runtime_from_precomputed,
 )
 from tests.helpers.launch_foundation import (

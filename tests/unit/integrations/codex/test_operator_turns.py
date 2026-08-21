@@ -6,14 +6,14 @@ from typing import Any, cast
 import pytest
 from openai_codex import InvalidRequestError
 
-from banksia.integrations.codex import operator as codex_operator
-from banksia.integrations.codex.operator import (
+from oh_my_subagents.integrations.codex import operator as codex_operator
+from oh_my_subagents.integrations.codex.operator import (
     PINNED_CODEX_VERSION,
     CodexOperatorTurnRunner,
     resolve_codex_operator_effort,
 )
-from banksia.operator.contracts import MAX_OPERATOR_TEXT_BYTES
-from banksia.operator.provider import (
+from oh_my_subagents.operator.contracts import MAX_OPERATOR_TEXT_BYTES
+from oh_my_subagents.operator.provider import (
     OperatorAcceptedCustomAnswer,
     OperatorAcceptedOptionAnswer,
     OperatorAnsweredQuestion,
@@ -21,7 +21,7 @@ from banksia.operator.provider import (
     OperatorProviderUnavailableError,
     OperatorQuestionAnswersTurnInput,
 )
-from banksia.operator.tools import OperatorToolName
+from oh_my_subagents.operator.tools import OperatorToolName
 from tests.unit.integrations.codex.codex_test_support import TEST_AMBIENT_SKILL_PATH
 from tests.unit.integrations.codex.codex_test_support import (
     ClientFactory as _ClientFactory,

@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
-from banksia.config import (
+from oh_my_subagents.config import (
     CONFIG_ENV_VAR,
     ClaudeSettings,
     CodexSettings,
@@ -13,14 +13,14 @@ from banksia.config import (
     Settings,
     load_settings,
 )
-from banksia.providers import (
+from oh_my_subagents.providers import (
     ManagedExtensionMode,
     ManagedSandboxMode,
     NetworkAccess,
     ProviderKind,
     ProviderNativeAccess,
 )
-from banksia.runtime.contracts import (
+from oh_my_subagents.runtime.contracts import (
     CapabilitySource,
     EffectiveCapabilitySet,
     ExtensionModeResolutionSource,
@@ -29,7 +29,7 @@ from banksia.runtime.contracts import (
     ProviderRouteValueSource,
     ProviderSelectionBasis,
 )
-from banksia.runtime.providers import (
+from oh_my_subagents.runtime.providers import (
     ProviderResolutionError,
     ProviderResolutionErrorCode,
     narrow_provider_capabilities,
@@ -37,7 +37,7 @@ from banksia.runtime.providers import (
     resolve_provider_route,
     validate_provider_execution_configuration,
 )
-from banksia.workflows.contracts import (
+from oh_my_subagents.workflows.contracts import (
     ClaudeProviderSelection,
     CodexProviderSelection,
     ProviderSandbox,

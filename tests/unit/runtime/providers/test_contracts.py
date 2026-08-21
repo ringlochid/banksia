@@ -7,15 +7,15 @@ from pathlib import Path
 import pytest
 from pydantic import SecretStr, ValidationError
 
-from banksia.providers import (
+from oh_my_subagents.providers import (
     ManagedExtensionMode,
     ManagedSandboxMode,
     NetworkAccess,
     ProviderKind,
     ProviderNativeAccess,
 )
-from banksia.runtime.contracts.provider_resolution import CodexProviderRoute
-from banksia.runtime.providers.contracts import (
+from oh_my_subagents.runtime.contracts.provider_resolution import CodexProviderRoute
+from oh_my_subagents.runtime.providers.contracts import (
     DispatchStartRequest,
     ManagedNodeMcpConnection,
     ProviderCheckResult,
@@ -24,7 +24,7 @@ from banksia.runtime.providers.contracts import (
     ProviderSteerOutcome,
     ProviderStopOutcome,
 )
-from banksia.runtime.providers.registry import ProviderAdapterRegistry
+from oh_my_subagents.runtime.providers.registry import ProviderAdapterRegistry
 
 
 def test_managed_connection_redacts_credential_and_requires_loopback() -> None:

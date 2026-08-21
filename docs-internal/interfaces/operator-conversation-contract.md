@@ -348,7 +348,7 @@ If the provider reports that the opaque thread cannot be resumed, Oh My Subagent
 
 ## Operator system prompt
 
-The prompt is controller-owned and separate from Task-member prompts, Workflow notes, and Member instructions. The shipped asset is `src/banksia/operator/prompt/assets/system.txt`; provider adapters receive its byte-identical content. Product tools own their names, strict schemas, and bounded results instead of duplicating those contracts in prose.
+The prompt is controller-owned and separate from Task-member prompts, Workflow notes, and Member instructions. The shipped asset is `src/oh_my_subagents/operator/prompt/assets/system.txt`; provider adapters receive its byte-identical content. Product tools own their names, strict schemas, and bounded results instead of duplicating those contracts in prose.
 
 The source body is:
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from banksia.persistence import RuntimeBase
-from banksia.persistence.models import operator as operator_models
+from oh_my_subagents.persistence import RuntimeBase
+from oh_my_subagents.persistence.models import operator as operator_models
 
 
 def test_operator_core_has_exactly_two_durable_records() -> None:

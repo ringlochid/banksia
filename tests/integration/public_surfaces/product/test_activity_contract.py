@@ -9,41 +9,41 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import banksia.interfaces.http.routers.task_activities as activity_router_module
-from banksia.persistence.models import (
+import oh_my_subagents.interfaces.http.routers.task_activities as activity_router_module
+from oh_my_subagents.persistence.models import (
     CommandRunModel,
     HumanRequestModel,
     ReplanTransitionModel,
     TaskEventModel,
 )
-from banksia.runtime.command_run import (
+from oh_my_subagents.runtime.command_run import (
     claim_command_run_launch,
     mark_command_run_running,
     terminalize_command_run,
 )
-from banksia.runtime.contracts import (
+from oh_my_subagents.runtime.contracts import (
     CommandRunState,
     HumanRequestResolutionSurface,
     TaskEventSource,
     TaskEventType,
 )
-from banksia.runtime.contracts.task import (
+from oh_my_subagents.runtime.contracts.task import (
     HumanRequestResponseRequest,
     TaskActivity,
     TaskActivityPage,
 )
-from banksia.runtime.contracts.task_events import TaskEventRecord
-from banksia.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
-from banksia.runtime.product.activities import (
+from oh_my_subagents.runtime.contracts.task_events import TaskEventRecord
+from oh_my_subagents.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
+from oh_my_subagents.runtime.product.activities import (
     list_task_activities,
     project_task_event,
 )
-from banksia.runtime.product.human_requests import (
+from oh_my_subagents.runtime.product.human_requests import (
     read_product_human_request,
     respond_to_product_human_request,
 )
-from banksia.runtime.replan.continuation import continue_committed_replan
-from banksia.runtime.task_events import (
+from oh_my_subagents.runtime.replan.continuation import continue_committed_replan
+from oh_my_subagents.runtime.task_events import (
     TaskEventCursorResetRequiredError,
     append_task_event,
     encode_task_event_cursor,

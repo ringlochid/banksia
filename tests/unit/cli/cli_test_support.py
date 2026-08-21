@@ -5,21 +5,21 @@ import socket
 import sqlite3
 from pathlib import Path
 
-from banksia.config import DEFAULT_API_PORT, DEFAULT_LOG_LEVEL
-from banksia.interfaces.cli.bootstrap.config import (
+from oh_my_subagents.config import DEFAULT_API_PORT, DEFAULT_LOG_LEVEL
+from oh_my_subagents.interfaces.cli.bootstrap.config import (
     build_initial_config_sections,
     config_sections_to_text,
 )
-from banksia.interfaces.cli.providers.contracts import (
+from oh_my_subagents.interfaces.cli.providers.contracts import (
     ProviderCheckOutcome,
     ProviderCheckSnapshot,
 )
-from banksia.providers import ProviderKind
-from banksia.runtime.providers import (
+from oh_my_subagents.providers import ProviderKind
+from oh_my_subagents.runtime.providers import (
     ProviderAuthenticationMethod,
     ProviderCheckAxisStatus,
 )
-from banksia.workflows.bootstrap import STARTER_WORKFLOW_FILENAMES
+from oh_my_subagents.workflows.bootstrap import STARTER_WORKFLOW_FILENAMES
 
 SEED_KIND_TO_TABLE = {"workflows": "workflow_definitions"}
 SEEDED_REGISTRY_TABLES = {

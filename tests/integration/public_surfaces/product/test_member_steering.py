@@ -4,9 +4,9 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from banksia.providers import ProviderKind
-from banksia.runtime.contracts.task import MemberSteerReceipt, TaskView
-from banksia.runtime.providers import (
+from oh_my_subagents.providers import ProviderKind
+from oh_my_subagents.runtime.contracts.task import MemberSteerReceipt, TaskView
+from oh_my_subagents.runtime.providers import (
     DispatchStartRequest,
     ProviderAdapterRegistry,
     ProviderCheckResult,

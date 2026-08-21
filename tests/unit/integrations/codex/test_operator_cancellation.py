@@ -12,13 +12,13 @@ from openai_codex.generated.v2_all import ConfigReadResponse
 from openai_codex.models import JsonObject
 from pydantic import BaseModel, ConfigDict
 
-from banksia.integrations.codex.operator import CodexOperatorTurnRunner
-from banksia.operator.provider import (
+from oh_my_subagents.integrations.codex.operator import CodexOperatorTurnRunner
+from oh_my_subagents.operator.provider import (
     OperatorMessageTurnInput,
     OperatorRunnerStatus,
     OperatorTurnRequest,
 )
-from banksia.operator.tools import OperatorTool, OperatorToolName
+from oh_my_subagents.operator.tools import OperatorTool, OperatorToolName
 
 
 class _ToolInput(BaseModel):

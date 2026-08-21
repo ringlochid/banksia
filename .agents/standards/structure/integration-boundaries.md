@@ -27,7 +27,7 @@ Use this guide when a change touches seams between backend layers, provider inte
 - `persistence/**` owns persistence models and DB access surfaces; if legacy `db/**` remains, apply the same ownership rule there
 - keep typed contracts near the owning domain, for example `workflows/contracts/**` and `runtime/contracts/**`
 
-These paths are relative to the canonical `src/banksia/**` package.
+These paths are relative to the canonical `src/oh_my_subagents/**` package.
 
 ## Provider and support-state boundaries
 

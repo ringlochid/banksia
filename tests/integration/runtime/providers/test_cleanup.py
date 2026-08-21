@@ -8,10 +8,10 @@ from typing import cast
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from banksia.persistence import RuntimeBase
-from banksia.providers import ProviderKind
-from banksia.runtime.post_commit import DispatchCleanupRequested
-from banksia.runtime.providers import (
+from oh_my_subagents.persistence import RuntimeBase
+from oh_my_subagents.providers import ProviderKind
+from oh_my_subagents.runtime.post_commit import DispatchCleanupRequested
+from oh_my_subagents.runtime.providers import (
     DispatchStartRequest,
     ProviderAdapterRegistry,
     ProviderCheckResult,
@@ -20,7 +20,7 @@ from banksia.runtime.providers import (
     ProviderSteerOutcome,
     ProviderStopOutcome,
 )
-from banksia.runtime.providers.cleanup import create_provider_dispatch_cleanup_handler
+from oh_my_subagents.runtime.providers.cleanup import create_provider_dispatch_cleanup_handler
 from tests.helpers.provider_start import (
     ACCEPTED_AT,
     StartingDispatchDatabase,

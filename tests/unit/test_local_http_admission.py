@@ -8,9 +8,9 @@ from fastapi import FastAPI, Response, status
 from httpx import ASGITransport, AsyncClient
 from httpx import Response as HttpxResponse
 
-from banksia.config import Settings
-from banksia.interfaces.http.dependencies import read_control_actor_ref
-from banksia.interfaces.http.local_admission import add_local_control_plane_middleware
+from oh_my_subagents.config import Settings
+from oh_my_subagents.interfaces.http.dependencies import read_control_actor_ref
+from oh_my_subagents.interfaces.http.local_admission import add_local_control_plane_middleware
 
 _API_ORIGIN = "http://127.0.0.1:18125"
 _ALLOWED_DEVELOPMENT_ORIGIN = "http://localhost:5173"

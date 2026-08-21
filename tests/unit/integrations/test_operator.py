@@ -7,8 +7,8 @@ from typing import Any
 
 import pytest
 
-import banksia.integrations.operator as operator_module
-from banksia.config import (
+import oh_my_subagents.integrations.operator as operator_module
+from oh_my_subagents.config import (
     ClaudeSettings,
     CodexSettings,
     OperatorProvider,
@@ -16,21 +16,21 @@ from banksia.config import (
     RuntimeSettings,
     Settings,
 )
-from banksia.integrations.claude.native_identity import (
+from oh_my_subagents.integrations.claude.native_identity import (
     ClaudeInvocationReadiness,
     ClaudeIsolationMode,
 )
-from banksia.operator import (
+from oh_my_subagents.operator import (
     OperatorProviderMessageResult,
     OperatorTurnOutcome,
     OperatorTurnRequest,
 )
-from banksia.operator.provider import (
+from oh_my_subagents.operator.provider import (
     OperatorMessageTurnInput,
     OperatorProviderUnavailableError,
 )
-from banksia.providers import ProviderKind
-from banksia.runtime.providers import ProviderAuthenticationMethod
+from oh_my_subagents.providers import ProviderKind
+from oh_my_subagents.runtime.providers import ProviderAuthenticationMethod
 
 
 class RecordingProviderRunner:

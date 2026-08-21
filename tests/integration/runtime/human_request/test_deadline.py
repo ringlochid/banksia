@@ -10,30 +10,30 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from banksia.persistence.models import (
+from oh_my_subagents.persistence.models import (
     AttemptModel,
     AttemptWaitModel,
     HumanRequestModel,
     TaskEventModel,
     TaskModel,
 )
-from banksia.runtime.contracts import HumanRequestResolveRequest
-from banksia.runtime.errors import RuntimeOperationError
-from banksia.runtime.human_request.deadline import (
+from oh_my_subagents.runtime.contracts import HumanRequestResolveRequest
+from oh_my_subagents.runtime.errors import RuntimeOperationError
+from oh_my_subagents.runtime.human_request.deadline import (
     create_human_request_opened_handler,
     expire_human_request,
 )
-from banksia.runtime.human_request.service import resolve_human_request
-from banksia.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
-from banksia.runtime.post_commit import (
+from oh_my_subagents.runtime.human_request.service import resolve_human_request
+from oh_my_subagents.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
+from oh_my_subagents.runtime.post_commit import (
     CapturedRuntimeEffectPublisher,
     DeadlineScheduler,
     HumanRequestDue,
     HumanRequestOpened,
     HumanRequestTerminal,
 )
-from banksia.runtime.post_commit.external_wait_startup import read_human_deadline_page
-from banksia.runtime.post_commit.router import AsyncSessionContextFactory
+from oh_my_subagents.runtime.post_commit.external_wait_startup import read_human_deadline_page
+from oh_my_subagents.runtime.post_commit.router import AsyncSessionContextFactory
 from tests.helpers.executor_harness import seeded_executor
 from tests.helpers.lineage_seed import RuntimeIds
 

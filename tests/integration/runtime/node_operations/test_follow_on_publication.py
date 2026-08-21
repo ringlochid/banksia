@@ -3,11 +3,11 @@ from __future__ import annotations
 from datetime import timedelta
 from pathlib import Path
 
-from banksia.persistence.models import CommandRunModel, HumanRequestModel
-from banksia.runtime.clock import utc_now
-from banksia.runtime.node_operations import NodeOperationScope
-from banksia.runtime.post_commit.publisher import CapturedRuntimeEffectPublisher
-from banksia.runtime.post_commit.signals import (
+from oh_my_subagents.persistence.models import CommandRunModel, HumanRequestModel
+from oh_my_subagents.runtime.clock import utc_now
+from oh_my_subagents.runtime.node_operations import NodeOperationScope
+from oh_my_subagents.runtime.post_commit.publisher import CapturedRuntimeEffectPublisher
+from oh_my_subagents.runtime.post_commit.signals import (
     CommandRunPending,
     HumanRequestOpened,
     RuntimeEffectSignal,

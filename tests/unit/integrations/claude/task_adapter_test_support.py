@@ -7,20 +7,20 @@ from pathlib import Path
 from claude_agent_sdk import ClaudeAgentOptions
 from pydantic import SecretStr
 
-from banksia.integrations.claude.native_identity import (
+from oh_my_subagents.integrations.claude.native_identity import (
     ClaudeAuthenticationState,
     ClaudeEndpointPolicyState,
     ClaudeSubscriptionClass,
 )
-from banksia.providers import (
+from oh_my_subagents.providers import (
     ManagedExtensionMode,
     ManagedSandboxMode,
     NetworkAccess,
     ProviderKind,
     ProviderNativeAccess,
 )
-from banksia.runtime.contracts.provider_resolution import ClaudeProviderRoute
-from banksia.runtime.providers.contracts import (
+from oh_my_subagents.runtime.contracts.provider_resolution import ClaudeProviderRoute
+from oh_my_subagents.runtime.providers.contracts import (
     DispatchStartRequest,
     ManagedNodeMcpConnection,
     ProviderAuthenticationMethod,

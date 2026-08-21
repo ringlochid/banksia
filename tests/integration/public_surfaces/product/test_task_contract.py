@@ -6,7 +6,7 @@ from pathlib import Path
 
 from sqlalchemy import event, update
 
-from banksia.persistence.models import (
+from oh_my_subagents.persistence.models import (
     AcceptedBoundaryModel,
     AssignmentModel,
     AssignmentWorkPlanModel,
@@ -17,18 +17,18 @@ from banksia.persistence.models import (
     HumanRequestModel,
     TaskModel,
 )
-from banksia.runtime.clock import utc_now
-from banksia.runtime.contracts import TaskEventSource
-from banksia.runtime.contracts.start import TaskStartRequest
-from banksia.runtime.contracts.task import (
+from oh_my_subagents.runtime.clock import utc_now
+from oh_my_subagents.runtime.contracts import TaskEventSource
+from oh_my_subagents.runtime.contracts.start import TaskStartRequest
+from oh_my_subagents.runtime.contracts.task import (
     TaskControlReceipt,
     TaskControlRequest,
     TaskView,
 )
-from banksia.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
-from banksia.runtime.post_commit import CapturedRuntimeEffectPublisher
-from banksia.runtime.product.activities import list_task_activities
-from banksia.runtime.product.tasks import (
+from oh_my_subagents.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
+from oh_my_subagents.runtime.post_commit import CapturedRuntimeEffectPublisher
+from oh_my_subagents.runtime.product.activities import list_task_activities
+from oh_my_subagents.runtime.product.tasks import (
     control_product_task,
     read_product_task,
     search_product_tasks,

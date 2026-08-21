@@ -7,16 +7,16 @@ from typing import Any, cast
 import pytest
 from pydantic import SecretStr
 
-from banksia.integrations.codex import CodexAdapter
-from banksia.providers import (
+from oh_my_subagents.integrations.codex import CodexAdapter
+from oh_my_subagents.providers import (
     ManagedExtensionMode,
     ManagedSandboxMode,
     NetworkAccess,
     ProviderKind,
     ProviderNativeAccess,
 )
-from banksia.runtime.contracts.provider_resolution import CodexProviderRoute
-from banksia.runtime.providers.contracts import (
+from oh_my_subagents.runtime.contracts.provider_resolution import CodexProviderRoute
+from oh_my_subagents.runtime.providers.contracts import (
     DispatchStartRequest,
     ManagedNodeMcpConnection,
     ProviderAuthenticationMethod,

@@ -5,7 +5,7 @@ from typing import Protocol
 
 from sqlalchemy import Connection
 
-from banksia.persistence import RuntimeBase
+from oh_my_subagents.persistence import RuntimeBase
 from tests.helpers.catalog_seed import WORKFLOW_CONTENT_HASH
 
 

@@ -5,19 +5,19 @@ import sys
 
 from sqlalchemy import select
 
-from banksia.persistence.models import (
+from oh_my_subagents.persistence.models import (
     AttemptModel,
     AttemptWaitModel,
     CommandRunModel,
     TaskModel,
 )
-from banksia.runtime.clock import utc_now
-from banksia.runtime.command_run import cancel_command_run
-from banksia.runtime.command_run.transitions import terminalize_command_run
-from banksia.runtime.contracts import CommandRunState
-from banksia.runtime.contracts.operation_failure import OperationFailureCode
-from banksia.runtime.errors import RuntimeOperationError
-from banksia.runtime.task_control.service import cancel_runtime_task
+from oh_my_subagents.runtime.clock import utc_now
+from oh_my_subagents.runtime.command_run import cancel_command_run
+from oh_my_subagents.runtime.command_run.transitions import terminalize_command_run
+from oh_my_subagents.runtime.contracts import CommandRunState
+from oh_my_subagents.runtime.contracts.operation_failure import OperationFailureCode
+from oh_my_subagents.runtime.errors import RuntimeOperationError
+from oh_my_subagents.runtime.task_control.service import cancel_runtime_task
 from tests.helpers.command_process import open_argv_command
 from tests.helpers.postgres_runtime_race import (
     PostgresRuntimeHarness,

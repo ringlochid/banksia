@@ -20,16 +20,16 @@ from openai_codex.generated.v2_all import (
 from openai_codex.models import JsonObject, Notification
 from pydantic import BaseModel, ConfigDict
 
-from banksia.integrations.codex.operator import CodexOperatorTurnRunner
-from banksia.operator.contracts import OperatorAvailability
-from banksia.operator.provider import (
+from oh_my_subagents.integrations.codex.operator import CodexOperatorTurnRunner
+from oh_my_subagents.operator.contracts import OperatorAvailability
+from oh_my_subagents.operator.provider import (
     OperatorMessageTurnInput,
     OperatorQuestionAnswersTurnInput,
     OperatorRunnerStatus,
     OperatorTurnRequest,
 )
-from banksia.operator.tools import OperatorTool, OperatorToolName
-from banksia.operator.tools.contracts import MAX_OPERATOR_TOOL_RESULT_UTF16_CODE_UNITS
+from oh_my_subagents.operator.tools import OperatorTool, OperatorToolName
+from oh_my_subagents.operator.tools.contracts import MAX_OPERATOR_TOOL_RESULT_UTF16_CODE_UNITS
 
 TEST_DRIVE_ROOT = Path(Path.cwd().anchor)
 TEST_AMBIENT_SKILL_PATH = str(TEST_DRIVE_ROOT / "opt" / "codex" / "skills" / "ambient" / "SKILL.md")

@@ -11,18 +11,18 @@ from sqlalchemy import Connection, Engine, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session, sessionmaker
 
-from banksia.config import RuntimeSettings
-from banksia.persistence import RuntimeBase
-from banksia.providers import ProviderKind
-from banksia.runtime.node_mcp import DispatchMcpBindingRegistry
-from banksia.runtime.node_operations import NodeOperationExecutor, NodeOperationName
-from banksia.runtime.node_operations.catalog import get_node_operation_descriptor
-from banksia.runtime.post_commit import (
+from oh_my_subagents.config import RuntimeSettings
+from oh_my_subagents.persistence import RuntimeBase
+from oh_my_subagents.providers import ProviderKind
+from oh_my_subagents.runtime.node_mcp import DispatchMcpBindingRegistry
+from oh_my_subagents.runtime.node_operations import NodeOperationExecutor, NodeOperationName
+from oh_my_subagents.runtime.node_operations.catalog import get_node_operation_descriptor
+from oh_my_subagents.runtime.post_commit import (
     CapturedRuntimeEffectPublisher,
     DeadlineScheduler,
     DispatchStartDue,
 )
-from banksia.runtime.providers import (
+from oh_my_subagents.runtime.providers import (
     DispatchStartRequest,
     ProviderAdapterRegistry,
     ProviderCheckResult,
@@ -32,7 +32,7 @@ from banksia.runtime.providers import (
     ProviderSteerOutcome,
     ProviderStopOutcome,
 )
-from banksia.runtime.providers.starter import DispatchStarter
+from oh_my_subagents.runtime.providers.starter import DispatchStarter
 from tests.helpers.catalog_seed import seed_catalog
 from tests.helpers.lineage_seed import RuntimeIds, seed_runtime_scope
 from tests.helpers.sqlite_runtime import SyncSessionAdapter, create_runtime_schema_engine

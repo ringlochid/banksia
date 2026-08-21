@@ -6,8 +6,8 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from banksia.runtime.post_commit.deadlines import DeadlineScheduler
-from banksia.runtime.post_commit.signals import (
+from oh_my_subagents.runtime.post_commit.deadlines import DeadlineScheduler
+from oh_my_subagents.runtime.post_commit.signals import (
     CommandRunDue,
     DispatchStartDue,
     HumanRequestDue,

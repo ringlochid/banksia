@@ -8,11 +8,11 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
-import banksia.interfaces.cli as cli
-from banksia.config import CONTROLLER_WORKSPACE_ENV_VAR, DEFAULT_LOG_LEVEL
-from banksia.interfaces.cli.main import build_parser
-from banksia.persistence.session import dispose_db_engine
-from banksia.workflows.bootstrap import STARTER_WORKFLOW_FILENAMES
+import oh_my_subagents.interfaces.cli as cli
+from oh_my_subagents.config import CONTROLLER_WORKSPACE_ENV_VAR, DEFAULT_LOG_LEVEL
+from oh_my_subagents.interfaces.cli.main import build_parser
+from oh_my_subagents.persistence.session import dispose_db_engine
+from oh_my_subagents.workflows.bootstrap import STARTER_WORKFLOW_FILENAMES
 
 from .cli_test_support import assert_seeded_registry_is_bootstrapped, build_cli_init_args
 
@@ -275,7 +275,7 @@ def test_deleted_configured_workspace_is_configuration_invalid(
 
 
 def test_packaged_starter_workflows_are_available() -> None:
-    root = files("banksia.workflows.resources.starter_workflows")
+    root = files("oh_my_subagents.workflows.resources.starter_workflows")
 
     assert tuple(sorted(path.name for path in root.iterdir() if path.name.endswith(".yaml"))) == (
         STARTER_WORKFLOW_FILENAMES

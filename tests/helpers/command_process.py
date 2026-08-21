@@ -11,9 +11,9 @@ from typing import cast
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from banksia.runtime.command_run import CommandProcessOwner
-from banksia.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
-from banksia.runtime.post_commit import (
+from oh_my_subagents.runtime.command_run import CommandProcessOwner
+from oh_my_subagents.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
+from oh_my_subagents.runtime.post_commit import (
     CommandProcessExited,
     CommandRunCancellationRequested,
     CommandRunDue,

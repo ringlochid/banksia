@@ -9,13 +9,13 @@ from typing import cast
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import banksia.runtime.command_run.process_owner as process_owner_module
-import banksia.runtime.command_run.process_resources as process_resources_module
-from banksia.persistence.models import CommandRunModel
-from banksia.runtime.command_run import read_command_run_log
-from banksia.runtime.command_run.owned_process import ManagedCommandProcess
-from banksia.runtime.command_run.task_paths import StableCommandWorkingDirectory
-from banksia.runtime.command_run.transitions import CommandRunLaunchClaim
+import oh_my_subagents.runtime.command_run.process_owner as process_owner_module
+import oh_my_subagents.runtime.command_run.process_resources as process_resources_module
+from oh_my_subagents.persistence.models import CommandRunModel
+from oh_my_subagents.runtime.command_run import read_command_run_log
+from oh_my_subagents.runtime.command_run.owned_process import ManagedCommandProcess
+from oh_my_subagents.runtime.command_run.task_paths import StableCommandWorkingDirectory
+from oh_my_subagents.runtime.command_run.transitions import CommandRunLaunchClaim
 from tests.helpers.command_process import (
     OwnerSignalDriver,
     command_process_owner,

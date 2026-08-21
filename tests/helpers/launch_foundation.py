@@ -4,12 +4,12 @@ from pathlib import Path
 
 from sqlalchemy import Connection
 
-from banksia.persistence import RuntimeBase
-from banksia.platform.workspace_files import ensure_private_directory
-from banksia.runtime.contracts import AssignmentBody, RuntimeBootstrapInput
-from banksia.runtime.team import plan_initial_task_team
-from banksia.workflows.canonical import canonical_workflow_hash
-from banksia.workflows.contracts import (
+from oh_my_subagents.persistence import RuntimeBase
+from oh_my_subagents.platform.workspace_files import ensure_private_directory
+from oh_my_subagents.runtime.contracts import AssignmentBody, RuntimeBootstrapInput
+from oh_my_subagents.runtime.team import plan_initial_task_team
+from oh_my_subagents.workflows.canonical import canonical_workflow_hash
+from oh_my_subagents.workflows.contracts import (
     CodexProviderSelection,
     NormalizedMember,
     NormalizedWorkflow,

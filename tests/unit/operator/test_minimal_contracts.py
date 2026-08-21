@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from banksia.operator.contracts import (
+from oh_my_subagents.operator.contracts import (
     OPERATOR_PROVIDER_RESULT_ADAPTER,
     OperatorMessageRequest,
     OperatorProviderAskUserResult,

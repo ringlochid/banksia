@@ -11,9 +11,9 @@ import pytest
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import banksia.runtime.watchdog.recovery as watchdog_recovery_module
-from banksia.config import CodexSettings, RuntimeSettings, Settings
-from banksia.persistence.models import (
+import oh_my_subagents.runtime.watchdog.recovery as watchdog_recovery_module
+from oh_my_subagents.config import CodexSettings, RuntimeSettings, Settings
+from oh_my_subagents.persistence.models import (
     AttemptModel,
     CommandRunModel,
     DispatchRequestModel,
@@ -22,27 +22,27 @@ from banksia.persistence.models import (
     TaskEventModel,
     TaskModel,
 )
-from banksia.providers import ProviderKind
-from banksia.runtime.contracts.operation_failure import OperationFailureCode
-from banksia.runtime.dispatch.authority import read_node_operation_authority
-from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
-from banksia.runtime.errors import RuntimeOperationError
-from banksia.runtime.node_operations.contracts import (
+from oh_my_subagents.providers import ProviderKind
+from oh_my_subagents.runtime.contracts.operation_failure import OperationFailureCode
+from oh_my_subagents.runtime.dispatch.authority import read_node_operation_authority
+from oh_my_subagents.runtime.dispatch.preparation import DispatchOpeningDependencies
+from oh_my_subagents.runtime.errors import RuntimeOperationError
+from oh_my_subagents.runtime.node_operations.contracts import (
     NodeOperationScope,
     OpenHumanRequestRequest,
     StartCommandRunRequest,
 )
-from banksia.runtime.node_operations.external_wait_handlers import (
+from oh_my_subagents.runtime.node_operations.external_wait_handlers import (
     open_human_request,
     start_command_run,
 )
-from banksia.runtime.post_commit import (
+from oh_my_subagents.runtime.post_commit import (
     CapturedRuntimeEffectPublisher,
     DispatchCleanupRequested,
     DispatchStartDue,
     WatchdogDue,
 )
-from banksia.runtime.watchdog import (
+from oh_my_subagents.runtime.watchdog import (
     calculate_watchdog_due_at,
     recover_stale_dispatch,
 )
@@ -535,7 +535,7 @@ async def _open_wait(
     authority: object,
     wait_kind: WaitKind,
 ) -> None:
-    from banksia.runtime.dispatch.authority import NodeOperationAuthority
+    from oh_my_subagents.runtime.dispatch.authority import NodeOperationAuthority
 
     exact_authority = cast(NodeOperationAuthority, authority)
     if wait_kind == "human":

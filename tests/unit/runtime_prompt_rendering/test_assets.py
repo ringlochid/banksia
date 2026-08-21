@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from banksia.runtime.prompt import (
+from oh_my_subagents.runtime.prompt import (
     INSTRUCTION_ASSETS,
     InstructionAsset,
     instruction_asset_path,

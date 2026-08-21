@@ -6,8 +6,8 @@ from typing import cast
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from banksia.config import CodexSettings, RuntimeSettings, Settings
-from banksia.persistence.models import (
+from oh_my_subagents.config import CodexSettings, RuntimeSettings, Settings
+from oh_my_subagents.persistence.models import (
     AttemptModel,
     AttemptWaitModel,
     CommandRunModel,
@@ -15,20 +15,20 @@ from banksia.persistence.models import (
     DispatchTurnModel,
     TaskModel,
 )
-from banksia.providers import ProviderKind
-from banksia.runtime.clock import utc_now
-from banksia.runtime.command_run.continuation import open_command_run_successor
-from banksia.runtime.command_run.service import cancel_command_run, read_command_run
-from banksia.runtime.command_run.transitions import terminalize_command_run
-from banksia.runtime.contracts import CommandRunState
-from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
-from banksia.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
-from banksia.runtime.post_commit import (
+from oh_my_subagents.providers import ProviderKind
+from oh_my_subagents.runtime.clock import utc_now
+from oh_my_subagents.runtime.command_run.continuation import open_command_run_successor
+from oh_my_subagents.runtime.command_run.service import cancel_command_run, read_command_run
+from oh_my_subagents.runtime.command_run.transitions import terminalize_command_run
+from oh_my_subagents.runtime.contracts import CommandRunState
+from oh_my_subagents.runtime.dispatch.preparation import DispatchOpeningDependencies
+from oh_my_subagents.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
+from oh_my_subagents.runtime.post_commit import (
     CapturedRuntimeEffectPublisher,
     CommandRunTerminal,
     DispatchStartDue,
 )
-from banksia.runtime.prompt import parse_prompt_continuation
+from oh_my_subagents.runtime.prompt import parse_prompt_continuation
 from tests.helpers.executor_harness import (
     SessionFactory,
     seeded_executor,

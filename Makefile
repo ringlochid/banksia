@@ -7,7 +7,7 @@ RUFF := $(VENV)/bin/ruff
 MYPY := $(VENV)/bin/mypy
 NPM := npm
 CONSOLE_DIR := $(CURDIR)/console
-CONSOLE_ASSET_DIR := $(CURDIR)/src/banksia/interfaces/web_console/assets
+CONSOLE_ASSET_DIR := $(CURDIR)/src/oh_my_subagents/interfaces/web_console/assets
 COMPOSE := docker compose
 TEST_COMPOSE := COMPOSE_PROJECT_NAME=banksia-test-db $(COMPOSE)
 TREE_IGNORE := .git|.venv|node_modules|dist|build|tmp|.pytest_cache|.mypy_cache|.ruff_cache|.coverage|coverage|htmlcov|__pycache__|*.egg-info|*.pyc
@@ -19,7 +19,7 @@ tree:
 
 clean-local:
 	rm -rf .pytest_cache .mypy_cache .ruff_cache .coverage coverage htmlcov
-	rm -rf build dist src/banksia.egg-info src/oh_my_subagents.egg-info
+	rm -rf build dist src/oh_my_subagents.egg-info src/oh_my_subagents.egg-info
 	rm -rf node_modules console/dist console/node_modules
 	rm -rf console/test-results console/playwright-report
 	rm -rf $(CONSOLE_ASSET_DIR)
@@ -32,7 +32,7 @@ backend-install: $(PYTHON)
 	$(PIP) install --upgrade -e ".[dev]"
 
 backend-dev: $(PYTHON)
-	PYTHONPATH=$(CURDIR)/src $(UVICORN) banksia.main:app --reload --reload-dir $(CURDIR)/src
+	PYTHONPATH=$(CURDIR)/src $(UVICORN) oh_my_subagents.main:app --reload --reload-dir $(CURDIR)/src
 
 docker-up:
 	$(COMPOSE) up -d --wait postgres

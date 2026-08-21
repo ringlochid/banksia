@@ -7,22 +7,22 @@ from typing import cast
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from banksia.config import CodexSettings, RuntimeSettings, Settings
-from banksia.persistence.models import AttemptModel, DispatchTurnModel, TaskModel
-from banksia.providers import ProviderKind
-from banksia.runtime.contracts import HumanRequestResolveRequest
-from banksia.runtime.dispatch import accept_provider_start_if_current
-from banksia.runtime.dispatch.ordinary_continuation import OrdinaryOpeningResult
-from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
-from banksia.runtime.human_request.continuation import open_human_request_successor
-from banksia.runtime.human_request.service import resolve_human_request
-from banksia.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
-from banksia.runtime.post_commit import (
+from oh_my_subagents.config import CodexSettings, RuntimeSettings, Settings
+from oh_my_subagents.persistence.models import AttemptModel, DispatchTurnModel, TaskModel
+from oh_my_subagents.providers import ProviderKind
+from oh_my_subagents.runtime.contracts import HumanRequestResolveRequest
+from oh_my_subagents.runtime.dispatch import accept_provider_start_if_current
+from oh_my_subagents.runtime.dispatch.ordinary_continuation import OrdinaryOpeningResult
+from oh_my_subagents.runtime.dispatch.preparation import DispatchOpeningDependencies
+from oh_my_subagents.runtime.human_request.continuation import open_human_request_successor
+from oh_my_subagents.runtime.human_request.service import resolve_human_request
+from oh_my_subagents.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
+from oh_my_subagents.runtime.post_commit import (
     CapturedRuntimeEffectPublisher,
     HumanRequestTerminal,
     WatchdogDue,
 )
-from banksia.runtime.watchdog import (
+from oh_my_subagents.runtime.watchdog import (
     WatchdogRecoveryResult,
     calculate_watchdog_due_at,
     recover_stale_dispatch,

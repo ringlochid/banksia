@@ -6,23 +6,23 @@ from io import StringIO
 import pytest
 from rich.console import Console
 
-from banksia.interfaces.cli.commands.presentation import (
+from oh_my_subagents.interfaces.cli.commands.presentation import (
     emit_provider_choices,
     emit_wizard_header,
 )
-from banksia.interfaces.cli.context import CliContext
-from banksia.interfaces.cli.providers.contracts import (
+from oh_my_subagents.interfaces.cli.context import CliContext
+from oh_my_subagents.interfaces.cli.providers.contracts import (
     ProviderCheckOutcome,
     ProviderCheckSnapshot,
     ProviderStatusSnapshot,
 )
-from banksia.interfaces.cli.providers.presentation import (
+from oh_my_subagents.interfaces.cli.providers.presentation import (
     emit_provider_check,
     emit_provider_status,
 )
-from banksia.interfaces.cli.theme import build_rich_theme
-from banksia.providers import ProviderKind
-from banksia.runtime.providers import ProviderCheckAxisStatus
+from oh_my_subagents.interfaces.cli.theme import build_rich_theme
+from oh_my_subagents.providers import ProviderKind
+from oh_my_subagents.runtime.providers import ProviderCheckAxisStatus
 
 
 def test_provider_status_and_check_use_rich_semantic_panels(
@@ -91,7 +91,7 @@ def test_rich_console_width_is_bounded_on_wide_terminals(
     monkeypatch.setenv("TERM", "xterm-256color")
     monkeypatch.setattr(CliContext, "rich_enabled", lambda _self: True)
     monkeypatch.setattr(
-        "banksia.interfaces.cli.context.shutil.get_terminal_size",
+        "oh_my_subagents.interfaces.cli.context.shutil.get_terminal_size",
         lambda fallback=(80, 24): os.terminal_size((240, 40)),
     )
 

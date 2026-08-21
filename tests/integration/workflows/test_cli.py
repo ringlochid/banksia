@@ -11,10 +11,10 @@ import yaml
 from click import Group
 from click.testing import CliRunner, Result
 
-import banksia.interfaces.cli.commands.task as task_command_module
-from banksia.interfaces.cli import build_parser
-from banksia.interfaces.cli import main as cli_main
-from banksia.interfaces.cli.commands.task import TaskStartCliError
+import oh_my_subagents.interfaces.cli.commands.task as task_command_module
+from oh_my_subagents.interfaces.cli import build_parser
+from oh_my_subagents.interfaces.cli import main as cli_main
+from oh_my_subagents.interfaces.cli.commands.task import TaskStartCliError
 from tests.helpers.generic_workflow import GENERIC_WORKFLOW_ID
 
 

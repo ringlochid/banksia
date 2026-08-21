@@ -5,9 +5,9 @@ from datetime import UTC, datetime
 
 import pytest
 
-from banksia.runtime.post_commit.health import RuntimeEffectHealth
-from banksia.runtime.post_commit.publisher import CapturedRuntimeEffectPublisher
-from banksia.runtime.post_commit.signals import (
+from oh_my_subagents.runtime.post_commit.health import RuntimeEffectHealth
+from oh_my_subagents.runtime.post_commit.publisher import CapturedRuntimeEffectPublisher
+from oh_my_subagents.runtime.post_commit.signals import (
     ALL_RUNTIME_EFFECT_SIGNAL_TYPES,
     CommandProcessExited,
     CommandRunCancellationRequested,

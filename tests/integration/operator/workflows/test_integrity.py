@@ -6,13 +6,13 @@ from typing import Any
 import pytest
 from sqlalchemy import func, select, update
 
-from banksia.operator.tools import OperatorTool, OperatorToolName, build_operator_tools
-from banksia.persistence.models import (
+from oh_my_subagents.operator.tools import OperatorTool, OperatorToolName, build_operator_tools
+from oh_my_subagents.persistence.models import (
     WorkflowDefinitionModel,
     WorkflowDraftModel,
     WorkflowRevisionModel,
 )
-from banksia.workflows.service_errors import WorkflowIntegrityError
+from oh_my_subagents.workflows.service_errors import WorkflowIntegrityError
 from tests.helpers.product_surface import product_dispatch_dependencies
 from tests.helpers.workflow_runtime import AsyncSessionFactory, initialized_workflow_database
 

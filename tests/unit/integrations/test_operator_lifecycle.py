@@ -7,21 +7,21 @@ from types import SimpleNamespace
 
 import pytest
 
-import banksia.integrations.operator as operator_module
-from banksia.config import (
+import oh_my_subagents.integrations.operator as operator_module
+from oh_my_subagents.config import (
     ClaudeSettings,
     CodexSettings,
     OperatorProvider,
     OperatorSettings,
     Settings,
 )
-from banksia.integrations.claude.native_identity import (
+from oh_my_subagents.integrations.claude.native_identity import (
     ClaudeInvocationReadiness,
     ClaudeIsolationMode,
 )
-from banksia.operator import OperatorTurnOutcome, OperatorTurnRequest
-from banksia.operator.provider import OperatorMessageTurnInput, OperatorRunnerStatus
-from banksia.runtime.providers import ProviderAuthenticationMethod
+from oh_my_subagents.operator import OperatorTurnOutcome, OperatorTurnRequest
+from oh_my_subagents.operator.provider import OperatorMessageTurnInput, OperatorRunnerStatus
+from oh_my_subagents.runtime.providers import ProviderAuthenticationMethod
 
 
 def _request(provider: str) -> OperatorTurnRequest:

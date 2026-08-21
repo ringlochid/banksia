@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from banksia.runtime.contracts import (
+from oh_my_subagents.runtime.contracts import (
     AssignmentBody,
     CheckpointRequest,
     FileReference,
@@ -15,7 +15,7 @@ from banksia.runtime.contracts import (
     HumanRequestOpenRequest,
     TaskStartRequest,
 )
-from banksia.runtime.workspace.coordination import TaskWorkspaceAdmissionCoordinator
+from oh_my_subagents.runtime.workspace.coordination import TaskWorkspaceAdmissionCoordinator
 from tests.helpers.generic_workflow import GENERIC_WORKFLOW_ID
 
 

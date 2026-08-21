@@ -7,10 +7,10 @@ from pathlib import Path
 
 import pytest
 
-import banksia.interfaces.cli as cli
-import banksia.interfaces.cli.commands.service as service_commands
-from banksia.interfaces.cli.errors import unexpected_failure
-from banksia.platform.managed_services import (
+import oh_my_subagents.interfaces.cli as cli
+import oh_my_subagents.interfaces.cli.commands.service as service_commands
+from oh_my_subagents.interfaces.cli.errors import unexpected_failure
+from oh_my_subagents.platform.managed_services import (
     ManagedServiceCommandError,
     ManagedServiceControllerState,
     ManagedServiceExecutionState,

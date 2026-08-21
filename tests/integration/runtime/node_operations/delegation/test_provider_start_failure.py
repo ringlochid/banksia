@@ -10,8 +10,8 @@ from typing import cast
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from banksia.config import RuntimeSettings
-from banksia.persistence.models import (
+from oh_my_subagents.config import RuntimeSettings
+from oh_my_subagents.persistence.models import (
     AssignmentModel,
     AttemptModel,
     AttemptWaitModel,
@@ -20,15 +20,15 @@ from banksia.persistence.models import (
     DispatchRequestModel,
     DispatchTurnModel,
 )
-from banksia.providers import ProviderKind
-from banksia.runtime.node_mcp import DispatchMcpBindingRegistry
-from banksia.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
-from banksia.runtime.post_commit import (
+from oh_my_subagents.providers import ProviderKind
+from oh_my_subagents.runtime.node_mcp import DispatchMcpBindingRegistry
+from oh_my_subagents.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
+from oh_my_subagents.runtime.post_commit import (
     CapturedRuntimeEffectPublisher,
     DeadlineScheduler,
     DispatchStartDue,
 )
-from banksia.runtime.providers import (
+from oh_my_subagents.runtime.providers import (
     DispatchStartRequest,
     ProviderAdapterRegistry,
     ProviderCheckResult,
@@ -40,7 +40,7 @@ from banksia.runtime.providers import (
     ProviderSteerOutcome,
     ProviderStopOutcome,
 )
-from banksia.runtime.providers.starter import DispatchStarter
+from oh_my_subagents.runtime.providers.starter import DispatchStarter
 from tests.helpers.executor_harness import (
     SessionFactory,
     make_seed_child_terminal,

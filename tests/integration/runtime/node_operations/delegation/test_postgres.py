@@ -6,19 +6,19 @@ import pytest
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
-from banksia.persistence.models import (
+from oh_my_subagents.persistence.models import (
     AssignmentModel,
     AttemptModel,
     DelegationWaveMemberModel,
     DelegationWaveModel,
     DispatchTurnModel,
 )
-from banksia.runtime.delegation import (
+from oh_my_subagents.runtime.delegation import (
     create_wave_member_settled_handler,
     open_delegation_wave_successor,
 )
-from banksia.runtime.node_operations import NodeOperationScope
-from banksia.runtime.post_commit import (
+from oh_my_subagents.runtime.node_operations import NodeOperationScope
+from oh_my_subagents.runtime.post_commit import (
     CapturedRuntimeEffectPublisher,
     DelegationWaveSettled,
     WaveMemberSettled,

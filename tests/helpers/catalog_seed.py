@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy import Connection
 
-from banksia.persistence import RuntimeBase
+from oh_my_subagents.persistence import RuntimeBase
 
 WORKFLOW_CONTENT_HASH = "1" * 64
 WORKFLOW_CONTENT = {

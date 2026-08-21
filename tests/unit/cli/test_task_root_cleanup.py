@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from banksia.interfaces.cli.bootstrap.task_root_cleanup import (
+from oh_my_subagents.interfaces.cli.bootstrap.task_root_cleanup import (
     UnsafeTaskRootError,
     delete_controller_task_roots,
 )

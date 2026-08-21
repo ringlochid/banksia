@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from banksia.interfaces.mcp.mcp_operation_failures import success_or_failure_output_schema
+from oh_my_subagents.interfaces.mcp.mcp_operation_failures import success_or_failure_output_schema
 
 
 def test_success_or_failure_output_schema_keeps_root_object_for_mcp_catalogs() -> None:

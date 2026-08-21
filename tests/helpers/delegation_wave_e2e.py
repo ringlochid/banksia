@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from banksia.persistence.models import (
+from oh_my_subagents.persistence.models import (
     AssignmentModel,
     AttemptModel,
     AttemptWaitModel,
@@ -16,17 +16,17 @@ from banksia.persistence.models import (
     DispatchRequestModel,
     DispatchTurnModel,
 )
-from banksia.runtime.contracts.prompt import DelegationWaveSettledTrigger
-from banksia.runtime.delegation import (
+from oh_my_subagents.runtime.contracts.prompt import DelegationWaveSettledTrigger
+from oh_my_subagents.runtime.delegation import (
     open_delegation_wave_successor,
     settle_delegation_wave,
 )
-from banksia.runtime.delegation.continuation import (
+from oh_my_subagents.runtime.delegation.continuation import (
     read_delegation_wave_continuation_basis,
 )
-from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
-from banksia.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
-from banksia.runtime.post_commit import DelegationWaveSettled
+from oh_my_subagents.runtime.dispatch.preparation import DispatchOpeningDependencies
+from oh_my_subagents.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
+from oh_my_subagents.runtime.post_commit import DelegationWaveSettled
 
 type AsyncSessionSource = Callable[[], AbstractAsyncContextManager[AsyncSession]]
 

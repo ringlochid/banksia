@@ -1,6 +1,6 @@
 from httpx import ASGITransport, AsyncClient
 
-from banksia.main import app
+from oh_my_subagents.main import app
 
 
 async def test_healthz() -> None:

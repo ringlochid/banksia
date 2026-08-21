@@ -9,9 +9,9 @@ import pytest
 from click import Group
 from click.testing import CliRunner
 
-import banksia.interfaces.cli as cli
-from banksia.platform.managed_services import SystemdUserServiceManager
-from banksia.platform.provider_environment import ANTHROPIC_API_KEY, persist_provider_secret
+import oh_my_subagents.interfaces.cli as cli
+from oh_my_subagents.platform.managed_services import SystemdUserServiceManager
+from oh_my_subagents.platform.provider_environment import ANTHROPIC_API_KEY, persist_provider_secret
 
 
 def test_build_parser_supports_baseline_commands() -> None:

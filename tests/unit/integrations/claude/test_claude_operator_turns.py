@@ -9,20 +9,20 @@ from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient, ProcessError
 from claude_agent_sdk.types import ResultMessage
 from mcp.types import CallToolRequest, CallToolRequestParams
 
-from banksia.integrations.claude.native_identity import (
+from oh_my_subagents.integrations.claude.native_identity import (
     ClaudeAuthenticationState,
     ClaudeEndpointPolicyState,
     ClaudeSubscriptionClass,
 )
-from banksia.integrations.claude.operator import (
+from oh_my_subagents.integrations.claude.operator import (
     CLAUDE_OPERATOR_MCP_SERVER_NAME,
     ClaudeOperatorTurnRunner,
 )
-from banksia.operator.contracts import (
+from oh_my_subagents.operator.contracts import (
     MAX_OPERATOR_TEXT_BYTES,
     OPERATOR_PROVIDER_RESULT_ADAPTER,
 )
-from banksia.operator.provider import (
+from oh_my_subagents.operator.provider import (
     OperatorAcceptedCustomAnswer,
     OperatorAcceptedOptionAnswer,
     OperatorAnsweredQuestion,
@@ -30,8 +30,8 @@ from banksia.operator.provider import (
     OperatorProviderUnavailableError,
     OperatorQuestionAnswersTurnInput,
 )
-from banksia.operator.tools import OperatorToolName
-from banksia.runtime.providers import ProviderAuthenticationMethod
+from oh_my_subagents.operator.tools import OperatorToolName
+from oh_my_subagents.runtime.providers import ProviderAuthenticationMethod
 from tests.unit.integrations.claude.operator_sdk_test_support import (
     FakeClaudeOperatorClient,
     FakeClaudeOperatorClientFactory,

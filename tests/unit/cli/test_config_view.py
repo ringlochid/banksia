@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from banksia.config import (
+from oh_my_subagents.config import (
     OperatorProvider,
     OperatorSettings,
     Settings,
 )
-from banksia.interfaces.cli.commands.config_view import build_settings_payload
+from oh_my_subagents.interfaces.cli.commands.config_view import build_settings_payload
 
 
 def test_config_readback_redacts_database_password(tmp_path: Path) -> None:

@@ -14,14 +14,14 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session, sessionmaker
 
-from banksia.persistence import RuntimeBase
-from banksia.persistence.models import TaskEventModel, TaskEventStreamHeadModel, TaskModel
-from banksia.persistence.models.runtime.common import (
+from oh_my_subagents.persistence import RuntimeBase
+from oh_my_subagents.persistence.models import TaskEventModel, TaskEventStreamHeadModel, TaskModel
+from oh_my_subagents.persistence.models.runtime.common import (
     TASK_EVENT_SOURCE_VALUES,
     TASK_EVENT_TYPE_VALUES,
 )
-from banksia.runtime.contracts import TaskEventListResponse, TaskEventRecord
-from banksia.runtime.task_events import (
+from oh_my_subagents.runtime.contracts import TaskEventListResponse, TaskEventRecord
+from oh_my_subagents.runtime.task_events import (
     TaskEventStreamIntegrityError,
     append_task_event,
     compute_task_event_hash,

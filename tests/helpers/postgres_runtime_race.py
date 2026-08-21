@@ -21,15 +21,15 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
-import banksia.runtime.node_operations.executor as executor_module
-from banksia.config import CodexSettings, RuntimeSettings, Settings
-from banksia.persistence.models import TaskModel, WorkspaceBindingModel
-from banksia.persistence.session import create_runtime_schema_tables
-from banksia.providers import ProviderKind
-from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
-from banksia.runtime.node_operations import NodeOperationExecutor
-from banksia.runtime.node_operations.activity import NodeActivitySignal
-from banksia.runtime.post_commit import CapturedRuntimeEffectPublisher
+import oh_my_subagents.runtime.node_operations.executor as executor_module
+from oh_my_subagents.config import CodexSettings, RuntimeSettings, Settings
+from oh_my_subagents.persistence.models import TaskModel, WorkspaceBindingModel
+from oh_my_subagents.persistence.session import create_runtime_schema_tables
+from oh_my_subagents.providers import ProviderKind
+from oh_my_subagents.runtime.dispatch.preparation import DispatchOpeningDependencies
+from oh_my_subagents.runtime.node_operations import NodeOperationExecutor
+from oh_my_subagents.runtime.node_operations.activity import NodeActivitySignal
+from oh_my_subagents.runtime.post_commit import CapturedRuntimeEffectPublisher
 from tests.helpers.catalog_seed import seed_catalog
 from tests.helpers.disposable_postgres import read_disposable_postgres_url
 from tests.helpers.lineage_seed import RuntimeIds, seed_runtime_scope

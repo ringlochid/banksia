@@ -5,7 +5,7 @@ from typing import Protocol
 
 from sqlalchemy import Connection
 
-from banksia.persistence import RuntimeBase
+from oh_my_subagents.persistence import RuntimeBase
 from tests.helpers.team_persistence_seed import TeamSeedIds
 
 

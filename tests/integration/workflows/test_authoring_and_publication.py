@@ -8,10 +8,10 @@ import httpx
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import banksia.workflows.bootstrap as workflow_bootstrap
-from banksia.main import create_app
-from banksia.persistence.session import get_db_session
-from banksia.workflows import (
+import oh_my_subagents.workflows.bootstrap as workflow_bootstrap
+from oh_my_subagents.main import create_app
+from oh_my_subagents.persistence.session import get_db_session
+from oh_my_subagents.workflows import (
     AddMemberOperation,
     NewMember,
     UpdateWorkflowOperation,
@@ -19,22 +19,22 @@ from banksia.workflows import (
     WorkflowProvenance,
     parse_workflow,
 )
-from banksia.workflows.authoring import (
+from oh_my_subagents.workflows.authoring import (
     edit_workflow_draft,
     import_workflow_draft,
     publish_workflow_draft,
     read_workflow_draft,
     undo_workflow_draft,
 )
-from banksia.workflows.bootstrap import STARTER_WORKFLOW_FILENAMES
-from banksia.workflows.catalog import (
+from oh_my_subagents.workflows.bootstrap import STARTER_WORKFLOW_FILENAMES
+from oh_my_subagents.workflows.catalog import (
     list_workflow_revisions,
     read_current_published_workflow,
     read_current_workflow_provenance,
     search_workflows,
 )
-from banksia.workflows.publication import publish_workflow_revision
-from banksia.workflows.service_errors import (
+from oh_my_subagents.workflows.publication import publish_workflow_revision
+from oh_my_subagents.workflows.service_errors import (
     WorkflowNotFoundError,
     WorkflowPreconditionRequiredError,
     WorkflowStaleDraftError,
@@ -62,7 +62,7 @@ async def test_bootstrap_exposes_exact_provider_neutral_starter_workflow_set(
     )
     assert all(item.provenance is WorkflowProvenance.STARTER_SEED for item in workflows.items)
 
-    packaged_root = files("banksia.workflows.resources.starter_workflows")
+    packaged_root = files("oh_my_subagents.workflows.resources.starter_workflows")
     for filename in STARTER_WORKFLOW_FILENAMES:
         packaged = parse_workflow(
             packaged_root.joinpath(filename).read_bytes(), source_format="yaml"

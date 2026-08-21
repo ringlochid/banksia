@@ -6,8 +6,8 @@ import httpx
 import pytest
 from starlette.applications import Starlette
 
-from banksia.interfaces.mcp.transport import node_mcp_transport_policy
-from banksia.runtime.node_operations import NodeOperationName
+from oh_my_subagents.interfaces.mcp.transport import node_mcp_transport_policy
+from oh_my_subagents.runtime.node_operations import NodeOperationName
 from tests.integration.mcp.node_server.transport_support import (
     RecordingNodeOperationExecutor,
     create_test_node_mcp_apps,

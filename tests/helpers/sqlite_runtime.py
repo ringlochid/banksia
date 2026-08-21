@@ -10,8 +10,8 @@ from typing import Any, cast
 from sqlalchemy import Engine, create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 
-from banksia.persistence import RuntimeBase
-from banksia.persistence.session import install_sqlite_transaction_control
+from oh_my_subagents.persistence import RuntimeBase
+from oh_my_subagents.persistence.session import install_sqlite_transaction_control
 
 
 class SyncSessionAdapter:

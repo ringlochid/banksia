@@ -7,7 +7,7 @@ from .models import AuditSettings
 ROOT = Path(__file__).resolve().parents[3]
 BACKEND_ROOT = ROOT
 BACKEND_TESTS_ROOT = BACKEND_ROOT / "tests"
-OMS_SRC_PACKAGE_ROOT = BACKEND_ROOT / "src" / "banksia"
+OMS_SRC_PACKAGE_ROOT = BACKEND_ROOT / "src" / "oh_my_subagents"
 SCRIPTS_DOCS_ROOT = ROOT / "scripts" / "docs"
 SCRIPTS_TESTING_ROOT = ROOT / "scripts" / "testing"
 FILE_SPLIT_REVIEW_THRESHOLD = 600
@@ -98,76 +98,76 @@ def _src_runtime_import_exceptions() -> frozenset[Path]:
 
 def _canonical_contract_naming_exceptions() -> frozenset[tuple[Path, str]]:
     return _existing_public_naming_exceptions(
-        (ROOT / "src/banksia/config.py", "enabled"),
-        (ROOT / "src/banksia/config.py", "value_is_complex"),
-        (ROOT / "src/banksia/operator/contracts.py", "allow_skip"),
-        (ROOT / "src/banksia/persistence/datetimes.py", "cache_ok"),
+        (ROOT / "src/oh_my_subagents/config.py", "enabled"),
+        (ROOT / "src/oh_my_subagents/config.py", "value_is_complex"),
+        (ROOT / "src/oh_my_subagents/operator/contracts.py", "allow_skip"),
+        (ROOT / "src/oh_my_subagents/persistence/datetimes.py", "cache_ok"),
         (
-            ROOT / "src/banksia/persistence/datetimes.py",
+            ROOT / "src/oh_my_subagents/persistence/datetimes.py",
             "process_bind_param",
         ),
         (
-            ROOT / "src/banksia/persistence/datetimes.py",
+            ROOT / "src/oh_my_subagents/persistence/datetimes.py",
             "process_result_value",
         ),
         (
-            ROOT / "src/banksia/runtime/contracts/checkpoint.py",
+            ROOT / "src/oh_my_subagents/runtime/contracts/checkpoint.py",
             "must_stop",
         ),
         (
-            ROOT / "src/banksia/runtime/contracts/checkpoint.py",
+            ROOT / "src/oh_my_subagents/runtime/contracts/checkpoint.py",
             "terminal",
         ),
         (
-            ROOT / "src/banksia/runtime/contracts/command_runs.py",
+            ROOT / "src/oh_my_subagents/runtime/contracts/command_runs.py",
             "must_stop",
         ),
         (
-            ROOT / "src/banksia/runtime/contracts/command_runs.py",
+            ROOT / "src/oh_my_subagents/runtime/contracts/command_runs.py",
             "output_complete",
         ),
         (
-            ROOT / "src/banksia/runtime/contracts/delegation.py",
+            ROOT / "src/oh_my_subagents/runtime/contracts/delegation.py",
             "accepted",
         ),
         (
-            ROOT / "src/banksia/runtime/contracts/delegation.py",
+            ROOT / "src/oh_my_subagents/runtime/contracts/delegation.py",
             "must_stop",
         ),
         (
-            ROOT / "src/banksia/runtime/contracts/human_requests.py",
+            ROOT / "src/oh_my_subagents/runtime/contracts/human_requests.py",
             "allow_other",
         ),
         (
-            ROOT / "src/banksia/runtime/contracts/human_requests.py",
+            ROOT / "src/oh_my_subagents/runtime/contracts/human_requests.py",
             "allow_skip",
         ),
         (
-            ROOT / "src/banksia/runtime/contracts/human_requests.py",
+            ROOT / "src/oh_my_subagents/runtime/contracts/human_requests.py",
             "must_stop",
         ),
         (
-            ROOT / "src/banksia/runtime/contracts/operation_failure.py",
+            ROOT / "src/oh_my_subagents/runtime/contracts/operation_failure.py",
             "ok",
         ),
         (
-            ROOT / "src/banksia/runtime/contracts/operation_failure.py",
+            ROOT / "src/oh_my_subagents/runtime/contracts/operation_failure.py",
             "retryable",
         ),
         (
-            ROOT / "src/banksia/runtime/contracts/prompt.py",
+            ROOT / "src/oh_my_subagents/runtime/contracts/prompt.py",
             "output_complete",
         ),
         (
-            ROOT / "src/banksia/runtime/contracts/replan.py",
+            ROOT / "src/oh_my_subagents/runtime/contracts/replan.py",
             "must_stop",
         ),
         (
-            ROOT / "src/banksia/runtime/contracts/task_event_payloads.py",
+            ROOT / "src/oh_my_subagents/runtime/contracts/task_event_payloads.py",
             "output_complete",
         ),
         (
-            ROOT / "src/banksia/runtime/work_plan/contracts.py",
+            ROOT / "src/oh_my_subagents/runtime/work_plan/contracts.py",
             "changed",
         ),
     )

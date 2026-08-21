@@ -10,21 +10,21 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
-from banksia.config import Settings
-from banksia.interfaces.cli.commands import providers as provider_commands
-from banksia.interfaces.cli.main import build_parser
-from banksia.interfaces.cli.providers import inspection as provider_inspection
-from banksia.interfaces.cli.providers.configuration import (
+from oh_my_subagents.config import Settings
+from oh_my_subagents.interfaces.cli.commands import providers as provider_commands
+from oh_my_subagents.interfaces.cli.main import build_parser
+from oh_my_subagents.interfaces.cli.providers import inspection as provider_inspection
+from oh_my_subagents.interfaces.cli.providers.configuration import (
     ProviderConfigurationRequest,
     configure_provider,
 )
-from banksia.interfaces.cli.providers.contracts import (
+from oh_my_subagents.interfaces.cli.providers.contracts import (
     ProviderCheckOutcome,
     ProviderCheckSnapshot,
 )
-from banksia.platform.provider_environment import ANTHROPIC_API_KEY, persist_provider_secret
-from banksia.providers import ProviderKind
-from banksia.runtime.providers import (
+from oh_my_subagents.platform.provider_environment import ANTHROPIC_API_KEY, persist_provider_secret
+from oh_my_subagents.providers import ProviderKind
+from oh_my_subagents.runtime.providers import (
     ProviderAuthenticationMethod,
     ProviderCheckAxisStatus,
     ProviderCheckResult,
@@ -43,7 +43,7 @@ def test_bare_and_status_are_passive_with_zero_providers(
     )
     monkeypatch.setenv("OMS_CONFIG", str(config_path))
     monkeypatch.setattr(
-        "banksia.interfaces.cli.providers.identity.subprocess.run",
+        "oh_my_subagents.interfaces.cli.providers.identity.subprocess.run",
         lambda *_args, **_kwargs: pytest.fail("passive status invoked a provider command"),
     )
     runner = CliRunner()
@@ -169,11 +169,11 @@ def test_provider_check_runs_bounded_diagnostic_without_mutation(
     )
     previous_bytes = config_path.read_bytes()
     monkeypatch.setattr(
-        "banksia.interfaces.cli.providers.inspection.module_is_available",
+        "oh_my_subagents.interfaces.cli.providers.inspection.module_is_available",
         lambda _module: True,
     )
     monkeypatch.setattr(
-        "banksia.interfaces.cli.providers.inspection.execute_provider_diagnostic",
+        "oh_my_subagents.interfaces.cli.providers.inspection.execute_provider_diagnostic",
         lambda _settings, provider: ProviderCheckResult(
             kind=provider,
             status=ProviderCheckStatus.AVAILABLE,
@@ -267,11 +267,11 @@ def test_provider_check_does_not_call_unverified_authentication_ready(
         ProviderConfigurationRequest(provider=ProviderKind.CODEX),
     )
     monkeypatch.setattr(
-        "banksia.interfaces.cli.providers.inspection.module_is_available",
+        "oh_my_subagents.interfaces.cli.providers.inspection.module_is_available",
         lambda _module: True,
     )
     monkeypatch.setattr(
-        "banksia.interfaces.cli.providers.inspection.execute_provider_diagnostic",
+        "oh_my_subagents.interfaces.cli.providers.inspection.execute_provider_diagnostic",
         lambda _settings, provider: ProviderCheckResult(
             kind=provider,
             status=ProviderCheckStatus.AVAILABLE,
@@ -345,11 +345,11 @@ def test_provider_check_maps_authentication_failure(
         ProviderConfigurationRequest(provider=ProviderKind.CODEX),
     )
     monkeypatch.setattr(
-        "banksia.interfaces.cli.providers.inspection.module_is_available",
+        "oh_my_subagents.interfaces.cli.providers.inspection.module_is_available",
         lambda _module: True,
     )
     monkeypatch.setattr(
-        "banksia.interfaces.cli.providers.inspection.execute_provider_diagnostic",
+        "oh_my_subagents.interfaces.cli.providers.inspection.execute_provider_diagnostic",
         lambda _settings, provider: ProviderCheckResult(
             kind=provider,
             status=ProviderCheckStatus.UNAVAILABLE,
@@ -389,7 +389,7 @@ def test_provider_diagnostic_timeout_includes_adapter_cleanup(
             )
 
     monkeypatch.setattr(
-        "banksia.integrations.provider_registry.build_provider_adapter",
+        "oh_my_subagents.integrations.provider_registry.build_provider_adapter",
         lambda _provider, _settings: SlowCleanupAdapter(),
     )
     monkeypatch.setattr(provider_inspection, "PROVIDER_CHECK_TIMEOUT_SECONDS", 0.01)

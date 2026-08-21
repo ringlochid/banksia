@@ -15,18 +15,18 @@ from claude_agent_sdk.types import (
     SyncHookJSONOutput,
 )
 
-from banksia.integrations.claude import ClaudeAdapter
-from banksia.integrations.claude.native_identity import (
+from oh_my_subagents.integrations.claude import ClaudeAdapter
+from oh_my_subagents.integrations.claude.native_identity import (
     ClaudeAuthenticationState,
     ClaudeEndpointPolicyState,
     ClaudeSubscriptionClass,
 )
-from banksia.providers import (
+from oh_my_subagents.providers import (
     ManagedSandboxMode,
     NetworkAccess,
     ProviderNativeAccess,
 )
-from banksia.runtime.providers.contracts import (
+from oh_my_subagents.runtime.providers.contracts import (
     DispatchStartRequest,
     ProviderAuthenticationMethod,
     ProviderCheckAxisStatus,

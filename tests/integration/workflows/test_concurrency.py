@@ -6,7 +6,7 @@ from uuid import uuid4
 
 import pytest
 
-from banksia.workflows import (
+from oh_my_subagents.workflows import (
     NormalizedWorkflow,
     PublishedWorkflowRevision,
     UpdateWorkflowOperation,
@@ -14,19 +14,19 @@ from banksia.workflows import (
     WorkflowProvenance,
     normalize_workflow_object,
 )
-from banksia.workflows.authoring import (
+from oh_my_subagents.workflows.authoring import (
     edit_workflow_draft,
     import_workflow_draft,
     publish_workflow_draft,
     read_workflow_draft,
 )
-from banksia.workflows.bootstrap import seed_starter_workflows
-from banksia.workflows.catalog import (
+from oh_my_subagents.workflows.bootstrap import seed_starter_workflows
+from oh_my_subagents.workflows.catalog import (
     list_workflow_revisions,
     read_current_published_workflow,
 )
-from banksia.workflows.publication import publish_workflow_revision
-from banksia.workflows.service_errors import (
+from oh_my_subagents.workflows.publication import publish_workflow_revision
+from oh_my_subagents.workflows.service_errors import (
     WorkflowNotFoundError,
     WorkflowStaleDraftError,
 )
@@ -174,7 +174,7 @@ async def test_seed_refresh_cannot_replace_concurrent_user_current_revision(
     monkeypatch: pytest.MonkeyPatch,
     database_backend: DatabaseBackend,
 ) -> None:
-    import banksia.workflows.bootstrap as bootstrap_module
+    import oh_my_subagents.workflows.bootstrap as bootstrap_module
 
     async with workflow_database(tmp_path, backend=database_backend) as session_factory:
         async with session_factory() as session:

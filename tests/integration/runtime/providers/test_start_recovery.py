@@ -6,8 +6,8 @@ from typing import cast
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from banksia.persistence import RuntimeBase
-from banksia.runtime.post_commit import DispatchStartDue, WatchdogDeadlineChanged
+from oh_my_subagents.persistence import RuntimeBase
+from oh_my_subagents.runtime.post_commit import DispatchStartDue, WatchdogDeadlineChanged
 from tests.helpers.provider_start import (
     ACCEPTED_AT,
     PROVIDER_START_REVISION,

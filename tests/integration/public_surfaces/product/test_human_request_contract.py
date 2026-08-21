@@ -5,14 +5,14 @@ from typing import Literal
 
 import pytest
 
-from banksia.persistence.models import HumanRequestModel
-from banksia.runtime.contracts.task import (
+from oh_my_subagents.persistence.models import HumanRequestModel
+from oh_my_subagents.runtime.contracts.task import (
     HumanRequestResponseReceipt,
     HumanRequestView,
 )
-from banksia.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
-from banksia.runtime.post_commit import CapturedRuntimeEffectPublisher
-from banksia.runtime.product.human_requests import read_product_human_request
+from oh_my_subagents.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
+from oh_my_subagents.runtime.post_commit import CapturedRuntimeEffectPublisher
+from oh_my_subagents.runtime.product.human_requests import read_product_human_request
 from tests.helpers.executor_harness import AsyncSessionFactory, seeded_async_executor
 from tests.helpers.lineage_seed import RuntimeIds
 from tests.helpers.product_surface import (

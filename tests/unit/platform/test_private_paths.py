@@ -11,12 +11,12 @@ from unittest.mock import Mock
 
 import pytest
 
-import banksia.platform.private_paths as private_paths
-from banksia.platform.private_paths import (
+import oh_my_subagents.platform.private_paths as private_paths
+from oh_my_subagents.platform.private_paths import (
     protect_private_directory_descriptor,
     protect_private_file_descriptor,
 )
-from banksia.platform.workspace_files import (
+from oh_my_subagents.platform.workspace_files import (
     PrivateMutationTimeoutError,
     PrivatePathError,
     acquire_private_mutation_lock,
@@ -27,7 +27,7 @@ from banksia.platform.workspace_files import (
 
 posix_private_files: Any
 if os.name == "posix":
-    import banksia.platform.workspace_files.posix as posix_private_files
+    import oh_my_subagents.platform.workspace_files.posix as posix_private_files
 else:
     posix_private_files = None
 

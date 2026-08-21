@@ -6,19 +6,19 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
-from banksia.interfaces.cli.main import build_parser
-from banksia.interfaces.cli.providers.configuration import (
+from oh_my_subagents.interfaces.cli.main import build_parser
+from oh_my_subagents.interfaces.cli.providers.configuration import (
     ProviderConfigurationRequest,
     configure_provider,
 )
-from banksia.interfaces.cli.providers.contracts import ProviderIdentityOutcome
-from banksia.interfaces.cli.providers.identity import invoke_provider_identity_action
-from banksia.platform.provider_environment import (
+from oh_my_subagents.interfaces.cli.providers.contracts import ProviderIdentityOutcome
+from oh_my_subagents.interfaces.cli.providers.identity import invoke_provider_identity_action
+from oh_my_subagents.platform.provider_environment import (
     ANTHROPIC_API_KEY,
     read_provider_secret_environment,
 )
-from banksia.providers import ProviderKind
-from banksia.runtime.providers import ProviderAuthenticationMethod
+from oh_my_subagents.providers import ProviderKind
+from oh_my_subagents.runtime.providers import ProviderAuthenticationMethod
 
 
 def test_codex_subscription_identity_delegates_without_storing_credentials(
@@ -36,7 +36,7 @@ def test_codex_subscription_identity_delegates_without_storing_credentials(
 
     bundled_binary = tmp_path / "codex"
     monkeypatch.setattr(
-        "banksia.interfaces.cli.providers.identity.bundled_codex_path",
+        "oh_my_subagents.interfaces.cli.providers.identity.bundled_codex_path",
         lambda: bundled_binary,
     )
 
@@ -87,7 +87,7 @@ def test_claude_subscription_identity_uses_sdk_bundled_native_login(
         secret="old-api-key",
     )
     monkeypatch.setattr(
-        "banksia.interfaces.cli.providers.identity.bundled_claude_path",
+        "oh_my_subagents.interfaces.cli.providers.identity.bundled_claude_path",
         lambda: tmp_path / "claude",
     )
 
@@ -223,7 +223,7 @@ def test_claude_logout_reports_partial_when_only_stored_api_key_is_removed(
         secret="stored-key",
     )
     monkeypatch.setattr(
-        "banksia.interfaces.cli.providers.identity.bundled_claude_path",
+        "oh_my_subagents.interfaces.cli.providers.identity.bundled_claude_path",
         lambda: tmp_path / "claude",
     )
 

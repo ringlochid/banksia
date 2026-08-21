@@ -8,7 +8,7 @@ import pytest
 from sqlalchemy import Connection, func, select
 from sqlalchemy.exc import IntegrityError
 
-from banksia.persistence import RuntimeBase
+from oh_my_subagents.persistence import RuntimeBase
 from tests.helpers.catalog_seed import seed_catalog
 from tests.helpers.lineage_seed import (
     RuntimeIds,

@@ -10,12 +10,12 @@ import pytest
 from pydantic import ValidationError
 from pytest import MonkeyPatch
 
-from banksia import paths
-from banksia.config import CONTROLLER_WORKSPACE_ENV_VAR
+from oh_my_subagents import paths
+from oh_my_subagents.config import CONTROLLER_WORKSPACE_ENV_VAR
 
 
 def _reload_config_module() -> ModuleType:
-    from banksia import config as config_module
+    from oh_my_subagents import config as config_module
 
     return importlib.reload(config_module)
 

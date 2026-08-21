@@ -8,18 +8,18 @@ import httpx
 from pydantic import BaseModel
 from sqlalchemy import func, select
 
-from banksia.persistence.models import DispatchTurnModel, HumanRequestModel
-from banksia.runtime.contracts.operation_failure import OperationFailureCode
-from banksia.runtime.errors import RuntimeOperationError
-from banksia.runtime.node_mcp import IssuedDispatchMcpBinding
-from banksia.runtime.node_operations import (
+from oh_my_subagents.persistence.models import DispatchTurnModel, HumanRequestModel
+from oh_my_subagents.runtime.contracts.operation_failure import OperationFailureCode
+from oh_my_subagents.runtime.errors import RuntimeOperationError
+from oh_my_subagents.runtime.node_mcp import IssuedDispatchMcpBinding
+from oh_my_subagents.runtime.node_operations import (
     NodeActivitySignal,
     NodeOperationDescriptor,
     NodeOperationExecutor,
     NodeOperationName,
     NodeOperationScope,
 )
-from banksia.runtime.work_plan import SetWorkPlanResponse
+from oh_my_subagents.runtime.work_plan import SetWorkPlanResponse
 from tests.helpers.executor_harness import (
     SessionFactory,
     seeded_executor,

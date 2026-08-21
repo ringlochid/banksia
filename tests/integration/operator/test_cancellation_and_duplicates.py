@@ -7,21 +7,21 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import banksia.operator.duplicate_wait as duplicate_wait_module
-from banksia.operator import (
+import oh_my_subagents.operator.duplicate_wait as duplicate_wait_module
+from oh_my_subagents.operator import (
     OperatorConversationService,
     OperatorProviderAskUserResult,
     OperatorProviderMessageResult,
     OperatorTurnInProgressError,
     OperatorTurnOutcome,
 )
-from banksia.operator.contracts import (
+from oh_my_subagents.operator.contracts import (
     OperatorAssistantQuestionSetEntry,
     OperatorMessageRequest,
     OperatorQuestionAnswersRequest,
 )
-from banksia.operator.conversation_reads import OperatorSessionFactory
-from banksia.persistence import (
+from oh_my_subagents.operator.conversation_reads import OperatorSessionFactory
+from oh_my_subagents.persistence import (
     OperatorConversationEntryModel,
     OperatorConversationModel,
 )

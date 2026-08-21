@@ -11,9 +11,9 @@ from jsonschema import Draft202012Validator  # type: ignore[import-untyped]
 from pydantic import BaseModel, ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from banksia.operator.prompt import read_operator_system_prompt
-from banksia.operator.tools import OperatorToolName, build_operator_tools
-from banksia.operator.tools.contracts import (
+from oh_my_subagents.operator.prompt import read_operator_system_prompt
+from oh_my_subagents.operator.tools import OperatorToolName, build_operator_tools
+from oh_my_subagents.operator.tools.contracts import (
     MAX_OPERATOR_TOOL_RESULT_UTF16_CODE_UNITS,
     EmptyOperatorToolInput,
     OperatorToolResultTooLargeError,
@@ -22,29 +22,29 @@ from banksia.operator.tools.contracts import (
     WorkflowGetInput,
     bind_operator_tool,
 )
-from banksia.operator.tools.workflow_projection import (
+from oh_my_subagents.operator.tools.workflow_projection import (
     OperatorPublishedWorkflowSource,
     OperatorWorkflowCatalogResult,
     OperatorWorkflowMemberResult,
     build_operator_workflow_member_result,
     map_operator_workflow_draft_validation_receipt,
 )
-from banksia.runtime.contracts.primitives import (
+from oh_my_subagents.runtime.contracts.primitives import (
     CommandRunTerminalSource,
     HumanRequestResolutionSurface,
     TaskEventSource,
 )
-from banksia.runtime.contracts.prompt import PromptCommandTerminalSource
-from banksia.runtime.contracts.start import TaskStartRequest
-from banksia.workflows.authoring_contracts import (
+from oh_my_subagents.runtime.contracts.prompt import PromptCommandTerminalSource
+from oh_my_subagents.runtime.contracts.start import TaskStartRequest
+from oh_my_subagents.workflows.authoring_contracts import (
     WorkflowDraftReadback,
     WorkflowDraftValidationResult,
     WorkflowLibraryAction,
     WorkflowLibraryState,
 )
-from banksia.workflows.contracts import WorkflowProvenance
-from banksia.workflows.errors import WorkflowInputError, WorkflowValidationIssue
-from banksia.workflows.ingest import normalize_workflow_object
+from oh_my_subagents.workflows.contracts import WorkflowProvenance
+from oh_my_subagents.workflows.errors import WorkflowInputError, WorkflowValidationIssue
+from oh_my_subagents.workflows.ingest import normalize_workflow_object
 from tests.helpers.generic_workflow import GENERIC_WORKFLOW_ID
 from tests.helpers.product_surface import product_dispatch_dependencies
 

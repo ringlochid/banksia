@@ -15,11 +15,11 @@ from typing import Any, cast
 import pytest
 from fastapi import FastAPI
 
-import banksia
-from banksia.interfaces.cli.main import LEGACY_COMMAND_NOTICE, legacy_main, main
-from banksia.main import app, create_app
-from banksia.platform.managed_services.resources import get_managed_service_resources_root
-from banksia.workflows.bootstrap import STARTER_WORKFLOW_FILENAMES
+import oh_my_subagents
+from oh_my_subagents.interfaces.cli.main import LEGACY_COMMAND_NOTICE, legacy_main, main
+from oh_my_subagents.main import app, create_app
+from oh_my_subagents.platform.managed_services.resources import get_managed_service_resources_root
+from oh_my_subagents.workflows.bootstrap import STARTER_WORKFLOW_FILENAMES
 from scripts.testing.installed_distribution.processes import validate_external_workspace
 from scripts.testing.installed_distribution.task import (
     INSTALLED_TASK_PROMPT,
@@ -28,7 +28,7 @@ from scripts.testing.installed_distribution.task import (
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPO_ROOT / "src"
-OMS_PACKAGE_ROOT = SOURCE_ROOT / "banksia"
+OMS_PACKAGE_ROOT = SOURCE_ROOT / "oh_my_subagents"
 
 
 def _route_paths(routes: list[Any]) -> set[str]:
@@ -48,24 +48,23 @@ def _load_project_configuration() -> dict[str, Any]:
     return cast(dict[str, Any], pyproject["project"])
 
 
-def test_banksia_package_uses_src_modules_only() -> None:
-    packaged_workflows = importlib.import_module("banksia.workflows")
+def test_oms_package_uses_src_modules_only() -> None:
+    packaged_workflows = importlib.import_module("oh_my_subagents.workflows")
     packaged_workflow_resources = importlib.import_module(
-        "banksia.workflows.resources.starter_workflows"
+        "oh_my_subagents.workflows.resources.starter_workflows"
     )
-    packaged_http = importlib.import_module("banksia.interfaces.http")
-    packaged_cli_owner = importlib.import_module("banksia.interfaces.cli")
-    packaged_mcp_owner = importlib.import_module("banksia.interfaces.mcp")
-    packaged_web_console = importlib.import_module("banksia.interfaces.web_console")
-    packaged_main_module = importlib.import_module("banksia.main")
-    packaged_persistence = importlib.import_module("banksia.persistence")
-    packaged_runtime_contracts = importlib.import_module("banksia.runtime.contracts")
+    packaged_http = importlib.import_module("oh_my_subagents.interfaces.http")
+    packaged_cli_owner = importlib.import_module("oh_my_subagents.interfaces.cli")
+    packaged_mcp_owner = importlib.import_module("oh_my_subagents.interfaces.mcp")
+    packaged_web_console = importlib.import_module("oh_my_subagents.interfaces.web_console")
+    packaged_main_module = importlib.import_module("oh_my_subagents.main")
+    packaged_persistence = importlib.import_module("oh_my_subagents.persistence")
+    packaged_runtime_contracts = importlib.import_module("oh_my_subagents.runtime.contracts")
 
-    assert banksia.__file__ is not None
-    assert Path(banksia.__file__).resolve() == OMS_PACKAGE_ROOT / "__init__.py"
-    assert list(banksia.__path__) == [str(OMS_PACKAGE_ROOT)]
-    assert importlib.util.find_spec("banksia.cli") is None
-    assert importlib.util.find_spec("banksia.definitions") is None
+    assert oh_my_subagents.__file__ is not None
+    assert Path(oh_my_subagents.__file__).resolve() == OMS_PACKAGE_ROOT / "__init__.py"
+    assert importlib.util.find_spec("banksia") is not None
+    assert importlib.util.find_spec("banksia.persistence") is None
     assert packaged_workflows.__file__ is not None
     assert (
         Path(packaged_workflows.__file__).resolve()
@@ -113,7 +112,7 @@ def test_banksia_package_uses_src_modules_only() -> None:
 def test_cli_and_main_entrypoints_use_only_canonical_modules() -> None:
     project_config = _load_project_configuration()
     project_version = cast(str, project_config["version"])
-    packaged_main_module = importlib.import_module("banksia.main")
+    packaged_main_module = importlib.import_module("oh_my_subagents.main")
     packaged_app = cast(FastAPI, packaged_main_module.app)
     packaged_create_app = cast(Any, packaged_main_module.create_app)
 
@@ -143,19 +142,19 @@ def test_pyproject_ships_canonical_packages_only() -> None:
     scripts = cast(dict[str, str], project_config["scripts"])
 
     assert project_config["name"] == "oh-my-subagents"
-    assert project_config["version"] == "0.2.0"
-    assert version("oh-my-subagents") == "0.2.0"
+    assert project_config["version"] == "0.3.0"
+    assert version("oh-my-subagents") == "0.3.0"
     assert package_dir == {"": "src"}
     assert packages_find == {
         "where": ["src"],
-        "include": ["banksia*"],
+        "include": ["oh_my_subagents*", "banksia"],
         "namespaces": False,
     }
-    assert scripts["oms"] == "banksia.interfaces.cli.main:main"
-    assert scripts["banksia"] == "banksia.interfaces.cli.main:legacy_main"
+    assert scripts["oms"] == "oh_my_subagents.interfaces.cli.main:main"
+    assert scripts["banksia"] == "oh_my_subagents.interfaces.cli.main:legacy_main"
     assert "autoclaw" not in scripts
-    assert "banksia" in package_data
-    assert package_data["banksia"] == [
+    assert "oh_my_subagents" in package_data
+    assert package_data["oh_my_subagents"] == [
         "interfaces/web_console/assets/index.html",
         "interfaces/web_console/assets/assets/*",
         "interfaces/web_console/assets/LICENSE.txt",
@@ -187,10 +186,10 @@ def test_python_m_banksia_invokes_main() -> None:
     assert LEGACY_COMMAND_NOTICE in result.stderr
 
 
-def test_python_m_banksia_interfaces_cli_invokes_main() -> None:
+def test_python_m_oms_interfaces_cli_invokes_main() -> None:
     env = _source_import_env()
     result = subprocess.run(
-        [sys.executable, "-m", "banksia.interfaces.cli", "--help"],
+        [sys.executable, "-m", "oh_my_subagents.interfaces.cli", "--help"],
         cwd=REPO_ROOT,
         env=env,
         capture_output=True,
@@ -199,8 +198,8 @@ def test_python_m_banksia_interfaces_cli_invokes_main() -> None:
     )
 
     assert result.returncode == 0
-    assert "Usage: banksia" in result.stdout
-    assert LEGACY_COMMAND_NOTICE in result.stderr
+    assert "Usage: oms" in result.stdout
+    assert LEGACY_COMMAND_NOTICE not in result.stderr
 
 
 def test_canonical_and_legacy_cli_entrypoints_are_explicit(
@@ -225,22 +224,23 @@ def test_fresh_interpreter_can_import_canonical_package_roots() -> None:
             "-c",
             (
                 "from importlib import resources; "
-                "import banksia.workflows; "
-                "import banksia.persistence; "
-                "import banksia.runtime.contracts; "
-                "import banksia.interfaces.web_console; "
-                "import banksia.platform.managed_services.resources; "
-                "import banksia.runtime.prompt.assets; "
+                "import oh_my_subagents.workflows; "
+                "import oh_my_subagents.persistence; "
+                "import oh_my_subagents.runtime.contracts; "
+                "import oh_my_subagents.interfaces.web_console; "
+                "import oh_my_subagents.platform.managed_services.resources; "
+                "import oh_my_subagents.runtime.prompt.assets; "
                 "from importlib.util import find_spec; "
                 "workflow_root = resources.files("
-                "'banksia.workflows.resources.starter_workflows'); "
-                "service_root = resources.files('banksia.platform.managed_services.resources'); "
-                "prompt_root = resources.files('banksia.runtime.prompt.assets'); "
+                "'oh_my_subagents.workflows.resources.starter_workflows'); "
+                "service_root = resources.files("
+                "'oh_my_subagents.platform.managed_services.resources'); "
+                "prompt_root = resources.files('oh_my_subagents.runtime.prompt.assets'); "
                 f"assert tuple(sorted(entry.name for entry in workflow_root.iterdir() "
                 f"if entry.name.endswith('.yaml'))) == {STARTER_WORKFLOW_FILENAMES!r}; "
                 "assert service_root.name == 'resources'; "
                 "assert prompt_root.name == 'assets'; "
-                "assert find_spec('banksia.interfaces.web_console') is not None"
+                "assert find_spec('oh_my_subagents.interfaces.web_console') is not None"
             ),
         ],
         cwd=REPO_ROOT,
@@ -287,7 +287,7 @@ def _source_import_env() -> dict[str, str]:
 
 
 def test_resource_owner_helpers_point_to_canonical_package_paths() -> None:
-    workflow_root = resources.files("banksia.workflows.resources.starter_workflows")
+    workflow_root = resources.files("oh_my_subagents.workflows.resources.starter_workflows")
     service_root = get_managed_service_resources_root()
 
     assert (
@@ -309,7 +309,7 @@ def test_clean_local_preserves_ignored_research(tmp_path: Path) -> None:
         tmp_path / ".pytest_cache",
         tmp_path / "dist",
         tmp_path / "console" / "dist",
-        tmp_path / "src" / "banksia" / "interfaces" / "web_console" / "assets",
+        tmp_path / "src" / "oh_my_subagents" / "interfaces" / "web_console" / "assets",
     )
     for generated_path in generated_paths:
         generated_path.mkdir(parents=True)

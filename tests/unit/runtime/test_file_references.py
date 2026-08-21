@@ -5,10 +5,10 @@ from pathlib import Path
 
 import pytest
 
-from banksia.runtime.contracts import FileReference
-from banksia.runtime.errors import RuntimeOperationError
-from banksia.runtime.file_references import validate_file_references
-from banksia.runtime.workspace.regular_files import (
+from oh_my_subagents.runtime.contracts import FileReference
+from oh_my_subagents.runtime.errors import RuntimeOperationError
+from oh_my_subagents.runtime.file_references import validate_file_references
+from oh_my_subagents.runtime.workspace.regular_files import (
     UnsafeWorkspaceFileError,
     open_workspace_regular_file,
 )

@@ -10,21 +10,21 @@ import pytest
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from banksia.config import CodexSettings, RuntimeSettings, Settings
-from banksia.persistence.models import AttemptModel, DispatchTurnModel, TaskModel
-from banksia.providers import ProviderKind
-from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
-from banksia.runtime.errors import RuntimeOperationError
-from banksia.runtime.post_commit import (
+from oh_my_subagents.config import CodexSettings, RuntimeSettings, Settings
+from oh_my_subagents.persistence.models import AttemptModel, DispatchTurnModel, TaskModel
+from oh_my_subagents.providers import ProviderKind
+from oh_my_subagents.runtime.dispatch.preparation import DispatchOpeningDependencies
+from oh_my_subagents.runtime.errors import RuntimeOperationError
+from oh_my_subagents.runtime.post_commit import (
     CapturedRuntimeEffectPublisher,
     DispatchCleanupRequested,
     DispatchStartDue,
     WatchdogDeadlineChanged,
     WatchdogDue,
 )
-from banksia.runtime.post_commit.dispatch_startup import read_watchdog_deadline_page
-from banksia.runtime.task_control.control import continue_task
-from banksia.runtime.watchdog import (
+from oh_my_subagents.runtime.post_commit.dispatch_startup import read_watchdog_deadline_page
+from oh_my_subagents.runtime.task_control.control import continue_task
+from oh_my_subagents.runtime.watchdog import (
     calculate_watchdog_due_at,
     recover_stale_dispatch,
 )

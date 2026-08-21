@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 import pytest
 from pydantic import ValidationError
 
-from banksia.runtime.contracts import (
+from oh_my_subagents.runtime.contracts import (
     COMMAND_RUN_TERMINAL_EVENT_TYPES,
     TERMINAL_COMMAND_RUN_STATES,
     CommandArgvSpec,

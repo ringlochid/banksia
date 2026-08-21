@@ -8,13 +8,13 @@ from typing import cast
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from banksia.config import CodexSettings, RuntimeSettings, Settings
-from banksia.persistence.models import AttemptModel, DispatchTurnModel, TaskModel
-from banksia.providers import ProviderKind
-from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
-from banksia.runtime.post_commit import CapturedRuntimeEffectPublisher, WatchdogDue
-from banksia.runtime.task_control.service import continue_runtime_task
-from banksia.runtime.watchdog import calculate_watchdog_due_at, recover_stale_dispatch
+from oh_my_subagents.config import CodexSettings, RuntimeSettings, Settings
+from oh_my_subagents.persistence.models import AttemptModel, DispatchTurnModel, TaskModel
+from oh_my_subagents.providers import ProviderKind
+from oh_my_subagents.runtime.dispatch.preparation import DispatchOpeningDependencies
+from oh_my_subagents.runtime.post_commit import CapturedRuntimeEffectPublisher, WatchdogDue
+from oh_my_subagents.runtime.task_control.service import continue_runtime_task
+from oh_my_subagents.runtime.watchdog import calculate_watchdog_due_at, recover_stale_dispatch
 from tests.helpers.executor_harness import (
     SessionFactory,
     make_seed_child_terminal,

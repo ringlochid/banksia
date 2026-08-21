@@ -92,10 +92,10 @@ def _owner_family(module: ModuleRecord, settings: AuditSettings) -> str | None:
     backend_root = settings.backend_root
     if module.path.is_relative_to(backend_root / "app"):
         return "app"
-    if module.path.is_relative_to(backend_root / "banksia"):
-        return "banksia"
-    if module.path.is_relative_to(backend_root / "src" / "banksia"):
-        return "banksia"
+    if module.path.is_relative_to(backend_root / "oh_my_subagents"):
+        return "oh_my_subagents"
+    if module.path.is_relative_to(backend_root / "src" / "oh_my_subagents"):
+        return "oh_my_subagents"
     return None
 
 
@@ -106,23 +106,26 @@ def _has_direction_violation(
     module_name_to_paths: dict[str, tuple[Path, ...]],
     settings: AuditSettings,
 ) -> bool:
-    if owner_family == "banksia":
+    if owner_family == "oh_my_subagents":
         if any(name == "app" or name.startswith("app.") for name in imported_modules):
             return True
-        consumer_tree_kind = _banksia_tree_kind(module.path, settings)
+        consumer_tree_kind = _oh_my_subagents_tree_kind(module.path, settings)
         if consumer_tree_kind is None:
             return False
         return any(
-            _imported_banksia_cross_tree_violation(
+            _imported_oh_my_subagents_cross_tree_violation(
                 name,
                 consumer_tree_kind,
                 module_name_to_paths,
                 settings,
             )
             for name in imported_modules
-            if name == "banksia" or name.startswith("banksia.")
+            if name == "oh_my_subagents" or name.startswith("oh_my_subagents.")
         )
-    return any(name == "banksia" or name.startswith("banksia.") for name in imported_modules)
+    return any(
+        name == "oh_my_subagents" or name.startswith("oh_my_subagents.")
+        for name in imported_modules
+    )
 
 
 def _has_legacy_app_shell_violation(
@@ -142,14 +145,14 @@ def _violated_rule(
     module_name_to_paths: dict[str, tuple[Path, ...]],
     settings: AuditSettings,
 ) -> str:
-    if owner_family == "banksia":
+    if owner_family == "oh_my_subagents":
         if any(name == "app" or name.startswith("app.") for name in imported_modules):
-            return "banksia-consumer-imports-app-owner"
-        consumer_tree_kind = _banksia_tree_kind(module.path, settings)
+            return "oh_my_subagents-consumer-imports-app-owner"
+        consumer_tree_kind = _oh_my_subagents_tree_kind(module.path, settings)
         if consumer_tree_kind == "legacy":
-            return "legacy-banksia-consumer-imports-src-owner"
-        return "src-banksia-consumer-imports-legacy-owner"
-    return "app-consumer-imports-banksia-owner"
+            return "legacy-oh_my_subagents-consumer-imports-src-owner"
+        return "src-oh_my_subagents-consumer-imports-legacy-owner"
+    return "app-consumer-imports-oh_my_subagents-owner"
 
 
 def _module_name_to_paths(modules: list[ModuleRecord]) -> dict[str, tuple[Path, ...]]:
@@ -163,15 +166,15 @@ def _module_name_to_paths(modules: list[ModuleRecord]) -> dict[str, tuple[Path, 
     }
 
 
-def _banksia_tree_kind(path: Path, settings: AuditSettings) -> str | None:
-    if path.is_relative_to(settings.backend_root / "banksia"):
+def _oh_my_subagents_tree_kind(path: Path, settings: AuditSettings) -> str | None:
+    if path.is_relative_to(settings.backend_root / "oh_my_subagents"):
         return "legacy"
-    if path.is_relative_to(settings.backend_root / "src" / "banksia"):
+    if path.is_relative_to(settings.backend_root / "src" / "oh_my_subagents"):
         return "src"
     return None
 
 
-def _imported_banksia_cross_tree_violation(
+def _imported_oh_my_subagents_cross_tree_violation(
     module_name: str,
     consumer_tree_kind: str,
     module_name_to_paths: dict[str, tuple[Path, ...]],
@@ -182,9 +185,9 @@ def _imported_banksia_cross_tree_violation(
         if not paths:
             continue
         root_kinds = {
-            _banksia_tree_kind(path, settings)
+            _oh_my_subagents_tree_kind(path, settings)
             for path in paths
-            if _banksia_tree_kind(path, settings)
+            if _oh_my_subagents_tree_kind(path, settings)
         }
         if not root_kinds:
             continue
@@ -215,13 +218,13 @@ def _known_module_paths(
 
 
 def _repo_owned_module_paths(module_name: str, settings: AuditSettings) -> tuple[Path, ...]:
-    if module_name != "banksia" and not module_name.startswith("banksia."):
+    if module_name != "oh_my_subagents" and not module_name.startswith("oh_my_subagents."):
         return ()
     relative_parts = module_name.split(".")[1:]
     paths: set[Path] = set()
     for root in (
-        settings.backend_root / "banksia",
-        settings.backend_root / "src" / "banksia",
+        settings.backend_root / "oh_my_subagents",
+        settings.backend_root / "src" / "oh_my_subagents",
     ):
         paths.update(_existing_module_paths(root, relative_parts))
     return tuple(sorted(paths))

@@ -5,8 +5,8 @@ from copy import deepcopy
 
 import pytest
 
-from banksia.interfaces.http.contracts.operation_failure import ProductFailureCode
-from banksia.interfaces.http.openapi import (
+from oh_my_subagents.interfaces.http.contracts.operation_failure import ProductFailureCode
+from oh_my_subagents.interfaces.http.openapi import (
     PRODUCT_PATHS,
     PRODUCT_ROUTE_METHODS,
     SUPPORT_PATHS,

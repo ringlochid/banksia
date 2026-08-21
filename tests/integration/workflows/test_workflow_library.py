@@ -8,25 +8,25 @@ import httpx
 import pytest
 from sqlalchemy import select, update
 
-from banksia.persistence.models import (
+from oh_my_subagents.persistence.models import (
     WorkflowDefinitionModel,
     WorkflowDraftModel,
     WorkflowRevisionModel,
 )
-from banksia.workflows.authoring import (
+from oh_my_subagents.workflows.authoring import (
     discard_workflow_draft,
     open_workflow_draft,
     read_workflow_catalog_entry,
 )
-from banksia.workflows.authoring_contracts import OpenWorkflowDraftRequest
-from banksia.workflows.bootstrap import seed_starter_workflows
-from banksia.workflows.catalog import (
+from oh_my_subagents.workflows.authoring_contracts import OpenWorkflowDraftRequest
+from oh_my_subagents.workflows.bootstrap import seed_starter_workflows
+from oh_my_subagents.workflows.catalog import (
     read_current_published_workflow,
     read_published_workflow_revision,
 )
-from banksia.workflows.contracts import PublishedWorkflowRevision, WorkflowProvenance
-from banksia.workflows.publication import publish_workflow_revision
-from banksia.workflows.service_errors import WorkflowNotFoundError
+from oh_my_subagents.workflows.contracts import PublishedWorkflowRevision, WorkflowProvenance
+from oh_my_subagents.workflows.publication import publish_workflow_revision
+from oh_my_subagents.workflows.service_errors import WorkflowNotFoundError
 from tests.helpers.product_surface import product_http_client
 from tests.helpers.workflow_concurrency import DatabaseBackend, workflow_database
 

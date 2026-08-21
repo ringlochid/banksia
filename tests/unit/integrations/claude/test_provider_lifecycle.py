@@ -6,7 +6,7 @@ from typing import cast
 import pytest
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
 
-from banksia.integrations.claude.operator import ClaudeOperatorTurnRunner
+from oh_my_subagents.integrations.claude.operator import ClaudeOperatorTurnRunner
 from tests.unit.integrations.claude.operator_sdk_test_support import (
     FakeClaudeOperatorClient,
     FakeClaudeOperatorClientFactory,

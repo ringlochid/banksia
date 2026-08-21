@@ -8,16 +8,16 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
-from banksia.interfaces.cli.commands import providers as provider_commands
-from banksia.interfaces.cli.main import build_parser
-from banksia.interfaces.cli.providers.configuration import ProviderConfigurationRequest
-from banksia.interfaces.cli.providers.contracts import (
+from oh_my_subagents.interfaces.cli.commands import providers as provider_commands
+from oh_my_subagents.interfaces.cli.main import build_parser
+from oh_my_subagents.interfaces.cli.providers.configuration import ProviderConfigurationRequest
+from oh_my_subagents.interfaces.cli.providers.contracts import (
     ProviderCheckOutcome,
     ProviderCheckSnapshot,
     ProviderConfigurationSnapshot,
 )
-from banksia.providers import ProviderKind
-from banksia.runtime.providers import (
+from oh_my_subagents.providers import ProviderKind
+from oh_my_subagents.runtime.providers import (
     ProviderAuthenticationMethod,
     ProviderCheckAxisStatus,
 )

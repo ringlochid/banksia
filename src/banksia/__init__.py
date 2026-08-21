@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-from importlib.metadata import PackageNotFoundError, version
+from oh_my_subagents import __version__
 
-try:
-    __version__ = version("oh-my-subagents")
-except PackageNotFoundError:  # pragma: no cover
-    __version__ = "0.0.0"
+__all__ = ["__version__"]

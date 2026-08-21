@@ -4,13 +4,13 @@ from pathlib import Path
 
 from sqlalchemy import select
 
-from banksia.operator import OperatorProviderThreadUnavailableError
-from banksia.operator.contracts import OperatorMessageRequest
-from banksia.persistence import (
+from oh_my_subagents.operator import OperatorProviderThreadUnavailableError
+from oh_my_subagents.operator.contracts import OperatorMessageRequest
+from oh_my_subagents.persistence import (
     OperatorConversationEntryModel,
     OperatorConversationModel,
 )
-from banksia.runtime.clock import utc_now
+from oh_my_subagents.runtime.clock import utc_now
 from tests.helpers.operator import RecordingTurnRunner, operator_service
 
 

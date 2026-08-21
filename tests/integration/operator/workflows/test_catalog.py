@@ -6,10 +6,10 @@ from typing import Any
 import pytest
 from sqlalchemy import event
 
-from banksia.operator.tools import OperatorTool, OperatorToolName, build_operator_tools
-from banksia.operator.tools.workflow_projection import OperatorWorkflowDraftStaleError
-from banksia.runtime.errors import RuntimeOperationError
-from banksia.workflows.service_errors import WorkflowNotFoundError
+from oh_my_subagents.operator.tools import OperatorTool, OperatorToolName, build_operator_tools
+from oh_my_subagents.operator.tools.workflow_projection import OperatorWorkflowDraftStaleError
+from oh_my_subagents.runtime.errors import RuntimeOperationError
+from oh_my_subagents.workflows.service_errors import WorkflowNotFoundError
 from tests.helpers.generic_workflow import GENERIC_WORKFLOW_ID, publish_generic_workflow
 from tests.helpers.product_surface import product_dispatch_dependencies
 from tests.helpers.workflow_runtime import AsyncSessionFactory, initialized_workflow_database

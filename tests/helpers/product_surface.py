@@ -8,13 +8,13 @@ from typing import Any, Protocol
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from banksia.config import CodexSettings, RuntimeSettings, Settings, get_settings
-from banksia.main import create_app
-from banksia.persistence.session import get_db_session
-from banksia.providers import ProviderKind
-from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
-from banksia.runtime.post_commit import CapturedRuntimeEffectPublisher
-from banksia.runtime.providers import ProviderAdapterRegistry
+from oh_my_subagents.config import CodexSettings, RuntimeSettings, Settings, get_settings
+from oh_my_subagents.main import create_app
+from oh_my_subagents.persistence.session import get_db_session
+from oh_my_subagents.providers import ProviderKind
+from oh_my_subagents.runtime.dispatch.preparation import DispatchOpeningDependencies
+from oh_my_subagents.runtime.post_commit import CapturedRuntimeEffectPublisher
+from oh_my_subagents.runtime.providers import ProviderAdapterRegistry
 
 
 class AsyncSessionFactory(Protocol):

@@ -8,7 +8,7 @@ import pytest
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from banksia.operator import (
+from oh_my_subagents.operator import (
     OperatorConversationConflictError,
     OperatorConversationService,
     OperatorIdempotencyConflictError,
@@ -17,20 +17,20 @@ from banksia.operator import (
     OperatorTurnOutcome,
     OperatorTurnRequest,
 )
-from banksia.operator.contracts import (
+from oh_my_subagents.operator.contracts import (
     OperatorAssistantQuestionSetEntry,
     OperatorMessageRequest,
     OperatorQuestionAnswersRequest,
 )
-from banksia.operator.conversation_reads import OperatorSessionFactory
-from banksia.operator.persistence import (
+from oh_my_subagents.operator.conversation_reads import OperatorSessionFactory
+from oh_my_subagents.operator.persistence import (
     OperatorTurnClaim,
     claim_operator_message_turn,
     complete_operator_turn,
     interrupt_operator_turn,
     repair_stranded_operator_turns,
 )
-from banksia.persistence import (
+from oh_my_subagents.persistence import (
     OperatorConversationEntryModel,
     OperatorConversationModel,
 )

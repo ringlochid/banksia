@@ -6,8 +6,8 @@ from pathlib import Path
 import pytest
 from sqlalchemy.engine import make_url
 
-from banksia.paths import default_database_path, default_database_url
-from banksia.platform.workspace_files import (
+from oh_my_subagents.paths import default_database_path, default_database_url
+from oh_my_subagents.platform.workspace_files import (
     PrivatePathError,
     select_workspace_file_operations,
 )

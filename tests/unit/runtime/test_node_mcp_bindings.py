@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from banksia.runtime.node_mcp import DispatchMcpBindingRegistry
+from oh_my_subagents.runtime.node_mcp import DispatchMcpBindingRegistry
 
 
 def test_managed_binding_registry_keeps_plaintext_out_of_binding_state() -> None:
@@ -85,7 +85,7 @@ def test_managed_binding_authentication_compares_every_stored_digest(
         for index in range(3)
     ]
 
-    from banksia.runtime.node_mcp import bindings as binding_module
+    from oh_my_subagents.runtime.node_mcp import bindings as binding_module
 
     original_compare_digest = binding_module.hmac.compare_digest
     compared_digests: list[tuple[bytes, bytes]] = []
@@ -122,7 +122,7 @@ def test_managed_binding_revocation_removes_historical_authentication_work(
         exposure_ceiling=("get_current_context",),
     )
 
-    from banksia.runtime.node_mcp import bindings as binding_module
+    from oh_my_subagents.runtime.node_mcp import bindings as binding_module
 
     original_compare_digest = binding_module.hmac.compare_digest
     compared_digests: list[tuple[bytes, bytes]] = []

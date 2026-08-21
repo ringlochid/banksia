@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from banksia.runtime.projection import (
+from oh_my_subagents.runtime.projection import (
     SupportProjectionOwner,
     WorkflowManifestProjection,
 )

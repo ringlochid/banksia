@@ -5,10 +5,10 @@ from pathlib import Path
 
 from httpx import ASGITransport, AsyncClient
 
-import banksia.interfaces.cli as cli
-from banksia.config import get_settings
-from banksia.main import create_app
-from banksia.persistence.session import dispose_db_engine
+import oh_my_subagents.interfaces.cli as cli
+from oh_my_subagents.config import get_settings
+from oh_my_subagents.main import create_app
+from oh_my_subagents.persistence.session import dispose_db_engine
 
 
 async def test_readyz_uses_real_database(tmp_path: Path) -> None:

@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy import Connection
 
-from banksia.persistence import RuntimeBase
+from oh_my_subagents.persistence import RuntimeBase
 from tests.helpers.assignment_persistence_seed import seed_assignments_and_attempts
 from tests.helpers.catalog_seed import WORKFLOW_CONTENT_HASH
 from tests.helpers.team_persistence_seed import (

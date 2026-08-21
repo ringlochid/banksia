@@ -9,7 +9,7 @@ from typing import Any, cast
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from banksia.persistence.models import (
+from oh_my_subagents.persistence.models import (
     AcceptedBoundaryModel,
     AttemptModel,
     AttemptWaitModel,
@@ -19,14 +19,14 @@ from banksia.persistence.models import (
     TaskModel,
     TeamRevisionMemberModel,
 )
-from banksia.runtime.delegation import create_wave_member_settled_handler
-from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
-from banksia.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
-from banksia.runtime.post_commit import (
+from oh_my_subagents.runtime.delegation import create_wave_member_settled_handler
+from oh_my_subagents.runtime.dispatch.preparation import DispatchOpeningDependencies
+from oh_my_subagents.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
+from oh_my_subagents.runtime.post_commit import (
     CapturedRuntimeEffectPublisher,
     WaveMemberSettled,
 )
-from banksia.runtime.post_commit.delegation_wave_startup import (
+from oh_my_subagents.runtime.post_commit.delegation_wave_startup import (
     read_wave_settlement_page,
 )
 from tests.helpers.disjoint_team_runtime import (

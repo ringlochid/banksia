@@ -4,7 +4,7 @@ from pathlib import Path
 
 from sqlalchemy import CheckConstraint, ForeignKeyConstraint, UniqueConstraint, func, select
 
-from banksia.persistence import RuntimeBase
+from oh_my_subagents.persistence import RuntimeBase
 from tests.helpers.catalog_seed import seed_catalog
 from tests.helpers.lineage_seed import seed_runtime_scope
 from tests.helpers.sqlite_runtime import create_runtime_schema_engine

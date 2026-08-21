@@ -19,7 +19,7 @@ from .workflow_schema import workflow_schema_reference_findings
 
 WORKFLOW_SCHEMA_PATH = Path("docs/reference/workflows/workflow-definition.schema.yaml")
 WORKFLOW_EXAMPLE_ROOT = Path("examples/workflows")
-WORKFLOW_SEED_ROOT = Path("src/banksia/workflows/resources/starter_workflows")
+WORKFLOW_SEED_ROOT = Path("src/oh_my_subagents/workflows/resources/starter_workflows")
 WORKFLOW_EXAMPLE_README_PATH = WORKFLOW_EXAMPLE_ROOT / "README.md"
 EXPECTED_WORKFLOW_EXAMPLE_FILES = (
     "advanced-cross-layer-delivery.yaml",

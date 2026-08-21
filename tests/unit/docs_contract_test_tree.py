@@ -53,8 +53,8 @@ def copy_workflow_fixtures(root: Path) -> None:
             WORKFLOW_EXAMPLE_FILES,
         ),
         (
-            repo_root / "src/banksia/workflows/resources/starter_workflows",
-            root / "src/banksia/workflows/resources/starter_workflows",
+            repo_root / "src/oh_my_subagents/workflows/resources/starter_workflows",
+            root / "src/oh_my_subagents/workflows/resources/starter_workflows",
             WORKFLOW_SEED_FILES,
         ),
     ):

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from banksia.runtime.contracts.primitives import CheckpointOutcome
-from banksia.runtime.contracts.prompt import (
+from oh_my_subagents.runtime.contracts.primitives import CheckpointOutcome
+from oh_my_subagents.runtime.contracts.prompt import (
     DelegationWaveMemberResult,
     DelegationWaveSettledResult,
     DelegationWaveSettledSource,
@@ -11,8 +11,8 @@ from banksia.runtime.contracts.prompt import (
     PromptAssignment,
     PromptCheckpointSummary,
 )
-from banksia.runtime.contracts.refs import FileReference
-from banksia.runtime.contracts.team_read import MemberParticipation
+from oh_my_subagents.runtime.contracts.refs import FileReference
+from oh_my_subagents.runtime.contracts.team_read import MemberParticipation
 from scripts.docs.prompt_catalog.behavior_contract import (
     BEHAVIOR_STORIES,
     BEHAVIOR_STORY_BINDINGS,

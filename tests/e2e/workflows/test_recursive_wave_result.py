@@ -6,8 +6,8 @@ from pathlib import Path
 import pytest
 from sqlalchemy import func, select
 
-from banksia.config import CodexSettings, RuntimeSettings, Settings
-from banksia.persistence.models import (
+from oh_my_subagents.config import CodexSettings, RuntimeSettings, Settings
+from oh_my_subagents.persistence.models import (
     AssignmentModel,
     AttemptWaitModel,
     DelegationWaveMemberModel,
@@ -15,19 +15,19 @@ from banksia.persistence.models import (
     ReplanTransitionModel,
     TaskModel,
 )
-from banksia.providers import ProviderKind
-from banksia.runtime.checkpoint.reads import read_task_result
-from banksia.runtime.clock import utc_now
-from banksia.runtime.contracts import ReplanSuccess
-from banksia.runtime.contracts.operation_failure import OperationFailureCode
-from banksia.runtime.delegation import settle_delegation_wave
-from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
-from banksia.runtime.errors import RuntimeOperationError
-from banksia.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
-from banksia.runtime.post_commit import (
+from oh_my_subagents.providers import ProviderKind
+from oh_my_subagents.runtime.checkpoint.reads import read_task_result
+from oh_my_subagents.runtime.clock import utc_now
+from oh_my_subagents.runtime.contracts import ReplanSuccess
+from oh_my_subagents.runtime.contracts.operation_failure import OperationFailureCode
+from oh_my_subagents.runtime.delegation import settle_delegation_wave
+from oh_my_subagents.runtime.dispatch.preparation import DispatchOpeningDependencies
+from oh_my_subagents.runtime.errors import RuntimeOperationError
+from oh_my_subagents.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
+from oh_my_subagents.runtime.post_commit import (
     CapturedRuntimeEffectPublisher,
 )
-from banksia.runtime.replan.continuation import continue_committed_replan
+from oh_my_subagents.runtime.replan.continuation import continue_committed_replan
 from tests.helpers.delegation_wave_e2e import (
     DelegationAssignment,
     OpenedDelegationWave,

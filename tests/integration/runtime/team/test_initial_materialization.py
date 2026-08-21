@@ -9,7 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from banksia.persistence.models import (
+from oh_my_subagents.persistence.models import (
     MemberBranchBasisModel,
     MemberConfigurationModel,
     MemberModel,
@@ -17,12 +17,12 @@ from banksia.persistence.models import (
     TeamRevisionMemberModel,
     TeamRevisionModel,
 )
-from banksia.runtime.team import (
+from oh_my_subagents.runtime.team import (
     InitialTaskTeam,
     TeamMaterializationError,
     materialize_initial_task_team,
 )
-from banksia.workflows.contracts import PublishedWorkflowRevision
+from oh_my_subagents.workflows.contracts import PublishedWorkflowRevision
 from tests.helpers.generic_workflow import (
     GENERIC_BRANCHING_WORKFLOW_ID,
     publish_generic_branching_workflow,

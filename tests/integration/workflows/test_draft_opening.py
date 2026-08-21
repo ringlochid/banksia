@@ -8,11 +8,11 @@ from pathlib import Path
 import httpx
 from fastapi import FastAPI
 
-import banksia.interfaces.cli as cli
-from banksia.config import get_settings
-from banksia.interfaces.http.openapi import build_product_openapi_document
-from banksia.main import create_app
-from banksia.persistence.session import dispose_test_db_engine
+import oh_my_subagents.interfaces.cli as cli
+from oh_my_subagents.config import get_settings
+from oh_my_subagents.interfaces.http.openapi import build_product_openapi_document
+from oh_my_subagents.main import create_app
+from oh_my_subagents.persistence.session import dispose_test_db_engine
 from tests.helpers.generic_workflow import GENERIC_WORKFLOW_ID, publish_generic_workflow
 from tests.helpers.product_surface import product_http_client
 from tests.helpers.workflow_runtime import initialized_workflow_database

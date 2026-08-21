@@ -11,8 +11,8 @@ from sqlalchemy import Connection, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from banksia.persistence import RuntimeBase
-from banksia.persistence.session import create_runtime_schema_tables
+from oh_my_subagents.persistence import RuntimeBase
+from oh_my_subagents.persistence.session import create_runtime_schema_tables
 from tests.helpers.catalog_seed import seed_catalog
 from tests.helpers.disposable_postgres import read_disposable_postgres_url
 from tests.helpers.lineage_seed import RuntimeIds, seed_runtime_scope

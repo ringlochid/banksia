@@ -199,7 +199,7 @@ Docs commands:
 
 ### Applicability
 
-For touched backend behavior under `src/banksia/**` or `tests/**`, run every applicable lane before claiming completion:
+For touched backend behavior under `src/oh_my_subagents/**` or `tests/**`, run every applicable lane before claiming completion:
 
 - `make test-backend`
 - `make test-backend-integration` when the touched slice owns repo-native SQLite or runtime-template integration behavior

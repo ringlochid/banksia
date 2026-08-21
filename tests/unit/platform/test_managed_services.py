@@ -7,10 +7,10 @@ from pathlib import Path
 
 import pytest
 
-import banksia.platform.managed_services.launchd as launchd_module
-import banksia.platform.managed_services.systemd as systemd_module
-from banksia.config import Settings
-from banksia.platform.managed_services import (
+import oh_my_subagents.platform.managed_services.launchd as launchd_module
+import oh_my_subagents.platform.managed_services.systemd as systemd_module
+from oh_my_subagents.config import Settings
+from oh_my_subagents.platform.managed_services import (
     LAUNCHD_SERVICE_NAME,
     SERVICE_LOGGER_NAME,
     ManagedServiceCommandError,
@@ -29,10 +29,10 @@ from banksia.platform.managed_services import (
     wait_for_controller_shutdown,
     wait_for_controller_state,
 )
-from banksia.platform.managed_services.definition_files import (
+from oh_my_subagents.platform.managed_services.definition_files import (
     replace_service_definition,
 )
-from banksia.platform.managed_services.launchd import LaunchdUserServiceManager
+from oh_my_subagents.platform.managed_services.launchd import LaunchdUserServiceManager
 
 
 def test_manager_selection_rejects_unknown_hosts() -> None:
@@ -228,7 +228,7 @@ def test_shutdown_rejects_a_lingering_bind_target(tmp_path: Path) -> None:
 def test_ready_endpoint_does_not_override_stopped_native_service(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import banksia.platform.managed_services.controller_status as controller_status_module
+    import oh_my_subagents.platform.managed_services.controller_status as controller_status_module
 
     monkeypatch.setattr(controller_status_module, "_read_health_status", lambda *args: 200)
 

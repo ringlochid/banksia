@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from banksia.platform.provider_environment import (
+from oh_my_subagents.platform.provider_environment import (
     ANTHROPIC_API_KEY,
     ProviderEnvironmentError,
     persist_provider_secret,

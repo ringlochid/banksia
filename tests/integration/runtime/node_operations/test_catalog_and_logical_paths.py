@@ -2,17 +2,17 @@ from __future__ import annotations
 
 import pytest
 
-from banksia.runtime.node_operations import (
+from oh_my_subagents.runtime.node_operations import (
     NODE_OPERATION_CATALOG,
     NodeOperationTransferKind,
     get_node_operation_descriptor,
 )
-from banksia.runtime.node_operations.catalog import (
+from oh_my_subagents.runtime.node_operations.catalog import (
     NodeOperationSelection,
     select_node_operation_descriptors,
 )
-from banksia.runtime.node_operations.contracts import NodeOperationName
-from banksia.runtime.work_plan import SetWorkPlanRequest
+from oh_my_subagents.runtime.node_operations.contracts import NodeOperationName
+from oh_my_subagents.runtime.work_plan import SetWorkPlanRequest
 
 EXPECTED_OPERATION_NAMES = (
     "get_current_context",

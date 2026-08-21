@@ -6,8 +6,8 @@ from xml.etree import ElementTree
 import pytest
 from pydantic import ValidationError
 
-from banksia.runtime.contracts import ReplanSuccess
-from banksia.runtime.contracts.prompt import (
+from oh_my_subagents.runtime.contracts import ReplanSuccess
+from oh_my_subagents.runtime.contracts.prompt import (
     PromptAssignment,
     PromptContinuation,
     PromptSteer,
@@ -16,12 +16,12 @@ from banksia.runtime.contracts.prompt import (
     StructuralReplanSource,
     StructuralReplanTrigger,
 )
-from banksia.runtime.contracts.team_read import (
+from oh_my_subagents.runtime.contracts.team_read import (
     EffectiveCapabilitiesRead,
     MemberBehavior,
     ResolvedProviderRead,
 )
-from banksia.runtime.prompt import (
+from oh_my_subagents.runtime.prompt import (
     parse_prompt_continuation,
     render_dispatch_request,
     render_dynamic_input,

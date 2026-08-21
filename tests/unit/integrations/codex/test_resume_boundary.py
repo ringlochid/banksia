@@ -5,7 +5,7 @@ from typing import cast
 
 import pytest
 
-from banksia.operator.provider import OperatorProviderUnavailableError
+from oh_my_subagents.operator.provider import OperatorProviderUnavailableError
 from tests.unit.integrations.codex.codex_test_support import (
     TEST_DRIVE_ROOT,
     ClientFactory,

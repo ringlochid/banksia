@@ -172,10 +172,10 @@ def test_cli_main_import_interface_gate_fails_on_duplicate_module_ownership(
             **build_empty_audit_results(audit.models, tmp_path).__dict__,
             "duplicate_module_name_findings": (
                 audit.models.DuplicateModuleNameFinding(
-                    module_name="banksia.common",
+                    module_name="oh_my_subagents.common",
                     paths=(
-                        tmp_path / "banksia" / "common.py",
-                        tmp_path / "src" / "banksia" / "common.py",
+                        tmp_path / "oh_my_subagents" / "common.py",
+                        tmp_path / "src" / "oh_my_subagents" / "common.py",
                     ),
                 ),
             ),

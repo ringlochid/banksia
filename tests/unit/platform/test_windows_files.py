@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-import banksia.platform.workspace_files.workspace_windows as workspace_windows_module
-from banksia.platform.workspace_files import (
+import oh_my_subagents.platform.workspace_files.workspace_windows as workspace_windows_module
+from oh_my_subagents.platform.workspace_files import (
     PrivateMutationTimeoutError,
     acquire_private_mutation_lock,
     ensure_private_directory,
@@ -14,8 +14,8 @@ from banksia.platform.workspace_files import (
     replace_private_text,
     select_workspace_file_operations,
 )
-from banksia.platform.workspace_files.contracts import PrivatePathError, WindowsPathIdentity
-from banksia.platform.workspace_files.workspace_windows import (
+from oh_my_subagents.platform.workspace_files.contracts import PrivatePathError, WindowsPathIdentity
+from oh_my_subagents.platform.workspace_files.workspace_windows import (
     WindowsDirectoryLease,
     WindowsWorkspaceFileOperations,
 )

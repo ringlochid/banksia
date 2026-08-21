@@ -4,25 +4,25 @@ from dataclasses import dataclass
 from importlib.resources import files
 from pathlib import Path, PurePath
 
-from banksia.runtime.contracts.prompt import (
+from oh_my_subagents.runtime.contracts.prompt import (
     PROMPT_DYNAMIC_INPUT_KEYS,
     PROMPT_TRIGGER_KINDS,
     PromptDynamicInput,
 )
-from banksia.runtime.prompt import (
+from oh_my_subagents.runtime.prompt import (
     INSTRUCTION_ASSETS,
     instruction_asset_path,
     load_instruction_asset,
 )
-from banksia.runtime.team.materialization import plan_initial_task_team
-from banksia.workflows.bootstrap import STARTER_WORKFLOW_FILENAMES
-from banksia.workflows.canonical import canonical_workflow_hash
-from banksia.workflows.contracts import (
+from oh_my_subagents.runtime.team.materialization import plan_initial_task_team
+from oh_my_subagents.workflows.bootstrap import STARTER_WORKFLOW_FILENAMES
+from oh_my_subagents.workflows.canonical import canonical_workflow_hash
+from oh_my_subagents.workflows.contracts import (
     NormalizedMember,
     NormalizedWorkflow,
     PublishedWorkflowRevision,
 )
-from banksia.workflows.ingest import parse_workflow
+from oh_my_subagents.workflows.ingest import parse_workflow
 from scripts.docs.prompt_catalog import behavior_scenarios as scenario_catalog
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -190,7 +190,7 @@ def _load_starter_workflow(workflow_id: str) -> NormalizedWorkflow:
     )
     if filename is None:
         raise ValueError(f"unknown packaged Starter Workflow {workflow_id!r}")
-    resource = files("banksia.workflows.resources.starter_workflows").joinpath(filename)
+    resource = files("oh_my_subagents.workflows.resources.starter_workflows").joinpath(filename)
     workflow = parse_workflow(resource.read_bytes(), source_format="yaml")
     if workflow.id != workflow_id:
         raise ValueError(f"packaged Starter {filename!r} declares unexpected id {workflow.id!r}")

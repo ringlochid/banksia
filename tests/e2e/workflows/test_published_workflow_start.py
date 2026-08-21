@@ -7,9 +7,9 @@ from unittest.mock import patch
 import pytest
 from sqlalchemy import func, select
 
-import banksia.runtime.node_operations.executor as executor_module
-from banksia.config import CodexSettings, RuntimeSettings, Settings
-from banksia.persistence.models import (
+import oh_my_subagents.runtime.node_operations.executor as executor_module
+from oh_my_subagents.config import CodexSettings, RuntimeSettings, Settings
+from oh_my_subagents.persistence.models import (
     AcceptedBoundaryModel,
     AssignmentModel,
     AttemptModel,
@@ -19,19 +19,19 @@ from banksia.persistence.models import (
     TaskModel,
     TeamRevisionMemberModel,
 )
-from banksia.providers import ProviderKind
-from banksia.runtime import RuntimeLaunchInput
-from banksia.runtime.checkpoint.reads import read_task_result
-from banksia.runtime.contracts import AssignmentBody
-from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
-from banksia.runtime.launch.continuation import open_root_dispatch
-from banksia.runtime.launch.service import launch_task_runtime
-from banksia.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
-from banksia.runtime.post_commit import (
+from oh_my_subagents.providers import ProviderKind
+from oh_my_subagents.runtime import RuntimeLaunchInput
+from oh_my_subagents.runtime.checkpoint.reads import read_task_result
+from oh_my_subagents.runtime.contracts import AssignmentBody
+from oh_my_subagents.runtime.dispatch.preparation import DispatchOpeningDependencies
+from oh_my_subagents.runtime.launch.continuation import open_root_dispatch
+from oh_my_subagents.runtime.launch.service import launch_task_runtime
+from oh_my_subagents.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
+from oh_my_subagents.runtime.post_commit import (
     CapturedRuntimeEffectPublisher,
     TaskStartCommitted,
 )
-from banksia.workflows.catalog import read_current_published_workflow
+from oh_my_subagents.workflows.catalog import read_current_published_workflow
 from tests.helpers.delegation_wave_e2e import (
     DelegationAssignment,
     OpenedDelegationWave,

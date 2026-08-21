@@ -3,15 +3,15 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from banksia.config import (
+from oh_my_subagents.config import (
     ClaudeSettings,
     CodexSettings,
     RuntimeSettings,
     Settings,
     get_settings,
 )
-from banksia.main import create_app
-from banksia.providers import ManagedSandboxMode, NetworkAccess, ProviderKind
+from oh_my_subagents.main import create_app
+from oh_my_subagents.providers import ManagedSandboxMode, NetworkAccess, ProviderKind
 
 
 @pytest.mark.parametrize(

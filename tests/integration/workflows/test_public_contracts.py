@@ -7,8 +7,8 @@ from typing import cast
 
 import httpx
 
-from banksia.main import create_app
-from banksia.workflows.cursors import (
+from oh_my_subagents.main import create_app
+from oh_my_subagents.workflows.cursors import (
     encode_workflow_revision_cursor,
     encode_workflow_search_cursor,
 )

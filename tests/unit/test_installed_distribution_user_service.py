@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from banksia.platform.managed_services.windows_task_scheduler import (
+from oh_my_subagents.platform.managed_services.windows_task_scheduler import (
     WindowsScheduledTaskSnapshot,
 )
 from scripts.testing.installed_distribution.user_service import (

@@ -9,15 +9,15 @@ from typing import cast
 from sqlalchemy import Connection
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from banksia.persistence import RuntimeBase
-from banksia.persistence.models import DispatchTurnModel
-from banksia.runtime.post_commit import (
+from oh_my_subagents.persistence import RuntimeBase
+from oh_my_subagents.persistence.models import DispatchTurnModel
+from oh_my_subagents.runtime.post_commit import (
     RuntimeEffectSignal,
     WatchdogDeadlineChanged,
     WatchdogDue,
 )
-from banksia.runtime.post_commit.deadlines import DeadlineScheduler
-from banksia.runtime.watchdog import create_watchdog_deadline_changed_handler
+from oh_my_subagents.runtime.post_commit.deadlines import DeadlineScheduler
+from oh_my_subagents.runtime.watchdog import create_watchdog_deadline_changed_handler
 from tests.helpers.catalog_seed import seed_catalog
 from tests.helpers.executor_harness import seeded_executor
 from tests.helpers.lineage_seed import RuntimeIds, seed_runtime_scope

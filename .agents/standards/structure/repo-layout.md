@@ -16,10 +16,10 @@ Use this guide when the work includes moving files, splitting packages, renaming
 
 ## Root map
 
-- `src/banksia/**`: the one canonical Oh My Subagents backend package
+- `src/oh_my_subagents/**`: the one canonical Oh My Subagents backend package
 - `tests/**`: backend proof organized by unit, integration, and end-to-end ownership
 - `console/**`: the Oh My Subagents browser Console
-- `src/banksia/workflows/resources/starter_workflows/**`: provider-neutral bootstrap inputs, not runtime authority
+- `src/oh_my_subagents/workflows/resources/starter_workflows/**`: provider-neutral bootstrap inputs, not runtime authority
 - `docs/**`: public product, operator, reference, and help docs
 - `docs-internal/architecture/**`: runtime and product architecture
 - `docs-internal/interfaces/**`: controller, Console, Operator, and tool contracts
@@ -76,21 +76,21 @@ Extended guidance: [Naming](../code/naming.md)
 
 ## Backend layout guidance
 
-- keep one coherent taxonomy under `src/banksia/**` and do not open a parallel `banksia_v2` tree
-- prefer public interfaces under `src/banksia/interfaces/**`
-- keep HTTP surfaces under `src/banksia/interfaces/http/**`
-- keep HTTP-only support contracts, presenters, and transport models under `src/banksia/interfaces/http/contracts/**`
-- keep noun-owned HTTP route modules under `src/banksia/interfaces/http/routers/**`
-- keep CLI entrypoints and noun-family orchestration under `src/banksia/interfaces/cli/**`
-- keep MCP or similar server-facing entrypoints under `src/banksia/interfaces/mcp/**`
+- keep one coherent taxonomy under `src/oh_my_subagents/**` and do not open a parallel `banksia_v2` tree
+- prefer public interfaces under `src/oh_my_subagents/interfaces/**`
+- keep HTTP surfaces under `src/oh_my_subagents/interfaces/http/**`
+- keep HTTP-only support contracts, presenters, and transport models under `src/oh_my_subagents/interfaces/http/contracts/**`
+- keep noun-owned HTTP route modules under `src/oh_my_subagents/interfaces/http/routers/**`
+- keep CLI entrypoints and noun-family orchestration under `src/oh_my_subagents/interfaces/cli/**`
+- keep MCP or similar server-facing entrypoints under `src/oh_my_subagents/interfaces/mcp/**`
 - keep interface packages thin; parsing, dependency wiring, dispatch, and rendering belong there, not long-lived runtime or registry business logic
-- keep authored-definition families grouped under `src/banksia/definitions/**`
-- keep definition-owned contracts under `src/banksia/definitions/contracts/**`
-- keep persistence and ORM models under `src/banksia/persistence/**`
-- keep runtime-owned contracts under `src/banksia/runtime/contracts/**`
-- keep runtime orchestration under `src/banksia/runtime/**`
-- keep platform-owned setup and environment code under `src/banksia/platform/**`
-- when provider integration becomes substantial, keep reusable substrate under `src/banksia/integrations/**` and keep runtime usage under the owning runtime family
+- keep authored-definition families grouped under `src/oh_my_subagents/definitions/**`
+- keep definition-owned contracts under `src/oh_my_subagents/definitions/contracts/**`
+- keep persistence and ORM models under `src/oh_my_subagents/persistence/**`
+- keep runtime-owned contracts under `src/oh_my_subagents/runtime/contracts/**`
+- keep runtime orchestration under `src/oh_my_subagents/runtime/**`
+- keep platform-owned setup and environment code under `src/oh_my_subagents/platform/**`
+- when provider integration becomes substantial, keep reusable substrate under `src/oh_my_subagents/integrations/**` and keep runtime usage under the owning runtime family
 
 ## Frontend layout guidance
 

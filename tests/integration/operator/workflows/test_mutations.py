@@ -6,9 +6,9 @@ from typing import Any
 
 import pytest
 
-from banksia.operator.tools import OperatorTool, OperatorToolName, build_operator_tools
-from banksia.operator.tools.workflow_projection import OperatorWorkflowDraftStaleError
-from banksia.workflows.service_errors import WorkflowUndoReceiptError
+from oh_my_subagents.operator.tools import OperatorTool, OperatorToolName, build_operator_tools
+from oh_my_subagents.operator.tools.workflow_projection import OperatorWorkflowDraftStaleError
+from oh_my_subagents.workflows.service_errors import WorkflowUndoReceiptError
 from tests.helpers.product_surface import product_dispatch_dependencies
 from tests.helpers.workflow_runtime import AsyncSessionFactory, initialized_workflow_database
 

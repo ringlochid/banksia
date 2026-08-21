@@ -10,35 +10,35 @@ import pytest
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import banksia.runtime.task_start as task_start_module
-import banksia.runtime.workspace.admission as admission_module
-from banksia.config import CodexSettings, RuntimeSettings, Settings
-from banksia.persistence.models import (
+import oh_my_subagents.runtime.task_start as task_start_module
+import oh_my_subagents.runtime.workspace.admission as admission_module
+from oh_my_subagents.config import CodexSettings, RuntimeSettings, Settings
+from oh_my_subagents.persistence.models import (
     AttemptModel,
     DispatchTurnModel,
     TaskEventModel,
     TaskModel,
 )
-from banksia.platform.workspace_files import DirectoryLease, ensure_private_directory
-from banksia.providers import ProviderKind
-from banksia.runtime.contracts import TaskStartRequest
-from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
-from banksia.runtime.errors import RuntimeOperationError
-from banksia.runtime.post_commit import CapturedRuntimeEffectPublisher
-from banksia.runtime.product.tasks import read_product_task
-from banksia.runtime.task_control.control import continue_task, pause_task
-from banksia.runtime.task_control.reads import read_runtime_task
-from banksia.runtime.task_start import start_task
-from banksia.runtime.team import plan_initial_task_team
-from banksia.runtime.workspace.admission import (
+from oh_my_subagents.platform.workspace_files import DirectoryLease, ensure_private_directory
+from oh_my_subagents.providers import ProviderKind
+from oh_my_subagents.runtime.contracts import TaskStartRequest
+from oh_my_subagents.runtime.dispatch.preparation import DispatchOpeningDependencies
+from oh_my_subagents.runtime.errors import RuntimeOperationError
+from oh_my_subagents.runtime.post_commit import CapturedRuntimeEffectPublisher
+from oh_my_subagents.runtime.product.tasks import read_product_task
+from oh_my_subagents.runtime.task_control.control import continue_task, pause_task
+from oh_my_subagents.runtime.task_control.reads import read_runtime_task
+from oh_my_subagents.runtime.task_start import start_task
+from oh_my_subagents.runtime.team import plan_initial_task_team
+from oh_my_subagents.runtime.workspace.admission import (
     TASK_INITIALIZATION_MARKER,
     accept_task_workspace,
     cleanup_marked_task_workspace,
     recover_task_workspace_admissions,
     stage_task_workspace,
 )
-from banksia.runtime.workspace.storage import WorkspaceIdentity, replace_task_text
-from banksia.workflows.catalog import read_current_published_workflow
+from oh_my_subagents.runtime.workspace.storage import WorkspaceIdentity, replace_task_text
+from oh_my_subagents.workflows.catalog import read_current_published_workflow
 from tests.helpers.generic_workflow import GENERIC_WORKFLOW_ID, publish_generic_workflow
 from tests.helpers.workflow_runtime import initialized_workflow_database
 

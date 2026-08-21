@@ -4,11 +4,11 @@ from pathlib import Path
 
 from sqlalchemy import select
 
-from banksia.persistence.models import AssignmentModel, TaskModel, TeamRevisionMemberModel
-from banksia.runtime import RuntimeLaunchInput
-from banksia.runtime.contracts import AssignmentBody
-from banksia.runtime.launch.service import launch_task_runtime
-from banksia.workflows.catalog import read_current_published_workflow
+from oh_my_subagents.persistence.models import AssignmentModel, TaskModel, TeamRevisionMemberModel
+from oh_my_subagents.runtime import RuntimeLaunchInput
+from oh_my_subagents.runtime.contracts import AssignmentBody
+from oh_my_subagents.runtime.launch.service import launch_task_runtime
+from oh_my_subagents.workflows.catalog import read_current_published_workflow
 from tests.helpers.workflow_runtime import initialized_workflow_database
 
 

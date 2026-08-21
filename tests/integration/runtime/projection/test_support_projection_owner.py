@@ -6,13 +6,13 @@ from typing import cast
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import banksia.runtime.startup_audit as startup_audit
-from banksia.runtime.projection.materialization import project_workflow_manifest
-from banksia.runtime.projection.signals import (
+import oh_my_subagents.runtime.startup_audit as startup_audit
+from oh_my_subagents.runtime.projection.materialization import project_workflow_manifest
+from oh_my_subagents.runtime.projection.signals import (
     SupportProjectionSignal,
     WorkflowManifestProjection,
 )
-from banksia.runtime.startup_audit import (
+from oh_my_subagents.runtime.startup_audit import (
     AsyncSessionContextFactory,
     audit_startup_support_projections,
 )

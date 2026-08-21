@@ -11,8 +11,8 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
-from banksia.config import CodexSettings, RuntimeSettings, Settings
-from banksia.persistence.models import (
+from oh_my_subagents.config import CodexSettings, RuntimeSettings, Settings
+from oh_my_subagents.persistence.models import (
     AttemptModel,
     DispatchCapabilitySetModel,
     DispatchRequestModel,
@@ -20,17 +20,19 @@ from banksia.persistence.models import (
     TaskModel,
     TaskStartSourceModel,
 )
-from banksia.providers import ManagedSandboxMode, NetworkAccess, ProviderKind
-from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
-from banksia.runtime.launch.continuation import open_root_dispatch
-from banksia.runtime.launch.persistence.runtime import persist_bootstrap_runtime_from_precomputed
-from banksia.runtime.observability import support_task_trace
-from banksia.runtime.post_commit import (
+from oh_my_subagents.providers import ManagedSandboxMode, NetworkAccess, ProviderKind
+from oh_my_subagents.runtime.dispatch.preparation import DispatchOpeningDependencies
+from oh_my_subagents.runtime.launch.continuation import open_root_dispatch
+from oh_my_subagents.runtime.launch.persistence.runtime import (
+    persist_bootstrap_runtime_from_precomputed,
+)
+from oh_my_subagents.runtime.observability import support_task_trace
+from oh_my_subagents.runtime.post_commit import (
     CapturedRuntimeEffectPublisher,
     DispatchStartDue,
     TaskStartCommitted,
 )
-from banksia.runtime.post_commit.dispatch_startup import (
+from oh_my_subagents.runtime.post_commit.dispatch_startup import (
     read_dispatch_start_page,
     read_task_start_page,
 )

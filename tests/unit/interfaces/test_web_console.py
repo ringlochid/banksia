@@ -5,7 +5,7 @@ from pathlib import Path
 import httpx
 from fastapi import FastAPI
 
-from banksia.interfaces.web_console import register_web_console_routes
+from oh_my_subagents.interfaces.web_console import register_web_console_routes
 from tests.helpers.generic_workflow import GENERIC_WORKFLOW_ID
 
 

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from banksia.operator import (
+from oh_my_subagents.operator import (
     OperatorAnswerValidationError,
     OperatorIdempotencyConflictError,
     OperatorProviderAskUserResult,
@@ -13,7 +13,7 @@ from banksia.operator import (
     OperatorTurnOutcome,
     OperatorUnavailableError,
 )
-from banksia.operator.contracts import (
+from oh_my_subagents.operator.contracts import (
     OperatorAssistantQuestionSetEntry,
     OperatorMessageRequest,
     OperatorQuestionAnswersRequest,

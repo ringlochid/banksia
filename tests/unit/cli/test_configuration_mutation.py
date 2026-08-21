@@ -8,12 +8,12 @@ from pathlib import Path
 
 import pytest
 
-from banksia.interfaces.cli.providers.configuration import (
+from oh_my_subagents.interfaces.cli.providers.configuration import (
     ProviderConfigurationRequest,
     configure_provider,
     set_default_provider,
 )
-from banksia.providers import ManagedExtensionMode, ProviderKind
+from oh_my_subagents.providers import ManagedExtensionMode, ProviderKind
 
 
 def test_first_configuration_sets_default_and_later_configuration_preserves_it(

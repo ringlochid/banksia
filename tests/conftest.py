@@ -29,7 +29,7 @@ class _CachedSettingsLoader(Protocol):
 # Import dynamically only after the hermetic environment is complete.
 get_settings = cast(
     _CachedSettingsLoader,
-    import_module("banksia.config").get_settings,
+    import_module("oh_my_subagents.config").get_settings,
 )
 
 get_settings.cache_clear()
@@ -81,6 +81,6 @@ async def cleanup_runtime_async_state() -> AsyncGenerator[None, None]:
     try:
         yield
     finally:
-        from banksia.persistence.session import dispose_test_db_engine
+        from oh_my_subagents.persistence.session import dispose_test_db_engine
 
         await dispose_test_db_engine()

@@ -1,20 +1,20 @@
 from __future__ import annotations
 
-from banksia.providers import NetworkAccess, ProviderNativeAccess
-from banksia.runtime.capabilities import (
+from oh_my_subagents.providers import NetworkAccess, ProviderNativeAccess
+from oh_my_subagents.runtime.capabilities import (
     capability_rejection_for_command_run,
     capability_rejection_for_human_request,
     default_effective_capabilities,
     resolve_effective_capabilities_from_member_request,
 )
-from banksia.runtime.contracts import (
+from oh_my_subagents.runtime.contracts import (
     CapabilityCeilingSet,
     CapabilityDecision,
     CapabilitySource,
     HumanRequestKind,
     OperationFailureCode,
 )
-from banksia.workflows import MemberCapabilities
+from oh_my_subagents.workflows import MemberCapabilities
 
 
 def test_omitted_member_capabilities_default_deny_controller_managed_operations() -> None:

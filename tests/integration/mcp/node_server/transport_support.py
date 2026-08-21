@@ -12,13 +12,13 @@ from mcp.client.streamable_http import streamable_http_client
 from pydantic import BaseModel
 from starlette.applications import Starlette
 
-from banksia.interfaces.mcp.node import create_managed_node_mcp_app
-from banksia.interfaces.mcp.transport import node_mcp_transport_policy
-from banksia.runtime.node_mcp import (
+from oh_my_subagents.interfaces.mcp.node import create_managed_node_mcp_app
+from oh_my_subagents.interfaces.mcp.transport import node_mcp_transport_policy
+from oh_my_subagents.runtime.node_mcp import (
     DispatchMcpBindingRegistry,
     IssuedDispatchMcpBinding,
 )
-from banksia.runtime.node_operations import (
+from oh_my_subagents.runtime.node_operations import (
     NODE_OPERATION_CATALOG,
     NodeOperationDescriptor,
     NodeOperationExecutor,

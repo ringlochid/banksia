@@ -9,8 +9,8 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from banksia.config import CodexSettings, RuntimeSettings, Settings
-from banksia.persistence.models import (
+from oh_my_subagents.config import CodexSettings, RuntimeSettings, Settings
+from oh_my_subagents.persistence.models import (
     AcceptedBoundaryModel,
     AssignmentModel,
     AttemptModel,
@@ -21,28 +21,28 @@ from banksia.persistence.models import (
     TaskModel,
     TeamRevisionMemberModel,
 )
-from banksia.providers import ProviderKind
-from banksia.runtime.contracts import (
+from oh_my_subagents.providers import ProviderKind
+from oh_my_subagents.runtime.contracts import (
     CheckpointResponse,
     ReplanSuccess,
     StructuralReplanTrigger,
 )
-from banksia.runtime.contracts.operation_failure import OperationFailureCode
-from banksia.runtime.delegation.continuation import open_delegation_wave_successor
-from banksia.runtime.delegation.settlement import settle_delegation_wave
-from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
-from banksia.runtime.errors import RuntimeOperationError
-from banksia.runtime.node_operations import (
+from oh_my_subagents.runtime.contracts.operation_failure import OperationFailureCode
+from oh_my_subagents.runtime.delegation.continuation import open_delegation_wave_successor
+from oh_my_subagents.runtime.delegation.settlement import settle_delegation_wave
+from oh_my_subagents.runtime.dispatch.preparation import DispatchOpeningDependencies
+from oh_my_subagents.runtime.errors import RuntimeOperationError
+from oh_my_subagents.runtime.node_operations import (
     GetCurrentContextResponse,
     NodeOperationExecutor,
     NodeOperationScope,
 )
-from banksia.runtime.post_commit import (
+from oh_my_subagents.runtime.post_commit import (
     CapturedRuntimeEffectPublisher,
     DelegationWaveSettled,
 )
-from banksia.runtime.replan.continuation import continue_committed_replan
-from banksia.runtime.team.participation import read_accepted_green_participation
+from oh_my_subagents.runtime.replan.continuation import continue_committed_replan
+from oh_my_subagents.runtime.team.participation import read_accepted_green_participation
 from tests.helpers.executor_harness import (
     SessionFactory,
     seeded_executor,

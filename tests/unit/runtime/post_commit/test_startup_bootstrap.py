@@ -8,16 +8,16 @@ from datetime import UTC, datetime
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import banksia.runtime.post_commit.delegation_wave_startup as wave_startup_module
-import banksia.runtime.post_commit.dispatch_startup as dispatch_startup_module
-import banksia.runtime.post_commit.external_wait_startup as external_wait_startup_module
-from banksia.runtime.post_commit import CapturedRuntimeEffectPublisher
-from banksia.runtime.post_commit.bootstrap import audit_startup_runtime_effects
-from banksia.runtime.post_commit.router import (
+import oh_my_subagents.runtime.post_commit.delegation_wave_startup as wave_startup_module
+import oh_my_subagents.runtime.post_commit.dispatch_startup as dispatch_startup_module
+import oh_my_subagents.runtime.post_commit.external_wait_startup as external_wait_startup_module
+from oh_my_subagents.runtime.post_commit import CapturedRuntimeEffectPublisher
+from oh_my_subagents.runtime.post_commit.bootstrap import audit_startup_runtime_effects
+from oh_my_subagents.runtime.post_commit.router import (
     AsyncSessionContextFactory,
     RuntimeEffectRouter,
 )
-from banksia.runtime.post_commit.signals import (
+from oh_my_subagents.runtime.post_commit.signals import (
     CommandRunCancellationRequested,
     CommandRunPending,
     CommandRunTerminal,
@@ -31,7 +31,7 @@ from banksia.runtime.post_commit.signals import (
     WatchdogDeadlineChanged,
     WaveMemberSettled,
 )
-from banksia.runtime.startup_audit import StartupAuditPage
+from oh_my_subagents.runtime.startup_audit import StartupAuditPage
 
 type PageReader = Callable[
     [AsyncSessionContextFactory, str | None, int],

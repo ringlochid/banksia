@@ -9,12 +9,12 @@ import pytest
 from sqlalchemy import inspect
 from sqlalchemy.engine import make_url
 
-import banksia.interfaces.cli as cli
-from banksia.config import get_settings
-from banksia.main import create_app
-from banksia.persistence.session import dispose_test_db_engine, get_async_engine
-from banksia.runtime.post_commit import RuntimeEffectRouter
-from banksia.runtime.projection import SupportProjectionOwner
+import oh_my_subagents.interfaces.cli as cli
+from oh_my_subagents.config import get_settings
+from oh_my_subagents.main import create_app
+from oh_my_subagents.persistence.session import dispose_test_db_engine, get_async_engine
+from oh_my_subagents.runtime.post_commit import RuntimeEffectRouter
+from oh_my_subagents.runtime.projection import SupportProjectionOwner
 
 
 def _write_stale_flows_schema(database_path: Path) -> None:

@@ -8,11 +8,11 @@ from uuid import uuid4
 import pytest
 from sqlalchemy import Connection, Table, text
 
-from banksia.interfaces.cli.bootstrap.database import upgrade_database
-from banksia.interfaces.cli.support import command_env, temporary_env
-from banksia.persistence.models import CommandRunModel
-from banksia.persistence.models.runtime.common import TASK_EVENT_TYPE_VALUES
-from banksia.persistence.session import (
+from oh_my_subagents.interfaces.cli.bootstrap.database import upgrade_database
+from oh_my_subagents.interfaces.cli.support import command_env, temporary_env
+from oh_my_subagents.persistence.models import CommandRunModel
+from oh_my_subagents.persistence.models.runtime.common import TASK_EVENT_TYPE_VALUES
+from oh_my_subagents.persistence.session import (
     create_empty_database_schema,
     dispose_db_engine,
     get_async_engine,

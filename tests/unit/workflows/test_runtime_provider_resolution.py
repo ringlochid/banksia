@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-from banksia.config import ClaudeSettings, CodexSettings, RuntimeSettings, Settings
-from banksia.providers import ManagedSandboxMode, NetworkAccess, ProviderKind
-from banksia.runtime.contracts import (
+from oh_my_subagents.config import ClaudeSettings, CodexSettings, RuntimeSettings, Settings
+from oh_my_subagents.providers import ManagedSandboxMode, NetworkAccess, ProviderKind
+from oh_my_subagents.runtime.contracts import (
     CodexProviderRoute,
     ProviderRouteValueSource,
     SandboxResolutionSource,
 )
-from banksia.runtime.providers import resolve_provider_route
-from banksia.workflows.contracts import (
+from oh_my_subagents.runtime.providers import resolve_provider_route
+from oh_my_subagents.workflows.contracts import (
     ClaudeProviderSelection,
     CodexProviderSelection,
     ProviderSandbox,

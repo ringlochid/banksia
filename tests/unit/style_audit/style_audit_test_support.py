@@ -158,11 +158,11 @@ def _build_results_import_findings_payload(models: Any, tmp_path: Path) -> dict[
     return {
         "import_direction_findings": (
             models.ImportDirectionFinding(
-                path=tmp_path / "banksia" / "consumer.py",
+                path=tmp_path / "oh_my_subagents" / "consumer.py",
                 line=5,
                 statement="from app.runtime.owner import VALUE",
-                owner_family="banksia",
-                violated_rule="banksia-consumer-imports-app-owner",
+                owner_family="oh_my_subagents",
+                violated_rule="oh_my_subagents-consumer-imports-app-owner",
             ),
         ),
         "import_placement_findings": (
@@ -236,10 +236,10 @@ def _build_results_layout_findings_payload(models: Any, tmp_path: Path) -> dict[
         ),
         "duplicate_module_name_findings": (
             models.DuplicateModuleNameFinding(
-                module_name="banksia.common",
+                module_name="oh_my_subagents.common",
                 paths=(
-                    tmp_path / "banksia" / "common.py",
-                    tmp_path / "src" / "banksia" / "common.py",
+                    tmp_path / "oh_my_subagents" / "common.py",
+                    tmp_path / "src" / "oh_my_subagents" / "common.py",
                 ),
             ),
         ),

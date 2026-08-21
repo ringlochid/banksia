@@ -7,13 +7,13 @@ from typing import Any
 import pytest
 from sqlalchemy import select
 
-from banksia.operator.tools import OperatorTool, OperatorToolName, build_operator_tools
-from banksia.operator.tools.contracts import MAX_OPERATOR_TOOL_RESULT_UTF16_CODE_UNITS
-from banksia.persistence.models import CommandRunModel, HumanRequestModel, TaskEventModel
-from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
-from banksia.runtime.errors import RuntimeOperationError
-from banksia.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
-from banksia.runtime.post_commit import (
+from oh_my_subagents.operator.tools import OperatorTool, OperatorToolName, build_operator_tools
+from oh_my_subagents.operator.tools.contracts import MAX_OPERATOR_TOOL_RESULT_UTF16_CODE_UNITS
+from oh_my_subagents.persistence.models import CommandRunModel, HumanRequestModel, TaskEventModel
+from oh_my_subagents.runtime.dispatch.preparation import DispatchOpeningDependencies
+from oh_my_subagents.runtime.errors import RuntimeOperationError
+from oh_my_subagents.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
+from oh_my_subagents.runtime.post_commit import (
     CapturedRuntimeEffectPublisher,
     CommandRunCancellationRequested,
     DispatchCleanupRequested,

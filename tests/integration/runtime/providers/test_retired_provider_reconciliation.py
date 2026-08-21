@@ -5,14 +5,14 @@ from pathlib import Path
 
 from sqlalchemy import select
 
-from banksia.persistence.models import (
+from oh_my_subagents.persistence.models import (
     AttemptModel,
     DispatchTurnModel,
     MemberConfigurationModel,
     TaskEventModel,
     TaskModel,
 )
-from banksia.runtime.providers.retirement import pause_tasks_using_retired_providers
+from oh_my_subagents.runtime.providers.retirement import pause_tasks_using_retired_providers
 from tests.helpers.executor_harness import seeded_async_executor
 
 

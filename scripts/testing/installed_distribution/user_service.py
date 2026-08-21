@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from banksia.platform.managed_services.windows_task_scheduler import (
+from oh_my_subagents.platform.managed_services.windows_task_scheduler import (
     ComWindowsTaskScheduler,
     WindowsTaskScheduler,
 )

@@ -6,8 +6,8 @@ import pytest
 from sqlalchemy import event, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from banksia.config import CodexSettings, RuntimeSettings, Settings
-from banksia.persistence.models import (
+from oh_my_subagents.config import CodexSettings, RuntimeSettings, Settings
+from oh_my_subagents.persistence.models import (
     AcceptedBoundaryModel,
     AssignmentModel,
     AttemptCheckpointModel,
@@ -17,15 +17,15 @@ from banksia.persistence.models import (
     MemberModel,
     TeamRevisionMemberModel,
 )
-from banksia.providers import ProviderKind
-from banksia.runtime.clock import utc_now
-from banksia.runtime.contracts.team_read import (
+from oh_my_subagents.providers import ProviderKind
+from oh_my_subagents.runtime.clock import utc_now
+from oh_my_subagents.runtime.contracts.team_read import (
     MemberAvailability,
     MemberParticipation,
 )
-from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
-from banksia.runtime.post_commit import CapturedRuntimeEffectPublisher
-from banksia.runtime.team.reads import read_direct_team_members
+from oh_my_subagents.runtime.dispatch.preparation import DispatchOpeningDependencies
+from oh_my_subagents.runtime.post_commit import CapturedRuntimeEffectPublisher
+from oh_my_subagents.runtime.team.reads import read_direct_team_members
 from tests.helpers.executor_harness import AsyncSessionFactory, seeded_async_executor
 from tests.helpers.lineage_seed import FIXTURE_TIMESTAMP, RuntimeIds
 from tests.helpers.postgres_runtime_race import postgres_runtime_harness

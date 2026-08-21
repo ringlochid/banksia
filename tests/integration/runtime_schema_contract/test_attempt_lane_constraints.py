@@ -14,17 +14,17 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from banksia.persistence import RuntimeBase
-from banksia.persistence.schema_contract import verify_schema_contract
-from banksia.persistence.session import create_runtime_schema_tables
-from banksia.providers import (
+from oh_my_subagents.persistence import RuntimeBase
+from oh_my_subagents.persistence.schema_contract import verify_schema_contract
+from oh_my_subagents.persistence.session import create_runtime_schema_tables
+from oh_my_subagents.providers import (
     ManagedExtensionMode,
     ManagedSandboxMode,
     NetworkAccess,
     ProviderKind,
 )
-from banksia.runtime.contracts.capabilities import EffectiveCapabilitySet
-from banksia.runtime.contracts.provider_resolution import (
+from oh_my_subagents.runtime.contracts.capabilities import EffectiveCapabilitySet
+from oh_my_subagents.runtime.contracts.provider_resolution import (
     CodexProviderRoute,
     ExtensionModeResolutionSource,
     ManagedExtensionResolution,
@@ -34,9 +34,9 @@ from banksia.runtime.contracts.provider_resolution import (
     ProviderSelectionBasis,
     SandboxResolutionSource,
 )
-from banksia.runtime.dispatch.currentness import AttemptDispatchConflictError
-from banksia.runtime.dispatch.opening import StartingDispatchBasis, stage_starting_dispatch
-from banksia.runtime.dispatch.preparation import PreparedDispatchRequest
+from oh_my_subagents.runtime.dispatch.currentness import AttemptDispatchConflictError
+from oh_my_subagents.runtime.dispatch.opening import StartingDispatchBasis, stage_starting_dispatch
+from oh_my_subagents.runtime.dispatch.preparation import PreparedDispatchRequest
 from tests.helpers.catalog_seed import seed_catalog
 from tests.helpers.disposable_postgres import read_disposable_postgres_url
 from tests.helpers.lineage_seed import RuntimeIds, seed_runtime_scope

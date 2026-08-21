@@ -8,7 +8,7 @@ import pytest
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from banksia.persistence.models import (
+from oh_my_subagents.persistence.models import (
     AssignmentModel,
     DispatchTurnModel,
     MemberConfigurationModel,
@@ -18,13 +18,13 @@ from banksia.persistence.models import (
     TeamRevisionMemberModel,
     TeamRevisionModel,
 )
-from banksia.runtime.contracts import ReplanSuccess
-from banksia.runtime.contracts.operation_failure import OperationFailureCode
-from banksia.runtime.dispatch.ordinary_continuation import OrdinaryOpeningResult
-from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
-from banksia.runtime.errors import RuntimeOperationError
-from banksia.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
-from banksia.runtime.replan.continuation import continue_committed_replan
+from oh_my_subagents.runtime.contracts import ReplanSuccess
+from oh_my_subagents.runtime.contracts.operation_failure import OperationFailureCode
+from oh_my_subagents.runtime.dispatch.ordinary_continuation import OrdinaryOpeningResult
+from oh_my_subagents.runtime.dispatch.preparation import DispatchOpeningDependencies
+from oh_my_subagents.runtime.errors import RuntimeOperationError
+from oh_my_subagents.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
+from oh_my_subagents.runtime.replan.continuation import continue_committed_replan
 from tests.helpers.disjoint_team_runtime import create_runtime_opening_dependencies
 from tests.helpers.executor_harness import (
     SessionFactory,

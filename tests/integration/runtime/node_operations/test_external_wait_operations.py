@@ -9,7 +9,7 @@ from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from banksia.persistence.models import (
+from oh_my_subagents.persistence.models import (
     AttemptModel,
     AttemptWaitModel,
     DispatchTurnModel,
@@ -18,15 +18,15 @@ from banksia.persistence.models import (
     TaskEventModel,
     TaskModel,
 )
-from banksia.runtime.contracts import (
+from oh_my_subagents.runtime.contracts import (
     CommandRunStartRequest,
     HumanRequestOpenRequest,
     HumanRequestResolveRequest,
 )
-from banksia.runtime.errors import RuntimeOperationError
-from banksia.runtime.human_request.service import resolve_human_request
-from banksia.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
-from banksia.runtime.post_commit import (
+from oh_my_subagents.runtime.errors import RuntimeOperationError
+from oh_my_subagents.runtime.human_request.service import resolve_human_request
+from oh_my_subagents.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
+from oh_my_subagents.runtime.post_commit import (
     HumanRequestTerminal,
     RuntimeEffectSignal,
 )

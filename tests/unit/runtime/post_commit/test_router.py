@@ -6,12 +6,12 @@ from contextlib import asynccontextmanager
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from banksia.runtime.post_commit.health import (
+from oh_my_subagents.runtime.post_commit.health import (
     RuntimeEffectFailureKind,
     RuntimeEffectHealth,
 )
-from banksia.runtime.post_commit.router import RuntimeEffectRouter
-from banksia.runtime.post_commit.signals import DelegationWaveSettled, TaskStartCommitted
+from oh_my_subagents.runtime.post_commit.router import RuntimeEffectRouter
+from oh_my_subagents.runtime.post_commit.signals import DelegationWaveSettled, TaskStartCommitted
 
 
 @asynccontextmanager

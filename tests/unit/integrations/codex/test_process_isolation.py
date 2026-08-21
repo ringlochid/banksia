@@ -11,7 +11,7 @@ from openai_codex.generated.v2_all import ConfigReadResponse
 from openai_codex.models import JsonObject
 from pydantic import BaseModel
 
-import banksia.integrations.codex.isolation as isolation_module
+import oh_my_subagents.integrations.codex.isolation as isolation_module
 
 
 class _CanonicalWorkspaceClient:

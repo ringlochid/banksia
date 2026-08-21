@@ -6,24 +6,24 @@ from uuid import uuid4
 
 import pytest
 
-from banksia.workflows import NormalizedWorkflow, normalize_workflow_object
-from banksia.workflows.authoring import (
+from oh_my_subagents.workflows import NormalizedWorkflow, normalize_workflow_object
+from oh_my_subagents.workflows.authoring import (
     import_workflow_draft,
     open_workflow_draft,
     publish_workflow_draft,
     read_workflow_catalog_entry,
 )
-from banksia.workflows.authoring_contracts import (
+from oh_my_subagents.workflows.authoring_contracts import (
     CreateWorkflowDraftRequest,
     OpenWorkflowDraftRequest,
     WorkflowDraftOpenRequest,
     WorkflowDraftOpenResult,
 )
-from banksia.workflows.catalog import (
+from oh_my_subagents.workflows.catalog import (
     read_current_published_workflow,
     search_workflows,
 )
-from banksia.workflows.service_errors import (
+from oh_my_subagents.workflows.service_errors import (
     WorkflowDraftConflictError,
 )
 from tests.helpers.generic_workflow import GENERIC_WORKFLOW_ID, publish_generic_workflow

@@ -10,8 +10,8 @@ from typing import cast
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from banksia.persistence import RuntimeBase
-from banksia.runtime.dispatch import (
+from oh_my_subagents.persistence import RuntimeBase
+from oh_my_subagents.runtime.dispatch import (
     ProviderStartAcceptanceResult,
     accept_provider_start_if_current,
 )

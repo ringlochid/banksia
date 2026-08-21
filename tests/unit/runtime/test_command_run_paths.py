@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from banksia.platform.workspace_files import PrivatePathError
-from banksia.runtime.command_run.task_paths import (
+from oh_my_subagents.platform.workspace_files import PrivatePathError
+from oh_my_subagents.runtime.command_run.task_paths import (
     close_command_working_directory,
     open_stable_command_working_directory,
 )

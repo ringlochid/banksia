@@ -8,11 +8,11 @@ from typing import Self, cast
 
 import pytest
 
-import banksia.main as main_module
-from banksia.main import create_app
-from banksia.operator import OperatorRunnerStatus
-from banksia.runtime.clock import utc_now
-from banksia.runtime.post_commit import DispatchStartDue, RuntimeEffectSignal
+import oh_my_subagents.main as main_module
+from oh_my_subagents.main import create_app
+from oh_my_subagents.operator import OperatorRunnerStatus
+from oh_my_subagents.runtime.clock import utc_now
+from oh_my_subagents.runtime.post_commit import DispatchStartDue, RuntimeEffectSignal
 
 
 class RecordingAsyncOwner:

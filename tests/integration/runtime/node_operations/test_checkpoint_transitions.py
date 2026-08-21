@@ -10,8 +10,8 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import banksia.runtime.node_operations.executor as executor_module
-from banksia.persistence.models import (
+import oh_my_subagents.runtime.node_operations.executor as executor_module
+from oh_my_subagents.persistence.models import (
     AcceptedBoundaryModel,
     AssignmentModel,
     AttemptCheckpointModel,
@@ -20,22 +20,22 @@ from banksia.persistence.models import (
     DispatchTurnModel,
     TaskModel,
 )
-from banksia.runtime.checkpoint import read_task_result
-from banksia.runtime.clock import utc_now
-from banksia.runtime.contracts import (
+from oh_my_subagents.runtime.checkpoint import read_task_result
+from oh_my_subagents.runtime.clock import utc_now
+from oh_my_subagents.runtime.contracts import (
     AssignmentBody,
     CheckpointRequest,
     CheckpointResponse,
     DelegateRequest,
     FileReference,
 )
-from banksia.runtime.contracts.operation_failure import OperationFailureCode
-from banksia.runtime.errors import RuntimeOperationError
-from banksia.runtime.node_operations import (
+from oh_my_subagents.runtime.contracts.operation_failure import OperationFailureCode
+from oh_my_subagents.runtime.errors import RuntimeOperationError
+from oh_my_subagents.runtime.node_operations import (
     NodeOperationScope,
     get_node_operation_descriptor,
 )
-from banksia.runtime.post_commit.publisher import CapturedRuntimeEffectPublisher
+from oh_my_subagents.runtime.post_commit.publisher import CapturedRuntimeEffectPublisher
 from tests.helpers.executor_harness import make_seed_child_terminal, seeded_executor
 
 

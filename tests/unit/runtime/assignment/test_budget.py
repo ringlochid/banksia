@@ -1,6 +1,6 @@
 import pytest
 
-from banksia.runtime.assignment import snapshot_assignment_budget
+from oh_my_subagents.runtime.assignment import snapshot_assignment_budget
 
 
 def test_assignment_budget_snapshot_uses_deterministic_defaults() -> None:

@@ -11,12 +11,12 @@ from .style_audit_test_support import (
 
 
 def test_style_audit_flags_weak_public_function_verbs(tmp_path: Path) -> None:
-    banksia_root = tmp_path / "banksia"
-    settings = build_style_audit_settings(tmp_path, scan_roots=(banksia_root,))
+    oh_my_subagents_root = tmp_path / "oh_my_subagents"
+    settings = build_style_audit_settings(tmp_path, scan_roots=(oh_my_subagents_root,))
     audit = load_style_audit_namespace()
 
     write_python_module(
-        banksia_root / "naming.py",
+        oh_my_subagents_root / "naming.py",
         "def handle_dispatch() -> None:\n    return None\n",
     )
 
@@ -30,12 +30,12 @@ def test_style_audit_flags_weak_public_function_verbs(tmp_path: Path) -> None:
 def test_style_audit_does_not_flag_names_with_weak_verb_prefix_collisions(
     tmp_path: Path,
 ) -> None:
-    banksia_root = tmp_path / "banksia"
-    settings = build_style_audit_settings(tmp_path, scan_roots=(banksia_root,))
+    oh_my_subagents_root = tmp_path / "oh_my_subagents"
+    settings = build_style_audit_settings(tmp_path, scan_roots=(oh_my_subagents_root,))
     audit = load_style_audit_namespace()
 
     write_python_module(
-        banksia_root / "naming.py",
+        oh_my_subagents_root / "naming.py",
         "def runtime_exception_failure() -> None:\n    return None\n"
         "def checkpoint_id() -> str:\n    return 'x'\n",
     )
@@ -46,11 +46,11 @@ def test_style_audit_does_not_flag_names_with_weak_verb_prefix_collisions(
 
 
 def test_style_audit_flags_non_fact_shaped_public_booleans(tmp_path: Path) -> None:
-    banksia_root = tmp_path / "banksia"
-    settings = build_style_audit_settings(tmp_path, scan_roots=(banksia_root,))
+    oh_my_subagents_root = tmp_path / "oh_my_subagents"
+    settings = build_style_audit_settings(tmp_path, scan_roots=(oh_my_subagents_root,))
     audit = load_style_audit_namespace()
 
-    write_python_module(banksia_root / "naming.py", "ready_flag = True\n")
+    write_python_module(oh_my_subagents_root / "naming.py", "ready_flag = True\n")
 
     findings = audit.scan.run_style_audit(settings).public_naming_findings
 
@@ -60,11 +60,11 @@ def test_style_audit_flags_non_fact_shaped_public_booleans(tmp_path: Path) -> No
 
 
 def test_style_audit_flags_non_fact_shaped_public_optional_booleans(tmp_path: Path) -> None:
-    banksia_root = tmp_path / "banksia"
-    settings = build_style_audit_settings(tmp_path, scan_roots=(banksia_root,))
+    oh_my_subagents_root = tmp_path / "oh_my_subagents"
+    settings = build_style_audit_settings(tmp_path, scan_roots=(oh_my_subagents_root,))
     audit = load_style_audit_namespace()
 
-    write_python_module(banksia_root / "naming.py", "ready_flag: bool | None = None\n")
+    write_python_module(oh_my_subagents_root / "naming.py", "ready_flag: bool | None = None\n")
 
     findings = audit.scan.run_style_audit(settings).public_naming_findings
 
@@ -74,12 +74,12 @@ def test_style_audit_flags_non_fact_shaped_public_optional_booleans(tmp_path: Pa
 
 
 def test_style_audit_flags_non_fact_shaped_public_boolean_parameters(tmp_path: Path) -> None:
-    banksia_root = tmp_path / "banksia"
-    settings = build_style_audit_settings(tmp_path, scan_roots=(banksia_root,))
+    oh_my_subagents_root = tmp_path / "oh_my_subagents"
+    settings = build_style_audit_settings(tmp_path, scan_roots=(oh_my_subagents_root,))
     audit = load_style_audit_namespace()
 
     write_python_module(
-        banksia_root / "naming.py",
+        oh_my_subagents_root / "naming.py",
         "def build_runtime(ready_flag: bool, is_safe: bool = True) -> None:\n    return None\n",
     )
 
@@ -91,11 +91,11 @@ def test_style_audit_flags_non_fact_shaped_public_boolean_parameters(tmp_path: P
 
 
 def test_public_naming_exceptions_require_exact_path_and_symbol(tmp_path: Path) -> None:
-    banksia_root = tmp_path / "banksia"
-    allowed_path = banksia_root / "allowed.py"
-    other_path = banksia_root / "other.py"
+    oh_my_subagents_root = tmp_path / "oh_my_subagents"
+    allowed_path = oh_my_subagents_root / "allowed.py"
+    other_path = oh_my_subagents_root / "other.py"
     settings = replace(
-        build_style_audit_settings(tmp_path, scan_roots=(banksia_root,)),
+        build_style_audit_settings(tmp_path, scan_roots=(oh_my_subagents_root,)),
         approved_public_naming_exceptions=frozenset({(allowed_path, "ready_flag")}),
     )
     audit = load_style_audit_namespace()
@@ -117,12 +117,12 @@ def test_public_naming_exceptions_require_exact_path_and_symbol(tmp_path: Path) 
 def test_style_audit_flags_non_fact_shaped_public_boolean_fields_and_methods(
     tmp_path: Path,
 ) -> None:
-    banksia_root = tmp_path / "banksia"
-    settings = build_style_audit_settings(tmp_path, scan_roots=(banksia_root,))
+    oh_my_subagents_root = tmp_path / "oh_my_subagents"
+    settings = build_style_audit_settings(tmp_path, scan_roots=(oh_my_subagents_root,))
     audit = load_style_audit_namespace()
 
     write_python_module(
-        banksia_root / "naming.py",
+        oh_my_subagents_root / "naming.py",
         "class RuntimeState:\n"
         "    ready_flag: bool = False\n\n"
         "    def __init__(self, should_sync: bool, enabled_flag: bool = False) -> None:\n"

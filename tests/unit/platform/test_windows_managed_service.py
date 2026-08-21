@@ -6,8 +6,8 @@ from xml.etree import ElementTree
 
 import pytest
 
-import banksia.platform.managed_services.scheduled_tasks as scheduled_tasks_module
-from banksia.platform.managed_services import (
+import oh_my_subagents.platform.managed_services.scheduled_tasks as scheduled_tasks_module
+from oh_my_subagents.platform.managed_services import (
     ComWindowsTaskScheduler,
     ManagedServiceExecutionState,
     ManagedServiceInstallationState,

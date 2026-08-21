@@ -91,7 +91,7 @@ def test_build_audit_settings_exposes_root_backend_wrapper_and_direction_scopes(
     expected_roots = {
         Path("scripts/docs"),
         Path("scripts/testing"),
-        Path("src/banksia"),
+        Path("src/oh_my_subagents"),
         Path("tests/e2e"),
         Path("tests/helpers"),
         Path("tests/integration"),
@@ -102,9 +102,9 @@ def test_build_audit_settings_exposes_root_backend_wrapper_and_direction_scopes(
     approved_wrappers = {
         path.relative_to(settings.root) for path in settings.approved_wrapper_modules
     }
-    assert approved_wrappers == {Path("src/banksia/interfaces/http/router.py")}
+    assert approved_wrappers == {Path("src/oh_my_subagents/interfaces/http/router.py")}
     assert all(
-        not str(path).startswith("app/") and not str(path).startswith("banksia/")
+        not str(path).startswith("app/") and not str(path).startswith("oh_my_subagents/")
         for path in approved_wrappers
     )
     assert all((settings.root / path).exists() for path in approved_wrappers)
@@ -131,51 +131,51 @@ def test_build_audit_settings_exposes_exact_public_naming_exceptions() -> None:
     public_naming_roots = {
         path.relative_to(settings.root) for path in settings.public_naming_scan_roots
     }
-    assert public_naming_roots == {Path("src/banksia")}
+    assert public_naming_roots == {Path("src/oh_my_subagents")}
     assert settings.public_naming_extra_modules == frozenset()
     assert {path.relative_to(settings.root) for path in settings.module_shape_scan_roots} == {
-        Path("src/banksia")
+        Path("src/oh_my_subagents")
     }
     public_naming_exceptions = {
         (path.relative_to(settings.root), name)
         for path, name in settings.approved_public_naming_exceptions
     }
     assert public_naming_exceptions == {
-        (Path("src/banksia/config.py"), "enabled"),
-        (Path("src/banksia/config.py"), "value_is_complex"),
-        (Path("src/banksia/operator/contracts.py"), "allow_skip"),
-        (Path("src/banksia/persistence/datetimes.py"), "cache_ok"),
-        (Path("src/banksia/persistence/datetimes.py"), "process_bind_param"),
-        (Path("src/banksia/persistence/datetimes.py"), "process_result_value"),
-        (Path("src/banksia/runtime/contracts/checkpoint.py"), "must_stop"),
-        (Path("src/banksia/runtime/contracts/checkpoint.py"), "terminal"),
-        (Path("src/banksia/runtime/contracts/command_runs.py"), "must_stop"),
-        (Path("src/banksia/runtime/contracts/command_runs.py"), "output_complete"),
-        (Path("src/banksia/runtime/contracts/delegation.py"), "accepted"),
-        (Path("src/banksia/runtime/contracts/delegation.py"), "must_stop"),
-        (Path("src/banksia/runtime/contracts/human_requests.py"), "allow_other"),
-        (Path("src/banksia/runtime/contracts/human_requests.py"), "allow_skip"),
-        (Path("src/banksia/runtime/contracts/human_requests.py"), "must_stop"),
+        (Path("src/oh_my_subagents/config.py"), "enabled"),
+        (Path("src/oh_my_subagents/config.py"), "value_is_complex"),
+        (Path("src/oh_my_subagents/operator/contracts.py"), "allow_skip"),
+        (Path("src/oh_my_subagents/persistence/datetimes.py"), "cache_ok"),
+        (Path("src/oh_my_subagents/persistence/datetimes.py"), "process_bind_param"),
+        (Path("src/oh_my_subagents/persistence/datetimes.py"), "process_result_value"),
+        (Path("src/oh_my_subagents/runtime/contracts/checkpoint.py"), "must_stop"),
+        (Path("src/oh_my_subagents/runtime/contracts/checkpoint.py"), "terminal"),
+        (Path("src/oh_my_subagents/runtime/contracts/command_runs.py"), "must_stop"),
+        (Path("src/oh_my_subagents/runtime/contracts/command_runs.py"), "output_complete"),
+        (Path("src/oh_my_subagents/runtime/contracts/delegation.py"), "accepted"),
+        (Path("src/oh_my_subagents/runtime/contracts/delegation.py"), "must_stop"),
+        (Path("src/oh_my_subagents/runtime/contracts/human_requests.py"), "allow_other"),
+        (Path("src/oh_my_subagents/runtime/contracts/human_requests.py"), "allow_skip"),
+        (Path("src/oh_my_subagents/runtime/contracts/human_requests.py"), "must_stop"),
         (
-            Path("src/banksia/runtime/contracts/operation_failure.py"),
+            Path("src/oh_my_subagents/runtime/contracts/operation_failure.py"),
             "ok",
         ),
         (
-            Path("src/banksia/runtime/contracts/operation_failure.py"),
+            Path("src/oh_my_subagents/runtime/contracts/operation_failure.py"),
             "retryable",
         ),
-        (Path("src/banksia/runtime/contracts/prompt.py"), "output_complete"),
-        (Path("src/banksia/runtime/contracts/replan.py"), "must_stop"),
+        (Path("src/oh_my_subagents/runtime/contracts/prompt.py"), "output_complete"),
+        (Path("src/oh_my_subagents/runtime/contracts/replan.py"), "must_stop"),
         (
-            Path("src/banksia/runtime/contracts/task_event_payloads.py"),
+            Path("src/oh_my_subagents/runtime/contracts/task_event_payloads.py"),
             "output_complete",
         ),
-        (Path("src/banksia/runtime/work_plan/contracts.py"), "changed"),
+        (Path("src/oh_my_subagents/runtime/work_plan/contracts.py"), "changed"),
     }
     assert all(
         (settings.root / path).exists()
         and not str(path).startswith("app/")
-        and not str(path).startswith("banksia/")
+        and not str(path).startswith("oh_my_subagents/")
         for path, _name in public_naming_exceptions
     )
 
@@ -278,11 +278,11 @@ def test_layout_scan_requires_exact_allowlist_for_alias_wrapper_shells(tmp_path:
     assert findings.import_wrapper_modules == (blocked_alias,)
 
 
-def test_layout_scan_flags_duplicate_module_name_ownership_across_legacy_and_src_banksia(
+def test_layout_scan_flags_duplicate_module_name_ownership_across_legacy_and_src_oh_my_subagents(
     tmp_path: Path,
 ) -> None:
-    legacy_root = tmp_path / "banksia"
-    src_root = tmp_path / "src" / "banksia"
+    legacy_root = tmp_path / "oh_my_subagents"
+    src_root = tmp_path / "src" / "oh_my_subagents"
     settings = build_style_audit_settings(tmp_path, scan_roots=(legacy_root, src_root))
     audit = load_style_audit_namespace()
 
@@ -294,13 +294,13 @@ def test_layout_scan_flags_duplicate_module_name_ownership_across_legacy_and_src
 
     assert len(findings.duplicate_module_name_findings) == 1
     finding = findings.duplicate_module_name_findings[0]
-    assert finding.module_name == "banksia.common"
+    assert finding.module_name == "oh_my_subagents.common"
     assert finding.paths == (legacy_root / "common.py", src_root / "common.py")
 
 
 def test_layout_scan_ignores_approved_duplicate_module_name_shims(tmp_path: Path) -> None:
-    legacy_root = tmp_path / "banksia"
-    src_root = tmp_path / "src" / "banksia"
+    legacy_root = tmp_path / "oh_my_subagents"
+    src_root = tmp_path / "src" / "oh_my_subagents"
     legacy_main = legacy_root / "main.py"
     src_main = src_root / "main.py"
     settings = replace(

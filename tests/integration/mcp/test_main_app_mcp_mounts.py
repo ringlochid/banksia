@@ -7,14 +7,14 @@ import pytest
 from fastapi import FastAPI
 from starlette.routing import Mount
 
-import banksia.main as main_module
-import banksia.runtime.node_operations.executor as executor_module
-from banksia.config import Settings
-from banksia.main import create_app
-from banksia.runtime.node_mcp import DispatchMcpBindingRegistry
-from banksia.runtime.node_operations import NodeOperationName
-from banksia.runtime.post_commit import RuntimeEffectRouter
-from banksia.runtime.projection import SupportProjectionOwner
+import oh_my_subagents.main as main_module
+import oh_my_subagents.runtime.node_operations.executor as executor_module
+from oh_my_subagents.config import Settings
+from oh_my_subagents.main import create_app
+from oh_my_subagents.runtime.node_mcp import DispatchMcpBindingRegistry
+from oh_my_subagents.runtime.node_operations import NodeOperationName
+from oh_my_subagents.runtime.post_commit import RuntimeEffectRouter
+from oh_my_subagents.runtime.projection import SupportProjectionOwner
 
 _INITIALIZE_REQUEST = {
     "jsonrpc": "2.0",

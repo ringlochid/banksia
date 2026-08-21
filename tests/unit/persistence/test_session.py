@@ -7,7 +7,7 @@ from typing import Any, cast
 import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-import banksia.persistence.session as persistence_session
+import oh_my_subagents.persistence.session as persistence_session
 
 
 def test_postgres_engine_configuration_does_not_install_sqlite_transaction_hooks(

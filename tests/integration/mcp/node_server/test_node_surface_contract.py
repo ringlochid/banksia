@@ -4,12 +4,12 @@ import asyncio
 from collections.abc import Mapping
 from contextlib import AsyncExitStack
 
-from banksia.interfaces.mcp.node import NODE_TOOL_NAMES
-from banksia.runtime.node_operations import (
+from oh_my_subagents.interfaces.mcp.node import NODE_TOOL_NAMES
+from oh_my_subagents.runtime.node_operations import (
     NODE_OPERATION_CATALOG,
     NodeOperationName,
 )
-from banksia.runtime.work_plan import SetWorkPlanResponse
+from oh_my_subagents.runtime.work_plan import SetWorkPlanResponse
 from tests.integration.mcp.node_server.transport_support import (
     RecordingNodeOperationExecutor,
     call_tool_structured,

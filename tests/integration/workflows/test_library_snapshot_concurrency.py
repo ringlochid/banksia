@@ -6,17 +6,20 @@ from uuid import uuid4
 
 import pytest
 
-from banksia.workflows import UpdateWorkflowOperation, WorkflowPatch
-from banksia.workflows.authoring import (
+from oh_my_subagents.workflows import UpdateWorkflowOperation, WorkflowPatch
+from oh_my_subagents.workflows.authoring import (
     discard_workflow_draft,
     edit_workflow_draft,
     open_workflow_draft,
     publish_workflow_draft,
     read_workflow_catalog_entry,
 )
-from banksia.workflows.authoring_contracts import OpenWorkflowDraftRequest, WorkflowGetResponse
-from banksia.workflows.contracts import WorkflowProvenance
-from banksia.workflows.publication import publish_workflow_revision
+from oh_my_subagents.workflows.authoring_contracts import (
+    OpenWorkflowDraftRequest,
+    WorkflowGetResponse,
+)
+from oh_my_subagents.workflows.contracts import WorkflowProvenance
+from oh_my_subagents.workflows.publication import publish_workflow_revision
 from tests.helpers.generic_workflow import GENERIC_WORKFLOW_ID, publish_generic_workflow
 from tests.helpers.workflow_concurrency import (
     ControlledGate,

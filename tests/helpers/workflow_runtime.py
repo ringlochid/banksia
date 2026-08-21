@@ -16,10 +16,10 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.pool import NullPool, StaticPool
 
-import banksia.interfaces.cli as cli
-from banksia.config import get_settings
-from banksia.paths import default_database_url
-from banksia.persistence.session import (
+import oh_my_subagents.interfaces.cli as cli
+from oh_my_subagents.config import get_settings
+from oh_my_subagents.paths import default_database_url
+from oh_my_subagents.persistence.session import (
     RuntimeAsyncSession,
     dispose_test_db_engine,
     install_sqlite_transaction_control,

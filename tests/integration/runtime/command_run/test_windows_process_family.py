@@ -9,8 +9,8 @@ from typing import cast
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from banksia.persistence.models import CommandRunModel
-from banksia.runtime.command_run import cancel_command_run
+from oh_my_subagents.persistence.models import CommandRunModel
+from oh_my_subagents.runtime.command_run import cancel_command_run
 from tests.helpers.command_process import (
     OwnerSignalDriver,
     command_process_owner,

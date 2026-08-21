@@ -3,14 +3,14 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from banksia.config import ClaudeSettings, CodexSettings, RuntimeSettings, Settings
-from banksia.persistence.models import (
+from oh_my_subagents.config import ClaudeSettings, CodexSettings, RuntimeSettings, Settings
+from oh_my_subagents.persistence.models import (
     DispatchRequestModel,
     MemberConfigurationModel,
 )
-from banksia.providers import ProviderKind
-from banksia.runtime.node_operations import NodeOperationScope
-from banksia.runtime.prompt import render_dynamic_input
+from oh_my_subagents.providers import ProviderKind
+from oh_my_subagents.runtime.node_operations import NodeOperationScope
+from oh_my_subagents.runtime.prompt import render_dynamic_input
 from tests.helpers.executor_harness import seeded_executor
 from tests.helpers.runtime_prompt_samples import sample_dynamic_input
 from tests.helpers.team_persistence_seed import member_configuration_id

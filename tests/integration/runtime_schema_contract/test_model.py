@@ -7,7 +7,7 @@ from sqlalchemy.dialects import postgresql, sqlite
 from sqlalchemy.orm import configure_mappers
 from sqlalchemy.schema import CreateTable
 
-from banksia.persistence import RuntimeBase
+from oh_my_subagents.persistence import RuntimeBase
 
 TARGET_TABLES = {
     "accepted_boundaries",

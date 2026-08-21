@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from banksia.runtime.startup_audit import (
+from oh_my_subagents.runtime.startup_audit import (
     STARTUP_AUDIT_PAGE_GUARD,
     STARTUP_AUDIT_PAGE_SIZE,
     StartupAuditPage,

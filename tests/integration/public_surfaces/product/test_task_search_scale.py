@@ -4,11 +4,11 @@ from pathlib import Path
 
 from sqlalchemy import event
 
-from banksia.persistence.models import AssignmentModel
-from banksia.runtime.contracts.start import TaskStartRequest
-from banksia.runtime.contracts.text import MAX_WORK_PROMPT_BYTES
-from banksia.runtime.product.tasks import search_product_tasks, start_product_task
-from banksia.runtime.task_control.presentation import (
+from oh_my_subagents.persistence.models import AssignmentModel
+from oh_my_subagents.runtime.contracts.start import TaskStartRequest
+from oh_my_subagents.runtime.contracts.text import MAX_WORK_PROMPT_BYTES
+from oh_my_subagents.runtime.product.tasks import search_product_tasks, start_product_task
+from oh_my_subagents.runtime.task_control.presentation import (
     TASK_SUMMARY_MAX_CHARACTERS,
     task_prompt_excerpt,
 )

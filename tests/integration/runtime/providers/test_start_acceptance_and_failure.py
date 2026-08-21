@@ -5,9 +5,9 @@ from pathlib import Path
 
 import pytest
 
-from banksia.persistence import RuntimeBase
-from banksia.runtime.post_commit import DispatchStartDue, WatchdogDeadlineChanged
-from banksia.runtime.providers import (
+from oh_my_subagents.persistence import RuntimeBase
+from oh_my_subagents.runtime.post_commit import DispatchStartDue, WatchdogDeadlineChanged
+from oh_my_subagents.runtime.providers import (
     ProviderStartError,
     ProviderStartErrorCode,
     ProviderStartFailureKind,

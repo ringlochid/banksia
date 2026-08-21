@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from banksia.workflows import (
+from oh_my_subagents.workflows import (
     NormalizedMember,
     NormalizedWorkflow,
     PublishedWorkflowRevision,
     WorkflowProvenance,
 )
-from banksia.workflows.publication import publish_workflow_revision
+from oh_my_subagents.workflows.publication import publish_workflow_revision
 
 GENERIC_WORKFLOW_ID = "generic-test-workflow"
 GENERIC_BRANCHING_WORKFLOW_ID = "generic-branching-test-workflow"

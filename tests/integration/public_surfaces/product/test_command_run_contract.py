@@ -5,29 +5,29 @@ from pathlib import Path
 
 import pytest
 
-from banksia.persistence.models import CommandRunModel
-from banksia.runtime.clock import utc_now
-from banksia.runtime.command_run import (
+from oh_my_subagents.persistence.models import CommandRunModel
+from oh_my_subagents.runtime.clock import utc_now
+from oh_my_subagents.runtime.command_run import (
     claim_command_run_launch,
     mark_command_run_running,
     terminalize_command_run,
 )
-from banksia.runtime.contracts import CommandRunState
-from banksia.runtime.contracts.task import (
+from oh_my_subagents.runtime.contracts import CommandRunState
+from oh_my_subagents.runtime.contracts.task import (
     CommandRunCancelReceipt,
     CommandRunCancelRequest,
     CommandRunOutputPage,
     CommandRunPage,
     CommandRunView,
 )
-from banksia.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
-from banksia.runtime.post_commit import CapturedRuntimeEffectPublisher
-from banksia.runtime.product.command_runs import (
+from oh_my_subagents.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
+from oh_my_subagents.runtime.post_commit import CapturedRuntimeEffectPublisher
+from oh_my_subagents.runtime.product.command_runs import (
     cancel_product_command_run,
     read_product_command_output,
     read_product_command_run,
 )
-from banksia.runtime.product.tasks import read_product_task, search_product_tasks
+from oh_my_subagents.runtime.product.tasks import read_product_task, search_product_tasks
 from tests.helpers.executor_harness import (
     AsyncSessionFactory,
     seeded_async_executor,

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from banksia.integrations.claude.native_identity import (
+from oh_my_subagents.integrations.claude.native_identity import (
     ClaudeAuthenticationState,
     ClaudeEndpointPolicyState,
     ClaudeIsolationMode,
@@ -15,7 +15,7 @@ from banksia.integrations.claude.native_identity import (
     read_claude_endpoint_policy,
     read_claude_invocation_readiness,
 )
-from banksia.runtime.providers import ProviderAuthenticationMethod
+from oh_my_subagents.runtime.providers import ProviderAuthenticationMethod
 
 
 @pytest.mark.parametrize(
@@ -54,7 +54,7 @@ def test_claude_auth_status_accepts_subscription_and_api_key_without_account_rea
     subscription_class: ClaudeSubscriptionClass | None,
 ) -> None:
     monkeypatch.setattr(
-        "banksia.integrations.claude.native_identity.bundled_claude_path",
+        "oh_my_subagents.integrations.claude.native_identity.bundled_claude_path",
         lambda: "/sdk/claude",
     )
     command_calls: list[list[str]] = []
@@ -89,7 +89,7 @@ def test_claude_auth_status_accepts_subscription_and_api_key_without_account_rea
 
 def test_claude_auth_status_reports_missing_login(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        "banksia.integrations.claude.native_identity.bundled_claude_path",
+        "oh_my_subagents.integrations.claude.native_identity.bundled_claude_path",
         lambda: "/sdk/claude",
     )
 
@@ -111,7 +111,7 @@ def test_claude_auth_status_keeps_unstructured_native_failure_distinct(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "banksia.integrations.claude.native_identity.bundled_claude_path",
+        "oh_my_subagents.integrations.claude.native_identity.bundled_claude_path",
         lambda: "/sdk/claude",
     )
 

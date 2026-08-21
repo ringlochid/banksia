@@ -19,7 +19,7 @@ from .docs_contract_test_tree import (
 
 SCHEMA_PATH = Path("docs/reference/workflows/workflow-definition.schema.yaml")
 EXAMPLE_ROOT = Path("examples/workflows")
-SEED_ROOT = Path("src/banksia/workflows/resources/starter_workflows")
+SEED_ROOT = Path("src/oh_my_subagents/workflows/resources/starter_workflows")
 REFERENCE_PATH = EXAMPLE_ROOT / "advanced-reviewed-code-change.yaml"
 EXAMPLE_README_PATH = EXAMPLE_ROOT / "README.md"
 SEED_PATH = SEED_ROOT / "production-feature-delivery.yaml"

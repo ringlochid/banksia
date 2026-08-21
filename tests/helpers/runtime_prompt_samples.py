@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import Literal
 
-from banksia.runtime.contracts import FileReference
-from banksia.runtime.contracts.primitives import CheckpointOutcome, HumanRequestKind
-from banksia.runtime.contracts.prompt import (
+from oh_my_subagents.runtime.contracts import FileReference
+from oh_my_subagents.runtime.contracts.primitives import CheckpointOutcome, HumanRequestKind
+from oh_my_subagents.runtime.contracts.prompt import (
     DelegationWaveMemberResult,
     DelegationWaveSettledResult,
     DelegationWaveSettledSource,
@@ -20,7 +20,7 @@ from banksia.runtime.contracts.prompt import (
     PromptTask,
     PromptWorkspace,
 )
-from banksia.runtime.contracts.team_read import (
+from oh_my_subagents.runtime.contracts.team_read import (
     CurrentMemberRead,
     DirectTeamMemberRead,
     EffectiveCapabilitiesRead,
@@ -30,7 +30,7 @@ from banksia.runtime.contracts.team_read import (
     ResolvedProviderRead,
     ResolvedSandboxRead,
 )
-from banksia.runtime.work_plan import WorkPlanStepRead, WorkPlanStepStatus, WorkPlanView
+from oh_my_subagents.runtime.work_plan import WorkPlanStepRead, WorkPlanStepStatus, WorkPlanView
 from tests.helpers.generic_workflow import GENERIC_WORKFLOW_ID
 
 type HumanRequestKindValue = Literal["input", "direction", "approval", "review"]

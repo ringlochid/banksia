@@ -5,12 +5,12 @@ from pathlib import Path
 import yaml
 from jsonschema import Draft202012Validator  # type: ignore[import-untyped]
 
-from banksia.workflows import NormalizedWorkflow, parse_workflow
+from oh_my_subagents.workflows import NormalizedWorkflow, parse_workflow
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SCHEMA_PATH = REPO_ROOT / "docs/reference/workflows/workflow-definition.schema.yaml"
 EXAMPLE_ROOT = REPO_ROOT / "examples/workflows"
-SEED_ROOT = REPO_ROOT / "src/banksia/workflows/resources/starter_workflows"
+SEED_ROOT = REPO_ROOT / "src/oh_my_subagents/workflows/resources/starter_workflows"
 
 
 def test_tracked_workflow_examples_and_seeds_pass_schema_and_strict_ingest() -> None:

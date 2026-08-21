@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 
-from banksia.interfaces.http.openapi import (
+from oh_my_subagents.interfaces.http.openapi import (
     PRODUCT_PATHS,
     SUPPORT_PATHS,
     build_openapi_document,

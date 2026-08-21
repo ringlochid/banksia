@@ -7,7 +7,7 @@ from email.parser import Parser
 from pathlib import Path, PurePosixPath
 
 EXPECTED_DISTRIBUTION_NAME = "oh-my-subagents"
-EXPECTED_DISTRIBUTION_VERSION = "0.2.0"
+EXPECTED_DISTRIBUTION_VERSION = "0.3.0"
 LEGACY_COMMAND_NOTICE = "The 'banksia' command is deprecated; use 'oms'."
 STARTER_WORKFLOW_IDS = (
     "decision-through-competing-prototypes",
@@ -25,16 +25,18 @@ ADVANCED_REFERENCE_WORKFLOW_IDS = (
     "advanced-reviewed-code-change",
     "advanced-technical-decision",
 )
-STARTER_RESOURCE_PREFIX = "banksia/workflows/resources/starter_workflows/"
+STARTER_RESOURCE_PREFIX = "oh_my_subagents/workflows/resources/starter_workflows/"
 REQUIRED_PACKAGE_MEMBERS = (
-    "banksia/config.py",
-    "banksia/main.py",
-    "banksia/interfaces/web_console/assets/index.html",
-    "banksia/interfaces/web_console/assets/assets/oms-mark.svg",
+    "oh_my_subagents/config.py",
+    "oh_my_subagents/main.py",
+    "oh_my_subagents/interfaces/web_console/assets/index.html",
+    "oh_my_subagents/interfaces/web_console/assets/assets/oms-mark.svg",
     *(f"{STARTER_RESOURCE_PREFIX}{filename}" for filename in STARTER_WORKFLOW_FILENAMES),
-    "banksia/platform/managed_services/resources/systemd/banksia.service",
-    "banksia/runtime/prompt/assets/shared/core.txt",
-    "banksia/runtime/prompt/assets/behaviors/contributor.txt",
+    "oh_my_subagents/platform/managed_services/resources/systemd/banksia.service",
+    "oh_my_subagents/runtime/prompt/assets/shared/core.txt",
+    "oh_my_subagents/runtime/prompt/assets/behaviors/contributor.txt",
+    "banksia/__init__.py",
+    "banksia/__main__.py",
 )
 FORBIDDEN_MEMBER_FRAGMENTS = (
     ".env",
@@ -88,9 +90,9 @@ def verify_wheel_identity(
     metadata = archive.read(metadata_member).decode("utf-8")
     entry_points = archive.read(entry_points_member).decode("utf-8")
     verify_core_metadata(metadata, source="wheel")
-    if "oms = banksia.interfaces.cli.main:main" not in entry_points:
+    if "oms = oh_my_subagents.interfaces.cli.main:main" not in entry_points:
         raise AssertionError("wheel does not expose the canonical OMS console entry point")
-    if "banksia = banksia.interfaces.cli.main:legacy_main" not in entry_points:
+    if "banksia = oh_my_subagents.interfaces.cli.main:legacy_main" not in entry_points:
         raise AssertionError("wheel does not expose the Oh My Subagents compatibility entry point")
     if "autoclaw" in entry_points.casefold():
         raise AssertionError("wheel retained the removed legacy console entry point")
@@ -116,6 +118,7 @@ def inspect_sdist(sdist_path: Path) -> tuple[str, ...]:
     verify_required_suffixes(members, required)
     verify_starter_workflow_members(members)
     verify_console_asset_members(members)
+    verify_legacy_bridge_members(members)
     verify_forbidden_members(members)
     return raw_members
 
@@ -149,7 +152,7 @@ def verify_package_members(members: tuple[str, ...]) -> None:
     verify_required_suffixes(members, REQUIRED_PACKAGE_MEMBERS)
     verify_starter_workflow_members(members)
     verify_console_asset_members(members)
-    if any(member.startswith("src/banksia/") for member in members):
+    if any(member.startswith("src/oh_my_subagents/") for member in members):
         raise AssertionError("wheel retained a source-tree package prefix")
 
 
@@ -177,11 +180,24 @@ def verify_required_suffixes(members: tuple[str, ...], required: tuple[str, ...]
 
 def verify_console_asset_members(members: tuple[str, ...]) -> None:
     console_assets = tuple(
-        member for member in members if "banksia/interfaces/web_console/assets/" in member
+        member for member in members if "oh_my_subagents/interfaces/web_console/assets/" in member
     )
     for suffix in (".js", ".css"):
         if not any(member.endswith(suffix) for member in console_assets):
             raise AssertionError(f"distribution is missing a built Console {suffix} asset")
+
+
+def verify_legacy_bridge_members(members: tuple[str, ...]) -> None:
+    normalized_members = tuple(
+        member.removeprefix("src/")
+        for member in members
+        if member.startswith(("banksia/", "src/banksia/"))
+    )
+    legacy_members = tuple(sorted(normalized_members))
+    if legacy_members != ("banksia/__init__.py", "banksia/__main__.py"):
+        raise AssertionError(
+            f"distribution has an unexpected Banksia compatibility surface: {legacy_members}"
+        )
 
 
 def verify_forbidden_members(members: tuple[str, ...]) -> None:

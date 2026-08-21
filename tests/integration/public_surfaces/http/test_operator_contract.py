@@ -7,8 +7,8 @@ from pathlib import Path
 import httpx
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from banksia.main import create_app
-from banksia.operator import (
+from oh_my_subagents.main import create_app
+from oh_my_subagents.operator import (
     OperatorConversationService,
     OperatorProviderAskUserResult,
     OperatorProviderMessageResult,
@@ -16,13 +16,13 @@ from banksia.operator import (
     OperatorTurnRunner,
     UnavailableOperatorTurnRunner,
 )
-from banksia.operator.contracts import (
+from oh_my_subagents.operator.contracts import (
     OperatorAssistantQuestionSetEntry,
     OperatorConversationView,
 )
-from banksia.persistence import OperatorConversationEntryModel
-from banksia.persistence.session import RuntimeAsyncSession
-from banksia.runtime.clock import utc_now
+from oh_my_subagents.persistence import OperatorConversationEntryModel
+from oh_my_subagents.persistence.session import RuntimeAsyncSession
+from oh_my_subagents.runtime.clock import utc_now
 from tests.helpers.operator import (
     RecordingTurnRunner,
     create_operator_engine,
@@ -171,7 +171,7 @@ async def test_operator_create_route_is_strict_and_idempotent(
         vendor_json = await client.post(
             "/api/operator/conversations",
             headers={
-                "Content-Type": "application/vnd.banksia.operator+json",
+                "Content-Type": "application/vnd.oh_my_subagents.operator+json",
                 "Idempotency-Key": "create-vendor-json",
             },
             content=b"{}",

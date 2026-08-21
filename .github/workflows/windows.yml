@@ -82,11 +82,11 @@ jobs:
               run: |
                   npm --prefix console ci
                   npm --prefix console run build
-                  Remove-Item -Recurse -Force src\banksia\interfaces\web_console\assets -ErrorAction SilentlyContinue
-                  New-Item -ItemType Directory -Force src\banksia\interfaces\web_console\assets | Out-Null
-                  Copy-Item -Recurse console\dist\* src\banksia\interfaces\web_console\assets\
-                  Copy-Item console\LICENSE src\banksia\interfaces\web_console\assets\LICENSE.txt
-                  Copy-Item console\NOTICE src\banksia\interfaces\web_console\assets\NOTICE.txt
+                  Remove-Item -Recurse -Force src\oh_my_subagents\interfaces\web_console\assets -ErrorAction SilentlyContinue
+                  New-Item -ItemType Directory -Force src\oh_my_subagents\interfaces\web_console\assets | Out-Null
+                  Copy-Item -Recurse console\dist\* src\oh_my_subagents\interfaces\web_console\assets\
+                  Copy-Item console\LICENSE src\oh_my_subagents\interfaces\web_console\assets\LICENSE.txt
+                  Copy-Item console\NOTICE src\oh_my_subagents\interfaces\web_console\assets\NOTICE.txt
                   Remove-Item -Recurse -Force dist -ErrorAction SilentlyContinue
                   .\.venv\Scripts\python -m build
 

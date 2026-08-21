@@ -4,9 +4,9 @@ from typing import cast
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from banksia.runtime.dispatch.cleanup import create_dispatch_binding_cleanup_handler
-from banksia.runtime.node_mcp import DispatchMcpBindingRegistry
-from banksia.runtime.post_commit import DispatchCleanupRequested
+from oh_my_subagents.runtime.dispatch.cleanup import create_dispatch_binding_cleanup_handler
+from oh_my_subagents.runtime.node_mcp import DispatchMcpBindingRegistry
+from oh_my_subagents.runtime.post_commit import DispatchCleanupRequested
 
 
 class DispatchStatusSession:

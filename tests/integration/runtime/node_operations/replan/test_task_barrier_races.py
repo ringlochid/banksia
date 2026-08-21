@@ -8,21 +8,21 @@ from typing import Any, Literal
 import pytest
 from sqlalchemy import func, select
 
-from banksia.persistence.models import (
+from oh_my_subagents.persistence.models import (
     AttemptCheckpointModel,
     DispatchTurnModel,
     ReplanTransitionModel,
     TaskModel,
     TeamRevisionModel,
 )
-from banksia.runtime.contracts.operation_failure import OperationFailureCode
-from banksia.runtime.errors import RuntimeOperationError
-from banksia.runtime.node_operations import (
+from oh_my_subagents.runtime.contracts.operation_failure import OperationFailureCode
+from oh_my_subagents.runtime.errors import RuntimeOperationError
+from oh_my_subagents.runtime.node_operations import (
     NodeActivitySignal,
     NodeOperationExecutor,
     NodeOperationScope,
 )
-from banksia.runtime.task_control.service import (
+from oh_my_subagents.runtime.task_control.service import (
     cancel_runtime_task,
     pause_runtime_task,
 )

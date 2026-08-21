@@ -13,10 +13,10 @@ import pytest
 from sqlalchemy import inspect, text
 from sqlalchemy.engine import make_url
 
-from banksia.interfaces.cli.bootstrap.database import reset_database
-from banksia.interfaces.cli.support import command_env, temporary_env
-from banksia.persistence.database_backup import DatabaseBackupError
-from banksia.persistence.session import dispose_db_engine, get_async_engine
+from oh_my_subagents.interfaces.cli.bootstrap.database import reset_database
+from oh_my_subagents.interfaces.cli.support import command_env, temporary_env
+from oh_my_subagents.persistence.database_backup import DatabaseBackupError
+from oh_my_subagents.persistence.session import dispose_db_engine, get_async_engine
 from tests.helpers.database_backup import (
     read_sqlite_backup_marker,
     read_sqlite_reset_catalog,

@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import banksia.persistence.session_operations as session_operations
+import oh_my_subagents.persistence.session_operations as session_operations
 
 
 class _RecordingSessionContext:

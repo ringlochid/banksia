@@ -15,14 +15,14 @@ from fastapi.routing import APIRoute
 from pydantic import SecretStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import banksia.interfaces.http.support as support_module
-import banksia.main as main_module
-from banksia.config import Environment, Settings
-from banksia.interfaces.http.support import create_support_app
-from banksia.main import create_app
-from banksia.persistence.session import get_db_session
-from banksia.runtime.node_operations import NodeOperationScope
-from banksia.runtime.task_events import (
+import oh_my_subagents.interfaces.http.support as support_module
+import oh_my_subagents.main as main_module
+from oh_my_subagents.config import Environment, Settings
+from oh_my_subagents.interfaces.http.support import create_support_app
+from oh_my_subagents.main import create_app
+from oh_my_subagents.persistence.session import get_db_session
+from oh_my_subagents.runtime.node_operations import NodeOperationScope
+from oh_my_subagents.runtime.task_events import (
     encode_task_event_cursor,
     list_task_events,
 )

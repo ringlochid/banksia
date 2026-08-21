@@ -5,9 +5,9 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from banksia.runtime.contracts import CheckpointRequest
-from banksia.runtime.node_operations import NodeOperationScope
-from banksia.runtime.work_plan import SetWorkPlanRequest
+from oh_my_subagents.runtime.contracts import CheckpointRequest
+from oh_my_subagents.runtime.node_operations import NodeOperationScope
+from oh_my_subagents.runtime.work_plan import SetWorkPlanRequest
 from tests.helpers.executor_harness import seeded_executor
 
 

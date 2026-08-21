@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from banksia.persistence.models import (
+from oh_my_subagents.persistence.models import (
     AcceptedBoundaryModel,
     AssignmentModel,
     AttemptCheckpointModel,
@@ -22,13 +22,16 @@ from banksia.persistence.models import (
     DispatchTurnModel,
     HumanRequestModel,
 )
-from banksia.runtime.contracts.operation_failure import OperationFailureCode
-from banksia.runtime.dispatch.authority import read_node_operation_authority
-from banksia.runtime.errors import RuntimeOperationError
-from banksia.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
-from banksia.runtime.node_operations.catalog import get_node_operation_descriptor
-from banksia.runtime.node_operations.contracts import NodeOperationDescriptor, NodeOperationName
-from banksia.runtime.node_operations.operation_router import (
+from oh_my_subagents.runtime.contracts.operation_failure import OperationFailureCode
+from oh_my_subagents.runtime.dispatch.authority import read_node_operation_authority
+from oh_my_subagents.runtime.errors import RuntimeOperationError
+from oh_my_subagents.runtime.node_operations import NodeOperationExecutor, NodeOperationScope
+from oh_my_subagents.runtime.node_operations.catalog import get_node_operation_descriptor
+from oh_my_subagents.runtime.node_operations.contracts import (
+    NodeOperationDescriptor,
+    NodeOperationName,
+)
+from oh_my_subagents.runtime.node_operations.operation_router import (
     execute_controller_node_operation,
 )
 from tests.helpers.executor_harness import (

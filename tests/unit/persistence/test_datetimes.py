@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta, timezone
 from sqlalchemy import String, create_engine, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 
-from banksia.persistence.datetimes import UtcDateTime
+from oh_my_subagents.persistence.datetimes import UtcDateTime
 
 
 class _StampBase(DeclarativeBase):

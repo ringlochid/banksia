@@ -9,25 +9,25 @@ import pytest
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import banksia.runtime.replan.continuation as replan_continuation
-from banksia.config import CodexSettings, RuntimeSettings, Settings
-from banksia.persistence.models import (
+import oh_my_subagents.runtime.replan.continuation as replan_continuation
+from oh_my_subagents.config import CodexSettings, RuntimeSettings, Settings
+from oh_my_subagents.persistence.models import (
     AttemptModel,
     DispatchTurnModel,
     ReplanTransitionModel,
     TaskModel,
 )
-from banksia.providers import ProviderKind
-from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
-from banksia.runtime.node_operations import NodeOperationScope
-from banksia.runtime.post_commit import (
+from oh_my_subagents.providers import ProviderKind
+from oh_my_subagents.runtime.dispatch.preparation import DispatchOpeningDependencies
+from oh_my_subagents.runtime.node_operations import NodeOperationScope
+from oh_my_subagents.runtime.post_commit import (
     CapturedRuntimeEffectPublisher,
     ReplanCommitted,
     RuntimeEffectSignal,
 )
-from banksia.runtime.post_commit.dispatch_startup import read_replan_continuation_page
-from banksia.runtime.replan.continuation import continue_committed_replan
-from banksia.runtime.task_control.service import (
+from oh_my_subagents.runtime.post_commit.dispatch_startup import read_replan_continuation_page
+from oh_my_subagents.runtime.replan.continuation import continue_committed_replan
+from oh_my_subagents.runtime.task_control.service import (
     cancel_runtime_task,
     continue_runtime_task,
     pause_runtime_task,

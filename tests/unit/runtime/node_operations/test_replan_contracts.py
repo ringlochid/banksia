@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 from pydantic import BaseModel, ValidationError
 
-from banksia.runtime.contracts import AddChildRequest, UpdateChildRequest
+from oh_my_subagents.runtime.contracts import AddChildRequest, UpdateChildRequest
 
 
 def test_recursive_replan_contract_distinguishes_omission_and_rejects_ambiguity() -> None:

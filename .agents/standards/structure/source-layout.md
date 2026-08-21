@@ -16,7 +16,7 @@ Use this guide when restructuring the repo tree, choosing package roots, consoli
 
 The final top level is product- and ownership-oriented:
 
-- `src/banksia/**`: the one shipped Python backend package
+- `src/oh_my_subagents/**`: the one shipped Python backend package
 - `tests/**`: backend proof mirroring package and boundary ownership
 - `console/**`: the independently authored browser product
 - `docs/**`: public docs
@@ -28,7 +28,7 @@ The final top level is product- and ownership-oriented:
 
 Do not reserve an `apps/**` taxonomy for hypothetical future applications. Do not add top-level directories merely to sort by language, build tool, or temporary migration state when an existing owner fits.
 
-The root-layout cutover is complete: `src/banksia/**`, `tests/**`, and `console/**` are authoritative.
+The root-layout cutover is complete: `src/oh_my_subagents/**`, `tests/**`, and `console/**` are authoritative.
 
 ## Canonical backend package rule
 
@@ -36,7 +36,7 @@ The root-layout cutover is complete: `src/banksia/**`, `tests/**`, and `console/
 - compatibility import paths require an explicit contract, must stay thin, and must name their removal owner
 - do not let two long-lived source trees both act like the real backend owner
 
-For Oh My Subagents, the canonical backend package is `src/banksia/**`. No parallel `autoclaw`, `banksia_v2`, or unwrapped package tree may remain in the final layout.
+For Oh My Subagents, the canonical backend package is `src/oh_my_subagents/**`. No parallel `autoclaw`, `banksia_v2`, or unwrapped package tree may remain in the final layout.
 
 ## Packaging-aware source root rule
 
@@ -49,7 +49,7 @@ For Oh My Subagents, the steady-state package boundary is:
 ```text
 pyproject.toml
 src/
-  banksia/
+  oh_my_subagents/
 tests/
 ```
 
@@ -61,7 +61,7 @@ Transport owners exist to expose product surfaces, not to become business-logic 
 - `interfaces/cli/**` should own command parsing, prompting, rendering, and exit-status mapping
 - transport owners should not become the long-term home of runtime, registry, or provider-integration business logic
 
-For Oh My Subagents, CLI code should converge toward one coherent owner inside `src/banksia/**`, such as:
+For Oh My Subagents, CLI code should converge toward one coherent owner inside `src/oh_my_subagents/**`, such as:
 
 ```text
 interfaces/
@@ -249,7 +249,7 @@ The Oh My Subagents source layout is:
 ```text
 pyproject.toml
 src/
-  banksia/
+  oh_my_subagents/
     interfaces/
       http/
         router.py
@@ -281,7 +281,7 @@ console/
 
 Key implications:
 
-- `src/banksia/` is the canonical backend package
+- `src/oh_my_subagents/` is the canonical backend package
 - public edges group under one `interfaces/**` owner instead of several sibling transport trees
 - Workflow families group under one `workflows/**` owner instead of generic Definition/compiler/registry siblings
 - runtime packages become domain-first

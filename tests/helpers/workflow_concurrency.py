@@ -12,8 +12,8 @@ import pytest
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from banksia.persistence.session import create_runtime_schema_tables
-from banksia.workflows.bootstrap import seed_starter_workflows
+from oh_my_subagents.persistence.session import create_runtime_schema_tables
+from oh_my_subagents.workflows.bootstrap import seed_starter_workflows
 from tests.helpers.workflow_runtime import (
     AsyncSessionFactory,
     initialized_workflow_database,

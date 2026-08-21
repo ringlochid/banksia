@@ -10,12 +10,12 @@ import pytest
     "imports",
     (
         (
-            "from banksia.runtime.checkpoint import commit_checkpoint; "
-            "from banksia.runtime.node_operations import NodeOperationExecutor"
+            "from oh_my_subagents.runtime.checkpoint import commit_checkpoint; "
+            "from oh_my_subagents.runtime.node_operations import NodeOperationExecutor"
         ),
         (
-            "from banksia.runtime.node_operations import NodeOperationExecutor; "
-            "from banksia.runtime.checkpoint import commit_checkpoint"
+            "from oh_my_subagents.runtime.node_operations import NodeOperationExecutor; "
+            "from oh_my_subagents.runtime.checkpoint import commit_checkpoint"
         ),
     ),
 )

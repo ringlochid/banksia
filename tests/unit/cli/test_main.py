@@ -10,9 +10,9 @@ import click
 import pytest
 from pydantic import ValidationError
 
-import banksia.interfaces.cli as cli
-from banksia.config import Settings
-from banksia.persistence.schema_contract import DatabaseSchemaMismatchError
+import oh_my_subagents.interfaces.cli as cli
+from oh_my_subagents.config import Settings
+from oh_my_subagents.persistence.schema_contract import DatabaseSchemaMismatchError
 
 
 def test_main_renders_friendly_unknown_command(capsys: pytest.CaptureFixture[str]) -> None:
@@ -42,7 +42,7 @@ def test_main_hides_traceback_without_debug(
     def _boom(_args: Sequence[str]) -> NoReturn:
         raise RuntimeError("boom")
 
-    monkeypatch.setattr("banksia.interfaces.cli.root.cmd_init", _boom)
+    monkeypatch.setattr("oh_my_subagents.interfaces.cli.root.cmd_init", _boom)
     result = cli.main(["init", "--force"])
 
     output = capsys.readouterr().out
@@ -62,7 +62,7 @@ def test_main_directs_schema_mismatch_to_data_preserving_upgrade(
     def _mismatch(_args: Sequence[str]) -> NoReturn:
         raise DatabaseSchemaMismatchError("attempts missing watchdog replacement state")
 
-    monkeypatch.setattr("banksia.interfaces.cli.root.cmd_init", _mismatch)
+    monkeypatch.setattr("oh_my_subagents.interfaces.cli.root.cmd_init", _mismatch)
     result = cli.main(["init", "--force", "--config", str(config_path)])
 
     output = capsys.readouterr().out
@@ -83,7 +83,7 @@ def test_service_install_directs_schema_mismatch_to_selected_config_upgrade(
         raise DatabaseSchemaMismatchError("attempts missing watchdog replacement state")
 
     monkeypatch.setattr(
-        "banksia.interfaces.cli.service_commands.cmd_service_install",
+        "oh_my_subagents.interfaces.cli.service_commands.cmd_service_install",
         mismatch,
     )
     result = cli.main(["service", "install", "--no-start", "--config", str(config_path)])
@@ -102,7 +102,7 @@ def test_main_shows_traceback_with_debug(
     def _boom(_args: Sequence[str]) -> NoReturn:
         raise RuntimeError("boom")
 
-    monkeypatch.setattr("banksia.interfaces.cli.root.cmd_init", _boom)
+    monkeypatch.setattr("oh_my_subagents.interfaces.cli.root.cmd_init", _boom)
     result = cli.main(["--debug", "init", "--force"])
 
     output = capsys.readouterr().out
@@ -118,7 +118,7 @@ def test_main_accepts_debug_after_a_leaf_command(
     def _boom(_args: Sequence[str]) -> NoReturn:
         raise RuntimeError("service boom")
 
-    monkeypatch.setattr("banksia.interfaces.cli.service_commands.cmd_service_start", _boom)
+    monkeypatch.setattr("oh_my_subagents.interfaces.cli.service_commands.cmd_service_start", _boom)
 
     result = cli.main(["service", "start", "--debug"])
 
@@ -146,7 +146,7 @@ def test_main_explains_that_cancelled_setup_keeps_completed_steps(
     def abort(_args: Sequence[str]) -> NoReturn:
         raise click.Abort()
 
-    monkeypatch.setattr("banksia.interfaces.cli.root.cmd_setup", abort)
+    monkeypatch.setattr("oh_my_subagents.interfaces.cli.root.cmd_setup", abort)
 
     result = cli.main(["setup"])
 
@@ -167,7 +167,7 @@ def test_main_redacts_invalid_configuration_inputs_even_with_debug(
     def _boom(_args: Sequence[str]) -> NoReturn:
         raise captured.value
 
-    monkeypatch.setattr("banksia.interfaces.cli.root.cmd_init", _boom)
+    monkeypatch.setattr("oh_my_subagents.interfaces.cli.root.cmd_init", _boom)
 
     result = cli.main(["init", "--force", "--debug"])
 

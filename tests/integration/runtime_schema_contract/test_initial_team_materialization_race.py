@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
-from banksia.persistence.models import (
+from oh_my_subagents.persistence.models import (
     MemberBranchBasisModel,
     MemberConfigurationModel,
     MemberModel,
@@ -21,13 +21,13 @@ from banksia.persistence.models import (
     TeamRevisionMemberModel,
     TeamRevisionModel,
 )
-from banksia.persistence.session import create_runtime_schema_tables
-from banksia.runtime.team import (
+from oh_my_subagents.persistence.session import create_runtime_schema_tables
+from oh_my_subagents.runtime.team import (
     InitialTaskTeam,
     TeamMaterializationError,
     materialize_initial_task_team,
 )
-from banksia.workflows.contracts import PublishedWorkflowRevision
+from oh_my_subagents.workflows.contracts import PublishedWorkflowRevision
 from tests.helpers.disposable_postgres import read_disposable_postgres_url
 from tests.helpers.launch_foundation import (
     build_launch_foundation_workflow_revision,

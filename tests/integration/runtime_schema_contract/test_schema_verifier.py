@@ -6,12 +6,12 @@ from pathlib import Path
 import pytest
 from sqlalchemy import Engine, create_engine
 
-from banksia.persistence.schema_contract import (
+from oh_my_subagents.persistence.schema_contract import (
     normalize_schema_sql,
     schema_mismatch_messages,
     verify_schema_contract,
 )
-from banksia.persistence.session import DatabaseSchemaMismatchError
+from oh_my_subagents.persistence.session import DatabaseSchemaMismatchError
 from tests.helpers.sqlite_runtime import (
     create_runtime_schema_engine,
     rewrite_empty_sqlite_table,

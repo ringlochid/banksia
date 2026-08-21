@@ -8,9 +8,9 @@ from pathlib import Path
 
 import pytest
 
-import banksia.interfaces.cli as cli
-from banksia.persistence.forward_upgrade import DatabaseSchemaUpgradeUnavailableError
-from banksia.persistence.session import dispose_db_engine
+import oh_my_subagents.interfaces.cli as cli
+from oh_my_subagents.persistence.forward_upgrade import DatabaseSchemaUpgradeUnavailableError
+from oh_my_subagents.persistence.session import dispose_db_engine
 from tests.helpers.catalog_seed import seed_catalog
 from tests.helpers.lineage_seed import seed_runtime_scope
 from tests.helpers.sqlite_runtime import (

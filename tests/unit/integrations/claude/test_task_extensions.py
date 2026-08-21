@@ -8,14 +8,14 @@ from typing import cast
 import pytest
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
 
-from banksia.integrations.claude import ClaudeAdapter
-from banksia.providers import (
+from oh_my_subagents.integrations.claude import ClaudeAdapter
+from oh_my_subagents.providers import (
     ManagedExtensionMode,
     ManagedSandboxMode,
     NetworkAccess,
     ProviderNativeAccess,
 )
-from banksia.runtime.providers.contracts import ProviderStopOutcome
+from oh_my_subagents.runtime.providers.contracts import ProviderStopOutcome
 from tests.unit.integrations.claude.task_adapter_test_support import (
     FakeClaudeClient,
     authentication,

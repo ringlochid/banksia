@@ -6,18 +6,18 @@ from pathlib import Path
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from banksia.config import CodexSettings, RuntimeSettings, Settings
-from banksia.providers import ProviderKind
-from banksia.runtime.contracts import TaskStartRequest
-from banksia.runtime.dispatch.preparation import DispatchOpeningDependencies
-from banksia.runtime.post_commit import CapturedRuntimeEffectPublisher
-from banksia.runtime.task_start import start_task
-from banksia.runtime.workspace.admission import (
+from oh_my_subagents.config import CodexSettings, RuntimeSettings, Settings
+from oh_my_subagents.providers import ProviderKind
+from oh_my_subagents.runtime.contracts import TaskStartRequest
+from oh_my_subagents.runtime.dispatch.preparation import DispatchOpeningDependencies
+from oh_my_subagents.runtime.post_commit import CapturedRuntimeEffectPublisher
+from oh_my_subagents.runtime.task_start import start_task
+from oh_my_subagents.runtime.workspace.admission import (
     TASK_INITIALIZATION_MARKER,
     recover_task_workspace_admissions,
 )
-from banksia.workflows.authoring import import_workflow_draft, publish_workflow_draft
-from banksia.workflows.catalog import read_current_published_workflow
+from oh_my_subagents.workflows.authoring import import_workflow_draft, publish_workflow_draft
+from oh_my_subagents.workflows.catalog import read_current_published_workflow
 from tests.helpers.generic_workflow import GENERIC_WORKFLOW_ID, publish_generic_workflow
 from tests.helpers.workflow_runtime import initialized_workflow_database
 

@@ -4,8 +4,8 @@ import json
 
 import pytest
 
-from banksia.workflows import WorkflowInputError, canonical_workflow_bytes, parse_workflow
-from banksia.workflows.contracts import CodexProviderSelection
+from oh_my_subagents.workflows import WorkflowInputError, canonical_workflow_bytes, parse_workflow
+from oh_my_subagents.workflows.contracts import CodexProviderSelection
 
 MINIMAL_WORKFLOW = {
     "kind": "workflow",

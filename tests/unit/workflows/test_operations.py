@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from banksia.workflows import (
+from oh_my_subagents.workflows import (
     AddMemberOperation,
     NewMember,
     NormalizedWorkflow,

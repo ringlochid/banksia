@@ -5,6 +5,7 @@ import plistlib
 import re
 import subprocess
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -27,6 +28,8 @@ from .definition_files import (
 LAUNCHD_MANAGER_NAME = "launchd-user"
 LAUNCHD_SERVICE_NAME = "io.github.ringlochid.banksia"
 _LAUNCHCTL_FIELD_PATTERN = re.compile(r"^\s*([a-z][a-z ]+)\s*=\s*(.*?)\s*$")
+_LAUNCHD_UNLOAD_TIMEOUT_SECONDS = 3.0
+_LAUNCHD_UNLOAD_POLL_INTERVAL_SECONDS = 0.05
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,13 +84,7 @@ class LaunchdUserServiceManager:
             if should_start:
                 return self.start(target, command_observer=command_observer)
             return self.inspect(target)
-        if self._inspect_job().is_loaded:
-            self._execute(
-                "bootout",
-                self.service_target,
-                operation="reload",
-                command_observer=command_observer,
-            )
+        self._unload_job(operation="reload", command_observer=command_observer)
         replace_service_definition(
             self.definition_path,
             expected,
@@ -115,13 +112,7 @@ class LaunchdUserServiceManager:
     ) -> ManagedServiceInspection:
         self._require_supported()
         del target
-        if self._inspect_job().is_loaded:
-            self._execute(
-                "bootout",
-                self.service_target,
-                operation="uninstall",
-                command_observer=command_observer,
-            )
+        self._unload_job(operation="uninstall", command_observer=command_observer)
         self._execute(
             "enable",
             self.service_target,
@@ -175,14 +166,8 @@ class LaunchdUserServiceManager:
         command_observer: ManagedServiceCommandObserver | None = None,
     ) -> ManagedServiceInspection:
         self._require_current_definition(target)
-        if self._inspect_job().is_loaded:
-            self._execute(
-                "bootout",
-                self.service_target,
-                operation="stop",
-                command_observer=command_observer,
-            )
-        return self.inspect(target).with_execution_state(ManagedServiceExecutionState.STOPPED)
+        self._unload_job(operation="stop", command_observer=command_observer)
+        return self.inspect(target)
 
     def restart(
         self,
@@ -311,6 +296,26 @@ class LaunchdUserServiceManager:
         if match is not None and match.group(1) == "true":
             return ManagedServiceStartupState.DISABLED
         return ManagedServiceStartupState.ENABLED
+
+    def _unload_job(
+        self,
+        *,
+        operation: str,
+        command_observer: ManagedServiceCommandObserver | None,
+    ) -> None:
+        if not self._inspect_job().is_loaded:
+            return
+        self._execute(
+            "bootout",
+            self.service_target,
+            operation=operation,
+            command_observer=command_observer,
+        )
+        deadline = time.monotonic() + _LAUNCHD_UNLOAD_TIMEOUT_SECONDS
+        while self._inspect_job().is_loaded:
+            if time.monotonic() >= deadline:
+                raise RuntimeError("launchd did not unload the Oh My Subagents background service")
+            time.sleep(_LAUNCHD_UNLOAD_POLL_INTERVAL_SECONDS)
 
     def _execute(
         self,

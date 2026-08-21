@@ -388,6 +388,15 @@ def test_launchctl_print_parser_reads_runtime_state() -> None:
     assert snapshot.last_exit_code == 0
 
 
+def test_launchd_user_selection_rejects_a_host_without_posix_user_ids(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delattr(launchd_module.os, "getuid", raising=False)
+
+    with pytest.raises(RuntimeError, match="requires a POSIX host"):
+        launchd_module._current_posix_user_id()
+
+
 def test_native_command_error_carries_explicit_operation_and_manager(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

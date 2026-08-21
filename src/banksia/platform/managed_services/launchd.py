@@ -447,7 +447,10 @@ def _parse_launchctl_integer(value: str | None) -> int | None:
 
 
 def _current_posix_user_id() -> int:
-    return int(os.getuid())  # type: ignore[attr-defined]
+    get_user_id = getattr(os, "getuid", None)
+    if get_user_id is None:
+        raise RuntimeError("launchd user selection requires a POSIX host with os.getuid()")
+    return int(get_user_id())
 
 
 __all__ = [

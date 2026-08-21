@@ -411,7 +411,7 @@ def test_launchd_user_selection_rejects_a_host_without_posix_user_ids(
     manager = LaunchdUserServiceManager(definition_dir=tmp_path / "LaunchAgents")
 
     with pytest.raises(RuntimeError, match="requires a POSIX host"):
-        manager.domain_target
+        _ = manager.domain_target
 
 
 def test_native_command_error_carries_explicit_operation_and_manager(

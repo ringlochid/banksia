@@ -403,6 +403,10 @@ async def _postgres_update_waits_for_read_lock(
                 return False
             if await session.scalar(query):
                 return True
+            # Give PostgreSQL time to publish the wait in pg_stat_activity;
+            # a tight local loop can exhaust every observation attempt before
+            # the concurrently submitted UPDATE becomes visible.
+            await asyncio.sleep(0.005)
     return False
 
 

@@ -4,8 +4,8 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
 DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
-CONFIG_DIR="${OMS_CONFIG_DIR:-$CONFIG_HOME/banksia}"
-DATA_DIR="${OMS_DATA_DIR:-$DATA_HOME/banksia}"
+CONFIG_DIR="${OMS_CONFIG_DIR:-$CONFIG_HOME/oh-my-subagents}"
+DATA_DIR="${OMS_DATA_DIR:-$DATA_HOME/oh-my-subagents}"
 VENV_DIR="${OMS_VENV_DIR:-$DATA_DIR/venv}"
 PYTHON_BIN="${OMS_PYTHON_BIN:-python3}"
 CONFIG_PATH="${OMS_CONFIG:-$CONFIG_DIR/config.toml}"
@@ -131,7 +131,7 @@ fi
 if (( FORCE_INIT )); then
   INIT_ARGS+=(--force)
 fi
-"$VENV_DIR/bin/banksia" "${INIT_ARGS[@]}"
+"$VENV_DIR/bin/oms" "${INIT_ARGS[@]}"
 
 SERVICE_INSTALL_ARGS=(
   service install
@@ -140,7 +140,7 @@ SERVICE_INSTALL_ARGS=(
 if (( NO_START )); then
   SERVICE_INSTALL_ARGS+=(--no-start)
 fi
-"$VENV_DIR/bin/banksia" "${SERVICE_INSTALL_ARGS[@]}"
+"$VENV_DIR/bin/oms" "${SERVICE_INSTALL_ARGS[@]}"
 
 echo "Installed Oh My Subagents and reconciled its per-user background service."
 echo "  config: $CONFIG_PATH"

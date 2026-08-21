@@ -66,8 +66,8 @@ def _assert_pre_upgrade_backup(database_path: Path, *, task_id: str) -> None:
 
 @pytest.mark.asyncio
 async def test_db_reset_recreates_sqlite_database(tmp_path: Path) -> None:
-    config_path = tmp_path / "banksia-config.toml"
-    data_dir = tmp_path / "banksia-data"
+    config_path = tmp_path / "oms-config.toml"
+    data_dir = tmp_path / "oms-data"
     database_path = data_dir / "oms.persistence"
     try:
         await cli.cmd_init(build_cli_init_args(config_path, data_dir))
@@ -95,8 +95,8 @@ async def test_db_reset_recreates_sqlite_database(tmp_path: Path) -> None:
 
 @pytest.mark.asyncio
 async def test_db_reset_aborts_when_sqlite_backup_cannot_be_created(tmp_path: Path) -> None:
-    config_path = tmp_path / "banksia-config.toml"
-    data_dir = tmp_path / "banksia-data"
+    config_path = tmp_path / "oms-config.toml"
+    data_dir = tmp_path / "oms-data"
     database_path = data_dir / "oms.persistence"
 
     try:
@@ -119,8 +119,8 @@ async def test_db_reset_aborts_when_sqlite_backup_cannot_be_created(tmp_path: Pa
 async def test_db_upgrade_rejects_unknown_sqlite_schema_without_mutation(
     tmp_path: Path,
 ) -> None:
-    config_path = tmp_path / "banksia-config.toml"
-    data_dir = tmp_path / "banksia-data"
+    config_path = tmp_path / "oms-config.toml"
+    data_dir = tmp_path / "oms-data"
     database_path = data_dir / "oms.persistence"
     init_args = build_cli_init_args(config_path, data_dir)
     init_args.skip_db_upgrade = True
@@ -273,8 +273,8 @@ async def test_db_upgrade_adds_member_steering_event_without_losing_rows(
 
 @pytest.mark.asyncio
 async def test_db_upgrade_bootstraps_empty_sqlite_database(tmp_path: Path) -> None:
-    config_path = tmp_path / "banksia-config.toml"
-    data_dir = tmp_path / "banksia-data"
+    config_path = tmp_path / "oms-config.toml"
+    data_dir = tmp_path / "oms-data"
     database_path = data_dir / "oms.persistence"
     init_args = build_cli_init_args(config_path, data_dir)
     init_args.skip_db_upgrade = True
@@ -309,8 +309,8 @@ def _remove_watchdog_replacement_contract(ddl: str) -> str:
 async def test_db_reset_rejects_symlinked_sqlite_database_without_touching_target(
     tmp_path: Path,
 ) -> None:
-    config_path = tmp_path / "banksia-config.toml"
-    data_dir = tmp_path / "banksia-data"
+    config_path = tmp_path / "oms-config.toml"
+    data_dir = tmp_path / "oms-data"
     database_path = data_dir / "oms.persistence"
     real_database_path = data_dir / "real.persistence"
 

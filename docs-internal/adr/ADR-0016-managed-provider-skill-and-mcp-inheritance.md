@@ -12,7 +12,7 @@ The controller records requested mode, requested source, effective mode, and eff
 
 After provider startup, the Dispatch records a sanitized observed inventory of Skill names and active external MCP server/tool names. It stores no Skill content, extension path, MCP arguments, credentials, or tool results. The inventory is support evidence, not a reproducible extension snapshot or controller authority.
 
-Inherited extensions remain provider-native. Their activity may be absent from Oh My Subagents Activity and cannot replace Oh My Subagents controller operations, currentness, Checkpoints, or Result selection. Oh My Subagents continues to supply its exact Dispatch-scoped `banksia_node` binding and validates that binding before the first model turn.
+Inherited extensions remain provider-native. Their activity may be absent from Oh My Subagents Activity and cannot replace Oh My Subagents controller operations, currentness, Checkpoints, or Result selection. Oh My Subagents continues to supply its exact Dispatch-scoped `oms_node` binding and validates that binding before the first model turn.
 
 Codex Task effort accepts `max`; `ultra` remains excluded because it enables provider-owned proactive delegation outside Oh My Subagents' team controller. Native Codex settings not overridden by Oh My Subagents, including `service_tier = "fast"`, remain effective alongside explicit Workflow model and effort choices.
 

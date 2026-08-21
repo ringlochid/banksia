@@ -9,7 +9,7 @@ NPM := npm
 CONSOLE_DIR := $(CURDIR)/console
 CONSOLE_ASSET_DIR := $(CURDIR)/src/oh_my_subagents/interfaces/web_console/assets
 COMPOSE := docker compose
-TEST_COMPOSE := COMPOSE_PROJECT_NAME=banksia-test-db $(COMPOSE)
+TEST_COMPOSE := COMPOSE_PROJECT_NAME=oms-test-db $(COMPOSE)
 TREE_IGNORE := .git|.venv|node_modules|dist|build|tmp|.pytest_cache|.mypy_cache|.ruff_cache|.coverage|coverage|htmlcov|__pycache__|*.egg-info|*.pyc
 
 .PHONY: tree clean-local backend-install backend-dev test-backend test-backend-unit test-backend-integration test-backend-db test-backend-e2e-bounded test-backend-e2e-reviewed test-backend-e2e-staged docker-up docker-down docker-logs lint-backend format-backend typecheck-backend pyright-backend check-backend backend-openapi-generate backend-openapi-check console-install console-dev console-format console-format-check console-lint console-typecheck console-openapi-generate console-openapi-check console-test console-test-integration console-e2e console-e2e-real console-build console-package-assets check-console package-build package-verify docs-format docs-format-check docs-contract-check docs-inventory docs-prompt-check prompt-behavior-eval test-docs check-docs install-user-service
@@ -19,7 +19,7 @@ tree:
 
 clean-local:
 	rm -rf .pytest_cache .mypy_cache .ruff_cache .coverage coverage htmlcov
-	rm -rf build dist src/oh_my_subagents.egg-info src/oh_my_subagents.egg-info
+	rm -rf build dist src/oh_my_subagents.egg-info
 	rm -rf node_modules console/dist console/node_modules
 	rm -rf console/test-results console/playwright-report
 	rm -rf $(CONSOLE_ASSET_DIR)
@@ -56,7 +56,7 @@ test-backend-db:
 	cleanup() { $(TEST_COMPOSE) down --volumes --remove-orphans; }; \
 	trap cleanup EXIT INT TERM; \
 	$(TEST_COMPOSE) up -d --wait postgres-test; \
-	$(TEST_COMPOSE) exec -T postgres-test sh -lc "psql -U banksia -d postgres -c \"DROP DATABASE IF EXISTS banksia_test WITH (FORCE)\" && psql -U banksia -d postgres -c \"CREATE DATABASE banksia_test\""; \
+	$(TEST_COMPOSE) exec -T postgres-test sh -lc "psql -U oms -d postgres -c \"DROP DATABASE IF EXISTS oms_test WITH (FORCE)\" && psql -U oms -d postgres -c \"CREATE DATABASE oms_test\""; \
 	$(TEST_COMPOSE) build backend-test; \
 	$(TEST_COMPOSE) run --rm -e PYTEST_ADDOPTS backend-test
 

@@ -170,8 +170,8 @@ async def test_open_is_idempotent_and_clones_the_exact_current_publication(
 async def test_file_backed_application_restart_preserves_library_detail_and_open_result(
     tmp_path: Path,
 ) -> None:
-    config_path = tmp_path / "banksia-config.toml"
-    data_dir = tmp_path / "banksia-data"
+    config_path = tmp_path / "oms-config.toml"
+    data_dir = tmp_path / "oms-data"
     request_body = {
         "kind": "create",
         "workflow_id": "restart-durable",

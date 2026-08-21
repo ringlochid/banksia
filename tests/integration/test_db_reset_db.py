@@ -61,8 +61,8 @@ def _invoke_packaged_cli(*args: str) -> subprocess.CompletedProcess[str]:
 def test_db_reset_recreates_seeded_sqlite_database_on_packaged_cli_path(
     tmp_path: Path,
 ) -> None:
-    config_path = tmp_path / "banksia-config.toml"
-    data_dir = tmp_path / "banksia-data"
+    config_path = tmp_path / "oms-config.toml"
+    data_dir = tmp_path / "oms-data"
     database_path = data_dir / "oms.persistence"
     legacy_files = {
         tmp_path / "config" / "autoclaw" / "config.toml": b"legacy config marker\n",
@@ -137,8 +137,8 @@ def test_db_reset_recreates_seeded_sqlite_database_on_packaged_cli_path(
 def test_db_reset_deletes_controller_task_root_but_preserves_external_workspace(
     tmp_path: Path,
 ) -> None:
-    config_path = tmp_path / "banksia-config.toml"
-    data_dir = tmp_path / "banksia-data"
+    config_path = tmp_path / "oms-config.toml"
+    data_dir = tmp_path / "oms-data"
     database_path = data_dir / "oms.persistence"
     task_root = data_dir / "tasks" / "task.alpha"
     external_workspace = tmp_path / "external-workspace"
@@ -180,8 +180,8 @@ def test_db_reset_deletes_controller_task_root_but_preserves_external_workspace(
 
 
 def test_db_reset_preserves_accepted_workspace_task_directory(tmp_path: Path) -> None:
-    config_path = tmp_path / "banksia-config.toml"
-    data_dir = tmp_path / "banksia-data"
+    config_path = tmp_path / "oms-config.toml"
+    data_dir = tmp_path / "oms-data"
     database_path = data_dir / "oms.persistence"
     task_root = tmp_path / "workspace" / ".oms" / "t_01234567"
     retained_file = task_root / "notes" / "retain.md"
@@ -219,8 +219,8 @@ def test_db_reset_preserves_accepted_workspace_task_directory(tmp_path: Path) ->
 def test_db_reset_rejects_controller_task_root_outside_data_boundary_before_destruction(
     tmp_path: Path,
 ) -> None:
-    config_path = tmp_path / "banksia-config.toml"
-    data_dir = tmp_path / "banksia-data"
+    config_path = tmp_path / "oms-config.toml"
+    data_dir = tmp_path / "oms-data"
     database_path = data_dir / "oms.persistence"
     external_task_root = tmp_path / "external-task-root"
 
@@ -258,8 +258,8 @@ def test_db_reset_rejects_controller_task_root_outside_data_boundary_before_dest
 def test_db_reset_rejects_symlinked_controller_task_root_before_destruction(
     tmp_path: Path,
 ) -> None:
-    config_path = tmp_path / "banksia-config.toml"
-    data_dir = tmp_path / "banksia-data"
+    config_path = tmp_path / "oms-config.toml"
+    data_dir = tmp_path / "oms-data"
     database_path = data_dir / "oms.persistence"
     external_task_root = tmp_path / "external-task-root"
     linked_task_root = data_dir / "tasks" / "task-link"
@@ -301,8 +301,8 @@ def test_db_reset_rejects_symlinked_controller_task_root_before_destruction(
 def test_db_reset_rejects_symlinked_task_root_ancestor_before_destruction(
     tmp_path: Path,
 ) -> None:
-    config_path = tmp_path / "banksia-config.toml"
-    data_dir = tmp_path / "banksia-data"
+    config_path = tmp_path / "oms-config.toml"
+    data_dir = tmp_path / "oms-data"
     database_path = data_dir / "oms.persistence"
     real_task_parent = data_dir / "real-tasks"
     real_task_root = real_task_parent / "task.alpha"
@@ -344,8 +344,8 @@ def test_db_reset_rejects_symlinked_task_root_ancestor_before_destruction(
 def test_db_reset_rejects_unsafe_sidecar_before_deleting_task_roots(
     tmp_path: Path,
 ) -> None:
-    config_path = tmp_path / "banksia-config.toml"
-    data_dir = tmp_path / "banksia-data"
+    config_path = tmp_path / "oms-config.toml"
+    data_dir = tmp_path / "oms-data"
     database_path = data_dir / "oms.persistence"
     task_root = data_dir / "tasks" / "task.alpha"
     unsafe_sidecar = Path(f"{database_path}-journal")
@@ -389,13 +389,13 @@ async def test_postgres_reset_recreates_only_dedicated_schema_and_seeds(
     tmp_path: Path,
 ) -> None:
     database_url = _require_disposable_postgres_url()
-    config_path = tmp_path / "banksia-config.toml"
-    data_dir = tmp_path / "banksia-data"
+    config_path = tmp_path / "oms-config.toml"
+    data_dir = tmp_path / "oms-data"
     task_root = data_dir / "tasks" / "task.postgres"
 
     try:
         with (
-            temporary_env({"OMS_POSTGRES_SCHEMA": "banksia"}),
+            temporary_env({"OMS_POSTGRES_SCHEMA": "oms"}),
             command_env(
                 config_path=config_path,
                 data_dir=data_dir,
@@ -432,7 +432,7 @@ async def test_postgres_reset_recreates_only_dedicated_schema_and_seeds(
         readback.dedicated_schema_table_names
     )
     assert readback.workflow_definition_count == 8
-    assert "banksia_reset_sentinel" in readback.public_schema_table_names
+    assert "oms_reset_sentinel" in readback.public_schema_table_names
 
 
 def _require_disposable_postgres_url() -> str:
@@ -449,7 +449,7 @@ async def _create_postgres_reset_sentinel() -> None:
     engine = get_async_engine()
     async with engine.begin() as connection:
         await connection.exec_driver_sql(
-            "CREATE TABLE IF NOT EXISTS public.banksia_reset_sentinel (id INTEGER)"
+            "CREATE TABLE IF NOT EXISTS public.oms_reset_sentinel (id INTEGER)"
         )
     await dispose_db_engine()
 
@@ -460,7 +460,7 @@ async def _insert_postgres_reset_task(task_root: Path) -> None:
         await connection.execute(
             text(
                 """
-                INSERT INTO banksia.tasks (
+                INSERT INTO oms.tasks (
                     task_id,
                     workflow_key,
                     workflow_revision_no,
@@ -474,7 +474,7 @@ async def _insert_postgres_reset_task(task_root: Path) -> None:
                     1,
                     (
                         SELECT content_hash
-                        FROM banksia.workflow_revisions
+                        FROM oms.workflow_revisions
                         WHERE workflow_key = 'production-feature-delivery' AND revision_no = 1
                     ),
                     :task_root_path,
@@ -493,14 +493,12 @@ async def _read_postgres_reset_state() -> _PostgresResetReadback:
     async with engine.connect() as connection:
         dedicated_schema_table_names = frozenset(
             await connection.run_sync(
-                lambda sync_connection: inspect(sync_connection).get_table_names(schema="banksia")
+                lambda sync_connection: inspect(sync_connection).get_table_names(schema="oms")
             )
         )
         workflow_definition_count = int(
             (
-                await connection.exec_driver_sql(
-                    "SELECT COUNT(*) FROM banksia.workflow_definitions"
-                )
+                await connection.exec_driver_sql("SELECT COUNT(*) FROM oms.workflow_definitions")
             ).scalar_one()
         )
         public_schema_table_names = frozenset(
@@ -519,14 +517,14 @@ async def _postgres_task_count() -> int:
     engine = get_async_engine()
     async with engine.connect() as connection:
         return int(
-            (await connection.exec_driver_sql("SELECT COUNT(*) FROM banksia.tasks")).scalar_one()
+            (await connection.exec_driver_sql("SELECT COUNT(*) FROM oms.tasks")).scalar_one()
         )
 
 
 async def _drop_postgres_reset_sentinel() -> None:
     engine = get_async_engine()
     async with engine.begin() as connection:
-        await connection.exec_driver_sql("DROP TABLE IF EXISTS public.banksia_reset_sentinel")
+        await connection.exec_driver_sql("DROP TABLE IF EXISTS public.oms_reset_sentinel")
 
 
 def _insert_task(database_path: Path, *, task_root: Path) -> None:

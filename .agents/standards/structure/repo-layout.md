@@ -76,7 +76,7 @@ Extended guidance: [Naming](../code/naming.md)
 
 ## Backend layout guidance
 
-- keep one coherent taxonomy under `src/oh_my_subagents/**` and do not open a parallel `banksia_v2` tree
+- keep one coherent taxonomy under `src/oh_my_subagents/**` and do not open a parallel `legacy_v2` tree
 - prefer public interfaces under `src/oh_my_subagents/interfaces/**`
 - keep HTTP surfaces under `src/oh_my_subagents/interfaces/http/**`
 - keep HTTP-only support contracts, presenters, and transport models under `src/oh_my_subagents/interfaces/http/contracts/**`

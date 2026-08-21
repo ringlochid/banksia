@@ -12,11 +12,11 @@ from oh_my_subagents.interfaces.cli.commands.config_view import build_settings_p
 
 def test_config_readback_redacts_database_password(tmp_path: Path) -> None:
     payload = build_settings_payload(
-        Settings(database_url="postgresql+asyncpg://operator:secret@localhost/banksia"),
+        Settings(database_url="postgresql+asyncpg://operator:secret@localhost/oms"),
         tmp_path / "config.toml",
     )
 
-    assert payload["database"]["url"] == ("postgresql+asyncpg://operator:***@localhost/banksia")
+    assert payload["database"]["url"] == ("postgresql+asyncpg://operator:***@localhost/oms")
     assert "secret" not in str(payload)
 
 

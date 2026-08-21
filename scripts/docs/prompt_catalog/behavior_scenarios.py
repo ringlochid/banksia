@@ -141,7 +141,7 @@ def _child_says_done_scenario() -> EvaluationScenario:
                 assignment_prompt="Implement the bounded service-side feature change.",
                 summary="The service change is done and compatible.",
                 details="The referenced report lists the changed paths and local checks.",
-                file_path=".banksia/t_prompt_eval/artifacts/code-change-report.md",
+                file_path=".oms/t_prompt_eval/artifacts/code-change-report.md",
                 file_description="Code-owner change report requiring Manager inspection.",
             )
         ),
@@ -178,7 +178,7 @@ def _review_rework_scenario() -> EvaluationScenario:
                     "Repair must guard the exact ownership revision and rerun the focused "
                     "cancellation interleaving."
                 ),
-                file_path=".banksia/t_prompt_eval/artifacts/cancellation-review.md",
+                file_path=".oms/t_prompt_eval/artifacts/cancellation-review.md",
                 file_description="Review evidence and the failing interleaving.",
             )
         ),
@@ -289,7 +289,7 @@ def _lead_synthesis_scenario() -> EvaluationScenario:
                 assignment_prompt="Inspect current repository compatibility constraints.",
                 summary="Local call sites are compatible with the new API.",
                 details="One optional plugin still pins the previous major version.",
-                file_path=".banksia/t_prompt_eval/artifacts/local-evidence.md",
+                file_path=".oms/t_prompt_eval/artifacts/local-evidence.md",
                 file_description="Repository observations and exact locations.",
             ),
             WaveReturnMember(
@@ -297,7 +297,7 @@ def _lead_synthesis_scenario() -> EvaluationScenario:
                 assignment_prompt="Review current authoritative upgrade guidance.",
                 summary="The vendor supports the upgrade with one migration step.",
                 details="The compatibility statement excludes the optional plugin.",
-                file_path=".banksia/t_prompt_eval/artifacts/source-evidence.md",
+                file_path=".oms/t_prompt_eval/artifacts/source-evidence.md",
                 file_description="Primary-source findings and version scope.",
             ),
             WaveReturnMember(
@@ -305,7 +305,7 @@ def _lead_synthesis_scenario() -> EvaluationScenario:
                 assignment_prompt="Search independently for consequential counterevidence.",
                 summary="The optional plugin contradicts a blanket compatibility claim.",
                 details="Its current release remains pinned to the previous major version.",
-                file_path=".banksia/t_prompt_eval/artifacts/counterevidence.md",
+                file_path=".oms/t_prompt_eval/artifacts/counterevidence.md",
                 file_description="Contrary evidence and its applicability.",
             ),
             WaveReturnMember(
@@ -313,7 +313,7 @@ def _lead_synthesis_scenario() -> EvaluationScenario:
                 assignment_prompt="Challenge whether the proposed conclusion is supported.",
                 summary="A blanket safety claim would exceed the available evidence.",
                 details="The plugin path must be tested, upgraded, or explicitly excluded.",
-                file_path=".banksia/t_prompt_eval/artifacts/evidence-critique.md",
+                file_path=".oms/t_prompt_eval/artifacts/evidence-critique.md",
                 file_description="Coverage and overreach review.",
             ),
         ),
@@ -344,7 +344,7 @@ def _evidence_decision_scenario() -> EvaluationScenario:
                 assignment_prompt="Establish the repository's operational constraints.",
                 summary="Option B alone satisfies the required offline recovery boundary.",
                 details="The boundary is documented and exercised by current recovery tests.",
-                file_path=".banksia/t_prompt_eval/artifacts/local-fit.md",
+                file_path=".oms/t_prompt_eval/artifacts/local-fit.md",
                 file_description="Local constraints and recovery evidence.",
             ),
             WaveReturnMember(
@@ -352,7 +352,7 @@ def _evidence_decision_scenario() -> EvaluationScenario:
                 assignment_prompt="Compare the strongest candidate and countercase.",
                 summary="Option A has the simpler common-case API.",
                 details="Its recovery story depends on an unavailable managed service.",
-                file_path=".banksia/t_prompt_eval/artifacts/option-comparison.md",
+                file_path=".oms/t_prompt_eval/artifacts/option-comparison.md",
                 file_description="Common-assumption option comparison.",
             ),
             WaveReturnMember(
@@ -360,7 +360,7 @@ def _evidence_decision_scenario() -> EvaluationScenario:
                 assignment_prompt="Evaluate every prototype against the accepted rubric.",
                 summary="Option B alone passes the required offline recovery test.",
                 details="Option A remains simpler but depends on an unavailable service.",
-                file_path=".banksia/t_prompt_eval/artifacts/prototype-evaluation.md",
+                file_path=".oms/t_prompt_eval/artifacts/prototype-evaluation.md",
                 file_description="Common-rubric prototype observations.",
             ),
             WaveReturnMember(
@@ -368,7 +368,7 @@ def _evidence_decision_scenario() -> EvaluationScenario:
                 assignment_prompt="Test whether the recommendation follows from evidence.",
                 summary="Popularity does not outweigh the accepted recovery constraint.",
                 details="The final choice must explain this rejected tradeoff.",
-                file_path=".banksia/t_prompt_eval/artifacts/decision-review.md",
+                file_path=".oms/t_prompt_eval/artifacts/decision-review.md",
                 file_description="Independent decision-quality review.",
             ),
         ),
@@ -398,7 +398,7 @@ def _failed_replication_scenario() -> EvaluationScenario:
                 assignment_prompt="Define the accepted benchmark and validity boundaries.",
                 summary="The method requires agreement across both named environments.",
                 details="A single-environment result cannot support a general improvement claim.",
-                file_path=".banksia/t_prompt_eval/artifacts/method.md",
+                file_path=".oms/t_prompt_eval/artifacts/method.md",
                 file_description="Accepted method and validity conditions.",
             ),
             WaveReturnMember(
@@ -406,7 +406,7 @@ def _failed_replication_scenario() -> EvaluationScenario:
                 assignment_prompt="Coordinate execution and independent replication.",
                 summary="The first run improved 20 percent; replication found no improvement.",
                 details="A runtime version differs and has not been isolated.",
-                file_path=".banksia/t_prompt_eval/artifacts/replication.md",
+                file_path=".oms/t_prompt_eval/artifacts/replication.md",
                 file_description="Execution, replication, and environment observations.",
             ),
             WaveReturnMember(
@@ -414,7 +414,7 @@ def _failed_replication_scenario() -> EvaluationScenario:
                 assignment_prompt="Analyze the complete execution and replication observations.",
                 summary="The observed improvement is environment-dependent and unresolved.",
                 details="The available data cannot isolate the runtime-version difference.",
-                file_path=".banksia/t_prompt_eval/artifacts/analysis.md",
+                file_path=".oms/t_prompt_eval/artifacts/analysis.md",
                 file_description="Analysis and unresolved environment sensitivity.",
             ),
             WaveReturnMember(
@@ -424,7 +424,7 @@ def _failed_replication_scenario() -> EvaluationScenario:
                 details=(
                     "Report the positive run as conditional evidence and the failed replication."
                 ),
-                file_path=".banksia/t_prompt_eval/artifacts/claim-audit.md",
+                file_path=".oms/t_prompt_eval/artifacts/claim-audit.md",
                 file_description="Claim boundary and unresolved confounder.",
             ),
         ),
@@ -456,7 +456,7 @@ def _nested_wave_scenario() -> EvaluationScenario:
                 assignment_prompt="Establish the repository's exact local constraints.",
                 summary="The local constraints and migration boundary are established.",
                 details=None,
-                file_path=".banksia/t_prompt_eval/artifacts/nested-local-fit.md",
+                file_path=".oms/t_prompt_eval/artifacts/nested-local-fit.md",
                 file_description="Local-fit evidence for the decision lead.",
             ),
             WaveReturnMember(
@@ -464,7 +464,7 @@ def _nested_wave_scenario() -> EvaluationScenario:
                 assignment_prompt="Integrate the candidate case and its countercase.",
                 summary="The nested advocate and countercase Wave joined into one comparison.",
                 details="Both nested contributions were inspected before this return.",
-                file_path=".banksia/t_prompt_eval/artifacts/nested-option-council.md",
+                file_path=".oms/t_prompt_eval/artifacts/nested-option-council.md",
                 file_description="Option council's integrated nested-Wave comparison.",
             ),
             WaveReturnMember(
@@ -472,7 +472,7 @@ def _nested_wave_scenario() -> EvaluationScenario:
                 assignment_prompt="Evaluate the integrated prototypes under one rubric.",
                 summary="The common evaluation identifies one bounded residual uncertainty.",
                 details=None,
-                file_path=".banksia/t_prompt_eval/artifacts/nested-evaluation.md",
+                file_path=".oms/t_prompt_eval/artifacts/nested-evaluation.md",
                 file_description="Common-rubric evaluation of both candidate prototypes.",
             ),
             WaveReturnMember(
@@ -480,7 +480,7 @@ def _nested_wave_scenario() -> EvaluationScenario:
                 assignment_prompt="Independently review the integrated decision evidence.",
                 summary="Independent review identifies one bounded residual uncertainty.",
                 details=None,
-                file_path=".banksia/t_prompt_eval/artifacts/nested-decision-review.md",
+                file_path=".oms/t_prompt_eval/artifacts/nested-decision-review.md",
                 file_description="Independent review and residual uncertainty.",
             ),
         ),

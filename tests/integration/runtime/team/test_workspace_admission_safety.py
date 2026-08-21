@@ -84,7 +84,7 @@ async def test_task_workspace_has_private_target_layout(tmp_path: Path) -> None:
     assert not (admission.task_root / "_runtime").exists()
 
 
-async def test_task_start_preserves_existing_banksia_content_and_permissions(
+async def test_task_start_preserves_existing_oms_content_and_permissions(
     tmp_path: Path,
 ) -> None:
     workspace = tmp_path / "workspace"

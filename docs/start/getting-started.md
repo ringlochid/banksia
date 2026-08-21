@@ -62,10 +62,10 @@ To initialize PostgreSQL instead of SQLite, pass the database URL explicitly:
 
 ```bash
 oms init \
-  --database-url "postgresql+asyncpg://banksia@127.0.0.1/banksia"
+  --database-url "postgresql+asyncpg://oms@127.0.0.1/oms"
 ```
 
-Use the URL required by your PostgreSQL service. Percent-encode reserved characters in credentials, avoid leaving passwords in shell history, and use `oms config show` for redacted readback. Initialization creates a missing dedicated `banksia` schema and initializes it only when that schema has no tables and the role has permission.
+Use the URL required by your PostgreSQL service. Percent-encode reserved characters in credentials, avoid leaving passwords in shell history, and use `oms config show` for redacted readback. Initialization creates a missing dedicated `oms` schema and initializes it only when that schema has no tables and the role has permission.
 
 For an unattended SQLite setup:
 

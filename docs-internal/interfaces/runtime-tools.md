@@ -13,7 +13,7 @@ Oh My Subagents has two separate built-in agent tool catalogs:
 
 The absence of Oh My Subagents-managed external-MCP authoring does not remove either built-in catalog. A Workflow cannot define arbitrary MCP servers or tools, and Oh My Subagents has no external-MCP registry, credential, installation, approval, or replan shape. A managed Member may request inherited visibility of enabled user and project Skills plus configured MCP servers through its provider settings; those provider-native extensions never gain Oh My Subagents controller authority.
 
-For every managed Task Dispatch, the provider must report the Dispatch-bound `banksia_node`. Its operation names must equal the exact controller binding, and it must expose no MCP resources or resource templates. Isolated mode admits no other active server. Inherited mode may additionally expose user-home MCP servers after the controller has resolved an effective `full_access` plus network `allow` pair. The adapter records their sanitized server/tool inventory before the first model turn.
+For every managed Task Dispatch, the provider must report the Dispatch-bound `oms_node`. Its operation names must equal the exact controller binding, and it must expose no MCP resources or resource templates. Isolated mode admits no other active server. Inherited mode may additionally expose user-home MCP servers after the controller has resolved an effective `full_access` plus network `allow` pair. The adapter records their sanitized server/tool inventory before the first model turn.
 
 ## Exact final Task-member catalog
 
@@ -243,7 +243,7 @@ Preserve one private managed Node projection at `/_internal/node/mcp`: semantic 
 
 Concurrent Attempt lanes receive independent bindings to the same application. The executor must validate Attempt-local current Dispatch authority; it must no longer consult a Flow-wide current pointer. Binding credentials, Task/Dispatch selectors, provider sessions, and controller revisions never enter managed model-visible schemas.
 
-Implementation identities are `banksia_node` and `banksia-node-managed`.
+Implementation identities are `oms_node` and `oms-node-managed`.
 
 Every tool provides deterministic ordering, detailed bounded teaching, strict input and output schemas, structured content plus JSON text compatibility, and the shared structured execution failure. Set accurate `readOnlyHint`, `destructiveHint`, `idempotentHint`, and `openWorldHint` values; treat them only as client hints, never authorization. Where the pinned SDK exposes MCP task support, mark every Oh My Subagents operation `forbidden`: Oh My Subagents's Dispatch, wait, Wave, Human Request, and Command Run records own resumability. Do not add MCP resources, prompts, elicitation, or protocol-task dependencies.
 
@@ -254,8 +254,8 @@ Every tool provides deterministic ordering, detailed bounded teaching, strict in
 The provider-start request carries one ephemeral managed connection for Codex or Claude:
 
 - provider-side enabled-tool lists use the exact current ceiling;
-- Claude names use `mcp__banksia_node__*`;
-- the Codex MCP server key is `banksia_node`;
+- Claude names use `mcp__oms_node__*`;
+- the Codex MCP server key is `oms_node`;
 - adapters receive direct Dispatch request strings rather than request-file reads; and
 - Attempt-local authority and cleanup for multiple concurrent bindings.
 

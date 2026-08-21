@@ -52,7 +52,7 @@ GENERIC_GUIDANCE_PATTERNS = (
     (
         "note or file-reference teaching",
         re.compile(
-            r"(?:\.banksia/|\bnotes/|\bartifacts/|\bfile references?\b|"
+            r"(?:\.oms/|\bnotes/|\bartifacts/|\bfile references?\b|"
             r"\b(?:write|create|read|update) (?:a |the |one )?(?:shared )?note\b)",
             re.IGNORECASE,
         ),

@@ -25,7 +25,7 @@ Oh My Subagents is a local runtime for persistent, supervised parent–subagent 
 - [Author a Workflow](guides/author-a-workflow.md) — start from a Starter, shape responsibilities in Workflow Studio or with the Operator, validate, and publish.
 - [Run and operate](guides/run-and-operate.md) — start work, read the run view, respond to allowed waits, and use legal controls.
 - [Console and Operator](guides/console-and-operator.md) — visually edit and publish teams, inspect live work and Results, or use the separate conversational Operator for the same product operations.
-- [Migrate from Banksia](guides/migrate-from-banksia.md) — replace an existing installation without moving controller truth.
+- [Migrate from Banksia](guides/migrate-from-banksia.md) — copy an existing installation into canonical OMS state.
 
 ## Configure and integrate
 

@@ -60,7 +60,7 @@ async def test_postgresql_initial_team_materialization_has_one_cas_winner() -> N
     if database_url is None:
         pytest.skip("a disposable PostgreSQL test database is not configured")
 
-    schema_name = f"banksia_initial_team_race_{uuid4().hex}"
+    schema_name = f"oms_initial_team_race_{uuid4().hex}"
     engine = create_async_engine(
         database_url,
         execution_options={"schema_translate_map": {None: schema_name}},

@@ -12,8 +12,8 @@ from oh_my_subagents.persistence.session import dispose_db_engine
 
 
 async def test_readyz_uses_real_database(tmp_path: Path) -> None:
-    config_path = tmp_path / "banksia-config.toml"
-    data_dir = tmp_path / "banksia-data"
+    config_path = tmp_path / "oms-config.toml"
+    data_dir = tmp_path / "oms-data"
 
     try:
         await cli.cmd_init(

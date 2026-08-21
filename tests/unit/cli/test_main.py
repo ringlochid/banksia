@@ -57,7 +57,7 @@ def test_main_directs_schema_mismatch_to_data_preserving_upgrade(
     capsys: pytest.CaptureFixture[str],
     tmp_path: Path,
 ) -> None:
-    config_path = tmp_path / "banksia.toml"
+    config_path = tmp_path / "oms.toml"
 
     def _mismatch(_args: Sequence[str]) -> NoReturn:
         raise DatabaseSchemaMismatchError("attempts missing watchdog replacement state")

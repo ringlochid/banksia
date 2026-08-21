@@ -48,7 +48,7 @@ def _toml_string(value: Path) -> str:
     return json.dumps(str(value))
 
 
-def test_platform_paths_use_only_banksia_namespace(
+def test_platform_paths_use_only_oms_namespace(
     monkeypatch: MonkeyPatch,
     tmp_path: Path,
 ) -> None:
@@ -87,7 +87,7 @@ workspace = {_toml_string(workspace)}
 [database]
 url = "sqlite+aiosqlite:////tmp/from-config.db"
 echo = true
-postgres_schema = "banksia_test"
+postgres_schema = "oms_test"
 
 [server]
 console_origins = ["http://127.0.0.1:4173"]
@@ -102,7 +102,7 @@ enabled = false
 
 [openclaw]
 enabled = true
-gateway_url = "wss://gateway.example.test/banksia"
+gateway_url = "wss://gateway.example.test/oms"
 gateway_profile = "tested-local"
 
 [operator]
@@ -128,7 +128,7 @@ watchdog_same_attempt_replacement_limit = 3
     settings = config_module.get_settings()
 
     assert settings.database_url == "sqlite+aiosqlite:////tmp/from-config.db"
-    assert settings.postgres_schema == "banksia_test"
+    assert settings.postgres_schema == "oms_test"
     assert settings.database_echo is True
     assert settings.console_origins == ["http://127.0.0.1:4173"]
     assert not hasattr(settings, "api_key")
@@ -182,7 +182,7 @@ def test_env_overrides_config_file(
     monkeypatch: MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    config_path = tmp_path / "banksia-config.toml"
+    config_path = tmp_path / "oms-config.toml"
     config_workspace = tmp_path / "config-workspace"
     environment_workspace = tmp_path / "environment-workspace"
     config_workspace.mkdir()
@@ -304,7 +304,7 @@ def test_controller_workspace_validator_rejects_invalid_paths(
         "",
         ".",
         "relative/workspace",
-        "~banksia-user-that-does-not-exist/workspace",
+        "~oms-user-that-does-not-exist/workspace",
         missing_path,
         file_path,
     )
@@ -329,7 +329,7 @@ def test_get_settings_does_not_require_a_global_operator_key(
     monkeypatch: MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    config_path = tmp_path / "banksia-config.toml"
+    config_path = tmp_path / "oms-config.toml"
     config_path.write_text('[server]\nhost = "127.0.0.1"\n', encoding="utf-8")
     monkeypatch.setenv("OMS_CONFIG", str(config_path))
     monkeypatch.setenv("OMS_ENV", "development")
@@ -443,7 +443,7 @@ def test_postgres_schema_rejects_public_system_or_unsafe_names(
     tmp_path: Path,
     postgres_schema: str,
 ) -> None:
-    config_path = tmp_path / "banksia-config.toml"
+    config_path = tmp_path / "oms-config.toml"
     config_path.write_text(
         f"""
 [database]
@@ -466,7 +466,7 @@ def test_removed_runtime_key_fails_fast(
     tmp_path: Path,
 ) -> None:
     field_name = "watchdog_enabled"
-    config_path = tmp_path / "banksia-config.toml"
+    config_path = tmp_path / "oms-config.toml"
     config_path.write_text(
         f"""
 [runtime]
@@ -490,7 +490,7 @@ def test_structured_config_sections_reject_non_table_values(
     tmp_path: Path,
     section_name: str,
 ) -> None:
-    config_path = tmp_path / "banksia-config.toml"
+    config_path = tmp_path / "oms-config.toml"
     config_path.write_text(
         f"""
 {section_name} = "not-a-table"
@@ -552,7 +552,7 @@ def test_watchdog_settings_reject_invalid_values(
     field_name: str,
     value: int,
 ) -> None:
-    config_path = tmp_path / "banksia-config.toml"
+    config_path = tmp_path / "oms-config.toml"
     config_path.write_text(
         f"""
 [runtime]

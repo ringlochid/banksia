@@ -118,7 +118,7 @@ Install the optional driver and provide a SQLAlchemy URL during initialization:
 ```bash
 pipx install "oh-my-subagents[postgres]"
 oms init \
-  --database-url "postgresql+asyncpg://banksia@127.0.0.1/banksia"
+  --database-url "postgresql+asyncpg://oms@127.0.0.1/oms"
 ```
 
 See [Getting started](docs/start/getting-started.md) for provider prerequisites and a complete first run, or [Database configuration](docs/reference/configuration.md#database) for PostgreSQL permissions, schemas, and environment overrides.

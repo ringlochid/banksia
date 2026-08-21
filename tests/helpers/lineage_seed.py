@@ -99,7 +99,7 @@ def _seed_task(connection: Connection, *, ids: RuntimeIds) -> None:
             "max_child_assignments_per_assignment": 20,
             "max_retries_per_assignment": 1,
             "max_wave_members": 8,
-            "task_root_path": f"/tmp/banksia-task-{ids.suffix}",
+            "task_root_path": f"/tmp/oms-task-{ids.suffix}",
             "created_at": FIXTURE_TIMESTAMP,
             "updated_at": FIXTURE_TIMESTAMP,
         },

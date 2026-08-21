@@ -151,6 +151,14 @@ def migrate_from_banksia(
             _copy_default_data_tree(
                 source_data,
                 target_data,
+                excluded_sources=frozenset(
+                    {
+                        source_config,
+                        source_config.with_name(
+                            LEGACY_BANKSIA_IDENTITY.provider_environment_filename
+                        ),
+                    }
+                ),
                 copied=copied,
                 reused=reused,
             )
@@ -228,6 +236,7 @@ def _copy_default_data_tree(
     source: Path,
     target: Path,
     *,
+    excluded_sources: frozenset[Path],
     copied: list[Path],
     reused: list[Path],
 ) -> None:
@@ -237,6 +246,8 @@ def _copy_default_data_tree(
         raise RuntimeError(f"Banksia data directory is not a real directory: {source}")
     ensure_private_directory(target)
     for entry in sorted(source.rglob("*")):
+        if entry in excluded_sources:
+            continue
         if entry.is_symlink():
             raise RuntimeError(f"Banksia data contains a symbolic link: {entry}")
         relative = entry.relative_to(source)

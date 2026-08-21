@@ -16,7 +16,7 @@ from tests.unit.integrations.codex.codex_test_support import (
 
 _TEST_WORKSPACE = str(TEST_DRIVE_ROOT / "workspace")
 _TEST_INSTRUCTION_SOURCE = str(TEST_DRIVE_ROOT / "workspace" / "AGENTS.md")
-_TEST_ORIGINAL_CWD = str(TEST_DRIVE_ROOT / "tmp" / "banksia-operator-codex-original")
+_TEST_ORIGINAL_CWD = str(TEST_DRIVE_ROOT / "tmp" / "oms-operator-codex-original")
 
 
 @pytest.mark.asyncio

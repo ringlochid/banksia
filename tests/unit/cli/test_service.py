@@ -24,7 +24,7 @@ from oh_my_subagents.platform.managed_services import (
 
 class StubManagedServiceManager:
     manager_name = "test-user-manager"
-    service_name = "banksia"
+    service_name = "oms"
     readiness_timeout_seconds = 0.0
 
     def __init__(self, inspection: ManagedServiceInspection) -> None:
@@ -102,12 +102,12 @@ def test_service_status_json_uses_portable_contract(
         "api_url": "http://127.0.0.1:65533",
         "controller_state": "stopped",
         "definition_current": True,
-        "definition_path": str(tmp_path / "banksia.definition"),
+        "definition_path": str(tmp_path / "oms.definition"),
         "installation_state": "installed",
         "log_path": str(service_commands.default_service_log_path()),
         "manager": "test-user-manager",
         "ok": True,
-        "service_name": "banksia",
+        "service_name": "oms",
         "startup_state": "enabled",
     }
     assert "active_state" not in payload
@@ -297,8 +297,8 @@ def _write_config(tmp_path: Path, *, port: int) -> Path:
 def _installed_stopped_inspection(tmp_path: Path) -> ManagedServiceInspection:
     return ManagedServiceInspection(
         manager="test-user-manager",
-        service_name="banksia",
-        definition_path=tmp_path / "banksia.definition",
+        service_name="oms",
+        definition_path=tmp_path / "oms.definition",
         installation_state=ManagedServiceInstallationState.INSTALLED,
         startup_state=ManagedServiceStartupState.ENABLED,
         execution_state=ManagedServiceExecutionState.STOPPED,

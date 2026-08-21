@@ -88,14 +88,14 @@ def test_render_service_definition_uses_python_module_entrypoint(
     tmp_path: Path,
 ) -> None:
     rendered = cli.render_service_definition(
-        python_executable=Path("/tmp/banksia-venv/bin/python"),
+        python_executable=Path("/tmp/oms-venv/bin/python"),
         config_path=tmp_path / "config.toml",
         log_path=tmp_path / "controller.log",
         manager=SystemdUserServiceManager(),
     )
 
     assert "openclaw check" not in rendered
-    assert 'ExecStart="/tmp/banksia-venv/bin/python" -m oh_my_subagents serve' in rendered
+    assert 'ExecStart="/tmp/oms-venv/bin/python" -m oh_my_subagents serve' in rendered
     assert f'--service-log "{tmp_path}/controller.log"' in rendered
     assert "KillMode=control-group" in rendered
     assert "OMS_DATA_DIR" not in rendered
@@ -123,7 +123,7 @@ def test_serve_does_not_run_global_provider_preflight(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    config_path = tmp_path / "banksia-config.toml"
+    config_path = tmp_path / "oms-config.toml"
     config_path.write_text("[codex]\nenabled = true\n", encoding="utf-8")
     run_called = False
     persist_provider_secret(

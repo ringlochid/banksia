@@ -137,6 +137,45 @@ def test_migration_preserves_custom_data_and_database_paths(tmp_path: Path) -> N
     assert result.target_data_dir is None
 
 
+def test_migration_handles_windows_style_shared_config_and_data_directory(
+    tmp_path: Path,
+) -> None:
+    source_data = tmp_path / "legacy"
+    target_data = tmp_path / "oms"
+    source_config = source_data / "config.toml"
+    target_config = target_data / "config.toml"
+    source_data.mkdir()
+    source_config.write_text(
+        "\n".join(
+            (
+                "[paths]",
+                f'data_dir = "{source_data.as_posix()}"',
+                "",
+                "[database]",
+                f'url = "sqlite+aiosqlite:///{(source_data / "banksia.persistence").as_posix()}"',
+                "",
+            )
+        ),
+        encoding="utf-8",
+    )
+    source_config.with_name("banksia.env").write_text("TOKEN=secret\n", encoding="utf-8")
+    source_data.joinpath("banksia.persistence").write_bytes(b"database")
+
+    migrate_from_banksia(
+        source_config_path=source_config,
+        target_config_path=target_config,
+        source_default_data_dir=source_data,
+        target_default_data_dir=target_data,
+        should_migrate_service=False,
+    )
+
+    config = tomllib.loads(target_config.read_text(encoding="utf-8"))
+    assert Path(config["paths"]["data_dir"]) == target_data
+    assert target_data.joinpath("oms.persistence").read_bytes() == b"database"
+    assert target_data.joinpath("oms.env").read_text(encoding="utf-8") == "TOKEN=secret\n"
+    assert not target_data.joinpath("banksia.env").exists()
+
+
 def test_migration_replaces_legacy_service_and_preserves_running_state(
     tmp_path: Path,
 ) -> None:

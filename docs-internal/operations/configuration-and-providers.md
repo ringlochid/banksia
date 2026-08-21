@@ -67,7 +67,7 @@ Workflow provider settings remain portable: providers may request model, effort,
 
 ## Provider status, checks, and identity
 
-Bare `banksia`, `oms status`, and `oms providers status` are passive. They do not run a model turn, contact a provider, refresh authentication, or write readiness.
+`oms`, `oms status`, and `oms providers status` are passive. They do not run a model turn, contact a provider, refresh authentication, or write readiness.
 
 `oms providers check PROVIDER` performs one bounded non-agent diagnostic. It may inspect provider installation, native identity, authentication, and documented reachability, but it creates no Task, Dispatch, binding, or durable readiness cache. A route with acceptable local prerequisites and credentials but no live reachability probe is presented as **Ready for first task**, not as fully tested.
 
@@ -89,7 +89,7 @@ A stale `[openclaw]` section is ignored and removed the next time guided setup r
 
 Managed-provider authentication state is not an instruction or extension source. A managed Task preserves the provider's supported native authentication location and resolves one requested and effective Skill/MCP extension mode. `inherit` admits enabled user and project Skills plus configured MCP servers only for effective `full_access` plus network `allow`; every narrower Dispatch is automatically isolated. Operator is always isolated. Oh My Subagents never rewrites a user's provider configuration to obtain either mode.
 
-The Codex adapter reads effective configuration, enumerates MCP servers and Skills, marks the exact workspace untrusted, suppresses project-document discovery, and validates returned instruction sources and complete MCP status before `turn/start`. Isolated mode disables ambient Skills and MCP servers. Inherited mode admits enabled user and repository Skills plus active configured MCP servers while continuing to disable plugins, hooks, apps, memory, and provider-owned delegation. In both modes the exact Dispatch-bound `banksia_node` operations must equal the binding ceiling and it may expose no resources or resource templates.
+The Codex adapter reads effective configuration, enumerates MCP servers and Skills, marks the exact workspace untrusted, suppresses project-document discovery, and validates returned instruction sources and complete MCP status before `turn/start`. Isolated mode disables ambient Skills and MCP servers. Inherited mode admits enabled user and repository Skills plus active configured MCP servers while continuing to disable plugins, hooks, apps, memory, and provider-owned delegation. In both modes the exact Dispatch-bound `oms_node` operations must equal the binding ceiling and it may expose no resources or resource templates.
 
 For a persistent Codex Operator thread, the top-level `cwd` returned by `thread/resume` is the effective cwd for the resumed invocation and must equal the new temporary Operator directory. The nested `thread.cwd` is provider metadata captured when the thread was created; it is checked on `thread/start` but is not treated as current execution authority on resume. Instruction sources, runtime workspace roots, sandbox, approval policy, model, and complete MCP status are still revalidated before every resumed model turn.
 

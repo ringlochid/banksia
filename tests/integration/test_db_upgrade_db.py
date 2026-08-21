@@ -28,7 +28,7 @@ async def test_postgres_upgrade_preserves_runtime_rows(tmp_path: Path) -> None:
     database_url = read_disposable_postgres_url()
     if database_url is None:
         pytest.skip("PostgreSQL upgrade proof requires an explicitly disposable test database")
-    schema_name = f"banksia_upgrade_{uuid4().hex}"
+    schema_name = f"oms_upgrade_{uuid4().hex}"
     data_dir = tmp_path / "data"
 
     with (
@@ -90,7 +90,7 @@ async def test_postgres_upgrade_adds_member_steering_event_type(tmp_path: Path) 
     database_url = read_disposable_postgres_url()
     if database_url is None:
         pytest.skip("PostgreSQL upgrade proof requires an explicitly disposable test database")
-    schema_name = f"banksia_upgrade_{uuid4().hex}"
+    schema_name = f"oms_upgrade_{uuid4().hex}"
     data_dir = tmp_path / "data"
     predecessor_values = tuple(
         value for value in TASK_EVENT_TYPE_VALUES if value != "member_steered"
@@ -143,7 +143,7 @@ async def test_postgres_upgrade_widens_command_exit_code_without_losing_rows(
     database_url = read_disposable_postgres_url()
     if database_url is None:
         pytest.skip("PostgreSQL upgrade proof requires an explicitly disposable test database")
-    schema_name = f"banksia_upgrade_{uuid4().hex}"
+    schema_name = f"oms_upgrade_{uuid4().hex}"
     data_dir = tmp_path / "data"
 
     with (

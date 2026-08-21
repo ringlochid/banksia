@@ -135,7 +135,7 @@ def test_private_directory_repairs_only_the_selected_directory(tmp_path: Path) -
     parent = tmp_path / "existing-parent"
     parent.mkdir(mode=0o755)
     parent.chmod(0o755)
-    selected = parent / "banksia"
+    selected = parent / "oms"
 
     ensure_private_directory(selected)
 

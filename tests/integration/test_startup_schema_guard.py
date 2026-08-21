@@ -30,8 +30,8 @@ async def test_lifespan_fails_closed_on_stale_runtime_schema(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    config_path = tmp_path / "banksia-config.toml"
-    data_dir = tmp_path / "banksia-data"
+    config_path = tmp_path / "oms-config.toml"
+    data_dir = tmp_path / "oms-data"
     monkeypatch.setenv("OMS_ENV", "development")
 
     try:
@@ -78,8 +78,8 @@ async def test_lifespan_creates_schema_only_for_genuinely_empty_database(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    config_path = tmp_path / "banksia-config.toml"
-    data_dir = tmp_path / "banksia-data"
+    config_path = tmp_path / "oms-config.toml"
+    data_dir = tmp_path / "oms-data"
     monkeypatch.setenv("OMS_ENV", "test")
 
     try:

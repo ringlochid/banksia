@@ -16,8 +16,8 @@ BACKEND_SOURCE_ROOT = REPO_ROOT / "src"
 
 def main() -> int:
     args = _parse_args()
-    runtime_root = Path(tempfile.mkdtemp(prefix="banksia-console-real-backend-"))
-    config_path = runtime_root / "config" / "banksia.toml"
+    runtime_root = Path(tempfile.mkdtemp(prefix="oms-console-real-backend-"))
+    config_path = runtime_root / "config" / "oh-my-subagents.toml"
     data_dir = runtime_root / "data"
     environment = _build_environment()
     server: subprocess.Popen[str] | None = None

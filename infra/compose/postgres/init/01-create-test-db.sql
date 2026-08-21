@@ -1,4 +1,4 @@
-SELECT 'CREATE DATABASE banksia_test'
+SELECT 'CREATE DATABASE oms_test'
 WHERE NOT EXISTS (
-    SELECT FROM pg_database WHERE datname = 'banksia_test'
+    SELECT FROM pg_database WHERE datname = 'oms_test'
 )\gexec

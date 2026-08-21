@@ -549,7 +549,7 @@ show that it was received.
 The compositor wraps the selected sources and authored guidance in one deterministic XML envelope. For example:
 
 ```xml
-<banksia_system>
+<oms_system>
   <controller_core>...</controller_core>
   <workspace_and_files>...</workspace_and_files>
   <checkpoint_contract>...</checkpoint_contract>
@@ -563,17 +563,17 @@ The compositor wraps the selected sources and authored guidance in one determini
   <workflow_note source="workflow" format="markdown">
     This team treats changes to the stable account API as an explicit non-goal.
   </workflow_note>
-</banksia_system>
+</oms_system>
 ```
 
 The renderer owns every tag and the stable order. Variable content is escaped element text, never interpolated markup. Only one behavior block is present. Task lead, action, continuation, and authored sections are conditional. No unavailable-action teaching is rendered.
 
 ## Dynamic Dispatch input
 
-Render one deterministic `<banksia_dispatch_request>` document. It contains complete start-time facts, not instructions reconstructed from files:
+Render one deterministic `<oms_dispatch_request>` document. It contains complete start-time facts, not instructions reconstructed from files:
 
 ```xml
-<banksia_dispatch_request>
+<oms_dispatch_request>
   <task>
     <id>t_7m4k2d9x</id>
     <workflow_id>production-feature-delivery</workflow_id>
@@ -650,7 +650,7 @@ Render one deterministic `<banksia_dispatch_request>` document. It contains comp
     <artifacts>.oms/t_7m4k2d9x/artifacts</artifacts>
     <command_runs>.oms/t_7m4k2d9x/command-runs</command_runs>
   </workspace>
-</banksia_dispatch_request>
+</oms_dispatch_request>
 ```
 
 Rules:

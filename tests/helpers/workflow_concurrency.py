@@ -113,7 +113,7 @@ async def workflow_database(
     url = make_url(database_url)
     if "test" not in (url.database or "").casefold():
         pytest.skip("Workflow concurrency requires an explicitly disposable test database")
-    postgres_schema = f"banksia_workflow_concurrency_{uuid4().hex}"
+    postgres_schema = f"oms_workflow_concurrency_{uuid4().hex}"
     engine = create_async_engine(
         url.set(drivername="postgresql+asyncpg"),
         pool_pre_ping=True,

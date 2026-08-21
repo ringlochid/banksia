@@ -73,9 +73,9 @@ def test_windows_workspace_backend_keeps_loose_files_inside_retained_tree(
     operations = select_workspace_file_operations()
     workspace_lease = operations.open_workspace(workspace)
     try:
-        banksia = operations.create_child_directory(workspace_lease, ".oms")
+        oms = operations.create_child_directory(workspace_lease, ".oms")
         try:
-            task = operations.create_child_directory(banksia, "t_01234567")
+            task = operations.create_child_directory(oms, "t_01234567")
             try:
                 operations.write_new_text(task, "manifest.md", "# Team\n")
                 assert (
@@ -84,7 +84,7 @@ def test_windows_workspace_backend_keeps_loose_files_inside_retained_tree(
             finally:
                 task.close()
         finally:
-            banksia.close()
+            oms.close()
     finally:
         workspace_lease.close()
 
@@ -95,9 +95,9 @@ def test_windows_command_output_allows_live_readback(tmp_path: Path) -> None:
     operations = select_workspace_file_operations()
     workspace_lease = operations.open_workspace(workspace)
     try:
-        banksia = operations.create_child_directory(workspace_lease, ".oms")
+        oms = operations.create_child_directory(workspace_lease, ".oms")
         try:
-            task = operations.create_child_directory(banksia, "t_01234567")
+            task = operations.create_child_directory(oms, "t_01234567")
             try:
                 command_runs = operations.create_child_directory(task, "command-runs")
                 try:
@@ -125,7 +125,7 @@ def test_windows_command_output_allows_live_readback(tmp_path: Path) -> None:
             finally:
                 task.close()
         finally:
-            banksia.close()
+            oms.close()
     finally:
         workspace_lease.close()
 
@@ -146,7 +146,7 @@ def test_windows_workspace_rejects_reparse_components(tmp_path: Path) -> None:
 def test_windows_workspace_opens_drive_and_existing_ancestors_without_mutation(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    path = Path("C:/Users/ring_/AppData/Local/banksia")
+    path = Path("C:/Users/ring_/AppData/Local/oms")
     next_handle = 10
     identities: dict[int, WindowsPathIdentity] = {}
     absolute_calls: list[tuple[Path, bool]] = []
@@ -227,7 +227,7 @@ def test_windows_child_creation_reopens_only_the_retained_parent_and_checks_iden
         return identity if handle in {100, 200} else child_identity
 
     def open_relative_entry(parent_handle: int, name: str, **options: object) -> int:
-        assert name == "banksia"
+        assert name == "oms"
         assert options["should_create"] is True
         relative_parents.append(parent_handle)
         return 300
@@ -244,7 +244,7 @@ def test_windows_child_creation_reopens_only_the_retained_parent_and_checks_iden
     )
     monkeypatch.setattr(workspace_windows_module, "close_handle", lambda handle: None)
 
-    child = WindowsWorkspaceFileOperations().create_child_directory(parent, "banksia")
+    child = WindowsWorkspaceFileOperations().create_child_directory(parent, "oms")
     child.close()
 
     assert opened_paths == [(Path("C:/Users/ring_/AppData/Local"), True)]
@@ -286,7 +286,7 @@ def test_windows_child_creation_rejects_a_substituted_parent(
     monkeypatch.setattr(workspace_windows_module, "close_handle", lambda handle: None)
 
     with pytest.raises(PrivatePathError, match="changed identity"):
-        WindowsWorkspaceFileOperations().create_child_directory(parent, "banksia")
+        WindowsWorkspaceFileOperations().create_child_directory(parent, "oms")
 
 
 def test_windows_existing_task_directory_is_verified_without_acl_rewrite(
@@ -297,7 +297,7 @@ def test_windows_existing_task_directory_is_verified_without_acl_rewrite(
     verification_handles: list[int] = []
 
     def open_relative_entry(parent_handle: int, name: str, **options: object) -> int:
-        assert (parent_handle, name) == (100, "banksia")
+        assert (parent_handle, name) == (100, "oms")
         assert options["should_allow_mutation"] is False
         assert options["should_allow_security_update"] is False
         return 200
@@ -323,7 +323,7 @@ def test_windows_existing_task_directory_is_verified_without_acl_rewrite(
 
     child = WindowsWorkspaceFileOperations().open_child_directory(
         parent,
-        "banksia",
+        "oms",
         should_require_private=True,
     )
     child.close()

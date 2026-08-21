@@ -47,6 +47,6 @@ def test_windows_service_probe_refuses_to_replace_an_existing_user_service() -> 
 
     with pytest.raises(
         AssertionError,
-        match=r"fixed Windows service task \\Banksia\\Controller already exists",
+        match=r"fixed Windows service task \\Oh My Subagents\\Controller already exists",
     ):
         assert_windows_service_probe_is_safe(StubScheduler(snapshot=snapshot))

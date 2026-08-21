@@ -22,8 +22,8 @@ async def test_init_writes_canonical_config_and_db_file(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    config_path = tmp_path / "banksia-config.toml"
-    data_dir = tmp_path / "banksia-data"
+    config_path = tmp_path / "oms-config.toml"
+    data_dir = tmp_path / "oms-data"
 
     try:
         result = await cli.cmd_init(build_cli_init_args(config_path, data_dir))
@@ -56,8 +56,8 @@ async def test_init_keeps_sql_echo_quiet_when_legacy_debug_env_is_set(
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    config_path = tmp_path / "banksia-config.toml"
-    data_dir = tmp_path / "banksia-data"
+    config_path = tmp_path / "oms-config.toml"
+    data_dir = tmp_path / "oms-data"
     monkeypatch.setenv("OMS_DEBUG", "true")
 
     try:

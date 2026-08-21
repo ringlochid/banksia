@@ -158,7 +158,7 @@ def verify_installed_task_start_receipt(
     expected_receipt = {
         "workflow_id": "production-feature-delivery",
         "workspace": str(cwd.resolve()),
-        "manifest": f".banksia/{task_id}/manifest.md",
+        "manifest": f".oms/{task_id}/manifest.md",
         "status": "accepted",
         "status_message": TASK_START_STATUS_MESSAGE,
     }

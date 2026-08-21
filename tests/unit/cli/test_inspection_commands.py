@@ -68,7 +68,7 @@ def test_bare_and_status_are_passive_with_zero_providers(
 def test_status_redacts_database_password(tmp_path: Path) -> None:
     config_path = tmp_path / "config.toml"
     config_path.write_text(
-        '[database]\nurl = "postgresql+asyncpg://operator:secret@localhost/banksia"\n',
+        '[database]\nurl = "postgresql+asyncpg://operator:secret@localhost/oms"\n',
         encoding="utf-8",
     )
 
@@ -80,7 +80,7 @@ def test_status_redacts_database_password(tmp_path: Path) -> None:
     assert result.exit_code == 0
     assert "secret" not in result.output
     assert json.loads(result.output)["database"]["configured_url"] == (
-        "postgresql+asyncpg://operator:***@localhost/banksia"
+        "postgresql+asyncpg://operator:***@localhost/oms"
     )
 
 

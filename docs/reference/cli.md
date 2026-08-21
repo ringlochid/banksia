@@ -239,7 +239,7 @@ Oh My Subagents selects one native current-user manager:
 | --- | --- |
 | Linux | systemd user service |
 | macOS | current-user LaunchAgent |
-| Windows | current-user Scheduled Task (`\Banksia\Controller`) |
+| Windows | current-user Scheduled Task (`\Oh My Subagents\Controller`) |
 
 Native Windows requires Windows 11 x64 and local NTFS configuration, data, workspace, and Command Run paths. UNC/network, device, non-NTFS, and reparse-point paths reject. WSL2 uses the Linux lane.
 

@@ -25,18 +25,18 @@ from .processes import (
     venv_python,
 )
 
-SYSTEMCTL_INSPECTION_CALL_PREFIX = "--user show banksia.service "
+SYSTEMCTL_INSPECTION_CALL_PREFIX = "--user show oh-my-subagents.service "
 EXPECTED_INSTALL_SYSTEMCTL_CHANGE_CALLS = (
     "--user daemon-reload",
-    "--user enable banksia.service",
+    "--user enable oh-my-subagents.service",
 )
 EXPECTED_LIFECYCLE_SYSTEMCTL_CHANGE_CALLS = (
     *EXPECTED_INSTALL_SYSTEMCTL_CHANGE_CALLS,
-    "--user start banksia.service",
-    "--user stop banksia.service",
-    "--user start banksia.service",
-    "--user stop banksia.service",
-    "--user disable --now banksia.service",
+    "--user start oh-my-subagents.service",
+    "--user stop oh-my-subagents.service",
+    "--user start oh-my-subagents.service",
+    "--user stop oh-my-subagents.service",
+    "--user disable --now oh-my-subagents.service",
     "--user daemon-reload",
 )
 
@@ -148,7 +148,7 @@ def assert_windows_service_probe_is_safe(
         return
     raise AssertionError(
         "refusing installed-distribution verification because the fixed "
-        r"Windows service task \Banksia\Controller already exists; "
+        r"Windows service task \Oh My Subagents\Controller already exists; "
         "use a clean Windows host or uninstall the user service explicitly first"
     )
 
@@ -161,8 +161,8 @@ def prepare_windows_service_probe(
 ) -> tuple[WindowsServiceProbeContext, dict[str, Any]]:
     install_root = workspace / "windows-installer"
     home = install_root / "home"
-    data_dir = home / "data" / "banksia"
-    config_path = home / "config" / "banksia" / "config.toml"
+    data_dir = home / "data" / "oh-my-subagents"
+    config_path = home / "config" / "oh-my-subagents" / "config.toml"
     venv_path = install_root / "venv"
     install_root.mkdir(parents=True, exist_ok=True)
     create_offline_venv(venv_path, dependency_site_packages)
@@ -279,8 +279,8 @@ def prepare_service_probe(
     state_home = install_root / "state"
     venv_path = install_root / "venv"
     unit_dir = home / ".config" / "systemd" / "user"
-    config_path = config_home / "banksia" / "config.toml"
-    env_file = config_home / "banksia" / "banksia.env"
+    config_path = config_home / "oh-my-subagents" / "config.toml"
+    env_file = config_home / "oh-my-subagents" / "oms.env"
     systemctl_log = install_root / "systemctl.log"
     systemctl_state = install_root / "systemctl.state"
     fake_systemctl = install_root / "systemctl"
@@ -296,7 +296,7 @@ def prepare_service_probe(
     env.update(
         {
             "OMS_CONFIG": str(config_path),
-            "OMS_DATA_DIR": str(data_home / "banksia"),
+            "OMS_DATA_DIR": str(data_home / "oh-my-subagents"),
             "OMS_SYSTEMCTL_BIN": str(fake_systemctl),
             "OMS_SYSTEMCTL_LOG": str(systemctl_log),
             "OMS_SYSTEMCTL_STATE": str(systemctl_state),
@@ -315,7 +315,7 @@ def prepare_service_probe(
         unit_dir=unit_dir,
         config_path=config_path,
         env_file=env_file,
-        unit_path=unit_dir / "banksia.service",
+        unit_path=unit_dir / "oh-my-subagents.service",
         systemctl_log=systemctl_log,
         env=env,
         executable=venv_executable(venv_path, "oms"),
@@ -342,7 +342,7 @@ def install_user_service(
             "--config",
             str(context.config_path),
             "--data-dir",
-            str(context.data_home / "banksia"),
+            str(context.data_home / "oh-my-subagents"),
             "--workspace",
             str(context.install_root),
             "--port",
@@ -384,7 +384,7 @@ def install_user_service(
 def verify_service_installation(context: ServiceProbeContext) -> None:
     generated_paths = (
         context.config_path,
-        context.data_home / "banksia",
+        context.data_home / "oh-my-subagents",
         context.env_file,
         context.unit_path,
     )
@@ -497,7 +497,7 @@ case "${2:-}" in
     ;;
 esac
 if [ "${2:-}" = "show" ]; then
-  unit="$HOME/.config/systemd/user/banksia.service"
+  unit="$HOME/.config/systemd/user/oh-my-subagents.service"
   if [ ! -f "$unit" ]; then
     printf '%s\n' 'LoadState=not-found'
     exit 0

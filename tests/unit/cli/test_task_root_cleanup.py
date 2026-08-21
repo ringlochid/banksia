@@ -11,7 +11,7 @@ from oh_my_subagents.interfaces.cli.bootstrap.task_root_cleanup import (
 
 
 def test_cleanup_removes_child_symlink_without_traversing_it(tmp_path: Path) -> None:
-    data_boundary = tmp_path / "banksia-data"
+    data_boundary = tmp_path / "oms-data"
     task_root = data_boundary / "tasks" / "task.alpha"
     external_workspace = tmp_path / "external-workspace"
     task_root.mkdir(parents=True)
@@ -32,7 +32,7 @@ def test_cleanup_removes_child_symlink_without_traversing_it(tmp_path: Path) -> 
 
 
 def test_cleanup_rejects_path_outside_data_boundary(tmp_path: Path) -> None:
-    data_boundary = tmp_path / "banksia-data"
+    data_boundary = tmp_path / "oms-data"
     data_boundary.mkdir()
     external_root = tmp_path / "external-task-root"
     external_root.mkdir()
@@ -47,7 +47,7 @@ def test_cleanup_rejects_path_outside_data_boundary(tmp_path: Path) -> None:
 
 
 def test_cleanup_validates_every_root_before_deleting_any(tmp_path: Path) -> None:
-    data_boundary = tmp_path / "banksia-data"
+    data_boundary = tmp_path / "oms-data"
     safe_root = data_boundary / "tasks" / "task.safe"
     unsafe_root = tmp_path / "external-task-root"
     safe_root.mkdir(parents=True)
@@ -64,7 +64,7 @@ def test_cleanup_validates_every_root_before_deleting_any(tmp_path: Path) -> Non
 
 
 def test_cleanup_rejects_symlinked_deletion_root(tmp_path: Path) -> None:
-    data_boundary = tmp_path / "banksia-data"
+    data_boundary = tmp_path / "oms-data"
     data_boundary.mkdir()
     external_root = tmp_path / "external-task-root"
     external_root.mkdir()
@@ -82,7 +82,7 @@ def test_cleanup_rejects_symlinked_deletion_root(tmp_path: Path) -> None:
 
 
 def test_cleanup_rejects_symlinked_task_root_ancestor(tmp_path: Path) -> None:
-    data_boundary = tmp_path / "banksia-data"
+    data_boundary = tmp_path / "oms-data"
     real_task_parent = data_boundary / "real-tasks"
     real_task_root = real_task_parent / "task.alpha"
     real_task_root.mkdir(parents=True)
@@ -103,7 +103,7 @@ def test_cleanup_rejects_symlinked_task_root_ancestor(tmp_path: Path) -> None:
 
 
 def test_cleanup_validates_all_filesystem_roots_before_deleting_any(tmp_path: Path) -> None:
-    data_boundary = tmp_path / "banksia-data"
+    data_boundary = tmp_path / "oms-data"
     safe_root = data_boundary / "tasks" / "task.safe"
     safe_root.mkdir(parents=True)
     real_task_parent = data_boundary / "real-tasks"

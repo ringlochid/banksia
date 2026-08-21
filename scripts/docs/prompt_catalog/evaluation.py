@@ -143,16 +143,16 @@ def render_scenario_request(
             available_actions=scenario.available_actions,
             workspace=PromptWorkspace(
                 root=str(workspace),
-                task_directory=".banksia/t_prompt_eval",
-                manifest=".banksia/t_prompt_eval/manifest.md",
+                task_directory=".oms/t_prompt_eval",
+                manifest=".oms/t_prompt_eval/manifest.md",
                 workflow_note=(
-                    ".banksia/t_prompt_eval/workflow-note.md"
+                    ".oms/t_prompt_eval/workflow-note.md"
                     if team.workflow.note is not None
                     else None
                 ),
-                notes=".banksia/t_prompt_eval/notes",
-                artifacts=".banksia/t_prompt_eval/artifacts",
-                command_runs=".banksia/t_prompt_eval/command-runs",
+                notes=".oms/t_prompt_eval/notes",
+                artifacts=".oms/t_prompt_eval/artifacts",
+                command_runs=".oms/t_prompt_eval/command-runs",
             ),
         ),
         member_instruction=team.current_member.instruction,

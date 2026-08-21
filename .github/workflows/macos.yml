@@ -42,7 +42,7 @@ jobs:
             - name: Exercise real macOS initialization
               shell: bash
               run: |
-                  probe_dir="$(mktemp -d "${RUNNER_TEMP}/banksia-macos.XXXXXX")"
+                  probe_dir="$(mktemp -d "${RUNNER_TEMP}/oms-macos.XXXXXX")"
                   mkdir -p "$probe_dir/workspace"
 
                   XDG_CONFIG_HOME="$probe_dir/config" \
@@ -51,8 +51,8 @@ jobs:
                   XDG_CACHE_HOME="$probe_dir/cache" \
                   ./.venv/bin/oms init \
                     --non-interactive \
-                    --config "$probe_dir/config/banksia/config.toml" \
-                    --data-dir "$probe_dir/data/banksia" \
+                    --config "$probe_dir/config/oh-my-subagents/config.toml" \
+                    --data-dir "$probe_dir/data/oh-my-subagents" \
                     --workspace "$probe_dir/workspace" \
                     --json
 
@@ -61,16 +61,16 @@ jobs:
                   XDG_STATE_HOME="$probe_dir/state" \
                   XDG_CACHE_HOME="$probe_dir/cache" \
                   ./.venv/bin/oms config show \
-                    --config "$probe_dir/config/banksia/config.toml" \
+                    --config "$probe_dir/config/oh-my-subagents/config.toml" \
                     --json
 
             - name: Exercise real macOS background-service lifecycle
               shell: bash
               run: |
                   set -euo pipefail
-                  probe_dir="$(mktemp -d "${RUNNER_TEMP}/banksia-macos-service.XXXXXX")"
+                  probe_dir="$(mktemp -d "${RUNNER_TEMP}/oms-macos-service.XXXXXX")"
                   home="$probe_dir/home"
-                  config="$probe_dir/config/banksia/config.toml"
+                  config="$probe_dir/config/oh-my-subagents/config.toml"
                   mkdir -p "$home" "$probe_dir/workspace"
 
                   run_oms() {
@@ -89,7 +89,7 @@ jobs:
                   run_oms init \
                     --non-interactive \
                     --config "$config" \
-                    --data-dir "$probe_dir/data/banksia" \
+                    --data-dir "$probe_dir/data/oh-my-subagents" \
                     --workspace "$probe_dir/workspace" \
                     --json > "$probe_dir/init.json"
                   run_oms service install --config "$config" --json > "$probe_dir/install.json"

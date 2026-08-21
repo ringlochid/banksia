@@ -366,7 +366,7 @@ async def test_postgresql_enforces_attempt_lane_schema() -> None:
     if database_url is None:
         pytest.skip("a disposable PostgreSQL test database is not configured")
 
-    schema_name = f"banksia_attempt_lane_{uuid4().hex}"
+    schema_name = f"oms_attempt_lane_{uuid4().hex}"
     engine = create_async_engine(
         database_url,
         execution_options={"schema_translate_map": {None: schema_name}},

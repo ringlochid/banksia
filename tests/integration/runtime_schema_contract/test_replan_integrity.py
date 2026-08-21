@@ -101,7 +101,7 @@ async def test_postgresql_rejects_inexact_replan_relations() -> None:
     if database_url is None:
         pytest.skip("a disposable PostgreSQL test database is not configured")
 
-    schema_name = f"banksia_replan_integrity_{uuid4().hex}"
+    schema_name = f"oms_replan_integrity_{uuid4().hex}"
     engine = create_async_engine(
         database_url,
         execution_options={"schema_translate_map": {None: schema_name}},

@@ -249,7 +249,7 @@ def _create_test_engine() -> tuple[AsyncEngine, str]:
     database_url = read_disposable_postgres_url()
     if database_url is None:
         pytest.skip("a disposable PostgreSQL test database is not configured")
-    schema_name = f"banksia_runtime_race_{uuid4().hex}"
+    schema_name = f"oms_runtime_race_{uuid4().hex}"
     return (
         create_async_engine(
             database_url,

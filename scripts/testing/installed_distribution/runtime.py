@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -52,11 +53,13 @@ def verify_installed_runtime(
     )
     configure_installed_runtime(context)
     results = verify_installed_runtime_surfaces(context)
+    migration = verify_installed_migration(context)
     assert_legacy_state_unchanged(legacy_state)
     return {
         "config_path": str(context.config_path),
         "data_dir": str(context.data_dir),
         **results,
+        "migration": migration,
         "legacy_state_untouched": True,
     }
 
@@ -81,8 +84,8 @@ def prepare_runtime_probe(
     context = RuntimeProbeContext(
         venv_path=venv_path,
         repo_root=repo_root,
-        config_path=home / "config" / "banksia" / "config.toml",
-        data_dir=home / "data" / "banksia",
+        config_path=home / "config" / "oh-my-subagents" / "config.toml",
+        data_dir=home / "data" / "oh-my-subagents",
         cwd=cwd,
         port=available_loopback_port(),
         env=isolated_environment(home),
@@ -110,6 +113,72 @@ def prepare_runtime_probe(
         cache_home=home / "cache",
     )
     return context, legacy_state
+
+
+def verify_installed_migration(context: RuntimeProbeContext) -> dict[str, object]:
+    root = context.cwd.parent / "installed-migration"
+    migration_env = isolated_environment(root / "home")
+    config_home = Path(
+        migration_env["LOCALAPPDATA"] if os.name == "nt" else migration_env["XDG_CONFIG_HOME"]
+    )
+    data_home = Path(
+        migration_env["LOCALAPPDATA"] if os.name == "nt" else migration_env["XDG_DATA_HOME"]
+    )
+    source_config = config_home / "banksia" / "config.toml"
+    source_data = data_home / "banksia"
+    target_config = config_home / "oh-my-subagents" / "config.toml"
+    target_data = data_home / "oh-my-subagents"
+    source_config.parent.mkdir(parents=True, exist_ok=True)
+    source_data.mkdir(parents=True, exist_ok=True)
+    source_config.write_text(
+        "\n".join(
+            (
+                "[paths]",
+                f'data_dir = "{source_data.as_posix()}"',
+                "",
+                "[database]",
+                f'url = "sqlite+aiosqlite:///{(source_data / "banksia.persistence").as_posix()}"',
+                "",
+            )
+        ),
+        encoding="utf-8",
+    )
+    source_config.with_name("banksia.env").write_text(
+        "ANTHROPIC_API_KEY=installed-migration-proof\n",
+        encoding="utf-8",
+    )
+    source_data.joinpath("banksia.persistence").write_bytes(b"installed-migration-database")
+
+    arguments = ("migrate-from-banksia", "--no-service", "--json")
+    first = run_json_command(
+        context.executable,
+        arguments,
+        cwd=context.cwd,
+        env=migration_env,
+    )
+    second = run_json_command(
+        context.executable,
+        arguments,
+        cwd=context.cwd,
+        env=migration_env,
+    )
+    config = tomllib.loads(target_config.read_text(encoding="utf-8"))
+    if Path(config["paths"]["data_dir"]) != target_data:
+        raise AssertionError("installed migration did not select the canonical default data dir")
+    if not target_config.with_name("oms.env").is_file():
+        raise AssertionError("installed migration omitted the canonical provider environment")
+    if second["copied_files"]:
+        raise AssertionError("installed migration was not idempotent")
+    if not first["copied_files"] or not second["reused_files"]:
+        raise AssertionError("installed migration did not report copied and reused state")
+    if target_data.joinpath("oms.persistence").read_bytes() != b"installed-migration-database":
+        raise AssertionError("installed migration did not rename the default SQLite database")
+    return {
+        "first": first,
+        "second": second,
+        "default_data_renamed": True,
+        "provider_environment_renamed": True,
+    }
 
 
 def configure_installed_runtime(context: RuntimeProbeContext) -> None:

@@ -36,7 +36,7 @@ The root-layout cutover is complete: `src/oh_my_subagents/**`, `tests/**`, and `
 - compatibility import paths require an explicit contract, must stay thin, and must name their removal owner
 - do not let two long-lived source trees both act like the real backend owner
 
-For Oh My Subagents, the canonical backend package is `src/oh_my_subagents/**`. No parallel `autoclaw`, `banksia_v2`, or unwrapped package tree may remain in the final layout.
+For Oh My Subagents, the canonical backend package is `src/oh_my_subagents/**`. No parallel `autoclaw`, `legacy_v2`, or unwrapped package tree may remain in the final layout.
 
 ## Packaging-aware source root rule
 

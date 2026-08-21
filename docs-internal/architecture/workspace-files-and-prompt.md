@@ -261,7 +261,7 @@ Authored or file content cannot widen controller authority. XML boundaries and l
 
 ### Dynamic XML content
 
-One `<banksia_dispatch_request>` document contains, in stable order:
+One `<oms_dispatch_request>` document contains, in stable order:
 
 - Task ID and `.oms/t_<id>` path;
 - full Dispatch, Attempt, Assignment, and current Member identities needed by the agent/controller contract;

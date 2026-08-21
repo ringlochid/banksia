@@ -140,7 +140,7 @@ async def test_postgresql_rejects_cross_record_and_capability_widening() -> None
     if database_url is None:
         pytest.skip("a disposable PostgreSQL test database is not configured")
 
-    schema_name = f"banksia_relationship_integrity_{uuid4().hex}"
+    schema_name = f"oms_relationship_integrity_{uuid4().hex}"
     engine = create_async_engine(
         database_url,
         execution_options={"schema_translate_map": {None: schema_name}},
@@ -204,7 +204,7 @@ async def test_postgresql_allows_only_one_open_assignment_per_task_member() -> N
     if database_url is None:
         pytest.skip("a disposable PostgreSQL test database is not configured")
 
-    schema_name = f"banksia_open_assignment_{uuid4().hex}"
+    schema_name = f"oms_open_assignment_{uuid4().hex}"
     engine = create_async_engine(
         database_url,
         execution_options={"schema_translate_map": {None: schema_name}},

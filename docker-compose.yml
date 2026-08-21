@@ -1,37 +1,37 @@
-name: banksia
+name: oms
 
 services:
     postgres:
         image: postgres:16
         restart: unless-stopped
         environment:
-            POSTGRES_USER: banksia
-            POSTGRES_PASSWORD: banksia
-            POSTGRES_DB: banksia
+            POSTGRES_USER: oms
+            POSTGRES_PASSWORD: oms
+            POSTGRES_DB: oms
         ports:
             - "127.0.0.1:5433:5432"
         healthcheck:
-            test: ["CMD-SHELL", "pg_isready -U banksia -d banksia"]
+            test: ["CMD-SHELL", "pg_isready -U oms -d oms"]
             interval: 5s
             timeout: 5s
             retries: 20
         volumes:
-            - banksia-postgres:/var/lib/postgresql/data
+            - oms-postgres:/var/lib/postgresql/data
             - ./infra/compose/postgres/init:/docker-entrypoint-initdb.d:ro
 
     postgres-test:
         image: postgres:16
         environment:
-            POSTGRES_USER: banksia
-            POSTGRES_PASSWORD: banksia
-            POSTGRES_DB: banksia
+            POSTGRES_USER: oms
+            POSTGRES_PASSWORD: oms
+            POSTGRES_DB: oms
         healthcheck:
-            test: ["CMD-SHELL", "pg_isready -U banksia -d postgres"]
+            test: ["CMD-SHELL", "pg_isready -U oms -d postgres"]
             interval: 5s
             timeout: 5s
             retries: 20
         volumes:
-            - banksia-postgres-test:/var/lib/postgresql/data
+            - oms-postgres-test:/var/lib/postgresql/data
             - ./infra/compose/postgres/init:/docker-entrypoint-initdb.d:ro
 
     backend-test:
@@ -45,12 +45,12 @@ services:
         environment:
             OMS_ENV: test
             OMS_DEBUG: "false"
-            OMS_TEST_POSTGRES_URL: postgresql+asyncpg://banksia:banksia@postgres-test:5432/banksia_test
+            OMS_TEST_POSTGRES_URL: postgresql+asyncpg://oms:oms@postgres-test:5432/oms_test
         command:
             - sh
             - -c
-            - OMS_DATABASE_URL="$$OMS_TEST_POSTGRES_URL" python -m banksia db upgrade && exec python -m scripts.testing.run_backend_pytest_groups integration
+            - OMS_DATABASE_URL="$$OMS_TEST_POSTGRES_URL" python -m oh_my_subagents db upgrade && exec python -m scripts.testing.run_backend_pytest_groups integration
 
 volumes:
-    banksia-postgres:
-    banksia-postgres-test:
+    oms-postgres:
+    oms-postgres-test:

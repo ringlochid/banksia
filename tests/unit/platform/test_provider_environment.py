@@ -20,7 +20,7 @@ from oh_my_subagents.platform.provider_environment import (
 )
 
 
-def test_provider_environment_uses_only_banksia_private_file_name(tmp_path: Path) -> None:
+def test_provider_environment_uses_only_oms_private_file_name(tmp_path: Path) -> None:
     config_path = tmp_path / "config.toml"
     assert provider_environment_file_path(config_path) == tmp_path / "oms.env"
 

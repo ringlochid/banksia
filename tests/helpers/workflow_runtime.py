@@ -83,8 +83,8 @@ def _build_init_args(config_path: Path, data_dir: Path) -> argparse.Namespace:
 async def initialized_workflow_database(
     tmp_path: Path,
 ) -> AsyncIterator[AsyncSessionFactory]:
-    config_path = tmp_path / "banksia-config.toml"
-    data_dir = tmp_path / "banksia-data"
+    config_path = tmp_path / "oms-config.toml"
+    data_dir = tmp_path / "oms-data"
     database_url = default_database_url(data_dir)
     engine: AsyncEngine | None = None
 

@@ -47,7 +47,7 @@ def create_offline_venv(venv_path: Path, dependency_site_packages: Path) -> None
             cwd=venv_path.parent,
         ).stdout.strip()
     )
-    child_site_packages.joinpath("banksia-oracle-dependencies.pth").write_text(
+    child_site_packages.joinpath("oms-oracle-dependencies.pth").write_text(
         f"import site; site.addsitedir({str(dependency_site_packages)!r})\n",
         encoding="utf-8",
     )
@@ -74,7 +74,7 @@ def isolated_environment(home: Path) -> dict[str, str]:
         key: value
         for key, value in os.environ.items()
         if key not in {"PYTHONHOME", "PYTHONPATH"}
-        and not key.startswith(("OMS_", "OMS_", "AUTOCLAW_"))
+        and not key.startswith(("OMS_", "BANKSIA_", "AUTOCLAW_"))
     }
     environment.update(
         {
@@ -91,6 +91,8 @@ def isolated_environment(home: Path) -> dict[str, str]:
                 "APPDATA": str(home / "config"),
                 "LOCALAPPDATA": str(home / "data"),
                 "USERPROFILE": str(home),
+                "WIN_PD_OVERRIDE_APPDATA": str(home / "config"),
+                "WIN_PD_OVERRIDE_LOCAL_APPDATA": str(home / "data"),
             }
         )
     return environment

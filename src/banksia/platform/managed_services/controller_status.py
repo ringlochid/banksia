@@ -47,6 +47,7 @@ def wait_for_controller_state(
     pending_states = {
         ManagedServiceControllerState.FAILED,
         ManagedServiceControllerState.STARTING,
+        ManagedServiceControllerState.STOPPED,
     }
     while result.controller_state in pending_states:
         remaining_seconds = deadline - time.monotonic()

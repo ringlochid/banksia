@@ -148,10 +148,10 @@ The release workflow can be dispatched manually to rehearse its build and instal
 
 1. confirm every required platform check is green on the exact candidate;
 2. confirm the tag equals `v` plus the package version;
-3. confirm the `pypi` GitHub environment and the PyPI Trusted Publisher both bind the final repository name to `.github/workflows/release.yml`; and
+3. confirm the `pypi` GitHub environment contains the `PYPI_API_TOKEN` secret required by `.github/workflows/release.yml`; and
 4. confirm the target version and filenames do not already exist on PyPI.
 
-The workflow builds and verifies the distributions in an unprivileged job, then passes those exact files to a separate OIDC publication job. After it succeeds, compare the published hashes with the downloaded workflow artifacts, perform a clean-index `pipx` installation and CLI smoke test, and create the GitHub release with the verified distributions and `SHA256SUMS` attached. Never enable `skip-existing` for the production index or rebuild an existing version.
+The workflow builds and verifies the distributions in an unprivileged job, then passes those exact files to a separate environment-bound publication job. After it succeeds, compare the published hashes with the downloaded workflow artifacts, perform a clean-index `pipx` installation and CLI smoke test, and create the GitHub release with the verified distributions and `SHA256SUMS` attached. Never enable `skip-existing` for the production index or rebuild an existing version.
 
 ## Keep live provider proof tiny
 

@@ -79,8 +79,6 @@ jobs:
         environment:
             name: pypi
             url: https://pypi.org/p/oh-my-subagents
-        permissions:
-            id-token: write
 
         steps:
             - name: Download verified distributions
@@ -93,3 +91,4 @@ jobs:
               uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
               with:
                   packages-dir: dist/
+                  password: ${{ secrets.PYPI_API_TOKEN }}

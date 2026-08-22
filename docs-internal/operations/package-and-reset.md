@@ -6,7 +6,7 @@ This page owns distribution contents, installed verification, exact schema admis
 
 ## Distribution boundary
 
-`pyproject.toml` is the package contract. The distribution is `oh-my-subagents` at version `0.3.0`, the canonical console command is `oms`, the temporary compatibility command is `banksia`, and the canonical Python import package is `oh_my_subagents`. Python 3.12 or newer is required.
+`pyproject.toml` is the package contract. The distribution is `oh-my-subagents` at version `0.3.1`, the canonical console command is `oms`, the temporary compatibility command is `banksia`, and the canonical Python import package is `oh_my_subagents`. Python 3.12 or newer is required.
 
 The built wheel contains:
 
@@ -54,6 +54,8 @@ The next supported upgrade widens Command Run terminal exit codes to an unsigned
 
 `oms migrate-from-banksia` is the sole legacy-state import path. It copies default local files without changing database rows or schema, preserves custom database locations and the configured PostgreSQL schema, and never weakens exact schema admission. Supported schema upgrades do not introduce dual runtime truth or acceptance of nonexact schemas.
 
+Before default `oms init` writes anything, it checks for a legacy default config or SQLite database. When legacy state exists and no canonical config has been established, initialization stops and directs the operator to `oms migrate-from-banksia`. Explicit config, data, and database locations remain available for an intentionally separate controller. Migration validates every source and destination file before it copies any state or changes a native service, so a conflicting OMS file leaves both state trees and the legacy service untouched.
+
 After schema creation or verification, bootstrap transactionally validates and publishes the packaged Starter Workflow set. Identical package-owned content is idempotent, and reseeding never replaces a user-authored current revision.
 
 ## Destructive reset
@@ -81,5 +83,7 @@ Native definitions contain only the exact interpreter, stable `-m oh_my_subagent
 Controller readiness requires both an active instance reported by the selected native manager and a successful `/readyz` response. A listener alone never proves background-service ownership. Readiness polling tolerates transient native failure during the bounded startup window; Windows uses 30 seconds for cold virtual-environment startup, while systemd and launchd use 3 seconds. Windows registration and runtime inspection use the Task Scheduler 2.0 API; definition comparison preserves exact action/configuration values while treating Task Scheduler's equivalent account-name, SID, and omitted-default XML forms semantically. macOS inspection reads the current `launchctl` job state, process identifier, last exit code, and disabled state. A macOS stop does not complete until launchd confirms that the previous LaunchAgent is unloaded, so a following start bootstraps a replacement instead of targeting a disappearing job. Portable status exposes whether the installed definition is current, and lifecycle start is idempotent for an already active native instance.
 
 Service rendering and replacement are atomic and reject a pre-existing non-regular target. Installation is idempotent. The native manager owns definition and lifecycle operations; a small coordinator owns API readiness and bind-target release. Stop waits for both the native instance and the API listener to disappear, and restart starts the replacement only after that release. Installation and verification must stay isolated, and release proof must not install or mutate a real user's service outside its disposable native lane.
+
+Systemd uninstall removes the user-unit definition only after `systemctl --user disable --now` succeeds. A failed stop preserves the definition and surfaces the native diagnostic so the operator can inspect or retry the installed service instead of being left with a listener and no manageable unit.
 
 Schema and runtime recovery details are owned by [Recovery and observability](recovery-and-observability.md).

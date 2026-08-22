@@ -7,7 +7,7 @@ from email.parser import Parser
 from pathlib import Path, PurePosixPath
 
 EXPECTED_DISTRIBUTION_NAME = "oh-my-subagents"
-EXPECTED_DISTRIBUTION_VERSION = "0.3.0"
+EXPECTED_DISTRIBUTION_VERSION = "0.3.1"
 LEGACY_COMMAND_NOTICE = "The 'banksia' command is deprecated; use 'oms'."
 STARTER_WORKFLOW_IDS = (
     "decision-through-competing-prototypes",

@@ -14,7 +14,10 @@ from oh_my_subagents.config import (
     format_loopback_authority,
     load_settings,
 )
-from oh_my_subagents.interfaces.cli.commands.bootstrap import cmd_init, ensure_database_ready
+from oh_my_subagents.interfaces.cli.commands.bootstrap import (
+    cmd_init,
+    ensure_database_ready,
+)
 from oh_my_subagents.interfaces.cli.commands.config_view import redact_database_url
 from oh_my_subagents.interfaces.cli.commands.operator import guide_optional_operator_setup
 from oh_my_subagents.interfaces.cli.commands.presentation import (
@@ -31,6 +34,7 @@ from oh_my_subagents.interfaces.cli.commands.provider_setup import (
     persisted_provider_kinds,
     provider_list_text,
 )
+from oh_my_subagents.interfaces.cli.migration import preflight_legacy_default_state_for_init
 from oh_my_subagents.interfaces.cli.progress import CliProgress
 from oh_my_subagents.interfaces.cli.providers import (
     OperatorSelectionSnapshot,
@@ -65,6 +69,12 @@ def guide_local_initialization(args: argparse.Namespace) -> int:
     """Guide first-run local, Task-provider, and optional Operator setup."""
 
     config_path = coerce_path(args.config)
+    data_dir = coerce_path(args.data_dir or default_data_dir())
+    preflight_legacy_default_state_for_init(
+        config_path=config_path,
+        data_dir=data_dir,
+        database_url=args.database_url or default_database_url(data_dir),
+    )
     should_confirm_reconfiguration = False
     emit_wizard_header(
         "initialization",

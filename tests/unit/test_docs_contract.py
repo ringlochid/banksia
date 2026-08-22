@@ -180,7 +180,12 @@ def test_identity_contract_allows_only_named_compatibility_surfaces(tmp_path: Pa
         validator.identity_findings(
             root=tmp_path,
             path=tmp_path / "README.md",
-            text="[Migrate from Banksia](docs/guides/migrate-from-banksia.md)\n",
+            text=(
+                "[Migrate from Banksia](docs/guides/migrate-from-banksia.md)\n"
+                "### Upgrade an existing Banksia installation\n"
+                "Preserve the existing Banksia config before switching.\n"
+                "Read the Banksia migration guide.\n"
+            ),
         )
         == []
     )

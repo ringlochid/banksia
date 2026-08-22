@@ -85,14 +85,14 @@ class SystemdUserServiceManager:
         command_observer: ManagedServiceCommandObserver | None = None,
     ) -> ManagedServiceInspection:
         self._require_supported()
-        del target
-        self._execute(
-            "disable",
-            "--now",
-            self.service_name,
-            should_check=False,
-            command_observer=command_observer,
-        )
+        inspection = self.inspect(target)
+        if inspection.is_installed:
+            self._execute(
+                "disable",
+                "--now",
+                self.service_name,
+                command_observer=command_observer,
+            )
         remove_service_definition(self.definition_path)
         self._execute("daemon-reload", command_observer=command_observer)
         return self._absent_inspection()

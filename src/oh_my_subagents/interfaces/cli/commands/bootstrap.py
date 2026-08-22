@@ -27,9 +27,14 @@ from oh_my_subagents.interfaces.cli.bootstrap.database import (
     sqlite_database_path,
     upgrade_database,
 )
+from oh_my_subagents.interfaces.cli.migration import preflight_legacy_default_state_for_init
 from oh_my_subagents.interfaces.cli.progress import CliProgress
 from oh_my_subagents.interfaces.cli.support import coerce_path, command_env, print_json
-from oh_my_subagents.paths import default_data_dir, default_database_url, ensure_runtime_dirs
+from oh_my_subagents.paths import (
+    default_data_dir,
+    default_database_url,
+    ensure_runtime_dirs,
+)
 from oh_my_subagents.platform.managed_services import SERVICE_LOGGER_NAME, configure_service_logging
 
 logger = logging.getLogger(SERVICE_LOGGER_NAME)
@@ -41,6 +46,11 @@ async def cmd_init(args: argparse.Namespace) -> int:
     data_dir = coerce_path(args.data_dir or default_data_dir())
     database_url = args.database_url or default_database_url(data_dir)
     _preflight_controller_workspace_environment()
+    preflight_legacy_default_state_for_init(
+        config_path=config_path,
+        data_dir=data_dir,
+        database_url=database_url,
+    )
     if config_path.exists() and not args.force:
         raise FileExistsError(
             f"Refusing to overwrite existing config without --force: {config_path}"

@@ -114,6 +114,57 @@ def test_systemd_manager_reconciles_one_fixed_unit(
     assert not manager.definition_path.exists()
 
 
+def test_systemd_uninstall_keeps_definition_when_stop_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    target = _target(tmp_path)
+    manager = SystemdUserServiceManager(definition_dir=tmp_path / "units")
+    replace_service_definition(
+        manager.definition_path,
+        manager.render_definition(target).encode("utf-8"),
+    )
+    monkeypatch.setattr(manager, "_require_supported", lambda: None)
+
+    def execute(
+        *args: str,
+        should_check: bool = True,
+        command_observer: object | None = None,
+    ) -> systemd_module.subprocess.CompletedProcess[str]:
+        del should_check, command_observer
+        if args[0] == "show":
+            return systemd_module.subprocess.CompletedProcess(
+                args,
+                0,
+                stdout="\n".join(
+                    (
+                        "LoadState=loaded",
+                        "UnitFileState=enabled",
+                        "ActiveState=active",
+                        "SubState=running",
+                        f"FragmentPath={manager.definition_path}",
+                    )
+                ),
+                stderr="",
+            )
+        raise ManagedServiceCommandError(
+            manager=manager.manager_name,
+            operation="disable",
+            service_name=manager.service_name,
+            command=("systemctl", "--user", *args),
+            return_code=1,
+            detail="stop job timed out",
+        )
+
+    monkeypatch.setattr(manager, "_execute", execute)
+
+    with pytest.raises(ManagedServiceCommandError, match="stop job timed out") as failure:
+        manager.uninstall(target)
+
+    assert failure.value.operation == "disable"
+    assert manager.definition_path.is_file()
+
+
 def test_systemd_crash_loop_is_failed_instead_of_indefinitely_starting(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

@@ -88,6 +88,8 @@ Prefer conversation? The separate **Operator** can draft and revise Workflows, e
 
 Oh My Subagents requires Python 3.12 or newer and supports Linux, macOS 13+, and Windows 11 x64. Install it in an isolated environment with [pipx](https://pipx.pypa.io/stable/):
 
+### Fresh installation
+
 ```bash
 pipx install oh-my-subagents
 oms init
@@ -97,6 +99,24 @@ oms service install
 Open `http://127.0.0.1:18125/`.
 
 Guided initialization selects a default workspace, configures a Codex or Claude Task provider, publishes the Starter teams, and can configure the separate Operator. SQLite is the default, so a local installation needs no database server.
+
+### Upgrade an existing Banksia installation
+
+Migrate before running `oms init`, `oms serve`, or `oms service install`. Initialization creates a fresh controller database; migration preserves the existing Banksia config, database, provider credentials, Task history, and service state under canonical OMS paths.
+
+```bash
+banksia status --json
+banksia service status --json
+
+pipx uninstall banksia
+pipx install oh-my-subagents
+
+oms migrate-from-banksia
+oms db upgrade
+oms service status --json
+```
+
+If the old installation did not use a background service, run `oms service install` after migration. Do not run `oms init` first, and do not use `oms db reset` as a rename step. The [Banksia migration guide](docs/guides/migrate-from-banksia.md) covers custom paths, verification, rollback, and recovery from an accidental `0.3.0` initialization.
 
 ### Keep the controller running
 

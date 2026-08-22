@@ -34,7 +34,12 @@ BANKSIA_COMPATIBILITY_DOCUMENTS = frozenset(
     }
 )
 BANKSIA_COMPATIBILITY_LINES = {
-    Path("README.md"): ("Migrate from Banksia",),
+    Path("README.md"): (
+        "Migrate from Banksia",
+        "Upgrade an existing Banksia installation",
+        "existing Banksia config",
+        "Banksia migration guide",
+    ),
     Path("docs/README.md"): ("Migrate from Banksia",),
     Path("docs/reference/cli.md"): (r"\Banksia\Controller",),
     Path("docs-internal/adr/README.md"): ("ADR-0013 Banksia target",),

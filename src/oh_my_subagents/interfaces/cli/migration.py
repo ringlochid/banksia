@@ -12,13 +12,15 @@ from pathlib import Path
 
 from sqlalchemy.engine import make_url
 
+from oh_my_subagents.config import Settings, load_settings
 from oh_my_subagents.interfaces.cli.bootstrap.config import (
     ConfigSections,
     config_sections_to_text,
     read_config_sections,
     write_config_text_atomically,
 )
-from oh_my_subagents.interfaces.cli.support import print_json
+from oh_my_subagents.interfaces.cli.errors import CliPrerequisiteError
+from oh_my_subagents.interfaces.cli.support import command_env, print_json
 from oh_my_subagents.paths import (
     default_config_path,
     default_data_dir,
@@ -33,6 +35,8 @@ from oh_my_subagents.platform.managed_services import (
     ManagedServiceTarget,
     default_service_log_path,
     get_managed_service_manager,
+    probe_bind_target,
+    wait_for_controller_shutdown,
 )
 from oh_my_subagents.platform.workspace_files import ensure_private_directory
 from oh_my_subagents.product_identity import (
@@ -52,6 +56,67 @@ class MigrationResult:
     reused_files: tuple[Path, ...]
     service_migrated: bool
     service_started: bool
+
+
+class MigrationConflictError(CliPrerequisiteError):
+    """Raised when migration would combine distinct controller state."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(
+            message,
+            kind="migration_conflict",
+            title="Banksia migration blocked",
+            hint=(
+                "Oh My Subagents will not merge two controller states. Preserve both, then "
+                "follow the accidental-initialization recovery in "
+                "docs/guides/migrate-from-banksia.md."
+            ),
+        )
+
+
+def preflight_legacy_default_state_for_init(
+    *,
+    config_path: Path,
+    data_dir: Path,
+    database_url: str,
+) -> None:
+    """Keep first-run initialization from competing with legacy default state."""
+
+    canonical_config = default_config_path().expanduser().resolve()
+    canonical_data = default_data_dir().expanduser().resolve()
+    resolved_config = config_path.expanduser().resolve()
+    resolved_data = data_dir.expanduser().resolve()
+    if resolved_config != canonical_config or resolved_data != canonical_data:
+        return
+    if database_url != _sqlite_url(canonical_data / OMS_IDENTITY.database_filename):
+        return
+    if resolved_config.exists():
+        return
+
+    legacy_config = legacy_default_config_path().expanduser().resolve()
+    legacy_database = (
+        legacy_default_data_dir().expanduser().resolve() / LEGACY_BANKSIA_IDENTITY.database_filename
+    )
+    if not legacy_config.is_file() and not legacy_database.is_file():
+        return
+    raise CliPrerequisiteError(
+        "Existing Banksia state was found in the default location. "
+        "Initializing OMS first would create a second controller database.",
+        kind="legacy_migration_required",
+        title="Banksia migration required",
+        hint=(
+            "Migrate the existing installation before initialization:\n"
+            "  oms migrate-from-banksia\n\n"
+            "Use explicit --config, --data-dir, and --database-url values only "
+            "when you intentionally want a separate controller."
+        ),
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class _DataTreePlan:
+    directories: tuple[Path, ...]
+    files: tuple[tuple[Path, Path], ...]
 
 
 def cmd_migrate_from_banksia(args: argparse.Namespace) -> int:
@@ -115,6 +180,23 @@ def migrate_from_banksia(
         target_default_data_dir=target_default_data,
     )
     rendered_config = config_sections_to_text(candidate_sections)
+    data_plan = _plan_default_data_tree(
+        source_data,
+        target_data,
+        excluded_sources=frozenset(
+            {
+                source_config,
+                source_config.with_name(LEGACY_BANKSIA_IDENTITY.provider_environment_filename),
+            }
+        ),
+    )
+    _preflight_text_target(target_config, rendered_config)
+    provider_environment_paths = _provider_environment_paths(
+        source_config,
+        target_config,
+    )
+    if provider_environment_paths is not None:
+        _preflight_copy_target(*provider_environment_paths)
 
     legacy_manager = legacy_service_manager
     canonical_manager = canonical_service_manager
@@ -122,6 +204,7 @@ def migrate_from_banksia(
     target_target = _service_target(target_config, OMS_IDENTITY)
     legacy_was_installed = False
     legacy_was_active = False
+    source_settings: Settings | None = None
     if should_migrate_service:
         legacy_manager = legacy_manager or get_managed_service_manager(
             identity=LEGACY_BANKSIA_IDENTITY
@@ -141,46 +224,58 @@ def migrate_from_banksia(
                 "both Banksia and Oh My Subagents native services are installed; "
                 "remove one before migration"
             )
-        if legacy_was_installed:
-            legacy_manager.uninstall(source_target)
+        source_settings = _load_migration_settings(source_config)
 
     copied: list[Path] = []
     reused: list[Path] = []
+    legacy_was_uninstalled = False
     try:
-        if source_data is not None and target_data is not None:
-            _copy_default_data_tree(
-                source_data,
-                target_data,
-                excluded_sources=frozenset(
-                    {
-                        source_config,
-                        source_config.with_name(
-                            LEGACY_BANKSIA_IDENTITY.provider_environment_filename
-                        ),
-                    }
-                ),
-                copied=copied,
-                reused=reused,
-            )
+        if should_migrate_service:
+            assert legacy_manager is not None
+            assert source_settings is not None
+            if legacy_was_installed:
+                stopped = legacy_manager.uninstall(source_target)
+                legacy_was_uninstalled = True
+                wait_for_controller_shutdown(
+                    initial_inspection=stopped,
+                    inspect=lambda: legacy_manager.inspect(source_target),
+                    settings=source_settings,
+                    log_path=source_target.log_path,
+                )
+            elif probe_bind_target(source_settings.api_host, source_settings.api_port):
+                raise RuntimeError(
+                    "Banksia migration cannot copy controller state while the API bind "
+                    f"target {source_settings.api_host}:{source_settings.api_port} is in use; "
+                    "stop the foreground or unmanaged controller and rerun migration"
+                )
+        _copy_default_data_tree(data_plan, copied=copied, reused=reused)
         _write_or_verify_text(
             target_config,
             rendered_config,
             copied=copied,
             reused=reused,
         )
-        _copy_provider_environment(
-            source_config,
-            target_config,
-            copied=copied,
-            reused=reused,
-        )
+        if provider_environment_paths is not None:
+            _copy_or_verify_file(
+                *provider_environment_paths,
+                copied=copied,
+                reused=reused,
+            )
         if should_migrate_service and legacy_was_installed:
             assert canonical_manager is not None
             canonical_manager.install(target_target, should_start=legacy_was_active)
     except BaseException:
-        if should_migrate_service and legacy_was_installed:
+        if should_migrate_service and legacy_was_uninstalled:
             assert legacy_manager is not None
-            legacy_manager.install(source_target, should_start=legacy_was_active)
+            assert source_settings is not None
+            bind_target_is_available = not probe_bind_target(
+                source_settings.api_host,
+                source_settings.api_port,
+            )
+            legacy_manager.install(
+                source_target,
+                should_start=legacy_was_active and bind_target_is_available,
+            )
         raise
 
     return MigrationResult(
@@ -232,19 +327,20 @@ def _migration_config_candidate(
     return candidate, source_default_data_dir, target_default_data_dir
 
 
-def _copy_default_data_tree(
-    source: Path,
-    target: Path,
+def _plan_default_data_tree(
+    source: Path | None,
+    target: Path | None,
     *,
     excluded_sources: frozenset[Path],
-    copied: list[Path],
-    reused: list[Path],
-) -> None:
-    if not source.exists():
-        return
+) -> _DataTreePlan:
+    if source is None or target is None or not source.exists():
+        return _DataTreePlan(directories=(), files=())
     if source.is_symlink() or not source.is_dir():
         raise RuntimeError(f"Banksia data directory is not a real directory: {source}")
-    ensure_private_directory(target)
+    if target.exists() and (target.is_symlink() or not target.is_dir()):
+        raise RuntimeError(f"OMS data directory is not a real directory: {target}")
+    directories = [target]
+    files: list[tuple[Path, Path]] = []
     for entry in sorted(source.rglob("*")):
         if entry in excluded_sources:
             continue
@@ -255,27 +351,60 @@ def _copy_default_data_tree(
             relative = Path(OMS_IDENTITY.database_filename)
         destination = target / relative
         if entry.is_dir():
-            ensure_private_directory(destination)
+            if destination.exists() and (destination.is_symlink() or not destination.is_dir()):
+                raise RuntimeError(f"refusing to replace non-directory OMS state: {destination}")
+            directories.append(destination)
             continue
         if not stat.S_ISREG(entry.stat(follow_symlinks=False).st_mode):
             raise RuntimeError(f"Banksia data contains an unsupported file type: {entry}")
         if entry.name.endswith(("-wal", "-shm", "-journal")):
             continue
-        _copy_or_verify_file(entry, destination, copied=copied, reused=reused)
+        _preflight_copy_target(entry, destination)
+        files.append((entry, destination))
+    return _DataTreePlan(directories=tuple(directories), files=tuple(files))
 
 
-def _copy_provider_environment(
-    source_config: Path,
-    target_config: Path,
+def _copy_default_data_tree(
+    plan: _DataTreePlan,
     *,
     copied: list[Path],
     reused: list[Path],
 ) -> None:
+    for directory in plan.directories:
+        ensure_private_directory(directory)
+    for source, target in plan.files:
+        _copy_or_verify_file(source, target, copied=copied, reused=reused)
+
+
+def _provider_environment_paths(
+    source_config: Path,
+    target_config: Path,
+) -> tuple[Path, Path] | None:
     source = source_config.parent / LEGACY_BANKSIA_IDENTITY.provider_environment_filename
     if not source.exists():
-        return
+        return None
     target = target_config.parent / OMS_IDENTITY.provider_environment_filename
-    _copy_or_verify_file(source, target, copied=copied, reused=reused)
+    return source, target
+
+
+def _preflight_copy_target(source: Path, target: Path) -> None:
+    if source.is_symlink() or not source.is_file():
+        raise RuntimeError(f"migration source is not a real regular file: {source}")
+    if not target.exists():
+        return
+    if (
+        target.is_symlink()
+        or not target.is_file()
+        or not filecmp.cmp(source, target, shallow=False)
+    ):
+        raise MigrationConflictError(f"refusing to overwrite different OMS state: {target}")
+
+
+def _preflight_text_target(target: Path, text: str) -> None:
+    if not target.exists():
+        return
+    if target.is_symlink() or not target.is_file() or target.read_text(encoding="utf-8") != text:
+        raise MigrationConflictError(f"refusing to overwrite different OMS config: {target}")
 
 
 def _copy_or_verify_file(
@@ -285,15 +414,8 @@ def _copy_or_verify_file(
     copied: list[Path],
     reused: list[Path],
 ) -> None:
-    if source.is_symlink() or not source.is_file():
-        raise RuntimeError(f"migration source is not a real regular file: {source}")
+    _preflight_copy_target(source, target)
     if target.exists():
-        if (
-            target.is_symlink()
-            or not target.is_file()
-            or not filecmp.cmp(source, target, shallow=False)
-        ):
-            raise FileExistsError(f"refusing to overwrite different OMS state: {target}")
         reused.append(target)
         return
     ensure_private_directory(target.parent)
@@ -313,13 +435,8 @@ def _write_or_verify_text(
     copied: list[Path],
     reused: list[Path],
 ) -> None:
+    _preflight_text_target(target, text)
     if target.exists():
-        if (
-            target.is_symlink()
-            or not target.is_file()
-            or target.read_text(encoding="utf-8") != text
-        ):
-            raise FileExistsError(f"refusing to overwrite different OMS config: {target}")
         reused.append(target)
         return
     ensure_private_directory(target.parent)
@@ -343,4 +460,15 @@ def _sqlite_url(path: Path) -> str:
     return f"sqlite+aiosqlite:///{path.as_posix()}"
 
 
-__all__ = ["MigrationResult", "cmd_migrate_from_banksia", "migrate_from_banksia"]
+def _load_migration_settings(config_path: Path) -> Settings:
+    with command_env(config_path=config_path):
+        return load_settings()
+
+
+__all__ = [
+    "MigrationConflictError",
+    "MigrationResult",
+    "cmd_migrate_from_banksia",
+    "migrate_from_banksia",
+    "preflight_legacy_default_state_for_init",
+]

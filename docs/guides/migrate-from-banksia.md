@@ -1,6 +1,6 @@
 # Migrate from Banksia
 
-Oh My Subagents `0.3.0` moves the Python package, default platform directories, SQLite filename, provider environment file, new Task roots, prompt/MCP identifiers, and native service identity to OMS names. Migration is explicit: startup never moves state automatically.
+Oh My Subagents `0.3.x` moves the Python package, default platform directories, SQLite filename, provider environment file, new Task roots, prompt/MCP identifiers, and native service identity to OMS names. Migration is explicit: startup never moves state automatically.
 
 ## Replace the distribution
 
@@ -16,7 +16,7 @@ Then replace the package:
 
 ```bash
 pipx uninstall banksia
-pipx install oh-my-subagents==0.3.0
+pipx install oh-my-subagents
 oms --version
 ```
 
@@ -29,6 +29,8 @@ For a default installation, run one command:
 ```bash
 oms migrate-from-banksia
 ```
+
+Run migration before `oms init`. When legacy default state exists, `oms init` stops before creating a second controller database and directs you back to this command.
 
 The command:
 
@@ -50,6 +52,25 @@ oms migrate-from-banksia \
 ```
 
 Use `--no-service` only when the controller has no native service or service replacement is being managed separately.
+
+## Recover an accidental initialization
+
+If `oms init` from `0.3.0` created canonical state before migration, the migration refuses to merge the two databases. Do not delete either database and do not use `oms db reset`.
+
+First verify that no Tasks or other work were created in the new OMS database. Stop an installed OMS service, then preserve the accidental state under timestamped sibling directories:
+
+```bash
+oms service status --json
+oms service uninstall
+
+stamp=$(date -u +%Y%m%dT%H%M%SZ)
+mv ~/.config/oh-my-subagents ~/.config/oh-my-subagents.before-banksia-migration-$stamp
+mv ~/.local/share/oh-my-subagents ~/.local/share/oh-my-subagents.before-banksia-migration-$stamp
+
+oms migrate-from-banksia
+```
+
+If `oms service status` says the service is not installed but port `18125` remains occupied, stop the foreground `oms serve` or older controller process that owns it before continuing. If both databases contain work, stop here: migration deliberately does not guess how to merge controller history.
 
 ## Rename environment overrides
 

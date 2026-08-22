@@ -1,11 +1,18 @@
 from __future__ import annotations
 
+import json
 import tomllib
 from pathlib import Path
 
 import pytest
 
-from oh_my_subagents.interfaces.cli.migration import migrate_from_banksia
+import oh_my_subagents.interfaces.cli as cli
+import oh_my_subagents.interfaces.cli.migration as migration_module
+from oh_my_subagents.interfaces.cli.errors import CliPrerequisiteError
+from oh_my_subagents.interfaces.cli.migration import (
+    MigrationConflictError,
+    migrate_from_banksia,
+)
 from oh_my_subagents.platform.managed_services import (
     ManagedServiceCommandObserver,
     ManagedServiceExecutionState,
@@ -14,6 +21,42 @@ from oh_my_subagents.platform.managed_services import (
     ManagedServiceStartupState,
     ManagedServiceTarget,
 )
+
+from .cli_test_support import build_cli_init_args
+
+
+@pytest.mark.asyncio
+async def test_init_rejects_legacy_default_state_before_writing_oms_state(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config_path = tmp_path / "oms-config" / "config.toml"
+    data_dir = tmp_path / "oms-data"
+    legacy_config = tmp_path / "banksia-config" / "config.toml"
+    legacy_data = tmp_path / "banksia-data"
+    legacy_config.parent.mkdir()
+    legacy_config.write_text("[paths]\n", encoding="utf-8")
+    legacy_data.mkdir()
+    legacy_data.joinpath("banksia.persistence").write_bytes(b"legacy")
+    monkeypatch.setattr(migration_module, "default_config_path", lambda: config_path)
+    monkeypatch.setattr(migration_module, "default_data_dir", lambda: data_dir)
+    monkeypatch.setattr(
+        migration_module,
+        "legacy_default_config_path",
+        lambda: legacy_config,
+    )
+    monkeypatch.setattr(
+        migration_module,
+        "legacy_default_data_dir",
+        lambda: legacy_data,
+    )
+    arguments = build_cli_init_args(config_path, data_dir)
+
+    with pytest.raises(CliPrerequisiteError, match="Existing Banksia state"):
+        await cli.cmd_init(arguments)
+
+    assert not config_path.exists()
+    assert not data_dir.exists()
 
 
 def test_migration_copies_default_state_renames_files_and_is_idempotent(
@@ -83,10 +126,11 @@ def test_migration_copies_default_state_renames_files_and_is_idempotent(
 
 def test_migration_refuses_to_overwrite_different_oms_state(tmp_path: Path) -> None:
     source_config, target_config, source_data, target_data = _migration_paths(tmp_path)
+    source_data.joinpath("000-history.backup").write_bytes(b"backup")
     target_data.mkdir()
     (target_data / "oms.persistence").write_bytes(b"different")
 
-    with pytest.raises(FileExistsError, match="different OMS state"):
+    with pytest.raises(MigrationConflictError, match="different OMS state"):
         migrate_from_banksia(
             source_config_path=source_config,
             target_config_path=target_config,
@@ -96,7 +140,70 @@ def test_migration_refuses_to_overwrite_different_oms_state(tmp_path: Path) -> N
         )
 
     assert not target_config.exists()
+    assert not target_data.joinpath("000-history.backup").exists()
     assert (source_data / "banksia.persistence").read_bytes() == b"database"
+
+
+def test_migration_preflights_conflicts_before_stopping_legacy_service(
+    tmp_path: Path,
+) -> None:
+    source_config, target_config, source_data, target_data = _migration_paths(tmp_path)
+    target_data.mkdir()
+    target_data.joinpath("oms.persistence").write_bytes(b"different")
+    operations: list[str] = []
+    legacy = FakeServiceManager(
+        "banksia.service",
+        installed=True,
+        execution_state=ManagedServiceExecutionState.RUNNING,
+        operations=operations,
+    )
+    canonical = FakeServiceManager(
+        "oh-my-subagents.service",
+        installed=False,
+        execution_state=ManagedServiceExecutionState.STOPPED,
+        operations=operations,
+    )
+
+    with pytest.raises(MigrationConflictError, match="different OMS state"):
+        migrate_from_banksia(
+            source_config_path=source_config,
+            target_config_path=target_config,
+            source_default_data_dir=source_data,
+            target_default_data_dir=target_data,
+            legacy_service_manager=legacy,
+            canonical_service_manager=canonical,
+        )
+
+    assert operations == []
+
+
+def test_migration_conflict_has_actionable_cli_failure(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source_config, target_config, source_data, target_data = _migration_paths(tmp_path)
+    target_data.mkdir()
+    target_data.joinpath("oms.persistence").write_bytes(b"different")
+    monkeypatch.setattr(migration_module, "legacy_default_data_dir", lambda: source_data)
+    monkeypatch.setattr(migration_module, "default_data_dir", lambda: target_data)
+
+    result = cli.main(
+        [
+            "migrate-from-banksia",
+            "--source-config",
+            str(source_config),
+            "--config",
+            str(target_config),
+            "--no-service",
+            "--json",
+        ]
+    )
+
+    failure = json.loads(capsys.readouterr().out)
+    assert result == 1
+    assert failure["error"]["kind"] == "migration_conflict"
+    assert "will not merge two controller states" in failure["error"]["hint"]
 
 
 def test_migration_preserves_custom_data_and_database_paths(tmp_path: Path) -> None:
@@ -178,6 +285,7 @@ def test_migration_handles_windows_style_shared_config_and_data_directory(
 
 def test_migration_replaces_legacy_service_and_preserves_running_state(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     source_config, target_config, source_data, target_data = _migration_paths(tmp_path)
     operations: list[str] = []
@@ -192,6 +300,12 @@ def test_migration_replaces_legacy_service_and_preserves_running_state(
         installed=False,
         execution_state=ManagedServiceExecutionState.STOPPED,
         operations=operations,
+    )
+    monkeypatch.setattr(migration_module, "probe_bind_target", lambda *_args: False)
+    monkeypatch.setattr(
+        migration_module,
+        "wait_for_controller_shutdown",
+        lambda **_kwargs: None,
     )
 
     result = migrate_from_banksia(
@@ -211,6 +325,41 @@ def test_migration_replaces_legacy_service_and_preserves_running_state(
         "uninstall:banksia.service",
         "install:oh-my-subagents.service:start",
     ]
+
+
+def test_migration_refuses_an_unmanaged_controller_before_copying_state(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source_config, target_config, source_data, target_data = _migration_paths(tmp_path)
+    operations: list[str] = []
+    legacy = FakeServiceManager(
+        "banksia.service",
+        installed=False,
+        execution_state=ManagedServiceExecutionState.STOPPED,
+        operations=operations,
+    )
+    canonical = FakeServiceManager(
+        "oh-my-subagents.service",
+        installed=False,
+        execution_state=ManagedServiceExecutionState.STOPPED,
+        operations=operations,
+    )
+    monkeypatch.setattr(migration_module, "probe_bind_target", lambda *_args: True)
+
+    with pytest.raises(RuntimeError, match="foreground or unmanaged controller"):
+        migrate_from_banksia(
+            source_config_path=source_config,
+            target_config_path=target_config,
+            source_default_data_dir=source_data,
+            target_default_data_dir=target_data,
+            legacy_service_manager=legacy,
+            canonical_service_manager=canonical,
+        )
+
+    assert operations == ["inspect:banksia.service", "inspect:oh-my-subagents.service"]
+    assert not target_config.exists()
+    assert not target_data.exists()
 
 
 def _migration_paths(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
